@@ -1,0 +1,14 @@
+{
+  "name": "kkme-website",
+  "version": "0.1.0",
+  "description": "KKME.eu — Baltic energy signal console",
+  "private": true,
+  "scripts": {
+    "lint": "eslint .",
+    "fetch": "node scripts/fetch-entso-e.js",
+    "deploy": "wrangler pages deploy . --project-name=kkme-website"
+  },
+  "devDependencies": {
+    "eslint": "^9.0.0"
+  }
+}
