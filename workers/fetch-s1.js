@@ -8,7 +8,7 @@
  * Secrets: set ENTSOE_API_KEY via `wrangler secret put ENTSOE_API_KEY`
  */
 
-const ENTSOE_API = 'https://web-api.transparency.entsoe.eu/api';
+const ENTSOE_API = 'https://web-api.tp.entsoe.eu/api';
 const LT_BZN = '10YLT-1001A0008Q';   // Lithuania bidding zone
 const SE4_BZN = '10Y1001A1001A47J';  // Sweden SE4 bidding zone (Nordic reference)
 

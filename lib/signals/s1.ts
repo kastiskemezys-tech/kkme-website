@@ -19,7 +19,7 @@ export interface S1Signal {
   se4_hours: number;
 }
 
-const ENTSOE_API = 'https://web-api.transparency.entsoe.eu/api';
+const ENTSOE_API = 'https://web-api.tp.entsoe.eu/api';
 const LT_BZN = '10YLT-1001A0008Q';
 const SE4_BZN = '10Y1001A1001A47J';
 
