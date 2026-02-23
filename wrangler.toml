@@ -1,0 +1,15 @@
+name = "kkme-fetch-s1"
+main = "workers/fetch-s1.js"
+compatibility_date = "2025-01-01"
+
+[triggers]
+crons = ["0 6 * * *"]
+
+# KV namespace — replace IDs after running: wrangler kv namespace create KKME_SIGNALS
+[[kv_namespaces]]
+binding = "KKME_SIGNALS"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+preview_id = "REPLACE_WITH_KV_PREVIEW_ID"
+
+# Secrets — set via CLI, never in this file:
+# wrangler secret put ENTSOE_API_KEY

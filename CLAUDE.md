@@ -52,7 +52,7 @@ Next.js → reads KV via /api/signals → renders
 [x] Step 1: Repo + stack installed
 [ ] Step 2: Cloudflare Pages connected
 [x] Step 3: Design system (tokens, fonts, grain, base layout)
-[ ] Step 4: S1 live data (ENTSO-E → Worker → KV → page)
+[x] Step 4: S1 live data (ENTSO-E → Worker → KV → page)
 [ ] Step 5: LLM digest skeleton
 [ ] Step 6: S2–S5
 [ ] Step 7: Technology tracker
