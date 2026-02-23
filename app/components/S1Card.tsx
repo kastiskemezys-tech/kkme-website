@@ -1,3 +1,6 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import type { S1Signal, SignalState } from '@/lib/signals/s1';
 
 // Muted state colours — not traffic-light (per KKME.md design brief)
@@ -8,6 +11,8 @@ const STATE_COLOR: Record<SignalState, string> = {
 };
 
 const text = (opacity: number) => `rgba(232, 226, 217, ${opacity})`;
+
+const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' };
 
 function formatPct(n: number): string {
   return (n >= 0 ? '+' : '') + n.toFixed(1);
@@ -25,12 +30,25 @@ function formatTimestamp(iso: string): string {
   });
 }
 
-interface S1CardProps {
-  data: S1Signal | null;
-  error?: string;
-}
+type Status = 'loading' | 'success' | 'error';
 
-export function S1Card({ data, error }: S1CardProps) {
+export function S1Card() {
+  const [status, setStatus] = useState<Status>('loading');
+  const [data, setData] = useState<S1Signal | null>(null);
+
+  useEffect(() => {
+    fetch('/api/signals/s1')
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json() as Promise<S1Signal>;
+      })
+      .then((d) => {
+        setData(d);
+        setStatus('success');
+      })
+      .catch(() => setStatus('error'));
+  }, []);
+
   return (
     <article
       style={{
@@ -40,10 +58,10 @@ export function S1Card({ data, error }: S1CardProps) {
         width: '100%',
       }}
     >
-      {/* Signal label */}
+      {/* Signal label — always visible */}
       <p
         style={{
-          fontFamily: 'var(--font-mono)',
+          ...MONO,
           fontSize: '0.625rem',
           letterSpacing: '0.14em',
           color: text(0.35),
@@ -54,28 +72,74 @@ export function S1Card({ data, error }: S1CardProps) {
         S1 — Baltic Price Separation
       </p>
 
-      {error ? (
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: STATE_COLOR.ACT }}>
-          {error}
-        </p>
-      ) : data ? (
-        <LiveData data={data} />
-      ) : (
-        <NoData />
-      )}
+      {status === 'loading' && <Skeleton />}
+      {status === 'error'   && <ErrorState />}
+      {status === 'success' && data && <LiveData data={data} />}
     </article>
+  );
+}
+
+function Skeleton() {
+  return (
+    <>
+      <p
+        style={{
+          ...MONO,
+          fontSize: 'clamp(2.5rem, 6vw, 3.75rem)',
+          fontWeight: 400,
+          color: text(0.1),
+          lineHeight: 1,
+          letterSpacing: '-0.02em',
+          marginBottom: '0.75rem',
+        }}
+      >
+        —
+      </p>
+      <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.2), letterSpacing: '0.1em' }}>
+        Fetching
+      </p>
+    </>
+  );
+}
+
+function ErrorState() {
+  return (
+    <>
+      <p
+        style={{
+          ...MONO,
+          fontSize: 'clamp(2.5rem, 6vw, 3.75rem)',
+          fontWeight: 400,
+          color: text(0.1),
+          lineHeight: 1,
+          letterSpacing: '-0.02em',
+          marginBottom: '0.75rem',
+        }}
+      >
+        —
+      </p>
+      <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.25), letterSpacing: '0.1em' }}>
+        Data unavailable
+      </p>
+    </>
   );
 }
 
 function LiveData({ data }: { data: S1Signal }) {
   const stateColor = STATE_COLOR[data.state];
 
+  const rows: [string, string][] = [
+    ['LT avg',  `${data.lt_avg_eur_mwh.toFixed(2)} €/MWh`],
+    ['SE4 avg', `${data.se4_avg_eur_mwh.toFixed(2)} €/MWh`],
+    ['Spread',  `${data.spread_eur_mwh >= 0 ? '+' : ''}${data.spread_eur_mwh.toFixed(2)} €/MWh`],
+  ];
+
   return (
     <>
       {/* Primary metric */}
       <p
         style={{
-          fontFamily: 'var(--font-mono)',
+          ...MONO,
           fontSize: 'clamp(2.5rem, 6vw, 3.75rem)',
           fontWeight: 400,
           color: 'var(--text)',
@@ -91,7 +155,7 @@ function LiveData({ data }: { data: S1Signal }) {
       {/* State badge */}
       <p
         style={{
-          fontFamily: 'var(--font-mono)',
+          ...MONO,
           fontSize: '0.625rem',
           letterSpacing: '0.18em',
           color: stateColor,
@@ -112,22 +176,12 @@ function LiveData({ data }: { data: S1Signal }) {
           marginBottom: '2rem',
         }}
       >
-        {[
-          ['LT avg', `${data.lt_avg_eur_mwh.toFixed(2)} €/MWh`],
-          ['SE4 avg', `${data.se4_avg_eur_mwh.toFixed(2)} €/MWh`],
-          ['Spread', `${data.spread_eur_mwh >= 0 ? '+' : ''}${data.spread_eur_mwh.toFixed(2)} €/MWh`],
-        ].map(([label, value]) => (
+        {rows.map(([label, value]) => (
           <>
-            <span
-              key={`l-${label}`}
-              style={{ fontFamily: 'var(--font-mono)', fontSize: '0.625rem', color: text(0.3), letterSpacing: '0.06em' }}
-            >
+            <span key={`l-${label}`} style={{ ...MONO, fontSize: '0.625rem', color: text(0.3), letterSpacing: '0.06em' }}>
               {label}
             </span>
-            <span
-              key={`v-${label}`}
-              style={{ fontFamily: 'var(--font-mono)', fontSize: '0.625rem', color: text(0.6) }}
-            >
+            <span key={`v-${label}`} style={{ ...MONO, fontSize: '0.625rem', color: text(0.6) }}>
               {value}
             </span>
           </>
@@ -137,38 +191,10 @@ function LiveData({ data }: { data: S1Signal }) {
       {/* Timestamp */}
       <time
         dateTime={data.updated_at}
-        style={{
-          fontFamily: 'var(--font-mono)',
-          fontSize: '0.575rem',
-          color: text(0.25),
-          letterSpacing: '0.06em',
-        }}
+        style={{ ...MONO, fontSize: '0.575rem', color: text(0.25), letterSpacing: '0.06em' }}
       >
         {formatTimestamp(data.updated_at)}
       </time>
-    </>
-  );
-}
-
-function NoData() {
-  return (
-    <>
-      <p
-        style={{
-          fontFamily: 'var(--font-mono)',
-          fontSize: 'clamp(2.5rem, 6vw, 3.75rem)',
-          fontWeight: 400,
-          color: text(0.15),
-          lineHeight: 1,
-          letterSpacing: '-0.02em',
-          marginBottom: '0.75rem',
-        }}
-      >
-        —
-      </p>
-      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.625rem', color: text(0.25), letterSpacing: '0.08em' }}>
-        Awaiting data
-      </p>
     </>
   );
 }
