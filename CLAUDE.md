@@ -65,3 +65,35 @@ Next.js → reads KV via /api/signals → renders
 - One component at a time — build, check in browser, then move on
 - Keep components modular — content separated from structure
 - Every session ends with a git commit
+
+## S4 Data Sources (Step 6)
+
+### Litgrid ArcGIS — Ketinimų protokolai
+The grid reservation map has a queryable FeatureServer REST API underneath it.
+App URL: https://experience.arcgis.com/experience/1aa8fb2983c34b7bbc4343d22d9071a5
+Underlying WebMap ID: e658d23dc08f4c00808cc49554bddc44
+Portal: https://litgrid.maps.arcgis.com
+Dashboard: https://litgrid.maps.arcgis.com/apps/dashboards/5141697a3ab444afab2ae694e0b4dc9c
+
+To find the exact FeatureServer query URL:
+Open the map → DevTools Network tab → Fetch/XHR filter → click Ketinimų 
+protokolai tab → look for requests to litgrid.maps.arcgis.com containing 
+FeatureServer/query → copy the full URL
+
+Data fields available:
+- Pasirašymo data (signing date)
+- Galiojimo terminas (expiry)
+- Gamintojas (developer/company)
+- Elektrinės leistina generuoti galia MW (permitted MW)
+- Elektrinės tipas (technology: wind/solar/BESS/hybrid)
+- Prijungimo taško įtampa kV (connection voltage: 110 or 330)
+
+Summary table (Rodikliai tab) shows:
+- SE free capacity: 8500 MW
+- VE (wind) free capacity: 6834 MW  
+- Kaupikliai (BESS) free capacity: 8664 MW
+- Total: 23998 MW across all types
+
+### VERT Leidimai Plėtoti
+URL: to be added
+Monthly updates, last day of month.
