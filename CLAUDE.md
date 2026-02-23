@@ -50,13 +50,19 @@ Next.js → reads KV via /api/signals → renders
 
 ## Build status
 [x] Step 1: Repo + stack installed
-[ ] Step 2: Cloudflare Pages connected
+[x] Step 2: Cloudflare Pages connected
 [x] Step 3: Design system (tokens, fonts, grain, base layout)
 [x] Step 4: S1 live data (ENTSO-E → Worker → KV → page)
 [ ] Step 5: LLM digest skeleton
 [ ] Step 6: S2–S5
 [ ] Step 7: Technology tracker
 [ ] Step 8: Polish (motion, micro-interactions)
+
+## Known issues / next session
+- Cloudflare KV not wired yet — run the 4 steps in wrangler.toml before deploying the Worker
+- www.kkme.eu not added as custom domain yet (only kkme.eu configured)
+- /api/signals/s1 falls back to direct ENTSO-E fetch; will switch to KV read once Worker is deployed
+- ANTHROPIC_API_KEY needed for Step 5 (LLM digest) — not set yet
 
 ## Rules for every session
 - Read this file first, read KKME.md for design/content decisions

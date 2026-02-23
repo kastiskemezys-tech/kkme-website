@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import type { S1Signal, SignalState } from '@/lib/signals/s1';
 
 // Muted state colours — not traffic-light (per KKME.md design brief)
@@ -12,7 +12,7 @@ const STATE_COLOR: Record<SignalState, string> = {
 
 const text = (opacity: number) => `rgba(232, 226, 217, ${opacity})`;
 
-const MONO: React.CSSProperties = { fontFamily: 'var(--font-mono)' };
+const MONO: CSSProperties = { fontFamily: 'var(--font-mono)' };
 
 function formatPct(n: number): string {
   return (n >= 0 ? '+' : '') + n.toFixed(1);
@@ -32,21 +32,44 @@ function formatTimestamp(iso: string): string {
 
 type Status = 'loading' | 'success' | 'error';
 
+const FETCH_TIMEOUT_MS = 5_000;
+const RETRY_DELAY_MS  = 2_000;
+
 export function S1Card() {
   const [status, setStatus] = useState<Status>('loading');
   const [data, setData] = useState<S1Signal | null>(null);
 
   useEffect(() => {
-    fetch('/api/signals/s1')
-      .then((res) => {
+    let cancelled = false;
+
+    const load = async (attempt: number): Promise<void> => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+      try {
+        const res = await fetch('/api/signals/s1', { signal: controller.signal });
+        clearTimeout(timer);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json() as Promise<S1Signal>;
-      })
-      .then((d) => {
-        setData(d);
-        setStatus('success');
-      })
-      .catch(() => setStatus('error'));
+        const d = (await res.json()) as S1Signal;
+        if (!cancelled) {
+          setData(d);
+          setStatus('success');
+        }
+      } catch (_err) {
+        clearTimeout(timer);
+        if (cancelled) return;
+        if (attempt === 1) {
+          // Retry once after a short delay
+          await new Promise<void>((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+          if (!cancelled) await load(2);
+        } else {
+          setStatus('error');
+        }
+      }
+    };
+
+    load(1);
+    return () => { cancelled = true; };
   }, []);
 
   return (
@@ -82,17 +105,7 @@ export function S1Card() {
 function Skeleton() {
   return (
     <>
-      <p
-        style={{
-          ...MONO,
-          fontSize: 'clamp(2.5rem, 6vw, 3.75rem)',
-          fontWeight: 400,
-          color: text(0.1),
-          lineHeight: 1,
-          letterSpacing: '-0.02em',
-          marginBottom: '0.75rem',
-        }}
-      >
+      <p style={{ ...MONO, fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', fontWeight: 400, color: text(0.1), lineHeight: 1, letterSpacing: '-0.02em', marginBottom: '0.75rem' }}>
         —
       </p>
       <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.2), letterSpacing: '0.1em' }}>
@@ -105,17 +118,7 @@ function Skeleton() {
 function ErrorState() {
   return (
     <>
-      <p
-        style={{
-          ...MONO,
-          fontSize: 'clamp(2.5rem, 6vw, 3.75rem)',
-          fontWeight: 400,
-          color: text(0.1),
-          lineHeight: 1,
-          letterSpacing: '-0.02em',
-          marginBottom: '0.75rem',
-        }}
-      >
+      <p style={{ ...MONO, fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', fontWeight: 400, color: text(0.1), lineHeight: 1, letterSpacing: '-0.02em', marginBottom: '0.75rem' }}>
         —
       </p>
       <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.25), letterSpacing: '0.1em' }}>
@@ -136,63 +139,26 @@ function LiveData({ data }: { data: S1Signal }) {
 
   return (
     <>
-      {/* Primary metric */}
-      <p
-        style={{
-          ...MONO,
-          fontSize: 'clamp(2.5rem, 6vw, 3.75rem)',
-          fontWeight: 400,
-          color: 'var(--text)',
-          lineHeight: 1,
-          letterSpacing: '-0.02em',
-          marginBottom: '0.75rem',
-        }}
-      >
+      <p style={{ ...MONO, fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', fontWeight: 400, color: 'var(--text)', lineHeight: 1, letterSpacing: '-0.02em', marginBottom: '0.75rem' }}>
         {formatPct(data.separation_pct)}
         <span style={{ fontSize: '0.45em', marginLeft: '0.15em', opacity: 0.55 }}>%</span>
       </p>
 
-      {/* State badge */}
-      <p
-        style={{
-          ...MONO,
-          fontSize: '0.625rem',
-          letterSpacing: '0.18em',
-          color: stateColor,
-          textTransform: 'uppercase',
-          marginBottom: '2rem',
-        }}
-      >
+      <p style={{ ...MONO, fontSize: '0.625rem', letterSpacing: '0.18em', color: stateColor, textTransform: 'uppercase', marginBottom: '2rem' }}>
         ● {data.state}
       </p>
 
-      {/* Supporting data grid */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'auto 1fr',
-          columnGap: '1.5rem',
-          rowGap: '0.35rem',
-          marginBottom: '2rem',
-        }}
-      >
+      <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: '1.5rem', rowGap: '0.35rem', marginBottom: '2rem' }}>
         {rows.map(([label, value]) => (
-          <>
-            <span key={`l-${label}`} style={{ ...MONO, fontSize: '0.625rem', color: text(0.3), letterSpacing: '0.06em' }}>
-              {label}
-            </span>
-            <span key={`v-${label}`} style={{ ...MONO, fontSize: '0.625rem', color: text(0.6) }}>
-              {value}
-            </span>
-          </>
+          // Fragment key must be on the wrapper, not on children
+          <span key={label} style={{ display: 'contents' }}>
+            <span style={{ ...MONO, fontSize: '0.625rem', color: text(0.3), letterSpacing: '0.06em' }}>{label}</span>
+            <span style={{ ...MONO, fontSize: '0.625rem', color: text(0.6) }}>{value}</span>
+          </span>
         ))}
       </div>
 
-      {/* Timestamp */}
-      <time
-        dateTime={data.updated_at}
-        style={{ ...MONO, fontSize: '0.575rem', color: text(0.25), letterSpacing: '0.06em' }}
-      >
+      <time dateTime={data.updated_at} style={{ ...MONO, fontSize: '0.575rem', color: text(0.25), letterSpacing: '0.06em' }}>
         {formatTimestamp(data.updated_at)}
       </time>
     </>

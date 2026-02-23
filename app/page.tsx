@@ -1,4 +1,5 @@
 import { S1Card } from '@/app/components/S1Card';
+import { ErrorBoundary } from '@/app/components/ErrorBoundary';
 
 export default function Home() {
   return (
@@ -25,7 +26,9 @@ export default function Home() {
         KKME
       </h1>
 
-      <S1Card />
+      <ErrorBoundary>
+        <S1Card />
+      </ErrorBoundary>
     </main>
   );
 }

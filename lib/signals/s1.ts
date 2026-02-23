@@ -1,8 +1,10 @@
 /**
  * S1 — Baltic Price Separation
  * Fetches LT and SE4 day-ahead prices from ENTSO-E and computes the signal.
- * Used by /api/signals/s1 and directly by the page server component.
+ * Used by /api/signals/s1 route handler.
  */
+
+import { getEntsoeApiKey } from '@/lib/env';
 
 export type SignalState = 'CALM' | 'WATCH' | 'ACT';
 
@@ -17,6 +19,10 @@ export interface S1Signal {
   updated_at: string;
   lt_hours: number;
   se4_hours: number;
+}
+
+export interface FetchS1Options {
+  signal?: AbortSignal;
 }
 
 const ENTSOE_API = 'https://web-api.tp.entsoe.eu/api';
@@ -50,7 +56,11 @@ function signalState(pct: number): SignalState {
   return 'CALM';
 }
 
-async function fetchBzn(bzn: string, apiKey: string): Promise<number[]> {
+async function fetchBzn(
+  bzn: string,
+  apiKey: string,
+  opts?: FetchS1Options,
+): Promise<number[]> {
   const url = new URL(ENTSOE_API);
   url.searchParams.set('documentType', 'A44');
   url.searchParams.set('in_Domain', bzn);
@@ -60,28 +70,29 @@ async function fetchBzn(bzn: string, apiKey: string): Promise<number[]> {
   url.searchParams.set('securityToken', apiKey);
 
   const res = await fetch(url.toString(), {
-    next: { revalidate: 3600 }, // Next.js: cache 1h, revalidate in background
+    next: { revalidate: 3600 },
+    signal: opts?.signal,
   });
 
   if (!res.ok) {
     const body = await res.text().catch(() => '');
-    throw new Error(`ENTSO-E ${bzn}: HTTP ${res.status} — ${body.slice(0, 300)}`);
+    console.error(`[S1] ENTSO-E ${bzn} HTTP ${res.status}:`, body.slice(0, 200));
+    throw new Error(`ENTSO-E ${bzn}: HTTP ${res.status}`);
   }
 
   return extractPrices(await res.text());
 }
 
-export async function fetchS1(): Promise<S1Signal> {
-  const apiKey = process.env.ENTSOE_API_KEY;
-  if (!apiKey) throw new Error('ENTSOE_API_KEY not configured');
+export async function fetchS1(opts?: FetchS1Options): Promise<S1Signal> {
+  const apiKey = getEntsoeApiKey();
 
   const [ltPrices, se4Prices] = await Promise.all([
-    fetchBzn(LT_BZN, apiKey),
-    fetchBzn(SE4_BZN, apiKey),
+    fetchBzn(LT_BZN, apiKey, opts),
+    fetchBzn(SE4_BZN, apiKey, opts),
   ]);
 
   if (!ltPrices.length || !se4Prices.length) {
-    throw new Error(`No price data returned: LT=${ltPrices.length}h SE4=${se4Prices.length}h`);
+    throw new Error(`No price data: LT=${ltPrices.length}h SE4=${se4Prices.length}h`);
   }
 
   const ltAvg = avg(ltPrices);
