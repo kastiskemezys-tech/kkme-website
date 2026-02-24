@@ -30,20 +30,94 @@ const INPUT_STYLE: CSSProperties = {
   boxSizing: 'border-box',
 };
 
+// ─── Tag groups ────────────────────────────────────────────────────────────────
+
+const TAG_GROUPS: { label: string; tags: string[] }[] = [
+  { label: 'Opportunity', tags: ['bess', 'grid-connection', 'dc-power', 'offtake', 'financing'] },
+  { label: 'Signal',      tags: ['price-move', 'policy', 'supply-chain', 'competitor', 'technology'] },
+  { label: 'Geography',   tags: ['lt', 'lv', 'ee', 'nordic', 'eu'] },
+];
+
+const GROUP_LABEL: CSSProperties = {
+  ...MONO,
+  fontSize: '0.5rem',
+  letterSpacing: '0.12em',
+  color: text(0.3),
+  textTransform: 'uppercase',
+  display: 'block',
+  marginBottom: '0.45rem',
+};
+
+function pillStyle(selected: boolean): CSSProperties {
+  return {
+    ...MONO,
+    all: 'unset',
+    cursor: 'pointer',
+    fontSize: '0.55rem',
+    letterSpacing: '0.1em',
+    textTransform: 'uppercase',
+    padding: '0.25rem 0.5rem',
+    border: `1px solid ${selected ? 'rgba(123,94,167,0.6)' : text(0.15)}`,
+    color: selected ? text(0.8) : text(0.3),
+    background: selected ? 'rgba(123,94,167,0.12)' : 'transparent',
+    transition: 'color 0.15s, border-color 0.15s, background 0.15s',
+  };
+}
+
+// ─── Sub-component ─────────────────────────────────────────────────────────────
+
+function TagSelector({
+  selected,
+  onToggle,
+}: {
+  selected: Set<string>;
+  onToggle: (tag: string) => void;
+}) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+      {TAG_GROUPS.map(({ label, tags }) => (
+        <div key={label}>
+          <span style={GROUP_LABEL}>{label}</span>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+            {tags.map((tag) => (
+              <button
+                key={tag}
+                type="button"
+                onClick={() => onToggle(tag)}
+                style={pillStyle(selected.has(tag))}
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Main component ────────────────────────────────────────────────────────────
+
 type SubmitState = 'idle' | 'loading' | 'success' | 'error';
 
 export function CurationInput() {
   const [expanded, setExpanded] = useState(false);
   const [submitState, setSubmitState] = useState<SubmitState>('idle');
   const [errorMsg, setErrorMsg] = useState('');
+  const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
+
+  const toggleTag = (tag: string) => {
+    setSelectedTags((prev) => {
+      const next = new Set(prev);
+      next.has(tag) ? next.delete(tag) : next.add(tag);
+      return next;
+    });
+  };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = e.currentTarget;
     const fd = new FormData(form);
-
-    const tagsRaw = (fd.get('tags') as string).trim();
-    const tags = tagsRaw ? tagsRaw.split(',').map((t) => t.trim()).filter(Boolean) : [];
 
     const payload = {
       url:       (fd.get('url') as string).trim(),
@@ -51,7 +125,7 @@ export function CurationInput() {
       raw_text:  (fd.get('raw_text') as string).trim(),
       source:    (fd.get('source') as string).trim(),
       relevance: Number(fd.get('relevance')),
-      tags,
+      tags:      [...selectedTags],
     };
 
     setSubmitState('loading');
@@ -71,6 +145,7 @@ export function CurationInput() {
 
       setSubmitState('success');
       form.reset();
+      setSelectedTags(new Set());
       setTimeout(() => {
         setSubmitState('idle');
         setExpanded(false);
@@ -154,25 +229,21 @@ export function CurationInput() {
             />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <div>
-              <label htmlFor="ci-relevance" style={LABEL_STYLE}>Relevance (1–5)</label>
-              <input
-                id="ci-relevance"
-                name="relevance"
-                type="number"
-                min={1}
-                max={5}
-                required
-                defaultValue={3}
-                style={INPUT_STYLE}
-              />
-            </div>
-            <div>
-              <label htmlFor="ci-tags" style={LABEL_STYLE}>Tags (comma-separated)</label>
-              <input id="ci-tags" name="tags" type="text" style={INPUT_STYLE} placeholder="BESS, LT, S1" />
-            </div>
+          <div>
+            <label htmlFor="ci-relevance" style={LABEL_STYLE}>Relevance (1–5)</label>
+            <input
+              id="ci-relevance"
+              name="relevance"
+              type="number"
+              min={1}
+              max={5}
+              required
+              defaultValue={3}
+              style={{ ...INPUT_STYLE, width: 'auto', minWidth: '4rem' }}
+            />
           </div>
+
+          <TagSelector selected={selectedTags} onToggle={toggleTag} />
 
           <button
             type="submit"
