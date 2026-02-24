@@ -103,28 +103,42 @@ export default {
 
   /** HTTP trigger — two paths:
    *  GET /      → fresh fetch from ENTSO-E, writes to KV, returns result (manual refresh)
-   *  GET /read  → returns current KV value without touching ENTSO-E (used by Next.js API route)
+   *  GET /read  → returns current KV value without touching ENTSO-E (fetched by S1Card)
+   *
+   *  CORS headers are required on all responses — S1Card fetches from the browser.
    */
   async fetch(request, env, _ctx) {
+    const CORS = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    };
+
+    // Handle OPTIONS preflight
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { status: 200, headers: CORS });
+    }
+
     if (request.method !== 'GET') {
-      return new Response('Method Not Allowed', { status: 405 });
+      return new Response('Method Not Allowed', { status: 405, headers: CORS });
     }
 
     const url = new URL(request.url);
 
-    // Read-only path: return cached KV value — called by /api/signals/s1 in production
+    // Read-only path: return cached KV value — fetched directly by S1Card in browser
     if (url.pathname === '/read') {
       const raw = await env.KKME_SIGNALS.get('s1');
       if (!raw) {
         return new Response(JSON.stringify({ error: 'not yet populated' }), {
           status: 404,
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...CORS },
         });
       }
       return new Response(raw, {
         headers: {
           'Content-Type': 'application/json',
           'Cache-Control': 'public, max-age=300',
+          ...CORS,
         },
       });
     }
@@ -134,12 +148,12 @@ export default {
       const data = await computeS1(env);
       await env.KKME_SIGNALS.put('s1', JSON.stringify(data));
       return new Response(JSON.stringify(data, null, 2), {
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...CORS },
       });
     } catch (err) {
       return new Response(JSON.stringify({ error: String(err) }), {
         status: 500,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...CORS },
       });
     }
   },
