@@ -108,6 +108,17 @@ Summary table (Rodikliai tab) shows:
 - Kaupikliai (BESS) free capacity: 8664 MW
 - Total: 23998 MW across all types
 
+### Litgrid FeatureServer/8 — confirmed working
+URL: https://services-eu1.arcgis.com/NDrrY0T7kE7A7pU0/arcgis/rest/services/ElektrosPerdavimasAEI/FeatureServer/8/query?f=json&cacheHint=true&resultOffset=0&resultRecordCount=1000&where=1%3D1&orderByFields=&outFields=*&resultType=standard&returnGeometry=false&spatialRel=esriSpatialRelIntersects
+
+No auth required. Returns 5 rows by Tipas.
+Key field: Laisva_galia_prijungimui (free capacity MW)
+Signal logic: BESS (Kaupikliai) free capacity
+  >2000 MW = OPEN
+  500–2000 MW = TIGHTENING
+  <500 MW = SCARCE
+Current reading (2026-02-24): SE=110, VE=1119, BESS=3084 free MW → OPEN
+
 ### VERT Leidimai Plėtoti
 URL: to be added
 Monthly updates, last day of month.
