@@ -69,14 +69,32 @@ Next.js → reads KV via /api/signals → renders
 ## Cloudflare KV — deployed and wired
 - KV namespace: KKME_SIGNALS (id: 323b493a50764b24b88a8b4a5687a24b)
 - Worker: kkme-fetch-s1.kastis-kemezys.workers.dev — cron 06:00 UTC daily
-  GET /        → fresh ENTSO-E fetch + writes S1 to KV (manual trigger)
-  GET /read    → returns KV-cached S1 value (fetched by S1Card)
-  POST /curate → accepts CurationEntry JSON, stores in KV + appends to index
-  GET /curations → raw curation entries (last 7 days)
-  GET /digest  → calls Anthropic (claude-haiku), returns DigestItem[]; cached 1h in KV
+  GET /              → fresh ENTSO-E fetch + writes S1 to KV (manual trigger)
+  GET /read          → returns KV-cached S1 value (fetched by S1Card)
+  POST /curate       → accepts CurationEntry JSON, stores in KV + appends to index
+  GET /curations     → raw curation entries (last 7 days)
+  GET /digest        → calls Anthropic (claude-haiku), returns DigestItem[]; cached 1h
+  POST /telegram     → Telegram webhook (verified via X-Telegram-Bot-Api-Secret-Token)
+  POST /telegram/setup → registers webhook with Telegram (call once after deploy)
 - KV keys: s1 | curation:{id} | curations:index | digest:cache
 - DigestCard fetches GET /digest directly from browser
 - CurationInput posts to POST /curate from browser
+
+## Telegram curation bot
+Bot receives forwarded articles → Worker extracts title/tags/summary via Claude haiku →
+stores as CurationEntry in KV → appears in /digest automatically.
+
+Setup sequence (after deploy):
+  wrangler secret put TELEGRAM_BOT_TOKEN      ← BotFather token
+  wrangler secret put TELEGRAM_WEBHOOK_SECRET ← any strong random string you choose
+  npx wrangler deploy
+  curl -X POST https://kkme-fetch-s1.kastis-kemezys.workers.dev/telegram/setup
+
+To verify webhook is registered:
+  curl https://api.telegram.org/bot{TOKEN}/getWebhookInfo
+
+Usage: forward any article URL (or paste URL + context) to the bot in Telegram.
+Bot replies: "✓ Saved: {title} [tags] relevance: N/5"
 
 ## Rules for every session
 - Read this file first, read KKME.md for design/content decisions
