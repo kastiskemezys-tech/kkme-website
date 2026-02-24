@@ -59,10 +59,18 @@ Next.js → reads KV via /api/signals → renders
 [ ] Step 8: Polish (motion, micro-interactions)
 
 ## Known issues / next session
-- Cloudflare KV not wired yet — run the 4 steps in wrangler.toml before deploying the Worker
 - www.kkme.eu not added as custom domain yet (only kkme.eu configured)
-- /api/signals/s1 falls back to direct ENTSO-E fetch; will switch to KV read once Worker is deployed
 - ANTHROPIC_API_KEY needed for Step 5 (LLM digest) — not set yet
+- @cloudflare/next-on-pages doesn't support Next.js 16 yet; KV is read via
+  Worker /read HTTP endpoint instead of getRequestContext(). Wire up properly
+  when next-on-pages adds Next.js 16 support.
+
+## Cloudflare KV — deployed and wired
+- KV namespace: KKME_SIGNALS (id: 323b493a50764b24b88a8b4a5687a24b)
+- Worker: kkme-fetch-s1.kastis-kemezys.workers.dev — cron 06:00 UTC daily
+  GET / → fresh ENTSO-E fetch + writes to KV
+  GET /read → returns KV-cached value (used by /api/signals/s1)
+- /api/signals/s1 tries Worker /read first, falls back to direct ENTSO-E fetch
 
 ## Rules for every session
 - Read this file first, read KKME.md for design/content decisions

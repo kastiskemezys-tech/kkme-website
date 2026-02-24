@@ -101,11 +101,35 @@ export default {
     console.log(`[S1] Written: ${data.state} ${data.separation_pct}% (LT ${data.lt_avg_eur_mwh} vs SE4 ${data.se4_avg_eur_mwh} €/MWh)`);
   },
 
-  /** HTTP trigger — manual run or health check via wrangler dev */
+  /** HTTP trigger — two paths:
+   *  GET /      → fresh fetch from ENTSO-E, writes to KV, returns result (manual refresh)
+   *  GET /read  → returns current KV value without touching ENTSO-E (used by Next.js API route)
+   */
   async fetch(request, env, _ctx) {
     if (request.method !== 'GET') {
       return new Response('Method Not Allowed', { status: 405 });
     }
+
+    const url = new URL(request.url);
+
+    // Read-only path: return cached KV value — called by /api/signals/s1 in production
+    if (url.pathname === '/read') {
+      const raw = await env.KKME_SIGNALS.get('s1');
+      if (!raw) {
+        return new Response(JSON.stringify({ error: 'not yet populated' }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      return new Response(raw, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'public, max-age=300',
+        },
+      });
+    }
+
+    // Default: fresh fetch + write to KV (manual trigger / health check)
     try {
       const data = await computeS1(env);
       await env.KKME_SIGNALS.put('s1', JSON.stringify(data));

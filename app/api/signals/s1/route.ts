@@ -2,19 +2,28 @@ import { NextResponse } from 'next/server';
 import { fetchS1 } from '@/lib/signals/s1';
 import { getEntsoeApiKey } from '@/lib/env';
 
-// TODO (Step 2 — Cloudflare Pages connected):
-// Switch to KV read instead of direct ENTSO-E fetch:
-//
-//   import { getRequestContext } from '@cloudflare/next-on-pages';
-//   export const runtime = 'edge';
-//
-//   const { env } = getRequestContext();
-//   const raw = await env.KKME_SIGNALS.get('s1');
-//   if (raw) return cached response with Cache-Control header;
-//   // fall through to direct fetch on first deploy / empty KV
+// Worker read endpoint — returns current KV value without touching ENTSO-E.
+// @cloudflare/next-on-pages doesn't yet support Next.js 16, so KV is read
+// via the Worker's /read HTTP path instead of getRequestContext().
+const WORKER_READ_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev/read';
+
+const CACHE_HEADERS = {
+  'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400',
+};
 
 export async function GET() {
-  // 1. Validate API key before attempting any network call
+  // 1. Try KV via Worker read endpoint (production — fast, no ENTSO-E call)
+  try {
+    const kvRes = await fetch(WORKER_READ_URL, { next: { revalidate: 3600 } });
+    if (kvRes.ok) {
+      const data = await kvRes.json();
+      return NextResponse.json(data, { headers: CACHE_HEADERS });
+    }
+  } catch {
+    // Worker unreachable — fall through to direct fetch
+  }
+
+  // 2. Validate API key before attempting direct ENTSO-E fetch
   try {
     getEntsoeApiKey();
   } catch {
@@ -24,19 +33,14 @@ export async function GET() {
     );
   }
 
-  // 2. Fetch with explicit 10-second timeout
+  // 3. Direct ENTSO-E fetch with 10s timeout (local dev + production fallback)
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
   try {
     const data = await fetchS1({ signal: controller.signal });
     clearTimeout(timeoutId);
-
-    return NextResponse.json(data, {
-      headers: {
-        'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400',
-      },
-    });
+    return NextResponse.json(data, { headers: CACHE_HEADERS });
   } catch (err) {
     clearTimeout(timeoutId);
 

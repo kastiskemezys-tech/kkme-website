@@ -22,11 +22,13 @@
 name = "kkme-fetch-s1"
 main = "workers/fetch-s1.js"
 compatibility_date = "2025-01-01"
+workers_dev = true
+preview_urls = false
 
 [triggers]
 crons = ["0 6 * * *"]
 
 [[kv_namespaces]]
 binding = "KKME_SIGNALS"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
-preview_id = "REPLACE_WITH_KV_PREVIEW_ID"
+id = "323b493a50764b24b88a8b4a5687a24b"
+preview_id = "5f2356e7c25b44538e4bcfbe2a5de0ca"
