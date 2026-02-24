@@ -1,4 +1,6 @@
 import { S1Card } from '@/app/components/S1Card';
+import { DigestCard } from '@/app/components/DigestCard';
+import { CurationInput } from '@/app/components/CurationInput';
 import { ErrorBoundary } from '@/app/components/ErrorBoundary';
 
 export default function Home() {
@@ -28,6 +30,14 @@ export default function Home() {
 
       <ErrorBoundary>
         <S1Card />
+      </ErrorBoundary>
+
+      <ErrorBoundary>
+        <DigestCard />
+      </ErrorBoundary>
+
+      <ErrorBoundary>
+        <CurationInput />
       </ErrorBoundary>
     </main>
   );

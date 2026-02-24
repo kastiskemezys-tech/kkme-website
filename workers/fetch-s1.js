@@ -1,16 +1,39 @@
 /**
- * KKME — S1 Baltic Price Separation Worker
+ * KKME — S1 Baltic Price Separation + Curation/Digest Worker
  * Cron: 0 6 * * * (06:00 UTC daily, after day-ahead auction results are published)
  *
- * Fetches LT and SE4 day-ahead prices from ENTSO-E Transparency API (A44),
- * computes separation %, determines signal state, writes JSON to KV.
+ * Endpoints:
+ *   GET /              → fresh ENTSO-E fetch + writes S1 to KV (manual refresh)
+ *   GET /read          → returns cached S1 KV value (fetched by S1Card)
+ *   POST /curate       → accepts CurationEntry JSON, stores in KV
+ *   GET /curations     → returns raw curation entries (last 7 days)
+ *   GET /digest        → reads curations, calls Anthropic, returns DigestItem[]
  *
- * Secrets: set ENTSOE_API_KEY via `wrangler secret put ENTSOE_API_KEY`
+ * Secrets:
+ *   wrangler secret put ENTSOE_API_KEY
+ *   wrangler secret put ANTHROPIC_API_KEY   ← required for /digest
+ *
+ * KV bindings (wrangler.toml): KKME_SIGNALS
  */
 
 const ENTSOE_API = 'https://web-api.tp.entsoe.eu/api';
 const LT_BZN = '10YLT-1001A0008Q';   // Lithuania bidding zone
 const SE4_BZN = '10Y1001A1001A47J';  // Sweden SE4 bidding zone (Nordic reference)
+
+const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
+
+// KV key prefixes
+const KV_CURATION_PREFIX = 'curation:';
+const KV_CURATIONS_INDEX  = 'curations:index';
+const KV_DIGEST_CACHE     = 'digest:cache';
+
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
+
+// ─── S1 helpers ────────────────────────────────────────────────────────────────
 
 /** Format a Date as YYYYMMDDHHMM in UTC (ENTSO-E period format) */
 function utcPeriod(offsetDays = 0) {
@@ -93,6 +116,102 @@ async function computeS1(env) {
   };
 }
 
+// ─── Curation helpers ──────────────────────────────────────────────────────────
+
+/** Generate a simple unique ID (timestamp + random hex) */
+function makeId() {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/** Read curations index from KV, return array of IDs */
+async function readIndex(kv) {
+  const raw = await kv.get(KV_CURATIONS_INDEX);
+  if (!raw) return [];
+  try { return JSON.parse(raw); } catch { return []; }
+}
+
+/** Write curations index to KV */
+async function writeIndex(kv, ids) {
+  await kv.put(KV_CURATIONS_INDEX, JSON.stringify(ids));
+}
+
+/** Fetch up to last 7 days of curation entries from KV */
+async function recentCurations(kv) {
+  const ids = await readIndex(kv);
+  const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const entries = [];
+
+  for (const id of ids) {
+    const raw = await kv.get(`${KV_CURATION_PREFIX}${id}`);
+    if (!raw) continue;
+    try {
+      const entry = JSON.parse(raw);
+      if (new Date(entry.created_at).getTime() >= cutoff) {
+        entries.push(entry);
+      }
+    } catch { /* skip corrupt entries */ }
+  }
+
+  return entries;
+}
+
+// ─── Digest via Anthropic ──────────────────────────────────────────────────────
+
+async function buildDigest(entries, anthropicKey) {
+  // Sort by relevance desc, take top 15
+  const sorted = [...entries].sort((a, b) => b.relevance - a.relevance).slice(0, 15);
+
+  const itemsText = sorted.map((e, i) =>
+    `[${i + 1}] relevance=${e.relevance} source=${e.source}\nTitle: ${e.title}\nURL: ${e.url}\nText: ${e.raw_text.slice(0, 600)}`
+  ).join('\n\n');
+
+  const prompt = `You are an infrastructure intelligence analyst. Below are ${sorted.length} curated articles from the past 7 days, ranked by relevance (1–5). Summarize each into a concise DigestItem. Focus on Baltic energy markets, grid infrastructure, BESS, and related macro signals.
+
+For each article, return a JSON object with:
+- id: string (copy from input id field, or generate one if missing)
+- title: string (sharp, factual, ≤10 words)
+- summary: string (2–3 sentences, specific facts, no fluff)
+- source: string
+- url: string
+- date: string (ISO 8601, copy created_at)
+- relevance: number
+
+Return ONLY a valid JSON array of DigestItem objects. No markdown, no commentary.
+
+Articles:
+${itemsText}`;
+
+  const res = await fetch(ANTHROPIC_API, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': anthropicKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 4096,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`Anthropic API: HTTP ${res.status} — ${body.slice(0, 200)}`);
+  }
+
+  const data = await res.json();
+  const text = data.content?.[0]?.text ?? '';
+
+  // Extract JSON array from response
+  const match = text.match(/\[[\s\S]*\]/);
+  if (!match) throw new Error('Anthropic response did not contain a JSON array');
+
+  return JSON.parse(match[0]);
+}
+
+// ─── Main export ───────────────────────────────────────────────────────────────
+
 export default {
   /** Cron trigger — runs daily at 06:00 UTC */
   async scheduled(_event, env, _ctx) {
@@ -101,32 +220,16 @@ export default {
     console.log(`[S1] Written: ${data.state} ${data.separation_pct}% (LT ${data.lt_avg_eur_mwh} vs SE4 ${data.se4_avg_eur_mwh} €/MWh)`);
   },
 
-  /** HTTP trigger — two paths:
-   *  GET /      → fresh fetch from ENTSO-E, writes to KV, returns result (manual refresh)
-   *  GET /read  → returns current KV value without touching ENTSO-E (fetched by S1Card)
-   *
-   *  CORS headers are required on all responses — S1Card fetches from the browser.
-   */
   async fetch(request, env, _ctx) {
-    const CORS = {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-    };
-
     // Handle OPTIONS preflight
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 200, headers: CORS });
     }
 
-    if (request.method !== 'GET') {
-      return new Response('Method Not Allowed', { status: 405, headers: CORS });
-    }
-
     const url = new URL(request.url);
 
-    // Read-only path: return cached KV value — fetched directly by S1Card in browser
-    if (url.pathname === '/read') {
+    // ── GET /read — S1 cached KV value ──────────────────────────────────────
+    if (request.method === 'GET' && url.pathname === '/read') {
       const raw = await env.KKME_SIGNALS.get('s1');
       if (!raw) {
         return new Response(JSON.stringify({ error: 'not yet populated' }), {
@@ -143,18 +246,140 @@ export default {
       });
     }
 
-    // Default: fresh fetch + write to KV (manual trigger / health check)
-    try {
-      const data = await computeS1(env);
-      await env.KKME_SIGNALS.put('s1', JSON.stringify(data));
-      return new Response(JSON.stringify(data, null, 2), {
-        headers: { 'Content-Type': 'application/json', ...CORS },
+    // ── POST /curate — store a new curation entry ────────────────────────────
+    if (request.method === 'POST' && url.pathname === '/curate') {
+      let body;
+      try {
+        body = await request.json();
+      } catch {
+        return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json', ...CORS },
+        });
+      }
+
+      const { url: entryUrl, title, raw_text, source, relevance, tags } = body;
+      if (!entryUrl || !title || !raw_text || !source || !relevance) {
+        return new Response(JSON.stringify({ error: 'Missing required fields: url, title, raw_text, source, relevance' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json', ...CORS },
+        });
+      }
+
+      const id = makeId();
+      const entry = {
+        id,
+        url: entryUrl,
+        title,
+        raw_text,
+        source,
+        relevance: Number(relevance),
+        tags: Array.isArray(tags) ? tags : [],
+        created_at: new Date().toISOString(),
+      };
+
+      // Store entry + update index
+      await env.KKME_SIGNALS.put(`${KV_CURATION_PREFIX}${id}`, JSON.stringify(entry), {
+        expirationTtl: 30 * 24 * 60 * 60, // 30 days
       });
-    } catch (err) {
-      return new Response(JSON.stringify({ error: String(err) }), {
-        status: 500,
+
+      const ids = await readIndex(env.KKME_SIGNALS);
+      ids.push(id);
+      await writeIndex(env.KKME_SIGNALS, ids);
+
+      // Invalidate digest cache
+      await env.KKME_SIGNALS.delete(KV_DIGEST_CACHE);
+
+      return new Response(JSON.stringify({ ok: true, id }), {
+        status: 201,
         headers: { 'Content-Type': 'application/json', ...CORS },
       });
     }
+
+    // ── GET /curations — return raw entries (last 7 days) ───────────────────
+    if (request.method === 'GET' && url.pathname === '/curations') {
+      const entries = await recentCurations(env.KKME_SIGNALS);
+      return new Response(JSON.stringify(entries), {
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-store',
+          ...CORS,
+        },
+      });
+    }
+
+    // ── GET /digest — summarize via Anthropic, cache result ─────────────────
+    if (request.method === 'GET' && url.pathname === '/digest') {
+      // Return cached digest if fresh (1 hour TTL served via Cache-Control,
+      // but we also store in KV to survive cold starts)
+      const cached = await env.KKME_SIGNALS.get(KV_DIGEST_CACHE);
+      if (cached) {
+        return new Response(cached, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'public, max-age=3600',
+            ...CORS,
+          },
+        });
+      }
+
+      const anthropicKey = env.ANTHROPIC_API_KEY;
+      // TODO: For local dev, set ANTHROPIC_API_KEY in .env.local (not used by Worker directly,
+      // but wrangler secret put ANTHROPIC_API_KEY is required for production).
+      if (!anthropicKey) {
+        return new Response(JSON.stringify({ error: 'ANTHROPIC_API_KEY not set' }), {
+          status: 503,
+          headers: { 'Content-Type': 'application/json', ...CORS },
+        });
+      }
+
+      const entries = await recentCurations(env.KKME_SIGNALS);
+      if (!entries.length) {
+        return new Response(JSON.stringify([]), {
+          headers: { 'Content-Type': 'application/json', ...CORS },
+        });
+      }
+
+      try {
+        const digest = await buildDigest(entries, anthropicKey);
+        const digestJson = JSON.stringify(digest);
+
+        // Cache for 1 hour
+        await env.KKME_SIGNALS.put(KV_DIGEST_CACHE, digestJson, {
+          expirationTtl: 3600,
+        });
+
+        return new Response(digestJson, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'public, max-age=3600',
+            ...CORS,
+          },
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ error: String(err) }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json', ...CORS },
+        });
+      }
+    }
+
+    // ── GET / — fresh S1 fetch + write to KV (manual trigger) ───────────────
+    if (request.method === 'GET') {
+      try {
+        const data = await computeS1(env);
+        await env.KKME_SIGNALS.put('s1', JSON.stringify(data));
+        return new Response(JSON.stringify(data, null, 2), {
+          headers: { 'Content-Type': 'application/json', ...CORS },
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ error: String(err) }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json', ...CORS },
+        });
+      }
+    }
+
+    return new Response('Method Not Allowed', { status: 405, headers: CORS });
   },
 };

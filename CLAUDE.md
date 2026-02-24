@@ -53,14 +53,15 @@ Next.js → reads KV via /api/signals → renders
 [x] Step 2: Cloudflare Pages connected
 [x] Step 3: Design system (tokens, fonts, grain, base layout)
 [x] Step 4: S1 live data (ENTSO-E → Worker → KV → page)
-[ ] Step 5: LLM digest skeleton
+[x] Step 5: LLM digest skeleton
 [ ] Step 6: S2–S5
 [ ] Step 7: Technology tracker
 [ ] Step 8: Polish (motion, micro-interactions)
 
 ## Known issues / next session
 - www.kkme.eu not added as custom domain yet (only kkme.eu configured)
-- ANTHROPIC_API_KEY needed for Step 5 (LLM digest) — not set yet
+- ANTHROPIC_API_KEY: run `wrangler secret put ANTHROPIC_API_KEY` for production Worker
+  (GET /digest returns 503 without it — DigestCard shows "Data unavailable")
 - @cloudflare/next-on-pages doesn't support Next.js 16 yet; KV is read via
   Worker /read HTTP endpoint instead of getRequestContext(). Wire up properly
   when next-on-pages adds Next.js 16 support.
@@ -68,9 +69,14 @@ Next.js → reads KV via /api/signals → renders
 ## Cloudflare KV — deployed and wired
 - KV namespace: KKME_SIGNALS (id: 323b493a50764b24b88a8b4a5687a24b)
 - Worker: kkme-fetch-s1.kastis-kemezys.workers.dev — cron 06:00 UTC daily
-  GET / → fresh ENTSO-E fetch + writes to KV
-  GET /read → returns KV-cached value (used by /api/signals/s1)
-- /api/signals/s1 tries Worker /read first, falls back to direct ENTSO-E fetch
+  GET /        → fresh ENTSO-E fetch + writes S1 to KV (manual trigger)
+  GET /read    → returns KV-cached S1 value (fetched by S1Card)
+  POST /curate → accepts CurationEntry JSON, stores in KV + appends to index
+  GET /curations → raw curation entries (last 7 days)
+  GET /digest  → calls Anthropic (claude-haiku), returns DigestItem[]; cached 1h in KV
+- KV keys: s1 | curation:{id} | curations:index | digest:cache
+- DigestCard fetches GET /digest directly from browser
+- CurationInput posts to POST /curate from browser
 
 ## Rules for every session
 - Read this file first, read KKME.md for design/content decisions
