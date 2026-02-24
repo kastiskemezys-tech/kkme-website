@@ -47,7 +47,7 @@ export function S1Card() {
       const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
       try {
-        const res = await fetch('/api/signals/s1', { signal: controller.signal });
+        const res = await fetch('https://kkme-fetch-s1.kastis-kemezys.workers.dev/read', { signal: controller.signal });
         clearTimeout(timer);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const d = (await res.json()) as S1Signal;
