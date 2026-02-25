@@ -1,5 +1,6 @@
 import { S1Card } from '@/app/components/S1Card';
 import { S4Card } from '@/app/components/S4Card';
+import { S3Card } from '@/app/components/S3Card';
 import { TechTracker } from '@/app/components/TechTracker';
 import { CTASection } from '@/app/components/CTASection';
 import { Contact } from '@/app/components/Contact';
@@ -56,13 +57,18 @@ export default function Home() {
         <S4Card />
       </ErrorBoundary>
 
-      {/* 5. Technology thesis */}
+      {/* 5. S3 — Lithium Cell Price */}
+      <ErrorBoundary>
+        <S3Card />
+      </ErrorBoundary>
+
+      {/* 6. Technology thesis */}
       <TechTracker />
 
-      {/* 6. CTA */}
+      {/* 7. CTA */}
       <CTASection />
 
-      {/* 7. Contact */}
+      {/* 8. Contact */}
       <Contact />
     </main>
   );

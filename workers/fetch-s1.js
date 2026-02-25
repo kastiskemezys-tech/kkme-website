@@ -230,6 +230,134 @@ async function computeS4() {
   };
 }
 
+// ─── S3 — Lithium Cell Price ────────────────────────────────────────────────────
+
+const TE_URL = 'https://tradingeconomics.com/commodity/lithium';
+const TE_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+  'Accept-Language': 'en-US,en;q=0.5',
+};
+
+// Trading Economics shows Chinese lithium carbonate in CNY/T.
+// Thresholds are CNY/T equivalents of the original $/t targets (×7.27 approx).
+// FALLING: <72,700 CNY/t  (~<$10k/t)
+// STABLE:  72,700–109,000  (~$10–15k/t)
+// RISING:  >109,000         (~>$15k/t)
+function s3SignalLevel(priceCny) {
+  if (priceCny < 72700)  return 'FALLING';
+  if (priceCny <= 109000) return 'STABLE';
+  return 'RISING';
+}
+
+const S3_INTERPRETATION = {
+  FALLING: 'Chinese lithium carbonate below ¥73k/t (~$10k/t). Cell costs compressing — BESS capex following. Window for competitive build cost on assets commissioning 2026–27.',
+  STABLE:  'Lithium carbonate ¥73–109k/t (~$10–15k/t). BESS capex broadly predictable. Standard off-take and financing assumptions hold.',
+  RISING:  'Lithium carbonate above ¥109k/t (~$15k/t). Cell cost pressure building. Re-underwrite storage projects with 15–20% capex uplift.',
+};
+
+// Returns {price, unit} or null.
+function parseLithiumPrice(html) {
+  // Pattern 1 (most reliable): meta description "Lithium rose/fell to 161,750 CNY/T"
+  const cnyMeta = html.match(/Lithium\s+(?:rose|fell)[^"]*?to\s+([\d,]+)\s+CNY\/T/i);
+  if (cnyMeta) {
+    const val = parseFloat(cnyMeta[1].replace(/,/g, ''));
+    if (val >= 5000 && val <= 500000) return { price: val, unit: 'CNY/T' };
+  }
+
+  // Pattern 2: any "NNN,NNN CNY/T" pattern anywhere in HTML
+  const cnyInline = html.match(/([\d,]+)\s+CNY\/T/i);
+  if (cnyInline) {
+    const val = parseFloat(cnyInline[1].replace(/,/g, ''));
+    if (val >= 5000 && val <= 500000) return { price: val, unit: 'CNY/T' };
+  }
+
+  // Pattern 3: embedded JSON "price":"12345" or "last":"12345" (USD range)
+  for (const re of [/"price"\s*:\s*"?([\d,]+\.?\d*)"?/, /"last"\s*:\s*"?([\d,]+\.?\d*)"/]) {
+    const m = html.match(re);
+    if (m) {
+      const val = parseFloat(m[1].replace(/,/g, ''));
+      if (val >= 5000 && val <= 100000) return { price: val, unit: '$/t' };
+    }
+  }
+
+  // Pattern 4: data-value attribute
+  const dataMatch = html.match(/data-value="([\d,]+\.?\d*)"/);
+  if (dataMatch) {
+    const val = parseFloat(dataMatch[1].replace(/,/g, ''));
+    if (val >= 5000 && val <= 100000) return { price: val, unit: '$/t' };
+  }
+
+  return null;
+}
+
+async function computeS3() {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+
+  let status = null;
+  let bodyPreview = '';
+
+  try {
+    const res = await fetch(TE_URL, { signal: controller.signal, headers: TE_HEADERS, redirect: 'follow' });
+    clearTimeout(timer);
+    status = res.status;
+
+    if (!res.ok) {
+      bodyPreview = (await res.text().catch(() => '')).slice(0, 500);
+      return {
+        timestamp: new Date().toISOString(),
+        unavailable: true,
+        signal: 'STABLE',
+        interpretation: 'Data temporarily unavailable.',
+        source: 'tradingeconomics.com',
+        _scrape_error: `HTTP ${res.status}`,
+        _scrape_debug: { status, bodyPreview },
+      };
+    }
+
+    const html = await res.text();
+    bodyPreview = html.slice(0, 500);
+
+    const parsed = parseLithiumPrice(html);
+    if (parsed === null) {
+      return {
+        timestamp: new Date().toISOString(),
+        unavailable: true,
+        signal: 'STABLE',
+        interpretation: 'Price parse failed — check _scrape_debug.',
+        source: 'tradingeconomics.com',
+        _scrape_error: 'Price not found in HTML',
+        _scrape_debug: { status, bodyPreview },
+      };
+    }
+
+    // Signal level is always computed from CNY/T scale.
+    // If we got a $/t value, convert to CNY for the threshold comparison.
+    const cnyEquiv = parsed.unit === 'CNY/T' ? parsed.price : parsed.price * 7.27;
+    const signal = s3SignalLevel(cnyEquiv);
+    return {
+      timestamp: new Date().toISOString(),
+      price_raw: parsed.price,
+      price_unit: parsed.unit,
+      signal,
+      interpretation: S3_INTERPRETATION[signal],
+      source: 'tradingeconomics.com',
+    };
+  } catch (err) {
+    clearTimeout(timer);
+    return {
+      timestamp: new Date().toISOString(),
+      unavailable: true,
+      signal: 'STABLE',
+      interpretation: 'Data temporarily unavailable.',
+      source: 'tradingeconomics.com',
+      _scrape_error: String(err),
+      _scrape_debug: { status, bodyPreview },
+    };
+  }
+}
+
 // ─── Curation helpers ──────────────────────────────────────────────────────────
 
 function makeId() {
@@ -424,11 +552,12 @@ async function processTelegramMessage(message, env) {
 // ─── Main export ───────────────────────────────────────────────────────────────
 
 export default {
-  /** Cron — 06:00 UTC daily. S1 and S4 run in parallel; each has a 25s hard timeout. */
+  /** Cron — 06:00 UTC daily. S1, S4, S3 run in parallel; each has a 25s hard timeout. */
   async scheduled(_event, env, _ctx) {
-    const [s1Result, s4Result] = await Promise.allSettled([
+    const [s1Result, s4Result, s3Result] = await Promise.allSettled([
       withTimeout(computeS1(env), 25000),
       withTimeout(computeS4(),    25000),
+      withTimeout(computeS3(),    25000),
     ]);
 
     if (s1Result.status === 'fulfilled') {
@@ -445,6 +574,18 @@ export default {
       console.log(`[S4] ${d.signal} free=${d.free_mw}MW utilisation=${d.utilisation_pct}%`);
     } else {
       console.error('[S4] cron failed:', s4Result.reason);
+    }
+
+    if (s3Result.status === 'fulfilled') {
+      const d = s3Result.value;
+      await env.KKME_SIGNALS.put('s3', JSON.stringify(d));
+      if (d.unavailable) {
+        console.error(`[S3] scrape failed: ${d._scrape_error}`);
+      } else {
+        console.log(`[S3] ${d.signal} price=${d.price_raw} ${d.price_unit}`);
+      }
+    } else {
+      console.error('[S3] cron failed:', s3Result.reason);
     }
   },
 
@@ -526,6 +667,17 @@ export default {
       } catch (err) {
         return new Response(JSON.stringify({ error: String(err) }), { status: 500, headers: { 'Content-Type': 'application/json', ...CORS } });
       }
+    }
+
+    // ── GET /s3 ──────────────────────────────────────────────────────────────
+    if (request.method === 'GET' && url.pathname === '/s3') {
+      const cached = await env.KKME_SIGNALS.get('s3');
+      if (cached) {
+        return new Response(cached, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600', ...CORS } });
+      }
+      const data = await computeS3();
+      await env.KKME_SIGNALS.put('s3', JSON.stringify(data));
+      return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json', ...CORS } });
     }
 
     // ── GET /s4 ──────────────────────────────────────────────────────────────
