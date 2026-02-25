@@ -47,42 +47,53 @@ jobs:
             'User-Agent':      'Mozilla/5.0 (compatible; KKME-Pipeline/1.0; +https://kkme.eu)',
           };
 
-          // ── Fetch one BTD endpoint ────────────────────────────────────────────
+          // ── Fetch one BTD endpoint (30s timeout, never throws) ────────────────
 
           async function btdFetch(id, from, to) {
             const params = new URLSearchParams({
               id,
-              start_date:        btdDate(from),
-              end_date:          btdDate(to),
-              output_time_zone:  'UTC',
-              output_format:     'json',
+              start_date:         btdDate(from),
+              end_date:           btdDate(to),
+              output_time_zone:   'UTC',
+              output_format:      'json',
               json_header_groups: '1',
             });
             const url = `${BTD}?${params}`;
             console.log(`→ ${url}`);
-            const res = await fetch(url, { headers: BTD_HEADERS });
-            console.log(`  HTTP ${res.status}  content-type: ${res.headers.get('content-type')}`);
-            if (!res.ok) {
-              const text = await res.text();
-              console.error(`  Error body: ${text.slice(0, 1000)}`);
+
+            // AbortController with 30s timeout (default undici is 10s — too short for cross-Atlantic)
+            const ac    = new AbortController();
+            const timer = setTimeout(() => ac.abort(), 30000);
+            try {
+              const res = await fetch(url, { headers: BTD_HEADERS, signal: ac.signal });
+              clearTimeout(timer);
+              console.log(`  HTTP ${res.status}  content-type: ${res.headers.get('content-type')}`);
+              if (!res.ok) {
+                const text = await res.text();
+                console.error(`  Error body: ${text.slice(0, 1000)}`);
+                return null;
+              }
+              const ct = res.headers.get('content-type') || '';
+              if (!ct.includes('json')) {
+                const text = await res.text();
+                console.error(`  Not JSON — body preview: ${text.slice(0, 1000)}`);
+                return null;
+              }
+              const json = await res.json();
+              // Log structure so we can tune column patterns after first real response
+              if (Array.isArray(json)) {
+                console.log(`  Format: array[${json.length}], sample keys: ${Object.keys(json[0] || {}).slice(0, 10).join(' | ')}`);
+              } else {
+                console.log(`  Format: object, top-level keys: ${Object.keys(json).slice(0, 10).join(' | ')}`);
+                if (json.headers) console.log(`  headers[0..5]: ${json.headers.slice(0, 6).join(' | ')}`);
+                if (json.columns) console.log(`  columns[0..5]: ${JSON.stringify(json.columns.slice(0, 6))}`);
+              }
+              return json;
+            } catch (e) {
+              clearTimeout(timer);
+              console.error(`  Fetch error (${id}): ${e.message}`);
               return null;
             }
-            const ct = res.headers.get('content-type') || '';
-            if (!ct.includes('json')) {
-              const text = await res.text();
-              console.error(`  Not JSON — got: ${text.slice(0, 1000)}`);
-              return null;
-            }
-            const json = await res.json();
-            // Log structure to help debug column names on first run
-            if (Array.isArray(json)) {
-              console.log(`  Format: array[${json.length}], sample keys: ${Object.keys(json[0] || {}).slice(0, 10).join(' | ')}`);
-            } else {
-              console.log(`  Format: object, top-level keys: ${Object.keys(json).slice(0, 10).join(' | ')}`);
-              if (json.headers) console.log(`  headers[0..5]: ${json.headers.slice(0, 6).join(' | ')}`);
-              if (json.columns) console.log(`  columns[0..5]: ${JSON.stringify(json.columns.slice(0, 6))}`);
-            }
-            return json;
           }
 
           // ── Column extractor: handles 3 common BTD response formats ──────────
@@ -164,15 +175,21 @@ jobs:
           async function main() {
             console.log(`Dates: yesterday=${btdDate(yd)}  7d_ago=${btdDate(w7)}  now=${btdDate(now)}`);
 
-            // Fetch all 3 endpoints in parallel
-            const [capRaw, dirRaw, imbRaw] = await Promise.all([
+            // Fetch all 3 endpoints; use allSettled so one timeout doesn't abort all
+            const results = await Promise.allSettled([
               btdFetch('price_procured_reserves',   yd, now),
               btdFetch('direction_of_balancing_v2', yd, now),
               btdFetch('imbalance_prices',          w7, now),
             ]);
+            const capRaw = results[0].status === 'fulfilled' ? results[0].value : null;
+            const dirRaw = results[1].status === 'fulfilled' ? results[1].value : null;
+            const imbRaw = results[2].status === 'fulfilled' ? results[2].value : null;
+
+            if (!capRaw && !dirRaw && !imbRaw) {
+              console.error('All 3 BTD endpoints failed — pushing unavailable payload');
+            }
 
             // price_procured_reserves: FCR-D and aFRR upward capacity prices for Lithuania
-            // Column naming varies by BTD version — try specific then broad
             console.log('\n── Extracting capacity price columns ──');
             let fcrVals  = extractCol(capRaw, 'fcr');
             if (!fcrVals.length) fcrVals = extractCol(capRaw, 'fcr-d');
@@ -245,7 +262,7 @@ jobs:
 
             console.log('\nPayload:\n' + JSON.stringify(payload, null, 2));
 
-            // Push to Worker
+            // Push to Worker — fail the workflow if this step fails
             const pushRes = await fetch(`${WORKER}/s2/update`, {
               method:  'POST',
               headers: {
