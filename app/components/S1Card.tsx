@@ -3,15 +3,19 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import type { S1Signal, SignalState } from '@/lib/signals/s1';
 
-// Muted state colours — not traffic-light (per KKME.md design brief)
 const STATE_COLOR: Record<SignalState, string> = {
   CALM: '#5a7d5e',
   WATCH: '#b8863a',
   ACT:  '#9b3043',
 };
 
-const text = (opacity: number) => `rgba(232, 226, 217, ${opacity})`;
+const INTERPRETATION: Record<SignalState, string> = {
+  CALM:  'Market coupled. Cross-border capacity clearing. Monitor interconnector schedules.',
+  WATCH: 'Partial separation. Regime forming or dissolving. Check NordBalt capacity.',
+  ACT:   'Market separated. Island premium active. Flexibility stack revenue above baseline.',
+};
 
+const text = (opacity: number) => `rgba(232, 226, 217, ${opacity})`;
 const MONO: CSSProperties = { fontFamily: 'var(--font-mono)' };
 
 function formatPct(n: number): string {
@@ -33,7 +37,7 @@ function formatTimestamp(iso: string): string {
 type Status = 'loading' | 'success' | 'error';
 
 const FETCH_TIMEOUT_MS = 5_000;
-const RETRY_DELAY_MS  = 2_000;
+const RETRY_DELAY_MS   = 2_000;
 
 export function S1Card() {
   const [status, setStatus] = useState<Status>('loading');
@@ -51,15 +55,11 @@ export function S1Card() {
         clearTimeout(timer);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const d = (await res.json()) as S1Signal;
-        if (!cancelled) {
-          setData(d);
-          setStatus('success');
-        }
+        if (!cancelled) { setData(d); setStatus('success'); }
       } catch (_err) {
         clearTimeout(timer);
         if (cancelled) return;
         if (attempt === 1) {
-          // Retry once after a short delay
           await new Promise<void>((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
           if (!cancelled) await load(2);
         } else {
@@ -81,7 +81,6 @@ export function S1Card() {
         width: '100%',
       }}
     >
-      {/* Signal label — always visible */}
       <p
         style={{
           ...MONO,
@@ -128,29 +127,79 @@ function ErrorState() {
   );
 }
 
+const DIVIDER: CSSProperties = {
+  borderTop: `1px solid rgba(232, 226, 217, 0.06)`,
+  width: '100%',
+};
+
 function LiveData({ data }: { data: S1Signal }) {
   const stateColor = STATE_COLOR[data.state];
+  const interp     = INTERPRETATION[data.state];
 
-  const rows: [string, string][] = [
+  // Regime metrics — safe fallback to '—' for old KV entries without historical data
+  const rsi      = data.rsi_30d != null
+    ? `${data.rsi_30d >= 0 ? '+' : ''}${data.rsi_30d.toFixed(2)}`
+    : '—';
+  const trend    = data.trend_vs_90d != null
+    ? (data.trend_vs_90d >= 0 ? '↑' : '↓')
+    : '—';
+  const capture  = data.pct_hours_above_20 != null
+    ? `${data.pct_hours_above_20.toFixed(1)}%`
+    : '—';
+
+  const sourceRows: [string, string][] = [
     ['LT avg',  `${data.lt_avg_eur_mwh.toFixed(2)} €/MWh`],
     ['SE4 avg', `${data.se4_avg_eur_mwh.toFixed(2)} €/MWh`],
     ['Spread',  `${data.spread_eur_mwh >= 0 ? '+' : ''}${data.spread_eur_mwh.toFixed(2)} €/MWh`],
   ];
 
+  const regimeMetrics: [string, string][] = [
+    ['30D avg',  `${rsi} €/MWh`],
+    ['Trend',    trend],
+    ['Capture',  capture],
+  ];
+
   return (
     <>
+      {/* Today's spread — headline number */}
       <p style={{ ...MONO, fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', fontWeight: 400, color: 'var(--text)', lineHeight: 1, letterSpacing: '-0.02em', marginBottom: '0.75rem' }}>
         {formatPct(data.separation_pct)}
         <span style={{ fontSize: '0.45em', marginLeft: '0.15em', opacity: 0.55 }}>%</span>
       </p>
 
-      <p style={{ ...MONO, fontSize: '0.625rem', letterSpacing: '0.18em', color: stateColor, textTransform: 'uppercase', marginBottom: '2rem' }}>
+      {/* State badge */}
+      <p style={{ ...MONO, fontSize: '0.625rem', letterSpacing: '0.18em', color: stateColor, textTransform: 'uppercase', marginBottom: '0.65rem' }}>
         ● {data.state}
       </p>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: '1.5rem', rowGap: '0.35rem', marginBottom: '2rem' }}>
-        {rows.map(([label, value]) => (
-          // Fragment key must be on the wrapper, not on children
+      {/* Interpretation */}
+      <p style={{ ...MONO, fontSize: '0.6rem', color: text(0.35), lineHeight: 1.65, marginBottom: '1.5rem' }}>
+        {interp}
+      </p>
+
+      {/* Divider */}
+      <div style={{ ...DIVIDER, marginBottom: '1.25rem' }} />
+
+      {/* Regime metrics row */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.25rem', marginBottom: '1.5rem' }}>
+        {regimeMetrics.map(([label, value]) => (
+          <div key={label}>
+            <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.2rem' }}>
+              {label}
+            </p>
+            <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.55) }}>
+              {value}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      {/* Divider */}
+      <div style={{ ...DIVIDER, marginBottom: '1.25rem' }} />
+
+      {/* Source data grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: '1.5rem', rowGap: '0.35rem', marginBottom: '1.5rem' }}>
+        {sourceRows.map(([label, value]) => (
           <span key={label} style={{ display: 'contents' }}>
             <span style={{ ...MONO, fontSize: '0.625rem', color: text(0.3), letterSpacing: '0.06em' }}>{label}</span>
             <span style={{ ...MONO, fontSize: '0.625rem', color: text(0.6) }}>{value}</span>
@@ -158,6 +207,7 @@ function LiveData({ data }: { data: S1Signal }) {
         ))}
       </div>
 
+      {/* Timestamp */}
       <time dateTime={data.updated_at} style={{ ...MONO, fontSize: '0.575rem', color: text(0.25), letterSpacing: '0.06em' }}>
         {formatTimestamp(data.updated_at)}
       </time>

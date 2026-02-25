@@ -12,11 +12,10 @@
  *   POST /telegram/setup → registers webhook with Telegram (call once after deploy)
  *
  * Secrets (set via wrangler secret put):
- *   ENTSOE_API_KEY          — ENTSO-E Transparency Platform
- *   ANTHROPIC_API_KEY       — Claude haiku for digest + extraction
+ *   ENTSOE_API_KEY
+ *   ANTHROPIC_API_KEY
  *   TELEGRAM_BOT_TOKEN      — TODO: wrangler secret put TELEGRAM_BOT_TOKEN
  *   TELEGRAM_WEBHOOK_SECRET — TODO: wrangler secret put TELEGRAM_WEBHOOK_SECRET
- *                             (any string you choose; sent as X-Telegram-Bot-Api-Secret-Token)
  *
  * KV namespace binding: KKME_SIGNALS
  */
@@ -26,10 +25,9 @@ const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
 const TELEGRAM_API  = 'https://api.telegram.org';
 const WORKER_URL    = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
-const LT_BZN  = '10YLT-1001A0008Q';  // Lithuania bidding zone
-const SE4_BZN = '10Y1001A1001A47J';  // Sweden SE4 bidding zone
+const LT_BZN  = '10YLT-1001A0008Q';
+const SE4_BZN = '10Y1001A1001A47J';
 
-// KV key prefixes
 const KV_CURATION_PREFIX = 'curation:';
 const KV_CURATIONS_INDEX  = 'curations:index';
 const KV_DIGEST_CACHE     = 'digest:cache';
@@ -40,8 +38,9 @@ const CORS = {
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
-// ─── S1 helpers ────────────────────────────────────────────────────────────────
+// ─── ENTSO-E helpers ───────────────────────────────────────────────────────────
 
+/** YYYYMMDDHHMM in UTC at today + offsetDays */
 function utcPeriod(offsetDays = 0) {
   const d = new Date();
   d.setUTCDate(d.getUTCDate() + offsetDays);
@@ -51,6 +50,7 @@ function utcPeriod(offsetDays = 0) {
   return `${y}${mo}${da}0000`;
 }
 
+/** Extract all <price.amount> values from ENTSO-E XML */
 function extractPrices(xml) {
   const prices = [];
   const re = /<price\.amount>([\d.]+)<\/price\.amount>/g;
@@ -69,6 +69,7 @@ function signalState(pct) {
   return 'CALM';
 }
 
+/** Fetch single-day prices for today (fast path used by cron) */
 async function fetchBzn(bzn, apiKey) {
   const url = new URL(ENTSOE_API);
   url.searchParams.set('documentType', 'A44');
@@ -86,13 +87,80 @@ async function fetchBzn(bzn, apiKey) {
   return res.text();
 }
 
+/** Fetch a date range; returns [] on error (best-effort) */
+async function fetchBznRange(bzn, apiKey, startOffset, endOffset) {
+  const url = new URL(ENTSOE_API);
+  url.searchParams.set('documentType', 'A44');
+  url.searchParams.set('in_Domain', bzn);
+  url.searchParams.set('out_Domain', bzn);
+  url.searchParams.set('periodStart', utcPeriod(startOffset));
+  url.searchParams.set('periodEnd', utcPeriod(endOffset));
+  url.searchParams.set('securityToken', apiKey);
+
+  try {
+    const res = await fetch(url.toString());
+    if (!res.ok) return [];
+    return extractPrices(await res.text());
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Compute regime metrics from 30-day history.
+ * All 4 range fetches run in parallel; returns nulls on any failure.
+ *
+ * rsi_30d         — 30-day rolling avg spread in €/MWh
+ * trend_vs_90d    — rsi_30d minus avg of the 30-day window ending 90d ago;
+ *                   positive = widening, negative = tightening
+ * pct_hours_above_20 — % of hours in last 30d where LT/SE4 separation > 20%
+ */
+async function computeHistorical(apiKey) {
+  try {
+    const [lt30, se430, ltRef, se4Ref] = await Promise.all([
+      fetchBznRange(LT_BZN,  apiKey, -30,  1),
+      fetchBznRange(SE4_BZN, apiKey, -30,  1),
+      fetchBznRange(LT_BZN,  apiKey, -120, -90),
+      fetchBznRange(SE4_BZN, apiKey, -120, -90),
+    ]);
+
+    const len = Math.min(lt30.length, se430.length);
+    if (len === 0) return { rsi_30d: null, trend_vs_90d: null, pct_hours_above_20: null };
+
+    let spreadSum = 0;
+    let hoursAbove20 = 0;
+    for (let i = 0; i < len; i++) {
+      const spread = lt30[i] - se430[i];
+      const pct    = se430[i] !== 0 ? (spread / se430[i]) * 100 : 0;
+      spreadSum += spread;
+      if (pct > 20) hoursAbove20++;
+    }
+    const rsi_30d           = Math.round((spreadSum / len) * 100) / 100;
+    const pct_hours_above_20 = Math.round((hoursAbove20 / len) * 1000) / 10;
+
+    const lenRef = Math.min(ltRef.length, se4Ref.length);
+    let trend_vs_90d = null;
+    if (lenRef > 0) {
+      let refSum = 0;
+      for (let i = 0; i < lenRef; i++) refSum += ltRef[i] - se4Ref[i];
+      const refAvg = refSum / lenRef;
+      trend_vs_90d = Math.round((rsi_30d - refAvg) * 100) / 100;
+    }
+
+    return { rsi_30d, trend_vs_90d, pct_hours_above_20 };
+  } catch {
+    return { rsi_30d: null, trend_vs_90d: null, pct_hours_above_20: null };
+  }
+}
+
 async function computeS1(env) {
   const apiKey = env.ENTSOE_API_KEY;
   if (!apiKey) throw new Error('ENTSOE_API_KEY secret not set');
 
-  const [ltXml, se4Xml] = await Promise.all([
-    fetchBzn(LT_BZN, apiKey),
-    fetchBzn(SE4_BZN, apiKey),
+  // Today's data + historical run concurrently
+  const [[ltXml, se4Xml], historical] = await Promise.all([
+    Promise.all([fetchBzn(LT_BZN, apiKey), fetchBzn(SE4_BZN, apiKey)]),
+    computeHistorical(apiKey),
   ]);
 
   const ltPrices  = extractPrices(ltXml);
@@ -118,6 +186,7 @@ async function computeS1(env) {
     updated_at: new Date().toISOString(),
     lt_hours:  ltPrices.length,
     se4_hours: se4Prices.length,
+    ...historical,
   };
 }
 
@@ -141,16 +210,14 @@ async function recentCurations(kv) {
   const ids    = await readIndex(kv);
   const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
   const entries = [];
-
   for (const id of ids) {
     const raw = await kv.get(`${KV_CURATION_PREFIX}${id}`);
     if (!raw) continue;
     try {
       const entry = JSON.parse(raw);
       if (new Date(entry.created_at).getTime() >= cutoff) entries.push(entry);
-    } catch { /* skip corrupt entries */ }
+    } catch { /* skip */ }
   }
-
   return entries;
 }
 
@@ -161,7 +228,7 @@ async function storeCurationEntry(kv, entry) {
   const ids = await readIndex(kv);
   ids.push(entry.id);
   await writeIndex(kv, ids);
-  await kv.delete(KV_DIGEST_CACHE); // invalidate digest cache
+  await kv.delete(KV_DIGEST_CACHE);
 }
 
 // ─── Digest via Anthropic ──────────────────────────────────────────────────────
@@ -218,20 +285,14 @@ ${itemsText}`;
 
 const URL_REGEX = /https?:\/\/[^\s]+/;
 
-/** Rudimentary HTML → plain text */
 function htmlToText(html) {
   return html
     .replace(/<style[\s\S]*?<\/style>/gi, '')
     .replace(/<script[\s\S]*?<\/script>/gi, '')
     .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 3000);
+    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>').replace(/&quot;/g, '"')
+    .replace(/\s+/g, ' ').trim().slice(0, 3000);
 }
 
 function extractHtmlTitle(html) {
@@ -239,7 +300,6 @@ function extractHtmlTitle(html) {
   return m ? m[1].trim().slice(0, 120) : '';
 }
 
-/** Fetch a URL and return { title, text }; times out after 8s */
 async function fetchPage(pageUrl) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 8000);
@@ -259,7 +319,6 @@ async function fetchPage(pageUrl) {
   }
 }
 
-/** Call Claude haiku to extract structured data from raw content */
 async function extractWithClaude(content, anthropicKey) {
   const prompt = `You are a Baltic/Nordic energy market analyst.
 Extract from this content:
@@ -298,7 +357,6 @@ ${content}`;
   return JSON.parse(match[0]);
 }
 
-/** Send a Telegram message */
 async function tgSend(chatId, text, botToken) {
   await fetch(`${TELEGRAM_API}/bot${botToken}/sendMessage`, {
     method: 'POST',
@@ -307,15 +365,10 @@ async function tgSend(chatId, text, botToken) {
   });
 }
 
-/**
- * Process a Telegram message: fetch URL if present, call Claude, store CurationEntry,
- * reply to chat. Runs inside ctx.waitUntil() — response already sent to Telegram.
- */
 async function processTelegramMessage(message, env) {
   const chatId    = message.chat.id;
   const botToken  = env.TELEGRAM_BOT_TOKEN;
   const rawText   = (message.text || message.caption || '').trim();
-
   if (!rawText) return;
 
   const anthropicKey = env.ANTHROPIC_API_KEY;
@@ -326,7 +379,7 @@ async function processTelegramMessage(message, env) {
 
   try {
     const urlMatch = rawText.match(URL_REGEX);
-    const pageUrl  = urlMatch ? urlMatch[0].replace(/[.,)>]+$/, '') : ''; // trim trailing punctuation
+    const pageUrl  = urlMatch ? urlMatch[0].replace(/[.,)>]+$/, '') : '';
     let content    = rawText;
     let pageTitle  = '';
     let source     = 'telegram';
@@ -335,7 +388,6 @@ async function processTelegramMessage(message, env) {
       const page = await fetchPage(pageUrl);
       pageTitle  = page.title;
       try { source = new URL(pageUrl).hostname; } catch { /* keep 'telegram' */ }
-      // Combine page title + body text + any extra message text
       const extra = rawText.replace(urlMatch[0], '').trim();
       content = [pageTitle, page.text, extra].filter(Boolean).join('\n\n');
     }
@@ -366,189 +418,121 @@ async function processTelegramMessage(message, env) {
 // ─── Main export ───────────────────────────────────────────────────────────────
 
 export default {
-  /** Cron trigger — runs daily at 06:00 UTC */
   async scheduled(_event, env, _ctx) {
     const data = await computeS1(env);
     await env.KKME_SIGNALS.put('s1', JSON.stringify(data));
-    console.log(`[S1] Written: ${data.state} ${data.separation_pct}% (LT ${data.lt_avg_eur_mwh} vs SE4 ${data.se4_avg_eur_mwh} €/MWh)`);
+    console.log(`[S1] Written: ${data.state} ${data.separation_pct}% rsi_30d=${data.rsi_30d} cap=${data.pct_hours_above_20}%`);
   },
 
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    // ── OPTIONS preflight ────────────────────────────────────────────────────
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 200, headers: CORS });
     }
 
-    // ── POST /telegram — Telegram webhook (server-to-server, no CORS) ────────
+    // ── POST /telegram ───────────────────────────────────────────────────────
     if (request.method === 'POST' && url.pathname === '/telegram') {
-      // Verify Telegram secret token
       const incoming = request.headers.get('X-Telegram-Bot-Api-Secret-Token');
       if (!env.TELEGRAM_WEBHOOK_SECRET || incoming !== env.TELEGRAM_WEBHOOK_SECRET) {
         return new Response('Unauthorized', { status: 401 });
       }
-
       if (!env.TELEGRAM_BOT_TOKEN) {
         return new Response('TELEGRAM_BOT_TOKEN not set', { status: 503 });
       }
-
       let update;
-      try { update = await request.json(); }
-      catch { return new Response('Bad Request', { status: 400 }); }
-
+      try { update = await request.json(); } catch { return new Response('Bad Request', { status: 400 }); }
       const message = update.message || update.channel_post;
-
-      // Return 200 immediately; process in background so Telegram doesn't retry
-      if (message) {
-        ctx.waitUntil(processTelegramMessage(message, env));
-      }
-
+      if (message) ctx.waitUntil(processTelegramMessage(message, env));
       return new Response('OK', { status: 200 });
     }
 
-    // ── POST /telegram/setup — register webhook with Telegram ────────────────
-    // Call once after deploy: curl -X POST https://kkme-fetch-s1.kastis-kemezys.workers.dev/telegram/setup
+    // ── POST /telegram/setup ─────────────────────────────────────────────────
+    // curl -X POST https://kkme-fetch-s1.kastis-kemezys.workers.dev/telegram/setup
     if (request.method === 'POST' && url.pathname === '/telegram/setup') {
-      const botToken     = env.TELEGRAM_BOT_TOKEN;
+      const botToken      = env.TELEGRAM_BOT_TOKEN;
       const webhookSecret = env.TELEGRAM_WEBHOOK_SECRET;
-
       if (!botToken || !webhookSecret) {
-        return new Response(JSON.stringify({
-          error: 'TELEGRAM_BOT_TOKEN and TELEGRAM_WEBHOOK_SECRET must both be set',
-        }), { status: 503, headers: { 'Content-Type': 'application/json', ...CORS } });
+        return new Response(JSON.stringify({ error: 'TELEGRAM_BOT_TOKEN and TELEGRAM_WEBHOOK_SECRET must both be set' }), {
+          status: 503, headers: { 'Content-Type': 'application/json', ...CORS },
+        });
       }
-
       const res  = await fetch(`${TELEGRAM_API}/bot${botToken}/setWebhook`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          url: `${WORKER_URL}/telegram`,
-          secret_token: webhookSecret,
-          allowed_updates: ['message'],
-        }),
+        body: JSON.stringify({ url: `${WORKER_URL}/telegram`, secret_token: webhookSecret, allowed_updates: ['message'] }),
       });
-
       const data = await res.json();
-      return new Response(JSON.stringify(data, null, 2), {
-        headers: { 'Content-Type': 'application/json', ...CORS },
-      });
+      return new Response(JSON.stringify(data, null, 2), { headers: { 'Content-Type': 'application/json', ...CORS } });
     }
 
-    // ── POST /curate — store a new curation entry ────────────────────────────
+    // ── POST /curate ─────────────────────────────────────────────────────────
     if (request.method === 'POST' && url.pathname === '/curate') {
       let body;
-      try { body = await request.json(); }
-      catch {
-        return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
-          status: 400,
-          headers: { 'Content-Type': 'application/json', ...CORS },
-        });
+      try { body = await request.json(); } catch {
+        return new Response(JSON.stringify({ error: 'Invalid JSON body' }), { status: 400, headers: { 'Content-Type': 'application/json', ...CORS } });
       }
-
       const { url: entryUrl, title, raw_text, source, relevance, tags } = body;
       if (!entryUrl || !title || !raw_text || !source || !relevance) {
-        return new Response(JSON.stringify({ error: 'Missing required fields: url, title, raw_text, source, relevance' }), {
-          status: 400,
-          headers: { 'Content-Type': 'application/json', ...CORS },
-        });
+        return new Response(JSON.stringify({ error: 'Missing required fields' }), { status: 400, headers: { 'Content-Type': 'application/json', ...CORS } });
       }
-
       const entry = {
-        id:         makeId(),
-        url:        entryUrl,
-        title,
-        raw_text,
-        source,
-        relevance:  Number(relevance),
-        tags:       Array.isArray(tags) ? tags : [],
+        id: makeId(), url: entryUrl, title, raw_text, source,
+        relevance: Number(relevance), tags: Array.isArray(tags) ? tags : [],
         created_at: new Date().toISOString(),
       };
-
       await storeCurationEntry(env.KKME_SIGNALS, entry);
-
-      return new Response(JSON.stringify({ ok: true, id: entry.id }), {
-        status: 201,
-        headers: { 'Content-Type': 'application/json', ...CORS },
-      });
+      return new Response(JSON.stringify({ ok: true, id: entry.id }), { status: 201, headers: { 'Content-Type': 'application/json', ...CORS } });
     }
 
-    // ── GET /curations — raw entries (last 7 days) ───────────────────────────
+    // ── GET /curations ───────────────────────────────────────────────────────
     if (request.method === 'GET' && url.pathname === '/curations') {
       const entries = await recentCurations(env.KKME_SIGNALS);
-      return new Response(JSON.stringify(entries), {
-        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...CORS },
-      });
+      return new Response(JSON.stringify(entries), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...CORS } });
     }
 
-    // ── GET /digest — Anthropic summarise, cached 1h ─────────────────────────
+    // ── GET /digest ──────────────────────────────────────────────────────────
     if (request.method === 'GET' && url.pathname === '/digest') {
       const cached = await env.KKME_SIGNALS.get(KV_DIGEST_CACHE);
       if (cached) {
-        return new Response(cached, {
-          headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600', ...CORS },
-        });
+        return new Response(cached, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600', ...CORS } });
       }
-
       const anthropicKey = env.ANTHROPIC_API_KEY;
-      // TODO: For local dev, set ANTHROPIC_API_KEY in .env.local (not read by Worker directly —
-      // use `wrangler secret put ANTHROPIC_API_KEY` for production).
+      // TODO: wrangler secret put ANTHROPIC_API_KEY for production
       if (!anthropicKey) {
-        return new Response(JSON.stringify({ error: 'ANTHROPIC_API_KEY not set' }), {
-          status: 503,
-          headers: { 'Content-Type': 'application/json', ...CORS },
-        });
+        return new Response(JSON.stringify({ error: 'ANTHROPIC_API_KEY not set' }), { status: 503, headers: { 'Content-Type': 'application/json', ...CORS } });
       }
-
       const entries = await recentCurations(env.KKME_SIGNALS);
       if (!entries.length) {
-        return new Response(JSON.stringify([]), {
-          headers: { 'Content-Type': 'application/json', ...CORS },
-        });
+        return new Response(JSON.stringify([]), { headers: { 'Content-Type': 'application/json', ...CORS } });
       }
-
       try {
         const digest     = await buildDigest(entries, anthropicKey);
         const digestJson = JSON.stringify(digest);
         await env.KKME_SIGNALS.put(KV_DIGEST_CACHE, digestJson, { expirationTtl: 3600 });
-        return new Response(digestJson, {
-          headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600', ...CORS },
-        });
+        return new Response(digestJson, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600', ...CORS } });
       } catch (err) {
-        return new Response(JSON.stringify({ error: String(err) }), {
-          status: 500,
-          headers: { 'Content-Type': 'application/json', ...CORS },
-        });
+        return new Response(JSON.stringify({ error: String(err) }), { status: 500, headers: { 'Content-Type': 'application/json', ...CORS } });
       }
     }
 
-    // ── GET /read — S1 cached KV value ───────────────────────────────────────
+    // ── GET /read ────────────────────────────────────────────────────────────
     if (request.method === 'GET' && url.pathname === '/read') {
       const raw = await env.KKME_SIGNALS.get('s1');
       if (!raw) {
-        return new Response(JSON.stringify({ error: 'not yet populated' }), {
-          status: 404,
-          headers: { 'Content-Type': 'application/json', ...CORS },
-        });
+        return new Response(JSON.stringify({ error: 'not yet populated' }), { status: 404, headers: { 'Content-Type': 'application/json', ...CORS } });
       }
-      return new Response(raw, {
-        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=300', ...CORS },
-      });
+      return new Response(raw, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=300', ...CORS } });
     }
 
-    // ── GET / — fresh S1 fetch + write to KV (manual trigger) ────────────────
+    // ── GET / — fresh S1 + write to KV ──────────────────────────────────────
     if (request.method === 'GET') {
       try {
         const data = await computeS1(env);
         await env.KKME_SIGNALS.put('s1', JSON.stringify(data));
-        return new Response(JSON.stringify(data, null, 2), {
-          headers: { 'Content-Type': 'application/json', ...CORS },
-        });
+        return new Response(JSON.stringify(data, null, 2), { headers: { 'Content-Type': 'application/json', ...CORS } });
       } catch (err) {
-        return new Response(JSON.stringify({ error: String(err) }), {
-          status: 500,
-          headers: { 'Content-Type': 'application/json', ...CORS },
-        });
+        return new Response(JSON.stringify({ error: String(err) }), { status: 500, headers: { 'Content-Type': 'application/json', ...CORS } });
       }
     }
 

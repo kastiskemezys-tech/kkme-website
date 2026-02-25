@@ -66,7 +66,7 @@ export function Contact() {
         target="_blank"
         rel="noopener noreferrer"
       >
-        linkedin.com/in/kastytis-kemezys-16965756
+        LinkedIn — Kastytis Kemezys
       </ContactLink>
     </footer>
   );

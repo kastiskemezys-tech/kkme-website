@@ -9,15 +9,31 @@ interface TechRow {
 }
 
 const ROWS: TechRow[] = [
-  { name: 'BESS (Li-Ion)',       conviction: 5, note: 'Core product. LFP cost curve still falling.' },
-  { name: 'Grid-scale solar',    conviction: 4, note: 'Feed-in for BESS co-location plays.' },
-  { name: 'DC infrastructure',   conviction: 4, note: 'Power demand creates grid arbitrage.' },
-  { name: 'Green hydrogen',      conviction: 2, note: 'Watching. Not yet bankable in Baltics.' },
+  {
+    name: 'BESS (Li-Ion)',
+    conviction: 5,
+    note: 'Baltic balancing products opened post-sync — FCR, aFRR, mFRR, PICASSO, MARI. Early years structurally high value before saturation. Geography between cheap Nordic supply and expensive Poland creates repeatable spread. Full system ~€100/kWh delivered. IRR window is pre-2029.',
+  },
+  {
+    name: 'Grid-scale solar',
+    conviction: 4,
+    note: 'Standalone solar is a price-taker in Baltic conditions. Co-located with storage it becomes a controllable profile. Hybrid only.',
+  },
+  {
+    name: 'DC infrastructure',
+    conviction: 4,
+    note: 'KKME packages land, grid path, and capital structure. Deal form is firm capacity — availability SLA, not energy PPA. Small equity slice once offtake is signed.',
+  },
+  {
+    name: 'Green hydrogen',
+    conviction: 2,
+    note: 'Electrolyser economics not there yet. Watching OPEX reliability and stack lifetime data. Conviction moves when industrial offtake becomes contractable at current capex.',
+  },
 ];
 
 function ConvictionDots({ level }: { level: number }) {
   return (
-    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+    <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexShrink: 0 }}>
       {Array.from({ length: 5 }, (_, i) => (
         <span
           key={i}
@@ -27,7 +43,6 @@ function ConvictionDots({ level }: { level: number }) {
             height: '5px',
             borderRadius: '50%',
             background: i < level ? 'rgba(123, 94, 167, 0.8)' : text(0.12),
-            flexShrink: 0,
           }}
         />
       ))}
@@ -69,7 +84,7 @@ export function TechTracker() {
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 gap: '1rem',
-                marginBottom: '0.2rem',
+                marginBottom: '0.5rem',
               }}
             >
               <span
@@ -89,10 +104,11 @@ export function TechTracker() {
             <p
               style={{
                 ...MONO,
-                fontSize: '0.575rem',
+                fontSize: '0.625rem',
                 color: text(0.3),
-                letterSpacing: '0.04em',
-                marginTop: '0.2rem',
+                letterSpacing: '0.03em',
+                lineHeight: 1.6,
+                maxWidth: '520px',
               }}
             >
               {row.note}
