@@ -415,10 +415,141 @@ async function computeS3() {
 }
 
 // ─── S2 — Balancing Stack ───────────────────────────────────────────────────────
-// S2 data is written by GitHub Action .github/workflows/fetch-btd.yml
-// (runs daily 05:30 UTC via POST /s2/update).
-// BTD API is accessible from GitHub Actions IPs but blocks Cloudflare Worker IPs.
-// Worker only reads from KV — no compute here.
+// S2 data is pushed to POST /s2/update by the Mac cron (or GitHub Action).
+// Caller sends raw BTD JSON: { reserves, direction, imbalance }
+// Worker parses and shapes the payload before writing to KV.
+
+// Extract numeric column values from BTD response.
+// Handles 3 common BTD formats:
+//   Format A: array of row objects → find key matching pattern
+//   Format B: { headers: string[], data: [][] } — tabular
+//   Format C: { columns: [{group,name},...], rows: [][] }
+function s2ExtractCol(raw, pattern) {
+  if (!raw) return [];
+  const pat = pattern.toLowerCase();
+  try {
+    if (Array.isArray(raw)) {
+      const key = Object.keys(raw[0] || {}).find(k => k.toLowerCase().includes(pat));
+      if (!key) return [];
+      return raw.flatMap(r => {
+        const v = r[key];
+        return (v !== null && v !== undefined && v !== '' && !isNaN(+v)) ? [+v] : [];
+      });
+    }
+    if (raw.data && raw.headers) {
+      const hi = raw.headers.findIndex(h => String(h).toLowerCase().includes(pat));
+      if (hi < 0) return [];
+      return raw.data.flatMap(r => {
+        const v = r[hi];
+        return (v !== null && v !== undefined && v !== '' && !isNaN(+v)) ? [+v] : [];
+      });
+    }
+    if (raw.columns && raw.rows) {
+      const ci = raw.columns.findIndex(c => {
+        const label = typeof c === 'string' ? c : [c.group, c.name].filter(Boolean).join(' / ');
+        return label.toLowerCase().includes(pat);
+      });
+      if (ci < 0) return [];
+      return raw.rows.flatMap(r => {
+        const v = r[ci];
+        return (v !== null && v !== undefined && v !== '' && !isNaN(+v)) ? [+v] : [];
+      });
+    }
+    return [];
+  } catch { return []; }
+}
+
+function s2Mean(arr)  { return arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null; }
+function s2P90(arr) {
+  if (!arr.length) return null;
+  const sorted = [...arr].sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length * 0.9)] ?? sorted[sorted.length - 1];
+}
+function s2r2(n) { return n === null ? null : Math.round(n * 100) / 100; }
+
+const S2_INTERPRETATION = {
+  EARLY:       'FCR/aFRR capacity clearing above baseline. Full balancing stack revenue available. Early-market depth before compression.',
+  ACTIVE:      'Capacity market within typical range. Standard balancing revenue assumptions hold.',
+  COMPRESSING: 'Capacity prices thin. Market depth compressing. Monitor for saturation trend.',
+};
+
+// Parse raw BTD { reserves, direction, imbalance } into a shaped S2 KV payload.
+function s2ShapePayload(reserves, direction, imbalance) {
+  // price_procured_reserves: FCR and aFRR capacity prices for Lithuania
+  let fcrVals  = s2ExtractCol(reserves, 'fcr-d');
+  if (!fcrVals.length) fcrVals = s2ExtractCol(reserves, 'fcrd');
+  if (!fcrVals.length) fcrVals = s2ExtractCol(reserves, 'fcr');
+
+  let afrrUpVals   = [];
+  let afrrDownVals = [];
+  // Try to find separate up/down aFRR columns
+  const afrrUpKey = ['afrr / upward', 'afrr/upward', 'afrr up'];
+  for (const k of afrrUpKey) {
+    afrrUpVals = s2ExtractCol(reserves, k);
+    if (afrrUpVals.length) break;
+  }
+  const afrrDownKey = ['afrr / downward', 'afrr/downward', 'afrr down'];
+  for (const k of afrrDownKey) {
+    afrrDownVals = s2ExtractCol(reserves, k);
+    if (afrrDownVals.length) break;
+  }
+  // Fallback: single afrr column covers both
+  if (!afrrUpVals.length && !afrrDownVals.length) {
+    const afrrAny = s2ExtractCol(reserves, 'afrr');
+    afrrUpVals   = afrrAny;
+    afrrDownVals = afrrAny;
+  }
+  // Second fallback: generic "upward" column
+  if (!fcrVals.length && !afrrUpVals.length) {
+    const upVals  = s2ExtractCol(reserves, 'upward');
+    fcrVals       = upVals;
+    afrrUpVals    = upVals;
+  }
+
+  // direction_of_balancing_v2: Lithuania direction values
+  let dirVals = s2ExtractCol(direction, 'lithuania');
+  if (!dirVals.length) dirVals = s2ExtractCol(direction, 'lt');
+
+  // imbalance_prices: Lithuania / Preliminary (most current)
+  let imbVals = s2ExtractCol(imbalance, 'preliminary');
+  if (!imbVals.length) imbVals = s2ExtractCol(imbalance, 'lithuania');
+  if (!imbVals.length) imbVals = s2ExtractCol(imbalance, 'lt');
+
+  const fcr_avg          = s2r2(s2Mean(fcrVals));
+  const afrr_up_avg      = s2r2(s2Mean(afrrUpVals));
+  const afrr_down_avg    = s2r2(s2Mean(afrrDownVals));
+  const pct_up           = dirVals.length ? s2r2(dirVals.filter(v => v > 0).length / dirVals.length * 100) : null;
+  const pct_down         = dirVals.length ? s2r2(dirVals.filter(v => v < 0).length / dirVals.length * 100) : null;
+  const imbalance_mean   = s2r2(s2Mean(imbVals));
+  const imbalance_p90    = s2r2(s2P90(imbVals));
+  const pct_above_100    = imbVals.length ? s2r2(imbVals.filter(v => v > 100).length / imbVals.length * 100) : null;
+
+  // Signal: FCR avg takes priority; fall back to imbalance P90
+  let signal;
+  if (fcr_avg !== null) {
+    if (fcr_avg > 8)    signal = 'EARLY';
+    else if (fcr_avg >= 3) signal = 'ACTIVE';
+    else                    signal = 'COMPRESSING';
+  } else {
+    // FCR unavailable — always ACTIVE as safe default
+    signal = 'ACTIVE';
+  }
+
+  return {
+    timestamp:       new Date().toISOString(),
+    fcr_avg,
+    afrr_up_avg,
+    afrr_down_avg,
+    pct_up,
+    pct_down,
+    imbalance_mean,
+    imbalance_p90,
+    pct_above_100,
+    signal,
+    interpretation:  S2_INTERPRETATION[signal],
+    source:          'baltic.transparency-dashboard.eu',
+  };
+}
 
 // ─── Curation helpers ──────────────────────────────────────────────────────────
 
@@ -564,13 +695,14 @@ export default {
         return new Response(cached, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600', ...CORS } });
       }
       return new Response(
-        JSON.stringify({ unavailable: true, signal: 'NORMAL', interpretation: 'Data not yet populated — GitHub Action runs at 05:30 UTC.', source: 'baltic.transparency-dashboard.eu' }),
+        JSON.stringify({ unavailable: true, signal: 'ACTIVE', interpretation: 'Data not yet populated — runs at 05:30 UTC.', source: 'baltic.transparency-dashboard.eu' }),
         { status: 200, headers: { 'Content-Type': 'application/json', ...CORS } },
       );
     }
 
     // ── POST /s2/update ───────────────────────────────────────────────────────
-    // Called by GitHub Action fetch-btd.yml. Validates X-Update-Secret, writes to KV.
+    // Accepts raw BTD data: { reserves, direction, imbalance }
+    // Parses and shapes payload here, writes to KV as 's2'.
     if (request.method === 'POST' && url.pathname === '/s2/update') {
       const secret = request.headers.get('X-Update-Secret');
       if (!secret || secret !== env.UPDATE_SECRET) {
@@ -580,12 +712,11 @@ export default {
       try { body = await request.json(); } catch {
         return new Response(JSON.stringify({ error: 'Invalid JSON body' }), { status: 400, headers: { 'Content-Type': 'application/json', ...CORS } });
       }
-      if (!body.timestamp || !body.signal) {
-        return new Response(JSON.stringify({ error: 'Missing required fields: timestamp, signal' }), { status: 400, headers: { 'Content-Type': 'application/json', ...CORS } });
-      }
-      await env.KKME_SIGNALS.put('s2', JSON.stringify(body));
-      console.log(`[S2/update] ${body.signal} fcr_avg=${body.fcr_avg} afrr_avg=${body.afrr_avg} pct_up=${body.pct_up}`);
-      return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json', ...CORS } });
+      const { reserves, direction, imbalance } = body;
+      const payload = s2ShapePayload(reserves ?? null, direction ?? null, imbalance ?? null);
+      await env.KKME_SIGNALS.put('s2', JSON.stringify(payload));
+      console.log(`[S2/update] ${payload.signal} fcr=${payload.fcr_avg} afrr_up=${payload.afrr_up_avg} pct_up=${payload.pct_up}`);
+      return new Response(JSON.stringify(payload), { status: 200, headers: { 'Content-Type': 'application/json', ...CORS } });
     }
 
     // ── POST /curate ─────────────────────────────────────────────────────────

@@ -6,23 +6,24 @@ const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
 interface S2Signal {
   timestamp: string;
-  fcr_avg:           number | null;
-  afrr_avg:          number | null;
-  pct_up:            number | null;
-  pct_down:          number | null;
-  imbalance_mean_7d: number | null;
-  imbalance_p90_7d:  number | null;
-  pct_above_100:     number | null;
-  signal: 'DEEP' | 'NORMAL' | 'SHALLOW';
+  fcr_avg:       number | null;
+  afrr_up_avg:   number | null;
+  afrr_down_avg: number | null;
+  pct_up:        number | null;
+  pct_down:      number | null;
+  imbalance_mean: number | null;
+  imbalance_p90:  number | null;
+  pct_above_100:  number | null;
+  signal: 'EARLY' | 'ACTIVE' | 'COMPRESSING';
   interpretation: string;
   source: string;
   unavailable?: boolean;
 }
 
 const SIGNAL_COLOR: Record<S2Signal['signal'], string> = {
-  DEEP:    'rgba(74, 124, 89, 0.85)',
-  NORMAL:  'rgba(100, 100, 140, 0.85)',
-  SHALLOW: 'rgba(180, 140, 60, 0.85)',
+  EARLY:       'rgba(74, 124, 89, 0.85)',
+  ACTIVE:      'rgba(100, 100, 140, 0.85)',
+  COMPRESSING: 'rgba(180, 140, 60, 0.85)',
 };
 
 const text = (opacity: number) => `rgba(232, 226, 217, ${opacity})`;
@@ -143,9 +144,9 @@ function LiveData({ data }: { data: S2Signal }) {
 
   const metrics: [string, string][] = [
     ['FCR',      `${fmt(data.fcr_avg)} €/MW/h`],
-    ['aFRR',     `${fmt(data.afrr_avg)} €/MW/h`],
+    ['aFRR ↑',   `${fmt(data.afrr_up_avg)} €/MW/h`],
     ['Up/Down',  `${fmt(data.pct_up)}% ↑`],
-    ['P90 imb',  `${fmt(data.imbalance_p90_7d)} €/MWh`],
+    ['P90 imb',  `${fmt(data.imbalance_p90)} €/MWh`],
   ];
 
   return (
