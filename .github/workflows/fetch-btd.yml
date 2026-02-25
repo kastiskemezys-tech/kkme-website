@@ -1,0 +1,268 @@
+name: Fetch BTD — Balancing Stack (S2)
+
+on:
+  schedule:
+    - cron: '30 5 * * *'  # 05:30 UTC — 30 min before S1/S4 cron at 06:00 UTC
+  workflow_dispatch:
+
+# Required GitHub secrets:
+# UPDATE_SECRET — must match `wrangler secret put UPDATE_SECRET`
+# (no other secrets needed — BTD API is public)
+
+jobs:
+  fetch-btd:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch BTD → compute S2 → push to KV
+        env:
+          UPDATE_SECRET: ${{ secrets.UPDATE_SECRET }}
+        run: |
+          node << 'SCRIPT'
+
+          const WORKER = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
+          const BTD    = 'https://api-baltic.transparency-dashboard.eu/api/v1/export';
+          const SECRET = process.env.UPDATE_SECRET;
+
+          if (!SECRET) {
+            console.error('UPDATE_SECRET not set — aborting');
+            process.exit(1);
+          }
+
+          // ── Date helpers ──────────────────────────────────────────────────────
+
+          function btdDate(d) {
+            return d.toISOString().slice(0, 10) + 'T00:00';
+          }
+
+          const now  = new Date();
+          const yd   = new Date(now); yd.setUTCDate(now.getUTCDate() - 1);
+          const w7   = new Date(now); w7.setUTCDate(now.getUTCDate() - 7);
+
+          const BTD_HEADERS = {
+            'Accept':          'application/json',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'User-Agent':      'Mozilla/5.0 (compatible; KKME-Pipeline/1.0; +https://kkme.eu)',
+          };
+
+          // ── Fetch one BTD endpoint ────────────────────────────────────────────
+
+          async function btdFetch(id, from, to) {
+            const params = new URLSearchParams({
+              id,
+              start_date:        btdDate(from),
+              end_date:          btdDate(to),
+              output_time_zone:  'UTC',
+              output_format:     'json',
+              json_header_groups: '1',
+            });
+            const url = `${BTD}?${params}`;
+            console.log(`→ ${url}`);
+            const res = await fetch(url, { headers: BTD_HEADERS });
+            console.log(`  HTTP ${res.status}  content-type: ${res.headers.get('content-type')}`);
+            if (!res.ok) {
+              const text = await res.text();
+              console.error(`  Error body: ${text.slice(0, 1000)}`);
+              return null;
+            }
+            const ct = res.headers.get('content-type') || '';
+            if (!ct.includes('json')) {
+              const text = await res.text();
+              console.error(`  Not JSON — got: ${text.slice(0, 1000)}`);
+              return null;
+            }
+            const json = await res.json();
+            // Log structure to help debug column names on first run
+            if (Array.isArray(json)) {
+              console.log(`  Format: array[${json.length}], sample keys: ${Object.keys(json[0] || {}).slice(0, 10).join(' | ')}`);
+            } else {
+              console.log(`  Format: object, top-level keys: ${Object.keys(json).slice(0, 10).join(' | ')}`);
+              if (json.headers) console.log(`  headers[0..5]: ${json.headers.slice(0, 6).join(' | ')}`);
+              if (json.columns) console.log(`  columns[0..5]: ${JSON.stringify(json.columns.slice(0, 6))}`);
+            }
+            return json;
+          }
+
+          // ── Column extractor: handles 3 common BTD response formats ──────────
+          //  Format A: array of row objects → find key matching pattern
+          //  Format B: { headers: string[], data: [][]  } — tabular
+          //  Format C: { columns: [{group,name},...], rows: [][] }
+
+          function extractCol(raw, pattern) {
+            if (!raw) return [];
+            const pat = pattern.toLowerCase();
+            try {
+              // Format A
+              if (Array.isArray(raw)) {
+                const key = Object.keys(raw[0] || {}).find(k => k.toLowerCase().includes(pat));
+                if (!key) {
+                  console.log(`  [A] no column matching "${pattern}". Available: ${Object.keys(raw[0] || {}).join(' | ')}`);
+                  return [];
+                }
+                console.log(`  [A] using column "${key}"`);
+                return raw.flatMap(r => {
+                  const v = r[key];
+                  return (v !== null && v !== undefined && v !== '' && !isNaN(+v)) ? [+v] : [];
+                });
+              }
+              // Format B
+              if (raw.data && raw.headers) {
+                const hi = raw.headers.findIndex(h => String(h).toLowerCase().includes(pat));
+                if (hi < 0) {
+                  console.log(`  [B] no header matching "${pattern}". Available: ${raw.headers.slice(0, 10).join(' | ')}`);
+                  return [];
+                }
+                console.log(`  [B] using header[${hi}] = "${raw.headers[hi]}"`);
+                return raw.data.flatMap(r => {
+                  const v = r[hi];
+                  return (v !== null && v !== undefined && v !== '' && !isNaN(+v)) ? [+v] : [];
+                });
+              }
+              // Format C
+              if (raw.columns && raw.rows) {
+                const ci = raw.columns.findIndex(c => {
+                  const label = typeof c === 'string' ? c : [c.group, c.name].filter(Boolean).join(' / ');
+                  return label.toLowerCase().includes(pat);
+                });
+                if (ci < 0) {
+                  console.log(`  [C] no column matching "${pattern}". Available: ${JSON.stringify(raw.columns.slice(0, 6))}`);
+                  return [];
+                }
+                console.log(`  [C] using column[${ci}] = ${JSON.stringify(raw.columns[ci])}`);
+                return raw.rows.flatMap(r => {
+                  const v = r[ci];
+                  return (v !== null && v !== undefined && v !== '' && !isNaN(+v)) ? [+v] : [];
+                });
+              }
+              console.log(`  Unknown format. Preview: ${JSON.stringify(raw).slice(0, 500)}`);
+              return [];
+            } catch (e) {
+              console.error(`  extractCol("${pattern}") threw: ${e.message}`);
+              return [];
+            }
+          }
+
+          // ── Stats helpers ─────────────────────────────────────────────────────
+
+          function mean(arr)  { return arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null; }
+          function stdev(arr) {
+            if (arr.length < 2) return null;
+            const m = mean(arr);
+            return Math.sqrt(arr.reduce((s, x) => s + (x - m) ** 2, 0) / (arr.length - 1));
+          }
+          function p90(arr) {
+            if (!arr.length) return null;
+            const sorted = [...arr].sort((a, b) => a - b);
+            return sorted[Math.floor(sorted.length * 0.9)] ?? sorted[sorted.length - 1];
+          }
+          function r2(n) { return n === null ? null : Math.round(n * 100) / 100; }
+
+          // ── Main ──────────────────────────────────────────────────────────────
+
+          async function main() {
+            console.log(`Dates: yesterday=${btdDate(yd)}  7d_ago=${btdDate(w7)}  now=${btdDate(now)}`);
+
+            // Fetch all 3 endpoints in parallel
+            const [capRaw, dirRaw, imbRaw] = await Promise.all([
+              btdFetch('price_procured_reserves',   yd, now),
+              btdFetch('direction_of_balancing_v2', yd, now),
+              btdFetch('imbalance_prices',          w7, now),
+            ]);
+
+            // price_procured_reserves: FCR-D and aFRR upward capacity prices for Lithuania
+            // Column naming varies by BTD version — try specific then broad
+            console.log('\n── Extracting capacity price columns ──');
+            let fcrVals  = extractCol(capRaw, 'fcr');
+            if (!fcrVals.length) fcrVals = extractCol(capRaw, 'fcr-d');
+            if (!fcrVals.length) fcrVals = extractCol(capRaw, 'fcrd');
+
+            let afrrVals = extractCol(capRaw, 'afrr');
+            if (!afrrVals.length) afrrVals = extractCol(capRaw, 'a-frr');
+
+            // Fallback: if product-specific columns not found, use Lithuania / Upward generic
+            if (!fcrVals.length && !afrrVals.length) {
+              const upVals = extractCol(capRaw, 'upward');
+              if (upVals.length) {
+                fcrVals  = upVals;
+                afrrVals = upVals;
+                console.log('  Fallback: using "upward" column for both fcr and afrr');
+              }
+            }
+
+            // direction_of_balancing_v2: Lithuania direction values
+            console.log('\n── Extracting direction columns ──');
+            let dirVals = extractCol(dirRaw, 'lithuania');
+            if (!dirVals.length) dirVals = extractCol(dirRaw, 'lt');
+
+            // imbalance_prices: Lithuania / Preliminary (most current)
+            console.log('\n── Extracting imbalance price columns ──');
+            let imbVals = extractCol(imbRaw, 'preliminary');
+            if (!imbVals.length) imbVals = extractCol(imbRaw, 'lithuania');
+            if (!imbVals.length) imbVals = extractCol(imbRaw, 'lt');
+
+            console.log(`\nSample counts: fcr=${fcrVals.length} afrr=${afrrVals.length} dir=${dirVals.length} imb=${imbVals.length}`);
+
+            // Compute metrics
+            const fcr_avg           = r2(mean(fcrVals));
+            const afrr_avg          = r2(mean(afrrVals));
+            const pct_up            = dirVals.length ? r2(dirVals.filter(v => v > 0).length / dirVals.length * 100) : null;
+            const pct_down          = dirVals.length ? r2(dirVals.filter(v => v < 0).length / dirVals.length * 100) : null;
+            const imbalance_mean_7d = r2(mean(imbVals));
+            const imbalance_p90_7d  = r2(p90(imbVals));
+            const pct_above_100     = imbVals.length ? r2(imbVals.filter(v => v > 100).length / imbVals.length * 100) : null;
+
+            // Signal: based on fcr_avg vs reference bands
+            let signal, interpretation;
+            if (fcr_avg === null) {
+              signal         = 'NORMAL';
+              interpretation = 'Capacity price data unavailable. Standard balancing revenue assumptions hold.';
+            } else if (fcr_avg > 8) {
+              signal         = 'DEEP';
+              interpretation = 'FCR/aFRR capacity clearing above baseline. Full balancing stack revenue available. Early-market depth before compression.';
+            } else if (fcr_avg >= 3) {
+              signal         = 'NORMAL';
+              interpretation = 'Capacity market within typical range. Standard balancing revenue assumptions hold.';
+            } else {
+              signal         = 'SHALLOW';
+              interpretation = 'Capacity prices thin. Market depth compressing. Monitor for saturation trend.';
+            }
+
+            const payload = {
+              timestamp:        new Date().toISOString(),
+              fcr_avg,
+              afrr_avg,
+              pct_up,
+              pct_down,
+              imbalance_mean_7d,
+              imbalance_p90_7d,
+              pct_above_100,
+              signal,
+              interpretation,
+              source:           'baltic.transparency-dashboard.eu',
+            };
+
+            console.log('\nPayload:\n' + JSON.stringify(payload, null, 2));
+
+            // Push to Worker
+            const pushRes = await fetch(`${WORKER}/s2/update`, {
+              method:  'POST',
+              headers: {
+                'Content-Type':    'application/json',
+                'X-Update-Secret': SECRET,
+              },
+              body: JSON.stringify(payload),
+            });
+
+            if (!pushRes.ok) {
+              const body = await pushRes.text();
+              console.error(`Worker push failed: HTTP ${pushRes.status} — ${body}`);
+              process.exit(1);
+            }
+            console.log('✓ S2 pushed to KV successfully');
+          }
+
+          main().catch(e => { console.error(e); process.exit(1); });
+
+          SCRIPT

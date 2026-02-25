@@ -6,28 +6,30 @@ const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
 interface S2Signal {
   timestamp: string;
-  mean_7d: number;
-  stdev_7d: number;
-  pct_above_100: number;
-  pct_negative: number;
-  signal: 'CALM' | 'ACTIVE' | 'STRESSED';
+  fcr_avg:           number | null;
+  afrr_avg:          number | null;
+  pct_up:            number | null;
+  pct_down:          number | null;
+  imbalance_mean_7d: number | null;
+  imbalance_p90_7d:  number | null;
+  pct_above_100:     number | null;
+  signal: 'DEEP' | 'NORMAL' | 'SHALLOW';
   interpretation: string;
   source: string;
   unavailable?: boolean;
-  _error?: string;
 }
 
 const SIGNAL_COLOR: Record<S2Signal['signal'], string> = {
-  CALM:     'rgba(74, 124, 89, 0.7)',
-  ACTIVE:   'rgba(180, 140, 60, 0.7)',
-  STRESSED: 'rgba(155, 48, 67, 0.7)',
+  DEEP:    'rgba(74, 124, 89, 0.85)',
+  NORMAL:  'rgba(100, 100, 140, 0.85)',
+  SHALLOW: 'rgba(180, 140, 60, 0.85)',
 };
 
 const text = (opacity: number) => `rgba(232, 226, 217, ${opacity})`;
 const MONO: CSSProperties = { fontFamily: 'var(--font-mono)' };
 
-function fmt(n: number, decimals = 1): string {
-  return n.toFixed(decimals);
+function fmt(n: number | null, decimals = 1): string {
+  return n === null ? '—' : n.toFixed(decimals);
 }
 
 function formatTimestamp(iso: string): string {
@@ -45,7 +47,7 @@ const RETRY_DELAY_MS   = 2_000;
 
 export function S2Card() {
   const [status, setStatus] = useState<Status>('loading');
-  const [data, setData] = useState<S2Signal | null>(null);
+  const [data, setData]     = useState<S2Signal | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -95,7 +97,7 @@ export function S2Card() {
           marginBottom: '1.75rem',
         }}
       >
-        S2 — Balancing Market Tension
+        S2 — Balancing Stack
       </p>
 
       {status === 'loading' && <Skeleton />}
@@ -108,8 +110,8 @@ export function S2Card() {
 function Skeleton() {
   return (
     <>
-      <p style={{ ...MONO, fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', fontWeight: 400, color: text(0.1), lineHeight: 1, letterSpacing: '-0.02em', marginBottom: '0.75rem' }}>
-        —
+      <p style={{ ...MONO, fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', fontWeight: 400, color: text(0.1), lineHeight: 1, letterSpacing: '0.04em', marginBottom: '0.75rem' }}>
+        ——————
       </p>
       <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.2), letterSpacing: '0.1em' }}>
         Fetching
@@ -121,8 +123,8 @@ function Skeleton() {
 function ErrorState() {
   return (
     <>
-      <p style={{ ...MONO, fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', fontWeight: 400, color: text(0.1), lineHeight: 1, letterSpacing: '-0.02em', marginBottom: '0.75rem' }}>
-        —
+      <p style={{ ...MONO, fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', fontWeight: 400, color: text(0.1), lineHeight: 1, letterSpacing: '0.04em', marginBottom: '0.75rem' }}>
+        ——————
       </p>
       <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.25), letterSpacing: '0.1em' }}>
         Data unavailable
@@ -140,26 +142,22 @@ function LiveData({ data }: { data: S2Signal }) {
   const signalColor = SIGNAL_COLOR[data.signal];
 
   const metrics: [string, string][] = [
-    ['7d avg',   `${fmt(data.mean_7d)} €/MWh`],
-    ['>100€',    `${fmt(data.pct_above_100)}%`],
-    ['Negative', `${fmt(data.pct_negative)}%`],
+    ['FCR',      `${fmt(data.fcr_avg)} €/MW/h`],
+    ['aFRR',     `${fmt(data.afrr_avg)} €/MW/h`],
+    ['Up/Down',  `${fmt(data.pct_up)}% ↑`],
+    ['P90 imb',  `${fmt(data.imbalance_p90_7d)} €/MWh`],
   ];
 
   return (
     <>
-      {/* Large stdev number */}
-      <p style={{ ...MONO, fontWeight: 400, lineHeight: 1, letterSpacing: '-0.02em', marginBottom: '0.5rem' }}>
+      {/* Large signal word */}
+      <p style={{ ...MONO, fontWeight: 400, lineHeight: 1, letterSpacing: '0.04em', marginBottom: '0.5rem' }}>
         {data.unavailable ? (
-          <span style={{ fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', color: text(0.15) }}>—</span>
+          <span style={{ fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', color: text(0.15) }}>——————</span>
         ) : (
-          <>
-            <span style={{ fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', color: 'var(--text)' }}>
-              ±{fmt(data.stdev_7d, 0)}
-            </span>
-            <span style={{ fontSize: '0.75rem', marginLeft: '0.4em', color: text(0.35) }}>
-              €/MWh 7d σ
-            </span>
-          </>
+          <span style={{ fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', color: signalColor }}>
+            {data.signal}
+          </span>
         )}
       </p>
 
@@ -176,14 +174,14 @@ function LiveData({ data }: { data: S2Signal }) {
       {/* Divider */}
       <div style={{ ...DIVIDER, marginBottom: '1.25rem' }} />
 
-      {/* Three metrics */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.25rem', marginBottom: '1.5rem' }}>
+      {/* Four metrics */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '0.25rem', marginBottom: '1.5rem' }}>
         {metrics.map(([label, value]) => (
           <div key={label}>
             <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.25), letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.2rem' }}>
               {label}
             </p>
-            <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.6) }}>
+            <p style={{ ...MONO, fontSize: '0.6rem', color: text(0.6) }}>
               {value}
             </p>
           </div>

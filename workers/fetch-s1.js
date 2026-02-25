@@ -5,14 +5,15 @@
  * Endpoints:
  *   GET /               → fresh S1 fetch + KV write (manual trigger)
  *   GET /read           → cached S1 KV value (fetched by S1Card)
- *   GET /s2             → cached S2 KV value; computes fresh if empty
+ *   GET /s2             → cached S2 KV value (written by GitHub Action fetch-btd.yml)
+ *   POST /s2/update     → write S2 payload to KV (GitHub Action only, requires X-Update-Secret)
  *   GET /s3             → cached S3 KV value; computes fresh if empty
  *   GET /s4             → cached S4 KV value; computes fresh if empty
  *   POST /curate        → store CurationEntry in KV
  *   GET /curations      → raw curation entries (last 7 days)
  *   GET /digest         → Anthropic haiku digest; cached 1h
  *
- * Secrets: ENTSOE_API_KEY · ANTHROPIC_API_KEY
+ * Secrets: ENTSOE_API_KEY · ANTHROPIC_API_KEY · UPDATE_SECRET
  * KV binding: KKME_SIGNALS
  */
 
@@ -32,7 +33,7 @@ const KV_DIGEST_CACHE     = 'digest:cache';
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type, X-Update-Secret',
 };
 
 // ─── Timeout helper ────────────────────────────────────────────────────────────
@@ -228,10 +229,10 @@ async function computeS4() {
   };
 }
 
-// ─── S3 — Lithium & Cell Price ──────────────────────────────────────────────────
-// Source A: Trading Economics — Chinese lithium carbonate CNY/T (trend direction)
-// Source B: InfoLink — DC-side 2h ESS system bid price RMB/Wh (best effort)
-// Source C: Static BNEF/Ember Dec 2025 turnkey cost anchors (hardcoded)
+// ─── S3 — Cell Cost Stack ───────────────────────────────────────────────────────
+// Layer 1: Trading Economics — Chinese lithium carbonate CNY/T (trend direction)
+// Layer 2: InfoLink — DC-side 2h ESS system bid price RMB/Wh (best effort)
+// Layer 3: Static BNEF/Ember Dec 2025 turnkey cost anchors (hardcoded, update quarterly)
 
 const TE_URL = 'https://tradingeconomics.com/commodity/lithium';
 const TE_HEADERS = {
@@ -242,23 +243,35 @@ const TE_HEADERS = {
 
 const INFOLINK_URL = 'https://www.infolink-group.com/energy-article/ess-spot-price-20260106';
 
-// Signal thresholds on Chinese lithium carbonate CNY/T.
-// Current (Feb 2026): 161,750 CNY/T → STABLE
-// InfoLink override: DC-side 2h ESS > 0.55 RMB/Wh → RISING (system prices spiking)
-function s3SignalLevel(litCnyT, infolinkRmbWh) {
-  if (infolinkRmbWh !== null && infolinkRmbWh > 0.55) return 'RISING';
-  if (litCnyT > 180000) return 'RISING';
-  if (litCnyT >= 120000) return 'STABLE';
-  if (infolinkRmbWh !== null && infolinkRmbWh > 0.40) return 'STABLE';
-  return 'FALLING';
+const S3_REFS = {
+  china_system_usd_kwh:  73,
+  europe_system_usd_kwh: 177,
+  global_avg_usd_kwh:    117,
+  ref_source: 'BNEF Dec 2025',
+  ref_date:   '2025-12',
+};
+
+// Layer 1 — lithium carbonate trend (threshold-based; no historical storage)
+function lithiumTrend(cnyT) {
+  if (cnyT < 120000) return '↓ falling';
+  if (cnyT <= 180000) return '→ stable';
+  return '↑ rising';
 }
 
-const S3_CELL_COST_INDEX = { FALLING: 'COMPRESSING', STABLE: 'BASELINE', RISING: 'ELEVATED' };
+// Signal: COMPRESSING | STABLE | PRESSURE | WATCH
+function s3SignalLevel(trend, cellEurKwh) {
+  if (trend === '↓ falling') return 'COMPRESSING';
+  if (trend === '→ stable')  return 'STABLE';
+  // trend === '↑ rising'
+  if (cellEurKwh !== null && cellEurKwh > 90) return 'PRESSURE';
+  return 'WATCH';
+}
 
 const S3_INTERPRETATION = {
-  FALLING: 'Chinese lithium carbonate below ¥120k/t. Cell costs compressing — BESS capex following. Window for competitive build cost on assets commissioning 2026–27.',
-  STABLE:  'Lithium carbonate ¥120–180k/t. BESS capex broadly predictable. Standard off-take and financing assumptions hold.',
-  RISING:  'Lithium carbonate above ¥180k/t or ESS system prices spiking. Cell cost pressure building. Re-underwrite storage projects with 15–20% capex uplift.',
+  COMPRESSING: 'Upstream costs falling. LFP cell direction negative — capex window improving. China system floor $73/kWh (BNEF Dec 2025).',
+  STABLE:      'Cost stack within range. Lithium flat, cell prices tracking baseline. EU installed ~$177/kWh vs China $73/kWh gap persists.',
+  PRESSURE:    'Upstream cost pressure building. Lithium above ¥180k/t. Re-check OEM quotes before fixing capex assumptions.',
+  WATCH:       'Lithium elevated. Cell price direction unclear — verify latest OEM quotes directly.',
 };
 
 // Returns {price, unit} or null.
@@ -314,10 +327,8 @@ async function computeS3() {
   let teStatus = null;
   let bodyPreview = '';
 
-  const S3_REFS = { china_ref_usd_kwh: 73, europe_ref_usd_kwh: 177, ref_source: 'BNEF Dec 2025' };
-
   try {
-    // Source A: Trading Economics CNY/T
+    // Layer 1: Trading Economics CNY/T
     const teRes = await fetch(TE_URL, { signal: controller.signal, headers: TE_HEADERS, redirect: 'follow' });
     clearTimeout(timer);
     teStatus = teRes.status;
@@ -328,7 +339,6 @@ async function computeS3() {
         timestamp: new Date().toISOString(),
         unavailable: true,
         signal: 'STABLE',
-        cell_cost_index: 'BASELINE',
         ...S3_REFS,
         interpretation: 'Data temporarily unavailable.',
         source: 'tradingeconomics.com + infolink-group.com',
@@ -346,7 +356,6 @@ async function computeS3() {
         timestamp: new Date().toISOString(),
         unavailable: true,
         signal: 'STABLE',
-        cell_cost_index: 'BASELINE',
         ...S3_REFS,
         interpretation: 'Price parse failed — check _scrape_debug.',
         source: 'tradingeconomics.com + infolink-group.com',
@@ -355,33 +364,40 @@ async function computeS3() {
       };
     }
 
-    const lithium_cny_t = parsed.unit === 'CNY/T' ? parsed.price : Math.round(parsed.price * 7.27);
+    const lithium_cny_t   = parsed.unit === 'CNY/T' ? parsed.price : Math.round(parsed.price * 7.27);
+    const lithium_trend   = lithiumTrend(lithium_cny_t);
 
-    // Source B: InfoLink ESS 2h DC system price (best effort, 10s timeout)
-    let infolink_dc2h_rmb_wh = null;
+    // Layer 2: InfoLink ESS 2h DC system price (best effort, 10s timeout)
+    let cell_rmb_wh          = null;
+    let cell_eur_kwh_approx  = null;
     try {
-      const ilCtrl = new AbortController();
+      const ilCtrl  = new AbortController();
       const ilTimer = setTimeout(() => ilCtrl.abort(), 10000);
-      const ilRes = await fetch(INFOLINK_URL, {
+      const ilRes   = await fetch(INFOLINK_URL, {
         signal: ilCtrl.signal,
         headers: { 'User-Agent': TE_HEADERS['User-Agent'], 'Accept': 'text/html,application/xhtml+xml,*/*', 'Accept-Language': 'en-US,en;q=0.5' },
       });
       clearTimeout(ilTimer);
-      if (ilRes.ok) infolink_dc2h_rmb_wh = parseInfoLinkDc2h(await ilRes.text());
-    } catch { /* signal computed from TE alone */ }
+      if (ilRes.ok) {
+        cell_rmb_wh = parseInfoLinkDc2h(await ilRes.text());
+        if (cell_rmb_wh !== null) {
+          cell_eur_kwh_approx = Math.round(cell_rmb_wh * 1000 / 7.27 * 10) / 10;
+        }
+      }
+    } catch { /* signal computed from Layer 1 alone */ }
 
-    const signal         = s3SignalLevel(lithium_cny_t, infolink_dc2h_rmb_wh);
-    const cell_cost_index = S3_CELL_COST_INDEX[signal];
+    const signal = s3SignalLevel(lithium_trend, cell_eur_kwh_approx);
 
     return {
       timestamp: new Date().toISOString(),
       lithium_cny_t,
-      signal,
-      cell_cost_index,
+      lithium_trend,
+      cell_rmb_wh,
+      cell_eur_kwh_approx,
       ...S3_REFS,
+      signal,
       interpretation: S3_INTERPRETATION[signal],
       source: 'tradingeconomics.com + infolink-group.com',
-      ...(infolink_dc2h_rmb_wh !== null ? { infolink_dc2h_rmb_wh } : {}),
     };
   } catch (err) {
     clearTimeout(timer);
@@ -389,7 +405,6 @@ async function computeS3() {
       timestamp: new Date().toISOString(),
       unavailable: true,
       signal: 'STABLE',
-      cell_cost_index: 'BASELINE',
       ...S3_REFS,
       interpretation: 'Data temporarily unavailable.',
       source: 'tradingeconomics.com + infolink-group.com',
@@ -399,60 +414,11 @@ async function computeS3() {
   }
 }
 
-// ─── S2 — Balancing Market Tension ─────────────────────────────────────────────
-// Source: ENTSO-E A44 (LT spot prices) — same endpoint as S1.
-// LT spot price volatility is a direct proxy for balancing market tension:
-// high intraday spread ↔ system under balancing stress.
-// BTD imbalance prices were the target source but are blocked to CF Worker IPs.
-
-function s2Mean(arr) {
-  return arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
-}
-
-function s2Stdev(arr) {
-  const n = arr.length;
-  if (n < 2) return 0;
-  const m = s2Mean(arr);
-  return Math.sqrt(arr.reduce((sum, x) => sum + (x - m) ** 2, 0) / (n - 1));
-}
-
-function s2SignalLevel(stdev) {
-  if (stdev < 50)  return 'CALM';
-  if (stdev <= 150) return 'ACTIVE';
-  return 'STRESSED';
-}
-
-const S2_INTERPRETATION = {
-  CALM:     'Balancing market stable. System well-supplied. Reserve procurement costs at baseline.',
-  ACTIVE:   'Elevated price volatility. Balancing costs above baseline. BESS dispatch value increasing.',
-  STRESSED: 'High intraday price tension. Spot prices spiking — grid under balancing stress. Full dispatch value available for flexible assets.',
-};
-
-async function computeS2(env) {
-  const apiKey = env.ENTSOE_API_KEY;
-  if (!apiKey) throw new Error('ENTSOE_API_KEY secret not set');
-
-  // Fetch 7 days of LT hourly spot prices
-  const prices = await fetchBznRange(LT_BZN, apiKey, -7, 0);
-  if (prices.length === 0) throw new Error('No LT spot price data for S2');
-
-  const mean_7d       = Math.round(s2Mean(prices) * 100) / 100;
-  const stdev_7d      = Math.round(s2Stdev(prices) * 100) / 100;
-  const pct_above_100 = Math.round((prices.filter((v) => v > 100).length / prices.length) * 1000) / 10;
-  const pct_negative  = Math.round((prices.filter((v) => v < 0).length  / prices.length) * 1000) / 10;
-  const signal        = s2SignalLevel(stdev_7d);
-
-  return {
-    timestamp: new Date().toISOString(),
-    mean_7d,
-    stdev_7d,
-    pct_above_100,
-    pct_negative,
-    signal,
-    interpretation: S2_INTERPRETATION[signal],
-    source: 'transparency.entsoe.eu',
-  };
-}
+// ─── S2 — Balancing Stack ───────────────────────────────────────────────────────
+// S2 data is written by GitHub Action .github/workflows/fetch-btd.yml
+// (runs daily 05:30 UTC via POST /s2/update).
+// BTD API is accessible from GitHub Actions IPs but blocks Cloudflare Worker IPs.
+// Worker only reads from KV — no compute here.
 
 // ─── Curation helpers ──────────────────────────────────────────────────────────
 
@@ -542,13 +508,12 @@ ${itemsText}`;
 // ─── Main export ───────────────────────────────────────────────────────────────
 
 export default {
-  /** Cron — 06:00 UTC daily. All signals run in parallel; each has a 25s hard timeout. */
+  /** Cron — 06:00 UTC daily. S1/S3/S4 run in parallel; S2 is written by GitHub Action at 05:30 UTC. */
   async scheduled(_event, env, _ctx) {
-    const [s1Result, s4Result, s3Result, s2Result] = await Promise.allSettled([
+    const [s1Result, s4Result, s3Result] = await Promise.allSettled([
       withTimeout(computeS1(env), 25000),
       withTimeout(computeS4(),    25000),
       withTimeout(computeS3(),    25000),
-      withTimeout(computeS2(env), 25000),
     ]);
 
     if (s1Result.status === 'fulfilled') {
@@ -573,23 +538,13 @@ export default {
       if (d.unavailable) {
         console.error(`[S3] scrape failed: ${d._scrape_error}`);
       } else {
-        console.log(`[S3] ${d.signal} price=${d.price_raw} ${d.price_unit}`);
+        console.log(`[S3] ${d.signal} lithium=${d.lithium_cny_t} CNY/T trend=${d.lithium_trend} cell=${d.cell_eur_kwh_approx ?? '—'} €/kWh`);
       }
     } else {
       console.error('[S3] cron failed:', s3Result.reason);
     }
 
-    if (s2Result.status === 'fulfilled') {
-      const d = s2Result.value;
-      await env.KKME_SIGNALS.put('s2', JSON.stringify(d));
-      if (d.unavailable) {
-        console.error(`[S2] fetch failed: ${d._error}`);
-      } else {
-        console.log(`[S2] ${d.signal} stdev=${d.stdev_7d} mean=${d.mean_7d} >100=${d.pct_above_100}%`);
-      }
-    } else {
-      console.error('[S2] cron failed:', s2Result.reason);
-    }
+    // S2 is populated by GitHub Action (fetch-btd.yml) at 05:30 UTC — not computed here
   },
 
   async fetch(request, env, ctx) {
@@ -602,18 +557,35 @@ export default {
     // Telegram pipeline: planned, not yet built
 
     // ── GET /s2 ──────────────────────────────────────────────────────────────
+    // Populated by GitHub Action fetch-btd.yml via POST /s2/update
     if (request.method === 'GET' && url.pathname === '/s2') {
       const cached = await env.KKME_SIGNALS.get('s2');
       if (cached) {
         return new Response(cached, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600', ...CORS } });
       }
-      try {
-        const data = await computeS2(env);
-        await env.KKME_SIGNALS.put('s2', JSON.stringify(data));
-        return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json', ...CORS } });
-      } catch (err) {
-        return new Response(JSON.stringify({ error: String(err) }), { status: 500, headers: { 'Content-Type': 'application/json', ...CORS } });
+      return new Response(
+        JSON.stringify({ unavailable: true, signal: 'NORMAL', interpretation: 'Data not yet populated — GitHub Action runs at 05:30 UTC.', source: 'baltic.transparency-dashboard.eu' }),
+        { status: 200, headers: { 'Content-Type': 'application/json', ...CORS } },
+      );
+    }
+
+    // ── POST /s2/update ───────────────────────────────────────────────────────
+    // Called by GitHub Action fetch-btd.yml. Validates X-Update-Secret, writes to KV.
+    if (request.method === 'POST' && url.pathname === '/s2/update') {
+      const secret = request.headers.get('X-Update-Secret');
+      if (!secret || secret !== env.UPDATE_SECRET) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json', ...CORS } });
       }
+      let body;
+      try { body = await request.json(); } catch {
+        return new Response(JSON.stringify({ error: 'Invalid JSON body' }), { status: 400, headers: { 'Content-Type': 'application/json', ...CORS } });
+      }
+      if (!body.timestamp || !body.signal) {
+        return new Response(JSON.stringify({ error: 'Missing required fields: timestamp, signal' }), { status: 400, headers: { 'Content-Type': 'application/json', ...CORS } });
+      }
+      await env.KKME_SIGNALS.put('s2', JSON.stringify(body));
+      console.log(`[S2/update] ${body.signal} fcr_avg=${body.fcr_avg} afrr_avg=${body.afrr_avg} pct_up=${body.pct_up}`);
+      return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json', ...CORS } });
     }
 
     // ── POST /curate ─────────────────────────────────────────────────────────

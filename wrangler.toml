@@ -12,8 +12,10 @@
 #   replacing REPLACE_WITH_KV_NAMESPACE_ID
 #   and REPLACE_WITH_KV_PREVIEW_ID
 #
-# Step 3: Set the API key secret (never put keys in this file)
+# Step 3: Set API key secrets (never put keys in this file)
 #   wrangler secret put ENTSOE_API_KEY
+#   wrangler secret put UPDATE_SECRET      ← used by GitHub Action POST /s2/update
+#   (also add UPDATE_SECRET to GitHub repo secrets — must match)
 #
 # Step 4: Deploy
 #   wrangler deploy

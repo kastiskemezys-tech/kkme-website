@@ -6,28 +6,25 @@ const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
 interface S3Signal {
   timestamp: string;
-  lithium_cny_t: number;
-  signal: 'FALLING' | 'STABLE' | 'RISING';
-  cell_cost_index: 'COMPRESSING' | 'BASELINE' | 'ELEVATED';
-  china_ref_usd_kwh: number;
-  europe_ref_usd_kwh: number;
-  ref_source: string;
+  lithium_cny_t:         number;
+  lithium_trend:         '↓ falling' | '→ stable' | '↑ rising';
+  cell_rmb_wh:           number | null;
+  cell_eur_kwh_approx:   number | null;
+  china_system_usd_kwh:  number;
+  europe_system_usd_kwh: number;
+  global_avg_usd_kwh:    number;
+  ref_source:            string;
+  signal: 'COMPRESSING' | 'STABLE' | 'PRESSURE' | 'WATCH';
   interpretation: string;
   source: string;
   unavailable?: boolean;
-  infolink_dc2h_rmb_wh?: number;
 }
 
-const INDEX_COLOR: Record<S3Signal['cell_cost_index'], string> = {
-  COMPRESSING: 'rgba(74, 124, 89, 0.85)',
-  BASELINE:    'rgba(100, 100, 140, 0.85)',
-  ELEVATED:    'rgba(155, 48, 67, 0.85)',
-};
-
 const SIGNAL_COLOR: Record<S3Signal['signal'], string> = {
-  FALLING: 'rgba(74, 124, 89, 0.7)',
-  STABLE:  'rgba(100, 100, 140, 0.7)',
-  RISING:  'rgba(155, 48, 67, 0.7)',
+  COMPRESSING: 'rgba(74, 124, 89, 0.85)',
+  STABLE:      'rgba(100, 100, 140, 0.85)',
+  PRESSURE:    'rgba(155, 48, 67, 0.85)',
+  WATCH:       'rgba(180, 140, 60, 0.85)',
 };
 
 const text = (opacity: number) => `rgba(232, 226, 217, ${opacity})`;
@@ -48,7 +45,7 @@ const RETRY_DELAY_MS   = 2_000;
 
 export function S3Card() {
   const [status, setStatus] = useState<Status>('loading');
-  const [data, setData] = useState<S3Signal | null>(null);
+  const [data, setData]     = useState<S3Signal | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -98,7 +95,7 @@ export function S3Card() {
           marginBottom: '1.75rem',
         }}
       >
-        S3 — Lithium &amp; Cell Price
+        S3 — Cell Cost Stack
       </p>
 
       {status === 'loading' && <Skeleton />}
@@ -139,26 +136,29 @@ const DIVIDER: CSSProperties = {
   width: '100%',
 };
 
+const COL_HEADER: CSSProperties = {
+  ...MONO as object,
+  fontSize: '0.5rem',
+  color: `rgba(232, 226, 217, 0.2)`,
+  letterSpacing: '0.1em',
+  textTransform: 'uppercase' as const,
+  marginBottom: '0.6rem',
+};
+
 function LiveData({ data }: { data: S3Signal }) {
-  const indexColor  = INDEX_COLOR[data.cell_cost_index];
   const signalColor = SIGNAL_COLOR[data.signal];
 
   return (
     <>
-      {/* Large cell_cost_index word */}
+      {/* Large signal word */}
       <p style={{ ...MONO, fontWeight: 400, lineHeight: 1, letterSpacing: '0.04em', marginBottom: '0.5rem' }}>
         {data.unavailable ? (
           <span style={{ fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', color: text(0.15) }}>——————</span>
         ) : (
-          <span style={{ fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', color: indexColor }}>
-            {data.cell_cost_index}
+          <span style={{ fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', color: signalColor }}>
+            {data.signal}
           </span>
         )}
-      </p>
-
-      {/* Signal badge */}
-      <p style={{ ...MONO, fontSize: '0.625rem', letterSpacing: '0.18em', color: signalColor, textTransform: 'uppercase', marginBottom: '0.5rem' }}>
-        ● {data.signal}
       </p>
 
       {/* Interpretation */}
@@ -169,27 +169,44 @@ function LiveData({ data }: { data: S3Signal }) {
       {/* Divider */}
       <div style={{ ...DIVIDER, marginBottom: '1.25rem' }} />
 
-      {/* Reference rows */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.25rem', marginBottom: '0.5rem' }}>
+      {/* Two-column reference section */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '0.75rem' }}>
+        {/* Left: UPSTREAM */}
         <div>
-          <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.25), letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.2rem' }}>
-            China turnkey
+          <p style={COL_HEADER}>Upstream</p>
+          <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.25), letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '0.15rem' }}>
+            Lithium
+          </p>
+          <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.6), marginBottom: '0.6rem' }}>
+            {data.lithium_trend} CNY/T
+          </p>
+          <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.25), letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '0.15rem' }}>
+            Cell est.
           </p>
           <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.6) }}>
-            {data.china_ref_usd_kwh} $/kWh
+            {data.cell_eur_kwh_approx !== null ? `${data.cell_eur_kwh_approx} €/kWh` : '—'}
           </p>
         </div>
+
+        {/* Right: BENCHMARKS */}
         <div>
-          <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.25), letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.2rem' }}>
-            Europe turnkey
+          <p style={COL_HEADER}>Benchmarks</p>
+          <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.25), letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '0.15rem' }}>
+            China
+          </p>
+          <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.6), marginBottom: '0.6rem' }}>
+            ${data.china_system_usd_kwh}/kWh system
+          </p>
+          <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.25), letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '0.15rem' }}>
+            Europe
           </p>
           <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.6) }}>
-            {data.europe_ref_usd_kwh} $/kWh
+            ${data.europe_system_usd_kwh}/kWh installed
           </p>
         </div>
       </div>
 
-      {/* ref_source label */}
+      {/* ref_source */}
       <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.18), letterSpacing: '0.06em', marginBottom: '1.25rem' }}>
         ref: {data.ref_source}
       </p>
