@@ -31,118 +31,106 @@ Full thesis: see KKME.md in this repo.
 - Visually datable to 2026: fluid typography, real-time data, considered micro-interactions
 
 ## Page structure (single page, top to bottom)
-1. KKME statement (3 sentences — in KKME.md, do not rewrite)
-2. S1–S5 signals with reference anchors + IRR context
-3. Daily LLM digest cards with source links
-4. Technology thesis tracker with conviction history
-5. Contact (email + LinkedIn only)
+1. KKME wordmark
+2. Statement — "Baltic energy infrastructure is mispriced. KKME tracks where."
+3. S1 — Baltic Price Separation (live)
+4. S4 — Grid Connection Scarcity (live)
+5. [S3 next] — Lithium Cell Price
+6. TechTracker
+7. CTASection
+8. Contact
 
 ## The 5 signals
-- S1: Baltic Price Separation — ENTSO-E API, daily
-- S2: Balancing Market Tension — Litgrid/Nord Pool, weekly
-- S3: Lithium Cell Price + China OEM Pulse — Benchmark Mineral + scraped, weekly
-- S4: Grid Connection Scarcity — VERT + Litgrid scrape, monthly
-- S5: DC Power Viability — ENTSO-E reused + DataCenterDynamics, monthly
+- S1: Baltic Price Separation — ENTSO-E API, daily ✓ LIVE
+- S2: Balancing Market Tension — ENTSO-E A61 FCR-D, weekly
+- S3: Lithium Cell Price — Trading Economics scrape, weekly
+- S4: Grid Connection Scarcity — Litgrid FeatureServer/8, monthly ✓ LIVE
+- S5: DC Power Viability — DataCenterDynamics RSS, monthly
 
 ## Data flow
 Cloudflare Worker (cron) → fetches APIs → writes to KV
-Next.js → reads KV via /api/signals → renders
+Next.js static export → components fetch Worker endpoints directly from browser
 
 ## Build status
 [x] Step 1: Repo + stack installed
 [x] Step 2: Cloudflare Pages connected
 [x] Step 3: Design system (tokens, fonts, grain, base layout)
-[x] Step 4: S1 live data (ENTSO-E → Worker → KV → page)
-[x] Step 5: LLM digest skeleton
-[ ] Step 6: S2–S5
-[ ] Step 7: Technology tracker
-[ ] Step 8: Polish (motion, micro-interactions)
+[x] Step 4: S1 live — Baltic Price Separation (ENTSO-E, regime view)
+[x] Step 5: LLM digest skeleton (Worker endpoints live; UI stripped pending redesign)
+[x] S4 live — Grid Connection Scarcity (Litgrid FeatureServer)
+[ ] S3 — Lithium Cell Price (Trading Economics scrape) ← NEXT
+[ ] S2 — Balancing Market Tension (ENTSO-E A61, FCR-D doc type)
+[ ] S5 — DC Power Viability (DataCenterDynamics RSS)
+[ ] Telegram bot — code exists, webhook not yet registered
+[ ] Step 7: Technology tracker (content done; no separate UI step needed)
+[ ] Step 8: Animation pass (do last)
+
+## S3 spec (next task)
+- Scrape tradingeconomics.com/commodity/lithium for current LFP price
+- Store in KV as 's3'
+- Signal logic:
+    < 70 €/kWh  = FALLING  (good for projects)
+    70–90 €/kWh = STABLE
+    > 90 €/kWh  = RISING   (capex pressure)
+- Worker endpoint: GET /s3 (same pattern as /s4 — cached KV, compute fresh if empty)
+- Add computeS3() to cron alongside S1/S4 via Promise.allSettled
+- New component: app/components/S3Card.tsx (same pattern as S1Card/S4Card)
+- Page position: between S4Card and TechTracker
 
 ## Known issues / next session
 - www.kkme.eu not added as custom domain yet (only kkme.eu configured)
 - ANTHROPIC_API_KEY: run `wrangler secret put ANTHROPIC_API_KEY` for production Worker
-  (GET /digest returns 503 without it — DigestCard shows "Data unavailable")
+  (GET /digest returns 503 without it)
 - @cloudflare/next-on-pages doesn't support Next.js 16 yet; KV is read via
-  Worker /read HTTP endpoint instead of getRequestContext(). Wire up properly
+  Worker HTTP endpoints instead of getRequestContext(). Wire up properly
   when next-on-pages adds Next.js 16 support.
 
 ## Cloudflare KV — deployed and wired
 - KV namespace: KKME_SIGNALS (id: 323b493a50764b24b88a8b4a5687a24b)
 - Worker: kkme-fetch-s1.kastis-kemezys.workers.dev — cron 06:00 UTC daily
-  GET /              → fresh ENTSO-E fetch + writes S1 to KV (manual trigger)
-  GET /read          → returns KV-cached S1 value (fetched by S1Card)
-  POST /curate       → accepts CurationEntry JSON, stores in KV + appends to index
+  GET /              → fresh S1 fetch + KV write (manual trigger)
+  GET /read          → cached S1 KV value (fetched by S1Card)
+  GET /s4            → cached S4 KV value; computes fresh if empty
+  GET /s3            → cached S3 KV value; computes fresh if empty (TODO)
+  POST /curate       → store CurationEntry in KV
   GET /curations     → raw curation entries (last 7 days)
-  GET /digest        → calls Anthropic (claude-haiku), returns DigestItem[]; cached 1h
+  GET /digest        → Anthropic haiku digest; cached 1h in KV
   POST /telegram     → Telegram webhook (verified via X-Telegram-Bot-Api-Secret-Token)
-  POST /telegram/setup → registers webhook with Telegram (call once after deploy)
-- KV keys: s1 | curation:{id} | curations:index | digest:cache
-- DigestCard fetches GET /digest directly from browser
-- CurationInput posts to POST /curate from browser
+  POST /telegram/setup → register Telegram webhook (run once after deploy)
+- KV keys: s1 | s4 | s3 (todo) | curation:{id} | curations:index | digest:cache
+- Cron runs S1 + S4 in parallel via Promise.allSettled with 25s timeout each
 
 ## Telegram curation bot
 Bot receives forwarded articles → Worker extracts title/tags/summary via Claude haiku →
 stores as CurationEntry in KV → appears in /digest automatically.
 
-Setup sequence (after deploy):
+Setup sequence (not yet done):
   wrangler secret put TELEGRAM_BOT_TOKEN      ← BotFather token
-  wrangler secret put TELEGRAM_WEBHOOK_SECRET ← any strong random string you choose
+  wrangler secret put TELEGRAM_WEBHOOK_SECRET ← any strong random string
   npx wrangler deploy
   curl -X POST https://kkme-fetch-s1.kastis-kemezys.workers.dev/telegram/setup
 
 To verify webhook is registered:
   curl https://api.telegram.org/bot{TOKEN}/getWebhookInfo
 
-Usage: forward any article URL (or paste URL + context) to the bot in Telegram.
-Bot replies: "✓ Saved: {title} [tags] relevance: N/5"
-
 ## Rules for every session
 - Read this file first, read KKME.md for design/content decisions
 - Update build status when a step completes
-- Never touch Step 8 until Step 6 is done
+- Never touch Step 8 until all signals are live
 - One component at a time — build, check in browser, then move on
 - Keep components modular — content separated from structure
 - Every session ends with a git commit
 
-## S4 Data Sources (Step 6)
-
-### Litgrid ArcGIS — Ketinimų protokolai
-The grid reservation map has a queryable FeatureServer REST API underneath it.
-App URL: https://experience.arcgis.com/experience/1aa8fb2983c34b7bbc4343d22d9071a5
-Underlying WebMap ID: e658d23dc08f4c00808cc49554bddc44
-Portal: https://litgrid.maps.arcgis.com
-Dashboard: https://litgrid.maps.arcgis.com/apps/dashboards/5141697a3ab444afab2ae694e0b4dc9c
-
-To find the exact FeatureServer query URL:
-Open the map → DevTools Network tab → Fetch/XHR filter → click Ketinimų 
-protokolai tab → look for requests to litgrid.maps.arcgis.com containing 
-FeatureServer/query → copy the full URL
-
-Data fields available:
-- Pasirašymo data (signing date)
-- Galiojimo terminas (expiry)
-- Gamintojas (developer/company)
-- Elektrinės leistina generuoti galia MW (permitted MW)
-- Elektrinės tipas (technology: wind/solar/BESS/hybrid)
-- Prijungimo taško įtampa kV (connection voltage: 110 or 330)
-
-Summary table (Rodikliai tab) shows:
-- SE free capacity: 8500 MW
-- VE (wind) free capacity: 6834 MW  
-- Kaupikliai (BESS) free capacity: 8664 MW
-- Total: 23998 MW across all types
-
+## S4 Data Sources
 ### Litgrid FeatureServer/8 — confirmed working
 URL: https://services-eu1.arcgis.com/NDrrY0T7kE7A7pU0/arcgis/rest/services/ElektrosPerdavimasAEI/FeatureServer/8/query?f=json&cacheHint=true&resultOffset=0&resultRecordCount=1000&where=1%3D1&orderByFields=&outFields=*&resultType=standard&returnGeometry=false&spatialRel=esriSpatialRelIntersects
 
 No auth required. Returns 5 rows by Tipas.
-Key field: Laisva_galia_prijungimui (free capacity MW)
-Signal logic: BESS (Kaupikliai) free capacity
-  >2000 MW = OPEN
-  500–2000 MW = TIGHTENING
-  <500 MW = SCARCE
-Current reading (2026-02-24): SE=110, VE=1119, BESS=3084 free MW → OPEN
+Filter: attributes.Tipas === "Kaupikliai"
+Key fields: Laisva_galia_prijungimui (free MW), Prijungtoji_galia_PT (connected MW),
+            Pasirasytu_ketinimu_pro_galia (reserved MW)
+Signal: free_mw > 2000 = OPEN | 500–2000 = TIGHTENING | <500 = SCARCE
+Current reading (2026-02-25): free=3107 MW, connected=8802 MW, util=73.9% → OPEN
 
 ### VERT Leidimai Plėtoti
-URL: to be added
-Monthly updates, last day of month.
+URL: to be added. Monthly updates, last day of month.
