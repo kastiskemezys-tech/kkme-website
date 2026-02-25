@@ -6,15 +6,23 @@ const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
 interface S3Signal {
   timestamp: string;
-  price_raw: number;
-  price_unit: string;
+  lithium_cny_t: number;
   signal: 'FALLING' | 'STABLE' | 'RISING';
+  cell_cost_index: 'COMPRESSING' | 'BASELINE' | 'ELEVATED';
+  china_ref_usd_kwh: number;
+  europe_ref_usd_kwh: number;
+  ref_source: string;
   interpretation: string;
   source: string;
   unavailable?: boolean;
-  _scrape_error?: string;
-  _scrape_debug?: { status: number | null; bodyPreview: string };
+  infolink_dc2h_rmb_wh?: number;
 }
+
+const INDEX_COLOR: Record<S3Signal['cell_cost_index'], string> = {
+  COMPRESSING: 'rgba(74, 124, 89, 0.85)',
+  BASELINE:    'rgba(100, 100, 140, 0.85)',
+  ELEVATED:    'rgba(155, 48, 67, 0.85)',
+};
 
 const SIGNAL_COLOR: Record<S3Signal['signal'], string> = {
   FALLING: 'rgba(74, 124, 89, 0.7)',
@@ -24,10 +32,6 @@ const SIGNAL_COLOR: Record<S3Signal['signal'], string> = {
 
 const text = (opacity: number) => `rgba(232, 226, 217, ${opacity})`;
 const MONO: CSSProperties = { fontFamily: 'var(--font-mono)' };
-
-function formatPrice(n: number): string {
-  return n.toLocaleString('en-GB');
-}
 
 function formatTimestamp(iso: string): string {
   return new Date(iso).toLocaleString('en-GB', {
@@ -94,7 +98,7 @@ export function S3Card() {
           marginBottom: '1.75rem',
         }}
       >
-        S3 — Lithium Cell Price
+        S3 — Lithium &amp; Cell Price
       </p>
 
       {status === 'loading' && <Skeleton />}
@@ -107,8 +111,8 @@ export function S3Card() {
 function Skeleton() {
   return (
     <>
-      <p style={{ ...MONO, fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', fontWeight: 400, color: text(0.1), lineHeight: 1, letterSpacing: '-0.02em', marginBottom: '0.75rem' }}>
-        —
+      <p style={{ ...MONO, fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', fontWeight: 400, color: text(0.1), lineHeight: 1, letterSpacing: '0.04em', marginBottom: '0.75rem' }}>
+        ——————
       </p>
       <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.2), letterSpacing: '0.1em' }}>
         Fetching
@@ -120,8 +124,8 @@ function Skeleton() {
 function ErrorState() {
   return (
     <>
-      <p style={{ ...MONO, fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', fontWeight: 400, color: text(0.1), lineHeight: 1, letterSpacing: '-0.02em', marginBottom: '0.75rem' }}>
-        —
+      <p style={{ ...MONO, fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', fontWeight: 400, color: text(0.1), lineHeight: 1, letterSpacing: '0.04em', marginBottom: '0.75rem' }}>
+        ——————
       </p>
       <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.25), letterSpacing: '0.1em' }}>
         Data unavailable
@@ -136,28 +140,19 @@ const DIVIDER: CSSProperties = {
 };
 
 function LiveData({ data }: { data: S3Signal }) {
+  const indexColor  = INDEX_COLOR[data.cell_cost_index];
   const signalColor = SIGNAL_COLOR[data.signal];
-
-  const metrics: [string, string][] = [
-    ['Source', data.source],
-    ['Updated', formatTimestamp(data.timestamp).split(',')[0]],
-  ];
 
   return (
     <>
-      {/* Large price number */}
-      <p style={{ ...MONO, fontWeight: 400, lineHeight: 1, letterSpacing: '-0.02em', marginBottom: '0.5rem' }}>
+      {/* Large cell_cost_index word */}
+      <p style={{ ...MONO, fontWeight: 400, lineHeight: 1, letterSpacing: '0.04em', marginBottom: '0.5rem' }}>
         {data.unavailable ? (
-          <span style={{ fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', color: text(0.15) }}>—</span>
+          <span style={{ fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', color: text(0.15) }}>——————</span>
         ) : (
-          <>
-            <span style={{ fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', color: 'var(--text)' }}>
-              {formatPrice(data.price_raw)}
-            </span>
-            <span style={{ fontSize: '0.75rem', marginLeft: '0.4em', color: text(0.35) }}>
-              {data.price_unit}
-            </span>
-          </>
+          <span style={{ fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', color: indexColor }}>
+            {data.cell_cost_index}
+          </span>
         )}
       </p>
 
@@ -174,19 +169,30 @@ function LiveData({ data }: { data: S3Signal }) {
       {/* Divider */}
       <div style={{ ...DIVIDER, marginBottom: '1.25rem' }} />
 
-      {/* Metrics row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.25rem', marginBottom: '1.5rem' }}>
-        {metrics.map(([label, value]) => (
-          <div key={label}>
-            <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.25), letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.2rem' }}>
-              {label}
-            </p>
-            <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.6) }}>
-              {value}
-            </p>
-          </div>
-        ))}
+      {/* Reference rows */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.25rem', marginBottom: '0.5rem' }}>
+        <div>
+          <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.25), letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.2rem' }}>
+            China turnkey
+          </p>
+          <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.6) }}>
+            {data.china_ref_usd_kwh} $/kWh
+          </p>
+        </div>
+        <div>
+          <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.25), letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.2rem' }}>
+            Europe turnkey
+          </p>
+          <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.6) }}>
+            {data.europe_ref_usd_kwh} $/kWh
+          </p>
+        </div>
       </div>
+
+      {/* ref_source label */}
+      <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.18), letterSpacing: '0.06em', marginBottom: '1.25rem' }}>
+        ref: {data.ref_source}
+      </p>
 
       {/* Timestamp */}
       <time dateTime={data.timestamp} style={{ ...MONO, fontSize: '0.575rem', color: text(0.25), letterSpacing: '0.06em', display: 'block', textAlign: 'right' }}>

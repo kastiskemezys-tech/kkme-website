@@ -228,7 +228,10 @@ async function computeS4() {
   };
 }
 
-// ─── S3 — Lithium Cell Price ────────────────────────────────────────────────────
+// ─── S3 — Lithium & Cell Price ──────────────────────────────────────────────────
+// Source A: Trading Economics — Chinese lithium carbonate CNY/T (trend direction)
+// Source B: InfoLink — DC-side 2h ESS system bid price RMB/Wh (best effort)
+// Source C: Static BNEF/Ember Dec 2025 turnkey cost anchors (hardcoded)
 
 const TE_URL = 'https://tradingeconomics.com/commodity/lithium';
 const TE_HEADERS = {
@@ -237,21 +240,25 @@ const TE_HEADERS = {
   'Accept-Language': 'en-US,en;q=0.5',
 };
 
-// Trading Economics shows Chinese lithium carbonate in CNY/T.
-// Thresholds are CNY/T equivalents of the original $/t targets (×7.27 approx).
-// FALLING: <72,700 CNY/t  (~<$10k/t)
-// STABLE:  72,700–109,000  (~$10–15k/t)
-// RISING:  >109,000         (~>$15k/t)
-function s3SignalLevel(priceCny) {
-  if (priceCny < 72700)  return 'FALLING';
-  if (priceCny <= 109000) return 'STABLE';
-  return 'RISING';
+const INFOLINK_URL = 'https://www.infolink-group.com/energy-article/ess-spot-price-20260106';
+
+// Signal thresholds on Chinese lithium carbonate CNY/T.
+// Current (Feb 2026): 161,750 CNY/T → STABLE
+// InfoLink override: DC-side 2h ESS > 0.55 RMB/Wh → RISING (system prices spiking)
+function s3SignalLevel(litCnyT, infolinkRmbWh) {
+  if (infolinkRmbWh !== null && infolinkRmbWh > 0.55) return 'RISING';
+  if (litCnyT > 180000) return 'RISING';
+  if (litCnyT >= 120000) return 'STABLE';
+  if (infolinkRmbWh !== null && infolinkRmbWh > 0.40) return 'STABLE';
+  return 'FALLING';
 }
 
+const S3_CELL_COST_INDEX = { FALLING: 'COMPRESSING', STABLE: 'BASELINE', RISING: 'ELEVATED' };
+
 const S3_INTERPRETATION = {
-  FALLING: 'Chinese lithium carbonate below ¥73k/t (~$10k/t). Cell costs compressing — BESS capex following. Window for competitive build cost on assets commissioning 2026–27.',
-  STABLE:  'Lithium carbonate ¥73–109k/t (~$10–15k/t). BESS capex broadly predictable. Standard off-take and financing assumptions hold.',
-  RISING:  'Lithium carbonate above ¥109k/t (~$15k/t). Cell cost pressure building. Re-underwrite storage projects with 15–20% capex uplift.',
+  FALLING: 'Chinese lithium carbonate below ¥120k/t. Cell costs compressing — BESS capex following. Window for competitive build cost on assets commissioning 2026–27.',
+  STABLE:  'Lithium carbonate ¥120–180k/t. BESS capex broadly predictable. Standard off-take and financing assumptions hold.',
+  RISING:  'Lithium carbonate above ¥180k/t or ESS system prices spiking. Cell cost pressure building. Re-underwrite storage projects with 15–20% capex uplift.',
 };
 
 // Returns {price, unit} or null.
@@ -289,58 +296,92 @@ function parseLithiumPrice(html) {
   return null;
 }
 
+// Extract DC-side 2h containerized ESS average price from InfoLink article.
+// Target text: "DC-side liquid-cooled containerized ESS (2h)...averaging RMB 0.45/Wh"
+function parseInfoLinkDc2h(html) {
+  const m = html.match(/DC-side[^)]*\(2h\)[^.]*?averaging\s+RMB\s+([\d.]+)\s*\/\s*Wh/i);
+  if (m) {
+    const val = parseFloat(m[1]);
+    if (val >= 0.2 && val <= 1.5) return val;
+  }
+  return null;
+}
+
 async function computeS3() {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 15000);
+  const timer = setTimeout(() => controller.abort(), 20000);
 
-  let status = null;
+  let teStatus = null;
   let bodyPreview = '';
 
-  try {
-    const res = await fetch(TE_URL, { signal: controller.signal, headers: TE_HEADERS, redirect: 'follow' });
-    clearTimeout(timer);
-    status = res.status;
+  const S3_REFS = { china_ref_usd_kwh: 73, europe_ref_usd_kwh: 177, ref_source: 'BNEF Dec 2025' };
 
-    if (!res.ok) {
-      bodyPreview = (await res.text().catch(() => '')).slice(0, 500);
+  try {
+    // Source A: Trading Economics CNY/T
+    const teRes = await fetch(TE_URL, { signal: controller.signal, headers: TE_HEADERS, redirect: 'follow' });
+    clearTimeout(timer);
+    teStatus = teRes.status;
+
+    if (!teRes.ok) {
+      bodyPreview = (await teRes.text().catch(() => '')).slice(0, 500);
       return {
         timestamp: new Date().toISOString(),
         unavailable: true,
         signal: 'STABLE',
+        cell_cost_index: 'BASELINE',
+        ...S3_REFS,
         interpretation: 'Data temporarily unavailable.',
-        source: 'tradingeconomics.com',
-        _scrape_error: `HTTP ${res.status}`,
-        _scrape_debug: { status, bodyPreview },
+        source: 'tradingeconomics.com + infolink-group.com',
+        _scrape_error: `TE HTTP ${teRes.status}`,
+        _scrape_debug: { status: teStatus, bodyPreview },
       };
     }
 
-    const html = await res.text();
-    bodyPreview = html.slice(0, 500);
+    const teHtml = await teRes.text();
+    bodyPreview = teHtml.slice(0, 500);
 
-    const parsed = parseLithiumPrice(html);
+    const parsed = parseLithiumPrice(teHtml);
     if (parsed === null) {
       return {
         timestamp: new Date().toISOString(),
         unavailable: true,
         signal: 'STABLE',
+        cell_cost_index: 'BASELINE',
+        ...S3_REFS,
         interpretation: 'Price parse failed — check _scrape_debug.',
-        source: 'tradingeconomics.com',
-        _scrape_error: 'Price not found in HTML',
-        _scrape_debug: { status, bodyPreview },
+        source: 'tradingeconomics.com + infolink-group.com',
+        _scrape_error: 'TE price not found in HTML',
+        _scrape_debug: { status: teStatus, bodyPreview },
       };
     }
 
-    // Signal level is always computed from CNY/T scale.
-    // If we got a $/t value, convert to CNY for the threshold comparison.
-    const cnyEquiv = parsed.unit === 'CNY/T' ? parsed.price : parsed.price * 7.27;
-    const signal = s3SignalLevel(cnyEquiv);
+    const lithium_cny_t = parsed.unit === 'CNY/T' ? parsed.price : Math.round(parsed.price * 7.27);
+
+    // Source B: InfoLink ESS 2h DC system price (best effort, 10s timeout)
+    let infolink_dc2h_rmb_wh = null;
+    try {
+      const ilCtrl = new AbortController();
+      const ilTimer = setTimeout(() => ilCtrl.abort(), 10000);
+      const ilRes = await fetch(INFOLINK_URL, {
+        signal: ilCtrl.signal,
+        headers: { 'User-Agent': TE_HEADERS['User-Agent'], 'Accept': 'text/html,application/xhtml+xml,*/*', 'Accept-Language': 'en-US,en;q=0.5' },
+      });
+      clearTimeout(ilTimer);
+      if (ilRes.ok) infolink_dc2h_rmb_wh = parseInfoLinkDc2h(await ilRes.text());
+    } catch { /* signal computed from TE alone */ }
+
+    const signal         = s3SignalLevel(lithium_cny_t, infolink_dc2h_rmb_wh);
+    const cell_cost_index = S3_CELL_COST_INDEX[signal];
+
     return {
       timestamp: new Date().toISOString(),
-      price_raw: parsed.price,
-      price_unit: parsed.unit,
+      lithium_cny_t,
       signal,
+      cell_cost_index,
+      ...S3_REFS,
       interpretation: S3_INTERPRETATION[signal],
-      source: 'tradingeconomics.com',
+      source: 'tradingeconomics.com + infolink-group.com',
+      ...(infolink_dc2h_rmb_wh !== null ? { infolink_dc2h_rmb_wh } : {}),
     };
   } catch (err) {
     clearTimeout(timer);
@@ -348,10 +389,12 @@ async function computeS3() {
       timestamp: new Date().toISOString(),
       unavailable: true,
       signal: 'STABLE',
+      cell_cost_index: 'BASELINE',
+      ...S3_REFS,
       interpretation: 'Data temporarily unavailable.',
-      source: 'tradingeconomics.com',
+      source: 'tradingeconomics.com + infolink-group.com',
       _scrape_error: String(err),
-      _scrape_debug: { status, bodyPreview },
+      _scrape_debug: { status: teStatus, bodyPreview },
     };
   }
 }
