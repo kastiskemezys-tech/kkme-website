@@ -415,49 +415,19 @@ async function computeS3() {
 }
 
 // ─── S2 — Balancing Stack ───────────────────────────────────────────────────────
-// S2 data is pushed to POST /s2/update by the Mac cron (or GitHub Action).
+// S2 data is pushed to POST /s2/update by the Mac cron.
 // Caller sends raw BTD JSON: { reserves, direction, imbalance }
 // Worker parses and shapes the payload before writing to KV.
-
-// Extract numeric column values from BTD response.
-// Handles 3 common BTD formats:
-//   Format A: array of row objects → find key matching pattern
-//   Format B: { headers: string[], data: [][] } — tabular
-//   Format C: { columns: [{group,name},...], rows: [][] }
-function s2ExtractCol(raw, pattern) {
-  if (!raw) return [];
-  const pat = pattern.toLowerCase();
-  try {
-    if (Array.isArray(raw)) {
-      const key = Object.keys(raw[0] || {}).find(k => k.toLowerCase().includes(pat));
-      if (!key) return [];
-      return raw.flatMap(r => {
-        const v = r[key];
-        return (v !== null && v !== undefined && v !== '' && !isNaN(+v)) ? [+v] : [];
-      });
-    }
-    if (raw.data && raw.headers) {
-      const hi = raw.headers.findIndex(h => String(h).toLowerCase().includes(pat));
-      if (hi < 0) return [];
-      return raw.data.flatMap(r => {
-        const v = r[hi];
-        return (v !== null && v !== undefined && v !== '' && !isNaN(+v)) ? [+v] : [];
-      });
-    }
-    if (raw.columns && raw.rows) {
-      const ci = raw.columns.findIndex(c => {
-        const label = typeof c === 'string' ? c : [c.group, c.name].filter(Boolean).join(' / ');
-        return label.toLowerCase().includes(pat);
-      });
-      if (ci < 0) return [];
-      return raw.rows.flatMap(r => {
-        const v = r[ci];
-        return (v !== null && v !== undefined && v !== '' && !isNaN(+v)) ? [+v] : [];
-      });
-    }
-    return [];
-  } catch { return []; }
-}
+//
+// Confirmed BTD structure (price_procured_reserves):
+//   d.data.timeseries = [{ from, to, values: [15 numbers] }, ...]
+//   values indices for Lithuania:
+//     [10] FCR Symmetric (EUR/MW/h)
+//     [11] aFRR Upward
+//     [12] aFRR Downward
+//     [13] mFRR Upward
+//     [14] mFRR Downward
+//   Data publishes with ~2 day lag — fetch window: 9 days ago → 2 days ago
 
 function s2Mean(arr)  { return arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null; }
 function s2P90(arr) {
@@ -467,71 +437,103 @@ function s2P90(arr) {
 }
 function s2r2(n) { return n === null ? null : Math.round(n * 100) / 100; }
 
+// Extract a column by index from d.data.timeseries rows, filtering nulls.
+function s2ExtractIdx(raw, idx) {
+  try {
+    const rows = raw?.data?.timeseries;
+    if (!Array.isArray(rows)) return [];
+    return rows.flatMap(row => {
+      const v = row?.values?.[idx];
+      return (v !== null && v !== undefined && !isNaN(+v)) ? [+v] : [];
+    });
+  } catch { return []; }
+}
+
+// Fallback column extractor for direction/imbalance datasets (pattern-based).
+// direction_of_balancing_v2 and imbalance_prices may have different shapes.
+function s2ExtractCol(raw, pattern) {
+  if (!raw) return [];
+  const pat = pattern.toLowerCase();
+  try {
+    // Timeseries format (same as reserves)
+    const rows = raw?.data?.timeseries;
+    if (Array.isArray(rows) && rows.length && Array.isArray(rows[0]?.values)) {
+      // Can't pattern-match by index — caller must use s2ExtractIdx
+      return [];
+    }
+    // Format A: array of row objects
+    if (Array.isArray(raw)) {
+      const key = Object.keys(raw[0] || {}).find(k => k.toLowerCase().includes(pat));
+      if (!key) return [];
+      return raw.flatMap(r => {
+        const v = r[key];
+        return (v !== null && v !== undefined && v !== '' && !isNaN(+v)) ? [+v] : [];
+      });
+    }
+    // Format B: { headers, data }
+    if (raw.data && raw.headers) {
+      const hi = raw.headers.findIndex(h => String(h).toLowerCase().includes(pat));
+      if (hi < 0) return [];
+      return raw.data.flatMap(r => {
+        const v = r[hi];
+        return (v !== null && v !== undefined && v !== '' && !isNaN(+v)) ? [+v] : [];
+      });
+    }
+    return [];
+  } catch { return []; }
+}
+
+// Recalibrated signal thresholds based on confirmed BTD data.
+// Post-sync FCR avg currently ~90 €/MW/h (Feb 2026).
 const S2_INTERPRETATION = {
-  EARLY:       'FCR/aFRR capacity clearing above baseline. Full balancing stack revenue available. Early-market depth before compression.',
-  ACTIVE:      'Capacity market within typical range. Standard balancing revenue assumptions hold.',
-  COMPRESSING: 'Capacity prices thin. Market depth compressing. Monitor for saturation trend.',
+  EARLY:       (fcr) => `FCR clearing at ~€${fcr}/MW/h — post-sync price discovery regime. Early BESS assets capturing outsized capacity prices before market deepens. aFRR stack also open.`,
+  ACTIVE:      () => 'Capacity market normalising. FCR/aFRR revenue intact. Monitor for compression trend as new BESS enters.',
+  COMPRESSING: () => 'Capacity prices thinning. New BESS penetration compressing clearing prices. Revenue mix shifting toward intraday trading.',
 };
 
 // Parse raw BTD { reserves, direction, imbalance } into a shaped S2 KV payload.
 function s2ShapePayload(reserves, direction, imbalance) {
-  // price_procured_reserves: FCR and aFRR capacity prices for Lithuania
-  let fcrVals  = s2ExtractCol(reserves, 'fcr-d');
-  if (!fcrVals.length) fcrVals = s2ExtractCol(reserves, 'fcrd');
-  if (!fcrVals.length) fcrVals = s2ExtractCol(reserves, 'fcr');
+  // price_procured_reserves: extract Lithuania columns by confirmed index
+  const fcrVals      = s2ExtractIdx(reserves, 10);  // FCR Symmetric
+  const afrrUpVals   = s2ExtractIdx(reserves, 11);  // aFRR Upward
+  const afrrDownVals = s2ExtractIdx(reserves, 12);  // aFRR Downward
 
-  let afrrUpVals   = [];
-  let afrrDownVals = [];
-  // Try to find separate up/down aFRR columns
-  const afrrUpKey = ['afrr / upward', 'afrr/upward', 'afrr up'];
-  for (const k of afrrUpKey) {
-    afrrUpVals = s2ExtractCol(reserves, k);
-    if (afrrUpVals.length) break;
+  // direction_of_balancing_v2: try timeseries first, then pattern fallback
+  let dirVals = [];
+  if (direction?.data?.timeseries) {
+    // direction timeseries values[0] is typically Lithuania
+    dirVals = s2ExtractIdx(direction, 0);
+    if (!dirVals.length) dirVals = s2ExtractIdx(direction, 1);
   }
-  const afrrDownKey = ['afrr / downward', 'afrr/downward', 'afrr down'];
-  for (const k of afrrDownKey) {
-    afrrDownVals = s2ExtractCol(reserves, k);
-    if (afrrDownVals.length) break;
-  }
-  // Fallback: single afrr column covers both
-  if (!afrrUpVals.length && !afrrDownVals.length) {
-    const afrrAny = s2ExtractCol(reserves, 'afrr');
-    afrrUpVals   = afrrAny;
-    afrrDownVals = afrrAny;
-  }
-  // Second fallback: generic "upward" column
-  if (!fcrVals.length && !afrrUpVals.length) {
-    const upVals  = s2ExtractCol(reserves, 'upward');
-    fcrVals       = upVals;
-    afrrUpVals    = upVals;
-  }
-
-  // direction_of_balancing_v2: Lithuania direction values
-  let dirVals = s2ExtractCol(direction, 'lithuania');
+  if (!dirVals.length) dirVals = s2ExtractCol(direction, 'lithuania');
   if (!dirVals.length) dirVals = s2ExtractCol(direction, 'lt');
 
-  // imbalance_prices: Lithuania / Preliminary (most current)
-  let imbVals = s2ExtractCol(imbalance, 'preliminary');
+  // imbalance_prices: try timeseries first, then pattern fallback
+  let imbVals = [];
+  if (imbalance?.data?.timeseries) {
+    // Preliminary column — typically index 0 or 1 for Lithuania
+    imbVals = s2ExtractIdx(imbalance, 0);
+    if (!imbVals.length) imbVals = s2ExtractIdx(imbalance, 1);
+  }
+  if (!imbVals.length) imbVals = s2ExtractCol(imbalance, 'preliminary');
   if (!imbVals.length) imbVals = s2ExtractCol(imbalance, 'lithuania');
-  if (!imbVals.length) imbVals = s2ExtractCol(imbalance, 'lt');
 
-  const fcr_avg          = s2r2(s2Mean(fcrVals));
-  const afrr_up_avg      = s2r2(s2Mean(afrrUpVals));
-  const afrr_down_avg    = s2r2(s2Mean(afrrDownVals));
-  const pct_up           = dirVals.length ? s2r2(dirVals.filter(v => v > 0).length / dirVals.length * 100) : null;
-  const pct_down         = dirVals.length ? s2r2(dirVals.filter(v => v < 0).length / dirVals.length * 100) : null;
-  const imbalance_mean   = s2r2(s2Mean(imbVals));
-  const imbalance_p90    = s2r2(s2P90(imbVals));
-  const pct_above_100    = imbVals.length ? s2r2(imbVals.filter(v => v > 100).length / imbVals.length * 100) : null;
+  const fcr_avg       = s2r2(s2Mean(fcrVals));
+  const afrr_up_avg   = s2r2(s2Mean(afrrUpVals));
+  const afrr_down_avg = s2r2(s2Mean(afrrDownVals));
+  const pct_up        = dirVals.length ? s2r2(dirVals.filter(v => v > 0).length / dirVals.length * 100) : null;
+  const pct_down      = dirVals.length ? s2r2(dirVals.filter(v => v < 0).length / dirVals.length * 100) : null;
+  const imbalance_mean = s2r2(s2Mean(imbVals));
+  const imbalance_p90  = s2r2(s2P90(imbVals));
+  const pct_above_100  = imbVals.length ? s2r2(imbVals.filter(v => v > 100).length / imbVals.length * 100) : null;
 
-  // Signal: FCR avg takes priority; fall back to imbalance P90
+  // Recalibrated thresholds (post-sync, Feb 2026 baseline ~90 €/MW/h)
   let signal;
   if (fcr_avg !== null) {
-    if (fcr_avg > 8)    signal = 'EARLY';
-    else if (fcr_avg >= 3) signal = 'ACTIVE';
+    if (fcr_avg > 50)      signal = 'EARLY';
+    else if (fcr_avg >= 15) signal = 'ACTIVE';
     else                    signal = 'COMPRESSING';
   } else {
-    // FCR unavailable — always ACTIVE as safe default
     signal = 'ACTIVE';
   }
 
@@ -546,7 +548,9 @@ function s2ShapePayload(reserves, direction, imbalance) {
     imbalance_p90,
     pct_above_100,
     signal,
-    interpretation:  S2_INTERPRETATION[signal],
+    interpretation:  signal === 'EARLY'
+      ? S2_INTERPRETATION.EARLY(fcr_avg)
+      : S2_INTERPRETATION[signal](),
     source:          'baltic.transparency-dashboard.eu',
   };
 }

@@ -143,10 +143,10 @@ function LiveData({ data }: { data: S2Signal }) {
   const signalColor = SIGNAL_COLOR[data.signal];
 
   const metrics: [string, string][] = [
-    ['FCR',      `${fmt(data.fcr_avg)} €/MW/h`],
-    ['aFRR ↑',   `${fmt(data.afrr_up_avg)} €/MW/h`],
-    ['Up/Down',  `${fmt(data.pct_up)}% ↑`],
-    ['P90 imb',  `${fmt(data.imbalance_p90)} €/MWh`],
+    ['FCR',    `${fmt(data.fcr_avg)} €/MW/h`],
+    ['aFRR ↑', `${fmt(data.afrr_up_avg)} €/MW/h`],
+    ['Sys ↑↓', `${fmt(data.pct_up)}% ↑ / ${fmt(data.pct_down)}% ↓`],
+    ['P90',    `${fmt(data.imbalance_p90)} €/MWh`],
   ];
 
   return (

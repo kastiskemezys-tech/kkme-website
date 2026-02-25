@@ -61,16 +61,29 @@ Next.js static export → components fetch Worker endpoints directly from browse
 [x] Step 5: LLM digest skeleton (Worker endpoints live; UI stripped pending redesign)
 [x] S4 live — Grid Connection Scarcity (Litgrid FeatureServer)
 [x] S3 live — Cell Cost Stack (TE lithium CNY/T + InfoLink + BNEF/Ember refs)
-[x] S2 live — Balancing Stack (GitHub Action → BTD → KV; all metrics null until BTD unblocks)
+[x] S2 live — Balancing Regime (BTD Mac cron 05:30 UTC)
+    FCR ~90 €/MW/h | aFRR ~20 €/MW/h | EARLY regime confirmed (post-sync)
 [ ] S5 — DC Power Viability (DataCenterDynamics RSS) ← NEXT
-[ ] Telegram bot — dead code removed; planned but not yet built
-[ ] Step 8: Animation pass (do last)
+[ ] Telegram webhook
+[ ] Animation pass
 
-## S2 data source — BTD blocking (current status)
-- BTD API (api-baltic.transparency-dashboard.eu) blocks ALL automated IPs at TCP level.
-  Confirmed blocked: Cloudflare Worker IPs (connection succeeds → decoy SPA HTML)
-  AND GitHub Actions IPs (connection timeout, TCP reset — more aggressive block).
-- GitHub Action fetch-btd.yml runs at 05:30 UTC and succeeds structurally.
+## S2 Mac cron (confirmed working)
+- Script: ~/kkme-cron/fetch-btd.js
+- Schedule: 30 5 * * * (05:30 UTC daily via launchd/crontab)
+- Log: ~/kkme-cron/btd.log
+- Secret: kkme-btd-2026 (matches Worker UPDATE_SECRET)
+- Fetches BTD: price_procured_reserves / direction_of_balancing_v2 / imbalance_prices
+  Date window: 9 days ago → 2 days ago (BTD publishes with ~2 day lag)
+- Posts raw { reserves, direction, imbalance } to Worker POST /s2/update
+- Worker parses timeseries (d.data.timeseries), extracts LT columns by confirmed index:
+  [10] FCR Symmetric · [11] aFRR Up · [12] aFRR Down · [13] mFRR Up · [14] mFRR Down
+- Signal thresholds (recalibrated Feb 2026): EARLY >50 · ACTIVE 15-50 · COMPRESSING <15
+- BTD blocks CF Worker + GitHub Actions IPs — Mac residential IP is the only working path
+
+## S2 data source — BTD blocking note
+- BTD API blocks Cloudflare Worker IPs (decoy SPA HTML) and GitHub Actions IPs (TCP timeout).
+- Mac cron bypasses this via residential IP. GitHub Action fetch-btd.yml kept as fallback
+  but currently non-functional for BTD fetching.
   All 3 BTD fetches fail → allSettled → pushes NORMAL/null payload to KV.
   S2Card displays NORMAL with "—" for all metrics.
 - Pipeline is correct. When BTD eventually unblocks (or we route via residential proxy),
