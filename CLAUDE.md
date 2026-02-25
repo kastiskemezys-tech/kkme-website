@@ -55,27 +55,23 @@ Next.js static export → components fetch Worker endpoints directly from browse
 [x] Step 1: Repo + stack installed
 [x] Step 2: Cloudflare Pages connected
 [x] Step 3: Design system (tokens, fonts, grain, base layout)
-[x] Step 4: S1 live — Baltic Price Separation (ENTSO-E, regime view)
+[x] Step 4: S1 live — Baltic Price Separation (ENTSO-E A44, regime view)
 [x] Step 5: LLM digest skeleton (Worker endpoints live; UI stripped pending redesign)
 [x] S4 live — Grid Connection Scarcity (Litgrid FeatureServer)
-[ ] S3 — Lithium Cell Price (Trading Economics scrape) ← NEXT
-[ ] S2 — Balancing Market Tension (ENTSO-E A61, FCR-D doc type)
-[ ] S5 — DC Power Viability (DataCenterDynamics RSS)
-[ ] Telegram bot — code exists, webhook not yet registered
-[ ] Step 7: Technology tracker (content done; no separate UI step needed)
+[x] S3 live — Lithium Cell Price (Trading Economics scrape, CNY/T)
+[x] S2 live — Balancing Market Tension (ENTSO-E A44 LT stdev proxy)
+[ ] S5 — DC Power Viability (DataCenterDynamics RSS) ← NEXT
+[ ] Telegram bot — dead code removed; planned but not yet built
 [ ] Step 8: Animation pass (do last)
 
-## S3 spec (next task)
-- Scrape tradingeconomics.com/commodity/lithium for current LFP price
-- Store in KV as 's3'
-- Signal logic:
-    < 70 €/kWh  = FALLING  (good for projects)
-    70–90 €/kWh = STABLE
-    > 90 €/kWh  = RISING   (capex pressure)
-- Worker endpoint: GET /s3 (same pattern as /s4 — cached KV, compute fresh if empty)
-- Add computeS3() to cron alongside S1/S4 via Promise.allSettled
-- New component: app/components/S3Card.tsx (same pattern as S1Card/S4Card)
-- Page position: between S4Card and TechTracker
+## S2 data source note
+- BTD API (api-baltic.transparency-dashboard.eu) blocks Cloudflare Worker IPs.
+  Serves decoy SPA HTML (200 OK, text/html) instead of JSON. No header combination
+  bypasses this — it is IP-level bot management, not a CORS issue.
+- Workaround: computeS2() uses ENTSO-E A44 LT 7-day spot price stdev as proxy.
+  High intraday spread ↔ balancing stress. Same signal direction, proven correlation.
+- If BTD is needed in future: proxy via a non-CF intermediary (e.g. Deno Deploy, Fly.io)
+  or use a scheduled task that runs from a whitelisted IP and writes to KV directly.
 
 ## Known issues / next session
 - www.kkme.eu not added as custom domain yet (only kkme.eu configured)
