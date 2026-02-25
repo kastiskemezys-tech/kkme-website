@@ -5,21 +5,19 @@
  * Endpoints:
  *   GET /               → fresh S1 fetch + KV write (manual trigger)
  *   GET /read           → cached S1 KV value (fetched by S1Card)
+ *   GET /s2             → cached S2 KV value; computes fresh if empty
+ *   GET /s3             → cached S3 KV value; computes fresh if empty
  *   GET /s4             → cached S4 KV value; computes fresh if empty
  *   POST /curate        → store CurationEntry in KV
  *   GET /curations      → raw curation entries (last 7 days)
  *   GET /digest         → Anthropic haiku digest; cached 1h
- *   POST /telegram      → Telegram webhook
- *   POST /telegram/setup → register Telegram webhook (run once)
  *
  * Secrets: ENTSOE_API_KEY · ANTHROPIC_API_KEY
- *          TELEGRAM_BOT_TOKEN · TELEGRAM_WEBHOOK_SECRET
  * KV binding: KKME_SIGNALS
  */
 
 const ENTSOE_API    = 'https://web-api.tp.entsoe.eu/api';
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
-const TELEGRAM_API  = 'https://api.telegram.org';
 const WORKER_URL    = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
 const LT_BZN  = '10YLT-1001A0008Q';
@@ -358,6 +356,61 @@ async function computeS3() {
   }
 }
 
+// ─── S2 — Balancing Market Tension ─────────────────────────────────────────────
+// Source: ENTSO-E A44 (LT spot prices) — same endpoint as S1.
+// LT spot price volatility is a direct proxy for balancing market tension:
+// high intraday spread ↔ system under balancing stress.
+// BTD imbalance prices were the target source but are blocked to CF Worker IPs.
+
+function s2Mean(arr) {
+  return arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+}
+
+function s2Stdev(arr) {
+  const n = arr.length;
+  if (n < 2) return 0;
+  const m = s2Mean(arr);
+  return Math.sqrt(arr.reduce((sum, x) => sum + (x - m) ** 2, 0) / (n - 1));
+}
+
+function s2SignalLevel(stdev) {
+  if (stdev < 50)  return 'CALM';
+  if (stdev <= 150) return 'ACTIVE';
+  return 'STRESSED';
+}
+
+const S2_INTERPRETATION = {
+  CALM:     'Balancing market stable. System well-supplied. Reserve procurement costs at baseline.',
+  ACTIVE:   'Elevated price volatility. Balancing costs above baseline. BESS dispatch value increasing.',
+  STRESSED: 'High intraday price tension. Spot prices spiking — grid under balancing stress. Full dispatch value available for flexible assets.',
+};
+
+async function computeS2(env) {
+  const apiKey = env.ENTSOE_API_KEY;
+  if (!apiKey) throw new Error('ENTSOE_API_KEY secret not set');
+
+  // Fetch 7 days of LT hourly spot prices
+  const prices = await fetchBznRange(LT_BZN, apiKey, -7, 0);
+  if (prices.length === 0) throw new Error('No LT spot price data for S2');
+
+  const mean_7d       = Math.round(s2Mean(prices) * 100) / 100;
+  const stdev_7d      = Math.round(s2Stdev(prices) * 100) / 100;
+  const pct_above_100 = Math.round((prices.filter((v) => v > 100).length / prices.length) * 1000) / 10;
+  const pct_negative  = Math.round((prices.filter((v) => v < 0).length  / prices.length) * 1000) / 10;
+  const signal        = s2SignalLevel(stdev_7d);
+
+  return {
+    timestamp: new Date().toISOString(),
+    mean_7d,
+    stdev_7d,
+    pct_above_100,
+    pct_negative,
+    signal,
+    interpretation: S2_INTERPRETATION[signal],
+    source: 'transparency.entsoe.eu',
+  };
+}
+
 // ─── Curation helpers ──────────────────────────────────────────────────────────
 
 function makeId() {
@@ -441,123 +494,18 @@ ${itemsText}`;
   return JSON.parse(match[0]);
 }
 
-// ─── Telegram helpers ──────────────────────────────────────────────────────────
-
-const URL_REGEX = /https?:\/\/[^\s]+/;
-
-function htmlToText(html) {
-  return html
-    .replace(/<style[\s\S]*?<\/style>/gi, '').replace(/<script[\s\S]*?<\/script>/gi, '')
-    .replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
-    .replace(/\s+/g, ' ').trim().slice(0, 3000);
-}
-
-function extractHtmlTitle(html) {
-  const m = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-  return m ? m[1].trim().slice(0, 120) : '';
-}
-
-async function fetchPage(pageUrl) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 8000);
-  try {
-    const res = await fetch(pageUrl, { signal: controller.signal, headers: { 'User-Agent': 'Mozilla/5.0 (compatible; KKMEBot/1.0)' }, redirect: 'follow' });
-    clearTimeout(timer);
-    if (!res.ok) return { title: '', text: '' };
-    const html = await res.text();
-    return { title: extractHtmlTitle(html), text: htmlToText(html) };
-  } catch { clearTimeout(timer); return { title: '', text: '' }; }
-}
-
-async function extractWithClaude(content, anthropicKey) {
-  const prompt = `You are a Baltic/Nordic energy market analyst.
-Extract from this content:
-- title (short, factual)
-- summary (2-3 sentences, what matters for BESS/grid/DC deals)
-- tags (array, choose from: bess, grid-connection, dc-power, offtake, financing, price-move, policy, supply-chain, competitor, technology, lt, lv, ee, nordic, eu)
-- relevance (1-5, how actionable for deal sourcing)
-Return JSON only.
-
-Content:
-${content}`;
-
-  const res = await fetch(ANTHROPIC_API, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
-    body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 1024, messages: [{ role: 'user', content: prompt }] }),
-  });
-
-  if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    throw new Error(`Anthropic API: HTTP ${res.status} — ${body.slice(0, 200)}`);
-  }
-
-  const data  = await res.json();
-  const text  = data.content?.[0]?.text ?? '';
-  const match = text.match(/\{[\s\S]*\}/);
-  if (!match) throw new Error('Claude did not return JSON');
-  return JSON.parse(match[0]);
-}
-
-async function tgSend(chatId, text, botToken) {
-  await fetch(`${TELEGRAM_API}/bot${botToken}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: chatId, text }),
-  });
-}
-
-async function processTelegramMessage(message, env) {
-  const chatId   = message.chat.id;
-  const botToken = env.TELEGRAM_BOT_TOKEN;
-  const rawText  = (message.text || message.caption || '').trim();
-  if (!rawText) return;
-
-  const anthropicKey = env.ANTHROPIC_API_KEY;
-  if (!anthropicKey) { await tgSend(chatId, '⚠️ ANTHROPIC_API_KEY not set on Worker', botToken); return; }
-
-  try {
-    const urlMatch = rawText.match(URL_REGEX);
-    const pageUrl  = urlMatch ? urlMatch[0].replace(/[.,)>]+$/, '') : '';
-    let content = rawText, pageTitle = '', source = 'telegram';
-
-    if (pageUrl) {
-      const page = await fetchPage(pageUrl);
-      pageTitle = page.title;
-      try { source = new URL(pageUrl).hostname; } catch { /* keep 'telegram' */ }
-      const extra = rawText.replace(urlMatch[0], '').trim();
-      content = [pageTitle, page.text, extra].filter(Boolean).join('\n\n');
-    }
-
-    const extracted = await extractWithClaude(content.slice(0, 4000), anthropicKey);
-    const entry = {
-      id: makeId(), url: pageUrl,
-      title:      String(extracted.title  || pageTitle || rawText.slice(0, 80)),
-      raw_text:   content.slice(0, 2000), source,
-      relevance:  Math.min(5, Math.max(1, Number(extracted.relevance) || 3)),
-      tags:       Array.isArray(extracted.tags) ? extracted.tags : [],
-      created_at: new Date().toISOString(),
-      summary:    String(extracted.summary || ''),
-    };
-
-    await storeCurationEntry(env.KKME_SIGNALS, entry);
-    const tagStr = entry.tags.length ? ` [${entry.tags.join(', ')}]` : '';
-    await tgSend(chatId, `✓ Saved: ${entry.title}${tagStr}\nrelevance: ${entry.relevance}/5`, botToken);
-  } catch (err) {
-    await tgSend(chatId, `⚠️ Error: ${String(err).slice(0, 200)}`, botToken);
-  }
-}
+// Telegram pipeline: planned, not yet built
 
 // ─── Main export ───────────────────────────────────────────────────────────────
 
 export default {
-  /** Cron — 06:00 UTC daily. S1, S4, S3 run in parallel; each has a 25s hard timeout. */
+  /** Cron — 06:00 UTC daily. All signals run in parallel; each has a 25s hard timeout. */
   async scheduled(_event, env, _ctx) {
-    const [s1Result, s4Result, s3Result] = await Promise.allSettled([
+    const [s1Result, s4Result, s3Result, s2Result] = await Promise.allSettled([
       withTimeout(computeS1(env), 25000),
       withTimeout(computeS4(),    25000),
       withTimeout(computeS3(),    25000),
+      withTimeout(computeS2(env), 25000),
     ]);
 
     if (s1Result.status === 'fulfilled') {
@@ -587,6 +535,18 @@ export default {
     } else {
       console.error('[S3] cron failed:', s3Result.reason);
     }
+
+    if (s2Result.status === 'fulfilled') {
+      const d = s2Result.value;
+      await env.KKME_SIGNALS.put('s2', JSON.stringify(d));
+      if (d.unavailable) {
+        console.error(`[S2] fetch failed: ${d._error}`);
+      } else {
+        console.log(`[S2] ${d.signal} stdev=${d.stdev_7d} mean=${d.mean_7d} >100=${d.pct_above_100}%`);
+      }
+    } else {
+      console.error('[S2] cron failed:', s2Result.reason);
+    }
   },
 
   async fetch(request, env, ctx) {
@@ -596,34 +556,21 @@ export default {
       return new Response(null, { status: 200, headers: CORS });
     }
 
-    // ── POST /telegram ───────────────────────────────────────────────────────
-    if (request.method === 'POST' && url.pathname === '/telegram') {
-      const incoming = request.headers.get('X-Telegram-Bot-Api-Secret-Token');
-      if (!env.TELEGRAM_WEBHOOK_SECRET || incoming !== env.TELEGRAM_WEBHOOK_SECRET) {
-        return new Response('Unauthorized', { status: 401 });
-      }
-      if (!env.TELEGRAM_BOT_TOKEN) return new Response('TELEGRAM_BOT_TOKEN not set', { status: 503 });
-      let update;
-      try { update = await request.json(); } catch { return new Response('Bad Request', { status: 400 }); }
-      const message = update.message || update.channel_post;
-      if (message) ctx.waitUntil(processTelegramMessage(message, env));
-      return new Response('OK', { status: 200 });
-    }
+    // Telegram pipeline: planned, not yet built
 
-    // ── POST /telegram/setup ─────────────────────────────────────────────────
-    if (request.method === 'POST' && url.pathname === '/telegram/setup') {
-      const botToken = env.TELEGRAM_BOT_TOKEN, webhookSecret = env.TELEGRAM_WEBHOOK_SECRET;
-      if (!botToken || !webhookSecret) {
-        return new Response(JSON.stringify({ error: 'TELEGRAM_BOT_TOKEN and TELEGRAM_WEBHOOK_SECRET must both be set' }), {
-          status: 503, headers: { 'Content-Type': 'application/json', ...CORS },
-        });
+    // ── GET /s2 ──────────────────────────────────────────────────────────────
+    if (request.method === 'GET' && url.pathname === '/s2') {
+      const cached = await env.KKME_SIGNALS.get('s2');
+      if (cached) {
+        return new Response(cached, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600', ...CORS } });
       }
-      const res  = await fetch(`${TELEGRAM_API}/bot${botToken}/setWebhook`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: `${WORKER_URL}/telegram`, secret_token: webhookSecret, allowed_updates: ['message'] }),
-      });
-      const data = await res.json();
-      return new Response(JSON.stringify(data, null, 2), { headers: { 'Content-Type': 'application/json', ...CORS } });
+      try {
+        const data = await computeS2(env);
+        await env.KKME_SIGNALS.put('s2', JSON.stringify(data));
+        return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json', ...CORS } });
+      } catch (err) {
+        return new Response(JSON.stringify({ error: String(err) }), { status: 500, headers: { 'Content-Type': 'application/json', ...CORS } });
+      }
     }
 
     // ── POST /curate ─────────────────────────────────────────────────────────

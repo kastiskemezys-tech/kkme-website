@@ -1,6 +1,7 @@
 import { S1Card } from '@/app/components/S1Card';
-import { S4Card } from '@/app/components/S4Card';
+import { S2Card } from '@/app/components/S2Card';
 import { S3Card } from '@/app/components/S3Card';
+import { S4Card } from '@/app/components/S4Card';
 import { TechTracker } from '@/app/components/TechTracker';
 import { CTASection } from '@/app/components/CTASection';
 import { Contact } from '@/app/components/Contact';
@@ -52,9 +53,9 @@ export default function Home() {
         <S1Card />
       </ErrorBoundary>
 
-      {/* 4. S4 — Grid Connection Scarcity */}
+      {/* 4. S2 — Balancing Market Tension */}
       <ErrorBoundary>
-        <S4Card />
+        <S2Card />
       </ErrorBoundary>
 
       {/* 5. S3 — Lithium Cell Price */}
@@ -62,13 +63,18 @@ export default function Home() {
         <S3Card />
       </ErrorBoundary>
 
-      {/* 6. Technology thesis */}
+      {/* 6. S4 — Grid Connection Scarcity */}
+      <ErrorBoundary>
+        <S4Card />
+      </ErrorBoundary>
+
+      {/* 7. Technology thesis */}
       <TechTracker />
 
-      {/* 7. CTA */}
+      {/* 8. CTA */}
       <CTASection />
 
-      {/* 8. Contact */}
+      {/* 9. Contact */}
       <Contact />
     </main>
   );
