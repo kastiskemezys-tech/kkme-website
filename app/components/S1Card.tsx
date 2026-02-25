@@ -166,6 +166,13 @@ function LiveData({ data }: { data: S1Signal }) {
 
   return (
     <>
+      {/* Optional Nord Pool DA tomorrow line */}
+      {data.lt_tomorrow_avg != null && (
+        <p style={{ ...MONO, fontSize: '0.575rem', color: text(0.3), letterSpacing: '0.06em', marginBottom: '1rem' }}>
+          Tomorrow{data.lt_tomorrow_peak != null ? ` ${data.lt_tomorrow_peak.toFixed(0)} peak ·` : ''} {data.lt_tomorrow_avg.toFixed(0)} avg €/MWh
+        </p>
+      )}
+
       {/* Today's spread — headline number */}
       <p style={{ ...MONO, fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', fontWeight: 400, color: 'var(--text)', lineHeight: 1, letterSpacing: '-0.02em', marginBottom: '0.75rem' }}>
         {formatPct(data.separation_pct)}

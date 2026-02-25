@@ -26,6 +26,12 @@ const SE4_BZN = '10Y1001A1001A47J';
 
 const S4_URL = 'https://services-eu1.arcgis.com/NDrrY0T7kE7A7pU0/arcgis/rest/services/ElektrosPerdavimasAEI/FeatureServer/8/query?f=json&cacheHint=true&resultOffset=0&resultRecordCount=1000&where=1%3D1&orderByFields=&outFields=*&resultType=standard&returnGeometry=false&spatialRel=esriSpatialRelIntersects';
 
+// ECB Data Portal — 3M Euribor monthly (FM dataset)
+const ECB_EURIBOR_URL = 'https://data.ecb.europa.eu/api/v1/data/FM/M.U2.EUR.RT.MM.EURIBOR3MD_.HSTA?lastNObservations=3&format=jsondata';
+
+// Nord Pool DA — LT + SE4 day-ahead prices (latest delivery date)
+const NP_DA_URL = 'https://data.nordpoolgroup.com/api/v1/auction/prices/areas';
+
 const KV_CURATION_PREFIX = 'curation:';
 const KV_CURATIONS_INDEX  = 'curations:index';
 const KV_DIGEST_CACHE     = 'digest:cache';
@@ -414,6 +420,88 @@ async function computeS3() {
   }
 }
 
+// ─── Nord Pool DA ──────────────────────────────────────────────────────────────
+// Fetches latest published DA prices for LT and SE4 from Nord Pool.
+// Runs in cron (CF IP may be blocked) + Mac cron fallback via POST /da_tomorrow/update.
+
+function npShapeMetrics(ltPrices, se4Prices) {
+  if (!ltPrices.length || !se4Prices.length) return null;
+  const ltAvg    = ltPrices.reduce((a, b) => a + b, 0) / ltPrices.length;
+  const se4Avg   = se4Prices.reduce((a, b) => a + b, 0) / se4Prices.length;
+  const spreadPct = se4Avg !== 0 ? ((ltAvg - se4Avg) / se4Avg) * 100 : 0;
+  return {
+    lt_peak:   Math.round(Math.max(...ltPrices) * 100) / 100,
+    lt_trough: Math.round(Math.min(...ltPrices) * 100) / 100,
+    lt_avg:    Math.round(ltAvg * 100) / 100,
+    se4_avg:   Math.round(se4Avg * 100) / 100,
+    spread_pct: Math.round(spreadPct * 10) / 10,
+  };
+}
+
+async function fetchNordPoolDA() {
+  const url = new URL(NP_DA_URL);
+  url.searchParams.set('deliveryDate', 'latest');
+  url.searchParams.set('currency', 'EUR');
+  url.searchParams.set('deliveryAreas', 'LT,SE4');
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+  try {
+    const res = await fetch(url.toString(), { signal: controller.signal });
+    clearTimeout(timer);
+    if (!res.ok) throw new Error(`NordPool HTTP ${res.status}`);
+    const json = await res.json();
+
+    const ltPrices = [], se4Prices = [];
+    let deliveryDate = null;
+
+    // Format A: { multiAreaEntries: [{ deliveryStart, entryPerArea: { LT, SE4 } }] }
+    if (Array.isArray(json.multiAreaEntries)) {
+      deliveryDate = json.multiAreaEntries[0]?.deliveryStart?.slice(0, 10) ?? null;
+      for (const e of json.multiAreaEntries) {
+        const lt  = e.entryPerArea?.LT;
+        const se4 = e.entryPerArea?.SE4;
+        if (lt  != null && !isNaN(+lt))  ltPrices.push(+lt);
+        if (se4 != null && !isNaN(+se4)) se4Prices.push(+se4);
+      }
+    }
+    // Format B: flat array [{ LT, SE4, deliveryDate }, ...]
+    else if (Array.isArray(json)) {
+      deliveryDate = json[0]?.deliveryDate ?? null;
+      for (const e of json) {
+        const lt  = e.LT  ?? e.lt;
+        const se4 = e.SE4 ?? e.se4;
+        if (lt  != null && !isNaN(+lt))  ltPrices.push(+lt);
+        if (se4 != null && !isNaN(+se4)) se4Prices.push(+se4);
+      }
+    }
+
+    console.log(`[NP/DA] parsed: lt=${ltPrices.length}h se4=${se4Prices.length}h date=${deliveryDate}`);
+    const metrics = npShapeMetrics(ltPrices, se4Prices);
+    if (!metrics) throw new Error('NordPool: no LT/SE4 price data found in response');
+
+    return { ...metrics, delivery_date: deliveryDate, timestamp: new Date().toISOString() };
+  } catch (err) {
+    clearTimeout(timer);
+    throw err;
+  }
+}
+
+// ─── Euribor ───────────────────────────────────────────────────────────────────
+// ECB Statistical Data Warehouse — 3M Euribor (FM dataset)
+
+async function computeEuribor() {
+  // Static reference value — live ECB fetch pending (correct key: M.U2.EUR.4F.MM.R_EURIBOR3MD_.HSTA)
+  return {
+    euribor_3m:    2.6,
+    euribor_prev:  2.7,
+    euribor_trend: '↓ falling',
+    note:          'Static ref — ECB API integration pending',
+    source:        'manual',
+    timestamp:     new Date().toISOString(),
+  };
+}
+
 // ─── S2 — Balancing Stack ───────────────────────────────────────────────────────
 // S2 data is pushed to POST /s2/update by the Mac cron.
 // Caller sends raw BTD JSON: { reserves, direction, imbalance }
@@ -645,10 +733,12 @@ ${itemsText}`;
 export default {
   /** Cron — 06:00 UTC daily. S1/S3/S4 run in parallel; S2 is written by GitHub Action at 05:30 UTC. */
   async scheduled(_event, env, _ctx) {
-    const [s1Result, s4Result, s3Result] = await Promise.allSettled([
-      withTimeout(computeS1(env), 25000),
-      withTimeout(computeS4(),    25000),
-      withTimeout(computeS3(),    25000),
+    const [s1Result, s4Result, s3Result, eurResult, npResult] = await Promise.allSettled([
+      withTimeout(computeS1(env),      25000),
+      withTimeout(computeS4(),         25000),
+      withTimeout(computeS3(),         25000),
+      withTimeout(computeEuribor(),    20000),
+      withTimeout(fetchNordPoolDA(),   20000),
     ]);
 
     if (s1Result.status === 'fulfilled') {
@@ -667,6 +757,7 @@ export default {
       console.error('[S4] cron failed:', s4Result.reason);
     }
 
+    // Write s3 first, then merge euribor in a second write if both succeed
     if (s3Result.status === 'fulfilled') {
       const d = s3Result.value;
       await env.KKME_SIGNALS.put('s3', JSON.stringify(d));
@@ -677,6 +768,28 @@ export default {
       }
     } else {
       console.error('[S3] cron failed:', s3Result.reason);
+    }
+
+    if (eurResult.status === 'fulfilled') {
+      const eur = eurResult.value;
+      await env.KKME_SIGNALS.put('euribor', JSON.stringify(eur));
+      console.log(`[Euribor] ${eur.euribor_3m}% trend=${eur.euribor_trend}`);
+      // Merge euribor into s3 KV if s3 also succeeded
+      if (s3Result.status === 'fulfilled') {
+        const merged = { ...s3Result.value, euribor_3m: eur.euribor_3m, euribor_trend: eur.euribor_trend };
+        await env.KKME_SIGNALS.put('s3', JSON.stringify(merged));
+      }
+    } else {
+      console.error('[Euribor] cron failed:', eurResult.reason);
+    }
+
+    if (npResult.status === 'fulfilled') {
+      const da = npResult.value;
+      await env.KKME_SIGNALS.put('da_tomorrow', JSON.stringify(da));
+      console.log(`[NP/DA] lt_avg=${da.lt_avg} lt_peak=${da.lt_peak} se4_avg=${da.se4_avg} spread=${da.spread_pct}%`);
+    } else {
+      // Non-fatal — da_tomorrow may be pushed by Mac cron (fetch-np-da.js, 13:00 UTC)
+      console.error('[NP/DA] cron failed (may be IP-blocked):', npResult.reason);
     }
 
     // S2 is populated by GitHub Action (fetch-btd.yml) at 05:30 UTC — not computed here
@@ -716,10 +829,12 @@ export default {
       try { body = await request.json(); } catch {
         return new Response(JSON.stringify({ error: 'Invalid JSON body' }), { status: 400, headers: { 'Content-Type': 'application/json', ...CORS } });
       }
-      const { reserves, direction, imbalance } = body;
+      const { reserves, direction, imbalance, ordered_price, ordered_mw } = body;
       const payload = s2ShapePayload(reserves ?? null, direction ?? null, imbalance ?? null);
+      if (ordered_price != null) payload.ordered_price = ordered_price;
+      if (ordered_mw    != null) payload.ordered_mw    = ordered_mw;
       await env.KKME_SIGNALS.put('s2', JSON.stringify(payload));
-      console.log(`[S2/update] ${payload.signal} fcr=${payload.fcr_avg} afrr_up=${payload.afrr_up_avg} pct_up=${payload.pct_up}`);
+      console.log(`[S2/update] ${payload.signal} fcr=${payload.fcr_avg} afrr_up=${payload.afrr_up_avg} pct_up=${payload.pct_up} ordered=${ordered_price ?? '—'}€/MW/h ${ordered_mw ?? '—'}MW`);
       return new Response(JSON.stringify(payload), { status: 200, headers: { 'Content-Type': 'application/json', ...CORS } });
     }
 
@@ -768,20 +883,79 @@ export default {
 
     // ── GET /s3 ──────────────────────────────────────────────────────────────
     if (request.method === 'GET' && url.pathname === '/s3') {
-      const cached = await env.KKME_SIGNALS.get('s3');
-      if (cached) {
-        return new Response(cached, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600', ...CORS } });
+      const [s3Raw, eurRaw] = await Promise.all([
+        env.KKME_SIGNALS.get('s3'),
+        env.KKME_SIGNALS.get('euribor'),
+      ]);
+      if (s3Raw) {
+        try {
+          const d = JSON.parse(s3Raw);
+          if (eurRaw) {
+            const eur = JSON.parse(eurRaw);
+            d.euribor_3m    = eur.euribor_3m    ?? null;
+            d.euribor_trend = eur.euribor_trend ?? null;
+          }
+          return new Response(JSON.stringify(d), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600', ...CORS } });
+        } catch { /* fall through to fresh compute */ }
       }
       const data = await computeS3();
       await env.KKME_SIGNALS.put('s3', JSON.stringify(data));
       return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json', ...CORS } });
     }
 
-    // ── GET /s4 ──────────────────────────────────────────────────────────────
-    if (request.method === 'GET' && url.pathname === '/s4') {
-      const cached = await env.KKME_SIGNALS.get('s4');
+    // ── GET /euribor ─────────────────────────────────────────────────────────
+    if (request.method === 'GET' && url.pathname === '/euribor') {
+      const cached = await env.KKME_SIGNALS.get('euribor');
       if (cached) {
         return new Response(cached, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600', ...CORS } });
+      }
+      try {
+        const data = await computeEuribor();
+        await env.KKME_SIGNALS.put('euribor', JSON.stringify(data));
+        return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json', ...CORS } });
+      } catch (err) {
+        return new Response(JSON.stringify({ error: String(err) }), { status: 500, headers: { 'Content-Type': 'application/json', ...CORS } });
+      }
+    }
+
+    // ── POST /s4/pipeline ────────────────────────────────────────────────────
+    // Mac cron (fetch-vert.js, monthly): VERT.lt permit pipeline metrics.
+    if (request.method === 'POST' && url.pathname === '/s4/pipeline') {
+      const secret = request.headers.get('X-Update-Secret');
+      if (!secret || secret !== env.UPDATE_SECRET) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json', ...CORS } });
+      }
+      let body;
+      try { body = await request.json(); } catch {
+        return new Response(JSON.stringify({ error: 'Invalid JSON body' }), { status: 400, headers: { 'Content-Type': 'application/json', ...CORS } });
+      }
+      await env.KKME_SIGNALS.put('s4_pipeline', JSON.stringify(body));
+      console.log(`[S4/pipeline] dev=${body.dev_total_mw}MW gen=${body.gen_total_mw}MW expiring2027=${body.dev_expiring_2027}MW`);
+      return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json', ...CORS } });
+    }
+
+    // ── GET /s4 ──────────────────────────────────────────────────────────────
+    if (request.method === 'GET' && url.pathname === '/s4') {
+      const [s4Raw, pipelineRaw] = await Promise.all([
+        env.KKME_SIGNALS.get('s4'),
+        env.KKME_SIGNALS.get('s4_pipeline'),
+      ]);
+      if (s4Raw) {
+        try {
+          const d = JSON.parse(s4Raw);
+          if (pipelineRaw) {
+            const p = JSON.parse(pipelineRaw);
+            d.pipeline = {
+              dev_total_mw:      p.dev_total_mw      ?? null,
+              gen_total_mw:      p.gen_total_mw      ?? null,
+              dev_velocity_3m:   p.dev_velocity_3m   ?? null,
+              dev_expiring_2027: p.dev_expiring_2027 ?? null,
+              top_projects:      p.top_projects      ?? [],
+              updated_at:        p.timestamp         ?? null,
+            };
+          }
+          return new Response(JSON.stringify(d), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600', ...CORS } });
+        } catch { /* fall through */ }
       }
       try {
         const data = await computeS4();
@@ -792,11 +966,66 @@ export default {
       }
     }
 
+    // ── GET /da_tomorrow ─────────────────────────────────────────────────────
+    // Cached DA prices for LT+SE4; populated by cron or POST /da_tomorrow/update
+    if (request.method === 'GET' && url.pathname === '/da_tomorrow') {
+      const cached = await env.KKME_SIGNALS.get('da_tomorrow');
+      if (cached) {
+        return new Response(cached, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600', ...CORS } });
+      }
+      try {
+        const data = await fetchNordPoolDA();
+        await env.KKME_SIGNALS.put('da_tomorrow', JSON.stringify(data));
+        return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json', ...CORS } });
+      } catch (err) {
+        return new Response(JSON.stringify({ error: String(err) }), { status: 500, headers: { 'Content-Type': 'application/json', ...CORS } });
+      }
+    }
+
+    // ── POST /da_tomorrow/update ─────────────────────────────────────────────
+    // Mac cron fallback: accepts raw { lt_prices, se4_prices } OR pre-computed metrics.
+    if (request.method === 'POST' && url.pathname === '/da_tomorrow/update') {
+      const secret = request.headers.get('X-Update-Secret');
+      if (!secret || secret !== env.UPDATE_SECRET) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json', ...CORS } });
+      }
+      let body;
+      try { body = await request.json(); } catch {
+        return new Response(JSON.stringify({ error: 'Invalid JSON body' }), { status: 400, headers: { 'Content-Type': 'application/json', ...CORS } });
+      }
+      let metrics;
+      if (Array.isArray(body.lt_prices) && Array.isArray(body.se4_prices)) {
+        metrics = npShapeMetrics(body.lt_prices, body.se4_prices);
+        if (!metrics) return new Response(JSON.stringify({ error: 'No valid price data' }), { status: 400, headers: { 'Content-Type': 'application/json', ...CORS } });
+      } else {
+        metrics = { lt_peak: body.lt_peak ?? null, lt_trough: body.lt_trough ?? null, lt_avg: body.lt_avg ?? null, se4_avg: body.se4_avg ?? null, spread_pct: body.spread_pct ?? null };
+      }
+      const payload = { ...metrics, delivery_date: body.delivery_date ?? null, timestamp: new Date().toISOString() };
+      await env.KKME_SIGNALS.put('da_tomorrow', JSON.stringify(payload));
+      console.log(`[NP/DA/update] lt_avg=${payload.lt_avg} lt_peak=${payload.lt_peak} spread=${payload.spread_pct}%`);
+      return new Response(JSON.stringify(payload), { status: 200, headers: { 'Content-Type': 'application/json', ...CORS } });
+    }
+
     // ── GET /read ────────────────────────────────────────────────────────────
     if (request.method === 'GET' && url.pathname === '/read') {
-      const raw = await env.KKME_SIGNALS.get('s1');
-      if (!raw) return new Response(JSON.stringify({ error: 'not yet populated' }), { status: 404, headers: { 'Content-Type': 'application/json', ...CORS } });
-      return new Response(raw, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=300', ...CORS } });
+      const [s1Raw, daRaw] = await Promise.all([
+        env.KKME_SIGNALS.get('s1'),
+        env.KKME_SIGNALS.get('da_tomorrow'),
+      ]);
+      if (!s1Raw) return new Response(JSON.stringify({ error: 'not yet populated' }), { status: 404, headers: { 'Content-Type': 'application/json', ...CORS } });
+      try {
+        const s1 = JSON.parse(s1Raw);
+        if (daRaw) {
+          const da = JSON.parse(daRaw);
+          s1.lt_tomorrow_peak      = da.lt_peak      ?? null;
+          s1.lt_tomorrow_avg       = da.lt_avg       ?? null;
+          s1.se4_tomorrow_avg      = da.se4_avg      ?? null;
+          s1.spread_tomorrow_pct   = da.spread_pct   ?? null;
+        }
+        return new Response(JSON.stringify(s1), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=300', ...CORS } });
+      } catch {
+        return new Response(s1Raw, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=300', ...CORS } });
+      }
     }
 
     // ── GET / — fresh S1 + write to KV ──────────────────────────────────────

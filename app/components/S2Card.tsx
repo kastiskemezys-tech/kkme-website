@@ -14,6 +14,8 @@ interface S2Signal {
   imbalance_mean: number | null;
   imbalance_p90:  number | null;
   pct_above_100:  number | null;
+  ordered_price?: number | null;
+  ordered_mw?:    number | null;
   signal: 'EARLY' | 'ACTIVE' | 'COMPRESSING';
   interpretation: string;
   source: string;
@@ -151,6 +153,14 @@ function LiveData({ data }: { data: S2Signal }) {
 
   return (
     <>
+      {/* Optional Litgrid tomorrow ordered line */}
+      {(data.ordered_price != null || data.ordered_mw != null) && (
+        <p style={{ ...MONO, fontSize: '0.575rem', color: text(0.3), letterSpacing: '0.06em', marginBottom: '1rem' }}>
+          Tomorrow ordered{data.ordered_price != null ? ` ${data.ordered_price} €/MW/h` : ''}
+          {data.ordered_mw != null ? ` · ${data.ordered_mw} MW` : ''}
+        </p>
+      )}
+
       {/* Large signal word */}
       <p style={{ ...MONO, fontWeight: 400, lineHeight: 1, letterSpacing: '0.04em', marginBottom: '0.5rem' }}>
         {data.unavailable ? (

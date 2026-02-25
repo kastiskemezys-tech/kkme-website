@@ -4,6 +4,15 @@ import { useEffect, useState, type CSSProperties } from 'react';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
+interface S4Pipeline {
+  dev_total_mw:      number | null;
+  gen_total_mw:      number | null;
+  dev_velocity_3m:   number | null;
+  dev_expiring_2027: number | null;
+  top_projects:      Array<{ company: string; mw: number; type: string }>;
+  updated_at:        string | null;
+}
+
 interface S4Signal {
   timestamp: string;
   free_mw: number;
@@ -12,6 +21,7 @@ interface S4Signal {
   utilisation_pct: number;
   signal: 'OPEN' | 'TIGHTENING' | 'SCARCE';
   interpretation: string;
+  pipeline?: S4Pipeline;
 }
 
 const SIGNAL_COLOR: Record<S4Signal['signal'], string> = {
@@ -25,6 +35,10 @@ const MONO: CSSProperties = { fontFamily: 'var(--font-mono)' };
 
 function formatMw(n: number): string {
   return n.toLocaleString('en-GB');
+}
+
+function fmw(n: number | null): string {
+  return n == null ? '—' : `${n.toLocaleString('en-GB')} MW`;
 }
 
 function formatTimestamp(iso: string): string {
@@ -180,6 +194,45 @@ function LiveData({ data }: { data: S4Signal }) {
           </div>
         ))}
       </div>
+
+      {/* Optional: VERT.lt permitted pipeline */}
+      {data.pipeline && (
+        <>
+          <div style={{ ...DIVIDER, marginBottom: '1.25rem' }} />
+
+          <p style={{ ...MONO, fontSize: '0.5rem', letterSpacing: '0.14em', color: text(0.25), textTransform: 'uppercase', marginBottom: '0.9rem' }}>
+            Permitted Pipeline
+          </p>
+
+          {/* Four pipeline metrics */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '0.4rem 1.25rem', marginBottom: '0.9rem', alignItems: 'baseline' }}>
+            <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase' }}>Dev total</p>
+            <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.55) }}>{fmw(data.pipeline.dev_total_mw)}</p>
+
+            <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase' }}>Gen total</p>
+            <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.55) }}>{fmw(data.pipeline.gen_total_mw)}</p>
+
+            <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase' }}>Velocity 3M</p>
+            <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.55) }}>
+              {data.pipeline.dev_velocity_3m != null ? `+${data.pipeline.dev_velocity_3m.toLocaleString('en-GB')} MW` : '—'}
+            </p>
+
+            <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase' }}>Expiring 2027</p>
+            <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.55) }}>{fmw(data.pipeline.dev_expiring_2027)}</p>
+          </div>
+
+          {/* Top 3 projects */}
+          {data.pipeline.top_projects.length > 0 && (
+            <div style={{ marginBottom: '1rem' }}>
+              {data.pipeline.top_projects.map((p, i) => (
+                <p key={i} style={{ ...MONO, fontSize: '0.575rem', color: text(0.35), lineHeight: 1.6 }}>
+                  · {p.company.slice(0, 36)} — {p.mw} MW
+                </p>
+              ))}
+            </div>
+          )}
+        </>
+      )}
 
       {/* Timestamp */}
       <time dateTime={data.timestamp} style={{ ...MONO, fontSize: '0.575rem', color: text(0.25), letterSpacing: '0.06em', display: 'block', textAlign: 'right' }}>

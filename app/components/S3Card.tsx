@@ -14,6 +14,8 @@ interface S3Signal {
   europe_system_usd_kwh: number;
   global_avg_usd_kwh:    number;
   ref_source:            string;
+  euribor_3m:            number | null;
+  euribor_trend:         '↓ falling' | '→ stable' | '↑ rising' | null;
   signal: 'COMPRESSING' | 'STABLE' | 'PRESSURE' | 'WATCH';
   interpretation: string;
   source: string;
@@ -136,14 +138,6 @@ const DIVIDER: CSSProperties = {
   width: '100%',
 };
 
-const COL_HEADER: CSSProperties = {
-  ...MONO as object,
-  fontSize: '0.5rem',
-  color: `rgba(232, 226, 217, 0.2)`,
-  letterSpacing: '0.1em',
-  textTransform: 'uppercase' as const,
-  marginBottom: '0.6rem',
-};
 
 function LiveData({ data }: { data: S3Signal }) {
   const signalColor = SIGNAL_COLOR[data.signal];
@@ -169,47 +163,22 @@ function LiveData({ data }: { data: S3Signal }) {
       {/* Divider */}
       <div style={{ ...DIVIDER, marginBottom: '1.25rem' }} />
 
-      {/* Two-column reference section */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '0.75rem' }}>
-        {/* Left: UPSTREAM */}
-        <div>
-          <p style={COL_HEADER}>Upstream</p>
-          <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.25), letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '0.15rem' }}>
-            Lithium
-          </p>
-          <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.6), marginBottom: '0.6rem' }}>
-            {data.lithium_trend} CNY/T
-          </p>
-          <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.25), letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '0.15rem' }}>
-            Cell est.
-          </p>
-          <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.6) }}>
-            {data.cell_eur_kwh_approx !== null ? `${data.cell_eur_kwh_approx} €/kWh` : '—'}
-          </p>
-        </div>
+      {/* Three-row cost stack: SYSTEM / FREIGHT / CAPITAL COST */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '0.45rem 1.25rem', marginBottom: '1.25rem', alignItems: 'baseline' }}>
+        <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.25), letterSpacing: '0.1em', textTransform: 'uppercase' }}>System</p>
+        <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.6) }}>
+          {data.lithium_trend}
+          {data.cell_rmb_wh !== null ? ` · ${data.cell_rmb_wh} RMB/Wh` : ''}
+        </p>
 
-        {/* Right: BENCHMARKS */}
-        <div>
-          <p style={COL_HEADER}>Benchmarks</p>
-          <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.25), letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '0.15rem' }}>
-            China
-          </p>
-          <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.6), marginBottom: '0.6rem' }}>
-            ${data.china_system_usd_kwh}/kWh system
-          </p>
-          <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.25), letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '0.15rem' }}>
-            Europe
-          </p>
-          <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.6) }}>
-            ${data.europe_system_usd_kwh}/kWh installed
-          </p>
-        </div>
+        <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.25), letterSpacing: '0.1em', textTransform: 'uppercase' }}>Freight</p>
+        <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.3) }}>—</p>
+
+        <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.25), letterSpacing: '0.1em', textTransform: 'uppercase' }}>Capital cost</p>
+        <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.6) }}>
+          {data.euribor_3m != null ? `${data.euribor_3m}% 3M Euribor` : '—'}
+        </p>
       </div>
-
-      {/* ref_source */}
-      <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.18), letterSpacing: '0.06em', marginBottom: '1.25rem' }}>
-        ref: {data.ref_source}
-      </p>
 
       {/* Timestamp */}
       <time dateTime={data.timestamp} style={{ ...MONO, fontSize: '0.575rem', color: text(0.25), letterSpacing: '0.06em', display: 'block', textAlign: 'right' }}>
