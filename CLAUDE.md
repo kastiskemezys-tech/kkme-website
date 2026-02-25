@@ -33,22 +33,24 @@ Full thesis: see KKME.md in this repo.
 ## Page structure (single page, top to bottom)
 1. KKME wordmark
 2. Statement — "Baltic energy infrastructure is mispriced. KKME tracks where."
-3. S1 — Baltic Price Separation (live)
-4. S4 — Grid Connection Scarcity (live)
-5. [S3 next] — Lithium Cell Price
-6. TechTracker
-7. CTASection
-8. Contact
+3. S1 — Baltic Price Separation
+4. S2 — Balancing Stack (BTD pipeline, metrics show — until BTD unblocks)
+5. S3 — Cell Cost Stack
+6. S4 — Grid Connection Scarcity
+7. TechTracker
+8. CTASection
+9. Contact
 
 ## The 5 signals
 - S1: Baltic Price Separation — ENTSO-E API, daily ✓ LIVE
-- S2: Balancing Market Tension — ENTSO-E A61 FCR-D, weekly
-- S3: Lithium Cell Price — Trading Economics scrape, weekly
-- S4: Grid Connection Scarcity — Litgrid FeatureServer/8, monthly ✓ LIVE
-- S5: DC Power Viability — DataCenterDynamics RSS, monthly
+- S2: Balancing Stack — BTD via GitHub Action 05:30 UTC; BTD currently blocks all automated IPs
+- S3: Cell Cost Stack — Trading Economics + InfoLink, daily ✓ LIVE (InfoLink optional)
+- S4: Grid Connection Scarcity — Litgrid FeatureServer/8, daily ✓ LIVE
+- S5: DC Power Viability — DataCenterDynamics RSS, monthly ← NEXT
 
 ## Data flow
-Cloudflare Worker (cron) → fetches APIs → writes to KV
+Cloudflare Worker (cron 06:00 UTC) → computes S1/S3/S4 → writes to KV
+GitHub Action (cron 05:30 UTC) → fetches BTD → writes S2 to KV via POST /s2/update
 Next.js static export → components fetch Worker endpoints directly from browser
 
 ## Build status
@@ -58,20 +60,24 @@ Next.js static export → components fetch Worker endpoints directly from browse
 [x] Step 4: S1 live — Baltic Price Separation (ENTSO-E A44, regime view)
 [x] Step 5: LLM digest skeleton (Worker endpoints live; UI stripped pending redesign)
 [x] S4 live — Grid Connection Scarcity (Litgrid FeatureServer)
-[x] S3 live — Lithium Cell Price (Trading Economics scrape, CNY/T)
-[x] S2 live — Balancing Market Tension (ENTSO-E A44 LT stdev proxy)
+[x] S3 live — Cell Cost Stack (TE lithium CNY/T + InfoLink + BNEF/Ember refs)
+[x] S2 live — Balancing Stack (GitHub Action → BTD → KV; all metrics null until BTD unblocks)
 [ ] S5 — DC Power Viability (DataCenterDynamics RSS) ← NEXT
 [ ] Telegram bot — dead code removed; planned but not yet built
 [ ] Step 8: Animation pass (do last)
 
-## S2 data source note
-- BTD API (api-baltic.transparency-dashboard.eu) blocks Cloudflare Worker IPs.
-  Serves decoy SPA HTML (200 OK, text/html) instead of JSON. No header combination
-  bypasses this — it is IP-level bot management, not a CORS issue.
-- Workaround: computeS2() uses ENTSO-E A44 LT 7-day spot price stdev as proxy.
-  High intraday spread ↔ balancing stress. Same signal direction, proven correlation.
-- If BTD is needed in future: proxy via a non-CF intermediary (e.g. Deno Deploy, Fly.io)
-  or use a scheduled task that runs from a whitelisted IP and writes to KV directly.
+## S2 data source — BTD blocking (current status)
+- BTD API (api-baltic.transparency-dashboard.eu) blocks ALL automated IPs at TCP level.
+  Confirmed blocked: Cloudflare Worker IPs (connection succeeds → decoy SPA HTML)
+  AND GitHub Actions IPs (connection timeout, TCP reset — more aggressive block).
+- GitHub Action fetch-btd.yml runs at 05:30 UTC and succeeds structurally.
+  All 3 BTD fetches fail → allSettled → pushes NORMAL/null payload to KV.
+  S2Card displays NORMAL with "—" for all metrics.
+- Pipeline is correct. When BTD eventually unblocks (or we route via residential proxy),
+  the column parsing code will pick up the data automatically.
+- To get real BTD data: run from a residential IP or a non-datacenter proxy.
+  Options: Fly.io (Bucharest edge, EU IP) · Oracle Free Tier · own VPS.
+  Alternative: BTD has a dashboard with manual CSV export — could seed S2 manually.
 
 ## Known issues / next session
 - www.kkme.eu not added as custom domain yet (only kkme.eu configured)
@@ -80,34 +86,37 @@ Next.js static export → components fetch Worker endpoints directly from browse
 - @cloudflare/next-on-pages doesn't support Next.js 16 yet; KV is read via
   Worker HTTP endpoints instead of getRequestContext(). Wire up properly
   when next-on-pages adds Next.js 16 support.
+- GitHub default branch changed from `dev` to `main` this session
+  (`dev` branch preserved but is 4 commits behind main)
 
 ## Cloudflare KV — deployed and wired
 - KV namespace: KKME_SIGNALS (id: 323b493a50764b24b88a8b4a5687a24b)
+- Worker secrets: ENTSOE_API_KEY · ANTHROPIC_API_KEY · UPDATE_SECRET
 - Worker: kkme-fetch-s1.kastis-kemezys.workers.dev — cron 06:00 UTC daily
   GET /              → fresh S1 fetch + KV write (manual trigger)
   GET /read          → cached S1 KV value (fetched by S1Card)
+  GET /s2            → cached S2 KV value (written by GitHub Action)
+  POST /s2/update    → write S2 payload to KV (X-Update-Secret required)
+  GET /s3            → cached S3 KV value; computes fresh if empty
   GET /s4            → cached S4 KV value; computes fresh if empty
-  GET /s3            → cached S3 KV value; computes fresh if empty (TODO)
   POST /curate       → store CurationEntry in KV
   GET /curations     → raw curation entries (last 7 days)
   GET /digest        → Anthropic haiku digest; cached 1h in KV
-  POST /telegram     → Telegram webhook (verified via X-Telegram-Bot-Api-Secret-Token)
-  POST /telegram/setup → register Telegram webhook (run once after deploy)
-- KV keys: s1 | s4 | s3 (todo) | curation:{id} | curations:index | digest:cache
-- Cron runs S1 + S4 in parallel via Promise.allSettled with 25s timeout each
+- KV keys: s1 | s2 | s3 | s4 | curation:{id} | curations:index | digest:cache
+- Cron runs S1/S3/S4 in parallel; S2 is written by GitHub Action fetch-btd.yml
 
-## Telegram curation bot
-Bot receives forwarded articles → Worker extracts title/tags/summary via Claude haiku →
-stores as CurationEntry in KV → appears in /digest automatically.
+## S3 signal states
+- COMPRESSING: lithium < 120k CNY/T → falling costs, build window
+- STABLE:      lithium 120-180k → predictable capex
+- PRESSURE:    lithium > 180k AND cell > 90 €/kWh → re-underwrite capex
+- WATCH:       lithium > 180k, cell unavailable → verify OEM quotes
+- InfoLink DC-side 2h ESS price (RMB/Wh): best-effort scrape; null if site unreachable
+- Static refs: China $73/kWh, Europe $177/kWh, Global avg $117/kWh (BNEF Dec 2025)
 
-Setup sequence (not yet done):
-  wrangler secret put TELEGRAM_BOT_TOKEN      ← BotFather token
-  wrangler secret put TELEGRAM_WEBHOOK_SECRET ← any strong random string
-  npx wrangler deploy
-  curl -X POST https://kkme-fetch-s1.kastis-kemezys.workers.dev/telegram/setup
-
-To verify webhook is registered:
-  curl https://api.telegram.org/bot{TOKEN}/getWebhookInfo
+## S2 signal states
+- DEEP:    fcr_avg > 8 €/MW/h → full balancing stack revenue, early-market depth
+- NORMAL:  fcr_avg 3-8 €/MW/h → standard revenue assumptions hold
+- SHALLOW: fcr_avg < 3 €/MW/h → market compressing, monitor saturation
 
 ## Rules for every session
 - Read this file first, read KKME.md for design/content decisions
