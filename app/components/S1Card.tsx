@@ -9,11 +9,16 @@ const STATE_COLOR: Record<SignalState, string> = {
   ACT:  '#9b3043',
 };
 
-const INTERPRETATION: Record<SignalState, string> = {
-  CALM:  'Market coupled. Cross-border capacity clearing. Monitor interconnector schedules.',
-  WATCH: 'Partial separation. Regime forming or dissolving. Check NordBalt capacity.',
-  ACT:   'Market separated. Island premium active. Flexibility stack revenue above baseline.',
-};
+function getInterpretation(state: SignalState, separationPct: number): string {
+  switch (state) {
+    case 'CALM':
+      return 'Market coupled. Cross-border capacity clearing. No separation premium.';
+    case 'WATCH':
+      return 'Partial separation forming. Check NordBalt capacity and Nordic wind before committing dispatch.';
+    case 'ACT':
+      return `LT is +${separationPct.toFixed(1)}% vs SE4 — coupling constraint regime. Capture available if you have dispatch freedom and SOC headroom.`;
+  }
+}
 
 const text = (opacity: number) => `rgba(232, 226, 217, ${opacity})`;
 const MONO: CSSProperties = { fontFamily: 'var(--font-mono)' };
@@ -134,7 +139,7 @@ const DIVIDER: CSSProperties = {
 
 function LiveData({ data }: { data: S1Signal }) {
   const stateColor = STATE_COLOR[data.state];
-  const interp     = INTERPRETATION[data.state];
+  const interp     = getInterpretation(data.state, data.separation_pct);
 
   // Regime metrics — safe fallback to '—' for old KV entries without historical data
   const rsi      = data.rsi_30d != null

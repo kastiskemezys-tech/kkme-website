@@ -1,4 +1,5 @@
 import { S1Card } from '@/app/components/S1Card';
+import { S4Card } from '@/app/components/S4Card';
 import { TechTracker } from '@/app/components/TechTracker';
 import { CTASection } from '@/app/components/CTASection';
 import { Contact } from '@/app/components/Contact';
@@ -45,18 +46,23 @@ export default function Home() {
         Baltic energy infrastructure is mispriced. KKME tracks where.
       </p>
 
-      {/* 3. S1 — live regime signal */}
+      {/* 3. S1 — Baltic Price Separation */}
       <ErrorBoundary>
         <S1Card />
       </ErrorBoundary>
 
-      {/* 4. Technology thesis */}
+      {/* 4. S4 — Grid Connection Scarcity */}
+      <ErrorBoundary>
+        <S4Card />
+      </ErrorBoundary>
+
+      {/* 5. Technology thesis */}
       <TechTracker />
 
-      {/* 5. CTA */}
+      {/* 6. CTA */}
       <CTASection />
 
-      {/* 6. Contact */}
+      {/* 7. Contact */}
       <Contact />
     </main>
   );

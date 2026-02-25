@@ -12,7 +12,7 @@ const ROWS: TechRow[] = [
   {
     name: 'BESS (Li-Ion)',
     conviction: 5,
-    note: 'Baltic balancing products opened post-sync — FCR, aFRR, mFRR, PICASSO, MARI. Early years structurally high value before saturation. Geography between cheap Nordic supply and expensive Poland creates repeatable spread. Full system ~€100/kWh delivered. IRR window is pre-2029.',
+    note: 'Lithuania is early in the post-sync balancing stack and flexibility isn\'t saturated yet — early assets capture outsized clearing prices before compression. Nordic–Poland price gradient plus local grid constraints keeps volatility and congestion value structurally present.',
   },
   {
     name: 'Grid-scale solar',
@@ -22,7 +22,7 @@ const ROWS: TechRow[] = [
   {
     name: 'DC infrastructure',
     conviction: 4,
-    note: 'KKME packages land, grid path, and capital structure. Deal form is firm capacity — availability SLA, not energy PPA. Small equity slice once offtake is signed.',
+    note: 'KKME turns a DC power need into an executable package: site, grid path, permits, capex and timeline — then supports offtake and contract closure.',
   },
   {
     name: 'Green hydrogen',
