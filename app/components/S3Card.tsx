@@ -6,10 +6,10 @@ const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
 interface S3Signal {
   timestamp: string;
-  lithium_cny_t:         number;
-  lithium_trend:         '↓ falling' | '→ stable' | '↑ rising';
-  cell_rmb_wh:           number | null;
-  cell_eur_kwh_approx:   number | null;
+  lithium_cny_t?:        number | null;
+  lithium_trend?:        '↓ falling' | '→ stable' | '↑ rising' | null;
+  cell_rmb_wh?:          number | null;
+  cell_eur_kwh_approx?:  number | null;
   china_system_usd_kwh:  number;
   europe_system_usd_kwh: number;
   global_avg_usd_kwh:    number;
@@ -167,8 +167,8 @@ function LiveData({ data }: { data: S3Signal }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '0.45rem 1.25rem', marginBottom: '1.25rem', alignItems: 'baseline' }}>
         <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.25), letterSpacing: '0.1em', textTransform: 'uppercase' }}>System</p>
         <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.6) }}>
-          {data.lithium_trend}
-          {data.cell_rmb_wh !== null ? ` · ${data.cell_rmb_wh} RMB/Wh` : ''}
+          {data.lithium_trend ?? '—'}
+          {data.cell_rmb_wh != null ? ` · ${data.cell_rmb_wh} RMB/Wh` : ''}
         </p>
 
         <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.25), letterSpacing: '0.1em', textTransform: 'uppercase' }}>Freight</p>
