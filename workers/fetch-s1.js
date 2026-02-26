@@ -644,6 +644,8 @@ function s2ShapePayload(reserves, direction, imbalance) {
   const fcrVals      = s2ExtractIdx(reserves, 10);  // FCR Symmetric
   const afrrUpVals   = s2ExtractIdx(reserves, 11);  // aFRR Upward
   const afrrDownVals = s2ExtractIdx(reserves, 12);  // aFRR Downward
+  const mfrrUpVals   = s2ExtractIdx(reserves, 13);  // mFRR Upward
+  const mfrrDownVals = s2ExtractIdx(reserves, 14);  // mFRR Downward
 
   // direction_of_balancing_v2: try timeseries first, then pattern fallback
   let dirVals = [];
@@ -668,6 +670,8 @@ function s2ShapePayload(reserves, direction, imbalance) {
   const fcr_avg       = s2r2(s2Mean(fcrVals));
   const afrr_up_avg   = s2r2(s2Mean(afrrUpVals));
   const afrr_down_avg = s2r2(s2Mean(afrrDownVals));
+  const mfrr_up_avg   = s2r2(s2Mean(mfrrUpVals));
+  const mfrr_down_avg = s2r2(s2Mean(mfrrDownVals));
   const pct_up        = dirVals.length ? s2r2(dirVals.filter(v => v > 0).length / dirVals.length * 100) : null;
   const pct_down      = dirVals.length ? s2r2(dirVals.filter(v => v < 0).length / dirVals.length * 100) : null;
   const imbalance_mean = s2r2(s2Mean(imbVals));
@@ -689,6 +693,8 @@ function s2ShapePayload(reserves, direction, imbalance) {
     fcr_avg,
     afrr_up_avg,
     afrr_down_avg,
+    mfrr_up_avg,
+    mfrr_down_avg,
     pct_up,
     pct_down,
     imbalance_mean,
@@ -700,6 +706,169 @@ function s2ShapePayload(reserves, direction, imbalance) {
       : S2_INTERPRETATION[signal](),
     source:          'baltic.transparency-dashboard.eu',
   };
+}
+
+// ─── Revenue Engine — JS mirror of app/lib/benchmarks.ts + revenueModel.ts ────
+// Worker can't import TS modules directly — math duplicated here.
+
+const BESS_WORKER = {
+  capex_per_mw: { h2: 525, h4: 805 }, // €k/MW (CH S1 2025, tier-1, 50 MW ref)
+  opex_pct_capex: 0.025,
+  aggregator_pct_revenue: 0.08,
+  availability: 0.97,
+  roundtrip_efficiency: 0.85,
+  project_life_years: 18,
+  ch_irr_central: { h2: 16.6, h4: 10.8 },
+  ch_irr_low:     { h2: 6,    h4: 6 },
+  ch_irr_high:    { h2: 31,   h4: 20 },
+  revenue_peak_note: 'aFRR/mFRR cannibalization begins 2029',
+  markets: [
+    { country: 'Lithuania',    flag: '🇱🇹', afrr_up_eur_mwh: null, mfrr_up_eur_mwh: null, da_spread_eur_mwh: null, capex_per_mw: 525, irr_central_pct: null, note: 'Post-sync anomaly — peak window 2025-28' },
+    { country: 'Great Britain', flag: '🇬🇧', afrr_up_eur_mwh: 14,   mfrr_up_eur_mwh: 10,   da_spread_eur_mwh: 55,  capex_per_mw: 580, irr_central_pct: 12,   note: 'Mature, BM + FFR products' },
+    { country: 'Ireland',       flag: '🇮🇪', afrr_up_eur_mwh: 18,   mfrr_up_eur_mwh: 14,   da_spread_eur_mwh: 48,  capex_per_mw: 560, irr_central_pct: 13,   note: 'DS3 + I-SEM, strong frequency market' },
+    { country: 'Italy',         flag: '🇮🇹', afrr_up_eur_mwh: 11,   mfrr_up_eur_mwh: 9,    da_spread_eur_mwh: 42,  capex_per_mw: 540, irr_central_pct: 10,   note: 'MSD balancing market' },
+    { country: 'Germany',       flag: '🇩🇪', afrr_up_eur_mwh: 8,    mfrr_up_eur_mwh: 7,    da_spread_eur_mwh: 38,  capex_per_mw: 530, irr_central_pct: 8,    note: 'FCR saturated, aFRR compressing' },
+    { country: 'Belgium',       flag: '🇧🇪', afrr_up_eur_mwh: 7,    mfrr_up_eur_mwh: 6,    da_spread_eur_mwh: 35,  capex_per_mw: 540, irr_central_pct: 7,    note: 'CRM capacity market support' },
+  ],
+};
+
+function computeRevenueWorker(prices, duration_h) {
+  const B = BESS_WORKER;
+  const key = `h${duration_h}`;
+  const capex = B.capex_per_mw[key] * 1000; // €/MW
+
+  // aFRR/mFRR sizing: 2h system → 0.5 MW per 1 MW installed; 4h → 1.0 MW
+  const afrr_mw_provided = duration_h === 2 ? 0.5 : 1.0;
+  const mfrr_mw_provided = duration_h === 2 ? 0.5 : 1.0;
+
+  const afrr_annual    = prices.afrr_up_avg    * 8760 * B.availability * afrr_mw_provided;
+  const mfrr_annual    = prices.mfrr_up_avg    * 8760 * B.availability * mfrr_mw_provided;
+  const trading_annual = prices.spread_eur_mwh * 365  * duration_h     * B.roundtrip_efficiency;
+  const gross_annual   = afrr_annual + mfrr_annual + trading_annual;
+
+  const opex_fixed      = capex       * B.opex_pct_capex;
+  const opex_aggregator = gross_annual * B.aggregator_pct_revenue;
+  const opex_total      = opex_fixed + opex_aggregator;
+  const net_annual      = gross_annual - opex_total;
+  const payback         = net_annual > 0 ? capex / net_annual : Infinity;
+
+  // IRR via NPV=0 binary search (18yr life, 8%/yr decay post year 3)
+  function npv(rate) {
+    let n = -capex;
+    for (let t = 1; t <= B.project_life_years; t++) {
+      const decay = t <= 3 ? 1.0 : Math.pow(0.92, t - 3);
+      n += (net_annual * decay) / Math.pow(1 + rate, t);
+    }
+    return n;
+  }
+  let lo = 0, hi = 5.0;
+  for (let i = 0; i < 60; i++) {
+    const mid = (lo + hi) / 2;
+    npv(mid) > 0 ? (lo = mid) : (hi = mid);
+  }
+  const irr = lo * 100;
+
+  const ch_central = B.ch_irr_central[key];
+  const ch_low     = B.ch_irr_low[key];
+  const ch_high    = B.ch_irr_high[key];
+  const irr_vs_ch  = irr > ch_central * 1.1 ? 'above' :
+                     irr < ch_central * 0.9 ? 'below' :
+                     'within range of';
+
+  return {
+    afrr_annual_per_mw:    Math.round(afrr_annual),
+    mfrr_annual_per_mw:    Math.round(mfrr_annual),
+    trading_annual_per_mw: Math.round(trading_annual),
+    gross_annual_per_mw:   Math.round(gross_annual),
+    opex_annual_per_mw:    Math.round(opex_total),
+    net_annual_per_mw:     Math.round(net_annual),
+    capex_per_mw:          Math.round(capex),
+    simple_payback_years:  Math.round(payback * 10) / 10,
+    irr_approx_pct:        Math.round(irr * 10) / 10,
+    irr_vs_ch_central:     irr_vs_ch,
+    ch_irr_central:        ch_central,
+    ch_irr_range:          `${ch_low}%–${ch_high}%`,
+    market_window_note:    B.revenue_peak_note,
+  };
+}
+
+function computeMarketComparisonWorker(liveLT) {
+  return BESS_WORKER.markets
+    .map((m) => {
+      const prices = {
+        afrr_up_avg:    m.afrr_up_eur_mwh   ?? liveLT.afrr_up_avg,
+        mfrr_up_avg:    m.mfrr_up_eur_mwh   ?? liveLT.mfrr_up_avg,
+        spread_eur_mwh: m.da_spread_eur_mwh ?? liveLT.spread_eur_mwh,
+        euribor_3m:     liveLT.euribor_3m,
+      };
+      const rev = computeRevenueWorker(prices, 2);
+      return {
+        country:           m.country,
+        flag:              m.flag,
+        irr_pct:           m.irr_central_pct ?? rev.irr_approx_pct,
+        net_annual_per_mw: rev.net_annual_per_mw,
+        capex_per_mw:      m.capex_per_mw * 1000,
+        note:              m.note,
+        is_live:           m.afrr_up_eur_mwh === null,
+      };
+    })
+    .sort((a, b) => b.irr_pct - a.irr_pct);
+}
+
+async function computeInterpretations(signals, revenue, anthropicKey) {
+  if (!anthropicKey) return null;
+  const { s1, s2, s3, s4 } = signals;
+  const { h2, h4 } = revenue;
+
+  const prompt = `You are a Baltic energy infrastructure analyst. Given live signal data and a revenue model output, provide a brief factual interpretation for each signal and a combined summary. Be specific. No filler sentences. Each sentence must carry new information.
+
+LIVE SIGNALS (${new Date().toISOString().slice(0, 10)}):
+
+S1 — Baltic Price Separation:
+  LT vs SE4: ${s1?.separation_pct ?? '—'}% (${s1?.state ?? '—'}) · LT avg ${s1?.lt_avg_eur_mwh ?? '—'} €/MWh · SE4 avg ${s1?.se4_avg_eur_mwh ?? '—'} €/MWh
+  30D rolling avg spread: ${s1?.rsi_30d ?? '—'} €/MWh · Trend vs 90D window: ${s1?.trend_vs_90d != null ? (s1.trend_vs_90d >= 0 ? '+' : '') + s1.trend_vs_90d : '—'} €/MWh
+
+S2 — Balancing Capacity Prices (BTD, last 7-day window):
+  FCR: ${s2?.fcr_avg ?? '—'} €/MW/h · aFRR up: ${s2?.afrr_up_avg ?? '—'} €/MW/h · mFRR up: ${s2?.mfrr_up_avg ?? '—'} €/MW/h
+  Signal: ${s2?.signal ?? '—'} (EARLY >50 · ACTIVE 15–50 · COMPRESSING <15 €/MW/h FCR)
+  FCR total Baltic market depth: 25 MW (all three countries combined — thin, premium-priced)
+
+S3 — Cell Cost Stack:
+  Lithium carbonate: ${s3?.lithium_eur_t != null ? `€${s3.lithium_eur_t}/t` : '—'} (${s3?.lithium_trend ?? '—'})
+  Cell price (DC-side 2h ESS): ${s3?.cell_eur_kwh != null ? `€${s3.cell_eur_kwh}/kWh` : '—'} · Signal: ${s3?.signal ?? '—'}
+
+S4 — Grid Connection Scarcity:
+  Free capacity: ${s4?.free_mw ?? '—'} MW · Connected: ${s4?.connected_mw ?? '—'} MW · Signal: ${s4?.signal ?? '—'}
+
+REVENUE MODEL (50 MW LFP, Lithuania, COD 2026, Clean Horizon S1 2025 reference):
+  2h BESS: Net €${h2.net_annual_per_mw}/MW/yr · CAPEX €${h2.capex_per_mw}/MW · Payback ${h2.simple_payback_years}yr · IRR ~${h2.irr_approx_pct}% (CH central ${h2.ch_irr_central}%, range ${h2.ch_irr_range})
+  4h BESS: Net €${h4.net_annual_per_mw}/MW/yr · CAPEX €${h4.capex_per_mw}/MW · Payback ${h4.simple_payback_years}yr · IRR ~${h4.irr_approx_pct}% (CH central ${h4.ch_irr_central}%, range ${h4.ch_irr_range})
+
+Return ONLY a JSON object with these keys — 1–2 sentences each, no markdown:
+{
+  "s1": "...",
+  "s2": "...",
+  "s3": "...",
+  "s4": "...",
+  "combined": "..."
+}`;
+
+  try {
+    const res = await fetch(ANTHROPIC_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 1024, messages: [{ role: 'user', content: prompt }] }),
+    });
+    if (!res.ok) { console.error(`[Interpretations] Anthropic HTTP ${res.status}`); return null; }
+    const data  = await res.json();
+    const text  = data.content?.[0]?.text ?? '';
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) return null;
+    return JSON.parse(match[0]);
+  } catch (err) {
+    console.error('[Interpretations] failed:', String(err));
+    return null;
+  }
 }
 
 // ─── Curation helpers ──────────────────────────────────────────────────────────
@@ -1054,6 +1223,67 @@ export default {
       await env.KKME_SIGNALS.put('da_tomorrow', JSON.stringify(payload));
       console.log(`[NP/DA/update] lt_avg=${payload.lt_avg} lt_peak=${payload.lt_peak} spread=${payload.spread_pct}%`);
       return new Response(JSON.stringify(payload), { status: 200, headers: { 'Content-Type': 'application/json', ...CORS } });
+    }
+
+    // ── GET /revenue ─────────────────────────────────────────────────────────
+    // Revenue engine: reads live KV signals, computes 2h+4h BESS model,
+    // EU market comparison, and LLM interpretation. Cached 4h in KV.
+    if (request.method === 'GET' && url.pathname === '/revenue') {
+      const cached = await env.KKME_SIGNALS.get('revenue');
+      if (cached) {
+        return new Response(cached, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=14400', ...CORS } });
+      }
+
+      const [s1Raw, s2Raw, s3Raw, s4Raw, eurRaw] = await Promise.all([
+        env.KKME_SIGNALS.get('s1'),
+        env.KKME_SIGNALS.get('s2'),
+        env.KKME_SIGNALS.get('s3'),
+        env.KKME_SIGNALS.get('s4'),
+        env.KKME_SIGNALS.get('euribor'),
+      ]);
+      const s1  = s1Raw  ? JSON.parse(s1Raw)  : null;
+      const s2  = s2Raw  ? JSON.parse(s2Raw)  : null;
+      const s3  = s3Raw  ? JSON.parse(s3Raw)  : null;
+      const s4  = s4Raw  ? JSON.parse(s4Raw)  : null;
+      const eur = eurRaw ? JSON.parse(eurRaw) : null;
+
+      // Build live price inputs — fallbacks to CH S1 2025 LT reference values
+      const prices = {
+        afrr_up_avg:    s2?.afrr_up_avg   ?? 20,   // €/MW/h
+        mfrr_up_avg:    s2?.mfrr_up_avg   ?? 15,   // €/MW/h
+        spread_eur_mwh: s1?.spread_eur_mwh ?? 15,  // €/MWh
+        euribor_3m:     eur?.euribor_3m   ?? 2.6,
+      };
+
+      const h2         = computeRevenueWorker(prices, 2);
+      const h4         = computeRevenueWorker(prices, 4);
+      const eu_ranking = computeMarketComparisonWorker(prices);
+
+      // LLM interpretation — best-effort, 10s budget
+      let interpretations = null;
+      try {
+        interpretations = await withTimeout(
+          computeInterpretations({ s1, s2, s3, s4 }, { h2, h4 }, env.ANTHROPIC_API_KEY),
+          10000,
+        );
+      } catch { /* serve without interpretation */ }
+
+      const payload = {
+        updated_at: new Date().toISOString(),
+        prices: {
+          afrr_up_avg:    prices.afrr_up_avg,
+          mfrr_up_avg:    prices.mfrr_up_avg,
+          spread_eur_mwh: prices.spread_eur_mwh,
+          euribor_3m:     prices.euribor_3m,
+        },
+        h2,
+        h4,
+        eu_ranking,
+        interpretations,
+      };
+      const json = JSON.stringify(payload);
+      await env.KKME_SIGNALS.put('revenue', json, { expirationTtl: 14400 });
+      return new Response(json, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=14400', ...CORS } });
     }
 
     // ── GET /read ────────────────────────────────────────────────────────────

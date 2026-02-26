@@ -9,6 +9,8 @@ interface S2Signal {
   fcr_avg:       number | null;
   afrr_up_avg:   number | null;
   afrr_down_avg: number | null;
+  mfrr_up_avg:   number | null;
+  mfrr_down_avg: number | null;
   pct_up:        number | null;
   pct_down:      number | null;
   imbalance_mean: number | null;
@@ -141,15 +143,23 @@ const DIVIDER: CSSProperties = {
   width: '100%',
 };
 
+function colorFcr(v: number | null): string {
+  if (v === null) return text(0.3);
+  if (v > 50) return 'rgba(74, 124, 89, 0.9)';
+  if (v > 15) return 'rgba(100, 160, 110, 0.75)';
+  if (v > 5)  return text(0.6);
+  return 'rgba(180, 140, 60, 0.85)';
+}
+
+function colorAfrr(v: number | null): string {
+  if (v === null) return text(0.3);
+  if (v > 15) return 'rgba(74, 124, 89, 0.9)';
+  if (v > 5)  return 'rgba(100, 160, 110, 0.75)';
+  return text(0.5);
+}
+
 function LiveData({ data }: { data: S2Signal }) {
   const signalColor = SIGNAL_COLOR[data.signal];
-
-  const metrics: [string, string][] = [
-    ['FCR',    `${fmt(data.fcr_avg)} €/MW/h`],
-    ['aFRR ↑', `${fmt(data.afrr_up_avg)} €/MW/h`],
-    ['Sys ↑↓', `${fmt(data.pct_up)}% ↑ / ${fmt(data.pct_down)}% ↓`],
-    ['P90',    `${fmt(data.imbalance_p90)} €/MWh`],
-  ];
 
   return (
     <>
@@ -161,15 +171,13 @@ function LiveData({ data }: { data: S2Signal }) {
         </p>
       )}
 
-      {/* Large signal word */}
-      <p style={{ ...MONO, fontWeight: 400, lineHeight: 1, letterSpacing: '0.04em', marginBottom: '0.5rem' }}>
-        {data.unavailable ? (
-          <span style={{ fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', color: text(0.15) }}>——————</span>
-        ) : (
-          <span style={{ fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', color: signalColor }}>
-            {data.signal}
-          </span>
-        )}
+      {/* FCR headline — primary data point */}
+      <p style={{ ...MONO, fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', fontWeight: 400, lineHeight: 1, letterSpacing: '0.04em', marginBottom: '0.3rem',
+        color: data.unavailable ? text(0.1) : colorFcr(data.fcr_avg) }}>
+        {data.unavailable ? '——————' : `${fmt(data.fcr_avg)} €/MW/h`}
+      </p>
+      <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
+        FCR clearing
       </p>
 
       {/* Signal badge */}
@@ -185,19 +193,29 @@ function LiveData({ data }: { data: S2Signal }) {
       {/* Divider */}
       <div style={{ ...DIVIDER, marginBottom: '1.25rem' }} />
 
-      {/* Four metrics */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '0.25rem', marginBottom: '1.5rem' }}>
-        {metrics.map(([label, value]) => (
+      {/* Capacity price metrics */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '0.25rem', marginBottom: '1rem' }}>
+        {([
+          ['FCR',      fmt(data.fcr_avg),      colorFcr(data.fcr_avg)],
+          ['aFRR ↑',   fmt(data.afrr_up_avg),  colorAfrr(data.afrr_up_avg)],
+          ['mFRR ↑',   fmt(data.mfrr_up_avg),  colorAfrr(data.mfrr_up_avg)],
+          ['P90 imb',  fmt(data.imbalance_p90), text(0.5)],
+        ] as [string, string, string][]).map(([label, value, color]) => (
           <div key={label}>
-            <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.25), letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.2rem' }}>
+            <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.2rem' }}>
               {label}
             </p>
-            <p style={{ ...MONO, fontSize: '0.6rem', color: text(0.6) }}>
+            <p style={{ ...MONO, fontSize: '0.6rem', color }}>
               {value}
             </p>
           </div>
         ))}
       </div>
+
+      {/* FCR market depth note */}
+      <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.06em', marginBottom: '1.25rem' }}>
+        FCR total Baltic market: 25 MW (all three countries) · Source: Clean Horizon S1 2025 p.29
+      </p>
 
       {/* Timestamp */}
       <time dateTime={data.timestamp} style={{ ...MONO, fontSize: '0.575rem', color: text(0.25), letterSpacing: '0.06em', display: 'block', textAlign: 'right' }}>

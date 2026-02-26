@@ -2,6 +2,7 @@ import { S1Card } from '@/app/components/S1Card';
 import { S2Card } from '@/app/components/S2Card';
 import { S3Card } from '@/app/components/S3Card';
 import { S4Card } from '@/app/components/S4Card';
+import { RevenueCard } from '@/app/components/RevenueCard';
 import { TechTracker } from '@/app/components/TechTracker';
 import { CTASection } from '@/app/components/CTASection';
 import { Contact } from '@/app/components/Contact';
@@ -68,13 +69,18 @@ export default function Home() {
         <S4Card />
       </ErrorBoundary>
 
-      {/* 7. Technology thesis */}
+      {/* 7. Revenue Engine */}
+      <ErrorBoundary>
+        <RevenueCard />
+      </ErrorBoundary>
+
+      {/* 8. Technology thesis */}
       <TechTracker />
 
-      {/* 8. CTA */}
+      {/* 9. CTA */}
       <CTASection />
 
-      {/* 9. Contact */}
+      {/* 10. Contact */}
       <Contact />
     </main>
   );
