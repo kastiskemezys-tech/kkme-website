@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, type CSSProperties } from 'react';
+import { lithiumColor } from './s3-utils';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
@@ -19,18 +20,11 @@ interface S3Signal {
   euribor_real_3m?:       number | null;
   hicp_yoy?:              number | null;
   euribor_trend:          '↓ falling' | '→ stable' | '↑ rising' | null;
-  signal: 'COMPRESSING' | 'STABLE' | 'PRESSURE' | 'WATCH';
+  signal: string;
   interpretation: string;
   source: string;
   unavailable?: boolean;
 }
-
-const SIGNAL_COLOR: Record<S3Signal['signal'], string> = {
-  COMPRESSING: 'rgba(74, 124, 89, 0.85)',
-  STABLE:      'rgba(100, 100, 140, 0.85)',
-  PRESSURE:    'rgba(155, 48, 67, 0.85)',
-  WATCH:       'rgba(180, 140, 60, 0.85)',
-};
 
 const text = (opacity: number) => `rgba(232, 226, 217, ${opacity})`;
 const MONO: CSSProperties = { fontFamily: 'var(--font-mono)' };
@@ -143,7 +137,7 @@ const DIVIDER: CSSProperties = {
 
 
 function LiveData({ data }: { data: S3Signal }) {
-  const signalColor = SIGNAL_COLOR[data.signal];
+  const signalColor = lithiumColor(data.signal);
   const nominal     = data.euribor_nominal_3m ?? data.euribor_3m;
   const real        = data.euribor_real_3m;
   const hicp        = data.hicp_yoy;
@@ -163,11 +157,6 @@ function LiveData({ data }: { data: S3Signal }) {
       </p>
       <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
         Li carbonate {data.lithium_trend ?? ''}
-      </p>
-
-      {/* Signal badge */}
-      <p style={{ ...MONO, fontSize: '0.625rem', letterSpacing: '0.18em', color: signalColor, textTransform: 'uppercase', marginBottom: '0.5rem' }}>
-        ● {data.signal}
       </p>
 
       {/* Interpretation */}

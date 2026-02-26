@@ -1,24 +1,8 @@
 'use client';
 
 import { useEffect, useState, type CSSProperties } from 'react';
-import type { S1Signal, SignalState } from '@/lib/signals/s1';
-
-const STATE_COLOR: Record<SignalState, string> = {
-  CALM: '#5a7d5e',
-  WATCH: '#b8863a',
-  ACT:  '#9b3043',
-};
-
-function getInterpretation(state: SignalState, separationPct: number): string {
-  switch (state) {
-    case 'CALM':
-      return 'Market coupled. Cross-border capacity clearing. No separation premium.';
-    case 'WATCH':
-      return 'Partial separation forming. Check NordBalt capacity and Nordic wind before committing dispatch.';
-    case 'ACT':
-      return `LT is +${separationPct.toFixed(1)}% vs SE4 — coupling constraint regime. Capture available if you have dispatch freedom and SOC headroom.`;
-  }
-}
+import type { S1Signal } from '@/lib/signals/s1';
+import { getInterpretation, spreadColor } from './s1-utils';
 
 const text = (opacity: number) => `rgba(232, 226, 217, ${opacity})`;
 const MONO: CSSProperties = { fontFamily: 'var(--font-mono)' };
@@ -138,8 +122,8 @@ const DIVIDER: CSSProperties = {
 };
 
 function LiveData({ data }: { data: S1Signal }) {
-  const stateColor = STATE_COLOR[data.state];
-  const interp     = getInterpretation(data.state, data.separation_pct);
+  const heroColor = spreadColor(data.spread_eur_mwh);
+  const interp    = getInterpretation(data.state, data.separation_pct);
 
   // Regime metrics — safe fallback to '—' for old KV entries without historical data
   const rsi      = data.rsi_30d != null
@@ -180,21 +164,17 @@ function LiveData({ data }: { data: S1Signal }) {
         </p>
       )}
 
-      {/* Today's spread — absolute €/MWh is the primary signal (% shown as context) */}
-      <p style={{ ...MONO, fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', fontWeight: 400, color: 'var(--text)', lineHeight: 1, letterSpacing: '-0.02em', marginBottom: '0.3rem' }}>
+      {/* Today's spread — €/MWh is primary, color reflects magnitude */}
+      <p style={{ ...MONO, fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', fontWeight: 400, color: heroColor, lineHeight: 1, letterSpacing: '-0.02em', marginBottom: '0.3rem' }}>
         {data.spread_eur_mwh >= 0 ? '+' : ''}{data.spread_eur_mwh.toFixed(1)}
         <span style={{ fontSize: '0.45em', marginLeft: '0.15em', opacity: 0.55 }}>€/MWh</span>
       </p>
-      <p style={{ ...MONO, fontSize: '0.55rem', color: text(0.3), letterSpacing: '0.08em', marginBottom: '0.75rem' }}>
+      <p style={{ ...MONO, fontSize: '0.55rem', color: text(0.3), letterSpacing: '0.08em', marginBottom: '0.75rem' }}
+         title="% unreliable when SE4 near zero — use €/MWh">
         {formatPct(data.separation_pct)}% vs SE4
         {data.lt_daily_swing_eur_mwh != null
           ? ` · swing ${data.lt_daily_swing_eur_mwh.toFixed(0)} €/MWh`
           : ''}
-      </p>
-
-      {/* State badge */}
-      <p style={{ ...MONO, fontSize: '0.625rem', letterSpacing: '0.18em', color: stateColor, textTransform: 'uppercase', marginBottom: '0.65rem' }}>
-        ● {data.state}
       </p>
 
       {/* Interpretation */}

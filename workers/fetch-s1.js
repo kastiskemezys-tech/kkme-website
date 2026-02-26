@@ -810,17 +810,22 @@ function s2ShapePayload(reserves, direction, imbalance) {
     signal = 'ACTIVE';
   }
 
-  // CVI — Capacity Value Index: revenue potential per MW of 2h BESS (theoretical max)
-  // Weights: aFRR (150 MW market) + mFRR (870 MW UP). FCR excluded — 25 MW market, saturating 2026.
+  // CVI — Capacity Value Index (per MW of installed battery power, 0.5 MW service each)
+  // Baltic prequalification: 2 MW power per 1 MW service → 0.5 MW per MW installed
+  // These are THEORETICAL MAXIMUMS if fully allocated to each market — actual dispatch lower.
+  const afrr_annual_per_mw_installed = afrr_up_avg !== null
+    ? Math.round(afrr_up_avg * 8760 * 0.97 * 0.5)
+    : null;
+  const mfrr_annual_per_mw_installed = mfrr_up_avg !== null
+    ? Math.round(mfrr_up_avg * 8760 * 0.97 * 0.5)
+    : null;
+  // Note: do NOT sum aFRR + mFRR — each MW is in ONE market per hour, not both simultaneously.
+  // Keep cvi_afrr/cvi_mfrr as separate full-allocation theoretical refs (for LLM context).
   const cvi_afrr_eur_mw_yr = afrr_up_avg !== null
     ? Math.round(afrr_up_avg * 8760 * 0.97)
     : null;
   const cvi_mfrr_eur_mw_yr = mfrr_up_avg !== null
     ? Math.round(mfrr_up_avg * 8760 * 0.97)
-    : null;
-  // 2h BESS provides 0.5 MW aFRR + 0.5 MW mFRR per 1 MW installed (2MW/4MWh constraint)
-  const stack_value_2h_eur_mw_yr = (cvi_afrr_eur_mw_yr !== null && cvi_mfrr_eur_mw_yr !== null)
-    ? Math.round((cvi_afrr_eur_mw_yr * 0.5) + (cvi_mfrr_eur_mw_yr * 0.5))
     : null;
 
   return {
@@ -835,9 +840,10 @@ function s2ShapePayload(reserves, direction, imbalance) {
     imbalance_mean,
     imbalance_p90,
     pct_above_100,
+    afrr_annual_per_mw_installed,
+    mfrr_annual_per_mw_installed,
     cvi_afrr_eur_mw_yr,
     cvi_mfrr_eur_mw_yr,
-    stack_value_2h_eur_mw_yr,
     stress_index_p90:           imbalance_p90,
     fcr_note:                   'FCR: 25MW Baltic market, saturating 2026',
     signal,
@@ -852,7 +858,8 @@ function s2ShapePayload(reserves, direction, imbalance) {
 // Worker can't import TS modules directly — math duplicated here.
 
 const BESS_WORKER = {
-  capex_per_mw: { h2: 525, h4: 805 }, // €k/MW (CH S1 2025, tier-1, 50 MW ref)
+  // Q1 2026: (83+28)€/kWh × duration_MWh/MW × 1000 + 35k€/MW fixed
+  capex_per_mw: { h2: 257, h4: 479 }, // €k/MW (Q1 2026: equipment €83/kWh + EPC €28/kWh + HV €35k/MW)
   opex_pct_capex: 0.025,
   aggregator_pct_revenue: 0.08,
   availability: 0.97,
@@ -863,7 +870,7 @@ const BESS_WORKER = {
   ch_irr_high:    { h2: 31,   h4: 20 },
   revenue_peak_note: 'aFRR/mFRR cannibalization begins 2029',
   markets: [
-    { country: 'Lithuania',    flag: '🇱🇹', afrr_up_eur_mwh: null, mfrr_up_eur_mwh: null, da_spread_eur_mwh: null, capex_per_mw: 525, irr_central_pct: null, note: 'Post-sync anomaly — peak window 2025-28' },
+    { country: 'Lithuania',    flag: '🇱🇹', afrr_up_eur_mwh: null, mfrr_up_eur_mwh: null, da_spread_eur_mwh: null, capex_per_mw: 257, irr_central_pct: null, note: 'Post-sync anomaly — peak window 2025-28' },
     { country: 'Great Britain', flag: '🇬🇧', afrr_up_eur_mwh: 14,   mfrr_up_eur_mwh: 10,   da_spread_eur_mwh: 55,  capex_per_mw: 580, irr_central_pct: 12,   note: 'Mature, BM + FFR products' },
     { country: 'Ireland',       flag: '🇮🇪', afrr_up_eur_mwh: 18,   mfrr_up_eur_mwh: 14,   da_spread_eur_mwh: 48,  capex_per_mw: 560, irr_central_pct: 13,   note: 'DS3 + I-SEM, strong frequency market' },
     { country: 'Italy',         flag: '🇮🇹', afrr_up_eur_mwh: 11,   mfrr_up_eur_mwh: 9,    da_spread_eur_mwh: 42,  capex_per_mw: 540, irr_central_pct: 10,   note: 'MSD balancing market' },
@@ -872,37 +879,50 @@ const BESS_WORKER = {
   ],
 };
 
-// Battery SOH fade + market saturation decay — mirrors revenueModel.ts
+// Battery SOH fade — mirrors revenueModel.ts
 const SOH_CURVE_W = [
   1.000, 0.989, 0.978, 0.967, 0.956,
   0.945, 0.934, 0.923, 0.912, 0.900,
   0.893, 0.886, 0.879, 0.872, 0.865,
   0.858, 0.851, 0.844,
 ];
+
+// Market saturation — CH S1 2025 central scenario (steep aFRR compression)
+const MARKET_DECAY_W = [
+  { capacity: 1.00, trading: 1.00 },
+  { capacity: 0.52, trading: 0.95 },
+  { capacity: 0.30, trading: 0.90 },
+  { capacity: 0.20, trading: 0.88 },
+  { capacity: 0.17, trading: 0.85 },
+  { capacity: 0.14, trading: 0.83 },
+  { capacity: 0.13, trading: 0.82 },
+  { capacity: 0.12, trading: 0.80 },
+];
 function marketDecayW(t) {
-  if (t <= 3) return 1.00;
-  if (t <= 5) return 1.00 - 0.07 * (t - 3);
-  if (t <= 8) return 0.86 - 0.07 * (t - 5);
-  return 0.65;
+  return MARKET_DECAY_W[Math.min(t - 1, MARKET_DECAY_W.length - 1)];
 }
+const CAPACITY_FRACTION_W = 0.65;
+const TRADING_FRACTION_W  = 0.35;
 
 function computeRevenueWorker(prices, duration_h) {
   const B = BESS_WORKER;
   const key = `h${duration_h}`;
   const capex = B.capex_per_mw[key] * 1000; // €/MW
 
-  // aFRR/mFRR sizing: 2h system → 0.5 MW per 1 MW installed; 4h → 1.0 MW
-  const afrr_mw_provided = duration_h === 2 ? 0.5 : 1.0;
-  const mfrr_mw_provided = duration_h === 2 ? 0.5 : 1.0;
+  // Baltic prequalification: 2 MW power per 1 MW service (binding = power constraint)
+  // 4h has more energy but same power rating → still 0.5 MW service per MW installed
+  const afrr_mw_provided = 0.5;
+  const mfrr_mw_provided = 0.5;
 
   const afrr_annual  = prices.afrr_up_avg * 8760 * B.availability * afrr_mw_provided;
   const mfrr_annual  = prices.mfrr_up_avg * 8760 * B.availability * mfrr_mw_provided;
 
-  // BUG 3 FIX: use intraday swing (not LT-SE4 coupling spread) for trading revenue
-  // BESS captures ~35% of theoretical daily swing × 1.5 cycles/day (CH methodology)
-  const capture_factor  = 0.35;
-  const trading_swing   = prices.lt_daily_swing_eur_mwh ?? prices.spread_eur_mwh;
-  const trading_annual  = trading_swing * capture_factor * B.cycles_per_day * 365 * duration_h * B.roundtrip_efficiency;
+  // Trading: 4h stores more energy → larger daily throughput
+  // Unit: €/MWh × MWh/MW × cycles/day × days/yr = €/MW/yr ✓
+  const capture_factor      = 0.35;
+  const duration_mwh_per_mw = duration_h;  // 2h → 2 MWh/MW; 4h → 4 MWh/MW
+  const trading_swing       = prices.lt_daily_swing_eur_mwh ?? prices.spread_eur_mwh;
+  const trading_annual      = trading_swing * capture_factor * B.cycles_per_day * 365 * duration_mwh_per_mw * B.roundtrip_efficiency;
 
   const gross_annual = afrr_annual + mfrr_annual + trading_annual;
 
@@ -912,13 +932,17 @@ function computeRevenueWorker(prices, duration_h) {
   const net_annual      = gross_annual - opex_total;
   const payback         = net_annual > 0 ? capex / net_annual : Infinity;
 
-  // IRR via NPV=0 binary search (18yr life, SOH fade × market saturation decay)
+  // IRR via NPV=0 binary search (18yr life, CH central scenario decay)
   function npv(rate) {
     let n = -capex;
     for (let t = 1; t <= B.project_life_years; t++) {
       const soh   = SOH_CURVE_W[Math.min(t - 1, SOH_CURVE_W.length - 1)];
-      const decay = soh * marketDecayW(t);
-      n += (net_annual * decay) / Math.pow(1 + rate, t);
+      const mkt   = marketDecayW(t);
+      const annual = net_annual * (
+        CAPACITY_FRACTION_W * mkt.capacity +
+        TRADING_FRACTION_W  * mkt.trading * soh
+      );
+      n += annual / Math.pow(1 + rate, t);
     }
     return n;
   }

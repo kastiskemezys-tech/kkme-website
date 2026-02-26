@@ -16,24 +16,19 @@ interface S2Signal {
   imbalance_mean: number | null;
   imbalance_p90:  number | null;
   pct_above_100:  number | null;
-  cvi_afrr_eur_mw_yr:      number | null;
-  cvi_mfrr_eur_mw_yr:      number | null;
-  stack_value_2h_eur_mw_yr: number | null;
-  stress_index_p90:         number | null;
+  afrr_annual_per_mw_installed: number | null;
+  mfrr_annual_per_mw_installed: number | null;
+  cvi_afrr_eur_mw_yr:           number | null;
+  cvi_mfrr_eur_mw_yr:           number | null;
+  stress_index_p90:             number | null;
   fcr_note?:               string;
   ordered_price?: number | null;
   ordered_mw?:    number | null;
-  signal: 'EARLY' | 'ACTIVE' | 'COMPRESSING';
+  signal: string;
   interpretation: string;
   source: string;
   unavailable?: boolean;
 }
-
-const SIGNAL_COLOR: Record<S2Signal['signal'], string> = {
-  EARLY:       'rgba(74, 124, 89, 0.85)',
-  ACTIVE:      'rgba(100, 100, 140, 0.85)',
-  COMPRESSING: 'rgba(180, 140, 60, 0.85)',
-};
 
 const text = (opacity: number) => `rgba(232, 226, 217, ${opacity})`;
 const MONO: CSSProperties = { fontFamily: 'var(--font-mono)' };
@@ -176,8 +171,6 @@ function fmtK(v: number | null): string {
 }
 
 function LiveData({ data }: { data: S2Signal }) {
-  const signalColor = SIGNAL_COLOR[data.signal];
-
   return (
     <>
       {/* Optional Litgrid tomorrow ordered line */}
@@ -188,18 +181,22 @@ function LiveData({ data }: { data: S2Signal }) {
         </p>
       )}
 
-      {/* PRIMARY: Balancing stack value (CVI 2h) */}
-      <p style={{ ...MONO, fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', fontWeight: 400, lineHeight: 1, letterSpacing: '0.04em', marginBottom: '0.3rem',
-        color: data.unavailable ? text(0.1) : colorStack(data.stack_value_2h_eur_mw_yr) }}>
-        {data.unavailable ? '——————' : fmtK(data.stack_value_2h_eur_mw_yr)}
-      </p>
-      <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
-        Balancing stack value / MW / yr (2h)
-      </p>
+      {/* PRIMARY: aFRR and mFRR capacity revenue — shown separately, not summed */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '0.4rem 1.25rem', marginBottom: '0.75rem', alignItems: 'baseline' }}>
+        <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase' }}>aFRR</p>
+        <p style={{ ...MONO, fontSize: 'clamp(1.2rem, 3vw, 1.8rem)', fontWeight: 400, color: data.unavailable ? text(0.1) : colorAfrr(data.afrr_up_avg), lineHeight: 1, letterSpacing: '0.02em' }}>
+          {data.unavailable ? '——' : fmtK(data.afrr_annual_per_mw_installed)}
+          <span style={{ fontSize: '0.45em', marginLeft: '0.15em', color: text(0.3) }}>/MW/yr</span>
+        </p>
 
-      {/* Signal badge */}
-      <p style={{ ...MONO, fontSize: '0.625rem', letterSpacing: '0.18em', color: signalColor, textTransform: 'uppercase', marginBottom: '0.5rem' }}>
-        ● {data.signal}
+        <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase' }}>mFRR</p>
+        <p style={{ ...MONO, fontSize: 'clamp(1.2rem, 3vw, 1.8rem)', fontWeight: 400, color: data.unavailable ? text(0.1) : colorAfrr(data.mfrr_up_avg), lineHeight: 1, letterSpacing: '0.02em' }}>
+          {data.unavailable ? '——' : fmtK(data.mfrr_annual_per_mw_installed)}
+          <span style={{ fontSize: '0.45em', marginLeft: '0.15em', color: text(0.3) }}>/MW/yr</span>
+        </p>
+      </div>
+      <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.06em', marginBottom: '1rem' }}>
+        Per MW installed power · 0.5 MW service (2 MW/MW prequalification) · theoretical max if fully allocated
       </p>
 
       {/* Interpretation */}
@@ -209,7 +206,7 @@ function LiveData({ data }: { data: S2Signal }) {
 
       <div style={{ ...DIVIDER, marginBottom: '1.25rem' }} />
 
-      {/* SECONDARY: aFRR / mFRR with CH benchmarks */}
+      {/* SECONDARY: spot rates + stress */}
       <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '0.4rem 1.25rem', marginBottom: '1rem', alignItems: 'baseline' }}>
         <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase' }}>aFRR ↑</p>
         <p style={{ ...MONO, fontSize: '0.6rem', color: colorAfrr(data.afrr_up_avg) }}>

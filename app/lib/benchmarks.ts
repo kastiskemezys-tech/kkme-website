@@ -3,14 +3,24 @@
 
 export const BENCHMARKS = {
   bess: {
-    // CAPEX (€k per MW installed, tier-1 supplier Q1 2025 Europe, 50 MW reference size)
-    // Source: CH report p.103
+    // CAPEX (Q1 2026 market pricing, Eastern Europe/Lithuania, 50 MW reference)
+    // Component breakdown:
+    //   Equipment (AC system, CATL/BYD, delivered EU): €83/kWh (Ember Oct 2025, BNEF 2025)
+    //   EPC + civil (Lithuania, lower than W. Europe): €28/kWh
+    //   HV substation + transformer + grid connection: €35k/MW (fixed per MW of power)
+    //   Total formula: (equipment + epc) × duration_mwh_per_mw × 1000 + hv_grid_fixed
+    //   2h: (83+28)×2000 + 35000 = €257k/MW
+    //   4h: (83+28)×4000 + 35000 = €479k/MW
+    // CH S1 2025 used €525k/MW (2h) — equipment costs fell ~40-50% through 2024-2025
     capex_per_mw: {
-      h1: 385,   // €385k/MW (50MW/50MWh)
-      h2: 525,   // €525k/MW (50MW/100MWh) ← OPTIMAL
-      h3: 665,   // €665k/MW (50MW/150MWh)
-      h4: 805,   // €805k/MW (50MW/200MWh)
+      h2: 257,   // €257k/MW (50MW/100MWh) ← PRIMARY
+      h4: 479,   // €479k/MW (50MW/200MWh)
     },
+
+    // Component costs for transparency
+    equipment_eur_per_kwh:    83,    // AC system, tier-1 (CATL/BYD)
+    epc_civil_eur_per_kwh:    28,    // EPC + civil, Lithuania
+    hv_grid_fixed_eur_per_mw: 35000, // fixed per MW of installed power
 
     // OPEX: 2.5% CAPEX/year + 8% revenues (aggregator)
     // Source: CH report p.104
@@ -67,7 +77,7 @@ export const BENCHMARKS = {
         afrr_up_eur_mwh: null as number | null,
         mfrr_up_eur_mwh: null as number | null,
         da_spread_eur_mwh: null as number | null,
-        capex_per_mw: 525,
+        capex_per_mw: 257,
         irr_central_pct: null as number | null,
         note: 'Post-sync anomaly — peak window 2025-28',
       },

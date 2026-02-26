@@ -46,15 +46,27 @@ const SOH_CURVE: readonly number[] = [
   0.858, 0.851, 0.844,                 // years 16–18
 ];
 
-// Market saturation decay — COD 2026 baseline
-// aFRR compresses starting 2029 (project year 4); mFRR starting 2031 (year 6)
-// Long-run equilibrium ~65% of peak (new market entrants absorb premium)
-function marketDecay(t: number): number {
-  if (t <= 3) return 1.00;
-  if (t <= 5) return 1.00 - 0.07 * (t - 3);  // 0.93, 0.86
-  if (t <= 8) return 0.86 - 0.07 * (t - 5);  // 0.79, 0.72, 0.65
-  return 0.65;
+// Market saturation schedule — Clean Horizon S1 2025 central scenario
+// Year 1 = COD year (current live prices as base); uses CURRENT prices as yr-1 anchor.
+// aFRR: €60→32→20→10→5/MW/h. mFRR compresses slower: 39→24→20→15→12.
+// Trading (DA spread) is more stable; compressed ~5%/yr as market deepens.
+const MARKET_DECAY_SCHEDULE: ReadonlyArray<{ capacity: number; trading: number }> = [
+  { capacity: 1.00, trading: 1.00 }, // yr 1: current prices
+  { capacity: 0.52, trading: 0.95 }, // yr 2: aFRR halves
+  { capacity: 0.30, trading: 0.90 }, // yr 3
+  { capacity: 0.20, trading: 0.88 }, // yr 4
+  { capacity: 0.17, trading: 0.85 }, // yr 5
+  { capacity: 0.14, trading: 0.83 }, // yr 6
+  { capacity: 0.13, trading: 0.82 }, // yr 7
+  { capacity: 0.12, trading: 0.80 }, // yr 8–18 stable
+];
+
+function marketDecay(t: number): { capacity: number; trading: number } {
+  return MARKET_DECAY_SCHEDULE[Math.min(t - 1, MARKET_DECAY_SCHEDULE.length - 1)];
 }
+
+const CAPACITY_FRACTION = 0.65;  // aFRR + mFRR share of net revenue
+const TRADING_FRACTION  = 0.35;  // DA + ID arbitrage share
 
 export function computeRevenue(
   prices: LivePrices,
@@ -64,21 +76,25 @@ export function computeRevenue(
   const key = `h${duration_h}` as 'h2' | 'h4';
   const capex = B.capex_per_mw[key] * 1000; // €/MW
 
-  // aFRR/mFRR: 2 MW power + 4 MWh capacity → 1 MW service
-  // With 1 MW installed: 2h system has 2 MWh → provides 0.5 MW; 4h → 4 MWh → 1 MW
-  const afrr_mw_provided = duration_h === 2 ? 0.5 : 1.0;
-  const mfrr_mw_provided = duration_h === 2 ? 0.5 : 1.0;
+  // Baltic prequalification binding constraint:
+  // 2 MW battery power + 4 MWh energy → 1 MW symmetric service
+  // Binding = min(power_MW/2, energy_MWh/4)
+  // For 1 MW installed power: power constraint = 1/2 = 0.5 MW (always binding)
+  // A 4h system has more energy but the SAME power rating → still 0.5 MW service
+  const afrr_mw_provided = 0.5;  // MW per MW installed power (both 2h and 4h)
+  const mfrr_mw_provided = 0.5;  // MW per MW installed power (both 2h and 4h)
 
   // Annual capacity revenue (€/MW/h × 8760h × availability × MW provided per MW installed)
   const afrr_annual = prices.afrr_up_avg * 8760 * B.availability * afrr_mw_provided;
   const mfrr_annual = prices.mfrr_up_avg * 8760 * B.availability * mfrr_mw_provided;
 
-  // Trading: intraday arbitrage on LT hourly swing (not the LT-SE4 coupling spread)
-  // BESS captures ~35% of theoretical daily swing (capture_factor per CH methodology)
-  // cycles_per_day × duration_h × MWh cycled × capture × efficiency
+  // Trading: intraday arbitrage on LT hourly swing
+  // 4h advantage: more MWh of storage to cycle → larger energy throughput
+  // Unit: €/MWh × MWh/MW × cycles/day × days/yr = €/MW/yr ✓
   const capture_factor = 0.35;
+  const duration_mwh_per_mw = duration_h;  // 2h → 2 MWh/MW; 4h → 4 MWh/MW
   const trading_swing = prices.lt_daily_swing_eur_mwh ?? prices.spread_eur_mwh;
-  const trading_annual = trading_swing * capture_factor * B.cycles_per_day * 365 * duration_h * B.roundtrip_efficiency;
+  const trading_annual = trading_swing * capture_factor * B.cycles_per_day * 365 * duration_mwh_per_mw * B.roundtrip_efficiency;
 
   const gross_annual = afrr_annual + mfrr_annual + trading_annual;
 
@@ -91,13 +107,20 @@ export function computeRevenue(
 
   const payback = net_annual > 0 ? capex / net_annual : Infinity;
 
-  // IRR via NPV=0 binary search (18yr life, SOH fade × market saturation decay)
+  // IRR via NPV=0 binary search (18yr life)
+  // Capacity revenue (aFRR+mFRR) compresses steeply per CH central scenario
+  // Trading revenue (DA arbitrage) compresses slowly
+  // SOH fade applies only to trading (energy-dependent); capacity priced on power
   function npv(rate: number): number {
     let n = -capex;
     for (let t = 1; t <= B.project_life_years; t++) {
       const soh   = SOH_CURVE[Math.min(t - 1, SOH_CURVE.length - 1)];
-      const decay = soh * marketDecay(t);
-      n += (net_annual * decay) / Math.pow(1 + rate, t);
+      const mkt   = marketDecay(t);
+      const annual = net_annual * (
+        CAPACITY_FRACTION * mkt.capacity +
+        TRADING_FRACTION  * mkt.trading * soh
+      );
+      n += annual / Math.pow(1 + rate, t);
     }
     return n;
   }
