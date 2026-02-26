@@ -6,15 +6,19 @@ const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
 interface S3Signal {
   timestamp: string;
-  lithium_eur_t?:        number | null;
-  lithium_trend?:        '↓ falling' | '→ stable' | '↑ rising' | null;
-  cell_eur_kwh?:         number | null;
-  china_system_eur_kwh:  number;
-  europe_system_eur_kwh: number;
-  global_avg_eur_kwh:    number;
-  ref_source:            string;
-  euribor_3m:            number | null;
-  euribor_trend:         '↓ falling' | '→ stable' | '↑ rising' | null;
+  lithium_eur_t?:         number | null;
+  lithium_trend?:         '↓ falling' | '→ stable' | '↑ rising' | null;
+  cell_eur_kwh?:          number | null;
+  china_system_eur_kwh:   number;
+  europe_system_eur_kwh:  number;
+  global_avg_eur_kwh:     number;
+  ref_source:             string;
+  // Euribor — nominal (project finance input) vs real (context)
+  euribor_3m:             number | null;   // alias for euribor_nominal_3m
+  euribor_nominal_3m?:    number | null;
+  euribor_real_3m?:       number | null;
+  hicp_yoy?:              number | null;
+  euribor_trend:          '↓ falling' | '→ stable' | '↑ rising' | null;
   signal: 'COMPRESSING' | 'STABLE' | 'PRESSURE' | 'WATCH';
   interpretation: string;
   source: string;
@@ -140,45 +144,84 @@ const DIVIDER: CSSProperties = {
 
 function LiveData({ data }: { data: S3Signal }) {
   const signalColor = SIGNAL_COLOR[data.signal];
+  const nominal     = data.euribor_nominal_3m ?? data.euribor_3m;
+  const real        = data.euribor_real_3m;
+  const hicp        = data.hicp_yoy;
+
+  // Turnkey installed cost: €525k/MW ÷ 2h = €262.5/kWh (from CH S1 2025)
+  const turnkey_eur_kwh = 262.5;
 
   return (
     <>
-      {/* Large signal word */}
-      <p style={{ ...MONO, fontWeight: 400, lineHeight: 1, letterSpacing: '0.04em', marginBottom: '0.5rem' }}>
-        {data.unavailable ? (
-          <span style={{ fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', color: text(0.15) }}>——————</span>
-        ) : (
-          <span style={{ fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', color: signalColor }}>
-            {data.signal}
-          </span>
-        )}
+      {/* Lithium — headline */}
+      <p style={{ ...MONO, fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', fontWeight: 400, lineHeight: 1, letterSpacing: '0.04em', marginBottom: '0.3rem',
+        color: data.unavailable ? text(0.1) : signalColor }}>
+        {data.unavailable ? '——————'
+          : data.lithium_eur_t != null
+            ? `€${Math.round(data.lithium_eur_t / 1000)}k/t`
+            : '—'}
+      </p>
+      <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
+        Li carbonate {data.lithium_trend ?? ''}
+      </p>
+
+      {/* Signal badge */}
+      <p style={{ ...MONO, fontSize: '0.625rem', letterSpacing: '0.18em', color: signalColor, textTransform: 'uppercase', marginBottom: '0.5rem' }}>
+        ● {data.signal}
       </p>
 
       {/* Interpretation */}
-      <p style={{ ...MONO, fontSize: '0.6rem', color: text(0.35), lineHeight: 1.5, marginBottom: '1.5rem' }}>
-        {data.interpretation}
+      <p style={{ ...MONO, fontSize: '0.6rem', color: data.unavailable ? text(0.2) : text(0.35), lineHeight: 1.5, marginBottom: '1.5rem' }}>
+        {data.unavailable ? 'Interpretation unavailable — feed incomplete.' : data.interpretation}
       </p>
 
-      {/* Divider */}
       <div style={{ ...DIVIDER, marginBottom: '1.25rem' }} />
 
-      {/* Three-row cost stack: SYSTEM / FREIGHT / CAPITAL COST */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '0.45rem 1.25rem', marginBottom: '1.25rem', alignItems: 'baseline' }}>
-        <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.25), letterSpacing: '0.1em', textTransform: 'uppercase' }}>System</p>
+      {/* CAPEX dual tracks */}
+      <p style={{ ...MONO, fontSize: '0.5rem', letterSpacing: '0.14em', color: text(0.25), textTransform: 'uppercase', marginBottom: '0.75rem' }}>
+        CAPEX tracks
+      </p>
+      <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '0.4rem 1.25rem', marginBottom: '0.5rem', alignItems: 'baseline' }}>
+        <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase' }}>Equipment DC</p>
         <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.6) }}>
-          {data.lithium_trend ?? '—'}
-          {data.lithium_eur_t != null ? ` · €${data.lithium_eur_t.toLocaleString('en-GB')}/t` : ''}
-          {data.cell_eur_kwh != null ? ` · €${data.cell_eur_kwh}/kWh` : ''}
+          {data.europe_system_eur_kwh != null ? `€${data.europe_system_eur_kwh}/kWh` : '—'}
+          <span style={{ color: text(0.3) }}> (containers/cells)</span>
         </p>
 
-        <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.25), letterSpacing: '0.1em', textTransform: 'uppercase' }}>Freight</p>
-        <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.3) }}>—</p>
-
-        <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.25), letterSpacing: '0.1em', textTransform: 'uppercase' }}>Capital cost</p>
+        <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase' }}>Turnkey AC 2h</p>
         <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.6) }}>
-          {data.euribor_3m != null ? `${data.euribor_3m}% 3M Euribor` : '—'}
+          €{turnkey_eur_kwh}/kWh
+          <span style={{ color: text(0.3) }}> (CH S1 2025)</span>
         </p>
       </div>
+      <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.06em', marginBottom: '1.25rem' }}>
+        Turnkey includes BOS, civil, grid, HV: ~+€125k/MW vs equipment
+      </p>
+
+      <div style={{ ...DIVIDER, marginBottom: '1.25rem' }} />
+
+      {/* Euribor tracks — nominal is finance input, real is context */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '0.4rem 1.25rem', marginBottom: '1.25rem', alignItems: 'baseline' }}>
+        <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase' }}>Euribor 3M</p>
+        <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.6) }}>
+          {nominal != null ? `${nominal}%` : '—'}
+          <span style={{ color: text(0.3) }}> nominal (finance input)</span>
+        </p>
+
+        <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase' }}>HICP YoY</p>
+        <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.55) }}>
+          {hicp != null ? `${hicp}%` : '—'}
+        </p>
+
+        <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase' }}>Real rate</p>
+        <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.4) }}>
+          {real != null ? `${real}%` : '—'}
+          <span style={{ color: text(0.2) }}> (context)</span>
+        </p>
+      </div>
+      <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.06em', marginBottom: '1.25rem' }}>
+        IRR model uses fixed 10% discount rate (CH S1 2025 convention)
+      </p>
 
       {/* Timestamp */}
       <time dateTime={data.timestamp} style={{ ...MONO, fontSize: '0.575rem', color: text(0.25), letterSpacing: '0.06em', display: 'block', textAlign: 'right' }}>

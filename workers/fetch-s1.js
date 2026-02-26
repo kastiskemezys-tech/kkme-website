@@ -177,14 +177,34 @@ async function computeS1(env) {
   const ltAvg  = avg(ltPrices);
   const se4Avg = avg(se4Prices);
   const spread = ltAvg - se4Avg;
-  const separationPct = se4Avg !== 0 ? (spread / se4Avg) * 100 : 0;
+
+  // BUG 2 FIX: guard against near-zero or negative SE4 (explodes % when SE4 < €10)
+  const separationPct = (spread / Math.max(Math.abs(se4Avg), 10)) * 100;
+
+  // Intraday swing: max - min of LT hourly prices (arbitrage window for trading revenue)
+  const lt_daily_swing_eur_mwh = ltPrices.length >= 2
+    ? Math.round((Math.max(...ltPrices) - Math.min(...ltPrices)) * 100) / 100
+    : null;
+
+  // Evening premium: mean(LT h17-21) - mean(LT h10-14) — peak vs shoulder
+  const ltEvening  = ltPrices.slice(17, 22);   // hours 17,18,19,20,21
+  const ltShoulder = ltPrices.slice(10, 15);   // hours 10,11,12,13,14
+  const lt_evening_premium = (ltEvening.length && ltShoulder.length)
+    ? Math.round((avg(ltEvening) - avg(ltShoulder)) * 100) / 100
+    : null;
+
+  console.log(`[S1] coupling_spread=${Math.round(spread*100)/100}€/MWh intraday_swing=${lt_daily_swing_eur_mwh}€/MWh evening_premium=${lt_evening_premium}€/MWh`);
+  if (lt_daily_swing_eur_mwh !== null && lt_daily_swing_eur_mwh < spread) {
+    console.warn(`[S1] WARNING: swing (${lt_daily_swing_eur_mwh}) < coupling spread (${Math.round(spread*100)/100}) — unusual`);
+  }
 
   // DA tomorrow — populated only after ENTSO-E publishes (~13:00 CET)
   let da_tomorrow = null;
   if (ltTomorrow.length && se4Tomorrow.length) {
     const ltTomAvg  = avg(ltTomorrow);
     const se4TomAvg = avg(se4Tomorrow);
-    const tomSpreadPct = se4TomAvg !== 0 ? ((ltTomAvg - se4TomAvg) / se4TomAvg) * 100 : 0;
+    // BUG 1 FIX: use tomorrow variables in denominator; guard against near-zero SE4
+    const tomSpreadPct = (ltTomAvg - se4TomAvg) / Math.max(Math.abs(se4TomAvg), 10) * 100;
     const tomDate = new Date();
     tomDate.setUTCDate(tomDate.getUTCDate() + 1);
     da_tomorrow = {
@@ -203,16 +223,60 @@ async function computeS1(env) {
   return {
     signal: 'S1',
     name: 'Baltic Price Separation',
-    lt_avg_eur_mwh:      Math.round(ltAvg * 100) / 100,
-    se4_avg_eur_mwh:     Math.round(se4Avg * 100) / 100,
-    spread_eur_mwh:      Math.round(spread * 100) / 100,
-    separation_pct:      Math.round(separationPct * 10) / 10,
+    lt_avg_eur_mwh:            Math.round(ltAvg * 100) / 100,
+    se4_avg_eur_mwh:           Math.round(se4Avg * 100) / 100,
+    spread_eur_mwh:            Math.round(spread * 100) / 100,
+    separation_pct:            Math.round(separationPct * 10) / 10,
+    lt_daily_swing_eur_mwh,
+    lt_evening_premium,
     state: signalState(separationPct),
     updated_at: new Date().toISOString(),
     lt_hours:  ltPrices.length,
     se4_hours: se4Prices.length,
     da_tomorrow,
     ...historical,
+  };
+}
+
+// ─── S1 Rolling History (90-day KV store) ─────────────────────────────────────
+
+const HISTORY_KEY = 's1_history';
+const MAX_HISTORY = 90; // days
+
+async function updateHistory(env, todayEntry) {
+  let history = [];
+  try {
+    const raw = await env.KKME_SIGNALS.get(HISTORY_KEY);
+    if (raw) history = JSON.parse(raw);
+  } catch { /* start fresh */ }
+
+  history.push({
+    date:       todayEntry.updated_at.split('T')[0],
+    spread_eur: todayEntry.spread_eur_mwh,
+    spread_pct: todayEntry.separation_pct,
+    lt_swing:   todayEntry.lt_daily_swing_eur_mwh,
+  });
+
+  if (history.length > MAX_HISTORY) history = history.slice(-MAX_HISTORY);
+
+  await env.KKME_SIGNALS.put(HISTORY_KEY, JSON.stringify(history));
+  return history;
+}
+
+function rollingStats(history, field) {
+  const vals = history
+    .map(h => h[field])
+    .filter(v => v != null)
+    .sort((a, b) => a - b);
+  if (!vals.length) return null;
+  const p = (pct) => vals[Math.floor(vals.length * pct)] ?? vals[vals.length - 1];
+  return {
+    p25: Math.round(p(0.25) * 100) / 100,
+    p50: Math.round(p(0.50) * 100) / 100,
+    p75: Math.round(p(0.75) * 100) / 100,
+    p90: Math.round(p(0.90) * 100) / 100,
+    n:   vals.length,
+    days_of_data: vals.length,
   };
 }
 
@@ -546,19 +610,77 @@ async function fetchNordPoolDA() {
   }
 }
 
-// ─── Euribor ───────────────────────────────────────────────────────────────────
-// ECB Statistical Data Warehouse — 3M Euribor (FM dataset)
+// ─── Euribor + HICP ────────────────────────────────────────────────────────────
+// ECB Data Portal — nominal 3M Euribor (FM dataset) + HICP YoY inflation
+
+// ECB series keys:
+//   Nominal 3M Euribor: FM.M.U2.EUR.RT0.MM.EURIBOR3MD_.HSTA
+//   HICP inflation YoY: ICP.M.U2.N.000000.4.ANR
+const ECB_EURIBOR_NOMINAL_URL = 'https://data-api.ecb.europa.eu/service/data/FM.M.U2.EUR.RT0.MM.EURIBOR3MD_.HSTA?lastNObservations=3&format=jsondata';
+const ECB_HICP_URL            = 'https://data-api.ecb.europa.eu/service/data/ICP.M.U2.N.000000.4.ANR?lastNObservations=3&format=jsondata';
+
+function ecbExtractLastValue(json) {
+  try {
+    const obs = json?.dataSets?.[0]?.series?.['0:0:0:0:0:0']?.observations
+             ?? json?.dataSets?.[0]?.series?.['0:0:0:0:0']?.observations
+             ?? json?.dataSets?.[0]?.series?.['0:0:0:0:0:0:0']?.observations;
+    if (!obs) return null;
+    const keys = Object.keys(obs).map(Number).sort((a, b) => b - a);
+    const val  = obs[keys[0]]?.[0];
+    return val != null && !isNaN(+val) ? Math.round(+val * 100) / 100 : null;
+  } catch { return null; }
+}
 
 async function computeEuribor() {
-  // Static reference value — live ECB fetch pending (correct key: M.U2.EUR.4F.MM.R_EURIBOR3MD_.HSTA)
-  return {
-    euribor_3m:    2.6,
-    euribor_prev:  2.7,
-    euribor_trend: '↓ falling',
-    note:          'Static ref — ECB API integration pending',
-    source:        'manual',
-    timestamp:     new Date().toISOString(),
-  };
+  const FALLBACK = { euribor_nominal_3m: 2.6, hicp_yoy: 2.4 };
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 12000);
+    const [eurRes, hicpRes] = await Promise.allSettled([
+      fetch(ECB_EURIBOR_NOMINAL_URL, { signal: controller.signal }),
+      fetch(ECB_HICP_URL,            { signal: controller.signal }),
+    ]);
+    clearTimeout(timer);
+
+    let euribor_nominal_3m = FALLBACK.euribor_nominal_3m;
+    let hicp_yoy           = FALLBACK.hicp_yoy;
+    let source             = 'fallback';
+
+    if (eurRes.status === 'fulfilled' && eurRes.value.ok) {
+      const val = ecbExtractLastValue(await eurRes.value.json());
+      if (val !== null) { euribor_nominal_3m = val; source = 'ecb-live'; }
+    }
+    if (hicpRes.status === 'fulfilled' && hicpRes.value.ok) {
+      const val = ecbExtractLastValue(await hicpRes.value.json());
+      if (val !== null) { hicp_yoy = val; }
+    }
+
+    const euribor_real_3m   = Math.round((euribor_nominal_3m - hicp_yoy) * 100) / 100;
+    const euribor_trend     = euribor_nominal_3m < 2.7 ? '↓ falling' : euribor_nominal_3m > 3.0 ? '↑ rising' : '→ stable';
+
+    console.log(`[Euribor] nominal=${euribor_nominal_3m}% hicp=${hicp_yoy}% real=${euribor_real_3m}% source=${source}`);
+    return {
+      euribor_nominal_3m,
+      euribor_3m:      euribor_nominal_3m,  // alias for backward compat
+      euribor_real_3m,
+      hicp_yoy,
+      euribor_trend,
+      source,
+      timestamp: new Date().toISOString(),
+    };
+  } catch (err) {
+    console.error('[Euribor] fetch failed, using fallback:', String(err));
+    const { euribor_nominal_3m, hicp_yoy } = FALLBACK;
+    return {
+      euribor_nominal_3m,
+      euribor_3m:      euribor_nominal_3m,
+      euribor_real_3m: Math.round((euribor_nominal_3m - hicp_yoy) * 100) / 100,
+      hicp_yoy,
+      euribor_trend:   '↓ falling',
+      source:          'fallback',
+      timestamp:       new Date().toISOString(),
+    };
+  }
 }
 
 // ─── S2 — Balancing Stack ───────────────────────────────────────────────────────
@@ -688,8 +810,21 @@ function s2ShapePayload(reserves, direction, imbalance) {
     signal = 'ACTIVE';
   }
 
+  // CVI — Capacity Value Index: revenue potential per MW of 2h BESS (theoretical max)
+  // Weights: aFRR (150 MW market) + mFRR (870 MW UP). FCR excluded — 25 MW market, saturating 2026.
+  const cvi_afrr_eur_mw_yr = afrr_up_avg !== null
+    ? Math.round(afrr_up_avg * 8760 * 0.97)
+    : null;
+  const cvi_mfrr_eur_mw_yr = mfrr_up_avg !== null
+    ? Math.round(mfrr_up_avg * 8760 * 0.97)
+    : null;
+  // 2h BESS provides 0.5 MW aFRR + 0.5 MW mFRR per 1 MW installed (2MW/4MWh constraint)
+  const stack_value_2h_eur_mw_yr = (cvi_afrr_eur_mw_yr !== null && cvi_mfrr_eur_mw_yr !== null)
+    ? Math.round((cvi_afrr_eur_mw_yr * 0.5) + (cvi_mfrr_eur_mw_yr * 0.5))
+    : null;
+
   return {
-    timestamp:       new Date().toISOString(),
+    timestamp:                  new Date().toISOString(),
     fcr_avg,
     afrr_up_avg,
     afrr_down_avg,
@@ -700,6 +835,11 @@ function s2ShapePayload(reserves, direction, imbalance) {
     imbalance_mean,
     imbalance_p90,
     pct_above_100,
+    cvi_afrr_eur_mw_yr,
+    cvi_mfrr_eur_mw_yr,
+    stack_value_2h_eur_mw_yr,
+    stress_index_p90:           imbalance_p90,
+    fcr_note:                   'FCR: 25MW Baltic market, saturating 2026',
     signal,
     interpretation:  signal === 'EARLY'
       ? S2_INTERPRETATION.EARLY(fcr_avg)
@@ -732,6 +872,20 @@ const BESS_WORKER = {
   ],
 };
 
+// Battery SOH fade + market saturation decay — mirrors revenueModel.ts
+const SOH_CURVE_W = [
+  1.000, 0.989, 0.978, 0.967, 0.956,
+  0.945, 0.934, 0.923, 0.912, 0.900,
+  0.893, 0.886, 0.879, 0.872, 0.865,
+  0.858, 0.851, 0.844,
+];
+function marketDecayW(t) {
+  if (t <= 3) return 1.00;
+  if (t <= 5) return 1.00 - 0.07 * (t - 3);
+  if (t <= 8) return 0.86 - 0.07 * (t - 5);
+  return 0.65;
+}
+
 function computeRevenueWorker(prices, duration_h) {
   const B = BESS_WORKER;
   const key = `h${duration_h}`;
@@ -741,10 +895,16 @@ function computeRevenueWorker(prices, duration_h) {
   const afrr_mw_provided = duration_h === 2 ? 0.5 : 1.0;
   const mfrr_mw_provided = duration_h === 2 ? 0.5 : 1.0;
 
-  const afrr_annual    = prices.afrr_up_avg    * 8760 * B.availability * afrr_mw_provided;
-  const mfrr_annual    = prices.mfrr_up_avg    * 8760 * B.availability * mfrr_mw_provided;
-  const trading_annual = prices.spread_eur_mwh * 365  * duration_h     * B.roundtrip_efficiency;
-  const gross_annual   = afrr_annual + mfrr_annual + trading_annual;
+  const afrr_annual  = prices.afrr_up_avg * 8760 * B.availability * afrr_mw_provided;
+  const mfrr_annual  = prices.mfrr_up_avg * 8760 * B.availability * mfrr_mw_provided;
+
+  // BUG 3 FIX: use intraday swing (not LT-SE4 coupling spread) for trading revenue
+  // BESS captures ~35% of theoretical daily swing × 1.5 cycles/day (CH methodology)
+  const capture_factor  = 0.35;
+  const trading_swing   = prices.lt_daily_swing_eur_mwh ?? prices.spread_eur_mwh;
+  const trading_annual  = trading_swing * capture_factor * B.cycles_per_day * 365 * duration_h * B.roundtrip_efficiency;
+
+  const gross_annual = afrr_annual + mfrr_annual + trading_annual;
 
   const opex_fixed      = capex       * B.opex_pct_capex;
   const opex_aggregator = gross_annual * B.aggregator_pct_revenue;
@@ -752,11 +912,12 @@ function computeRevenueWorker(prices, duration_h) {
   const net_annual      = gross_annual - opex_total;
   const payback         = net_annual > 0 ? capex / net_annual : Infinity;
 
-  // IRR via NPV=0 binary search (18yr life, 8%/yr decay post year 3)
+  // IRR via NPV=0 binary search (18yr life, SOH fade × market saturation decay)
   function npv(rate) {
     let n = -capex;
     for (let t = 1; t <= B.project_life_years; t++) {
-      const decay = t <= 3 ? 1.0 : Math.pow(0.92, t - 3);
+      const soh   = SOH_CURVE_W[Math.min(t - 1, SOH_CURVE_W.length - 1)];
+      const decay = soh * marketDecayW(t);
       n += (net_annual * decay) / Math.pow(1 + rate, t);
     }
     return n;
@@ -820,25 +981,42 @@ async function computeInterpretations(signals, revenue, anthropicKey) {
   const { s1, s2, s3, s4 } = signals;
   const { h2, h4 } = revenue;
 
-  const prompt = `You are a Baltic energy infrastructure analyst. Given live signal data and a revenue model output, provide a brief factual interpretation for each signal and a combined summary. Be specific. No filler sentences. Each sentence must carry new information.
+  // Data completeness check — determines stale-feed warning injection
+  const data_completeness = {
+    s1: s1?.state != null && !s1?.unavailable,
+    s2: s2?.signal != null && s2?.fcr_avg != null && !s2?.unavailable,
+    s3: !s3?.unavailable && s3?.lithium_eur_t != null,
+    s4: s4?.signal != null && s4?.free_mw != null,
+  };
+  const all_feeds_live = Object.values(data_completeness).every(Boolean);
+  const stale_warning = all_feeds_live
+    ? ''
+    : `\nFEED WARNING: Some data feeds are stale or unavailable (${
+        Object.entries(data_completeness).filter(([, v]) => !v).map(([k]) => k.toUpperCase()).join(', ')
+      }) — flag this explicitly in your response for the affected signals.\n`;
+
+  const s4_warning = s4?.parse_warning ? `\n  Parse warning: ${s4.parse_warning}` : '';
+
+  const prompt = `You are a Baltic energy infrastructure analyst. Given live signal data and a revenue model output, provide a brief factual interpretation for each signal and a combined summary. Be specific. No filler sentences. Each sentence must carry new information.${stale_warning}
 
 LIVE SIGNALS (${new Date().toISOString().slice(0, 10)}):
 
 S1 — Baltic Price Separation:
-  LT vs SE4: ${s1?.separation_pct ?? '—'}% (${s1?.state ?? '—'}) · LT avg ${s1?.lt_avg_eur_mwh ?? '—'} €/MWh · SE4 avg ${s1?.se4_avg_eur_mwh ?? '—'} €/MWh
-  30D rolling avg spread: ${s1?.rsi_30d ?? '—'} €/MWh · Trend vs 90D window: ${s1?.trend_vs_90d != null ? (s1.trend_vs_90d >= 0 ? '+' : '') + s1.trend_vs_90d : '—'} €/MWh
+  LT vs SE4: ${s1?.spread_eur_mwh != null ? `${s1.spread_eur_mwh >= 0 ? '+' : ''}${s1.spread_eur_mwh} €/MWh` : '—'} (${s1?.state ?? '—'}) · LT avg ${s1?.lt_avg_eur_mwh ?? '—'} €/MWh · SE4 avg ${s1?.se4_avg_eur_mwh ?? '—'} €/MWh
+  Intraday swing: ${s1?.lt_daily_swing_eur_mwh ?? '—'} €/MWh · 90D median spread: ${s1?.spread_stats_90d?.p50 != null ? `${s1.spread_stats_90d.p50 >= 0 ? '+' : ''}${s1.spread_stats_90d.p50.toFixed(1)} €` : '—'}
 
 S2 — Balancing Capacity Prices (BTD, last 7-day window):
   FCR: ${s2?.fcr_avg ?? '—'} €/MW/h · aFRR up: ${s2?.afrr_up_avg ?? '—'} €/MW/h · mFRR up: ${s2?.mfrr_up_avg ?? '—'} €/MW/h
-  Signal: ${s2?.signal ?? '—'} (EARLY >50 · ACTIVE 15–50 · COMPRESSING <15 €/MW/h FCR)
-  FCR total Baltic market depth: 25 MW (all three countries combined — thin, premium-priced)
+  Stack value (2h BESS): ${s2?.stack_value_2h_eur_mw_yr != null ? `€${Math.round(s2.stack_value_2h_eur_mw_yr / 1000)}k/MW/yr` : '—'} · Signal: ${s2?.signal ?? '—'} (EARLY >50 · ACTIVE 15–50 · COMPRESSING <15 €/MW/h FCR)
+  FCR total Baltic market depth: 25 MW (all three countries combined — thin, saturating 2026)
 
 S3 — Cell Cost Stack:
   Lithium carbonate: ${s3?.lithium_eur_t != null ? `€${s3.lithium_eur_t}/t` : '—'} (${s3?.lithium_trend ?? '—'})
-  Cell price (DC-side 2h ESS): ${s3?.cell_eur_kwh != null ? `€${s3.cell_eur_kwh}/kWh` : '—'} · Signal: ${s3?.signal ?? '—'}
+  Equipment DC (Europe): ${s3?.europe_system_eur_kwh != null ? `€${s3.europe_system_eur_kwh}/kWh` : '—'} · Turnkey AC 2h: €262.5/kWh (CH S1 2025) · Signal: ${s3?.signal ?? '—'}
+  Euribor 3M nominal: ${s3?.euribor_3m != null ? `${s3.euribor_3m}%` : '—'} · HICP YoY: ${s3?.hicp_yoy != null ? `${s3.hicp_yoy}%` : '—'}
 
 S4 — Grid Connection Scarcity:
-  Free capacity: ${s4?.free_mw ?? '—'} MW · Connected: ${s4?.connected_mw ?? '—'} MW · Signal: ${s4?.signal ?? '—'}
+  Free capacity: ${s4?.free_mw ?? '—'} MW · Connected: ${s4?.connected_mw ?? '—'} MW · Utilisation: ${s4?.utilisation_pct != null ? `${s4.utilisation_pct.toFixed(1)}%` : '—'} · Signal: ${s4?.signal ?? '—'}${s4_warning}
 
 REVENUE MODEL (50 MW LFP, Lithuania, COD 2026, Clean Horizon S1 2025 reference):
   2h BESS: Net €${h2.net_annual_per_mw}/MW/yr · CAPEX €${h2.capex_per_mw}/MW · Payback ${h2.simple_payback_years}yr · IRR ~${h2.irr_approx_pct}% (CH central ${h2.ch_irr_central}%, range ${h2.ch_irr_range})
@@ -864,7 +1042,8 @@ Return ONLY a JSON object with these keys — 1–2 sentences each, no markdown:
     const text  = data.content?.[0]?.text ?? '';
     const match = text.match(/\{[\s\S]*\}/);
     if (!match) return null;
-    return JSON.parse(match[0]);
+    const sentences = JSON.parse(match[0]);
+    return { ...sentences, generated_at: new Date().toISOString(), data_completeness, all_feeds_live };
   } catch (err) {
     console.error('[Interpretations] failed:', String(err));
     return null;
@@ -970,8 +1149,17 @@ export default {
 
     if (s1Result.status === 'fulfilled') {
       const d = s1Result.value;
+      // Update rolling history and embed stats in S1 payload
+      try {
+        const history = await updateHistory(env, d);
+        d.spread_stats_90d = rollingStats(history, 'spread_eur');
+        d.swing_stats_90d  = rollingStats(history, 'lt_swing');
+        console.log(`[S1/history] n=${history.length} spread_p50=${d.spread_stats_90d?.p50} swing_p50=${d.swing_stats_90d?.p50}`);
+      } catch (he) {
+        console.error('[S1/history] failed:', String(he));
+      }
       await env.KKME_SIGNALS.put('s1', JSON.stringify(d));
-      console.log(`[S1] ${d.state} ${d.separation_pct}% rsi_30d=${d.rsi_30d} cap=${d.pct_hours_above_20}%`);
+      console.log(`[S1] ${d.state} spread=${d.spread_eur_mwh}€/MWh swing=${d.lt_daily_swing_eur_mwh}€/MWh sep=${d.separation_pct}% rsi_30d=${d.rsi_30d}`);
     } else {
       console.error('[S1] cron failed:', s1Result.reason);
     }
@@ -1165,12 +1353,17 @@ export default {
           if (pipelineRaw) {
             const p = JSON.parse(pipelineRaw);
             d.pipeline = {
-              dev_total_mw:      p.dev_total_mw      ?? null,
-              gen_total_mw:      p.gen_total_mw      ?? null,
-              dev_velocity_3m:   p.dev_velocity_3m   ?? null,
-              dev_expiring_2027: p.dev_expiring_2027 ?? null,
-              top_projects:      p.top_projects      ?? [],
-              updated_at:        p.timestamp         ?? null,
+              dev_total_mw:       p.dev_total_mw       ?? null,
+              dev_total_raw_mw:   p.dev_total_raw_mw   ?? null,
+              filter_applied:     p.filter_applied     ?? null,
+              dev_count_filtered: p.dev_count_filtered ?? null,
+              dev_count_raw:      p.dev_count_raw      ?? null,
+              parse_warning:      p.parse_warning      ?? null,
+              gen_total_mw:       p.gen_total_mw       ?? null,
+              dev_velocity_3m:    p.dev_velocity_3m    ?? null,
+              dev_expiring_2027:  p.dev_expiring_2027  ?? null,
+              top_projects:       p.top_projects       ?? [],
+              updated_at:         p.timestamp          ?? null,
             };
           }
           return new Response(JSON.stringify(d), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600', ...CORS } });
@@ -1249,10 +1442,11 @@ export default {
 
       // Build live price inputs — fallbacks to CH S1 2025 LT reference values
       const prices = {
-        afrr_up_avg:    s2?.afrr_up_avg   ?? 20,   // €/MW/h
-        mfrr_up_avg:    s2?.mfrr_up_avg   ?? 15,   // €/MW/h
-        spread_eur_mwh: s1?.spread_eur_mwh ?? 15,  // €/MWh
-        euribor_3m:     eur?.euribor_3m   ?? 2.6,
+        afrr_up_avg:             s2?.afrr_up_avg              ?? 20,   // €/MW/h
+        mfrr_up_avg:             s2?.mfrr_up_avg              ?? 15,   // €/MW/h
+        spread_eur_mwh:          s1?.spread_eur_mwh           ?? 15,   // €/MWh (coupling, for context)
+        lt_daily_swing_eur_mwh:  s1?.lt_daily_swing_eur_mwh  ?? null,  // €/MWh intraday swing (trading input)
+        euribor_3m:              eur?.euribor_3m              ?? 2.6,
       };
 
       const h2         = computeRevenueWorker(prices, 2);
@@ -1294,10 +1488,15 @@ export default {
       return new Response(s1Raw, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=300', ...CORS } });
     }
 
-    // ── GET / — fresh S1 + write to KV ──────────────────────────────────────
+    // ── GET / — fresh S1 + history update + write to KV ─────────────────────
     if (request.method === 'GET') {
       try {
         const data = await computeS1(env);
+        try {
+          const history = await updateHistory(env, data);
+          data.spread_stats_90d = rollingStats(history, 'spread_eur');
+          data.swing_stats_90d  = rollingStats(history, 'lt_swing');
+        } catch { /* non-fatal */ }
         await env.KKME_SIGNALS.put('s1', JSON.stringify(data));
         return new Response(JSON.stringify(data, null, 2), { headers: { 'Content-Type': 'application/json', ...CORS } });
       } catch (err) {

@@ -158,10 +158,17 @@ function LiveData({ data }: { data: S1Signal }) {
     ['Spread',  `${data.spread_eur_mwh >= 0 ? '+' : ''}${data.spread_eur_mwh.toFixed(2)} €/MWh`],
   ];
 
+  // 90d rolling stats — fall back to 30d rolling avg if no history yet
+  const spreadP50 = data.spread_stats_90d?.p50;
+  const spreadN   = data.spread_stats_90d?.days_of_data ?? 0;
+  const spread90d = spreadP50 != null
+    ? `${spreadP50 >= 0 ? '+' : ''}${spreadP50.toFixed(1)} €`
+    : (rsi !== '—' ? `${rsi} €` : '—');
+
   const regimeMetrics: [string, string][] = [
-    ['30D avg',  `${rsi} €/MWh`],
-    ['Trend',    trend],
-    ['Capture',  capture],
+    ['90d median', spread90d],
+    ['Trend',      trend],
+    ['Capture',    capture],
   ];
 
   return (
@@ -173,10 +180,16 @@ function LiveData({ data }: { data: S1Signal }) {
         </p>
       )}
 
-      {/* Today's spread — headline number */}
-      <p style={{ ...MONO, fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', fontWeight: 400, color: 'var(--text)', lineHeight: 1, letterSpacing: '-0.02em', marginBottom: '0.75rem' }}>
-        {formatPct(data.separation_pct)}
-        <span style={{ fontSize: '0.45em', marginLeft: '0.15em', opacity: 0.55 }}>%</span>
+      {/* Today's spread — absolute €/MWh is the primary signal (% shown as context) */}
+      <p style={{ ...MONO, fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', fontWeight: 400, color: 'var(--text)', lineHeight: 1, letterSpacing: '-0.02em', marginBottom: '0.3rem' }}>
+        {data.spread_eur_mwh >= 0 ? '+' : ''}{data.spread_eur_mwh.toFixed(1)}
+        <span style={{ fontSize: '0.45em', marginLeft: '0.15em', opacity: 0.55 }}>€/MWh</span>
+      </p>
+      <p style={{ ...MONO, fontSize: '0.55rem', color: text(0.3), letterSpacing: '0.08em', marginBottom: '0.75rem' }}>
+        {formatPct(data.separation_pct)}% vs SE4
+        {data.lt_daily_swing_eur_mwh != null
+          ? ` · swing ${data.lt_daily_swing_eur_mwh.toFixed(0)} €/MWh`
+          : ''}
       </p>
 
       {/* State badge */}
@@ -193,7 +206,7 @@ function LiveData({ data }: { data: S1Signal }) {
       <div style={{ ...DIVIDER, marginBottom: '1.25rem' }} />
 
       {/* Regime metrics row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.25rem', marginBottom: '1.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.25rem', marginBottom: '0.5rem' }}>
         {regimeMetrics.map(([label, value]) => (
           <div key={label}>
             <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.2rem' }}>
@@ -205,6 +218,11 @@ function LiveData({ data }: { data: S1Signal }) {
           </div>
         ))}
       </div>
+      <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.06em', marginBottom: '1.25rem' }}>
+        {spreadN < 14
+          ? `Building history — ${spreadN} day${spreadN === 1 ? '' : 's'} of data`
+          : `${spreadN} days of data`}
+      </p>
 
       {/* Divider */}
       <div style={{ ...DIVIDER, marginBottom: '1.25rem' }} />

@@ -16,6 +16,11 @@ interface S2Signal {
   imbalance_mean: number | null;
   imbalance_p90:  number | null;
   pct_above_100:  number | null;
+  cvi_afrr_eur_mw_yr:      number | null;
+  cvi_mfrr_eur_mw_yr:      number | null;
+  stack_value_2h_eur_mw_yr: number | null;
+  stress_index_p90:         number | null;
+  fcr_note?:               string;
   ordered_price?: number | null;
   ordered_mw?:    number | null;
   signal: 'EARLY' | 'ACTIVE' | 'COMPRESSING';
@@ -143,12 +148,12 @@ const DIVIDER: CSSProperties = {
   width: '100%',
 };
 
-function colorFcr(v: number | null): string {
+function colorStack(v: number | null): string {
   if (v === null) return text(0.3);
-  if (v > 50) return 'rgba(74, 124, 89, 0.9)';
-  if (v > 15) return 'rgba(100, 160, 110, 0.75)';
-  if (v > 5)  return text(0.6);
-  return 'rgba(180, 140, 60, 0.85)';
+  if (v > 200000) return 'rgba(74, 124, 89, 0.9)';
+  if (v > 100000) return 'rgba(100, 160, 110, 0.75)';
+  if (v > 50000)  return text(0.6);
+  return 'rgba(155, 48, 67, 0.85)';
 }
 
 function colorAfrr(v: number | null): string {
@@ -156,6 +161,18 @@ function colorAfrr(v: number | null): string {
   if (v > 15) return 'rgba(74, 124, 89, 0.9)';
   if (v > 5)  return 'rgba(100, 160, 110, 0.75)';
   return text(0.5);
+}
+
+function colorStress(v: number | null): string {
+  if (v === null) return text(0.3);
+  if (v > 200) return 'rgba(74, 124, 89, 0.9)';
+  if (v > 100) return 'rgba(100, 160, 110, 0.75)';
+  return text(0.5);
+}
+
+function fmtK(v: number | null): string {
+  if (v === null) return '—';
+  return `€${Math.round(v / 1000)}k`;
 }
 
 function LiveData({ data }: { data: S2Signal }) {
@@ -171,13 +188,13 @@ function LiveData({ data }: { data: S2Signal }) {
         </p>
       )}
 
-      {/* FCR headline — primary data point */}
+      {/* PRIMARY: Balancing stack value (CVI 2h) */}
       <p style={{ ...MONO, fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', fontWeight: 400, lineHeight: 1, letterSpacing: '0.04em', marginBottom: '0.3rem',
-        color: data.unavailable ? text(0.1) : colorFcr(data.fcr_avg) }}>
-        {data.unavailable ? '——————' : `${fmt(data.fcr_avg)} €/MW/h`}
+        color: data.unavailable ? text(0.1) : colorStack(data.stack_value_2h_eur_mw_yr) }}>
+        {data.unavailable ? '——————' : fmtK(data.stack_value_2h_eur_mw_yr)}
       </p>
       <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
-        FCR clearing
+        Balancing stack value / MW / yr (2h)
       </p>
 
       {/* Signal badge */}
@@ -186,35 +203,35 @@ function LiveData({ data }: { data: S2Signal }) {
       </p>
 
       {/* Interpretation */}
-      <p style={{ ...MONO, fontSize: '0.6rem', color: text(0.35), lineHeight: 1.5, marginBottom: '1.5rem' }}>
-        {data.interpretation}
+      <p style={{ ...MONO, fontSize: '0.6rem', color: data.unavailable ? text(0.2) : text(0.35), lineHeight: 1.5, marginBottom: '1.5rem' }}>
+        {data.unavailable ? 'Interpretation unavailable — feed incomplete.' : data.interpretation}
       </p>
 
-      {/* Divider */}
       <div style={{ ...DIVIDER, marginBottom: '1.25rem' }} />
 
-      {/* Capacity price metrics */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '0.25rem', marginBottom: '1rem' }}>
-        {([
-          ['FCR',      fmt(data.fcr_avg),      colorFcr(data.fcr_avg)],
-          ['aFRR ↑',   fmt(data.afrr_up_avg),  colorAfrr(data.afrr_up_avg)],
-          ['mFRR ↑',   fmt(data.mfrr_up_avg),  colorAfrr(data.mfrr_up_avg)],
-          ['P90 imb',  fmt(data.imbalance_p90), text(0.5)],
-        ] as [string, string, string][]).map(([label, value, color]) => (
-          <div key={label}>
-            <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.2rem' }}>
-              {label}
-            </p>
-            <p style={{ ...MONO, fontSize: '0.6rem', color }}>
-              {value}
-            </p>
-          </div>
-        ))}
+      {/* SECONDARY: aFRR / mFRR with CH benchmarks */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '0.4rem 1.25rem', marginBottom: '1rem', alignItems: 'baseline' }}>
+        <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase' }}>aFRR ↑</p>
+        <p style={{ ...MONO, fontSize: '0.6rem', color: colorAfrr(data.afrr_up_avg) }}>
+          {fmt(data.afrr_up_avg)} €/MW/h
+          <span style={{ color: text(0.25) }}> · CH 2027: €20 · CH 2028: €10</span>
+        </p>
+
+        <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase' }}>mFRR ↑</p>
+        <p style={{ ...MONO, fontSize: '0.6rem', color: colorAfrr(data.mfrr_up_avg) }}>
+          {fmt(data.mfrr_up_avg)} €/MW/h
+          <span style={{ color: text(0.25) }}> · CH 2027: €20 · CH 2030: €11</span>
+        </p>
+
+        <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase' }}>Sys stress P90</p>
+        <p style={{ ...MONO, fontSize: '0.6rem', color: colorStress(data.stress_index_p90) }}>
+          {fmt(data.stress_index_p90)} €/MWh
+        </p>
       </div>
 
-      {/* FCR market depth note */}
+      {/* TERTIARY: FCR — muted, context only */}
       <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.06em', marginBottom: '1.25rem' }}>
-        FCR total Baltic market: 25 MW (all three countries) · Source: Clean Horizon S1 2025 p.29
+        FCR {fmt(data.fcr_avg)} €/MW/h · market: 25 MW (all three Baltics) · saturating 2026
       </p>
 
       {/* Timestamp */}

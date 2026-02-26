@@ -19,10 +19,16 @@ export interface S1Signal {
   updated_at: string;
   lt_hours: number;
   se4_hours: number;
+  // Intraday arbitrage metrics — new from Worker (absent in old KV entries)
+  lt_daily_swing_eur_mwh?: number | null;  // max-min of LT hourly prices (trading input)
+  lt_evening_premium?: number | null;      // mean(LT h17-21) - mean(LT h10-14)
   // Regime view fields — optional; absent in old KV entries
   rsi_30d?: number | null;          // 30-day rolling avg spread €/MWh
   trend_vs_90d?: number | null;     // rsi_30d delta vs reference window 90d ago; >0 = widening
   pct_hours_above_20?: number | null; // % of hours in last 30d where separation > 20%
+  // Rolling history stats (added Task 3) — absent until first history entry written
+  spread_stats_90d?: { p25: number; p50: number; p75: number; p90: number; n: number; days_of_data: number } | null;
+  swing_stats_90d?:  { p25: number; p50: number; p75: number; p90: number; n: number; days_of_data: number } | null;
   // DA tomorrow — embedded by computeS1(); null before ~13:00 CET publication
   da_tomorrow?: {
     lt_peak:       number | null;
