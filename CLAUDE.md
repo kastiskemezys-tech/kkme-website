@@ -82,7 +82,12 @@ Next.js static export → components fetch Worker endpoints directly from browse
     + Cron schedule: every-4h (S1/S3/S4/Euribor) + 09:00 UTC daily (S2 watchdog)
     + POST /s2/update: validates required fields + sanity bounds; rejects bad data; Telegram alert
 [x] ECB live Euribor fetch — FM/M.U2.EUR.RT.MM.EURIBOR3MD_.HSTA · 2.03% Jan 2026 confirmed live
-[ ] S5 — DC Power Viability (DataCenterDynamics RSS) ← NEXT
+[x] S5 — DC Power Viability ✓ LIVE
+    Signal: OPEN/TIGHTENING/CONSTRAINED from S4 grid_free_mw
+    Grid: derived from S4 Litgrid FeatureServer (Kaupikliai)
+    News: DataCenterKnowledge RSS (5 headlines, every 4h cron)
+    Pipeline: manual quarterly via POST /s5/manual (X-Update-Secret)
+    DataCenterDynamics blocked by CF JS challenge → DCKnowledge used instead
 [x] Telegram webhook — secrets set (TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID), webhook registered
     POST /telegram/webhook · handleFeedIngest · classifyTopic · /status · /validate · /help
     Daily digest: 08:00 UTC cron → sendDailyDigest() → notifyTelegram()

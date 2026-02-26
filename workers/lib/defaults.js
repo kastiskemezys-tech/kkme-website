@@ -77,6 +77,21 @@ export const DEFAULTS = {
     _serving:        'static_defaults',
     timestamp:        null,
   },
+
+  s5: {
+    signal:            'OPEN',
+    grid_free_mw:      3107.0,   // MW — derived from S4 default
+    grid_connected_mw: 8802.0,
+    pipeline_mw:       null,
+    pipeline_note:     null,
+    pipeline_updated:  null,
+    news_items:        [],
+    interpretation:    'Default values shown — live data not yet available.',
+    _source:           'default',
+    _default_reason:   'S5 cron not yet run',
+    _serving:          'static_defaults',
+    timestamp:          null,
+  },
 };
 
 // Values outside these bounds are rejected as bad data (not stored in KV).
@@ -113,4 +128,5 @@ export const STALE_THRESHOLDS_HOURS = {
   euribor:    168,    // ECB: weekly is fine
   s4:          36,    // Litgrid: daily
   s4_pipeline: 840,   // VERT.lt: monthly
+  s5:           6,    // DC news: every 4h cron
 };

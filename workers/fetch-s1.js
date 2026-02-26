@@ -1306,7 +1306,73 @@ ${itemsText}`;
   return JSON.parse(match[0]);
 }
 
-// Telegram pipeline: planned, not yet built
+// ─── S5 — DC Power Viability ──────────────────────────────────────────────────
+
+const DC_RSS_URL = 'https://www.datacenterknowledge.com/rss.xml';
+
+async function fetchDCNews() {
+  const res = await fetch(DC_RSS_URL, {
+    headers: { 'User-Agent': 'KKME/1.0' },
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!res.ok) return [];
+  const xml   = await res.text();
+  const items = [];
+  const blocks = xml.match(/<item>[\s\S]*?<\/item>/g) ?? [];
+  for (const block of blocks.slice(0, 5)) {
+    const titleMatch = block.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>/)
+                    ?? block.match(/<title>([^<]*)<\/title>/);
+    const linkMatch  = block.match(/<link>([^<]*)<\/link>/)
+                    ?? block.match(/<guid[^>]*>(https?[^<]+)<\/guid>/);
+    const dateMatch  = block.match(/<pubDate>([^<]*)<\/pubDate>/);
+    if (titleMatch?.[1]) {
+      items.push({
+        title: titleMatch[1].trim()
+          .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>'),
+        url:   linkMatch?.[1]?.trim() ?? null,
+        date:  dateMatch?.[1]?.trim() ?? null,
+      });
+    }
+  }
+  return items;
+}
+
+async function computeS5(env) {
+  const [s4Raw, manualRaw] = await Promise.all([
+    env.KKME_SIGNALS.get('s4').catch(() => null),
+    env.KKME_SIGNALS.get('s5_manual').catch(() => null),
+  ]);
+  const s4     = s4Raw     ? JSON.parse(s4Raw)     : null;
+  const manual = manualRaw ? JSON.parse(manualRaw) : null;
+
+  const grid_free_mw      = s4?.free_mw      ?? null;
+  const grid_connected_mw = s4?.connected_mw ?? null;
+  const grid_utilisation  = s4?.utilisation_pct ?? null;
+
+  let signal = 'OPEN';
+  if (grid_free_mw != null) {
+    if      (grid_free_mw > 2000) signal = 'OPEN';
+    else if (grid_free_mw >  500) signal = 'TIGHTENING';
+    else                          signal = 'CONSTRAINED';
+  }
+
+  let news_items = [];
+  try { news_items = await fetchDCNews(); } catch (e) {
+    console.error('[S5/news]', String(e));
+  }
+
+  return {
+    timestamp:        new Date().toISOString(),
+    signal,
+    grid_free_mw,
+    grid_connected_mw,
+    grid_utilisation,
+    pipeline_mw:      manual?.pipeline_mw   ?? null,
+    pipeline_note:    manual?.note          ?? null,
+    pipeline_updated: manual?.updated_at    ?? null,
+    news_items,
+  };
+}
 
 // ─── Main export ───────────────────────────────────────────────────────────────
 
@@ -1402,6 +1468,13 @@ export default {
       }
     } else {
       console.error('[Euribor] cron failed:', eurResult.reason);
+    }
+
+    // S5 — DC Power Viability (reads fresh S4 from KV + DC news RSS)
+    const s5Data = await computeS5(env).catch(e => { console.error('[S5] cron:', String(e)); return null; });
+    if (s5Data) {
+      await env.KKME_SIGNALS.put('s5', JSON.stringify(s5Data));
+      console.log(`[S5] ${s5Data.signal} free=${s5Data.grid_free_mw}MW news=${s5Data.news_items.length}`);
     }
 
     // da_tomorrow is embedded in computeS1() and stored in the s1 KV key
@@ -1652,6 +1725,43 @@ export default {
       const data = await computeS3();
       await env.KKME_SIGNALS.put('s3', JSON.stringify(data));
       return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json', ...CORS } });
+    }
+
+    // ── GET /s5 ──────────────────────────────────────────────────────────────
+    if (request.method === 'GET' && url.pathname === '/s5') {
+      const cached = await env.KKME_SIGNALS.get('s5').catch(() => null);
+      if (cached) {
+        return new Response(cached, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600', ...CORS } });
+      }
+      try {
+        const data = await computeS5(env);
+        await env.KKME_SIGNALS.put('s5', JSON.stringify(data));
+        return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json', ...CORS } });
+      } catch (err) {
+        return Response.json({ ...DEFAULTS.s5, unavailable: true, _serving: 'static_defaults' }, { headers: CORS });
+      }
+    }
+
+    // ── POST /s5/manual ──────────────────────────────────────────────────────
+    // Quarterly manual update: Baltic DC pipeline MW + notes.
+    if (request.method === 'POST' && url.pathname === '/s5/manual') {
+      const secret = request.headers.get('X-Update-Secret');
+      if (!secret || secret !== env.UPDATE_SECRET) {
+        return Response.json({ error: 'Unauthorized' }, { status: 401, headers: CORS });
+      }
+      let body;
+      try { body = await request.json(); } catch {
+        return Response.json({ error: 'Invalid JSON' }, { status: 400, headers: CORS });
+      }
+      const data = {
+        pipeline_mw:  body.pipeline_mw ?? null,
+        note:         body.note        ?? null,
+        updated_at:   new Date().toISOString(),
+      };
+      await env.KKME_SIGNALS.put('s5_manual', JSON.stringify(data));
+      await env.KKME_SIGNALS.delete('s5').catch(() => {});  // invalidate cache
+      console.log(`[S5/manual] pipeline=${data.pipeline_mw}MW note="${data.note}"`);
+      return Response.json({ ok: true, ...data }, { headers: CORS });
     }
 
     // ── GET /euribor ─────────────────────────────────────────────────────────

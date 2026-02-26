@@ -2,6 +2,7 @@ import { S1Card } from '@/app/components/S1Card';
 import { S2Card } from '@/app/components/S2Card';
 import { S3Card } from '@/app/components/S3Card';
 import { S4Card } from '@/app/components/S4Card';
+import { S5Card } from '@/app/components/S5Card';
 import { RevenueCard } from '@/app/components/RevenueCard';
 import { TechTracker } from '@/app/components/TechTracker';
 import { CTASection } from '@/app/components/CTASection';
@@ -71,7 +72,12 @@ export default function Home() {
         <S4Card />
       </CardBoundary>
 
-      {/* 7. Intel Feed */}
+      {/* 7. S5 — DC Power Viability */}
+      <CardBoundary signal="S5">
+        <S5Card />
+      </CardBoundary>
+
+      {/* 8. Intel Feed */}
       <IntelFeed />
 
       {/* 8. Revenue Engine */}
