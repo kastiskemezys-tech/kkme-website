@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, type CSSProperties } from 'react';
+import { CardFooter } from './CardFooter';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
@@ -50,9 +51,25 @@ type Status = 'loading' | 'success' | 'error';
 const FETCH_TIMEOUT_MS = 5_000;
 const RETRY_DELAY_MS   = 2_000;
 
+const btnStyle = (active: boolean): CSSProperties => ({
+  fontFamily: 'var(--font-mono)',
+  fontSize: '0.5rem',
+  letterSpacing: '0.06em',
+  color: active ? 'rgba(232, 226, 217, 0.7)' : 'rgba(232, 226, 217, 0.28)',
+  background: 'none',
+  border: 'none',
+  cursor: 'pointer',
+  padding: 0,
+});
+
 export function S2Card() {
   const [status, setStatus] = useState<Status>('loading');
   const [data, setData]     = useState<S2Signal | null>(null);
+  const [explainOpen, setExplainOpen] = useState(false);
+  const [dataOpen, setDataOpen]       = useState(false);
+
+  const toggleExplain = () => { setExplainOpen(o => !o); setDataOpen(false); };
+  const toggleData    = () => { setDataOpen(o => !o); setExplainOpen(false); };
 
   useEffect(() => {
     let cancelled = false;
@@ -92,18 +109,30 @@ export function S2Card() {
         width: '100%',
       }}
     >
-      <p
-        style={{
-          ...MONO,
-          fontSize: '0.625rem',
-          letterSpacing: '0.14em',
-          color: text(0.35),
-          textTransform: 'uppercase',
-          marginBottom: '1.75rem',
-        }}
-      >
-        S2 — Balancing Stack
-      </p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.75rem' }}>
+        <p style={{ ...MONO, fontSize: '0.625rem', letterSpacing: '0.14em', color: text(0.35), textTransform: 'uppercase' }}>
+          S2 — Balancing Stack
+        </p>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button onClick={toggleExplain} style={btnStyle(explainOpen)}>[Explain]</button>
+          <button onClick={toggleData}    style={btnStyle(dataOpen)}>[Data]</button>
+        </div>
+      </div>
+
+      {explainOpen && (
+        <div style={{ ...MONO, fontSize: '0.575rem', color: 'rgba(232, 226, 217, 0.5)', lineHeight: 1.65, marginBottom: '1.25rem', borderLeft: '2px solid rgba(232, 226, 217, 0.08)', paddingLeft: '0.75rem' }}>
+          <p style={{ marginBottom: '0.4rem' }}>FCR, aFRR, and mFRR are separate frequency regulation markets — each MW is in one market per hour.</p>
+          <p>Baltic prequalification: 2 MW power + 4 MWh energy provides 1 MW symmetric service. Revenue is shown per MW installed (power binding, always 0.5 MW service).</p>
+        </div>
+      )}
+
+      {dataOpen && (
+        <div style={{ ...MONO, fontSize: '0.5rem', color: 'rgba(232, 226, 217, 0.4)', lineHeight: 1.65, marginBottom: '1.25rem', borderLeft: '2px solid rgba(232, 226, 217, 0.08)', paddingLeft: '0.75rem' }}>
+          <p style={{ marginBottom: '0.3rem' }}>Source: BTD (Baltic Transparency Data) via residential IP cron 05:30 UTC</p>
+          <p style={{ marginBottom: '0.3rem' }}>7-day rolling window · LT columns: FCR[10] aFRR↑[11] aFRR↓[12] mFRR↑[13] mFRR↓[14]</p>
+          <p>BTD blocks datacenter IPs — residential proxy is the only path</p>
+        </div>
+      )}
 
       {status === 'loading' && <Skeleton />}
       {status === 'error'   && <ErrorState />}
@@ -235,6 +264,12 @@ function LiveData({ data }: { data: S2Signal }) {
       <time dateTime={data.timestamp} style={{ ...MONO, fontSize: '0.575rem', color: text(0.25), letterSpacing: '0.06em', display: 'block', textAlign: 'right' }}>
         {formatTimestamp(data.timestamp)}
       </time>
+
+      <CardFooter
+        period="7-day rolling average"
+        compare="Baseline: CH S1 2025 central (aFRR €20, mFRR €20 by 2027)"
+        updated="BTD · 05:30 UTC"
+      />
     </>
   );
 }

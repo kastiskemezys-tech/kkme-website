@@ -3,6 +3,7 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import type { S1Signal } from '@/lib/signals/s1';
 import { getInterpretation, spreadColor } from './s1-utils';
+import { CardFooter } from './CardFooter';
 
 const text = (opacity: number) => `rgba(232, 226, 217, ${opacity})`;
 const MONO: CSSProperties = { fontFamily: 'var(--font-mono)' };
@@ -28,9 +29,25 @@ type Status = 'loading' | 'success' | 'error';
 const FETCH_TIMEOUT_MS = 5_000;
 const RETRY_DELAY_MS   = 2_000;
 
+const btnStyle = (active: boolean): CSSProperties => ({
+  fontFamily: 'var(--font-mono)',
+  fontSize: '0.5rem',
+  letterSpacing: '0.06em',
+  color: active ? 'rgba(232, 226, 217, 0.7)' : 'rgba(232, 226, 217, 0.28)',
+  background: 'none',
+  border: 'none',
+  cursor: 'pointer',
+  padding: 0,
+});
+
 export function S1Card() {
   const [status, setStatus] = useState<Status>('loading');
   const [data, setData] = useState<S1Signal | null>(null);
+  const [explainOpen, setExplainOpen] = useState(false);
+  const [dataOpen, setDataOpen]       = useState(false);
+
+  const toggleExplain = () => { setExplainOpen(o => !o); setDataOpen(false); };
+  const toggleData    = () => { setDataOpen(o => !o); setExplainOpen(false); };
 
   useEffect(() => {
     let cancelled = false;
@@ -70,18 +87,30 @@ export function S1Card() {
         width: '100%',
       }}
     >
-      <p
-        style={{
-          ...MONO,
-          fontSize: '0.625rem',
-          letterSpacing: '0.14em',
-          color: text(0.35),
-          textTransform: 'uppercase',
-          marginBottom: '1.75rem',
-        }}
-      >
-        S1 — Baltic Price Separation
-      </p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.75rem' }}>
+        <p style={{ ...MONO, fontSize: '0.625rem', letterSpacing: '0.14em', color: text(0.35), textTransform: 'uppercase' }}>
+          S1 — Baltic Price Separation
+        </p>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button onClick={toggleExplain} style={btnStyle(explainOpen)}>[Explain]</button>
+          <button onClick={toggleData}    style={btnStyle(dataOpen)}>[Data]</button>
+        </div>
+      </div>
+
+      {explainOpen && (
+        <div style={{ ...MONO, fontSize: '0.575rem', color: 'rgba(232, 226, 217, 0.5)', lineHeight: 1.65, marginBottom: '1.25rem', borderLeft: '2px solid rgba(232, 226, 217, 0.08)', paddingLeft: '0.75rem' }}>
+          <p style={{ marginBottom: '0.4rem' }}>LT-SE4 spread emerged post-synchronisation (Feb 2025). Nordic hydro deficit and Baltic thermal constraints drive persistent divergence.</p>
+          <p>aFRR and mFRR capacity prices are the primary BESS revenue driver. DA arbitrage is secondary. Revenue window closes 2028–2029 as new capacity enters.</p>
+        </div>
+      )}
+
+      {dataOpen && (
+        <div style={{ ...MONO, fontSize: '0.5rem', color: 'rgba(232, 226, 217, 0.4)', lineHeight: 1.65, marginBottom: '1.25rem', borderLeft: '2px solid rgba(232, 226, 217, 0.08)', paddingLeft: '0.75rem' }}>
+          <p style={{ marginBottom: '0.3rem' }}>Source: ENTSO-E Transparency Platform · API A44 (day-ahead prices)</p>
+          <p style={{ marginBottom: '0.3rem' }}>LT: 10YLT-1001A0008Q · SE4: 10Y1001A1001A46L</p>
+          <p>Updated daily 06:00 UTC via Cloudflare Worker cron</p>
+        </div>
+      )}
 
       {status === 'loading' && <Skeleton />}
       {status === 'error'   && <ErrorState />}
@@ -221,6 +250,12 @@ function LiveData({ data }: { data: S1Signal }) {
       <time dateTime={data.updated_at} style={{ ...MONO, fontSize: '0.575rem', color: text(0.25), letterSpacing: '0.06em' }}>
         {formatTimestamp(data.updated_at)}
       </time>
+
+      <CardFooter
+        period="Daily average"
+        compare="Baseline: SE4 Nordic reference"
+        updated="ENTSO-E A44 · 06:00 UTC"
+      />
     </>
   );
 }

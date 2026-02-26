@@ -1021,26 +1021,26 @@ async function computeInterpretations(signals, revenue, anthropicKey) {
 
   const s4_warning = s4?.parse_warning ? `\n  Parse warning: ${s4.parse_warning}` : '';
 
-  const prompt = `You are a Baltic energy infrastructure analyst. Given live signal data and a revenue model output, provide a brief factual interpretation for each signal and a combined summary. Be specific. No filler sentences. Each sentence must carry new information.${stale_warning}
+  const prompt = `You are a BESS project operator reviewing live market data. State facts. Max 15 words per sentence. No hedging (may, could, suggests, indicates, appears). First sentence: what the number is. Second sentence: what it means for project decisions.${stale_warning}
 
 LIVE SIGNALS (${new Date().toISOString().slice(0, 10)}):
 
 S1 — Baltic Price Separation:
-  LT vs SE4: ${s1?.spread_eur_mwh != null ? `${s1.spread_eur_mwh >= 0 ? '+' : ''}${s1.spread_eur_mwh} €/MWh` : '—'} (${s1?.state ?? '—'}) · LT avg ${s1?.lt_avg_eur_mwh ?? '—'} €/MWh · SE4 avg ${s1?.se4_avg_eur_mwh ?? '—'} €/MWh
+  LT vs SE4: ${s1?.spread_eur_mwh != null ? `${s1.spread_eur_mwh >= 0 ? '+' : ''}${s1.spread_eur_mwh} €/MWh` : '—'} · LT avg ${s1?.lt_avg_eur_mwh ?? '—'} €/MWh · SE4 avg ${s1?.se4_avg_eur_mwh ?? '—'} €/MWh
   Intraday swing: ${s1?.lt_daily_swing_eur_mwh ?? '—'} €/MWh · 90D median spread: ${s1?.spread_stats_90d?.p50 != null ? `${s1.spread_stats_90d.p50 >= 0 ? '+' : ''}${s1.spread_stats_90d.p50.toFixed(1)} €` : '—'}
 
 S2 — Balancing Capacity Prices (BTD, last 7-day window):
   FCR: ${s2?.fcr_avg ?? '—'} €/MW/h · aFRR up: ${s2?.afrr_up_avg ?? '—'} €/MW/h · mFRR up: ${s2?.mfrr_up_avg ?? '—'} €/MW/h
-  Stack value (2h BESS): ${s2?.stack_value_2h_eur_mw_yr != null ? `€${Math.round(s2.stack_value_2h_eur_mw_yr / 1000)}k/MW/yr` : '—'} · Signal: ${s2?.signal ?? '—'} (EARLY >50 · ACTIVE 15–50 · COMPRESSING <15 €/MW/h FCR)
-  FCR total Baltic market depth: 25 MW (all three countries combined — thin, saturating 2026)
+  Stack value (2h BESS): ${s2?.stack_value_2h_eur_mw_yr != null ? `€${Math.round(s2.stack_value_2h_eur_mw_yr / 1000)}k/MW/yr` : '—'}
+  FCR total Baltic market depth: 25 MW combined — thin, saturating 2026
 
 S3 — Cell Cost Stack:
   Lithium carbonate: ${s3?.lithium_eur_t != null ? `€${s3.lithium_eur_t}/t` : '—'} (${s3?.lithium_trend ?? '—'})
-  Equipment DC (Europe): ${s3?.europe_system_eur_kwh != null ? `€${s3.europe_system_eur_kwh}/kWh` : '—'} · Turnkey AC 2h: €262.5/kWh (CH S1 2025) · Signal: ${s3?.signal ?? '—'}
+  Equipment DC (Europe): ${s3?.europe_system_eur_kwh != null ? `€${s3.europe_system_eur_kwh}/kWh` : '—'} · Turnkey AC 2h: €262.5/kWh (CH S1 2025)
   Euribor 3M nominal: ${s3?.euribor_3m != null ? `${s3.euribor_3m}%` : '—'} · HICP YoY: ${s3?.hicp_yoy != null ? `${s3.hicp_yoy}%` : '—'}
 
 S4 — Grid Connection Scarcity:
-  Free capacity: ${s4?.free_mw ?? '—'} MW · Connected: ${s4?.connected_mw ?? '—'} MW · Utilisation: ${s4?.utilisation_pct != null ? `${s4.utilisation_pct.toFixed(1)}%` : '—'} · Signal: ${s4?.signal ?? '—'}${s4_warning}
+  Free capacity: ${s4?.free_mw ?? '—'} MW · Connected: ${s4?.connected_mw ?? '—'} MW · Utilisation: ${s4?.utilisation_pct != null ? `${s4.utilisation_pct.toFixed(1)}%` : '—'}${s4_warning}
 
 REVENUE MODEL (50 MW LFP, Lithuania, COD 2026, Clean Horizon S1 2025 reference):
   2h BESS: Net €${h2.net_annual_per_mw}/MW/yr · CAPEX €${h2.capex_per_mw}/MW · Payback ${h2.simple_payback_years}yr · IRR ~${h2.irr_approx_pct}% (CH central ${h2.ch_irr_central}%, range ${h2.ch_irr_range})

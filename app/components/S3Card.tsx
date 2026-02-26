@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type CSSProperties } from 'react';
 import { lithiumColor } from './s3-utils';
+import { CardFooter } from './CardFooter';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
@@ -42,9 +43,25 @@ type Status = 'loading' | 'success' | 'error';
 const FETCH_TIMEOUT_MS = 5_000;
 const RETRY_DELAY_MS   = 2_000;
 
+const btnStyle = (active: boolean): CSSProperties => ({
+  fontFamily: 'var(--font-mono)',
+  fontSize: '0.5rem',
+  letterSpacing: '0.06em',
+  color: active ? 'rgba(232, 226, 217, 0.7)' : 'rgba(232, 226, 217, 0.28)',
+  background: 'none',
+  border: 'none',
+  cursor: 'pointer',
+  padding: 0,
+});
+
 export function S3Card() {
   const [status, setStatus] = useState<Status>('loading');
   const [data, setData]     = useState<S3Signal | null>(null);
+  const [explainOpen, setExplainOpen] = useState(false);
+  const [dataOpen, setDataOpen]       = useState(false);
+
+  const toggleExplain = () => { setExplainOpen(o => !o); setDataOpen(false); };
+  const toggleData    = () => { setDataOpen(o => !o); setExplainOpen(false); };
 
   useEffect(() => {
     let cancelled = false;
@@ -84,18 +101,30 @@ export function S3Card() {
         width: '100%',
       }}
     >
-      <p
-        style={{
-          ...MONO,
-          fontSize: '0.625rem',
-          letterSpacing: '0.14em',
-          color: text(0.35),
-          textTransform: 'uppercase',
-          marginBottom: '1.75rem',
-        }}
-      >
-        S3 — Cell Cost Stack
-      </p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.75rem' }}>
+        <p style={{ ...MONO, fontSize: '0.625rem', letterSpacing: '0.14em', color: text(0.35), textTransform: 'uppercase' }}>
+          S3 — Cell Cost Stack
+        </p>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button onClick={toggleExplain} style={btnStyle(explainOpen)}>[Explain]</button>
+          <button onClick={toggleData}    style={btnStyle(dataOpen)}>[Data]</button>
+        </div>
+      </div>
+
+      {explainOpen && (
+        <div style={{ ...MONO, fontSize: '0.575rem', color: 'rgba(232, 226, 217, 0.5)', lineHeight: 1.65, marginBottom: '1.25rem', borderLeft: '2px solid rgba(232, 226, 217, 0.08)', paddingLeft: '0.75rem' }}>
+          <p style={{ marginBottom: '0.4rem' }}>LFP cell cost is 60–70% of equipment CAPEX. Lithium carbonate spot leads cell prices by 3–6 months.</p>
+          <p>Turnkey 2h: equipment + BOS + civil + HV grid = €257k/MW at Q1 2026 pricing. CH S1 2025 used €525k/MW — costs fell ~50% through 2024–2025.</p>
+        </div>
+      )}
+
+      {dataOpen && (
+        <div style={{ ...MONO, fontSize: '0.5rem', color: 'rgba(232, 226, 217, 0.4)', lineHeight: 1.65, marginBottom: '1.25rem', borderLeft: '2px solid rgba(232, 226, 217, 0.08)', paddingLeft: '0.75rem' }}>
+          <p style={{ marginBottom: '0.3rem' }}>Lithium: Trading Economics (CNY/T spot) · Equipment: InfoLink + BNEF/Ember</p>
+          <p style={{ marginBottom: '0.3rem' }}>Euribor 3M: ECB daily · HICP: Eurostat YoY</p>
+          <p>Updated daily 06:00 UTC via Cloudflare Worker cron</p>
+        </div>
+      )}
 
       {status === 'loading' && <Skeleton />}
       {status === 'error'   && <ErrorState />}
@@ -216,6 +245,12 @@ function LiveData({ data }: { data: S3Signal }) {
       <time dateTime={data.timestamp} style={{ ...MONO, fontSize: '0.575rem', color: text(0.25), letterSpacing: '0.06em', display: 'block', textAlign: 'right' }}>
         {formatTimestamp(data.timestamp)}
       </time>
+
+      <CardFooter
+        period="Spot price · daily"
+        compare="Baseline: CH S1 2025 turnkey €262.5/kWh"
+        updated="Trading Economics · InfoLink · 06:00 UTC"
+      />
     </>
   );
 }
