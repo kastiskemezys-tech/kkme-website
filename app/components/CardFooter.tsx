@@ -4,22 +4,32 @@ const MONO: CSSProperties = { fontFamily: 'var(--font-mono)' };
 const text = (opacity: number) => `rgba(232, 226, 217, ${opacity})`;
 
 interface CardFooterProps {
-  period:  string;  // e.g. "Daily average · 7-day window"
-  compare: string;  // e.g. "Baseline: CH S1 2025 central"
-  updated: string;  // e.g. "ENTSO-E · 06:00 UTC"
+  period:    string;
+  compare:   string;
+  updated:   string;
+  isStale?:  boolean;
+  ageHours?: number | null;
 }
 
-export function CardFooter({ period, compare, updated }: CardFooterProps) {
+export function CardFooter({ period, compare, updated, isStale, ageHours }: CardFooterProps) {
   return (
-    <p style={{
+    <div style={{
       ...MONO,
-      fontSize: '0.52rem',
-      color: text(0.38),
-      letterSpacing: '0.06em',
-      lineHeight: 1.5,
-      marginTop: '0.75rem',
+      fontSize: '0.5rem',
+      color: text(0.35),
+      marginTop: '14px',
+      paddingTop: '8px',
+      borderTop: `1px solid rgba(232,226,217,0.07)`,
+      lineHeight: 1.6,
     }}>
-      {period} · {compare} · {updated}
-    </p>
+      <span>{period}</span>
+      <span style={{ margin: '0 5px', opacity: 0.35 }}>·</span>
+      <span>{compare}</span>
+      <span style={{ margin: '0 5px', opacity: 0.35 }}>·</span>
+      <span style={{ color: isStale ? 'rgba(255,180,0,0.55)' : text(0.35) }}>
+        {updated}
+        {isStale && ageHours != null ? ` · ${Math.round(ageHours)}h old` : ''}
+      </span>
+    </div>
   );
 }

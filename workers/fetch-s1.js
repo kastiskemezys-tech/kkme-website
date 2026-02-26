@@ -270,6 +270,22 @@ async function updateHistory(env, todayEntry) {
   return history;
 }
 
+/** Generic history append for S2/S3/S4. Key = '{signal}_history', max 90 entries. */
+async function appendSignalHistory(env, signal, entry) {
+  const key = `${signal}_history`;
+  let history = [];
+  try {
+    const raw = await env.KKME_SIGNALS.get(key);
+    if (raw) history = JSON.parse(raw);
+  } catch { /* start fresh */ }
+  const today = new Date().toISOString().split('T')[0];
+  // deduplicate: keep only the latest entry per date
+  history = history.filter(e => e.date !== today);
+  history.push({ ...entry, date: today });
+  if (history.length > MAX_HISTORY) history = history.slice(-MAX_HISTORY);
+  await env.KKME_SIGNALS.put(key, JSON.stringify(history));
+}
+
 function rollingStats(history, field) {
   const vals = history
     .map(h => h[field])
@@ -1028,32 +1044,62 @@ async function computeInterpretations(signals, revenue, anthropicKey) {
 
   const s4_warning = s4?.parse_warning ? `\n  Parse warning: ${s4.parse_warning}` : '';
 
-  const prompt = `You are a BESS project operator reviewing live market data. State facts. Max 15 words per sentence. No hedging (may, could, suggests, indicates, appears). First sentence: what the number is. Second sentence: what it means for project decisions.${stale_warning}
+  const SYSTEM = `You write for a BESS developer who built this console himself. He knows the market.
 
-LIVE SIGNALS (${new Date().toISOString().slice(0, 10)}):
+RULES — every output must follow all of these:
+1. Two sentences per signal. Hard limit.
+2. Max 15 words per sentence.
+3. Sentence 1: state the number in plain terms.
+4. Sentence 2: state what does NOT change because of it.
+5. No hedging: never use may, could, suggests, indicates, appears, seems, potentially, worth noting.
+6. No sign-off phrases.
 
-S1 — Baltic Price Separation:
-  LT vs SE4: ${s1?.spread_eur_mwh != null ? `${s1.spread_eur_mwh >= 0 ? '+' : ''}${s1.spread_eur_mwh} €/MWh` : '—'} · LT avg ${s1?.lt_avg_eur_mwh ?? '—'} €/MWh · SE4 avg ${s1?.se4_avg_eur_mwh ?? '—'} €/MWh
-  Intraday swing: ${s1?.lt_daily_swing_eur_mwh ?? '—'} €/MWh · 90D median spread: ${s1?.spread_stats_90d?.p50 != null ? `${s1.spread_stats_90d.p50 >= 0 ? '+' : ''}${s1.spread_stats_90d.p50.toFixed(1)} €` : '—'}
+GOOD examples:
+  "Small spread today. Coupling day — irrelevant until NTC tightens."
+  "aFRR still 3× the CH 2027 forecast. Window open, compressing by quarter."
+  "Equipment cheaper than last quarter. Installed cost: BOS and grid still dominate."
+  "Free MW is fine. Fight is node approval queue, not raw capacity."
 
-S2 — Balancing Capacity Prices (BTD, last 7-day window):
-  FCR: ${s2?.fcr_avg ?? '—'} €/MW/h · aFRR up: ${s2?.afrr_up_avg ?? '—'} €/MW/h · mFRR up: ${s2?.mfrr_up_avg ?? '—'} €/MW/h
-  Stack value (2h BESS): ${s2?.stack_value_2h_eur_mw_yr != null ? `€${Math.round(s2.stack_value_2h_eur_mw_yr / 1000)}k/MW/yr` : '—'}
-  FCR total Baltic market depth: 25 MW combined — thin, saturating 2026
+BAD (never write like this):
+  "Partial separation forming. Consider checking NordBalt capacity before committing."
+  "Upstream costs suggest improving capex window."`;
 
-S3 — Cell Cost Stack:
-  Lithium carbonate: ${s3?.lithium_eur_t != null ? `€${s3.lithium_eur_t}/t` : '—'} (${s3?.lithium_trend ?? '—'})
-  Equipment DC (Europe): ${s3?.europe_system_eur_kwh != null ? `€${s3.europe_system_eur_kwh}/kWh` : '—'} · Turnkey AC 2h: €262.5/kWh (CH S1 2025)
-  Euribor 3M nominal: ${s3?.euribor_3m != null ? `${s3.euribor_3m}%` : '—'} · HICP YoY: ${s3?.hicp_yoy != null ? `${s3.hicp_yoy}%` : '—'}
+  const stale_signals = Object.entries(data_completeness).filter(([, v]) => !v).map(([k]) => k.toUpperCase());
+  const stale_note = stale_signals.length
+    ? `\nNOTE: ${stale_signals.join(', ')} data is stale. For each stale signal write exactly: "No fresh data."\n`
+    : '';
 
-S4 — Grid Connection Scarcity:
-  Free capacity: ${s4?.free_mw ?? '—'} MW · Connected: ${s4?.connected_mw ?? '—'} MW · Utilisation: ${s4?.utilisation_pct != null ? `${s4.utilisation_pct.toFixed(1)}%` : '—'}${s4_warning}
+  const pack = JSON.stringify({
+    s1: {
+      spread_eur:   s1?.spread_eur_mwh    ?? null,
+      swing_eur:    s1?.lt_daily_swing_eur_mwh ?? null,
+      vs_median:    s1?.spread_stats_90d?.p50  ?? null,
+      stale:        !!s1?._stale,
+    },
+    s2: {
+      afrr_eur_mwh: s2?.afrr_up_avg  ?? null,
+      mfrr_eur_mwh: s2?.mfrr_up_avg  ?? null,
+      ch_2027_afrr: 20,
+      stale:        !!s2?._stale,
+    },
+    s3: {
+      equip_eur_kwh: s3?.europe_system_eur_kwh ?? null,
+      euribor_pct:   s3?.euribor_3m           ?? null,
+      stale:         !!s3?._stale,
+    },
+    s4: {
+      free_mw:        s4?.free_mw       ?? null,
+      pipeline_clean: !s4?.parse_warning,
+      stale:          !!s4?._stale,
+    },
+  });
 
-REVENUE MODEL (50 MW LFP, Lithuania, COD 2026, Clean Horizon S1 2025 reference):
-  2h BESS: Net €${h2.net_annual_per_mw}/MW/yr · CAPEX €${h2.capex_per_mw}/MW · Payback ${h2.simple_payback_years}yr · IRR ~${h2.irr_approx_pct}% (CH central ${h2.ch_irr_central}%, range ${h2.ch_irr_range})
-  4h BESS: Net €${h4.net_annual_per_mw}/MW/yr · CAPEX €${h4.capex_per_mw}/MW · Payback ${h4.simple_payback_years}yr · IRR ~${h4.irr_approx_pct}% (CH central ${h4.ch_irr_central}%, range ${h4.ch_irr_range})
+  const prompt = `${SYSTEM}${stale_note}
 
-Return ONLY a JSON object with these keys — 1–2 sentences each, no markdown:
+Data (${new Date().toISOString().slice(0, 10)}):
+${pack}
+
+Return ONLY a JSON object — 1–2 sentences per key, no markdown:
 {
   "s1": "...",
   "s2": "...",
@@ -1079,6 +1125,104 @@ Return ONLY a JSON object with these keys — 1–2 sentences each, no markdown:
     console.error('[Interpretations] failed:', String(err));
     return null;
   }
+}
+
+// ─── Daily digest ─────────────────────────────────────────────────────────────
+
+async function sendDailyDigest(env) {
+  const lines = [];
+  const date = new Date().toISOString().split('T')[0];
+  lines.push(`KKME · ${date}`);
+
+  const signalThresholds = { s1: 36, s2: 48, s3: 720, s4: 6 };
+  const issues = [];
+  for (const [key, threshold] of Object.entries(signalThresholds)) {
+    const raw = await env.KKME_SIGNALS.get(key).catch(() => null);
+    if (!raw) { issues.push(`🔴 ${key.toUpperCase()}: no data`); continue; }
+    try {
+      const d  = JSON.parse(raw);
+      const ts = d.timestamp ?? d._meta?.written_at ?? d.updated_at;
+      if (!ts) continue;
+      const age = (Date.now() - new Date(ts).getTime()) / 3600000;
+      if (age > threshold * 1.5) issues.push(`⚠️ ${key.toUpperCase()}: ${age.toFixed(0)}h old`);
+    } catch { issues.push(`⚠️ ${key.toUpperCase()}: parse error`); }
+  }
+  if (issues.length) lines.push(...issues);
+
+  const s4 = await env.KKME_SIGNALS.get('s4').then(r => r ? JSON.parse(r) : null).catch(() => null);
+  if (s4?.parse_warning) lines.push('📋 S4 pipeline: needs BESS filter verify');
+
+  const ping = await env.KKME_SIGNALS.get('cron_heartbeat').then(r => r ? JSON.parse(r) : null).catch(() => null);
+  const pingAge = ping?.timestamp ? (Date.now() - new Date(ping.timestamp).getTime()) / 3600000 : null;
+  if (!pingAge || pingAge > 25) lines.push(`⚠️ Mac cron: ${pingAge?.toFixed(0) ?? 'never'}h since ping`);
+
+  const idx = await env.KKME_SIGNALS.get('feed_index').then(r => r ? JSON.parse(r) : []).catch(() => []);
+  const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+  const newItems = idx.filter(i => i.added_at?.startsWith(yesterday));
+  if (newItems.length > 0) lines.push(`📰 Feed: +${newItems.length} item${newItems.length > 1 ? 's' : ''} added`);
+
+  const isMonday = new Date().getDay() === 1;
+  if (lines.length > 1 || isMonday) {
+    if (lines.length === 1) lines.push('All systems OK.');
+    await notifyTelegram(env, lines.join('\n'));
+  }
+}
+
+// ─── Telegram webhook helpers ─────────────────────────────────────────────────
+
+function classifyTopic(text) {
+  if (/bess|battery storage|energy storage|lfp|lithium iron|stationary/i.test(text)) return 'BESS';
+  if (/data cent|dc power|hyperscal|coloc|megawatt campus/i.test(text)) return 'DC';
+  if (/hydrogen|electroly|\bh2\b|fuel cell/i.test(text)) return 'Hydrogen';
+  if (/lithium|cell price|catl|byd|battery tech|chemistry/i.test(text)) return 'Batteries';
+  if (/\bgrid\b|transmission|tso|ntc|interconnect|balancing/i.test(text)) return 'Grid';
+  return 'Technology';
+}
+
+async function sendTelegramReply(env, chatId, text) {
+  const token = env.TELEGRAM_BOT_TOKEN;
+  if (!token) return;
+  await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, text }),
+  }).catch(e => console.error('[Telegram] reply error:', e));
+}
+
+async function fetchPageTitle(pageUrl) {
+  try {
+    const res  = await fetch(pageUrl, { headers: { 'User-Agent': 'Mozilla/5.0' }, redirect: 'follow' });
+    const html = await res.text();
+    const m    = html.match(/<title[^>]*>([^<]{1,200})<\/title>/i);
+    return m ? m[1].trim().replace(/\s+/g, ' ') : null;
+  } catch { return null; }
+}
+
+async function saveFeedItem(kv, item) {
+  await kv.put(`feed_${item.id}`, JSON.stringify(item));
+  const rawIdx = await kv.get('feed_index').catch(() => null);
+  let idx = rawIdx ? JSON.parse(rawIdx) : [];
+  idx.unshift({ id: item.id, topic: item.topic, added_at: item.added_at, title: item.title, source: item.source, content_type: item.content_type });
+  if (idx.length > 200) idx = idx.slice(0, 200);
+  await kv.put('feed_index', JSON.stringify(idx));
+}
+
+async function generateSummary(env, text) {
+  const key = env.ANTHROPIC_API_KEY;
+  if (!key) return null;
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 80,
+        messages: [{ role: 'user', content: `Summarise in max 20 words, operator perspective, no hedging: ${text.slice(0, 800)}` }],
+      }),
+    });
+    const d = await res.json();
+    return d.content?.[0]?.text?.trim() ?? null;
+  } catch { return null; }
 }
 
 // ─── Curation helpers ──────────────────────────────────────────────────────────
@@ -1171,6 +1315,12 @@ ${itemsText}`;
 export default {
   /** Cron — every 4h (S1/S3/S4/Euribor) and daily 09:00 UTC (S2 watchdog). */
   async scheduled(event, env, _ctx) {
+    // 08:00 UTC: daily digest to Telegram
+    if (event.cron === '0 8 * * *') {
+      await sendDailyDigest(env).catch(e => console.error('[Digest]', e));
+      return;
+    }
+
     const isWatchdog = event.cron === '0 9 * * *';
 
     if (isWatchdog) {
@@ -1224,6 +1374,7 @@ export default {
       const d = s4Result.value;
       await env.KKME_SIGNALS.put('s4', JSON.stringify(d));
       console.log(`[S4] ${d.signal} free=${d.free_mw}MW utilisation=${d.utilisation_pct}%`);
+      await appendSignalHistory(env, 's4', { free_mw: d.free_mw }).catch(e => console.error('[S4/history]', e));
     } else {
       console.error('[S4] cron failed:', s4Result.reason);
     }
@@ -1249,6 +1400,7 @@ export default {
       if (s3Result.status === 'fulfilled') {
         const merged = { ...s3Result.value, euribor_3m: eur.euribor_3m, euribor_trend: eur.euribor_trend };
         await env.KKME_SIGNALS.put('s3', JSON.stringify(merged));
+        await appendSignalHistory(env, 's3', { equip_eur_kwh: merged.europe_system_eur_kwh }).catch(e => console.error('[S3/history]', e));
       }
     } else {
       console.error('[Euribor] cron failed:', eurResult.reason);
@@ -1264,21 +1416,144 @@ export default {
       return new Response(null, { status: 200, headers: CORS });
     }
 
-    // Telegram pipeline: planned, not yet built
+    // ── POST /telegram/webhook ───────────────────────────────────────────────
+    if (request.method === 'POST' && url.pathname === '/telegram/webhook') {
+      let body;
+      try { body = await request.json(); } catch { return new Response('ok', { headers: CORS }); }
+
+      const msg = body?.message;
+      if (!msg) return new Response('ok', { headers: CORS });
+
+      const chatId     = String(msg.chat?.id ?? '');
+      const ownChatId  = env.TELEGRAM_CHAT_ID;
+      if (!ownChatId || chatId !== String(ownChatId)) return new Response('ok', { headers: CORS });
+
+      const text  = msg.text ?? '';
+      const lower = text.toLowerCase().trim();
+
+      // ── Commands ─────────────────────────────────────────────────────────
+      if (lower === '/status' || lower === '/status@gattana_bot') {
+        const keys = ['s1', 's2', 's3', 's4'];
+        const statLines = ['KKME Status:'];
+        for (const k of keys) {
+          const raw = await env.KKME_SIGNALS.get(k).catch(() => null);
+          if (!raw) { statLines.push(`${k.toUpperCase()}: no data`); continue; }
+          try {
+            const d = JSON.parse(raw);
+            const ts = d.timestamp ?? d._meta?.written_at ?? d.updated_at;
+            const age = ts ? ((Date.now() - new Date(ts).getTime()) / 3600000).toFixed(1) : '?';
+            statLines.push(`${k.toUpperCase()}: ${age}h old`);
+          } catch { statLines.push(`${k.toUpperCase()}: parse error`); }
+        }
+        const ping = await env.KKME_SIGNALS.get('cron_heartbeat').then(r => r ? JSON.parse(r) : null).catch(() => null);
+        const pAge = ping?.timestamp ? ((Date.now() - new Date(ping.timestamp).getTime()) / 3600000).toFixed(1) : 'never';
+        statLines.push(`Mac cron: ${pAge}h ago`);
+        await sendTelegramReply(env, chatId, statLines.join('\n'));
+        return new Response('ok', { headers: CORS });
+      }
+
+      if (lower === '/validate' || lower === '/validate@gattana_bot') {
+        const s4raw = await env.KKME_SIGNALS.get('s4').catch(() => null);
+        const s4d   = s4raw ? JSON.parse(s4raw).pipeline ?? {} : {};
+        const lines = ['Validation:'];
+        lines.push(`S4 parse_warning: ${s4d.parse_warning ?? 'none'}`);
+        lines.push(`S4 dev_total_mw: ${s4d.dev_total_mw ?? '—'}`);
+        await sendTelegramReply(env, chatId, lines.join('\n'));
+        return new Response('ok', { headers: CORS });
+      }
+
+      if (lower === '/help' || lower === '/help@gattana_bot') {
+        await sendTelegramReply(env, chatId, '/status — signal ages\n/validate — S4 pipeline check\nSend any URL or text to add to Intel Feed');
+        return new Response('ok', { headers: CORS });
+      }
+
+      // ── URL or text → Intel Feed ──────────────────────────────────────────
+      const urlMatch = text.match(/https?:\/\/[^\s]+/);
+      const topic    = classifyTopic(text);
+      const id       = makeId();
+      const now      = new Date().toISOString();
+
+      let title  = null;
+      let source = null;
+
+      if (urlMatch) {
+        const pageUrl = urlMatch[0];
+        title  = await fetchPageTitle(pageUrl);
+        source = new URL(pageUrl).hostname.replace(/^www\./, '');
+        if (!title) title = pageUrl.slice(0, 80);
+      } else {
+        title = text.slice(0, 80);
+      }
+
+      const summary = await generateSummary(env, title + ' ' + text.slice(0, 400));
+
+      const item = {
+        id,
+        added_at:     now,
+        topic,
+        content_type: urlMatch ? 'url' : 'note',
+        url:          urlMatch ? urlMatch[0] : null,
+        raw_text:     text.slice(0, 1000),
+        title:        title ?? text.slice(0, 60),
+        source,
+        summary,
+      };
+
+      await saveFeedItem(env.KKME_SIGNALS, item);
+
+      const reply = `✅ [${topic}] ${(item.title ?? '').slice(0, 50)}${source ? `\n${source}` : ''}\nID ${id.slice(-6)}`;
+      await sendTelegramReply(env, chatId, reply);
+      return new Response('ok', { headers: CORS });
+    }
+
+    // ── GET /telegram/test ───────────────────────────────────────────────────
+    if (request.method === 'GET' && url.pathname === '/telegram/test') {
+      await notifyTelegram(env, 'KKME: Telegram connected ✓');
+      return Response.json({ sent: true }, { headers: CORS });
+    }
+
+    // ── GET /feed ────────────────────────────────────────────────────────────
+    if (request.method === 'GET' && url.pathname === '/feed') {
+      const topic  = url.searchParams.get('topic');
+      const rawIdx = await env.KKME_SIGNALS.get('feed_index').catch(() => null);
+      let idx = rawIdx ? JSON.parse(rawIdx) : [];
+      if (topic && topic !== 'All') idx = idx.filter(i => i.topic === topic);
+      const items  = idx.slice(0, 50);
+      const topics = [...new Set(idx.map(i => i.topic))];
+      return Response.json({ items, total: idx.length, topics }, { headers: { ...CORS, 'Cache-Control': 'no-store' } });
+    }
+
+    // ── GET /feed/:id ────────────────────────────────────────────────────────
+    if (request.method === 'GET' && url.pathname.startsWith('/feed/')) {
+      const id  = url.pathname.slice(6);
+      const raw = await env.KKME_SIGNALS.get(`feed_${id}`).catch(() => null);
+      if (!raw) return Response.json({ error: 'not found' }, { status: 404, headers: CORS });
+      return Response.json(JSON.parse(raw), { headers: CORS });
+    }
 
     // ── GET /s2 ──────────────────────────────────────────────────────────────
     // Populated by GitHub Action fetch-btd.yml via POST /s2/update
     if (request.method === 'GET' && url.pathname === '/s2') {
-      const cached = await env.KKME_SIGNALS.get('s2');
-      if (cached) {
-        return new Response(cached, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600', ...CORS } });
+      try {
+        const cached = await env.KKME_SIGNALS.get('s2');
+        if (cached) {
+          return new Response(cached, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600', ...CORS } });
+        }
+        // KV empty — serve static floor defaults so the card never shows blank
+        const defaults = { ...DEFAULTS.s2, unavailable: true, _serving: 'static_defaults' };
+        return new Response(
+          JSON.stringify(defaults),
+          { status: 200, headers: { 'Content-Type': 'application/json', ...CORS } },
+        );
+      } catch (e) {
+        console.error('/s2 handler error:', e);
+        return Response.json({
+          ...DEFAULTS.s2,
+          _serving: 'static_defaults',
+          unavailable: true,
+          _error: e.message,
+        }, { headers: CORS });
       }
-      // KV empty — serve static floor defaults so the card never shows blank
-      const defaults = { ...DEFAULTS.s2, unavailable: true };
-      return new Response(
-        JSON.stringify(defaults),
-        { status: 200, headers: { 'Content-Type': 'application/json', ...CORS } },
-      );
     }
 
     // ── POST /s2/update ───────────────────────────────────────────────────────
@@ -1312,6 +1587,7 @@ export default {
       }
 
       console.log(`[S2/update] ${payload.signal} fcr=${payload.fcr_avg} afrr_up=${payload.afrr_up_avg} pct_up=${payload.pct_up} ordered=${ordered_price ?? '—'}€/MW/h ${ordered_mw ?? '—'}MW`);
+      await appendSignalHistory(env, 's2', { afrr_up: payload.afrr_up_avg, mfrr_up: payload.mfrr_up_avg, fcr: payload.fcr_avg }).catch(e => console.error('[S2/history]', e));
       return new Response(JSON.stringify(payload), { status: 200, headers: { 'Content-Type': 'application/json', ...CORS } });
     }
 
@@ -1548,6 +1824,15 @@ export default {
       const json = JSON.stringify(payload);
       await env.KKME_SIGNALS.put('revenue', json, { expirationTtl: 14400 });
       return new Response(json, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=14400', ...CORS } });
+    }
+
+    // ── GET /s1/history · /s2/history · /s3/history · /s4/history ───────────
+    if (request.method === 'GET' && /^\/(s[1-4])\/history$/.test(url.pathname)) {
+      const sig = url.pathname.slice(1, 3); // 's1', 's2', 's3', 's4'
+      const histKey = sig === 's1' ? 's1_history' : `${sig}_history`;
+      const raw = await env.KKME_SIGNALS.get(histKey).catch(() => null);
+      const arr = raw ? JSON.parse(raw) : [];
+      return Response.json(arr, { headers: CORS });
     }
 
     // ── GET /health ──────────────────────────────────────────────────────────

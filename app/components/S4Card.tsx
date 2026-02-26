@@ -1,10 +1,13 @@
 'use client';
 
-import { useState, type CSSProperties } from 'react';
+import { useState, useEffect, type CSSProperties } from 'react';
 import { gridColor } from './s4-utils';
 import { CardFooter } from './CardFooter';
+import { CardDisclosure } from './CardDisclosure';
 import { StaleBanner } from './StaleBanner';
+import { Sparkline } from './Sparkline';
 import { useSignal } from '@/lib/useSignal';
+import { safeNum, formatHHMM } from '@/lib/safeNum';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
@@ -23,24 +26,22 @@ interface S4Pipeline {
 }
 
 interface S4Signal {
-  timestamp: string;
-  free_mw: number;
-  connected_mw: number;
-  reserved_mw: number;
-  utilisation_pct: number;
-  signal: string;
-  interpretation: string;
-  pipeline?: S4Pipeline;
+  timestamp?:      string | null;
+  free_mw?:        number | null;
+  connected_mw?:   number | null;
+  reserved_mw?:    number | null;
+  utilisation_pct?: number | null;
+  signal?:         string | null;
+  interpretation?: string | null;
+  pipeline?:       S4Pipeline;
+  _stale?:         boolean;
+  _age_hours?:     number | null;
 }
 
 const text = (opacity: number) => `rgba(232, 226, 217, ${opacity})`;
 const MONO: CSSProperties = { fontFamily: 'var(--font-mono)' };
 
-function formatMw(n: number): string {
-  return n.toLocaleString('en-GB');
-}
-
-function fmw(n: number | null): string {
+function fmw(n: number | null | undefined): string {
   return n == null ? '—' : `${n.toLocaleString('en-GB')} MW`;
 }
 
@@ -52,25 +53,17 @@ function formatTimestamp(iso: string): string {
   });
 }
 
-const btnStyle = (active: boolean): CSSProperties => ({
-  fontFamily: 'var(--font-mono)',
-  fontSize: '0.5rem',
-  letterSpacing: '0.06em',
-  color: active ? 'rgba(232, 226, 217, 0.7)' : 'rgba(232, 226, 217, 0.28)',
-  background: 'none',
-  border: 'none',
-  cursor: 'pointer',
-  padding: 0,
-});
-
 export function S4Card() {
   const { status, data, isDefault, isStale, ageHours, defaultReason } =
     useSignal<S4Signal>(`${WORKER_URL}/s4`);
-  const [explainOpen, setExplainOpen] = useState(false);
-  const [dataOpen, setDataOpen]       = useState(false);
+  const [history, setHistory] = useState<number[]>([]);
 
-  const toggleExplain = () => { setExplainOpen(o => !o); setDataOpen(false); };
-  const toggleData    = () => { setDataOpen(o => !o); setExplainOpen(false); };
+  useEffect(() => {
+    fetch(`${WORKER_URL}/s4/history`)
+      .then(r => r.json())
+      .then((h: Array<{ free_mw: number }>) => setHistory(h.map(e => e.free_mw)))
+      .catch(() => {});
+  }, []);
 
   return (
     <article
@@ -81,34 +74,31 @@ export function S4Card() {
         width: '100%',
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.75rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
         <p style={{ ...MONO, fontSize: '0.625rem', letterSpacing: '0.14em', color: text(0.35), textTransform: 'uppercase' }}>
           S4 — Grid Connection Scarcity
         </p>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button onClick={toggleExplain} style={btnStyle(explainOpen)}>[Explain]</button>
-          <button onClick={toggleData}    style={btnStyle(dataOpen)}>[Data]</button>
-        </div>
       </div>
 
-      {explainOpen && (
-        <div style={{ ...MONO, fontSize: '0.575rem', color: 'rgba(232, 226, 217, 0.5)', lineHeight: 1.65, marginBottom: '1.25rem', borderLeft: '2px solid rgba(232, 226, 217, 0.08)', paddingLeft: '0.75rem' }}>
-          <p style={{ marginBottom: '0.4rem' }}>Litgrid publishes grid connection capacity by technology type. Storage category is Kaupikliai.</p>
-          <p>Free capacity is the binding constraint for new BESS projects — not land, not planning. Lithuania entered EU single electricity market Feb 2025.</p>
-        </div>
-      )}
-
-      {dataOpen && (
-        <div style={{ ...MONO, fontSize: '0.5rem', color: 'rgba(232, 226, 217, 0.4)', lineHeight: 1.65, marginBottom: '1.25rem', borderLeft: '2px solid rgba(232, 226, 217, 0.08)', paddingLeft: '0.75rem' }}>
-          <p style={{ marginBottom: '0.3rem' }}>Source: Litgrid FeatureServer/8 (ArcGIS) · Tipas: Kaupikliai</p>
-          <p style={{ marginBottom: '0.3rem' }}>Fields: Laisva_galia_prijungimui · Prijungtoji_galia_PT · Pasirasytu_ketinimu_pro_galia</p>
-          <p>Updated daily 06:00 UTC · No auth required</p>
-        </div>
-      )}
+      <CardDisclosure
+        explain={[
+          'Free MW: available transmission grid capacity.',
+          'Headline only — node quality and approvals matter more.',
+          'Pipeline filtered for BESS permits (validation pending).',
+        ]}
+        dataLines={[
+          'Grid: Litgrid ArcGIS FeatureServer (near real-time)',
+          'Pipeline: VERT.lt permit registry (monthly)',
+          'Filter: Kaupikliai storage type only',
+          'Stale: grid 6h · permits 35d',
+        ]}
+      />
 
       {status === 'loading' && <Skeleton />}
       {status === 'error'   && <ErrorState />}
-      {status === 'success' && data && <LiveData data={data} isDefault={isDefault} isStale={isStale} ageHours={ageHours} defaultReason={defaultReason} />}
+      {status === 'success' && data && (
+        <LiveData data={data} isDefault={isDefault} isStale={isStale} ageHours={ageHours} defaultReason={defaultReason} history={history} />
+      )}
     </article>
   );
 }
@@ -145,41 +135,42 @@ const DIVIDER: CSSProperties = {
 };
 
 interface LiveDataProps {
-  data: S4Signal; isDefault: boolean; isStale: boolean; ageHours: number | null; defaultReason: string | null;
+  data: S4Signal; isDefault: boolean; isStale: boolean; ageHours: number | null; defaultReason: string | null; history: number[];
 }
 
-function LiveData({ data, isDefault, isStale, ageHours, defaultReason }: LiveDataProps) {
-  const signalColor = gridColor(data.free_mw);
+function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }: LiveDataProps) {
+  const signalColor = gridColor(data.free_mw ?? 0);
+  const ts          = data.timestamp ?? null;
 
   const metrics: [string, string][] = [
-    ['Connected', `${formatMw(data.connected_mw)} MW`],
-    ['Reserved',  `${formatMw(data.reserved_mw)} MW`],
-    ['Utilisation', `${data.utilisation_pct.toFixed(1)}%`],
+    ['Connected',   fmw(data.connected_mw)],
+    ['Reserved',    fmw(data.reserved_mw)],
+    ['Utilisation', data.utilisation_pct != null ? `${safeNum(data.utilisation_pct, 1)}%` : '—'],
   ];
 
   return (
     <>
       <StaleBanner isDefault={isDefault} isStale={isStale} ageHours={ageHours} defaultReason={defaultReason} />
 
-      {/* Large free MW number */}
-      <p style={{ ...MONO, fontWeight: 400, lineHeight: 1, letterSpacing: '-0.02em', marginBottom: '1rem' }}>
-        <span style={{ fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', color: signalColor }}>
-          {formatMw(data.free_mw)}
-        </span>
-        <span style={{ fontSize: '0.75rem', marginLeft: '0.4em', color: text(0.35) }}>
-          MW free
-        </span>
-      </p>
+      {/* Hero + sparkline */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1rem' }}>
+        <p style={{ ...MONO, fontWeight: 400, lineHeight: 1, letterSpacing: '-0.02em', margin: 0 }}>
+          <span style={{ fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', color: signalColor }}>
+            {safeNum(data.free_mw, 0, '')}
+          </span>
+          <span style={{ fontSize: '0.75rem', marginLeft: '0.4em', color: text(0.35) }}>
+            MW free
+          </span>
+        </p>
+        <Sparkline values={history} color="#86efac" width={80} height={24} />
+      </div>
 
-      {/* Interpretation */}
       <p style={{ ...MONO, fontSize: '0.6rem', color: data.free_mw == null ? text(0.2) : text(0.35), lineHeight: 1.5, marginBottom: '1.5rem' }}>
-        {data.free_mw == null ? 'Interpretation unavailable — feed incomplete.' : data.interpretation}
+        {data.free_mw == null ? 'Interpretation unavailable — feed incomplete.' : (data.interpretation ?? '—')}
       </p>
 
-      {/* Divider */}
-      <div style={{ ...DIVIDER, marginBottom: '1.25rem' }} />
+      <div style={{ borderTop: `1px solid rgba(232, 226, 217, 0.06)`, width: '100%', marginBottom: '1.25rem' }} />
 
-      {/* Three metrics */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.25rem', marginBottom: '1.5rem' }}>
         {metrics.map(([label, value]) => (
           <div key={label}>
@@ -193,7 +184,6 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason }: LiveDat
         ))}
       </div>
 
-      {/* Optional: VERT.lt permitted pipeline */}
       {data.pipeline && (
         <>
           <div style={{ ...DIVIDER, marginBottom: '1.25rem' }} />
@@ -202,14 +192,12 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason }: LiveDat
             Development permits (BESS filtered)
           </p>
 
-          {/* Pipeline guard: hide unvalidated numbers */}
           {(data.pipeline.parse_warning || (data.pipeline.dev_total_mw != null && data.pipeline.dev_total_mw > 5000)) ? (
             <p style={{ ...MONO, fontSize: '0.55rem', color: text(0.3), fontStyle: 'italic', marginBottom: '0.75rem' }}>
               Pipeline: validation pending
             </p>
           ) : (
             <>
-              {/* Pipeline metrics */}
               <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '0.4rem 1.25rem', marginBottom: '0.75rem', alignItems: 'baseline' }}>
                 <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase' }}>Dev (storage)</p>
                 <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.55) }}>{fmw(data.pipeline.dev_total_mw)}</p>
@@ -221,7 +209,6 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason }: LiveDat
                 <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.55) }}>{fmw(data.pipeline.dev_expiring_2027)}</p>
               </div>
 
-              {/* Raw vs filtered audit note */}
               {data.pipeline.dev_total_raw_mw != null && (
                 <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.06em', marginBottom: '0.75rem' }}>
                   Raw total: {data.pipeline.dev_total_raw_mw.toLocaleString('en-GB')} MW
@@ -231,8 +218,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason }: LiveDat
                 </p>
               )}
 
-              {/* Top 3 projects */}
-              {data.pipeline.top_projects.length > 0 && (
+              {data.pipeline.top_projects && data.pipeline.top_projects.length > 0 && (
                 <div style={{ marginBottom: '1rem' }}>
                   {data.pipeline.top_projects.map((p, i) => (
                     <p key={i} style={{ ...MONO, fontSize: '0.575rem', color: text(0.35), lineHeight: 1.6 }}>
@@ -246,16 +232,17 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason }: LiveDat
         </>
       )}
 
-      {/* Timestamp */}
-      <time dateTime={data.timestamp ?? ''} style={{ ...MONO, fontSize: '0.575rem', color: text(0.25), letterSpacing: '0.06em', display: 'block', textAlign: 'right' }}>
-        {data.timestamp ? formatTimestamp(data.timestamp) : '—'}
+      <time dateTime={ts ?? ''} style={{ ...MONO, fontSize: '0.575rem', color: text(0.25), letterSpacing: '0.06em', display: 'block', textAlign: 'right' }}>
+        {ts ? formatTimestamp(ts) : '—'}
         <StaleBanner isDefault={false} isStale={isStale} ageHours={ageHours} defaultReason={null} />
       </time>
 
       <CardFooter
         period="Point-in-time snapshot"
         compare="Baseline: >2000 MW available"
-        updated="Litgrid ArcGIS · 06:00 UTC"
+        updated={`ArcGIS ${formatHHMM(ts)} UTC · Permits: monthly`}
+        isStale={isStale}
+        ageHours={ageHours}
       />
     </>
   );

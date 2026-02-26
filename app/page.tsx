@@ -8,6 +8,7 @@ import { CTASection } from '@/app/components/CTASection';
 import { Contact } from '@/app/components/Contact';
 import { ErrorBoundary } from '@/app/components/ErrorBoundary';
 import { CardBoundary } from '@/app/components/CardBoundary';
+import { IntelFeed } from '@/app/components/IntelFeed';
 
 export default function Home() {
   return (
@@ -70,12 +71,15 @@ export default function Home() {
         <S4Card />
       </CardBoundary>
 
-      {/* 7. Revenue Engine */}
+      {/* 7. Intel Feed */}
+      <IntelFeed />
+
+      {/* 8. Revenue Engine */}
       <ErrorBoundary>
         <RevenueCard />
       </ErrorBoundary>
 
-      {/* 8. Technology thesis */}
+      {/* 9. Technology thesis */}
       <TechTracker />
 
       {/* 9. CTA */}

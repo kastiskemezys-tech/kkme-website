@@ -29,6 +29,8 @@ export interface S1Signal {
   // Rolling history stats (added Task 3) — absent until first history entry written
   spread_stats_90d?: { p25: number; p50: number; p75: number; p90: number; n: number; days_of_data: number } | null;
   swing_stats_90d?:  { p25: number; p50: number; p75: number; p90: number; n: number; days_of_data: number } | null;
+  // LLM interpretation — added by Worker computeInterpretations(); absent in old KV entries
+  interpretation?: string | null;
   // DA tomorrow — embedded by computeS1(); null before ~13:00 CET publication
   da_tomorrow?: {
     lt_peak:       number | null;
