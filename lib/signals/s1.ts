@@ -23,11 +23,15 @@ export interface S1Signal {
   rsi_30d?: number | null;          // 30-day rolling avg spread €/MWh
   trend_vs_90d?: number | null;     // rsi_30d delta vs reference window 90d ago; >0 = widening
   pct_hours_above_20?: number | null; // % of hours in last 30d where separation > 20%
-  // DA tomorrow fields — optional; merged from da_tomorrow KV at GET /read
-  lt_tomorrow_peak?: number | null;
-  lt_tomorrow_avg?: number | null;
-  se4_tomorrow_avg?: number | null;
-  spread_tomorrow_pct?: number | null;
+  // DA tomorrow — embedded by computeS1(); null before ~13:00 CET publication
+  da_tomorrow?: {
+    lt_peak:       number | null;
+    lt_trough:     number | null;
+    lt_avg:        number | null;
+    se4_avg:       number | null;
+    spread_pct:    number | null;
+    delivery_date: string | null;
+  } | null;
 }
 
 export interface FetchS1Options {

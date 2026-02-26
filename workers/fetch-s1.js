@@ -159,9 +159,12 @@ async function computeS1(env) {
   const apiKey = env.ENTSOE_API_KEY;
   if (!apiKey) throw new Error('ENTSOE_API_KEY secret not set');
 
-  const [[ltXml, se4Xml], historical] = await Promise.all([
+  // Fetch today, tomorrow (best-effort), and historical in parallel
+  const [[ltXml, se4Xml], historical, ltTomorrow, se4Tomorrow] = await Promise.all([
     Promise.all([fetchBzn(LT_BZN, apiKey), fetchBzn(SE4_BZN, apiKey)]),
     computeHistorical(apiKey),
+    fetchBznRange(LT_BZN,  apiKey, 1, 2),  // null before ~13:00 CET publication
+    fetchBznRange(SE4_BZN, apiKey, 1, 2),
   ]);
 
   const ltPrices  = extractPrices(ltXml);
@@ -176,6 +179,27 @@ async function computeS1(env) {
   const spread = ltAvg - se4Avg;
   const separationPct = se4Avg !== 0 ? (spread / se4Avg) * 100 : 0;
 
+  // DA tomorrow — populated only after ENTSO-E publishes (~13:00 CET)
+  let da_tomorrow = null;
+  if (ltTomorrow.length && se4Tomorrow.length) {
+    const ltTomAvg  = avg(ltTomorrow);
+    const se4TomAvg = avg(se4Tomorrow);
+    const tomSpreadPct = se4TomAvg !== 0 ? ((ltTomAvg - se4TomAvg) / se4TomAvg) * 100 : 0;
+    const tomDate = new Date();
+    tomDate.setUTCDate(tomDate.getUTCDate() + 1);
+    da_tomorrow = {
+      lt_peak:       Math.round(Math.max(...ltTomorrow) * 100) / 100,
+      lt_trough:     Math.round(Math.min(...ltTomorrow) * 100) / 100,
+      lt_avg:        Math.round(ltTomAvg * 100) / 100,
+      se4_avg:       Math.round(se4TomAvg * 100) / 100,
+      spread_pct:    Math.round(tomSpreadPct * 10) / 10,
+      delivery_date: tomDate.toISOString().slice(0, 10),
+    };
+    console.log(`[S1/tomorrow] lt_avg=${da_tomorrow.lt_avg} lt_peak=${da_tomorrow.lt_peak} se4_avg=${da_tomorrow.se4_avg} spread=${da_tomorrow.spread_pct}%`);
+  } else {
+    console.log(`[S1/tomorrow] not yet published (lt=${ltTomorrow.length}h se4=${se4Tomorrow.length}h)`);
+  }
+
   return {
     signal: 'S1',
     name: 'Baltic Price Separation',
@@ -187,6 +211,7 @@ async function computeS1(env) {
     updated_at: new Date().toISOString(),
     lt_hours:  ltPrices.length,
     se4_hours: se4Prices.length,
+    da_tomorrow,
     ...historical,
   };
 }
@@ -767,12 +792,11 @@ ${itemsText}`;
 export default {
   /** Cron — 06:00 UTC daily. S1/S3/S4 run in parallel; S2 is written by GitHub Action at 05:30 UTC. */
   async scheduled(_event, env, _ctx) {
-    const [s1Result, s4Result, s3Result, eurResult, npResult] = await Promise.allSettled([
-      withTimeout(computeS1(env),      25000),
+    const [s1Result, s4Result, s3Result, eurResult] = await Promise.allSettled([
+      withTimeout(computeS1(env),      30000),  // includes tomorrow fetch (+2 ENTSO-E calls)
       withTimeout(computeS4(),         25000),
       withTimeout(computeS3(),         25000),
       withTimeout(computeEuribor(),    20000),
-      withTimeout(fetchNordPoolDA(),   20000),
     ]);
 
     if (s1Result.status === 'fulfilled') {
@@ -817,16 +841,8 @@ export default {
       console.error('[Euribor] cron failed:', eurResult.reason);
     }
 
-    if (npResult.status === 'fulfilled') {
-      const da = npResult.value;
-      await env.KKME_SIGNALS.put('da_tomorrow', JSON.stringify(da));
-      console.log(`[NP/DA] lt_avg=${da.lt_avg} lt_peak=${da.lt_peak} se4_avg=${da.se4_avg} spread=${da.spread_pct}%`);
-    } else {
-      // Non-fatal — da_tomorrow may be pushed by Mac cron (fetch-np-da.js, 13:00 UTC)
-      console.error('[NP/DA] cron failed (may be IP-blocked):', npResult.reason);
-    }
-
-    // S2 is populated by GitHub Action (fetch-btd.yml) at 05:30 UTC — not computed here
+    // S2 is populated by Mac cron (fetch-btd.js) at 05:30 UTC — not computed here
+    // da_tomorrow is now embedded in computeS1() and stored in the s1 KV key
   },
 
   async fetch(request, env, ctx) {
@@ -1041,25 +1057,11 @@ export default {
     }
 
     // ── GET /read ────────────────────────────────────────────────────────────
+    // da_tomorrow is now embedded in computeS1() and stored in the s1 KV key directly
     if (request.method === 'GET' && url.pathname === '/read') {
-      const [s1Raw, daRaw] = await Promise.all([
-        env.KKME_SIGNALS.get('s1'),
-        env.KKME_SIGNALS.get('da_tomorrow'),
-      ]);
+      const s1Raw = await env.KKME_SIGNALS.get('s1');
       if (!s1Raw) return new Response(JSON.stringify({ error: 'not yet populated' }), { status: 404, headers: { 'Content-Type': 'application/json', ...CORS } });
-      try {
-        const s1 = JSON.parse(s1Raw);
-        if (daRaw) {
-          const da = JSON.parse(daRaw);
-          s1.lt_tomorrow_peak      = da.lt_peak      ?? null;
-          s1.lt_tomorrow_avg       = da.lt_avg       ?? null;
-          s1.se4_tomorrow_avg      = da.se4_avg      ?? null;
-          s1.spread_tomorrow_pct   = da.spread_pct   ?? null;
-        }
-        return new Response(JSON.stringify(s1), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=300', ...CORS } });
-      } catch {
-        return new Response(s1Raw, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=300', ...CORS } });
-      }
+      return new Response(s1Raw, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=300', ...CORS } });
     }
 
     // ── GET / — fresh S1 + write to KV ──────────────────────────────────────

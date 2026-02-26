@@ -166,10 +166,10 @@ function LiveData({ data }: { data: S1Signal }) {
 
   return (
     <>
-      {/* Optional Nord Pool DA tomorrow line */}
-      {data.lt_tomorrow_avg != null && (
-        <p style={{ ...MONO, fontSize: '0.575rem', color: text(0.3), letterSpacing: '0.06em', marginBottom: '1rem' }}>
-          Tomorrow{data.lt_tomorrow_peak != null ? ` ${data.lt_tomorrow_peak.toFixed(0)} peak ·` : ''} {data.lt_tomorrow_avg.toFixed(0)} avg €/MWh
+      {/* Tomorrow DA — available after ~13:00 CET when ENTSO-E publishes */}
+      {data.da_tomorrow?.lt_peak != null && (
+        <p style={{ ...MONO, fontSize: '0.6rem', color: text(0.35), letterSpacing: '0.06em', marginBottom: '1rem' }}>
+          Tomorrow: {data.da_tomorrow.lt_peak.toFixed(0)} peak · {data.da_tomorrow.lt_avg?.toFixed(0) ?? '—'} avg €/MWh
         </p>
       )}
 
