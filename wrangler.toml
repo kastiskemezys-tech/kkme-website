@@ -28,7 +28,10 @@ workers_dev = true
 preview_urls = false
 
 [triggers]
-crons = ["0 6 * * *"]
+crons = [
+  "0 */4 * * *",   # Every 4h: S1 + S3 + S4 + Euribor
+  "0 9 * * *",     # 09:00 UTC daily: S2 watchdog
+]
 
 [[kv_namespaces]]
 binding = "KKME_SIGNALS"

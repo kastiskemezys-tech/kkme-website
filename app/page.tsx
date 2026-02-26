@@ -7,6 +7,7 @@ import { TechTracker } from '@/app/components/TechTracker';
 import { CTASection } from '@/app/components/CTASection';
 import { Contact } from '@/app/components/Contact';
 import { ErrorBoundary } from '@/app/components/ErrorBoundary';
+import { CardBoundary } from '@/app/components/CardBoundary';
 
 export default function Home() {
   return (
@@ -50,24 +51,24 @@ export default function Home() {
       </p>
 
       {/* 3. S1 — Baltic Price Separation */}
-      <ErrorBoundary>
+      <CardBoundary signal="S1">
         <S1Card />
-      </ErrorBoundary>
+      </CardBoundary>
 
       {/* 4. S2 — Balancing Market Tension */}
-      <ErrorBoundary>
+      <CardBoundary signal="S2">
         <S2Card />
-      </ErrorBoundary>
+      </CardBoundary>
 
       {/* 5. S3 — Lithium Cell Price */}
-      <ErrorBoundary>
+      <CardBoundary signal="S3">
         <S3Card />
-      </ErrorBoundary>
+      </CardBoundary>
 
       {/* 6. S4 — Grid Connection Scarcity */}
-      <ErrorBoundary>
+      <CardBoundary signal="S4">
         <S4Card />
-      </ErrorBoundary>
+      </CardBoundary>
 
       {/* 7. Revenue Engine */}
       <ErrorBoundary>

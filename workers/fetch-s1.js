@@ -1,21 +1,28 @@
 /**
  * KKME — Signal Worker
- * Cron: 0 6 * * * (06:00 UTC daily)
+ * Cron: every 4h (0 every-4h) + daily watchdog at 09:00 UTC
  *
  * Endpoints:
  *   GET /               → fresh S1 fetch + KV write (manual trigger)
  *   GET /read           → cached S1 KV value (fetched by S1Card)
- *   GET /s2             → cached S2 KV value (written by GitHub Action fetch-btd.yml)
- *   POST /s2/update     → write S2 payload to KV (GitHub Action only, requires X-Update-Secret)
+ *   GET /s2             → S2 KV (defaults if empty)
+ *   POST /s2/update     → write S2 payload to KV (Mac cron, validated)
  *   GET /s3             → cached S3 KV value; computes fresh if empty
  *   GET /s4             → cached S4 KV value; computes fresh if empty
  *   POST /curate        → store CurationEntry in KV
  *   GET /curations      → raw curation entries (last 7 days)
  *   GET /digest         → Anthropic haiku digest; cached 1h
+ *   GET /health         → structured health of all signals + Mac cron ping
+ *   POST /heartbeat     → record Mac cron ping (requires X-Update-Secret)
  *
  * Secrets: ENTSOE_API_KEY · ANTHROPIC_API_KEY · UPDATE_SECRET
+ *          TELEGRAM_BOT_TOKEN · TELEGRAM_CHAT_ID
  * KV binding: KKME_SIGNALS
  */
+
+import { DEFAULTS, STALE_THRESHOLDS_HOURS } from './lib/defaults.js';
+import { kvWrite, checkBounds, checkRequired } from './lib/kv.js';
+import { notifyTelegram } from './lib/notify.js';
 
 const ENTSOE_API    = 'https://web-api.tp.entsoe.eu/api';
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
@@ -1162,8 +1169,33 @@ ${itemsText}`;
 // ─── Main export ───────────────────────────────────────────────────────────────
 
 export default {
-  /** Cron — 06:00 UTC daily. S1/S3/S4 run in parallel; S2 is written by GitHub Action at 05:30 UTC. */
-  async scheduled(_event, env, _ctx) {
+  /** Cron — every 4h (S1/S3/S4/Euribor) and daily 09:00 UTC (S2 watchdog). */
+  async scheduled(event, env, _ctx) {
+    const isWatchdog = event.cron === '0 9 * * *';
+
+    if (isWatchdog) {
+      // 09:00 UTC daily: only run S2 watchdog + re-run S2 watchdog Telegram alert
+      try {
+        const s2Raw = await env.KKME_SIGNALS.get('s2');
+        if (!s2Raw) {
+          await notifyTelegram(env, '🔴 S2: KV empty — BTD cron (fetch-btd.js) has never run or always failing');
+        } else {
+          const s2   = JSON.parse(s2Raw);
+          const ts   = s2.timestamp ?? s2._meta?.written_at;
+          const ageH = ts ? (Date.now() - new Date(ts).getTime()) / 3600000 : Infinity;
+          if (ageH > 48) {
+            await notifyTelegram(env, `⚠️ S2: data is ${ageH.toFixed(0)}h old. Mac cron (fetch-btd.js) may have failed.`);
+          } else {
+            console.log(`[S2/watchdog] fresh: ${ageH.toFixed(1)}h old`);
+          }
+        }
+      } catch (e) {
+        console.error('[S2/watchdog]', String(e));
+      }
+      return;
+    }
+
+    // Every 4h: fetch S1/S3/S4/Euribor in parallel
     const [s1Result, s4Result, s3Result, eurResult] = await Promise.allSettled([
       withTimeout(computeS1(env),      30000),  // includes tomorrow fetch (+2 ENTSO-E calls)
       withTimeout(computeS4(),         25000),
@@ -1222,8 +1254,7 @@ export default {
       console.error('[Euribor] cron failed:', eurResult.reason);
     }
 
-    // S2 is populated by Mac cron (fetch-btd.js) at 05:30 UTC — not computed here
-    // da_tomorrow is now embedded in computeS1() and stored in the s1 KV key
+    // da_tomorrow is embedded in computeS1() and stored in the s1 KV key
   },
 
   async fetch(request, env, ctx) {
@@ -1242,8 +1273,10 @@ export default {
       if (cached) {
         return new Response(cached, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600', ...CORS } });
       }
+      // KV empty — serve static floor defaults so the card never shows blank
+      const defaults = { ...DEFAULTS.s2, unavailable: true };
       return new Response(
-        JSON.stringify({ unavailable: true, signal: 'ACTIVE', interpretation: 'Data not yet populated — runs at 05:30 UTC.', source: 'baltic.transparency-dashboard.eu' }),
+        JSON.stringify(defaults),
         { status: 200, headers: { 'Content-Type': 'application/json', ...CORS } },
       );
     }
@@ -1264,7 +1297,20 @@ export default {
       const payload = s2ShapePayload(reserves ?? null, direction ?? null, imbalance ?? null);
       if (ordered_price != null) payload.ordered_price = ordered_price;
       if (ordered_mw    != null) payload.ordered_mw    = ordered_mw;
-      await env.KKME_SIGNALS.put('s2', JSON.stringify(payload));
+
+      // Validate: reject null-heavy payload (BTD blocked → all fields null)
+      const validation = await kvWrite(env.KKME_SIGNALS, 's2', payload, {
+        required:   ['fcr_avg', 'afrr_up_avg', 'mfrr_up_avg'],
+        bounds_key: 's2',
+      });
+      if (!validation.success) {
+        await notifyTelegram(env, `⚠️ S2: KV write rejected (BTD data invalid) — ${validation.errors.join(' | ')}`);
+        return new Response(
+          JSON.stringify({ error: 'validation_failed', errors: validation.errors }),
+          { status: 400, headers: { 'Content-Type': 'application/json', ...CORS } },
+        );
+      }
+
       console.log(`[S2/update] ${payload.signal} fcr=${payload.fcr_avg} afrr_up=${payload.afrr_up_avg} pct_up=${payload.pct_up} ordered=${ordered_price ?? '—'}€/MW/h ${ordered_mw ?? '—'}MW`);
       return new Response(JSON.stringify(payload), { status: 200, headers: { 'Content-Type': 'application/json', ...CORS } });
     }
@@ -1502,6 +1548,90 @@ export default {
       const json = JSON.stringify(payload);
       await env.KKME_SIGNALS.put('revenue', json, { expirationTtl: 14400 });
       return new Response(json, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=14400', ...CORS } });
+    }
+
+    // ── GET /health ──────────────────────────────────────────────────────────
+    // Returns structured health of all signal KV keys + Mac cron ping status.
+    if (request.method === 'GET' && url.pathname === '/health') {
+      const keys = ['s1', 's2', 's3', 's4', 'euribor', 's4_pipeline'];
+      const signals = {};
+
+      await Promise.all(keys.map(async (key) => {
+        try {
+          const raw = await env.KKME_SIGNALS.get(key);
+          if (!raw) {
+            signals[key] = { status: 'missing', age_hours: null, stale: null };
+            return;
+          }
+          const data      = JSON.parse(raw);
+          const ts        = data.timestamp ?? data._meta?.written_at ?? data.updated_at;
+          const ageH      = ts ? (Date.now() - new Date(ts).getTime()) / 3600000 : null;
+          const threshold = STALE_THRESHOLDS_HOURS[key] ?? 48;
+          const stale     = ageH !== null ? ageH > threshold : null;
+          signals[key] = {
+            status:          'present',
+            age_hours:       ageH !== null ? parseFloat(ageH.toFixed(1)) : null,
+            stale,
+            threshold_hours: threshold,
+          };
+        } catch (e) {
+          signals[key] = { status: 'error', error: e.message };
+        }
+      }));
+
+      // Mac cron heartbeat
+      let macCron = { status: 'never_run', last_ping: null, age_hours: null };
+      try {
+        const cronRaw = await env.KKME_SIGNALS.get('cron_heartbeat');
+        if (cronRaw) {
+          const cron = JSON.parse(cronRaw);
+          const ageH = cron.timestamp
+            ? (Date.now() - new Date(cron.timestamp).getTime()) / 3600000
+            : null;
+          macCron = {
+            status:    ageH !== null ? (ageH > 25 ? 'overdue' : 'ok') : 'unknown',
+            last_ping: cron.timestamp ?? null,
+            age_hours: ageH !== null ? parseFloat(ageH.toFixed(1)) : null,
+            script:    cron.script ?? null,
+          };
+        }
+      } catch { /* ignore */ }
+
+      const allFresh = Object.values(signals).every(
+        r => r.status === 'present' && r.stale === false,
+      );
+
+      const health = {
+        checked_at: new Date().toISOString(),
+        all_fresh:  allFresh,
+        signals,
+        mac_cron:   macCron,
+      };
+
+      return new Response(JSON.stringify(health, null, 2), {
+        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...CORS },
+      });
+    }
+
+    // ── POST /heartbeat ──────────────────────────────────────────────────────
+    // Mac cron scripts POST here after a successful run.
+    if (request.method === 'POST' && url.pathname === '/heartbeat') {
+      const secret = request.headers.get('X-Update-Secret');
+      if (!secret || secret !== env.UPDATE_SECRET) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json', ...CORS } });
+      }
+      let body = {};
+      try { body = await request.json(); } catch { /* ignore */ }
+      const ping = {
+        timestamp: new Date().toISOString(),
+        script:    body.script ?? 'unknown',
+        note:      body.note   ?? '',
+      };
+      await env.KKME_SIGNALS.put('cron_heartbeat', JSON.stringify(ping));
+      console.log(`[Heartbeat] ${ping.script} at ${ping.timestamp}`);
+      return new Response(JSON.stringify({ ok: true, ...ping }), {
+        headers: { 'Content-Type': 'application/json', ...CORS },
+      });
     }
 
     // ── GET /read ────────────────────────────────────────────────────────────

@@ -1,8 +1,10 @@
 'use client';
 
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { gridColor } from './s4-utils';
 import { CardFooter } from './CardFooter';
+import { StaleBanner } from './StaleBanner';
+import { useSignal } from '@/lib/useSignal';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
@@ -50,11 +52,6 @@ function formatTimestamp(iso: string): string {
   });
 }
 
-type Status = 'loading' | 'success' | 'error';
-
-const FETCH_TIMEOUT_MS = 5_000;
-const RETRY_DELAY_MS   = 2_000;
-
 const btnStyle = (active: boolean): CSSProperties => ({
   fontFamily: 'var(--font-mono)',
   fontSize: '0.5rem',
@@ -67,42 +64,13 @@ const btnStyle = (active: boolean): CSSProperties => ({
 });
 
 export function S4Card() {
-  const [status, setStatus] = useState<Status>('loading');
-  const [data, setData] = useState<S4Signal | null>(null);
+  const { status, data, isDefault, isStale, ageHours, defaultReason } =
+    useSignal<S4Signal>(`${WORKER_URL}/s4`);
   const [explainOpen, setExplainOpen] = useState(false);
   const [dataOpen, setDataOpen]       = useState(false);
 
   const toggleExplain = () => { setExplainOpen(o => !o); setDataOpen(false); };
   const toggleData    = () => { setDataOpen(o => !o); setExplainOpen(false); };
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const load = async (attempt: number): Promise<void> => {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-
-      try {
-        const res = await fetch(`${WORKER_URL}/s4`, { signal: controller.signal });
-        clearTimeout(timer);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const d = (await res.json()) as S4Signal;
-        if (!cancelled) { setData(d); setStatus('success'); }
-      } catch (_err) {
-        clearTimeout(timer);
-        if (cancelled) return;
-        if (attempt === 1) {
-          await new Promise<void>((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
-          if (!cancelled) await load(2);
-        } else {
-          setStatus('error');
-        }
-      }
-    };
-
-    load(1);
-    return () => { cancelled = true; };
-  }, []);
 
   return (
     <article
@@ -140,7 +108,7 @@ export function S4Card() {
 
       {status === 'loading' && <Skeleton />}
       {status === 'error'   && <ErrorState />}
-      {status === 'success' && data && <LiveData data={data} />}
+      {status === 'success' && data && <LiveData data={data} isDefault={isDefault} isStale={isStale} ageHours={ageHours} defaultReason={defaultReason} />}
     </article>
   );
 }
@@ -176,7 +144,11 @@ const DIVIDER: CSSProperties = {
   width: '100%',
 };
 
-function LiveData({ data }: { data: S4Signal }) {
+interface LiveDataProps {
+  data: S4Signal; isDefault: boolean; isStale: boolean; ageHours: number | null; defaultReason: string | null;
+}
+
+function LiveData({ data, isDefault, isStale, ageHours, defaultReason }: LiveDataProps) {
   const signalColor = gridColor(data.free_mw);
 
   const metrics: [string, string][] = [
@@ -187,6 +159,8 @@ function LiveData({ data }: { data: S4Signal }) {
 
   return (
     <>
+      <StaleBanner isDefault={isDefault} isStale={isStale} ageHours={ageHours} defaultReason={defaultReason} />
+
       {/* Large free MW number */}
       <p style={{ ...MONO, fontWeight: 400, lineHeight: 1, letterSpacing: '-0.02em', marginBottom: '1rem' }}>
         <span style={{ fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', color: signalColor }}>
@@ -273,8 +247,9 @@ function LiveData({ data }: { data: S4Signal }) {
       )}
 
       {/* Timestamp */}
-      <time dateTime={data.timestamp} style={{ ...MONO, fontSize: '0.575rem', color: text(0.25), letterSpacing: '0.06em', display: 'block', textAlign: 'right' }}>
-        {formatTimestamp(data.timestamp)}
+      <time dateTime={data.timestamp ?? ''} style={{ ...MONO, fontSize: '0.575rem', color: text(0.25), letterSpacing: '0.06em', display: 'block', textAlign: 'right' }}>
+        {data.timestamp ? formatTimestamp(data.timestamp) : '—'}
+        <StaleBanner isDefault={false} isStale={isStale} ageHours={ageHours} defaultReason={null} />
       </time>
 
       <CardFooter

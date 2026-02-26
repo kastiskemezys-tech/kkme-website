@@ -1,7 +1,9 @@
 'use client';
 
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { CardFooter } from './CardFooter';
+import { StaleBanner } from './StaleBanner';
+import { useSignal } from '@/lib/useSignal';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
@@ -46,11 +48,6 @@ function formatTimestamp(iso: string): string {
   });
 }
 
-type Status = 'loading' | 'success' | 'error';
-
-const FETCH_TIMEOUT_MS = 5_000;
-const RETRY_DELAY_MS   = 2_000;
-
 const btnStyle = (active: boolean): CSSProperties => ({
   fontFamily: 'var(--font-mono)',
   fontSize: '0.5rem',
@@ -63,42 +60,13 @@ const btnStyle = (active: boolean): CSSProperties => ({
 });
 
 export function S2Card() {
-  const [status, setStatus] = useState<Status>('loading');
-  const [data, setData]     = useState<S2Signal | null>(null);
+  const { status, data, isDefault, isStale, ageHours, defaultReason } =
+    useSignal<S2Signal>(`${WORKER_URL}/s2`);
   const [explainOpen, setExplainOpen] = useState(false);
   const [dataOpen, setDataOpen]       = useState(false);
 
   const toggleExplain = () => { setExplainOpen(o => !o); setDataOpen(false); };
   const toggleData    = () => { setDataOpen(o => !o); setExplainOpen(false); };
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const load = async (attempt: number): Promise<void> => {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-
-      try {
-        const res = await fetch(`${WORKER_URL}/s2`, { signal: controller.signal });
-        clearTimeout(timer);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const d = (await res.json()) as S2Signal;
-        if (!cancelled) { setData(d); setStatus('success'); }
-      } catch (_err) {
-        clearTimeout(timer);
-        if (cancelled) return;
-        if (attempt === 1) {
-          await new Promise<void>((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
-          if (!cancelled) await load(2);
-        } else {
-          setStatus('error');
-        }
-      }
-    };
-
-    load(1);
-    return () => { cancelled = true; };
-  }, []);
 
   return (
     <article
@@ -136,7 +104,9 @@ export function S2Card() {
 
       {status === 'loading' && <Skeleton />}
       {status === 'error'   && <ErrorState />}
-      {status === 'success' && data && <LiveData data={data} />}
+      {status === 'success' && data && (
+        <LiveData data={data} isDefault={isDefault} isStale={isStale} ageHours={ageHours} defaultReason={defaultReason} />
+      )}
     </article>
   );
 }
@@ -199,9 +169,15 @@ function fmtK(v: number | null): string {
   return `€${Math.round(v / 1000)}k`;
 }
 
-function LiveData({ data }: { data: S2Signal }) {
+interface LiveDataProps {
+  data: S2Signal; isDefault: boolean; isStale: boolean; ageHours: number | null; defaultReason: string | null;
+}
+
+function LiveData({ data, isDefault, isStale, ageHours, defaultReason }: LiveDataProps) {
   return (
     <>
+      <StaleBanner isDefault={isDefault} isStale={isStale} ageHours={ageHours} defaultReason={defaultReason} />
+
       {/* Optional Litgrid tomorrow ordered line */}
       {(data.ordered_price != null || data.ordered_mw != null) && (
         <p style={{ ...MONO, fontSize: '0.575rem', color: text(0.3), letterSpacing: '0.06em', marginBottom: '1rem' }}>
@@ -261,8 +237,9 @@ function LiveData({ data }: { data: S2Signal }) {
       </p>
 
       {/* Timestamp */}
-      <time dateTime={data.timestamp} style={{ ...MONO, fontSize: '0.575rem', color: text(0.25), letterSpacing: '0.06em', display: 'block', textAlign: 'right' }}>
-        {formatTimestamp(data.timestamp)}
+      <time dateTime={data.timestamp ?? ''} style={{ ...MONO, fontSize: '0.575rem', color: text(0.25), letterSpacing: '0.06em', display: 'block', textAlign: 'right' }}>
+        {data.timestamp ? formatTimestamp(data.timestamp) : '—'}
+        <StaleBanner isDefault={false} isStale={isStale} ageHours={ageHours} defaultReason={null} />
       </time>
 
       <CardFooter

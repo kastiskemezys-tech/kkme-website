@@ -1,9 +1,11 @@
 'use client';
 
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useState, type CSSProperties } from 'react';
 import type { S1Signal } from '@/lib/signals/s1';
 import { getInterpretation, spreadColor } from './s1-utils';
 import { CardFooter } from './CardFooter';
+import { StaleBanner } from './StaleBanner';
+import { useSignal } from '@/lib/useSignal';
 
 const text = (opacity: number) => `rgba(232, 226, 217, ${opacity})`;
 const MONO: CSSProperties = { fontFamily: 'var(--font-mono)' };
@@ -24,11 +26,6 @@ function formatTimestamp(iso: string): string {
   });
 }
 
-type Status = 'loading' | 'success' | 'error';
-
-const FETCH_TIMEOUT_MS = 5_000;
-const RETRY_DELAY_MS   = 2_000;
-
 const btnStyle = (active: boolean): CSSProperties => ({
   fontFamily: 'var(--font-mono)',
   fontSize: '0.5rem',
@@ -41,42 +38,13 @@ const btnStyle = (active: boolean): CSSProperties => ({
 });
 
 export function S1Card() {
-  const [status, setStatus] = useState<Status>('loading');
-  const [data, setData] = useState<S1Signal | null>(null);
+  const { status, data, isDefault, isStale, ageHours, defaultReason } =
+    useSignal<S1Signal>('https://kkme-fetch-s1.kastis-kemezys.workers.dev/read');
   const [explainOpen, setExplainOpen] = useState(false);
   const [dataOpen, setDataOpen]       = useState(false);
 
   const toggleExplain = () => { setExplainOpen(o => !o); setDataOpen(false); };
   const toggleData    = () => { setDataOpen(o => !o); setExplainOpen(false); };
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const load = async (attempt: number): Promise<void> => {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-
-      try {
-        const res = await fetch('https://kkme-fetch-s1.kastis-kemezys.workers.dev/read', { signal: controller.signal });
-        clearTimeout(timer);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const d = (await res.json()) as S1Signal;
-        if (!cancelled) { setData(d); setStatus('success'); }
-      } catch (_err) {
-        clearTimeout(timer);
-        if (cancelled) return;
-        if (attempt === 1) {
-          await new Promise<void>((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
-          if (!cancelled) await load(2);
-        } else {
-          setStatus('error');
-        }
-      }
-    };
-
-    load(1);
-    return () => { cancelled = true; };
-  }, []);
 
   return (
     <article
@@ -114,7 +82,9 @@ export function S1Card() {
 
       {status === 'loading' && <Skeleton />}
       {status === 'error'   && <ErrorState />}
-      {status === 'success' && data && <LiveData data={data} />}
+      {status === 'success' && data && (
+        <LiveData data={data} isDefault={isDefault} isStale={isStale} ageHours={ageHours} defaultReason={defaultReason} />
+      )}
     </article>
   );
 }
@@ -150,7 +120,15 @@ const DIVIDER: CSSProperties = {
   width: '100%',
 };
 
-function LiveData({ data }: { data: S1Signal }) {
+interface LiveDataProps {
+  data:          S1Signal;
+  isDefault:     boolean;
+  isStale:       boolean;
+  ageHours:      number | null;
+  defaultReason: string | null;
+}
+
+function LiveData({ data, isDefault, isStale, ageHours, defaultReason }: LiveDataProps) {
   const heroColor = spreadColor(data.spread_eur_mwh);
   const interp    = getInterpretation(data.state, data.separation_pct);
 
@@ -186,6 +164,8 @@ function LiveData({ data }: { data: S1Signal }) {
 
   return (
     <>
+      <StaleBanner isDefault={isDefault} isStale={isStale} ageHours={ageHours} defaultReason={defaultReason} />
+
       {/* Tomorrow DA — available after ~13:00 CET when ENTSO-E publishes */}
       {data.da_tomorrow?.lt_peak != null && (
         <p style={{ ...MONO, fontSize: '0.6rem', color: text(0.35), letterSpacing: '0.06em', marginBottom: '1rem' }}>
@@ -247,8 +227,9 @@ function LiveData({ data }: { data: S1Signal }) {
       </div>
 
       {/* Timestamp */}
-      <time dateTime={data.updated_at} style={{ ...MONO, fontSize: '0.575rem', color: text(0.25), letterSpacing: '0.06em' }}>
-        {formatTimestamp(data.updated_at)}
+      <time dateTime={data.updated_at ?? ''} style={{ ...MONO, fontSize: '0.575rem', color: text(0.25), letterSpacing: '0.06em' }}>
+        {data.updated_at ? formatTimestamp(data.updated_at) : '—'}
+        <StaleBanner isDefault={false} isStale={isStale} ageHours={ageHours} defaultReason={null} />
       </time>
 
       <CardFooter

@@ -67,9 +67,22 @@ Next.js static export → components fetch Worker endpoints directly from browse
     FCR ~90 €/MW/h | aFRR ~20 €/MW/h | EARLY regime confirmed (post-sync)
     + Litgrid tomorrow ordered capacity: fetch in fetch-btd.js (logging pending first run)
 [x] S1 live — Nord Pool DA tomorrow line added (optional, via Mac cron fetch-np-da.js 13:00 UTC or Worker cron)
+[x] Resilience architecture — 3-layer fallback (live → stale KV → static defaults) for all signals
+    + workers/lib/defaults.js: floor defaults + SANITY_BOUNDS + STALE_THRESHOLDS_HOURS
+    + workers/lib/kv.js: kvWrite/kvRead with validation and staleness metadata
+    + workers/lib/notify.js: Telegram alerting helper (TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID)
+    + lib/useSignal.ts: unified fetch hook (timeout 5s, 1 retry) exposing isStale/isDefault/ageHours
+    + app/components/StaleBanner.tsx: amber block banner (defaults) or inline stale suffix
+    + app/components/CardBoundary.tsx: per-card React error boundary with retry
+    + All 4 signal cards updated: useSignal hook + StaleBanner + null-safe timestamps
+    + page.tsx: CardBoundary with signal name wraps S1–S4
+    + Worker GET /health: all-signal staleness check + mac_cron heartbeat tracking
+    + Worker POST /heartbeat: Mac cron alive ping (fetch-btd.js now calls after each run)
+    + Cron schedule: every-4h (S1/S3/S4/Euribor) + 09:00 UTC daily (S2 watchdog)
+    + POST /s2/update: validates required fields + sanity bounds; rejects bad data; Telegram alert
 [ ] ECB live Euribor fetch — use key M.U2.EUR.4F.MM.R_EURIBOR3MD_.HSTA from Mac cron ← TOMORROW
 [ ] S5 — DC Power Viability (DataCenterDynamics RSS) ← NEXT
-[ ] Telegram webhook
+[ ] Telegram webhook (set wrangler secrets: TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID)
 [ ] Animation pass
 
 ## Mac cron scripts (~/kkme-cron/)
@@ -130,8 +143,11 @@ All use X-Update-Secret: kkme-btd-2026
   POST /curate       → store CurationEntry in KV
   GET /curations     → raw curation entries (last 7 days)
   GET /digest        → Anthropic haiku digest; cached 1h in KV
-- KV keys: s1 | s2 | s3 | s4 | euribor | da_tomorrow | s4_pipeline | curation:{id} | curations:index | digest:cache
-- Cron runs S1/S3/S4/Euribor/NordPoolDA in parallel; S2 is written by Mac cron fetch-btd.js
+  GET /health        → staleness check for all signals + mac_cron heartbeat status
+  POST /heartbeat    → Mac cron alive ping (X-Update-Secret required)
+- KV keys: s1 | s2 | s3 | s4 | euribor | da_tomorrow | s4_pipeline | cron_heartbeat | curation:{id} | curations:index | digest:cache
+- Cron schedule: 0 every-4h (S1/S3/S4/Euribor) + 0 9 * * * (S2 watchdog); S2 written by Mac cron fetch-btd.js
+- Worker secrets needed: ENTSOE_API_KEY · ANTHROPIC_API_KEY · UPDATE_SECRET · TELEGRAM_BOT_TOKEN · TELEGRAM_CHAT_ID
 
 ## S3 signal states
 - COMPRESSING: lithium < 120k CNY/T → falling costs, build window
