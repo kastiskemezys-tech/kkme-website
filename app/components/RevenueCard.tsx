@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState, type CSSProperties } from 'react';
+import { CardFooter } from './CardFooter';
+import { formatHHMM } from '@/lib/safeNum';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
@@ -320,6 +322,12 @@ function LiveData({ data }: { data: RevenueData }) {
       <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), lineHeight: 1.6 }}>
         LT uses live signal data. Other markets: static reference. Source: Clean Horizon S1 2025, public ENTSO-E data
       </p>
+
+      <CardFooter
+        period="COD today · 18yr life · live prices = year 1"
+        compare="CH central (COD 2027): 2h = 16.6% IRR"
+        updated={`computed ${formatHHMM(data.updated_at)} UTC`}
+      />
     </>
   );
 }

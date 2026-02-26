@@ -48,7 +48,7 @@ export default function Home() {
           margin: '0 auto',
         }}
       >
-        Baltic energy infrastructure is mispriced. KKME tracks where.
+        Baltic BESS · grid · DC · signal console
       </p>
 
       {/* 3. S1 — Baltic Price Separation */}
