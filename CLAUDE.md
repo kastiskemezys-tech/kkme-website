@@ -82,7 +82,11 @@ Next.js static export → components fetch Worker endpoints directly from browse
     + POST /s2/update: validates required fields + sanity bounds; rejects bad data; Telegram alert
 [ ] ECB live Euribor fetch — use key M.U2.EUR.4F.MM.R_EURIBOR3MD_.HSTA from Mac cron ← TOMORROW
 [ ] S5 — DC Power Viability (DataCenterDynamics RSS) ← NEXT
-[ ] Telegram webhook (set wrangler secrets: TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID)
+[x] Telegram webhook — secrets set (TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID), webhook registered
+    POST /telegram/webhook · handleFeedIngest · classifyTopic · /status · /validate · /help
+    Daily digest: 08:00 UTC cron → sendDailyDigest() → notifyTelegram()
+    Intel Feed: GET /feed · feed_index KV · 200-item rolling window
+    /telegram/test confirmed: {"sent":true}
 [ ] Animation pass
 
 ## Mac cron scripts (~/kkme-cron/)
