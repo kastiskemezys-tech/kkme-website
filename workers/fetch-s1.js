@@ -249,11 +249,15 @@ const TE_HEADERS = {
 
 const INFOLINK_URL = 'https://www.infolink-group.com/energy-article/ess-spot-price-20260106';
 
+// FX fallback (EUR base) — used if Frankfurter API unavailable
+const FX_FALLBACK = { usd: 1.05, cny: 7.60 }; // approximate EUR/USD, EUR/CNY Feb 2026
+
+// BNEF Dec 2025 anchor costs, pre-converted to EUR using ~0.93 EUR/USD
 const S3_REFS = {
-  china_system_usd_kwh:  73,
-  europe_system_usd_kwh: 177,
-  global_avg_usd_kwh:    117,
-  ref_source: 'BNEF Dec 2025',
+  china_system_eur_kwh:  68,
+  europe_system_eur_kwh: 164,
+  global_avg_eur_kwh:    109,
+  ref_source: 'BNEF Dec 2025 / frankfurter.app FX',
   ref_date:   '2025-12',
 };
 
@@ -274,9 +278,9 @@ function s3SignalLevel(trend, cellEurKwh) {
 }
 
 const S3_INTERPRETATION = {
-  COMPRESSING: 'Upstream costs falling. LFP cell direction negative — capex window improving. China system floor $73/kWh (BNEF Dec 2025).',
-  STABLE:      'Cost stack within range. Lithium flat, cell prices tracking baseline. EU installed ~$177/kWh vs China $73/kWh gap persists.',
-  PRESSURE:    'Upstream cost pressure building. Lithium above ¥180k/t. Re-check OEM quotes before fixing capex assumptions.',
+  COMPRESSING: 'Upstream costs falling. LFP cell direction negative — capex window improving. China system floor €68/kWh (BNEF Dec 2025).',
+  STABLE:      'Cost stack within range. Lithium flat, cell prices tracking baseline. EU installed ~€164/kWh vs China €68/kWh gap persists.',
+  PRESSURE:    'Upstream cost pressure building. Lithium rising. Re-check OEM quotes before fixing capex assumptions.',
   WATCH:       'Lithium elevated. Cell price direction unclear — verify latest OEM quotes directly.',
 };
 
@@ -326,6 +330,27 @@ function parseInfoLinkDc2h(html) {
   return null;
 }
 
+// Fetch live EUR/USD and EUR/CNY rates from Frankfurter; falls back to FX_FALLBACK.
+async function fetchFxRates() {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+  try {
+    const res = await fetch('https://api.frankfurter.app/latest?from=EUR&to=USD,CNY', { signal: controller.signal });
+    clearTimeout(timer);
+    if (!res.ok) throw new Error(`FX HTTP ${res.status}`);
+    const json = await res.json();
+    return {
+      usd:  json.rates?.USD ?? FX_FALLBACK.usd,
+      cny:  json.rates?.CNY ?? FX_FALLBACK.cny,
+      date: json.date ?? null,
+    };
+  } catch (err) {
+    clearTimeout(timer);
+    console.error('[FX] frankfurter.app failed, using fallback rates:', String(err));
+    return { usd: FX_FALLBACK.usd, cny: FX_FALLBACK.cny, date: null };
+  }
+}
+
 async function computeS3() {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 20000);
@@ -334,8 +359,11 @@ async function computeS3() {
   let bodyPreview = '';
 
   try {
-    // Layer 1: Trading Economics CNY/T
-    const teRes = await fetch(TE_URL, { signal: controller.signal, headers: TE_HEADERS, redirect: 'follow' });
+    // Fetch FX rates in parallel with TE scrape
+    const [fx, teRes] = await Promise.all([
+      fetchFxRates(),
+      fetch(TE_URL, { signal: controller.signal, headers: TE_HEADERS, redirect: 'follow' }),
+    ]);
     clearTimeout(timer);
     teStatus = teRes.status;
 
@@ -346,6 +374,8 @@ async function computeS3() {
         unavailable: true,
         signal: 'STABLE',
         ...S3_REFS,
+        fx_rates: { usd: fx.usd, cny: fx.cny },
+        fx_timestamp: fx.date,
         interpretation: 'Data temporarily unavailable.',
         source: 'tradingeconomics.com + infolink-group.com',
         _scrape_error: `TE HTTP ${teRes.status}`,
@@ -363,6 +393,8 @@ async function computeS3() {
         unavailable: true,
         signal: 'STABLE',
         ...S3_REFS,
+        fx_rates: { usd: fx.usd, cny: fx.cny },
+        fx_timestamp: fx.date,
         interpretation: 'Price parse failed — check _scrape_debug.',
         source: 'tradingeconomics.com + infolink-group.com',
         _scrape_error: 'TE price not found in HTML',
@@ -370,12 +402,13 @@ async function computeS3() {
       };
     }
 
-    const lithium_cny_t   = parsed.unit === 'CNY/T' ? parsed.price : Math.round(parsed.price * 7.27);
-    const lithium_trend   = lithiumTrend(lithium_cny_t);
+    // Raw CNY value used for trend/signal logic (internal only, never stored)
+    const lithium_cny_t = parsed.unit === 'CNY/T' ? parsed.price : Math.round(parsed.price * 7.27);
+    const lithium_trend = lithiumTrend(lithium_cny_t);
+    const lithium_eur_t = Math.round(lithium_cny_t / fx.cny);
 
     // Layer 2: InfoLink ESS 2h DC system price (best effort, 10s timeout)
-    let cell_rmb_wh          = null;
-    let cell_eur_kwh_approx  = null;
+    let cell_eur_kwh = null;
     try {
       const ilCtrl  = new AbortController();
       const ilTimer = setTimeout(() => ilCtrl.abort(), 10000);
@@ -385,22 +418,23 @@ async function computeS3() {
       });
       clearTimeout(ilTimer);
       if (ilRes.ok) {
-        cell_rmb_wh = parseInfoLinkDc2h(await ilRes.text());
+        const cell_rmb_wh = parseInfoLinkDc2h(await ilRes.text());
         if (cell_rmb_wh !== null) {
-          cell_eur_kwh_approx = Math.round(cell_rmb_wh * 1000 / 7.27 * 10) / 10;
+          cell_eur_kwh = Math.round(cell_rmb_wh * 1000 / fx.cny * 10) / 10;
         }
       }
     } catch { /* signal computed from Layer 1 alone */ }
 
-    const signal = s3SignalLevel(lithium_trend, cell_eur_kwh_approx);
+    const signal = s3SignalLevel(lithium_trend, cell_eur_kwh);
 
     return {
       timestamp: new Date().toISOString(),
-      lithium_cny_t,
+      lithium_eur_t,
       lithium_trend,
-      cell_rmb_wh,
-      cell_eur_kwh_approx,
+      cell_eur_kwh,
       ...S3_REFS,
+      fx_rates: { usd: fx.usd, cny: fx.cny },
+      fx_timestamp: fx.date,
       signal,
       interpretation: S3_INTERPRETATION[signal],
       source: 'tradingeconomics.com + infolink-group.com',
@@ -764,7 +798,7 @@ export default {
       if (d.unavailable) {
         console.error(`[S3] scrape failed: ${d._scrape_error}`);
       } else {
-        console.log(`[S3] ${d.signal} lithium=${d.lithium_cny_t} CNY/T trend=${d.lithium_trend} cell=${d.cell_eur_kwh_approx ?? '—'} €/kWh`);
+        console.log(`[S3] ${d.signal} lithium=€${d.lithium_eur_t}/t trend=${d.lithium_trend} cell=${d.cell_eur_kwh ?? '—'} €/kWh`);
       }
     } else {
       console.error('[S3] cron failed:', s3Result.reason);
