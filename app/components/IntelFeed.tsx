@@ -8,12 +8,14 @@ const TOPICS = ['ALL', 'BESS', 'DC', 'HYDROGEN', 'BATTERIES', 'GRID', 'TECHNOLOG
 type Topic = typeof TOPICS[number];
 
 interface FeedItem {
-  id:        string;
-  url?:      string | null;
-  text:      string;
-  topic:     string;
-  summary?:  string | null;
-  saved_at:  string;
+  id:           string;
+  title:        string;
+  topic:        string;
+  added_at:     string;
+  url?:         string | null;
+  source?:      string | null;
+  summary?:     string | null;
+  content_type?: string;
 }
 
 const text = (opacity: number) => `rgba(232, 226, 217, ${opacity})`;
@@ -37,7 +39,7 @@ export function IntelFeed() {
   useEffect(() => {
     fetch(`${WORKER_URL}/feed`)
       .then(r => r.json())
-      .then((d: { items: FeedItem[] }) => { setItems(d.items ?? []); setLoading(false); })
+      .then((d: { items?: FeedItem[] }) => { setItems(d.items ?? []); setLoading(false); })
       .catch(() => setLoading(false));
   }, []);
 
@@ -111,11 +113,11 @@ export function IntelFeed() {
                 {item.topic}
               </span>
               <span style={{ ...MONO, fontSize: '0.45rem', color: text(0.2), flexShrink: 0 }}>
-                {formatDate(item.saved_at)}
+                {formatDate(item.added_at)}
               </span>
             </div>
 
-            {/* Title / text */}
+            {/* Title */}
             <p style={{ ...SERIF, fontSize: '0.75rem', color: text(0.65), lineHeight: 1.55, marginTop: '0.3rem', marginBottom: 0 }}>
               {item.url ? (
                 <a
@@ -125,10 +127,15 @@ export function IntelFeed() {
                   onClick={e => e.stopPropagation()}
                   style={{ color: 'inherit', textDecoration: 'none', borderBottom: `1px solid ${text(0.15)}` }}
                 >
-                  {item.text}
+                  {item.title}
                 </a>
-              ) : item.text}
+              ) : item.title}
             </p>
+            {item.source && (
+              <p style={{ ...MONO, fontSize: '0.45rem', color: text(0.2), marginTop: '0.2rem' }}>
+                {item.source}
+              </p>
+            )}
 
             {/* Expanded: summary */}
             {isOpen && item.summary && (

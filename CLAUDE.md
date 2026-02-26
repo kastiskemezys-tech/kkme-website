@@ -62,7 +62,8 @@ Next.js static export → components fetch Worker endpoints directly from browse
 [x] S4 live — Grid Connection Scarcity (Litgrid FeatureServer)
     + VERT.lt pipeline: dev=19,393MW (62 permits) gen=203MW (5 permits) via monthly cron
 [x] S3 live — Cell Cost Stack (TE lithium CNY/T + InfoLink + BNEF/Ember refs)
-    + Euribor 3M: 2.6% ↓ falling (static ref — ECB live API pending, correct key: M.U2.EUR.4F.MM.R_EURIBOR3MD_.HSTA)
+    + Euribor 3M: 2.03% ↓ falling (ECB live — FM/M.U2.EUR.RT.MM.EURIBOR3MD_.HSTA confirmed working)
+    + HICP YoY: 1.9% (ECB live — ICP/M.U2.N.000000.4.ANR)
 [x] S2 live — Balancing Regime (BTD Mac cron 05:30 UTC)
     FCR ~90 €/MW/h | aFRR ~20 €/MW/h | EARLY regime confirmed (post-sync)
     + Litgrid tomorrow ordered capacity: fetch in fetch-btd.js (logging pending first run)
@@ -80,7 +81,7 @@ Next.js static export → components fetch Worker endpoints directly from browse
     + Worker POST /heartbeat: Mac cron alive ping (fetch-btd.js now calls after each run)
     + Cron schedule: every-4h (S1/S3/S4/Euribor) + 09:00 UTC daily (S2 watchdog)
     + POST /s2/update: validates required fields + sanity bounds; rejects bad data; Telegram alert
-[ ] ECB live Euribor fetch — use key M.U2.EUR.4F.MM.R_EURIBOR3MD_.HSTA from Mac cron ← TOMORROW
+[x] ECB live Euribor fetch — FM/M.U2.EUR.RT.MM.EURIBOR3MD_.HSTA · 2.03% Jan 2026 confirmed live
 [ ] S5 — DC Power Viability (DataCenterDynamics RSS) ← NEXT
 [x] Telegram webhook — secrets set (TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID), webhook registered
     POST /telegram/webhook · handleFeedIngest · classifyTopic · /status · /validate · /help

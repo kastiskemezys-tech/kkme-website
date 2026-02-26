@@ -33,8 +33,6 @@ const SE4_BZN = '10Y1001A1001A47J';
 
 const S4_URL = 'https://services-eu1.arcgis.com/NDrrY0T7kE7A7pU0/arcgis/rest/services/ElektrosPerdavimasAEI/FeatureServer/8/query?f=json&cacheHint=true&resultOffset=0&resultRecordCount=1000&where=1%3D1&orderByFields=&outFields=*&resultType=standard&returnGeometry=false&spatialRel=esriSpatialRelIntersects';
 
-// ECB Data Portal — 3M Euribor monthly (FM dataset)
-const ECB_EURIBOR_URL = 'https://data.ecb.europa.eu/api/v1/data/FM/M.U2.EUR.RT.MM.EURIBOR3MD_.HSTA?lastNObservations=3&format=jsondata';
 
 // Nord Pool DA — LT + SE4 day-ahead prices (latest delivery date)
 const NP_DA_URL = 'https://data.nordpoolgroup.com/api/v1/auction/prices/areas';
@@ -636,11 +634,11 @@ async function fetchNordPoolDA() {
 // ─── Euribor + HICP ────────────────────────────────────────────────────────────
 // ECB Data Portal — nominal 3M Euribor (FM dataset) + HICP YoY inflation
 
-// ECB series keys:
-//   Nominal 3M Euribor: FM.M.U2.EUR.RT0.MM.EURIBOR3MD_.HSTA
-//   HICP inflation YoY: ICP.M.U2.N.000000.4.ANR
-const ECB_EURIBOR_NOMINAL_URL = 'https://data-api.ecb.europa.eu/service/data/FM.M.U2.EUR.RT0.MM.EURIBOR3MD_.HSTA?lastNObservations=3&format=jsondata';
-const ECB_HICP_URL            = 'https://data-api.ecb.europa.eu/service/data/ICP.M.U2.N.000000.4.ANR?lastNObservations=3&format=jsondata';
+// ECB series keys (flow/key format — dot notation in URL causes HTML response):
+//   Nominal 3M Euribor: FM / M.U2.EUR.RT.MM.EURIBOR3MD_.HSTA  → ~2.03% Jan 2026
+//   HICP inflation YoY: ICP / M.U2.N.000000.4.ANR              → ~1.9% Dec 2025
+const ECB_EURIBOR_NOMINAL_URL = 'https://data-api.ecb.europa.eu/service/data/FM/M.U2.EUR.RT.MM.EURIBOR3MD_.HSTA?lastNObservations=3&format=jsondata';
+const ECB_HICP_URL            = 'https://data-api.ecb.europa.eu/service/data/ICP/M.U2.N.000000.4.ANR?lastNObservations=3&format=jsondata';
 
 function ecbExtractLastValue(json) {
   try {
@@ -1202,7 +1200,7 @@ async function saveFeedItem(kv, item) {
   await kv.put(`feed_${item.id}`, JSON.stringify(item));
   const rawIdx = await kv.get('feed_index').catch(() => null);
   let idx = rawIdx ? JSON.parse(rawIdx) : [];
-  idx.unshift({ id: item.id, topic: item.topic, added_at: item.added_at, title: item.title, source: item.source, content_type: item.content_type });
+  idx.unshift({ id: item.id, topic: item.topic, added_at: item.added_at, title: item.title, source: item.source, content_type: item.content_type, url: item.url ?? null, summary: item.summary ?? null });
   if (idx.length > 200) idx = idx.slice(0, 200);
   await kv.put('feed_index', JSON.stringify(idx));
 }
