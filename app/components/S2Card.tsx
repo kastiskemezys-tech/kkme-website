@@ -246,16 +246,14 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
       {/* P90 imbalance stress spike */}
       {(data.stress_index_p90 ?? 0) > 0 && (
         <div style={{ marginTop: '14px' }}>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'rgba(232,226,217,0.40)', marginBottom: '6px' }}>
-            P90 imbalance spike
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'rgba(232,226,217,0.40)', marginBottom: '4px' }}>
+            <span>P90 imbalance spike</span>
+            <span style={{ color: 'var(--rose)' }}>{(data.stress_index_p90 ?? 0).toFixed(0)} €/MWh</span>
           </div>
-          <svg width="200" height="44" viewBox="0 0 200 44" style={{ display: 'block' }}>
-            <line x1="0" y1="34" x2="200" y2="34" stroke="rgba(232,226,217,0.07)" strokeWidth="0.5" />
-            <polyline points="0,34 70,34 100,6 130,34 200,34" fill="none" stroke="var(--rose)" strokeWidth="1.5" strokeLinejoin="round" />
-            <path d="M70,34 L100,6 L130,34 Z" fill="rgba(212,88,88,0.08)" />
-            <text x="100" y="4" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="8" fill="var(--rose)">
-              {(data.stress_index_p90 ?? 0).toFixed(0)} €/MWh
-            </text>
+          <svg width="100%" height="40" viewBox="0 0 200 40" preserveAspectRatio="none" style={{ display: 'block' }}>
+            <line x1="0" y1="32" x2="200" y2="32" stroke="rgba(232,226,217,0.07)" strokeWidth="0.5" />
+            <polyline points="0,32 70,32 100,6 130,32 200,32" fill="none" stroke="var(--rose)" strokeWidth="1.5" strokeLinejoin="round" />
+            <path d="M70,32 L100,6 L130,32 Z" fill="rgba(212,88,88,0.08)" />
           </svg>
         </div>
       )}
