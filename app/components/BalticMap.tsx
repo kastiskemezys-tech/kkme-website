@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { animateArc } from '@/lib/animations';
 
 // Web Mercator (EPSG:3857) projection bounded to Baltic region
@@ -10,7 +10,7 @@ function project(
   width = 400,
   height = 300,
 ): [number, number] {
-  const minLon = 13.0, maxLon = 28.5;
+  const minLon = 10.5, maxLon = 28.5;  // extended west so SE4 is visible
   const minLat = 53.5, maxLat = 60.5;
 
   const latRad    = (lat    * Math.PI) / 180;
@@ -66,12 +66,13 @@ const COUNTRIES: Record<string, [number, number][]> = {
     [22.73, 54.96], [22.03, 55.10], [21.46, 55.18],
     [21.06, 55.84], [20.95, 56.27], [21.06, 56.79],
   ],
-  // SE4 (southernmost Sweden)
+  // SE4 — southernmost Sweden, extended to ~10.96°E
   SE4: [
-    [11.12, 55.42], [12.26, 55.35], [12.62, 55.70],
-    [14.32, 56.35], [14.67, 56.80], [14.18, 57.30],
-    [13.60, 58.20], [12.85, 58.60], [11.75, 58.06],
-    [11.12, 57.51], [10.96, 56.60], [11.12, 55.42],
+    [10.96, 55.35], [12.26, 55.35], [12.96, 55.70],
+    [13.60, 56.00], [14.32, 56.35], [14.67, 56.80],
+    [14.18, 57.30], [13.60, 58.20], [12.85, 58.60],
+    [11.75, 58.06], [11.12, 57.51], [10.96, 56.60],
+    [10.96, 55.80], [10.96, 55.35],
   ],
   // Poland — northern strip only
   PL: [
@@ -121,35 +122,41 @@ export function BalticMap({
   view = 'bess',
   compact = false,
 }: BalticMapProps) {
-  const nbRef = useRef<SVGPathElement>(null);
-  const lpRef = useRef<SVGPathElement>(null);
-
-  useEffect(() => {
-    animateArc(nbRef.current, 2500);
-    animateArc(lpRef.current, 3200);
-  }, [nordbalt_mw, litpol_mw]);
+  // Direction: true = LT is exporting outward
+  const nbLTExports = nordbalt_dir === 'LT_exports' || nordbalt_dir === 'EXPORTING';
+  const lpLTExports = litpol_dir  === 'LT_exports' || litpol_dir  === 'EXPORTING';
 
   const nbThick = nordbalt_mw ? Math.max(1, Math.min(5, Math.abs(nordbalt_mw) / 200)) : 1.5;
   const lpThick = litpol_mw  ? Math.max(1, Math.min(5, Math.abs(litpol_mw)  / 200)) : 1.5;
 
-  const nbExport = nordbalt_dir === 'EXPORTING' || nordbalt_dir === 'LT_exports';
-  const lpExport = litpol_dir  === 'EXPORTING' || litpol_dir  === 'LT_exports';
-
-  // Projected node positions using verified coordinates
+  // Projected node positions
   const ltNode  = project(25.28, 54.69);
   const se4Node = project(13.50, 56.80);
   const plNode  = project(19.50, 54.20);
 
-  // Quadratic Bézier arc: bend offset applied perpendicular to mid-point
+  // Arc label positions (geographic midpoints, slightly displaced)
+  const nbLabelPos = project(19.8, 57.2);
+  const lpLabelPos = project(22.5, 54.0);
+
+  // Direction-aware animation — runs whenever direction or magnitude changes
+  useEffect(() => {
+    const nbPath = document.getElementById('nb-arc') as SVGPathElement | null;
+    const lpPath = document.getElementById('lp-arc') as SVGPathElement | null;
+
+    if (nbPath) {
+      animateArc(nbPath, nbLTExports ? 'forward' : 'reverse', 2500);
+    }
+    if (lpPath) {
+      animateArc(lpPath, lpLTExports ? 'forward' : 'reverse', 3000);
+    }
+  }, [nordbalt_mw, litpol_mw, nordbalt_dir, litpol_dir, nbLTExports, lpLTExports]);
+
+  // Quadratic Bézier arc helper
   function arc(from: [number, number], to: [number, number], bend = -40): string {
     const mx = (from[0] + to[0]) / 2;
     const my = (from[1] + to[1]) / 2 + bend;
     return `M${from[0]},${from[1]} Q${mx},${my} ${to[0]},${to[1]}`;
   }
-
-  // Arc label positions (geographic midpoint, slightly displaced)
-  const nbLabelPos = project(19.8, 57.2);   // NordBalt — mid-Baltic Sea
-  const lpLabelPos = project(22.5, 54.0);   // LitPol — south of LT
 
   const maxW = compact ? 280 : 400;
 
@@ -164,12 +171,22 @@ export function BalticMap({
     >
       <svg viewBox="0 0 400 300" style={{ width: '100%', maxWidth: `${maxW}px`, display: 'block' }}>
         <defs>
+          {/* markerEnd — arrow at the END of the path (used for LT exports) */}
           <marker id="arrow-green" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-            <path d="M0,0 L0,6 L6,3 z" fill="rgba(74,222,128,0.75)" />
+            <path d="M0,0 L0,6 L6,3 z" fill="rgba(74,222,128,0.80)" />
           </marker>
           <marker id="arrow-amber" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-            <path d="M0,0 L0,6 L6,3 z" fill="rgba(245,158,11,0.75)" />
+            <path d="M0,0 L0,6 L6,3 z" fill="rgba(245,158,11,0.80)" />
           </marker>
+
+          {/* markerStart — arrow at the START (LT end) reversed (used for LT imports) */}
+          <marker id="arrow-start-green" markerWidth="6" markerHeight="6" refX="1" refY="3" orient="auto-start-reverse">
+            <path d="M0,0 L0,6 L6,3 z" fill="rgba(74,222,128,0.80)" />
+          </marker>
+          <marker id="arrow-start-amber" markerWidth="6" markerHeight="6" refX="1" refY="3" orient="auto-start-reverse">
+            <path d="M0,0 L0,6 L6,3 z" fill="rgba(245,158,11,0.80)" />
+          </marker>
+
           <filter id="map-glow">
             <feGaussianBlur stdDeviation="2" result="blur" />
             <feMerge>
@@ -204,29 +221,33 @@ export function BalticMap({
           );
         })}
 
-        {/* NordBalt arc — LT → SE4 (left, north-west) */}
+        {/* NordBalt arc — LT ↔ SE4 (west)
+            exports (green):  forward dashes + arrow at SE4 end (markerEnd)
+            imports (amber):  reverse dashes + arrow at LT end  (markerStart) */}
         <path
-          ref={nbRef}
-          className="flow-arc"
-          d={arc(ltNode, se4Node, -30)}
+          id="nb-arc"
+          d={arc(ltNode, se4Node, -35)}
           fill="none"
-          stroke={nbExport ? 'rgba(74,222,128,0.55)' : 'rgba(245,158,11,0.55)'}
+          stroke={nbLTExports ? 'rgba(74,222,128,0.60)' : 'rgba(245,158,11,0.60)'}
           strokeWidth={nbThick}
           strokeDasharray={!nordbalt_mw ? '4,4' : undefined}
-          markerEnd={`url(#arrow-${nbExport ? 'green' : 'amber'})`}
+          markerEnd={nbLTExports ? 'url(#arrow-green)' : undefined}
+          markerStart={!nbLTExports ? 'url(#arrow-start-amber)' : undefined}
           filter="url(#map-glow)"
         />
 
-        {/* LitPol arc — LT → PL (left, south) */}
+        {/* LitPol arc — LT ↔ PL (south-west)
+            exports (green):  forward dashes + arrow at PL end
+            imports (amber):  reverse dashes + arrow at LT end */}
         <path
-          ref={lpRef}
-          className="flow-arc"
+          id="lp-arc"
           d={arc(ltNode, plNode, 22)}
           fill="none"
-          stroke={lpExport ? 'rgba(74,222,128,0.55)' : 'rgba(245,158,11,0.55)'}
+          stroke={lpLTExports ? 'rgba(74,222,128,0.60)' : 'rgba(245,158,11,0.60)'}
           strokeWidth={lpThick}
           strokeDasharray={!litpol_mw ? '4,4' : undefined}
-          markerEnd={`url(#arrow-${lpExport ? 'green' : 'amber'})`}
+          markerEnd={lpLTExports ? 'url(#arrow-green)' : undefined}
+          markerStart={!lpLTExports ? 'url(#arrow-start-amber)' : undefined}
           filter="url(#map-glow)"
         />
 
@@ -237,7 +258,6 @@ export function BalticMap({
         {Object.entries(LOCATIONS).map(([name, coords]) => {
           const [x, y] = project(coords[0], coords[1]);
           const isLT = name === 'Vilnius';
-          const label = name;
           return (
             <g key={name}>
               {isLT && (
@@ -253,7 +273,7 @@ export function BalticMap({
                 fontFamily="var(--font-mono)" fontSize="10"
                 fill="rgba(232,226,217,0.55)"
               >
-                {label}
+                {name}
               </text>
             </g>
           );

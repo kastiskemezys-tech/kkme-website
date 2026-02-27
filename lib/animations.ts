@@ -76,16 +76,26 @@ export function animateCards(selector = '.signal-card') {
   });
 }
 
-// 5. ARC FLOW ANIMATION — for Baltic map arcs
+// 5. ARC FLOW ANIMATION — direction-aware dash animation for Baltic map arcs
 export function animateArc(
   pathEl: SVGPathElement | null,
+  direction: 'forward' | 'reverse' = 'forward',
   duration = 2500,
 ) {
   if (!pathEl || reduceMotion()) return;
-  const length = 200; // approximate arc length
-  pathEl.style.strokeDasharray = `${length * 0.25} ${length}`;
+
+  // Use actual path length when available, fall back to estimate
+  const length  = (pathEl as SVGPathElement & { getTotalLength?: () => number }).getTotalLength?.() ?? 300;
+  const dashLen = length * 0.22;
+
+  pathEl.style.strokeDasharray = `${dashLen} ${length - dashLen}`;
+
   animate(pathEl, {
-    strokeDashoffset: [0, -length],
+    // forward  (LT exports): dashes travel from LT outward toward SE4/PL
+    // reverse  (LT imports): dashes travel inward toward LT
+    strokeDashoffset: direction === 'forward'
+      ? [0, -length]
+      : [-(length - dashLen), 0],
     duration,
     ease: 'linear',
     loop: true,
