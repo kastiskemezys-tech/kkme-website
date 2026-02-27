@@ -7,38 +7,38 @@ import { formatHHMM } from '@/lib/safeNum';
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
 interface RevenueResult {
-  afrr_annual_per_mw: number;
-  mfrr_annual_per_mw: number;
-  trading_annual_per_mw: number;
-  gross_annual_per_mw: number;
-  opex_annual_per_mw: number;
-  net_annual_per_mw: number;
-  capex_per_mw: number;
-  simple_payback_years: number;
-  irr_approx_pct: number;
-  irr_vs_ch_central: string;
-  ch_irr_central: number;
-  ch_irr_range: string;
-  market_window_note: string;
+  afrr_annual_per_mw:    number | null;
+  mfrr_annual_per_mw:    number | null;
+  trading_annual_per_mw: number | null;
+  gross_annual_per_mw:   number | null;
+  opex_annual_per_mw:    number | null;
+  net_annual_per_mw:     number | null;
+  capex_per_mw:          number | null;
+  simple_payback_years:  number | null;
+  irr_approx_pct:        number | null;
+  irr_vs_ch_central:     string | null;
+  ch_irr_central:        number | null;
+  ch_irr_range:          string | null;
+  market_window_note:    string | null;
 }
 
 interface MarketRow {
-  country: string;
-  flag: string;
-  irr_pct: number;
-  net_annual_per_mw: number;
-  capex_per_mw: number;
-  note: string;
-  is_live: boolean;
+  country:            string;
+  flag:               string;
+  irr_pct:            number | null;
+  net_annual_per_mw:  number | null;
+  capex_per_mw:       number | null;
+  note:               string;
+  is_live:            boolean;
 }
 
 interface RevenueData {
   updated_at: string;
   prices: {
-    afrr_up_avg: number;
-    mfrr_up_avg: number;
-    spread_eur_mwh: number;
-    euribor_3m: number;
+    afrr_up_avg:    number | null;
+    mfrr_up_avg:    number | null;
+    spread_eur_mwh: number | null;
+    euribor_3m:     number | null;
   };
   h2: RevenueResult;
   h4: RevenueResult;
@@ -56,7 +56,8 @@ const MID_GREEN    = 'rgba(100, 160, 110, 0.75)';
 const MID_AMBER    = 'rgba(180, 140, 60, 0.85)';
 const MID_RED      = 'rgba(155, 48, 67, 0.85)';
 
-function colorRevenue(value: number, type: 'afrr_mfrr' | 'trading' | 'net' | 'opex' | 'payback' | 'irr'): string {
+function colorRevenue(value: number | null | undefined, type: 'afrr_mfrr' | 'trading' | 'net' | 'opex' | 'payback' | 'irr'): string {
+  if (value == null || !isFinite(value)) return text(0.35);
   if (type === 'opex') return text(0.35);
   if (type === 'afrr_mfrr') {
     if (value > 200000) return STRONG_GREEN;
@@ -90,15 +91,30 @@ function colorRevenue(value: number, type: 'afrr_mfrr' | 'trading' | 'net' | 'op
   return text(0.6);
 }
 
-function colorIrrMarket(irr: number): string {
+function colorIrrMarket(irr: number | null | undefined): string {
+  if (irr == null) return text(0.3);
   if (irr > 20) return STRONG_GREEN;
   if (irr > 12) return MID_GREEN;
   if (irr > 8)  return text(0.6);
   return MID_RED;
 }
 
-function fk(n: number): string {
+/** Format a €/yr value in thousands, or '—' if null/undefined/NaN. */
+function fk(n: number | null | undefined): string {
+  if (n == null || !isFinite(n)) return '—';
   return `€${Math.round(n / 1000)}k`;
+}
+
+/** Format payback years, guarding against Infinity and null. */
+function fPayback(n: number | null | undefined): string {
+  if (n == null || !isFinite(n)) return '—';
+  return `${n.toFixed(1)}yr`;
+}
+
+/** Format percentage, guarding against null. */
+function fPct(n: number | null | undefined): string {
+  if (n == null || !isFinite(n)) return '—';
+  return `${n.toFixed(1)}%`;
 }
 
 type Status = 'loading' | 'success' | 'error';
@@ -215,9 +231,9 @@ function LiveData({ data }: { data: RevenueData }) {
 
         <Row
           label="CAPEX/MW"
-          v2={`€${(h2.capex_per_mw / 1000).toFixed(0)}k`}
+          v2={h2.capex_per_mw != null ? `€${(h2.capex_per_mw / 1000).toFixed(0)}k` : '—'}
           v2Color={text(0.4)}
-          v4={`€${(h4.capex_per_mw / 1000).toFixed(0)}k`}
+          v4={h4.capex_per_mw != null ? `€${(h4.capex_per_mw / 1000).toFixed(0)}k` : '—'}
           v4Color={text(0.4)}
         />
         <Row
@@ -243,9 +259,9 @@ function LiveData({ data }: { data: RevenueData }) {
         />
         <Row
           label="OPEX/MW/yr"
-          v2={`−${fk(h2.opex_annual_per_mw)}`}
+          v2={h2.opex_annual_per_mw != null ? `−${fk(h2.opex_annual_per_mw)}` : '—'}
           v2Color={colorRevenue(h2.opex_annual_per_mw, 'opex')}
-          v4={`−${fk(h4.opex_annual_per_mw)}`}
+          v4={h4.opex_annual_per_mw != null ? `−${fk(h4.opex_annual_per_mw)}` : '—'}
           v4Color={colorRevenue(h4.opex_annual_per_mw, 'opex')}
         />
         <Row
@@ -263,23 +279,23 @@ function LiveData({ data }: { data: RevenueData }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr 1fr', gap: '0.45rem 1rem', marginBottom: '0.75rem', alignItems: 'baseline' }}>
         <Row
           label="Payback"
-          v2={`${h2.simple_payback_years}yr`}
+          v2={fPayback(h2.simple_payback_years)}
           v2Color={colorRevenue(h2.simple_payback_years, 'payback')}
-          v4={`${h4.simple_payback_years}yr`}
+          v4={fPayback(h4.simple_payback_years)}
           v4Color={colorRevenue(h4.simple_payback_years, 'payback')}
         />
         <Row
           label="IRR est."
-          v2={`${h2.irr_approx_pct}%`}
+          v2={fPct(h2.irr_approx_pct)}
           v2Color={colorRevenue(h2.irr_approx_pct, 'irr')}
-          v4={`${h4.irr_approx_pct}%`}
+          v4={fPct(h4.irr_approx_pct)}
           v4Color={colorRevenue(h4.irr_approx_pct, 'irr')}
         />
       </div>
 
       {/* CH benchmark reference */}
       <p style={{ ...MONO, fontSize: '0.55rem', color: text(0.3), letterSpacing: '0.06em', marginBottom: '1.25rem' }}>
-        CH central: {h2.ch_irr_central}% (2h) · Range: {h2.ch_irr_range} · Target: 12%
+        CH central: {fPct(h2.ch_irr_central).replace('%', '')}% (2h) · Range: {h2.ch_irr_range ?? '—'} · Target: 12%
       </p>
 
       {/* LLM interpretation */}
@@ -315,8 +331,12 @@ function LiveData({ data }: { data: RevenueData }) {
               </p>
               <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.25), marginTop: '0.1rem' }}>{m.note}</p>
             </div>
-            <p key={`${m.country}-irr`} style={{ ...MONO, fontSize: '0.625rem', color: colorIrrMarket(m.irr_pct), textAlign: 'right' }}>{m.irr_pct.toFixed(0)}%</p>
-            <p key={`${m.country}-net`} style={{ ...MONO, fontSize: '0.6rem', color: text(0.4), textAlign: 'right' }}>{fk(m.net_annual_per_mw)}/MW</p>
+            <p key={`${m.country}-irr`} style={{ ...MONO, fontSize: '0.625rem', color: colorIrrMarket(m.irr_pct), textAlign: 'right' }}>
+              {m.irr_pct != null ? `${m.irr_pct.toFixed(0)}%` : '—'}
+            </p>
+            <p key={`${m.country}-net`} style={{ ...MONO, fontSize: '0.6rem', color: text(0.4), textAlign: 'right' }}>
+              {fk(m.net_annual_per_mw)}/MW
+            </p>
           </>
         ))}
       </div>
