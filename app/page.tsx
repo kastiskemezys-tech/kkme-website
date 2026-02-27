@@ -19,20 +19,21 @@ const MONO: CSSProperties = { fontFamily: 'var(--font-mono)' };
 
 function LayerLabel({ label }: Readonly<{ label: string }>) {
   return (
-    <p
+    <h2
       style={{
         ...MONO,
-        fontSize: '0.5rem',
+        fontSize: '0.75rem',
         letterSpacing: '0.2em',
-        color: 'rgba(232, 226, 217, 0.22)',
+        color: 'rgba(232, 226, 217, 0.60)',
         textTransform: 'uppercase',
+        fontWeight: 400,
         width: '100%',
         maxWidth: '440px',
         marginBottom: '-1rem',
       }}
     >
       {label}
-    </p>
+    </h2>
   );
 }
 

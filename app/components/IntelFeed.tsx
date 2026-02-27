@@ -121,36 +121,39 @@ export function IntelFeed() {
   return (
     <section style={{ maxWidth: '440px', width: '100%' }}>
       {/* Section header */}
-      <p style={{ ...MONO, fontSize: '0.625rem', letterSpacing: '0.14em', color: text(0.52), textTransform: 'uppercase', marginBottom: '1.25rem' }}>
+      <h2 style={{ ...MONO, fontSize: '0.75rem', letterSpacing: '0.14em', color: text(0.52), fontWeight: 400, textTransform: 'uppercase', marginBottom: '1.25rem' }}>
         Intel Feed
-      </p>
+      </h2>
 
       {/* Topic filter pills */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '1.5rem' }}>
-        {TOPICS.map(t => {
-          const isActive = t === active;
-          return (
-            <button
-              key={t}
-              onClick={() => setActive(t)}
-              style={{
-                ...MONO,
-                fontSize: '0.5rem',
-                letterSpacing: '0.08em',
-                padding: '0.25rem 0.6rem',
-                border: `1px solid ${isActive ? 'rgba(123, 94, 167, 0.6)' : text(0.12)}`,
-                background: isActive ? 'rgba(123, 94, 167, 0.08)' : 'none',
-                color: isActive ? text(0.7) : text(0.45),
-                cursor: 'pointer',
-                borderRadius: '2px',
-                transition: 'border-color 0.15s, color 0.15s',
-              }}
-            >
-              {t}
-            </button>
-          );
-        })}
-      </div>
+      <nav aria-label="Intel feed filters">
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '1.5rem' }}>
+          {TOPICS.map(t => {
+            const isActive = t === active;
+            return (
+              <button
+                key={t}
+                onClick={() => setActive(t)}
+                aria-pressed={isActive}
+                style={{
+                  ...MONO,
+                  fontSize: '0.5rem',
+                  letterSpacing: '0.08em',
+                  padding: '0.25rem 0.6rem',
+                  border: `1px solid ${isActive ? 'rgba(123, 94, 167, 0.6)' : text(0.12)}`,
+                  background: isActive ? 'rgba(123, 94, 167, 0.08)' : 'none',
+                  color: isActive ? text(0.7) : text(0.45),
+                  cursor: 'pointer',
+                  borderRadius: '2px',
+                  transition: 'border-color 0.15s, color 0.15s',
+                }}
+              >
+                {t}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
 
       {/* Feed rows */}
       {loading && (

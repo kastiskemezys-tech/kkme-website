@@ -21,10 +21,27 @@ const unbounded = Unbounded({
   weight: ["400", "600"],
 });
 
+const SITE_DESCRIPTION =
+  "KKME builds infrastructure Europe actually needs — energy storage, grid capacity, compute, the physical layer underneath everything. Operating in Baltic and Nordic markets where the bottlenecks are real and most people are still waiting for someone else to go first. New technologies get used when they work, not when they're fashionable. The thesis compounds. The assets grow.";
+
 export const metadata: Metadata = {
   title: "KKME",
-  description:
-    "KKME builds infrastructure Europe actually needs — energy storage, grid capacity, compute, the physical layer underneath everything. Operating in Baltic and Nordic markets where the bottlenecks are real and most people are still waiting for someone else to go first. New technologies get used when they work, not when they're fashionable. The thesis compounds. The assets grow.",
+  description: SITE_DESCRIPTION,
+  openGraph: {
+    title: "KKME",
+    description: SITE_DESCRIPTION,
+    url: "https://kkme.eu",
+    siteName: "KKME",
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "KKME",
+    description: SITE_DESCRIPTION,
+  },
+  alternates: {
+    canonical: "https://kkme.eu",
+  },
 };
 
 export default function RootLayout({

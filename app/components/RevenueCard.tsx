@@ -147,16 +147,18 @@ export function RevenueCard() {
       }}
     >
       {/* Header */}
-      <p style={{ ...MONO, fontSize: '0.625rem', letterSpacing: '0.14em', color: text(0.35), textTransform: 'uppercase', marginBottom: '0.3rem' }}>
+      <h3 style={{ ...MONO, fontSize: '0.8rem', letterSpacing: '0.14em', color: text(0.35), fontWeight: 400, textTransform: 'uppercase', marginBottom: '0.3rem' }}>
         BESS Revenue Engine
-      </p>
+      </h3>
       <p style={{ ...MONO, fontSize: '0.55rem', color: text(0.3), letterSpacing: '0.06em', marginBottom: '1.75rem' }}>
         50 MW LFP · Lithuania · COD 2026 · 18yr life · Clean Horizon S1 2025 reference
       </p>
 
-      {status === 'loading' && <Skeleton />}
-      {status === 'error'   && <ErrorState />}
-      {status === 'success' && data && <LiveData data={data} />}
+      <div aria-live="polite" aria-atomic="false">
+        {status === 'loading' && <Skeleton />}
+        {status === 'error'   && <ErrorState />}
+        {status === 'success' && data && <LiveData data={data} />}
+      </div>
     </article>
   );
 }

@@ -73,9 +73,9 @@ export function S2Card() {
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-        <p style={{ ...MONO, fontSize: '0.625rem', letterSpacing: '0.14em', color: text(0.52), textTransform: 'uppercase' }}>
+        <h3 style={{ ...MONO, fontSize: '0.8rem', letterSpacing: '0.14em', color: text(0.52), fontWeight: 400, textTransform: 'uppercase' }}>
           S2 — Balancing Stack
-        </p>
+        </h3>
       </div>
 
       <CardDisclosure
@@ -92,11 +92,13 @@ export function S2Card() {
         ]}
       />
 
-      {status === 'loading' && <Skeleton />}
-      {status === 'error'   && <ErrorState />}
-      {status === 'success' && data && (
-        <LiveData data={data} isDefault={isDefault} isStale={isStale} ageHours={ageHours} defaultReason={defaultReason} history={history} />
-      )}
+      <div aria-live="polite" aria-atomic="false">
+        {status === 'loading' && <Skeleton />}
+        {status === 'error'   && <ErrorState />}
+        {status === 'success' && data && (
+          <LiveData data={data} isDefault={isDefault} isStale={isStale} ageHours={ageHours} defaultReason={defaultReason} history={history} />
+        )}
+      </div>
     </article>
   );
 }

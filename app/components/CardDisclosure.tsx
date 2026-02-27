@@ -20,7 +20,7 @@ export function CardDisclosure({ explain, dataLines }: CardDisclosureProps) {
     textTransform: 'uppercase',
     background: 'transparent',
     border: `1px solid ${active ? 'rgba(123,94,167,0.55)' : 'rgba(232,226,217,0.13)'}`,
-    color: active ? 'rgba(232,226,217,0.85)' : 'rgba(232,226,217,0.38)',
+    color: active ? 'rgba(232,226,217,0.85)' : 'rgba(232,226,217,0.55)',
     padding: '2px 8px',
     cursor: 'pointer',
     borderRadius: '2px',
