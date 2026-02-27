@@ -47,9 +47,9 @@ export function S1Card() {
         width: '100%',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '0.5rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
         <SignalIcon type="price-separation" size={20} />
-        <h3 style={{ ...MONO, fontSize: '0.8rem', letterSpacing: '0.14em', color: text(0.52), fontWeight: 400, textTransform: 'uppercase' }}>
+        <h3 style={{ ...MONO, fontSize: '0.82rem', letterSpacing: '0.06em', color: text(0.72), fontWeight: 500, textTransform: 'uppercase' }}>
           Baltic Price Separation
         </h3>
       </div>
@@ -187,7 +187,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
           {data.spread_eur_mwh >= 0 ? '+' : ''}{safeNum(data.spread_eur_mwh, 1)}
           <span style={{ fontSize: '0.45em', marginLeft: '0.15em', opacity: 0.55 }}>€/MWh</span>
         </p>
-        <Sparkline values={history} p50={spreadP50 ?? undefined} color="#4ade80" width={80} height={24} />
+        <Sparkline values={history} p50={spreadP50 ?? undefined} color="#4ade80" width={160} height={40} />
       </div>
 
       <p style={{ ...MONO, fontSize: '0.55rem', color: text(0.3), letterSpacing: '0.08em', marginBottom: '0.75rem' }}>

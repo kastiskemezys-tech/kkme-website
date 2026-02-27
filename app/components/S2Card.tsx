@@ -74,9 +74,9 @@ export function S2Card() {
         width: '100%',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '0.5rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
         <SignalIcon type="balancing" size={20} />
-        <h3 style={{ ...MONO, fontSize: '0.8rem', letterSpacing: '0.14em', color: text(0.52), fontWeight: 400, textTransform: 'uppercase' }}>
+        <h3 style={{ ...MONO, fontSize: '0.82rem', letterSpacing: '0.06em', color: text(0.72), fontWeight: 500, textTransform: 'uppercase' }}>
           Balancing Stack
         </h3>
       </div>
@@ -177,7 +177,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
           {data.unavailable ? '——' : fK(data.afrr_annual_per_mw_installed)}
           <span style={{ fontSize: '0.45em', marginLeft: '0.15em', color: text(0.3) }}>/MW/yr</span>
         </p>
-        <Sparkline values={history} color="#86efac" width={80} height={24} />
+        <Sparkline values={history} color="#86efac" width={160} height={40} />
 
         <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase' }}>mFRR</p>
         <p style={{ ...MONO, fontSize: 'clamp(1.2rem, 3vw, 1.8rem)', fontWeight: 400, color: data.unavailable ? text(0.1) : colorAfrr(data.mfrr_up_avg), lineHeight: 1, letterSpacing: '0.02em', margin: 0 }}>

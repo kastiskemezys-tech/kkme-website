@@ -9,6 +9,7 @@ import { Sparkline } from './Sparkline';
 import { SignalIcon } from './SignalIcon';
 import { useSignal } from '@/lib/useSignal';
 import { safeNum, formatHHMM } from '@/lib/safeNum';
+import { signalColor } from '@/lib/signalColor';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
@@ -58,9 +59,9 @@ export function S6Card() {
         width: '100%',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '0.5rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
         <SignalIcon type="hydro" size={20} />
-        <h3 style={{ ...MONO, fontSize: '0.8rem', letterSpacing: '0.14em', color: text(0.52), fontWeight: 400, textTransform: 'uppercase' }}>
+        <h3 style={{ ...MONO, fontSize: '0.82rem', letterSpacing: '0.06em', color: text(0.72), fontWeight: 500, textTransform: 'uppercase' }}>
           Nordic Hydro Reservoir
         </h3>
       </div>
@@ -111,11 +112,38 @@ interface LiveDataProps {
   data: S6Signal; isDefault: boolean; isStale: boolean; ageHours: number | null; defaultReason: string | null; history: number[];
 }
 
+function FillBar({ fill, median }: { fill: number; median: number }) {
+  const bg = fill < median - 5
+    ? 'rgba(204,160,72,0.25)'
+    : fill > median + 5
+    ? 'rgba(86,166,110,0.25)'
+    : 'rgba(100,130,200,0.20)';
+  return (
+    <div style={{ margin: '12px 0 8px' }}>
+      <div style={{ position: 'relative', height: '28px', background: 'rgba(232,226,217,0.06)', border: '1px solid rgba(232,226,217,0.10)' }}>
+        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${Math.min(fill, 100)}%`, background: bg, transition: 'width 0.6s ease' }} />
+        <div style={{ position: 'absolute', left: `${Math.min(median, 100)}%`, top: '-4px', bottom: '-4px', width: '1px', background: 'rgba(232,226,217,0.40)' }} />
+        <span style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', fontFamily: 'var(--font-mono)', fontSize: '0.68rem', color: 'rgba(232,226,217,0.80)' }}>
+          {fill.toFixed(1)}%
+        </span>
+        <span style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'rgba(232,226,217,0.42)' }}>
+          median {median.toFixed(1)}%
+        </span>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '3px', fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'rgba(232,226,217,0.32)' }}>
+        <span>0%</span><span>50%</span><span>100%</span>
+      </div>
+    </div>
+  );
+}
+
 function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }: LiveDataProps) {
-  const signalColor = hydro6Color(data.signal ?? null);
+  const devPP = data.deviation_pp ?? 0;
+  const heroState = devPP < -5 ? 'negative' : devPP > 5 ? 'positive' : 'neutral';
+  const heroColor = signalColor(heroState);
   const ts = data.timestamp ?? null;
 
-  const devSign = (data.deviation_pp ?? 0) >= 0 ? '+' : '';
+  const devSign = devPP >= 0 ? '+' : '';
 
   return (
     <>
@@ -124,15 +152,20 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
       {/* Hero + sparkline */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1rem' }}>
         <p style={{ ...MONO, fontWeight: 400, lineHeight: 1, letterSpacing: '-0.02em', margin: 0 }}>
-          <span style={{ fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', color: signalColor }}>
+          <span style={{ fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', color: heroColor }}>
             {data.fill_pct != null ? `${safeNum(data.fill_pct, 1)}%` : '—'}
           </span>
           <span style={{ fontSize: '0.75rem', marginLeft: '0.4em', color: text(0.4) }}>
             {data.signal ?? ''}
           </span>
         </p>
-        <Sparkline values={history} color="#6fa3ef" width={80} height={24} />
+        <Sparkline values={history} color="#6fa3ef" width={160} height={40} />
       </div>
+
+      {/* Fill bar */}
+      {data.fill_pct != null && data.median_fill_pct != null && (
+        <FillBar fill={data.fill_pct} median={data.median_fill_pct} />
+      )}
 
       {/* Deviation row */}
       {data.deviation_pp != null && (

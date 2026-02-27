@@ -76,9 +76,9 @@ export function S4Card() {
         width: '100%',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '0.5rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
         <SignalIcon type="grid" size={20} />
-        <h3 style={{ ...MONO, fontSize: '0.8rem', letterSpacing: '0.14em', color: text(0.52), fontWeight: 400, textTransform: 'uppercase' }}>
+        <h3 style={{ ...MONO, fontSize: '0.82rem', letterSpacing: '0.06em', color: text(0.72), fontWeight: 500, textTransform: 'uppercase' }}>
           Grid Connection Scarcity
         </h3>
       </div>
@@ -139,6 +139,31 @@ const DIVIDER: CSSProperties = {
   width: '100%',
 };
 
+function CapacityBar({ connected, reserved, free }: { connected: number; reserved: number; free: number }) {
+  const reservedPct = (reserved / connected) * 100;
+  const freePct     = (free     / connected) * 100;
+  const usedPct     = Math.max(0, 100 - reservedPct - freePct);
+
+  return (
+    <div style={{ margin: '0 0 1.5rem' }}>
+      <div style={{ display: 'flex', height: '20px', gap: '1px', overflow: 'hidden' }}>
+        <div style={{ flex: usedPct,     background: 'rgba(214,88,88,0.25)' }} />
+        <div style={{ flex: reservedPct, background: 'rgba(204,160,72,0.25)' }} />
+        <div style={{ flex: freePct,     background: 'rgba(86,166,110,0.30)' }} />
+      </div>
+      <div style={{ display: 'flex', gap: '16px', marginTop: '5px', fontFamily: 'var(--font-mono)', fontSize: '0.65rem' }}>
+        {([
+          ['Used',     usedPct,     'rgba(214,88,88,0.7)'],
+          ['Reserved', reservedPct, 'rgba(204,160,72,0.7)'],
+          ['Free',     freePct,     'rgba(86,166,110,0.8)'],
+        ] as [string, number, string][]).map(([label, pct, color]) => (
+          <span key={label} style={{ color }}>{label} {pct.toFixed(0)}%</span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 interface LiveDataProps {
   data: S4Signal; isDefault: boolean; isStale: boolean; ageHours: number | null; defaultReason: string | null; history: number[];
 }
@@ -167,7 +192,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
             MW free
           </span>
         </p>
-        <Sparkline values={history} color="#86efac" width={80} height={24} />
+        <Sparkline values={history} color="#86efac" width={160} height={40} />
       </div>
 
       <p style={{ ...MONO, fontSize: '0.6rem', color: data.free_mw == null ? text(0.2) : text(0.52), lineHeight: 1.5, marginBottom: '1.5rem' }}>
@@ -176,10 +201,10 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
 
       <div style={{ borderTop: `1px solid rgba(232, 226, 217, 0.06)`, width: '100%', marginBottom: '1.25rem' }} />
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.25rem', marginBottom: '1.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.25rem', marginBottom: '0.75rem' }}>
         {metrics.map(([label, value]) => (
           <div key={label}>
-            <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.40), letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.2rem' }}>
+            <p style={{ ...MONO, fontSize: '0.65rem', color: text(0.40), letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.2rem' }}>
               {label}
             </p>
             <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.6) }}>
@@ -188,6 +213,14 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
           </div>
         ))}
       </div>
+
+      {data.connected_mw != null && data.reserved_mw != null && data.free_mw != null && (
+        <CapacityBar
+          connected={data.connected_mw}
+          reserved={data.reserved_mw}
+          free={data.free_mw}
+        />
+      )}
 
       {data.pipeline && (
         <>

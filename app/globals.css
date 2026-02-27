@@ -10,6 +10,26 @@
   --font-mono: var(--font-dm-mono), 'DM Mono', monospace;
   --font-display: var(--font-unbounded), 'Unbounded', sans-serif;
 
+  /* Type scale — enforced minimums */
+  --text-hero:       clamp(32px, 5vw, 48px);
+  --text-card-title: 13px;
+  --text-body:       12px;
+  --text-meta:       10px;
+  --text-label:      11px;
+
+  /* Opacity scale */
+  --opacity-primary:   0.92;
+  --opacity-secondary: 0.65;
+  --opacity-meta:      0.48;
+  --opacity-faint:     0.32;
+
+  /* Signal colours */
+  --green:  rgba(86,166,110,0.88);
+  --amber:  rgba(204,160,72,0.82);
+  --red:    rgba(214,88,88,0.88);
+  --purple: #7b5ea7;
+  --white:  rgba(232,226,217,1);
+
   /* Readability scale */
   --text-primary:   rgba(232, 226, 217, 0.92);
   --text-secondary: rgba(232, 226, 217, 0.62);
@@ -74,4 +94,48 @@ body::after {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23noise)' opacity='0.06'/%3E%3C/svg%3E");
   background-repeat: repeat;
   background-size: 200px 200px;
+}
+
+/* ── Animations ────────────────────────────────────────────────────────────── */
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.8; transform: scale(1); }
+  50%       { opacity: 0.3; transform: scale(0.7); }
+}
+
+@keyframes shimmer {
+  0%   { opacity: 0.06; }
+  50%  { opacity: 0.12; }
+  100% { opacity: 0.06; }
+}
+
+/* ── Components ────────────────────────────────────────────────────────────── */
+
+.cta-button:hover {
+  background: rgba(123, 94, 167, 0.18) !important;
+  border-color: rgba(123, 94, 167, 0.80) !important;
+  color: rgba(232, 226, 217, 0.98) !important;
+}
+
+.card-column {
+  max-width: 900px;
+  width: 100%;
+}
+
+/* ── Responsive ────────────────────────────────────────────────────────────── */
+
+@media (max-width: 520px) {
+  .signal-card {
+    padding: 20px 18px !important;
+  }
+  .card-column {
+    max-width: 100vw;
+    padding: 0 12px;
+  }
+}
+
+@media (min-width: 1100px) {
+  .card-column {
+    max-width: 900px;
+  }
 }

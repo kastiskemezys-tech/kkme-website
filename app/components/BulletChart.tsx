@@ -35,8 +35,8 @@ export function BulletChart({
     <div style={{ fontFamily: 'var(--font-mono)', marginBottom: '8px' }}>
       <div
         style={{
-          fontSize: '0.48rem',
-          color: 'rgba(232,226,217,0.50)',
+          fontSize: '0.65rem',
+          color: 'rgba(232,226,217,0.60)',
           marginBottom: '3px',
           display: 'flex',
           justifyContent: 'space-between',
@@ -92,7 +92,7 @@ export function BulletChart({
               x={toX(t.value)}
               y={barY + barH + 9}
               textAnchor="middle"
-              fontSize="4.5"
+              fontSize="8"
               fontFamily="var(--font-mono)"
               fill="rgba(232,226,217,0.28)"
             >

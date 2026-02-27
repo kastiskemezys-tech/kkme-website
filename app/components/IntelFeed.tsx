@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, type CSSProperties } from 'react';
+import { useState, useEffect, useMemo, type CSSProperties } from 'react';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
@@ -76,7 +76,7 @@ function CompanyChips({ companies }: { companies?: string[] }) {
           key={co}
           style={{
             ...MONO,
-            fontSize: '0.4rem',
+            fontSize: '0.65rem',
             letterSpacing: '0.06em',
             padding: '0.12rem 0.45rem',
             border: '1px solid rgba(123, 94, 167, 0.22)',
@@ -114,6 +114,15 @@ export function IntelFeed() {
     (i.url || (i.summary && i.summary.length > 30))  // needs URL or meaningful summary
   );
 
+  const topicCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    visible.forEach(item => {
+      const t = item.topic.toUpperCase();
+      counts[t] = (counts[t] ?? 0) + 1;
+    });
+    return counts;
+  }, [visible]);
+
   const filtered = active === 'ALL'
     ? visible
     : visible.filter(i => i.topic.toUpperCase() === active);
@@ -121,14 +130,19 @@ export function IntelFeed() {
   return (
     <section style={{ maxWidth: '440px', width: '100%' }}>
       {/* Section header */}
-      <h2 style={{ ...MONO, fontSize: '0.75rem', letterSpacing: '0.14em', color: text(0.52), fontWeight: 400, textTransform: 'uppercase', marginBottom: '1.25rem' }}>
-        Intel Feed
-      </h2>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.25rem' }}>
+        <h2 style={{ ...MONO, fontSize: '0.75rem', letterSpacing: '0.14em', color: text(0.52), fontWeight: 400, textTransform: 'uppercase' }}>
+          Intel Feed
+        </h2>
+        <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: 'rgba(86,166,110,0.8)', animation: 'pulse 2s ease-in-out infinite', display: 'inline-block', flexShrink: 0 }} />
+      </div>
 
       {/* Topic filter pills */}
       <nav aria-label="Intel feed filters">
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '1.5rem' }}>
           {TOPICS.map(t => {
+            const count = t === 'ALL' ? visible.length : (topicCounts[t] ?? 0);
+            if (t !== 'ALL' && count === 0) return null;
             const isActive = t === active;
             return (
               <button
@@ -137,7 +151,7 @@ export function IntelFeed() {
                 aria-pressed={isActive}
                 style={{
                   ...MONO,
-                  fontSize: '0.5rem',
+                  fontSize: '0.65rem',
                   letterSpacing: '0.08em',
                   padding: '0.25rem 0.6rem',
                   border: `1px solid ${isActive ? 'rgba(123, 94, 167, 0.6)' : text(0.12)}`,
@@ -149,6 +163,9 @@ export function IntelFeed() {
                 }}
               >
                 {t}
+                {t !== 'ALL' && count > 0 && (
+                  <span style={{ marginLeft: '4px', opacity: 0.5, fontSize: '0.60rem' }}>{count}</span>
+                )}
               </button>
             );
           })}
@@ -163,9 +180,17 @@ export function IntelFeed() {
       )}
 
       {!loading && filtered.length === 0 && (
-        <p style={{ ...MONO, fontSize: '0.575rem', color: text(0.2), letterSpacing: '0.06em' }}>
-          No items yet.
-        </p>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.68rem', color: text(0.30), padding: '20px 0', textAlign: 'center' }}>
+          No {active !== 'ALL' ? active.toLowerCase() : ''} articles yet.
+          {active !== 'ALL' && (
+            <span
+              onClick={() => setActive('ALL')}
+              style={{ color: 'rgba(123,94,167,0.7)', cursor: 'pointer', marginLeft: '6px' }}
+            >
+              Show all
+            </span>
+          )}
+        </div>
       )}
 
       {!loading && filtered.map(item => {
@@ -183,10 +208,10 @@ export function IntelFeed() {
           >
             {/* Row header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '0.5rem' }}>
-              <span style={{ ...MONO, fontSize: '0.45rem', letterSpacing: '0.1em', color: text(0.45), textTransform: 'uppercase', flexShrink: 0 }}>
+              <span style={{ ...MONO, fontSize: '0.65rem', letterSpacing: '0.1em', color: text(0.45), textTransform: 'uppercase', flexShrink: 0 }}>
                 {item.topic}
               </span>
-              <span style={{ ...MONO, fontSize: '0.45rem', color: text(0.35), flexShrink: 0 }}>
+              <span style={{ ...MONO, fontSize: '0.65rem', color: text(0.35), flexShrink: 0 }}>
                 {formatDate(item.added_at)}
               </span>
             </div>
@@ -208,7 +233,7 @@ export function IntelFeed() {
 
             {/* Source row: icon + domain */}
             {item.source && (
-              <p style={{ ...MONO, fontSize: '0.45rem', color: text(0.35), marginTop: '0.2rem' }}>
+              <p style={{ ...MONO, fontSize: '0.65rem', color: text(0.35), marginTop: '0.2rem' }}>
                 <SourceIcon source={item.source} />
                 {item.source}
               </p>

@@ -119,26 +119,6 @@ export function BalticMap({
         padding: compact ? '6px' : '8px',
       }}
     >
-      {!compact && (
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '6px' }}>
-          {(['bess', 'dc'] as const).map(v => (
-            <span
-              key={v}
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.45rem',
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-                color: view === v ? 'rgba(232,226,217,0.85)' : 'rgba(232,226,217,0.28)',
-                borderBottom: view === v ? '1px solid rgba(123,94,167,0.55)' : 'none',
-                paddingBottom: '1px',
-              }}
-            >
-              {v}
-            </span>
-          ))}
-        </div>
-      )}
 
       <svg viewBox="0 0 400 300" style={{ width: '100%', maxWidth: `${maxW}px`, display: 'block' }}>
         <defs>
@@ -228,6 +208,18 @@ export function BalticMap({
             </g>
           );
         })}
+
+        {/* DC view overlay */}
+        {view === 'dc' && (
+          <text
+            x={ltNode[0]} y={ltNode[1] - 22}
+            textAnchor="middle"
+            fontFamily="var(--font-mono)" fontSize="7"
+            fill={free_mw != null && free_mw > 2000 ? 'rgba(86,166,110,0.85)' : 'rgba(204,160,72,0.85)'}
+          >
+            {free_mw != null ? (free_mw > 2000 ? 'DC: OPEN' : 'DC: TIGHT') : 'DC VIEW'}
+          </text>
+        )}
 
         {/* LT free MW badge */}
         {free_mw != null && (

@@ -33,7 +33,7 @@ export function CTASection() {
           fontWeight: 300,
           fontSize: 'clamp(1rem, 2.2vw, 1.15rem)',
           lineHeight: 1.75,
-          color: 'rgba(232, 226, 217, 0.68)',
+          color: 'rgba(232, 226, 217, 0.78)',
           marginBottom: '1.5rem',
         }}
       >
@@ -105,17 +105,20 @@ export function CTASection() {
       {/* Send teaser CTA */}
       <a
         href="mailto:kastytis@kkme.eu?subject=BESS%20project%20teaser"
+        className="cta-button"
         style={{
           ...MONO,
           display: 'inline-block',
-          fontSize: '0.625rem',
-          letterSpacing: '0.1em',
-          padding: '0.6rem 1.5rem',
-          border: '1px solid rgba(232, 226, 217, 0.2)',
-          color: 'rgba(232, 226, 217, 0.6)',
+          fontSize: '0.75rem',
+          letterSpacing: '0.12em',
+          padding: '12px 28px',
+          border: '1px solid rgba(123,94,167,0.55)',
+          color: 'rgba(232,226,217,0.90)',
+          background: 'rgba(123,94,167,0.08)',
           textDecoration: 'none',
           textTransform: 'uppercase',
-          transition: 'border-color 0.15s, color 0.15s',
+          transition: 'all 0.2s ease',
+          cursor: 'pointer',
         }}
       >
         Send teaser

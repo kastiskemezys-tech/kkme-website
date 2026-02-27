@@ -16,6 +16,7 @@ import { CardBoundary } from '@/app/components/CardBoundary';
 import { IntelFeed } from '@/app/components/IntelFeed';
 import { HeroGradient } from '@/app/components/HeroGradient';
 import { CardEntrance } from '@/app/components/CardEntrance';
+import { StatusStrip } from '@/app/components/StatusStrip';
 
 const MONO: CSSProperties = { fontFamily: 'var(--font-mono)' };
 
@@ -24,13 +25,13 @@ function LayerLabel({ label }: Readonly<{ label: string }>) {
     <h2
       style={{
         ...MONO,
-        fontSize: '0.75rem',
+        fontSize: '0.72rem',
         letterSpacing: '0.2em',
-        color: 'rgba(232, 226, 217, 0.60)',
+        color: 'rgba(232, 226, 217, 0.58)',
         textTransform: 'uppercase',
-        fontWeight: 400,
+        fontWeight: 500,
         width: '100%',
-        maxWidth: '440px',
+        maxWidth: '900px',
         marginBottom: '-1rem',
       }}
     >
@@ -42,6 +43,7 @@ function LayerLabel({ label }: Readonly<{ label: string }>) {
 export default function Home() {
   return (
     <main
+      className="card-column"
       style={{
         minHeight: '100vh',
         display: 'flex',
@@ -49,6 +51,7 @@ export default function Home() {
         alignItems: 'center',
         gap: '3rem',
         padding: '4rem 1.5rem 8rem 1.5rem',
+        margin: '0 auto',
       }}
     >
       {/* 1. KKME wordmark + hero gradient */}
@@ -85,7 +88,28 @@ export default function Home() {
         >
           Baltic BESS · grid · DC · signal console
         </p>
+
+        {/* 3. Human intro */}
+        <p
+          style={{
+            position: 'relative',
+            zIndex: 1,
+            fontFamily: 'var(--font-serif)',
+            fontStyle: 'italic',
+            fontSize: '1.0rem',
+            fontWeight: 300,
+            color: 'rgba(232,226,217,0.52)',
+            margin: '8px auto 0',
+            letterSpacing: '0.02em',
+            textAlign: 'center',
+          }}
+        >
+          Built by Kastytis Kemežys — Baltic energy infrastructure.
+        </p>
       </div>
+
+      {/* 4. Status strip — live readings above fold */}
+      <StatusStrip />
 
       <CardEntrance />
 
@@ -123,25 +147,37 @@ export default function Home() {
       {/* ── MARKET CONTEXT ─────────────────────────────────────────────────── */}
       <LayerLabel label="Market Context" />
 
-      {/* S6 — Nordic Hydro */}
-      <CardBoundary signal="S6">
-        <S6Card />
-      </CardBoundary>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))',
+          gap: '1px',
+          width: '100%',
+          maxWidth: '900px',
+        }}
+      >
+        {/* S6 — Nordic Hydro */}
+        <CardBoundary signal="S6">
+          <S6Card />
+        </CardBoundary>
 
-      {/* S7 — TTF Gas */}
-      <CardBoundary signal="S7">
-        <S7Card />
-      </CardBoundary>
+        {/* S7 — TTF Gas */}
+        <CardBoundary signal="S7">
+          <S7Card />
+        </CardBoundary>
 
-      {/* S8 — Interconnector Flows */}
-      <CardBoundary signal="S8">
-        <S8Card />
-      </CardBoundary>
+        {/* S8 — Interconnector Flows (full width — map too wide for half) */}
+        <div style={{ gridColumn: '1 / -1' }}>
+          <CardBoundary signal="S8">
+            <S8Card />
+          </CardBoundary>
+        </div>
 
-      {/* S9 — EU ETS Carbon */}
-      <CardBoundary signal="S9">
-        <S9Card />
-      </CardBoundary>
+        {/* S9 — EU ETS Carbon */}
+        <CardBoundary signal="S9">
+          <S9Card />
+        </CardBoundary>
+      </div>
 
       {/* ── INTEL ──────────────────────────────────────────────────────────── */}
       <IntelFeed />

@@ -179,11 +179,17 @@ export function RevenueCard() {
   );
 }
 
+function ShimmerRow() {
+  return (
+    <div style={{ height: '14px', background: 'rgba(232,226,217,0.06)', borderRadius: '2px', animation: 'shimmer 1.5s ease infinite', marginBottom: '6px' }} />
+  );
+}
+
 function Skeleton() {
   return (
     <>
-      <p style={{ ...MONO, fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', fontWeight: 400, color: text(0.1), lineHeight: 1, marginBottom: '0.75rem' }}>——————</p>
-      <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.2), letterSpacing: '0.1em' }}>Fetching</p>
+      <ShimmerRow /><ShimmerRow /><ShimmerRow /><ShimmerRow />
+      <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.2), letterSpacing: '0.1em', marginTop: '8px' }}>Computing…</p>
     </>
   );
 }
@@ -200,20 +206,35 @@ function ErrorState() {
 const DIVIDER: CSSProperties = { borderTop: `1px solid rgba(232, 226, 217, 0.06)`, width: '100%' };
 
 const COL_HEADER: CSSProperties = {
-  ...MONO, fontSize: '0.5rem', color: 'rgba(232, 226, 217, 0.25)',
+  ...MONO, fontSize: '0.65rem', color: 'rgba(232, 226, 217, 0.30)',
   letterSpacing: '0.12em', textTransform: 'uppercase', textAlign: 'right',
 };
 
+function IrrBar({ irr, max = 50 }: { irr: number; max?: number }) {
+  const pct = Math.min((irr / max) * 100, 100);
+  const barColor = irr > 30 ? 'rgba(86,166,110,0.7)' : irr > 15 ? 'rgba(204,160,72,0.7)' : 'rgba(214,88,88,0.6)';
+  return (
+    <div style={{ display: 'inline-block', width: '60px', height: '4px', background: 'rgba(232,226,217,0.08)', verticalAlign: 'middle', marginLeft: '8px', position: 'relative' }}>
+      <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${pct}%`, background: barColor }} />
+    </div>
+  );
+}
+
 function Row({
-  label, v2, v2Color, v4, v4Color,
+  label, v2, v2Color, v4, v4Color, net,
 }: {
-  label: string; v2: string; v2Color?: string; v4: string; v4Color?: string;
+  label: string; v2: string; v2Color?: string; v4: string; v4Color?: string; net?: boolean;
 }) {
+  const netStyle: CSSProperties = net ? {
+    borderTop: '1px solid rgba(232,226,217,0.12)',
+    paddingTop: '8px',
+    marginTop: '4px',
+  } : {};
   return (
     <>
-      <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.25), letterSpacing: '0.08em', textTransform: 'uppercase', alignSelf: 'center' }}>{label}</p>
-      <p style={{ ...MONO, fontSize: '0.625rem', color: v2Color ?? text(0.6), textAlign: 'right' }}>{v2}</p>
-      <p style={{ ...MONO, fontSize: '0.625rem', color: v4Color ?? text(0.6), textAlign: 'right' }}>{v4}</p>
+      <p style={{ ...MONO, fontSize: '0.65rem', color: text(0.30), letterSpacing: '0.08em', textTransform: 'uppercase', alignSelf: 'center', ...netStyle }}>{label}</p>
+      <p style={{ ...MONO, fontSize: net ? '0.75rem' : '0.625rem', fontWeight: net ? 500 : 400, color: v2Color ?? text(0.6), textAlign: 'right', ...netStyle }}>{v2}</p>
+      <p style={{ ...MONO, fontSize: net ? '0.75rem' : '0.625rem', fontWeight: net ? 500 : 400, color: v4Color ?? text(0.6), textAlign: 'right', ...netStyle }}>{v4}</p>
     </>
   );
 }
@@ -232,40 +253,41 @@ function LiveData({ data }: { data: RevenueData }) {
         <Row
           label="CAPEX/MW"
           v2={h2.capex_per_mw != null ? `€${(h2.capex_per_mw / 1000).toFixed(0)}k` : '—'}
-          v2Color={text(0.4)}
+          v2Color="rgba(214,88,88,0.65)"
           v4={h4.capex_per_mw != null ? `€${(h4.capex_per_mw / 1000).toFixed(0)}k` : '—'}
-          v4Color={text(0.4)}
+          v4Color="rgba(214,88,88,0.65)"
         />
         <Row
           label="aFRR/MW/yr"
           v2={fk(h2.afrr_annual_per_mw)}
-          v2Color={colorRevenue(h2.afrr_annual_per_mw, 'afrr_mfrr')}
+          v2Color="rgba(86,166,110,0.75)"
           v4={fk(h4.afrr_annual_per_mw)}
-          v4Color={colorRevenue(h4.afrr_annual_per_mw, 'afrr_mfrr')}
+          v4Color="rgba(86,166,110,0.75)"
         />
         <Row
           label="mFRR/MW/yr"
           v2={fk(h2.mfrr_annual_per_mw)}
-          v2Color={colorRevenue(h2.mfrr_annual_per_mw, 'afrr_mfrr')}
+          v2Color="rgba(86,166,110,0.75)"
           v4={fk(h4.mfrr_annual_per_mw)}
-          v4Color={colorRevenue(h4.mfrr_annual_per_mw, 'afrr_mfrr')}
+          v4Color="rgba(86,166,110,0.75)"
         />
         <Row
           label="Trading/MW/yr"
           v2={fk(h2.trading_annual_per_mw)}
-          v2Color={colorRevenue(h2.trading_annual_per_mw, 'trading')}
+          v2Color="rgba(86,166,110,0.75)"
           v4={fk(h4.trading_annual_per_mw)}
-          v4Color={colorRevenue(h4.trading_annual_per_mw, 'trading')}
+          v4Color="rgba(86,166,110,0.75)"
         />
         <Row
           label="OPEX/MW/yr"
           v2={h2.opex_annual_per_mw != null ? `−${fk(h2.opex_annual_per_mw)}` : '—'}
-          v2Color={colorRevenue(h2.opex_annual_per_mw, 'opex')}
+          v2Color="rgba(214,88,88,0.65)"
           v4={h4.opex_annual_per_mw != null ? `−${fk(h4.opex_annual_per_mw)}` : '—'}
-          v4Color={colorRevenue(h4.opex_annual_per_mw, 'opex')}
+          v4Color="rgba(214,88,88,0.65)"
         />
         <Row
           label="NET/MW/yr"
+          net
           v2={fk(h2.net_annual_per_mw)}
           v2Color={colorRevenue(h2.net_annual_per_mw, 'net')}
           v4={fk(h4.net_annual_per_mw)}
@@ -277,20 +299,13 @@ function LiveData({ data }: { data: RevenueData }) {
 
       {/* Payback + IRR */}
       <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr 1fr', gap: '0.45rem 1rem', marginBottom: '0.75rem', alignItems: 'baseline' }}>
-        <Row
-          label="Payback"
-          v2={fPayback(h2.simple_payback_years)}
-          v2Color={colorRevenue(h2.simple_payback_years, 'payback')}
-          v4={fPayback(h4.simple_payback_years)}
-          v4Color={colorRevenue(h4.simple_payback_years, 'payback')}
-        />
-        <Row
-          label="IRR est."
-          v2={fPct(h2.irr_approx_pct)}
-          v2Color={colorRevenue(h2.irr_approx_pct, 'irr')}
-          v4={fPct(h4.irr_approx_pct)}
-          v4Color={colorRevenue(h4.irr_approx_pct, 'irr')}
-        />
+        <p style={{ ...MONO, fontSize: '0.65rem', color: text(0.30), letterSpacing: '0.08em', textTransform: 'uppercase', alignSelf: 'center' }}>Payback</p>
+        <p style={{ ...MONO, fontSize: '0.82rem', fontWeight: 500, color: colorRevenue(h2.simple_payback_years, 'payback'), textAlign: 'right' }}>{fPayback(h2.simple_payback_years)}</p>
+        <p style={{ ...MONO, fontSize: '0.82rem', fontWeight: 500, color: colorRevenue(h4.simple_payback_years, 'payback'), textAlign: 'right' }}>{fPayback(h4.simple_payback_years)}</p>
+
+        <p style={{ ...MONO, fontSize: '0.65rem', color: text(0.30), letterSpacing: '0.08em', textTransform: 'uppercase', alignSelf: 'center' }}>IRR est.</p>
+        <p style={{ ...MONO, fontSize: '0.82rem', fontWeight: 500, color: colorRevenue(h2.irr_approx_pct, 'irr'), textAlign: 'right' }}>{fPct(h2.irr_approx_pct)}</p>
+        <p style={{ ...MONO, fontSize: '0.82rem', fontWeight: 500, color: colorRevenue(h4.irr_approx_pct, 'irr'), textAlign: 'right' }}>{fPct(h4.irr_approx_pct)}</p>
       </div>
 
       {/* CH benchmark reference */}
@@ -317,28 +332,37 @@ function LiveData({ data }: { data: RevenueData }) {
         EU Market Ranking — 2h BESS
       </p>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto auto', gap: '0.35rem 0.75rem', marginBottom: '1rem', alignItems: 'baseline' }}>
-        {eu_ranking.map((m) => (
-          <>
-            <span key={`${m.country}-flag`} style={{ ...MONO, fontSize: '0.75rem' }}>{m.flag}</span>
-            <div key={`${m.country}-name`}>
-              <p style={{ ...MONO, fontSize: '0.6rem', color: text(0.65) }}>
-                {m.country}{' '}
-                {m.is_live
-                  ? <span style={{ fontSize: '0.5rem', color: 'rgba(120,200,120,0.8)', background: 'rgba(120,200,120,0.12)', padding: '0 0.3em', borderRadius: '2px' }}>live</span>
-                  : <span style={{ ...MONO, fontSize: '0.5rem', color: text(0.3) }}>ref</span>
-                }
+      <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto auto', gap: '0.35rem 0.75rem', marginBottom: '1rem', alignItems: 'center' }}>
+        {eu_ranking.map((m) => {
+          const isLT = m.country === 'Lithuania';
+          const rowStyle: CSSProperties = isLT ? {
+            borderLeft: '2px solid rgba(123,94,167,0.6)',
+            paddingLeft: '8px',
+            background: 'rgba(123,94,167,0.04)',
+          } : {};
+          return (
+            <>
+              <span key={`${m.country}-flag`} style={{ ...MONO, fontSize: '0.75rem' }}>{m.flag}</span>
+              <div key={`${m.country}-name`} style={rowStyle}>
+                <p style={{ ...MONO, fontSize: '0.65rem', color: text(0.65) }}>
+                  {m.country}{' '}
+                  {m.is_live
+                    ? <span style={{ fontSize: '0.65rem', color: 'rgba(86,166,110,0.8)', background: 'rgba(86,166,110,0.12)', padding: '0 0.3em', borderRadius: '2px' }}>live</span>
+                    : <span style={{ ...MONO, fontSize: '0.65rem', color: text(0.3) }}>ref</span>
+                  }
+                </p>
+                <p style={{ ...MONO, fontSize: '0.65rem', color: text(0.30), marginTop: '0.1rem' }}>{m.note}</p>
+              </div>
+              <p key={`${m.country}-irr`} style={{ ...MONO, fontSize: '0.65rem', color: colorIrrMarket(m.irr_pct), textAlign: 'right' }}>
+                {m.irr_pct != null ? `${m.irr_pct.toFixed(0)}%` : '—'}
+                {m.irr_pct != null && <IrrBar irr={m.irr_pct} />}
               </p>
-              <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.25), marginTop: '0.1rem' }}>{m.note}</p>
-            </div>
-            <p key={`${m.country}-irr`} style={{ ...MONO, fontSize: '0.625rem', color: colorIrrMarket(m.irr_pct), textAlign: 'right' }}>
-              {m.irr_pct != null ? `${m.irr_pct.toFixed(0)}%` : '—'}
-            </p>
-            <p key={`${m.country}-net`} style={{ ...MONO, fontSize: '0.6rem', color: text(0.4), textAlign: 'right' }}>
-              {fk(m.net_annual_per_mw)}/MW
-            </p>
-          </>
-        ))}
+              <p key={`${m.country}-net`} style={{ ...MONO, fontSize: '0.65rem', color: text(0.4), textAlign: 'right' }}>
+                {fk(m.net_annual_per_mw)}/MW
+              </p>
+            </>
+          );
+        })}
       </div>
 
       <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), lineHeight: 1.6 }}>

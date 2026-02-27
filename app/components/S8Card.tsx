@@ -1,6 +1,6 @@
 'use client';
 
-import { type CSSProperties } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { flowColor, flowSignalColor } from './s8-utils';
 import { CardFooter } from './CardFooter';
 import { CardDisclosure } from './CardDisclosure';
@@ -44,6 +44,7 @@ function mwLabel(mw: number | null | undefined): string {
 export function S8Card() {
   const { status, data, isDefault, isStale, ageHours, defaultReason } =
     useSignal<S8Signal>(`${WORKER_URL}/s8`);
+  const [mapView, setMapView] = useState<'bess' | 'dc'>('bess');
 
   return (
     <article
@@ -55,9 +56,9 @@ export function S8Card() {
         width: '100%',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '0.5rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
         <SignalIcon type="flows" size={20} />
-        <h3 style={{ ...MONO, fontSize: '0.8rem', letterSpacing: '0.14em', color: text(0.52), fontWeight: 400, textTransform: 'uppercase' }}>
+        <h3 style={{ ...MONO, fontSize: '0.82rem', letterSpacing: '0.06em', color: text(0.72), fontWeight: 500, textTransform: 'uppercase' }}>
           Interconnector Flows
         </h3>
       </div>
@@ -79,7 +80,7 @@ export function S8Card() {
         {status === 'loading' && <Skeleton />}
         {status === 'error'   && <ErrorState />}
         {status === 'success' && data && (
-          <LiveData data={data} isDefault={isDefault} isStale={isStale} ageHours={ageHours} defaultReason={defaultReason} />
+          <LiveData data={data} isDefault={isDefault} isStale={isStale} ageHours={ageHours} defaultReason={defaultReason} mapView={mapView} setMapView={setMapView} />
         )}
       </div>
     </article>
@@ -106,9 +107,10 @@ function ErrorState() {
 
 interface LiveDataProps {
   data: S8Signal; isDefault: boolean; isStale: boolean; ageHours: number | null; defaultReason: string | null;
+  mapView: 'bess' | 'dc'; setMapView: (v: 'bess' | 'dc') => void;
 }
 
-function LiveData({ data, isDefault, isStale, ageHours, defaultReason }: LiveDataProps) {
+function LiveData({ data, isDefault, isStale, ageHours, defaultReason, mapView, setMapView }: LiveDataProps) {
   const signalColor = flowColor(data.signal ?? null);
   const ts = data.timestamp ?? null;
 
@@ -138,12 +140,29 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason }: LiveDat
         ))}
       </div>
 
-      {/* Baltic map */}
+      {/* Baltic map with view tabs */}
+      <div style={{ display: 'flex', gap: '0', marginBottom: '6px' }}>
+        {(['bess', 'dc'] as const).map(v => (
+          <button
+            key={v}
+            onClick={() => setMapView(v)}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontFamily: 'var(--font-mono)', fontSize: '0.68rem',
+              letterSpacing: '0.08em', textTransform: 'uppercase',
+              color: mapView === v ? 'rgba(232,226,217,0.88)' : 'rgba(232,226,217,0.35)',
+              borderBottom: mapView === v ? '1px solid rgba(123,94,167,0.7)' : '1px solid transparent',
+              padding: '0 0 2px 0', marginRight: '12px',
+            }}
+          >{v}</button>
+        ))}
+      </div>
       <BalticMap
         nordbalt_mw={data.nordbalt_avg_mw}
         nordbalt_dir={data.nordbalt_signal}
         litpol_mw={data.litpol_avg_mw}
         litpol_dir={data.litpol_signal}
+        view={mapView}
       />
 
       <time dateTime={ts ?? ''} style={{ ...MONO, fontSize: '0.575rem', color: text(0.40), letterSpacing: '0.06em', display: 'block', textAlign: 'right', marginTop: '1rem' }}>

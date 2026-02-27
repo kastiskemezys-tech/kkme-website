@@ -10,6 +10,7 @@ import { SignalIcon } from './SignalIcon';
 import { BulletChart } from './BulletChart';
 import { useSignal } from '@/lib/useSignal';
 import { safeNum, formatHHMM } from '@/lib/safeNum';
+import { signalColor, regimeToState } from '@/lib/signalColor';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
@@ -56,9 +57,9 @@ export function S9Card() {
         width: '100%',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '0.5rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
         <SignalIcon type="carbon" size={20} />
-        <h3 style={{ ...MONO, fontSize: '0.8rem', letterSpacing: '0.14em', color: text(0.52), fontWeight: 400, textTransform: 'uppercase' }}>
+        <h3 style={{ ...MONO, fontSize: '0.82rem', letterSpacing: '0.06em', color: text(0.72), fontWeight: 500, textTransform: 'uppercase' }}>
           EU ETS Carbon
         </h3>
       </div>
@@ -110,7 +111,7 @@ interface LiveDataProps {
 }
 
 function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }: LiveDataProps) {
-  const signalColor = carbonColor(data.signal ?? null);
+  const heroColor = signalColor(regimeToState(data.signal));
   const ts = data.timestamp ?? null;
 
   return (
@@ -120,14 +121,14 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
       {/* Hero + sparkline */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1rem' }}>
         <p style={{ ...MONO, fontWeight: 400, lineHeight: 1, letterSpacing: '-0.02em', margin: 0 }}>
-          <span style={{ fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', color: signalColor }}>
+          <span style={{ fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', color: heroColor }}>
             {data.eua_eur_t != null ? `${safeNum(data.eua_eur_t, 1)}` : '—'}
           </span>
           <span style={{ fontSize: '0.75rem', marginLeft: '0.4em', color: text(0.4) }}>
             €/t {data.eua_trend ?? ''}
           </span>
         </p>
-        <Sparkline values={history} color="#c084fc" width={80} height={24} />
+        <Sparkline values={history} color="#c084fc" width={160} height={40} />
       </div>
 
       <p style={{ ...MONO, fontSize: '0.6rem', color: text(0.4), lineHeight: 1.5, marginBottom: '1rem' }}>

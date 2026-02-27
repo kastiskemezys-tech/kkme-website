@@ -17,8 +17,8 @@ export function CardFooter({ period, compare, updated, timestamp, isStale, ageHo
   return (
     <div style={{
       ...MONO,
-      fontSize: '0.5rem',
-      color: text(0.35),
+      fontSize: '0.65rem',
+      color: text(0.45),
       marginTop: '14px',
       paddingTop: '8px',
       borderTop: `1px solid rgba(232,226,217,0.07)`,
