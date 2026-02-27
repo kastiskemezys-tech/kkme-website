@@ -95,6 +95,10 @@ Next.js static export → components fetch Worker endpoints directly from browse
     /telegram/test confirmed: {"sent":true}
 [x] Animation pass — ShaderGradient hero, SignalIcons, BalticMap arcs, anime.js (rollNumber/drawSparkline/freshnessPulse/animateCards/flashOnChange), BulletCharts on S5/S7/S9, card stagger entrance
 [x] RevenueCard null guards — fPayback/fPct/fk handle null/Infinity; fixes "nullyr"/"€0k"/"0%" display
+[x] UX audit pass — type scale min 10px, brighter green/amber colour system (lib/signalColor.ts),
+    S6 fill bar, S4 capacity bar, S8 BESS/DC tabs functional, Intel Feed counts + pulse dot,
+    Revenue colour coding + IrrBar + Lithuania highlight + shimmer skeleton,
+    2-col Market Context grid, StatusStrip 4-KPI above fold, CTA button prominence
 
 ## Mac cron scripts (~/kkme-cron/)
 All use X-Update-Secret: kkme-btd-2026
