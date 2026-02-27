@@ -1499,167 +1499,168 @@ function getISOWeek(date) {
 }
 
 async function fetchNordicHydro() {
-  const now = new Date();
-  const { week, year } = getISOWeek(now);
-  // Try current week; if empty (published mid-week), try previous week
-  const tryWeeks = [{ week, year }, { week: week - 1 > 0 ? week - 1 : 52, year: week - 1 > 0 ? year : year - 1 }];
+  const NVE_BASE = 'https://biapi.nve.no/magasinstatistikk/api/Magasinstatistikk';
+  const headers = { Accept: 'application/json' };
 
-  for (const { week: w, year: y } of tryWeeks) {
-    const url = `https://biapi.nve.no/magasinstatistikk/api/Magasin?aar=${y}&uke=${w}`;
-    const res = await fetch(url, { headers: { Accept: 'application/json' } });
-    if (!res.ok) continue;
-    const data = await res.json();
-    // NVE returns array of objects; look for Norway aggregate (Område = "Norge")
-    const norway = Array.isArray(data)
-      ? data.find(r => r.omraadeNavn === 'Norge' || r.omraadenavn === 'Norge' || r.Omraadenavn === 'Norge')
-      : null;
-    if (!norway) continue;
+  const [sisteRes, medRes] = await Promise.all([
+    fetch(`${NVE_BASE}/HentOffentligDataSisteUke`, { headers }),
+    fetch(`${NVE_BASE}/HentOffentligDataMinMaxMedian`, { headers }),
+  ]);
 
-    // Field names from NVE biapi (camelCase varies — try both)
-    const fill     = norway.fyllingsgrad    ?? norway.Fyllingsgrad    ?? null;
-    const median   = norway.medianFylling   ?? norway.MedianFylling   ?? null;
-    const week_num = norway.uke             ?? norway.Uke             ?? w;
+  if (!sisteRes.ok) throw new Error(`NVE SisteUke: HTTP ${sisteRes.status}`);
+  const sisteUke = await sisteRes.json();
 
-    if (fill == null) continue;
+  // Filter to EL (electricity) region entries only (omrType === 'EL')
+  const elData = Array.isArray(sisteUke) ? sisteUke.filter(r => r.omrType === 'EL') : [];
+  if (!elData.length) throw new Error('NVE: no EL records in SisteUke');
 
-    const deviation_pp = (fill != null && median != null)
-      ? Math.round((fill - median) * 10) / 10
-      : null;
+  const totalFillTwh = elData.reduce((s, r) => s + (r.fylling_TWh ?? 0), 0);
+  const totalCapTwh  = elData.reduce((s, r) => s + (r.kapasitet_TWh ?? 0), 0);
+  if (!totalCapTwh) throw new Error('NVE: zero capacity');
 
-    let signal = 'NORMAL';
-    if (deviation_pp != null) {
-      if (deviation_pp > 5)  signal = 'HIGH';
-      if (deviation_pp < -5) signal = 'LOW';
+  const fill_pct    = Math.round(totalFillTwh / totalCapTwh * 1000) / 10;
+  const currentWeek = elData[0]?.iso_uke ?? null;
+  const currentYear = elData[0]?.iso_aar ?? new Date().getFullYear();
+
+  let median_fill_pct = null;
+  if (medRes.ok) {
+    const medianData = await medRes.json();
+    const weekMedian = Array.isArray(medianData)
+      ? medianData.filter(r => r.omrType === 'EL' && r.iso_uke === currentWeek)
+      : [];
+    if (weekMedian.length) {
+      const totalMedianTwh = weekMedian.reduce((s, r) => s + (r.medianFylling_TWH ?? 0), 0);
+      median_fill_pct = Math.round(totalMedianTwh / totalCapTwh * 1000) / 10;
     }
-
-    return {
-      timestamp:       new Date().toISOString(),
-      signal,
-      fill_pct:        Math.round(fill * 10) / 10,
-      median_fill_pct: median != null ? Math.round(median * 10) / 10 : null,
-      deviation_pp,
-      week:            week_num,
-      year:            y,
-      interpretation:  signal === 'HIGH'
-        ? 'Reservoirs above median — hydro surplus → lower Nordic baseload prices likely.'
-        : signal === 'LOW'
-          ? 'Reservoirs below median — hydro deficit → upward pressure on Nordic prices.'
-          : 'Reservoirs near historical median — neutral price signal.',
-    };
   }
-  throw new Error('NVE biapi: no valid data for current or previous week');
+
+  const deviation_pp = median_fill_pct != null
+    ? Math.round((fill_pct - median_fill_pct) * 10) / 10
+    : null;
+
+  let signal = 'NORMAL';
+  if (deviation_pp != null) {
+    if (deviation_pp > 5)  signal = 'HIGH';
+    if (deviation_pp < -5) signal = 'LOW';
+  }
+
+  return {
+    timestamp:       new Date().toISOString(),
+    signal,
+    fill_pct,
+    capacity_twh:    Math.round(totalCapTwh * 10) / 10,
+    median_fill_pct,
+    deviation_pp,
+    week:            currentWeek,
+    year:            currentYear,
+    interpretation:  signal === 'HIGH'
+      ? 'Reservoirs above median — hydro surplus → lower Nordic baseload prices likely.'
+      : signal === 'LOW'
+        ? 'Reservoirs below median — hydro deficit → upward pressure on Nordic prices.'
+        : 'Reservoirs near historical median — neutral price signal.',
+  };
 }
 
 // ─── S7 — TTF Gas Price ────────────────────────────────────────────────────────
 
 async function fetchTTFGas() {
-  // energy-charts.info free API — no auth required
-  const url = 'https://api.energy-charts.info/gas_prices?period=week&country=eu';
-  const res = await fetch(url, { headers: { Accept: 'application/json' } });
-  if (!res.ok) throw new Error(`TTF API: HTTP ${res.status}`);
-  const data = await res.json();
+  // Yahoo Finance v8 API — Dutch TTF Natural Gas futures (TTF=F), no auth required
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+  try {
+    const res = await fetch(
+      'https://query1.finance.yahoo.com/v8/finance/chart/TTF%3DF?interval=1d&range=10d',
+      {
+        signal: controller.signal,
+        headers: {
+          'User-Agent': TE_HEADERS['User-Agent'],
+          'Accept': 'application/json',
+        },
+      }
+    );
+    clearTimeout(timer);
+    if (!res.ok) throw new Error(`Yahoo TTF: HTTP ${res.status}`);
+    const body = await res.json();
+    const meta = body?.chart?.result?.[0]?.meta;
+    if (!meta) throw new Error('Yahoo TTF: no result in response');
 
-  // Returns { unix_seconds: [...], price: [...] } — take most recent non-null
-  const prices     = data.price     ?? data.prices     ?? [];
-  const timestamps = data.unix_seconds ?? data.xAxisValues ?? [];
-  if (!prices.length) throw new Error('TTF: no price data');
+    const ttf_eur_mwh = meta.regularMarketPrice;
+    if (ttf_eur_mwh == null) throw new Error('Yahoo TTF: regularMarketPrice missing');
 
-  // Walk backwards to find most recent valid value
-  let ttf_eur_mwh = null;
-  let ts_unix     = null;
-  for (let i = prices.length - 1; i >= 0; i--) {
-    if (prices[i] != null) { ttf_eur_mwh = prices[i]; ts_unix = timestamps[i] ?? null; break; }
+    // Trend: vs previous close
+    const prevClose = meta.chartPreviousClose ?? meta.previousClose ?? null;
+    const delta = prevClose != null ? ttf_eur_mwh - prevClose : null;
+    const ttf_trend = delta == null ? null
+      : delta >  2 ? '↑ rising'
+      : delta < -2 ? '↓ falling'
+      : '→ stable';
+
+    let signal = 'NORMAL';
+    if (ttf_eur_mwh > 50)      signal = 'HIGH';
+    else if (ttf_eur_mwh > 30) signal = 'ELEVATED';
+    else if (ttf_eur_mwh < 15) signal = 'LOW';
+
+    return {
+      timestamp:   new Date().toISOString(),
+      signal,
+      ttf_eur_mwh: Math.round(ttf_eur_mwh * 100) / 100,
+      ttf_trend,
+      interpretation: signal === 'HIGH'
+        ? 'Gas expensive — strong BESS arbitrage case vs peaker plants.'
+        : signal === 'LOW'
+          ? 'Gas cheap — peaker margin compressed; less urgency for storage.'
+          : 'Gas price neutral — standard storage economics apply.',
+    };
+  } catch (err) {
+    clearTimeout(timer);
+    throw err;
   }
-  if (ttf_eur_mwh == null) throw new Error('TTF: all prices null');
-
-  // 7-day trend: compare last value vs 7-values-ago
-  const prevIdx = Math.max(0, prices.length - 8);
-  const prev    = prices[prevIdx];
-  const delta   = prev != null ? ttf_eur_mwh - prev : null;
-  const ttf_trend = delta == null ? null
-    : delta >  2 ? '↑ rising'
-    : delta < -2 ? '↓ falling'
-    : '→ stable';
-
-  let signal = 'NORMAL';
-  if (ttf_eur_mwh > 50)      signal = 'HIGH';
-  else if (ttf_eur_mwh > 30) signal = 'ELEVATED';
-  else if (ttf_eur_mwh < 15) signal = 'LOW';
-
-  return {
-    timestamp:   new Date().toISOString(),
-    signal,
-    ttf_eur_mwh: Math.round(ttf_eur_mwh * 100) / 100,
-    ttf_trend,
-    data_ts:     ts_unix ? new Date(ts_unix * 1000).toISOString() : null,
-    interpretation: signal === 'HIGH'
-      ? 'Gas expensive — strong BESS arbitrage case vs peaker plants.'
-      : signal === 'LOW'
-        ? 'Gas cheap — peaker margin compressed; less urgency for storage.'
-        : 'Gas price neutral — standard storage economics apply.',
-  };
 }
 
 // ─── S8 — Interconnector Flows (NordBalt + LitPol) ────────────────────────────
 
-async function fetchInterconnectorFlows(env) {
-  const apiKey = env.ENTSOE_API_KEY;
-  if (!apiKey) throw new Error('ENTSOE_API_KEY not set');
+async function fetchInterconnectorFlows() {
+  // energy-charts.info CBET: cross-border electricity trading for Lithuania
+  // sign convention: positive value = LT importing FROM that country
+  // we negate → positive = LT exporting TO that country
+  const res = await fetch('https://api.energy-charts.info/cbet?country=lt', {
+    headers: { Accept: 'application/json' },
+  });
+  if (!res.ok) throw new Error(`CBET API: HTTP ${res.status}`);
+  const data = await res.json();
 
-  // A11 = Aggregated generation per type / cross-border physical flow
-  // Use A11 document type with in/out domain pairs for each interconnector
-  // NordBalt: LT (10YLT-1001A0008Q) ↔ SE4 (10Y1001A1001A47J)
-  // LitPol:   LT (10YLT-1001A0008Q) ↔ PL  (10YPL-AREA-----S)
+  // Response: { countries: [{ name, data }, ...], unix_seconds, ... }
+  // sign: positive value = LT importing FROM country; negate for LT export perspective
+  const countries = Array.isArray(data.countries) ? data.countries : [];
 
-  const period0 = utcPeriod(0);
-  const period1 = utcPeriod(1);
-
-  async function fetchFlow(inDomain, outDomain) {
-    const u = new URL(ENTSOE_API);
-    u.searchParams.set('documentType', 'A11');
-    u.searchParams.set('in_Domain',    inDomain);
-    u.searchParams.set('out_Domain',   outDomain);
-    u.searchParams.set('periodStart',  period0);
-    u.searchParams.set('periodEnd',    period1);
-    u.searchParams.set('securityToken', apiKey);
-    const r = await fetch(u.toString());
-    if (!r.ok) return [];
-    const xml = await r.text();
-    return extractPrices(xml);  // reuse same MW extractor (works for flows too)
+  function avgFromCountry(name) {
+    const c = countries.find(c => c.name?.toLowerCase() === name.toLowerCase());
+    if (!c) return null;
+    const valid = (c.data ?? []).filter(v => v != null);
+    if (!valid.length) return null;
+    const avg = valid.reduce((s, v) => s + v, 0) / valid.length;
+    return Math.round(-avg * 1000); // GW → MW, negate for LT export perspective
   }
 
-  // Positive = LT exports to SE4, Negative = LT imports from SE4
-  const [ltToSe4, se4ToLt, ltToPl, plToLt] = await Promise.allSettled([
-    fetchFlow(LT_BZN,  SE4_BZN),
-    fetchFlow(SE4_BZN, LT_BZN),
-    fetchFlow(LT_BZN,  PL_BZN),
-    fetchFlow(PL_BZN,  LT_BZN),
-  ]);
+  // NordBalt: LT ↔ SE4 → country name 'Sweden' in CBET response
+  // LitPol:   LT ↔ PL  → country name 'Poland' in CBET response
+  const nordbalt_avg_mw = avgFromCountry('Sweden');
+  const litpol_avg_mw   = avgFromCountry('Poland');
 
-  function netAvg(exp, imp) {
-    const e = exp.status === 'fulfilled' ? exp.value : [];
-    const i = imp.status === 'fulfilled' ? imp.value : [];
-    if (!e.length && !i.length) return null;
-    const len = Math.max(e.length, i.length);
-    let sum = 0;
-    for (let h = 0; h < len; h++) sum += (e[h] ?? 0) - (i[h] ?? 0);
-    return Math.round(sum / len);
+  if (nordbalt_avg_mw == null && litpol_avg_mw == null) {
+    console.error('[S8] countries not found, names:', countries.map(c => c.name).join(','));
+    throw new Error('CBET: no Sweden or Poland data found');
   }
-
-  const nordbalt_avg_mw = netAvg(ltToSe4, se4ToLt);
-  const litpol_avg_mw   = netAvg(ltToPl,  plToLt);
 
   function flowSignal(mw) {
     if (mw == null) return null;
-    if (mw >  50) return 'EXPORT';
-    if (mw < -50) return 'IMPORT';
+    if (mw > 100)  return 'EXPORTING';
+    if (mw < -100) return 'IMPORTING';
     return 'BALANCED';
   }
 
   const nordbalt_signal = flowSignal(nordbalt_avg_mw);
   const litpol_signal   = flowSignal(litpol_avg_mw);
-
-  // Overall: if LT net exports dominate → EXPORTING; net imports → IMPORTING; mixed → NEUTRAL
   const netTotal = (nordbalt_avg_mw ?? 0) + (litpol_avg_mw ?? 0);
   const signal   = netTotal > 100 ? 'EXPORTING' : netTotal < -100 ? 'IMPORTING' : 'NEUTRAL';
 
@@ -1676,48 +1677,68 @@ async function fetchInterconnectorFlows(env) {
 
 // ─── S9 — EU ETS Carbon Price ──────────────────────────────────────────────────
 
-async function fetchEUCarbon() {
-  const url = 'https://api.energy-charts.info/co2_price?period=week&country=eu';
-  const res = await fetch(url, { headers: { Accept: 'application/json' } });
-  if (!res.ok) throw new Error(`EUA API: HTTP ${res.status}`);
-  const data = await res.json();
-
-  const prices     = data.price     ?? data.prices     ?? [];
-  const timestamps = data.unix_seconds ?? data.xAxisValues ?? [];
-  if (!prices.length) throw new Error('EUA: no price data');
-
-  let eua_eur_t = null;
-  let ts_unix   = null;
-  for (let i = prices.length - 1; i >= 0; i--) {
-    if (prices[i] != null) { eua_eur_t = prices[i]; ts_unix = timestamps[i] ?? null; break; }
+function parseEUAPrice(html) {
+  // Pattern 1: "Carbon Emissions rose/fell to 73.25"
+  const m1 = html.match(/Carbon[^"]*?(?:rose|fell)[^"]*?to\s+([\d,]+\.?\d*)/i);
+  if (m1) {
+    const val = parseFloat(m1[1].replace(/,/g, ''));
+    if (val >= 5 && val <= 200) return val;
   }
-  if (eua_eur_t == null) throw new Error('EUA: all prices null');
+  // Pattern 2: embedded JSON "last":"73.25"
+  const m2 = html.match(/"last"\s*:\s*"?([\d,]+\.?\d*)"?/);
+  if (m2) {
+    const val = parseFloat(m2[1].replace(/,/g, ''));
+    if (val >= 5 && val <= 200) return val;
+  }
+  // Pattern 3: "price":"73.25"
+  const m3 = html.match(/"price"\s*:\s*"?([\d,]+\.?\d*)"?/);
+  if (m3) {
+    const val = parseFloat(m3[1].replace(/,/g, ''));
+    if (val >= 5 && val <= 200) return val;
+  }
+  // Pattern 4: data-value attribute
+  const m4 = html.match(/data-value="([\d,]+\.?\d*)"/);
+  if (m4) {
+    const val = parseFloat(m4[1].replace(/,/g, ''));
+    if (val >= 5 && val <= 200) return val;
+  }
+  return null;
+}
 
-  const prevIdx  = Math.max(0, prices.length - 8);
-  const prev     = prices[prevIdx];
-  const delta    = prev != null ? eua_eur_t - prev : null;
-  const eua_trend = delta == null ? null
-    : delta >  2 ? '↑ rising'
-    : delta < -2 ? '↓ falling'
-    : '→ stable';
-
-  let signal = 'NORMAL';
-  if (eua_eur_t > 70)      signal = 'HIGH';
-  else if (eua_eur_t > 50) signal = 'ELEVATED';
-  else if (eua_eur_t < 30) signal = 'LOW';
-
-  return {
-    timestamp:   new Date().toISOString(),
-    signal,
-    eua_eur_t:   Math.round(eua_eur_t * 100) / 100,
-    eua_trend,
-    data_ts:     ts_unix ? new Date(ts_unix * 1000).toISOString() : null,
-    interpretation: signal === 'HIGH'
-      ? 'High carbon price — strong incentive to displace gas peakers with BESS.'
-      : signal === 'LOW'
-        ? 'Low EUA — carbon premium reduced; BESS vs gas economics less compelling.'
-        : 'Carbon price in normal range — standard BESS vs peaker economics.',
-  };
+async function fetchEUCarbon() {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 20000);
+  try {
+    const res = await fetch('https://tradingeconomics.com/commodity/carbon', {
+      signal: controller.signal, headers: TE_HEADERS, redirect: 'follow',
+    });
+    clearTimeout(timer);
+    if (!res.ok) throw new Error(`TE EUA: HTTP ${res.status}`);
+    const html = await res.text();
+    const eua_eur_t = parseEUAPrice(html);
+    if (eua_eur_t == null) {
+      console.error('[S9] EUA parse failed, preview:', html.slice(0, 500));
+      throw new Error('TE EUA: price not found in HTML');
+    }
+    let signal = 'NORMAL';
+    if (eua_eur_t > 70)      signal = 'HIGH';
+    else if (eua_eur_t > 50) signal = 'ELEVATED';
+    else if (eua_eur_t < 30) signal = 'LOW';
+    return {
+      timestamp:   new Date().toISOString(),
+      signal,
+      eua_eur_t:   Math.round(eua_eur_t * 100) / 100,
+      eua_trend:   null,
+      interpretation: signal === 'HIGH'
+        ? 'High carbon price — strong incentive to displace gas peakers with BESS.'
+        : signal === 'LOW'
+          ? 'Low EUA — carbon premium reduced; BESS vs gas economics less compelling.'
+          : 'Carbon price in normal range — standard BESS vs peaker economics.',
+    };
+  } catch (err) {
+    clearTimeout(timer);
+    throw err;
+  }
 }
 
 // ─── Main export ───────────────────────────────────────────────────────────────
@@ -1827,7 +1848,7 @@ export default {
     const [s6Res, s7Res, s8Res, s9Res] = await Promise.allSettled([
       withTimeout(fetchNordicHydro(),           20000),
       withTimeout(fetchTTFGas(),                20000),
-      withTimeout(fetchInterconnectorFlows(env), 30000),
+      withTimeout(fetchInterconnectorFlows(), 30000),
       withTimeout(fetchEUCarbon(),              20000),
     ]);
 
@@ -2180,7 +2201,7 @@ export default {
     for (const [sig, computeFn, def] of [
       ['s6', () => fetchNordicHydro(),             DEFAULTS.s6],
       ['s7', () => fetchTTFGas(),                  DEFAULTS.s7],
-      ['s8', () => fetchInterconnectorFlows(env),  DEFAULTS.s8],
+      ['s8', () => fetchInterconnectorFlows(),  DEFAULTS.s8],
       ['s9', () => fetchEUCarbon(),                DEFAULTS.s9],
     ]) {
       if (request.method === 'GET' && url.pathname === `/${sig}`) {
@@ -2192,7 +2213,8 @@ export default {
           const data = await computeFn();
           await env.KKME_SIGNALS.put(sig, JSON.stringify(data));
           return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json', ...CORS } });
-        } catch {
+        } catch (err) {
+          console.error(`[${sig}] fetch failed:`, String(err));
           return Response.json({ ...def, unavailable: true, _serving: 'static_defaults' }, { headers: CORS });
         }
       }
