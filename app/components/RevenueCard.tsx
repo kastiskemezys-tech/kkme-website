@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type CSSProperties } from 'react';
+import React, { useEffect, useState, type CSSProperties } from 'react';
 import { CardFooter } from './CardFooter';
 import { formatHHMM } from '@/lib/safeNum';
 
@@ -214,7 +214,7 @@ function IrrBar({ irr, max = 50 }: { irr: number; max?: number }) {
   const pct = Math.min((irr / max) * 100, 100);
   const barColor = irr > 30 ? 'rgba(86,166,110,0.7)' : irr > 15 ? 'rgba(204,160,72,0.7)' : 'rgba(214,88,88,0.6)';
   return (
-    <div style={{ display: 'inline-block', width: '60px', height: '4px', background: 'rgba(232,226,217,0.08)', verticalAlign: 'middle', marginLeft: '8px', position: 'relative' }}>
+    <div style={{ width: '60px', height: '4px', background: 'rgba(232,226,217,0.08)', alignSelf: 'center', position: 'relative' }}>
       <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${pct}%`, background: barColor }} />
     </div>
   );
@@ -245,7 +245,7 @@ function LiveData({ data }: { data: RevenueData }) {
   return (
     <>
       {/* Column headers */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr 1fr', gap: '0.45rem 1rem', marginBottom: '0.75rem', alignItems: 'baseline' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '160px 90px 90px', gap: '0.45rem 1rem', marginBottom: '0.75rem', alignItems: 'baseline' }}>
         <span />
         <p style={{ ...COL_HEADER }}>2h</p>
         <p style={{ ...COL_HEADER }}>4h</p>
@@ -298,7 +298,7 @@ function LiveData({ data }: { data: RevenueData }) {
       <div style={{ ...DIVIDER, marginBottom: '0.75rem' }} />
 
       {/* Payback + IRR */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr 1fr', gap: '0.45rem 1rem', marginBottom: '0.75rem', alignItems: 'baseline' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '160px 90px 90px', gap: '0.45rem 1rem', marginBottom: '0.75rem', alignItems: 'baseline' }}>
         <p style={{ ...MONO, fontSize: '0.65rem', color: text(0.30), letterSpacing: '0.08em', textTransform: 'uppercase', alignSelf: 'center' }}>Payback</p>
         <p style={{ ...MONO, fontSize: '0.82rem', fontWeight: 500, color: colorRevenue(h2.simple_payback_years, 'payback'), textAlign: 'right' }}>{fPayback(h2.simple_payback_years)}</p>
         <p style={{ ...MONO, fontSize: '0.82rem', fontWeight: 500, color: colorRevenue(h4.simple_payback_years, 'payback'), textAlign: 'right' }}>{fPayback(h4.simple_payback_years)}</p>
@@ -332,40 +332,51 @@ function LiveData({ data }: { data: RevenueData }) {
         EU Market Ranking — 2h BESS
       </p>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto auto', gap: '0.35rem 0.75rem', marginBottom: '1rem', alignItems: 'center' }}>
+      {/* EU ranking header */}
+      <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr 60px 80px 80px', gap: '0.2rem 0.5rem', alignItems: 'center', marginBottom: '4px' }}>
+        <span />
+        <span style={{ ...MONO, fontSize: '0.48rem', color: text(0.25), letterSpacing: '0.08em', textTransform: 'uppercase' }}>Market</span>
+        <span style={{ ...MONO, fontSize: '0.48rem', color: text(0.25), letterSpacing: '0.08em', textTransform: 'uppercase', textAlign: 'right' }}>IRR</span>
+        <span />
+        <span style={{ ...MONO, fontSize: '0.48rem', color: text(0.25), letterSpacing: '0.08em', textTransform: 'uppercase', textAlign: 'right' }}>Net/MW/yr</span>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr 60px 80px 80px', gap: '0.35rem 0.5rem', marginBottom: '1rem', alignItems: 'center' }}>
         {eu_ranking.map((m) => {
           const isLT = m.country === 'Lithuania';
-          const rowStyle: CSSProperties = isLT ? {
+          const nameStyle: CSSProperties = isLT ? {
             borderLeft: '2px solid rgba(123,94,167,0.6)',
             paddingLeft: '8px',
             background: 'rgba(123,94,167,0.04)',
           } : {};
           return (
-            <>
-              <span key={`${m.country}-flag`} style={{ ...MONO, fontSize: '0.75rem' }}>{m.flag}</span>
-              <div key={`${m.country}-name`} style={rowStyle}>
+            <React.Fragment key={m.country}>
+              <span style={{ ...MONO, fontSize: '0.75rem', lineHeight: 1 }}>{m.flag}</span>
+              <div style={nameStyle}>
                 <p style={{ ...MONO, fontSize: '0.65rem', color: text(0.65) }}>
                   {m.country}{' '}
                   {m.is_live
                     ? (
-                      <span className="live-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '0.65rem', color: 'rgba(86,166,110,0.8)', background: 'rgba(86,166,110,0.12)', padding: '0 0.3em', borderRadius: '2px' }}>
+                      <span className="live-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '0.60rem', color: 'rgba(86,166,110,0.8)', background: 'rgba(86,166,110,0.12)', padding: '0 0.3em', borderRadius: '2px' }}>
                         <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: 'rgba(86,166,110,0.8)', display: 'inline-block' }} />
                         live
                       </span>
                     )
-                    : <span style={{ ...MONO, fontSize: '0.65rem', color: text(0.3) }}>ref</span>
+                    : <span style={{ ...MONO, fontSize: '0.60rem', color: text(0.3) }}>ref</span>
                   }
                 </p>
-                <p style={{ ...MONO, fontSize: '0.65rem', color: text(0.30), marginTop: '0.1rem' }}>{m.note}</p>
+                <p style={{ ...MONO, fontSize: '0.55rem', color: text(0.30), marginTop: '0.1rem' }}>{m.note}</p>
               </div>
-              <p key={`${m.country}-irr`} style={{ ...MONO, fontSize: '0.65rem', color: colorIrrMarket(m.irr_pct), textAlign: 'right' }}>
+              <p style={{ ...MONO, fontSize: '0.65rem', color: colorIrrMarket(m.irr_pct), textAlign: 'right' }}>
                 {m.irr_pct != null ? `${m.irr_pct.toFixed(0)}%` : '—'}
-                {m.irr_pct != null && <IrrBar irr={m.irr_pct} />}
               </p>
-              <p key={`${m.country}-net`} style={{ ...MONO, fontSize: '0.65rem', color: text(0.4), textAlign: 'right' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', paddingLeft: '4px' }}>
+                {m.irr_pct != null && <IrrBar irr={m.irr_pct} />}
+              </div>
+              <p style={{ ...MONO, fontSize: '0.65rem', color: text(0.4), textAlign: 'right' }}>
                 {fk(m.net_annual_per_mw)}/MW
               </p>
-            </>
+            </React.Fragment>
           );
         })}
       </div>

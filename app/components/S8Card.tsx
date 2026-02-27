@@ -41,6 +41,18 @@ function mwLabel(mw: number | null | undefined): string {
   return `${sign}${mw.toLocaleString('en-GB')} MW`;
 }
 
+function dirLabel(sig: string | null | undefined): string {
+  if (sig === 'EXPORTING') return 'EXPORTING';
+  if (sig === 'IMPORTING') return 'IMPORTING';
+  return 'BALANCED';
+}
+
+function dirColor(sig: string | null | undefined): string {
+  if (sig === 'EXPORTING') return 'rgba(45,212,168,0.85)';
+  if (sig === 'IMPORTING') return 'rgba(245,158,11,0.85)';
+  return 'rgba(232,226,217,0.38)';
+}
+
 export function S8Card() {
   const { status, data, isDefault, isStale, ageHours, defaultReason } =
     useSignal<S8Signal>(`${WORKER_URL}/s8`);
@@ -111,31 +123,41 @@ interface LiveDataProps {
 }
 
 function LiveData({ data, isDefault, isStale, ageHours, defaultReason, mapView, setMapView }: LiveDataProps) {
-  const signalColor = flowColor(data.signal ?? null);
   const ts = data.timestamp ?? null;
+
+  // Per-arc direction — fully independent
+  const nbSig = data.nordbalt_signal ?? null;
+  const lpSig = data.litpol_signal  ?? null;
+
+  // Hero: dominant direction = whichever arc has higher |MW|
+  const nbMw = Math.abs(data.nordbalt_avg_mw ?? 0);
+  const lpMw = Math.abs(data.litpol_avg_mw  ?? 0);
+  const dominantSig = nbMw >= lpMw ? nbSig : lpSig;
 
   return (
     <>
       <StaleBanner isDefault={isDefault} isStale={isStale} ageHours={ageHours} defaultReason={defaultReason} />
 
-      {/* Hero */}
-      <p style={{ ...MONO, fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', fontWeight: 400, color: signalColor, lineHeight: 1, letterSpacing: '-0.02em', marginBottom: '0.5rem' }}>
-        {data.signal ?? '—'}
+      {/* Hero — dominant direction */}
+      <p style={{ ...MONO, fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', fontWeight: 400, color: dirColor(dominantSig), lineHeight: 1, letterSpacing: '-0.02em', marginBottom: '0.5rem' }}>
+        {dirLabel(dominantSig)}
       </p>
       <p style={{ ...MONO, fontSize: '0.55rem', color: text(0.52), letterSpacing: '0.08em', marginBottom: '1.25rem' }}>
         LT net cross-border balance
       </p>
 
-      {/* Flow rows */}
+      {/* Flow rows — each arc independently coloured */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem 1rem', marginBottom: '1.25rem' }}>
         {([
-          ['NordBalt (→SE4)', data.nordbalt_avg_mw, data.nordbalt_signal],
-          ['LitPol (→PL)',    data.litpol_avg_mw,   data.litpol_signal],
+          ['NordBalt (→SE4)', data.nordbalt_avg_mw, nbSig],
+          ['LitPol (→PL)',    data.litpol_avg_mw,   lpSig],
         ] as [string, number | null | undefined, string | null | undefined][]).map(([label, mw, sig]) => (
           <div key={label}>
             <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.40), letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.2rem' }}>{label}</p>
             <p style={{ ...MONO, fontSize: '0.625rem', color: flowSignalColor(sig ?? null) }}>{mwLabel(mw)}</p>
-            {sig && <p style={{ ...MONO, fontSize: '0.45rem', color: text(0.40), marginTop: '0.1rem' }}>{sig}</p>}
+            <span style={{ ...MONO, fontSize: '0.52rem', letterSpacing: '0.08em', color: dirColor(sig), marginTop: '0.1rem', display: 'block' }}>
+              {dirLabel(sig)}
+            </span>
           </div>
         ))}
       </div>
