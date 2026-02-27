@@ -61,7 +61,7 @@ export function S5Card() {
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
         <h3 style={{ ...MONO, fontSize: '0.8rem', letterSpacing: '0.14em', color: text(0.52), fontWeight: 400, textTransform: 'uppercase' }}>
-          S5 — DC Power Viability
+          DC Power Viability
         </h3>
       </div>
 

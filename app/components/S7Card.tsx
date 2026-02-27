@@ -55,7 +55,7 @@ export function S7Card() {
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
         <h3 style={{ ...MONO, fontSize: '0.8rem', letterSpacing: '0.14em', color: text(0.52), fontWeight: 400, textTransform: 'uppercase' }}>
-          S7 — TTF Gas Price
+          TTF Gas Price
         </h3>
       </div>
 

@@ -2042,6 +2042,8 @@ export default {
       const topic  = url.searchParams.get('topic');
       const rawIdx = await env.KKME_SIGNALS.get('feed_index').catch(() => null);
       let idx = rawIdx ? JSON.parse(rawIdx) : [];
+      // Filter out bot commands, empty titles, and very short titles
+      idx = idx.filter(i => i.title && !i.title.startsWith('/') && i.title.length >= 15);
       if (topic && topic !== 'All') idx = idx.filter(i => i.topic === topic);
       const items  = idx.slice(0, 50);
       const topics = [...new Set(idx.map(i => i.topic))];
@@ -2170,8 +2172,10 @@ export default {
           const d = JSON.parse(s3Raw);
           if (eurRaw) {
             const eur = JSON.parse(eurRaw);
-            d.euribor_3m    = eur.euribor_3m    ?? null;
-            d.euribor_trend = eur.euribor_trend ?? null;
+            d.euribor_3m        = eur.euribor_3m        ?? null;
+            d.euribor_nominal_3m = eur.euribor_nominal_3m ?? eur.euribor_3m ?? null;
+            d.hicp_yoy          = eur.hicp_yoy          ?? null;
+            d.euribor_trend     = eur.euribor_trend     ?? null;
           }
           return new Response(JSON.stringify(d), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600', ...CORS } });
         } catch { /* fall through to fresh compute */ }

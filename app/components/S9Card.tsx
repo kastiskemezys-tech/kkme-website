@@ -55,7 +55,7 @@ export function S9Card() {
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
         <h3 style={{ ...MONO, fontSize: '0.8rem', letterSpacing: '0.14em', color: text(0.52), fontWeight: 400, textTransform: 'uppercase' }}>
-          S9 — EU ETS Carbon
+          EU ETS Carbon
         </h3>
       </div>
 

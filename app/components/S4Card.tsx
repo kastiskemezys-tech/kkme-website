@@ -76,7 +76,7 @@ export function S4Card() {
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
         <h3 style={{ ...MONO, fontSize: '0.8rem', letterSpacing: '0.14em', color: text(0.52), fontWeight: 400, textTransform: 'uppercase' }}>
-          S4 — Grid Connection Scarcity
+          Grid Connection Scarcity
         </h3>
       </div>
 

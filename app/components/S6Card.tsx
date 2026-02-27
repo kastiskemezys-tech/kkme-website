@@ -58,7 +58,7 @@ export function S6Card() {
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
         <h3 style={{ ...MONO, fontSize: '0.8rem', letterSpacing: '0.14em', color: text(0.52), fontWeight: 400, textTransform: 'uppercase' }}>
-          S6 — Nordic Hydro Reservoir
+          Nordic Hydro Reservoir
         </h3>
       </div>
 
