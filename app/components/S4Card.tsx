@@ -139,6 +139,51 @@ const DIVIDER: CSSProperties = {
   width: '100%',
 };
 
+function PipelineFlow({ dev, gen }: { dev: number | null; gen: number | null }) {
+  const devGW  = dev  != null ? dev  / 1000 : null;
+  const genGW  = gen  != null ? gen  / 1000 : null;
+  const maxGW  = Math.max(devGW ?? 0, genGW ?? 0, 1);
+
+  const stages: Array<{ label: string; sub: string; gw: number | null; color: string }> = [
+    { label: 'Dev permits',  sub: 'VERT.lt storage', gw: devGW, color: 'rgba(123,94,167,0.65)' },
+    { label: 'Gen permits',  sub: 'Operating / built', gw: genGW, color: 'rgba(86,166,110,0.65)' },
+  ];
+
+  return (
+    <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-end', marginBottom: '1rem' }}>
+      {stages.map(({ label, sub, gw, color }) => {
+        const r = gw != null ? 12 + (gw / maxGW) * 28 : 8;
+        return (
+          <div key={label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+            <div style={{
+              width: r * 2,
+              height: r * 2,
+              borderRadius: '50%',
+              border: `1px solid ${color}`,
+              background: color.replace('0.65', '0.08'),
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+              {gw != null && (
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.55rem', color, fontWeight: 500 }}>
+                  {gw.toFixed(1)}G
+                </span>
+              )}
+            </div>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.55rem', color: 'rgba(232,226,217,0.45)', textTransform: 'uppercase', textAlign: 'center', lineHeight: 1.4 }}>
+              {label}
+            </span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.48rem', color: 'rgba(232,226,217,0.28)', textAlign: 'center' }}>
+              {sub}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function CapacityBar({ connected, reserved, free }: { connected: number; reserved: number; free: number }) {
   const reservedPct = (reserved / connected) * 100;
   const freePct     = (free     / connected) * 100;
@@ -225,6 +270,8 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
       {data.pipeline && (
         <>
           <div style={{ ...DIVIDER, marginBottom: '1.25rem' }} />
+
+          <PipelineFlow dev={data.pipeline.dev_total_mw} gen={data.pipeline.gen_total_mw} />
 
           <p style={{ ...MONO, fontSize: '0.5rem', letterSpacing: '0.14em', color: text(0.40), textTransform: 'uppercase', marginBottom: '0.9rem' }}>
             Development permits (BESS filtered)

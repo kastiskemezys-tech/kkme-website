@@ -191,6 +191,52 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
 
       <div style={{ ...DIVIDER, marginBottom: '1.25rem' }} />
 
+      {/* Finance pill badges */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '1rem' }}>
+        {nominal != null && (
+          <span style={{
+            ...MONO,
+            fontSize: '0.60rem',
+            padding: '0.18rem 0.55rem',
+            border: '1px solid rgba(77,124,181,0.30)',
+            background: 'rgba(77,124,181,0.08)',
+            color: 'rgba(110,160,220,0.80)',
+            borderRadius: '2px',
+            letterSpacing: '0.04em',
+          }}>
+            Euribor 3M {safeNum(nominal, 2)}%
+          </span>
+        )}
+        {hicp != null && (
+          <span style={{
+            ...MONO,
+            fontSize: '0.60rem',
+            padding: '0.18rem 0.55rem',
+            border: '1px solid rgba(204,160,72,0.25)',
+            background: 'rgba(204,160,72,0.07)',
+            color: 'rgba(220,175,80,0.80)',
+            borderRadius: '2px',
+            letterSpacing: '0.04em',
+          }}>
+            HICP {safeNum(hicp, 1)}%
+          </span>
+        )}
+        {real != null && (
+          <span style={{
+            ...MONO,
+            fontSize: '0.60rem',
+            padding: '0.18rem 0.55rem',
+            border: '1px solid rgba(232,226,217,0.10)',
+            background: 'rgba(232,226,217,0.03)',
+            color: text(0.45),
+            borderRadius: '2px',
+            letterSpacing: '0.04em',
+          }}>
+            Real {safeNum(real, 2)}%
+          </span>
+        )}
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '0.4rem 1.25rem', marginBottom: '1.25rem', alignItems: 'baseline' }}>
         <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase' }}>Euribor 3M</p>
         <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.6) }}>

@@ -1,4 +1,3 @@
-import type { CSSProperties } from 'react';
 import { S1Card } from '@/app/components/S1Card';
 import { S2Card } from '@/app/components/S2Card';
 import { S3Card } from '@/app/components/S3Card';
@@ -17,28 +16,9 @@ import { IntelFeed } from '@/app/components/IntelFeed';
 import { HeroGradient } from '@/app/components/HeroGradient';
 import { CardEntrance } from '@/app/components/CardEntrance';
 import { StatusStrip } from '@/app/components/StatusStrip';
-
-const MONO: CSSProperties = { fontFamily: 'var(--font-mono)' };
-
-function LayerLabel({ label }: Readonly<{ label: string }>) {
-  return (
-    <h2
-      style={{
-        ...MONO,
-        fontSize: '0.72rem',
-        letterSpacing: '0.2em',
-        color: 'rgba(232, 226, 217, 0.58)',
-        textTransform: 'uppercase',
-        fontWeight: 500,
-        width: '100%',
-        maxWidth: '900px',
-        marginBottom: '-1rem',
-      }}
-    >
-      {label}
-    </h2>
-  );
-}
+import { PageBackground } from '@/app/components/PageBackground';
+import { HeroRays } from '@/app/components/HeroRays';
+import { SectionDivider } from '@/app/components/SectionDivider';
 
 export default function Home() {
   return (
@@ -54,9 +34,13 @@ export default function Home() {
         margin: '0 auto',
       }}
     >
+      {/* Full-page ambient gradient */}
+      <PageBackground />
+
       {/* 1. KKME wordmark + hero gradient */}
       <div style={{ position: 'relative', textAlign: 'center', width: '100%' }}>
         <HeroGradient />
+        <HeroRays />
         <h1
           style={{
             position: 'relative',
@@ -114,7 +98,7 @@ export default function Home() {
       <CardEntrance />
 
       {/* ── OPPORTUNITY ────────────────────────────────────────────────────── */}
-      <LayerLabel label="Opportunity" />
+      <SectionDivider label="Opportunity" />
 
       {/* S1 — Baltic Price Separation */}
       <CardBoundary signal="S1">
@@ -127,7 +111,7 @@ export default function Home() {
       </CardBoundary>
 
       {/* ── BUILD ──────────────────────────────────────────────────────────── */}
-      <LayerLabel label="Build" />
+      <SectionDivider label="Build" />
 
       {/* S3 — Lithium Cell Price */}
       <CardBoundary signal="S3">
@@ -145,7 +129,7 @@ export default function Home() {
       </CardBoundary>
 
       {/* ── MARKET CONTEXT ─────────────────────────────────────────────────── */}
-      <LayerLabel label="Market Context" />
+      <SectionDivider label="Market Context" />
 
       <div
         style={{
@@ -186,6 +170,14 @@ export default function Home() {
       <ErrorBoundary>
         <RevenueCard />
       </ErrorBoundary>
+
+      {/* Gradient threshold divider before CTA */}
+      <div style={{
+        width: '100%',
+        maxWidth: '580px',
+        height: '2px',
+        background: 'linear-gradient(to right, rgba(212,160,60,0.35), rgba(45,212,168,0.25), rgba(74,127,181,0.15))',
+      }} />
 
       {/* CTA */}
       <CTASection />

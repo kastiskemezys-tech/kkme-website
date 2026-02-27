@@ -113,15 +113,35 @@ interface LiveDataProps {
 }
 
 function FillBar({ fill, median }: { fill: number; median: number }) {
-  const bg = fill < median - 5
+  const isLow  = fill < median - 5;
+  const isHigh = fill > median + 5;
+  const bg = isLow
     ? 'rgba(204,160,72,0.25)'
-    : fill > median + 5
+    : isHigh
     ? 'rgba(86,166,110,0.25)'
     : 'rgba(100,130,200,0.20)';
+  const shimmerColor = isLow
+    ? 'rgba(204,160,72,0.15)'
+    : isHigh
+    ? 'rgba(86,166,110,0.15)'
+    : 'rgba(100,130,200,0.12)';
+
   return (
     <div style={{ margin: '12px 0 8px' }}>
-      <div style={{ position: 'relative', height: '28px', background: 'rgba(232,226,217,0.06)', border: '1px solid rgba(232,226,217,0.10)' }}>
+      <div style={{ position: 'relative', height: '28px', background: 'rgba(232,226,217,0.06)', border: '1px solid rgba(232,226,217,0.10)', overflow: 'hidden' }}>
+        {/* Fill level */}
         <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${Math.min(fill, 100)}%`, background: bg, transition: 'width 0.6s ease' }} />
+        {/* Water-shimmer highlight */}
+        <div style={{
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: `${Math.min(fill, 100)}%`,
+          background: shimmerColor,
+          animation: 'water-shimmer 3s ease-in-out infinite',
+        }} />
+        {/* Median marker */}
         <div style={{ position: 'absolute', left: `${Math.min(median, 100)}%`, top: '-4px', bottom: '-4px', width: '1px', background: 'rgba(232,226,217,0.40)' }} />
         <span style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', fontFamily: 'var(--font-mono)', fontSize: '0.68rem', color: 'rgba(232,226,217,0.80)' }}>
           {fill.toFixed(1)}%

@@ -130,10 +130,31 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason }: LiveDat
     <>
       <StaleBanner isDefault={isDefault} isStale={isStale} ageHours={ageHours} defaultReason={defaultReason} />
 
-      {/* Hero: signal */}
-      <p style={{ ...MONO, fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', fontWeight: 400, color: signalColor, lineHeight: 1, letterSpacing: '-0.02em', marginBottom: '0.5rem' }}>
-        {data.signal ?? '—'}
-      </p>
+      {/* Hero: signal with glow ring */}
+      <div style={{ display: 'inline-block', position: 'relative', marginBottom: '0.5rem' }}>
+        <p style={{
+          ...MONO,
+          fontSize: 'clamp(2.5rem, 6vw, 3.75rem)',
+          fontWeight: 400,
+          color: signalColor,
+          lineHeight: 1,
+          letterSpacing: '-0.02em',
+          textShadow: `0 0 40px ${signalColor.replace('1)', '0.25)')}`,
+        }}>
+          {data.signal ?? '—'}
+        </p>
+        {/* Glow ring indicator */}
+        <div style={{
+          position: 'absolute',
+          bottom: '-6px',
+          left: 0,
+          right: 0,
+          height: '2px',
+          background: signalColor,
+          opacity: 0.4,
+          filter: 'blur(2px)',
+        }} />
+      </div>
       <p style={{ ...MONO, fontSize: '0.55rem', color: text(0.3), letterSpacing: '0.08em', marginBottom: '1.25rem' }}>
         Grid headroom for new DC connections
       </p>

@@ -150,6 +150,17 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
         ]}
       />
 
+      {/* BESS breakeven annotation */}
+      <p style={{ ...MONO, fontSize: '0.58rem', color: text(0.30), letterSpacing: '0.06em', marginTop: '0.35rem', marginBottom: '1rem' }}>
+        BESS peaker displacement breakeven: ~€55/t · arbitrage premium above that threshold
+        {data.eua_eur_t != null && data.eua_eur_t >= 55 && (
+          <span style={{ color: 'rgba(86,166,110,0.75)', marginLeft: '6px' }}>↑ above breakeven</span>
+        )}
+        {data.eua_eur_t != null && data.eua_eur_t < 55 && (
+          <span style={{ color: 'rgba(204,160,72,0.70)', marginLeft: '6px' }}>↓ below breakeven</span>
+        )}
+      </p>
+
       <time dateTime={ts ?? ''} style={{ ...MONO, fontSize: '0.575rem', color: text(0.40), letterSpacing: '0.06em', display: 'block', textAlign: 'right', marginTop: '1rem' }}>
         {ts ? formatTs(ts) : '—'}
         <StaleBanner isDefault={false} isStale={isStale} ageHours={ageHours} defaultReason={null} />

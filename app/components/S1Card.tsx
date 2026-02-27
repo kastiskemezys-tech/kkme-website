@@ -178,17 +178,32 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
         </p>
       )}
 
-      {/* Hero + sparkline */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '0.3rem' }}>
-        <p
-          ref={heroRef}
-          style={{ ...MONO, fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', fontWeight: 400, color: heroColor, lineHeight: 1, letterSpacing: '-0.02em', margin: 0 }}
-        >
-          {data.spread_eur_mwh >= 0 ? '+' : ''}{safeNum(data.spread_eur_mwh, 1)}
-          <span style={{ fontSize: '0.45em', marginLeft: '0.15em', opacity: 0.55 }}>€/MWh</span>
-        </p>
-        <Sparkline values={history} p50={spreadP50 ?? undefined} color="#4ade80" width={160} height={40} />
-      </div>
+      {/* Full-width sparkline at top — bleeds to card edges */}
+      {history.length > 1 && (
+        <div style={{ margin: '-0.5rem -2.5rem 1.25rem', overflow: 'hidden' }}>
+          <Sparkline values={history} p50={spreadP50 ?? undefined} color="#4ade80" width={440} height={48} />
+        </div>
+      )}
+
+      {/* Hero number */}
+      <p
+        ref={heroRef}
+        style={{
+          ...MONO,
+          fontSize: 'clamp(2.5rem, 6vw, 3.75rem)',
+          fontWeight: 400,
+          color: heroColor,
+          lineHeight: 1,
+          letterSpacing: '-0.02em',
+          margin: '0 0 0.3rem',
+          textShadow: heroColor !== 'rgba(232, 226, 217, 0.72)'
+            ? `0 0 32px ${heroColor.replace('0.88', '0.28')}`
+            : 'none',
+        }}
+      >
+        {data.spread_eur_mwh >= 0 ? '+' : ''}{safeNum(data.spread_eur_mwh, 1)}
+        <span style={{ fontSize: '0.45em', marginLeft: '0.15em', opacity: 0.55 }}>€/MWh</span>
+      </p>
 
       <p style={{ ...MONO, fontSize: '0.55rem', color: text(0.3), letterSpacing: '0.08em', marginBottom: '0.75rem' }}>
         {data.spread_eur_mwh >= 0 ? '+' : ''}{safeNum(data.separation_pct, 1)}% vs SE4

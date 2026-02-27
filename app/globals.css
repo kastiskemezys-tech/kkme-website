@@ -109,6 +109,16 @@ body::after {
   100% { opacity: 0.06; }
 }
 
+@keyframes water-shimmer {
+  0%, 100% { opacity: 0.04; transform: translateX(0); }
+  50%       { opacity: 0.10; transform: translateX(3px); }
+}
+
+@keyframes live-pulse {
+  0%, 100% { transform: scale(1);   opacity: 1; }
+  50%       { transform: scale(1.4); opacity: 0.5; }
+}
+
 /* ── Components ────────────────────────────────────────────────────────────── */
 
 .cta-button:hover {
@@ -116,6 +126,28 @@ body::after {
   border-color: rgba(123, 94, 167, 0.80) !important;
   color: rgba(232, 226, 217, 0.98) !important;
 }
+
+.signal-card:hover {
+  border-color: rgba(232, 226, 217, 0.16) !important;
+  transition: border-color 0.2s ease;
+}
+
+/* Intel Feed — topic category pills */
+.cat-pill        { display: inline-block; padding: 0.1rem 0.4rem; border-radius: 2px; font-size: 0.65rem; letter-spacing: 0.06em; font-family: var(--font-mono); }
+.cat-BESS        { background: rgba(123,94,167,0.12);  color: rgba(165,130,210,0.85);  border: 1px solid rgba(123,94,167,0.25); }
+.cat-DC          { background: rgba(77,124,181,0.12);  color: rgba(110,160,220,0.85);  border: 1px solid rgba(77,124,181,0.25); }
+.cat-HYDROGEN    { background: rgba(45,212,168,0.10);  color: rgba(60,200,160,0.80);   border: 1px solid rgba(45,212,168,0.20); }
+.cat-BATTERIES   { background: rgba(204,160,72,0.12);  color: rgba(220,175,80,0.85);   border: 1px solid rgba(204,160,72,0.25); }
+.cat-GRID        { background: rgba(86,166,110,0.12);  color: rgba(100,190,120,0.85);  border: 1px solid rgba(86,166,110,0.25); }
+.cat-TECHNOLOGY  { background: rgba(214,88,88,0.10);   color: rgba(220,110,110,0.80);  border: 1px solid rgba(214,88,88,0.22); }
+
+/* Category colour tokens — used by both pills and dots */
+.cat-dot.cat-BESS       { color: rgba(165,130,210,0.80); }
+.cat-dot.cat-DC         { color: rgba(110,160,220,0.80); }
+.cat-dot.cat-HYDROGEN   { color: rgba(60,200,160,0.75);  }
+.cat-dot.cat-BATTERIES  { color: rgba(220,175,80,0.80);  }
+.cat-dot.cat-GRID       { color: rgba(100,190,120,0.80); }
+.cat-dot.cat-TECHNOLOGY { color: rgba(220,110,110,0.75); }
 
 .card-column {
   max-width: 900px;

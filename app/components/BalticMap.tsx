@@ -135,6 +135,9 @@ export function BalticMap({
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
+          <filter id="lt-glow" x="-200%" y="-200%" width="500%" height="500%">
+            <feGaussianBlur stdDeviation="12" />
+          </filter>
         </defs>
 
         {/* Star field */}
@@ -188,6 +191,9 @@ export function BalticMap({
           filter="url(#map-glow)"
         />
 
+        {/* LT ambient glow ring */}
+        <circle cx={ltNode[0]} cy={ltNode[1]} r={42} fill="rgba(45,212,168,0.06)" filter="url(#lt-glow)" />
+
         {/* City nodes */}
         {Object.entries(LOCATIONS).map(([name, coords]) => {
           const [x, y] = project(coords[0], coords[1]);
@@ -195,14 +201,15 @@ export function BalticMap({
           const label = name === 'SE4_node' ? 'SE4' : name === 'PL_node' ? 'PL' : name;
           return (
             <g key={name}>
+              {isLT && (
+                <circle cx={x} cy={y} r={8} fill="none" stroke="rgba(123,94,167,0.22)" strokeWidth="1" />
+              )}
               <circle
                 cx={x} cy={y}
                 r={isLT ? 4 : 2.5}
                 fill={isLT ? 'rgba(123,94,167,0.9)' : 'rgba(232,226,217,0.38)'}
-                stroke={isLT ? 'rgba(123,94,167,0.35)' : 'none'}
-                strokeWidth={isLT ? 6 : 0}
               />
-              <text x={x + 5} y={y + 1} fontFamily="var(--font-mono)" fontSize="7" fill="rgba(232,226,217,0.50)">
+              <text x={x + 6} y={y + 1} fontFamily="var(--font-mono)" fontSize="10" fill="rgba(232,226,217,0.55)">
                 {label}
               </text>
             </g>
@@ -231,20 +238,20 @@ export function BalticMap({
           </g>
         )}
 
-        {/* Arc labels */}
+        {/* Arc labels with MW */}
         <text
           x={project(18.5, 57.0)[0]} y={project(18.5, 57.0)[1]}
-          fontFamily="var(--font-mono)" fontSize="6"
-          fill="rgba(232,226,217,0.35)" textAnchor="middle"
+          fontFamily="var(--font-mono)" fontSize="8"
+          fill="rgba(232,226,217,0.40)" textAnchor="middle"
         >
-          NordBalt{nordbalt_mw ? ` ${Math.abs(nordbalt_mw).toFixed(0)}MW` : ''}
+          NordBalt{nordbalt_mw ? ` ${Math.abs(nordbalt_mw).toFixed(0)} MW` : ''}
         </text>
         <text
           x={project(22.5, 54.3)[0]} y={project(22.5, 54.3)[1] + 12}
-          fontFamily="var(--font-mono)" fontSize="6"
-          fill="rgba(232,226,217,0.35)" textAnchor="middle"
+          fontFamily="var(--font-mono)" fontSize="8"
+          fill="rgba(232,226,217,0.40)" textAnchor="middle"
         >
-          LitPol{litpol_mw ? ` ${Math.abs(litpol_mw).toFixed(0)}MW` : ''}
+          LitPol{litpol_mw ? ` ${Math.abs(litpol_mw).toFixed(0)} MW` : ''}
         </text>
       </svg>
     </div>

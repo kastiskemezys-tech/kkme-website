@@ -23,8 +23,8 @@ export function BulletChart({
   unit,
   width = 200,
 }: BulletChartProps) {
-  const h = 20;
-  const barH = 8;
+  const h = 40;
+  const barH = 10;
   const barY = (h - barH) / 2;
 
   const toX = (v: number) => Math.max(0, Math.min(width, ((v - min) / (max - min)) * width));
@@ -111,14 +111,11 @@ export function BulletChart({
           fill="rgba(232,226,217,0.62)"
         />
 
-        {/* Current value marker */}
-        <rect
-          x={valueX - 1}
-          y={barY - 3}
-          width={2}
-          height={barH + 6}
-          rx="1"
+        {/* Current value marker — downward triangle above bar */}
+        <polygon
+          points={`${valueX},${barY - 2} ${valueX - 4},${barY - 10} ${valueX + 4},${barY - 10}`}
           fill="white"
+          opacity={0.85}
         />
       </svg>
     </div>

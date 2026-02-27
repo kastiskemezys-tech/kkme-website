@@ -347,7 +347,12 @@ function LiveData({ data }: { data: RevenueData }) {
                 <p style={{ ...MONO, fontSize: '0.65rem', color: text(0.65) }}>
                   {m.country}{' '}
                   {m.is_live
-                    ? <span style={{ fontSize: '0.65rem', color: 'rgba(86,166,110,0.8)', background: 'rgba(86,166,110,0.12)', padding: '0 0.3em', borderRadius: '2px' }}>live</span>
+                    ? (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '0.65rem', color: 'rgba(86,166,110,0.8)', background: 'rgba(86,166,110,0.12)', padding: '0 0.3em', borderRadius: '2px' }}>
+                        <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: 'rgba(86,166,110,0.8)', display: 'inline-block', animation: 'live-pulse 2s ease-in-out infinite' }} />
+                        live
+                      </span>
+                    )
                     : <span style={{ ...MONO, fontSize: '0.65rem', color: text(0.3) }}>ref</span>
                   }
                 </p>

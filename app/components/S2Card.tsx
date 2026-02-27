@@ -137,6 +137,45 @@ const DIVIDER: CSSProperties = {
   width: '100%',
 };
 
+// Revenue opportunity bar — shows aFRR and mFRR vs CH targets
+function OpportunityBar({ afrr, mfrr }: { afrr: number | null | undefined; mfrr: number | null | undefined }) {
+  const CH2027_AFRR = 20;
+  const CH2028_MFRR = 11;
+  const MAX = 35;
+
+  if (afrr == null && mfrr == null) return null;
+
+  const bars = [
+    { label: 'aFRR ↑', value: afrr, target: CH2027_AFRR, color: 'rgba(86,166,110,0.55)' },
+    { label: 'mFRR ↑', value: mfrr, target: CH2028_MFRR, color: 'rgba(123,94,167,0.55)' },
+  ] as const;
+
+  return (
+    <div style={{ marginBottom: '1rem' }}>
+      {bars.map(({ label, value, target, color }) => {
+        const pct    = value != null ? Math.min((value / MAX) * 100, 100) : 0;
+        const tgtPct = Math.min((target / MAX) * 100, 100);
+        return (
+          <div key={label} style={{ marginBottom: '6px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-mono)', fontSize: '0.58rem', color: 'rgba(232,226,217,0.40)', marginBottom: '2px' }}>
+              <span>{label}</span>
+              <span style={{ color: 'rgba(232,226,217,0.55)' }}>{value != null ? `${value.toFixed(1)} €/MW/h` : '—'}</span>
+            </div>
+            <div style={{ position: 'relative', height: '8px', background: 'rgba(232,226,217,0.06)' }}>
+              <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${pct}%`, background: color, transition: 'width 0.5s ease' }} />
+              {/* CH target marker */}
+              <div style={{ position: 'absolute', left: `${tgtPct}%`, top: '-2px', bottom: '-2px', width: '1px', background: 'rgba(232,226,217,0.35)' }} />
+            </div>
+          </div>
+        );
+      })}
+      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.48rem', color: 'rgba(232,226,217,0.25)', marginTop: '4px' }}>
+        · CH 2027 aFRR target €20/MW/h · CH 2028 mFRR target €11/MW/h
+      </p>
+    </div>
+  );
+}
+
 function colorAfrr(v: number | null | undefined): string {
   if (v == null || !isFinite(v)) return text(0.3);
   if (v > 15) return 'rgba(74, 124, 89, 0.9)';
@@ -189,6 +228,9 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
       <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.06em', marginBottom: '1rem' }}>
         Per MW installed power · 0.5 MW service (2 MW/MW prequalification) · theoretical max if fully allocated
       </p>
+
+      {/* Revenue opportunity bars vs CH targets */}
+      <OpportunityBar afrr={data.afrr_up_avg} mfrr={data.mfrr_up_avg} />
 
       {/* Interpretation */}
       <p style={{ ...MONO, fontSize: '0.6rem', color: data.unavailable ? text(0.2) : text(0.52), lineHeight: 1.5, marginBottom: '1.5rem' }}>

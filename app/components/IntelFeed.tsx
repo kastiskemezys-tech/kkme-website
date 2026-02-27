@@ -208,7 +208,7 @@ export function IntelFeed() {
           >
             {/* Row header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '0.5rem' }}>
-              <span style={{ ...MONO, fontSize: '0.65rem', letterSpacing: '0.1em', color: text(0.45), textTransform: 'uppercase', flexShrink: 0 }}>
+              <span className={`cat-pill cat-${item.topic.toUpperCase()}`}>
                 {item.topic}
               </span>
               <span style={{ ...MONO, fontSize: '0.65rem', color: text(0.35), flexShrink: 0 }}>
@@ -216,8 +216,18 @@ export function IntelFeed() {
               </span>
             </div>
 
-            {/* Title */}
-            <p style={{ ...SERIF, fontSize: '0.75rem', color: text(0.65), lineHeight: 1.55, marginTop: '0.3rem', marginBottom: 0 }}>
+            {/* Title with category dot */}
+            <p style={{ ...SERIF, fontSize: '0.75rem', color: text(0.65), lineHeight: 1.55, marginTop: '0.3rem', marginBottom: 0, display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+              <span className={`cat-dot cat-${item.topic.toUpperCase()}`} style={{
+                display: 'inline-block',
+                width: '5px',
+                height: '5px',
+                borderRadius: '50%',
+                background: 'currentColor',
+                flexShrink: 0,
+                marginTop: '7px',
+                opacity: 0.7,
+              }} />
               {item.url ? (
                 <a
                   href={item.url}
