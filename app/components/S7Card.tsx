@@ -6,6 +6,8 @@ import { CardFooter } from './CardFooter';
 import { CardDisclosure } from './CardDisclosure';
 import { StaleBanner } from './StaleBanner';
 import { Sparkline } from './Sparkline';
+import { SignalIcon } from './SignalIcon';
+import { BulletChart } from './BulletChart';
 import { useSignal } from '@/lib/useSignal';
 import { safeNum, formatHHMM } from '@/lib/safeNum';
 
@@ -46,6 +48,7 @@ export function S7Card() {
 
   return (
     <article
+      className="signal-card"
       style={{
         border: `1px solid ${text(0.1)}`,
         padding: '2rem 2.5rem',
@@ -53,7 +56,8 @@ export function S7Card() {
         width: '100%',
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '0.5rem' }}>
+        <SignalIcon type="gas" size={20} />
         <h3 style={{ ...MONO, fontSize: '0.8rem', letterSpacing: '0.14em', color: text(0.52), fontWeight: 400, textTransform: 'uppercase' }}>
           TTF Gas Price
         </h3>
@@ -126,11 +130,26 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
         <Sparkline values={history} color="#f6a35a" width={80} height={24} />
       </div>
 
-      <p style={{ ...MONO, fontSize: '0.6rem', color: text(0.4), lineHeight: 1.5, marginBottom: '1.5rem' }}>
+      <p style={{ ...MONO, fontSize: '0.6rem', color: text(0.4), lineHeight: 1.5, marginBottom: '1rem' }}>
         {data.interpretation ?? '—'}
       </p>
 
-      <time dateTime={ts ?? ''} style={{ ...MONO, fontSize: '0.575rem', color: text(0.40), letterSpacing: '0.06em', display: 'block', textAlign: 'right' }}>
+      {/* Bullet chart — TTF range */}
+      <BulletChart
+        label="TTF day-ahead"
+        value={data.ttf_eur_mwh ?? 0}
+        min={0}
+        max={80}
+        unit="€/MWh"
+        width={180}
+        thresholds={[
+          { value: 15, label: '15', color: 'rgba(74,222,128,1)' },
+          { value: 30, label: '30', color: 'rgba(245,158,11,1)' },
+          { value: 50, label: '50', color: 'rgba(239,68,68,1)' },
+        ]}
+      />
+
+      <time dateTime={ts ?? ''} style={{ ...MONO, fontSize: '0.575rem', color: text(0.40), letterSpacing: '0.06em', display: 'block', textAlign: 'right', marginTop: '1rem' }}>
         {ts ? formatTs(ts) : '—'}
         <StaleBanner isDefault={false} isStale={isStale} ageHours={ageHours} defaultReason={null} />
       </time>
@@ -139,6 +158,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
         period="energy-charts.info weekly"
         compare="Threshold: >50 HIGH · >30 ELEVATED · <15 LOW"
         updated={`TTF ${formatHHMM(ts)} UTC`}
+        timestamp={ts}
         isStale={isStale}
         ageHours={ageHours}
       />

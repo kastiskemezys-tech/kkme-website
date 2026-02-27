@@ -5,6 +5,8 @@ import { flowColor, flowSignalColor } from './s8-utils';
 import { CardFooter } from './CardFooter';
 import { CardDisclosure } from './CardDisclosure';
 import { StaleBanner } from './StaleBanner';
+import { SignalIcon } from './SignalIcon';
+import { BalticMap } from './BalticMap';
 import { useSignal } from '@/lib/useSignal';
 import { safeNum, formatHHMM } from '@/lib/safeNum';
 
@@ -45,6 +47,7 @@ export function S8Card() {
 
   return (
     <article
+      className="signal-card"
       style={{
         border: `1px solid ${text(0.1)}`,
         padding: '2rem 2.5rem',
@@ -52,7 +55,8 @@ export function S8Card() {
         width: '100%',
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '0.5rem' }}>
+        <SignalIcon type="flows" size={20} />
         <h3 style={{ ...MONO, fontSize: '0.8rem', letterSpacing: '0.14em', color: text(0.52), fontWeight: 400, textTransform: 'uppercase' }}>
           Interconnector Flows
         </h3>
@@ -134,7 +138,15 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason }: LiveDat
         ))}
       </div>
 
-      <time dateTime={ts ?? ''} style={{ ...MONO, fontSize: '0.575rem', color: text(0.40), letterSpacing: '0.06em', display: 'block', textAlign: 'right' }}>
+      {/* Baltic map */}
+      <BalticMap
+        nordbalt_mw={data.nordbalt_avg_mw}
+        nordbalt_dir={data.nordbalt_signal}
+        litpol_mw={data.litpol_avg_mw}
+        litpol_dir={data.litpol_signal}
+      />
+
+      <time dateTime={ts ?? ''} style={{ ...MONO, fontSize: '0.575rem', color: text(0.40), letterSpacing: '0.06em', display: 'block', textAlign: 'right', marginTop: '1rem' }}>
         {ts ? formatTs(ts) : '—'}
         <StaleBanner isDefault={false} isStale={isStale} ageHours={ageHours} defaultReason={null} />
       </time>
@@ -143,6 +155,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason }: LiveDat
         period="ENTSO-E A11 hourly flows"
         compare="Net: >+100MW EXPORTING · <−100MW IMPORTING"
         updated={`ENTSO-E ${formatHHMM(ts)} UTC`}
+        timestamp={ts}
         isStale={isStale}
         ageHours={ageHours}
       />

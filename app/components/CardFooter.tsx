@@ -1,17 +1,19 @@
 import type { CSSProperties } from 'react';
+import { FreshnessDot } from './FreshnessDot';
 
 const MONO: CSSProperties = { fontFamily: 'var(--font-mono)' };
 const text = (opacity: number) => `rgba(232, 226, 217, ${opacity})`;
 
 interface CardFooterProps {
-  period:    string;
-  compare:   string;
-  updated:   string;
-  isStale?:  boolean;
-  ageHours?: number | null;
+  period:     string;
+  compare:    string;
+  updated:    string;
+  timestamp?: string | null;
+  isStale?:   boolean;
+  ageHours?:  number | null;
 }
 
-export function CardFooter({ period, compare, updated, isStale, ageHours }: CardFooterProps) {
+export function CardFooter({ period, compare, updated, timestamp, isStale, ageHours }: CardFooterProps) {
   return (
     <div style={{
       ...MONO,
@@ -27,6 +29,7 @@ export function CardFooter({ period, compare, updated, isStale, ageHours }: Card
       <span>{compare}</span>
       <span style={{ margin: '0 5px', opacity: 0.35 }}>·</span>
       <span style={{ color: isStale ? 'rgba(255,180,0,0.55)' : text(0.35) }}>
+        <FreshnessDot timestamp={timestamp} />
         {updated}
         {isStale && ageHours != null ? ` · ${Math.round(ageHours)}h old` : ''}
       </span>

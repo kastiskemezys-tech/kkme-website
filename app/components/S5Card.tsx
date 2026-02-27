@@ -5,6 +5,8 @@ import { dcColor } from './s5-utils';
 import { CardFooter } from './CardFooter';
 import { CardDisclosure } from './CardDisclosure';
 import { StaleBanner } from './StaleBanner';
+import { SignalIcon } from './SignalIcon';
+import { BulletChart } from './BulletChart';
 import { useSignal } from '@/lib/useSignal';
 import { safeNum, formatHHMM } from '@/lib/safeNum';
 
@@ -52,6 +54,7 @@ export function S5Card() {
 
   return (
     <article
+      className="signal-card"
       style={{
         border: `1px solid ${text(0.1)}`,
         padding: '2rem 2.5rem',
@@ -59,7 +62,8 @@ export function S5Card() {
         width: '100%',
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '0.5rem' }}>
+        <SignalIcon type="dc-power" size={20} />
         <h3 style={{ ...MONO, fontSize: '0.8rem', letterSpacing: '0.14em', color: text(0.52), fontWeight: 400, textTransform: 'uppercase' }}>
           DC Power Viability
         </h3>
@@ -135,7 +139,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason }: LiveDat
       </p>
 
       {/* Grid metrics */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.25rem', marginBottom: '1.25rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.25rem', marginBottom: '1rem' }}>
         {([
           ['Free MW',   fmw(data.grid_free_mw)],
           ['Connected', fmw(data.grid_connected_mw)],
@@ -148,7 +152,22 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason }: LiveDat
         ))}
       </div>
 
-      <p style={{ ...MONO, fontSize: '0.45rem', color: text(0.25), letterSpacing: '0.06em', marginBottom: '1rem' }}>
+      {/* Bullet chart — grid headroom */}
+      <BulletChart
+        label="Grid headroom"
+        value={data.grid_free_mw ?? 0}
+        min={0}
+        max={5000}
+        unit="MW"
+        width={180}
+        thresholds={[
+          { value: 500,  label: '500',  color: 'rgba(239,68,68,1)' },
+          { value: 2000, label: '2GW',  color: 'rgba(245,158,11,1)' },
+          { value: 4000, label: '4GW',  color: 'rgba(74,222,128,1)' },
+        ]}
+      />
+
+      <p style={{ ...MONO, fontSize: '0.45rem', color: text(0.25), letterSpacing: '0.06em', marginTop: '0.5rem', marginBottom: '1rem' }}>
         Same grid dataset as S4 — filtered for DC-relevant connection nodes.
       </p>
 
@@ -215,6 +234,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason }: LiveDat
         period="Grid: near real-time · News: DataCenterKnowledge RSS"
         compare="Signal: free MW vs 2 GW DC-scale threshold"
         updated={`${formatHHMM(ts)} UTC`}
+        timestamp={ts}
         isStale={isStale}
         ageHours={ageHours}
       />

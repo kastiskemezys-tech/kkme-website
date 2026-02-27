@@ -1,3 +1,8 @@
+'use client';
+
+import { useRef, useEffect } from 'react';
+import { drawSparkline } from '@/lib/animations';
+
 interface SparklineProps {
   values:  number[];
   width?:  number;
@@ -10,6 +15,12 @@ export function Sparkline({
   values, width = 80, height = 24,
   color = '#4ade80', p50,
 }: SparklineProps) {
+  const lineRef = useRef<SVGPolylineElement>(null);
+
+  useEffect(() => {
+    drawSparkline(lineRef.current);
+  }, []); // mount only
+
   if (!values || values.length < 2) return null;
 
   const valid = values.filter(v => typeof v === 'number' && isFinite(v));
@@ -46,6 +57,7 @@ export function Sparkline({
         />
       )}
       <polyline
+        ref={lineRef}
         points={points}
         fill="none"
         stroke={color}

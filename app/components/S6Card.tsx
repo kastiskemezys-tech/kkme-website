@@ -6,6 +6,7 @@ import { CardFooter } from './CardFooter';
 import { CardDisclosure } from './CardDisclosure';
 import { StaleBanner } from './StaleBanner';
 import { Sparkline } from './Sparkline';
+import { SignalIcon } from './SignalIcon';
 import { useSignal } from '@/lib/useSignal';
 import { safeNum, formatHHMM } from '@/lib/safeNum';
 
@@ -49,6 +50,7 @@ export function S6Card() {
 
   return (
     <article
+      className="signal-card"
       style={{
         border: `1px solid ${text(0.1)}`,
         padding: '2rem 2.5rem',
@@ -56,7 +58,8 @@ export function S6Card() {
         width: '100%',
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '0.5rem' }}>
+        <SignalIcon type="hydro" size={20} />
         <h3 style={{ ...MONO, fontSize: '0.8rem', letterSpacing: '0.14em', color: text(0.52), fontWeight: 400, textTransform: 'uppercase' }}>
           Nordic Hydro Reservoir
         </h3>
@@ -153,6 +156,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
         period="Weekly NVE release"
         compare="Signal: deviation vs historical median ±5pp"
         updated={`NVE ${formatHHMM(ts)} UTC`}
+        timestamp={ts}
         isStale={isStale}
         ageHours={ageHours}
       />

@@ -1,14 +1,16 @@
 'use client';
 
-import { useState, useEffect, type CSSProperties } from 'react';
+import { useState, useEffect, useRef, type CSSProperties } from 'react';
 import type { S1Signal } from '@/lib/signals/s1';
 import { spreadColor } from './s1-utils';
 import { CardFooter } from './CardFooter';
 import { CardDisclosure } from './CardDisclosure';
 import { StaleBanner } from './StaleBanner';
 import { Sparkline } from './Sparkline';
+import { SignalIcon } from './SignalIcon';
 import { useSignal } from '@/lib/useSignal';
 import { safeNum, formatHHMM } from '@/lib/safeNum';
+import { flashOnChange } from '@/lib/animations';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
@@ -37,6 +39,7 @@ export function S1Card() {
 
   return (
     <article
+      className="signal-card"
       style={{
         border: `1px solid ${text(0.1)}`,
         padding: '2rem 2.5rem',
@@ -44,7 +47,8 @@ export function S1Card() {
         width: '100%',
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '0.5rem' }}>
+        <SignalIcon type="price-separation" size={20} />
         <h3 style={{ ...MONO, fontSize: '0.8rem', letterSpacing: '0.14em', color: text(0.52), fontWeight: 400, textTransform: 'uppercase' }}>
           Baltic Price Separation
         </h3>
@@ -116,6 +120,20 @@ interface LiveDataProps {
 }
 
 function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }: LiveDataProps) {
+  const heroRef   = useRef<HTMLParagraphElement>(null);
+  const prevSpread = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (heroRef.current && data.spread_eur_mwh != null) {
+      if (prevSpread.current !== null && prevSpread.current !== data.spread_eur_mwh) {
+        const dir: 'up' | 'down' | 'neutral' =
+          data.spread_eur_mwh > prevSpread.current ? 'up' : 'down';
+        flashOnChange(heroRef.current, dir);
+      }
+      prevSpread.current = data.spread_eur_mwh;
+    }
+  }, [data.spread_eur_mwh]);
+
   const heroColor = spreadColor(data.spread_eur_mwh);
 
   const spreadN   = data.spread_stats_90d?.days_of_data ?? 0;
@@ -162,7 +180,10 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
 
       {/* Hero + sparkline */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '0.3rem' }}>
-        <p style={{ ...MONO, fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', fontWeight: 400, color: heroColor, lineHeight: 1, letterSpacing: '-0.02em', margin: 0 }}>
+        <p
+          ref={heroRef}
+          style={{ ...MONO, fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', fontWeight: 400, color: heroColor, lineHeight: 1, letterSpacing: '-0.02em', margin: 0 }}
+        >
           {data.spread_eur_mwh >= 0 ? '+' : ''}{safeNum(data.spread_eur_mwh, 1)}
           <span style={{ fontSize: '0.45em', marginLeft: '0.15em', opacity: 0.55 }}>€/MWh</span>
         </p>
@@ -220,6 +241,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
         period={`Delivery ${data.da_tomorrow?.delivery_date ?? 'today'} · DA 24h avg`}
         compare={compare}
         updated={`~13:00 CET publish · fetched ${formatHHMM(ts)} UTC`}
+        timestamp={ts}
         isStale={isStale}
         ageHours={ageHours}
       />
