@@ -75,7 +75,7 @@ export function S4Card() {
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-        <p style={{ ...MONO, fontSize: '0.625rem', letterSpacing: '0.14em', color: text(0.35), textTransform: 'uppercase' }}>
+        <p style={{ ...MONO, fontSize: '0.625rem', letterSpacing: '0.14em', color: text(0.52), textTransform: 'uppercase' }}>
           S4 — Grid Connection Scarcity
         </p>
       </div>
@@ -122,7 +122,7 @@ function ErrorState() {
       <p style={{ ...MONO, fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', fontWeight: 400, color: text(0.1), lineHeight: 1, letterSpacing: '-0.02em', marginBottom: '0.75rem' }}>
         —
       </p>
-      <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.25), letterSpacing: '0.1em' }}>
+      <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.40), letterSpacing: '0.1em' }}>
         Data unavailable
       </p>
     </>
@@ -158,14 +158,14 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
           <span style={{ fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', color: signalColor }}>
             {safeNum(data.free_mw, 0, '')}
           </span>
-          <span style={{ fontSize: '0.75rem', marginLeft: '0.4em', color: text(0.35) }}>
+          <span style={{ fontSize: '0.75rem', marginLeft: '0.4em', color: text(0.52) }}>
             MW free
           </span>
         </p>
         <Sparkline values={history} color="#86efac" width={80} height={24} />
       </div>
 
-      <p style={{ ...MONO, fontSize: '0.6rem', color: data.free_mw == null ? text(0.2) : text(0.35), lineHeight: 1.5, marginBottom: '1.5rem' }}>
+      <p style={{ ...MONO, fontSize: '0.6rem', color: data.free_mw == null ? text(0.2) : text(0.52), lineHeight: 1.5, marginBottom: '1.5rem' }}>
         {data.free_mw == null ? 'Interpretation unavailable — feed incomplete.' : (data.interpretation ?? '—')}
       </p>
 
@@ -174,7 +174,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.25rem', marginBottom: '1.5rem' }}>
         {metrics.map(([label, value]) => (
           <div key={label}>
-            <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.25), letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.2rem' }}>
+            <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.40), letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.2rem' }}>
               {label}
             </p>
             <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.6) }}>
@@ -188,7 +188,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
         <>
           <div style={{ ...DIVIDER, marginBottom: '1.25rem' }} />
 
-          <p style={{ ...MONO, fontSize: '0.5rem', letterSpacing: '0.14em', color: text(0.25), textTransform: 'uppercase', marginBottom: '0.9rem' }}>
+          <p style={{ ...MONO, fontSize: '0.5rem', letterSpacing: '0.14em', color: text(0.40), textTransform: 'uppercase', marginBottom: '0.9rem' }}>
             Development permits (BESS filtered)
           </p>
 
@@ -221,7 +221,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
               {data.pipeline.top_projects && data.pipeline.top_projects.length > 0 && (
                 <div style={{ marginBottom: '1rem' }}>
                   {data.pipeline.top_projects.map((p, i) => (
-                    <p key={i} style={{ ...MONO, fontSize: '0.575rem', color: text(0.35), lineHeight: 1.6 }}>
+                    <p key={i} style={{ ...MONO, fontSize: '0.575rem', color: text(0.52), lineHeight: 1.6 }}>
                       · {p.company.slice(0, 36)} — {p.mw} MW
                     </p>
                   ))}
@@ -232,7 +232,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
         </>
       )}
 
-      <time dateTime={ts ?? ''} style={{ ...MONO, fontSize: '0.575rem', color: text(0.25), letterSpacing: '0.06em', display: 'block', textAlign: 'right' }}>
+      <time dateTime={ts ?? ''} style={{ ...MONO, fontSize: '0.575rem', color: text(0.40), letterSpacing: '0.06em', display: 'block', textAlign: 'right' }}>
         {ts ? formatTimestamp(ts) : '—'}
         <StaleBanner isDefault={false} isStale={isStale} ageHours={ageHours} defaultReason={null} />
       </time>

@@ -45,7 +45,7 @@ export function S1Card() {
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-        <p style={{ ...MONO, fontSize: '0.625rem', letterSpacing: '0.14em', color: text(0.35), textTransform: 'uppercase' }}>
+        <p style={{ ...MONO, fontSize: '0.625rem', letterSpacing: '0.14em', color: text(0.52), textTransform: 'uppercase' }}>
           S1 — Baltic Price Separation
         </p>
       </div>
@@ -92,7 +92,7 @@ function ErrorState() {
       <p style={{ ...MONO, fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', fontWeight: 400, color: text(0.1), lineHeight: 1, letterSpacing: '-0.02em', marginBottom: '0.75rem' }}>
         —
       </p>
-      <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.25), letterSpacing: '0.1em' }}>
+      <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.40), letterSpacing: '0.1em' }}>
         Data unavailable
       </p>
     </>
@@ -152,7 +152,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
       <StaleBanner isDefault={isDefault} isStale={isStale} ageHours={ageHours} defaultReason={defaultReason} />
 
       {data.da_tomorrow?.lt_peak != null && (
-        <p style={{ ...MONO, fontSize: '0.6rem', color: text(0.35), letterSpacing: '0.06em', marginBottom: '1rem' }}>
+        <p style={{ ...MONO, fontSize: '0.6rem', color: text(0.52), letterSpacing: '0.06em', marginBottom: '1rem' }}>
           Tomorrow: {safeNum(data.da_tomorrow.lt_peak, 0)} peak · {safeNum(data.da_tomorrow.lt_avg, 0)} avg €/MWh
         </p>
       )}
@@ -173,7 +173,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
           : ''}
       </p>
 
-      <p style={{ ...MONO, fontSize: '0.6rem', color: text(0.35), lineHeight: 1.65, marginBottom: '1.5rem' }}>
+      <p style={{ ...MONO, fontSize: '0.6rem', color: text(0.52), lineHeight: 1.65, marginBottom: '1.5rem' }}>
         {data.interpretation ?? ''}
       </p>
 
@@ -208,7 +208,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
         ))}
       </div>
 
-      <time dateTime={ts ?? ''} style={{ ...MONO, fontSize: '0.575rem', color: text(0.25), letterSpacing: '0.06em' }}>
+      <time dateTime={ts ?? ''} style={{ ...MONO, fontSize: '0.575rem', color: text(0.40), letterSpacing: '0.06em' }}>
         {ts ? formatTimestamp(ts) : '—'}
         <StaleBanner isDefault={false} isStale={isStale} ageHours={ageHours} defaultReason={null} />
       </time>

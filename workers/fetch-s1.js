@@ -30,6 +30,7 @@ const WORKER_URL    = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
 const LT_BZN  = '10YLT-1001A0008Q';
 const SE4_BZN = '10Y1001A1001A47J';
+const PL_BZN  = '10YPL-AREA-----S';
 
 const S4_URL = 'https://services-eu1.arcgis.com/NDrrY0T7kE7A7pU0/arcgis/rest/services/ElektrosPerdavimasAEI/FeatureServer/8/query?f=json&cacheHint=true&resultOffset=0&resultRecordCount=1000&where=1%3D1&orderByFields=&outFields=*&resultType=standard&returnGeometry=false&spatialRel=esriSpatialRelIntersects';
 
@@ -165,8 +166,8 @@ async function computeS1(env) {
   if (!apiKey) throw new Error('ENTSOE_API_KEY secret not set');
 
   // Fetch today, tomorrow (best-effort), and historical in parallel
-  const [[ltXml, se4Xml], historical, ltTomorrow, se4Tomorrow] = await Promise.all([
-    Promise.all([fetchBzn(LT_BZN, apiKey), fetchBzn(SE4_BZN, apiKey)]),
+  const [[ltXml, se4Xml, plXml], historical, ltTomorrow, se4Tomorrow] = await Promise.all([
+    Promise.all([fetchBzn(LT_BZN, apiKey), fetchBzn(SE4_BZN, apiKey), fetchBzn(PL_BZN, apiKey).catch(() => '')]),
     computeHistorical(apiKey),
     fetchBznRange(LT_BZN,  apiKey, 1, 2),  // null before ~13:00 CET publication
     fetchBznRange(SE4_BZN, apiKey, 1, 2),
@@ -174,6 +175,7 @@ async function computeS1(env) {
 
   const ltPrices  = extractPrices(ltXml);
   const se4Prices = extractPrices(se4Xml);
+  const plPrices  = extractPrices(plXml ?? '');
 
   if (!ltPrices.length || !se4Prices.length) {
     throw new Error(`No price data: LT=${ltPrices.length}h SE4=${se4Prices.length}h`);
@@ -185,6 +187,19 @@ async function computeS1(env) {
 
   // BUG 2 FIX: guard against near-zero or negative SE4 (explodes % when SE4 < €10)
   const separationPct = (spread / Math.max(Math.abs(se4Avg), 10)) * 100;
+
+  // Poland spread (best-effort — may be null if ENTSO-E times out)
+  let pl_avg = null;
+  let lt_pl_spread_eur = null;
+  let lt_pl_spread_pct = null;
+  if (plPrices.length) {
+    pl_avg           = Math.round(avg(plPrices) * 100) / 100;
+    lt_pl_spread_eur = Math.round((ltAvg - pl_avg) * 100) / 100;
+    lt_pl_spread_pct = Math.round((lt_pl_spread_eur / Math.max(Math.abs(pl_avg), 10)) * 1000) / 10;
+    console.log(`[S1/PL] pl_avg=${pl_avg} lt_pl_spread=${lt_pl_spread_eur}€/MWh (${lt_pl_spread_pct}%)`);
+  } else {
+    console.log('[S1/PL] no data — PL fetch failed or empty');
+  }
 
   // Intraday swing: max - min of LT hourly prices (arbitrage window for trading revenue)
   const lt_daily_swing_eur_mwh = ltPrices.length >= 2
@@ -232,6 +247,9 @@ async function computeS1(env) {
     se4_avg_eur_mwh:           Math.round(se4Avg * 100) / 100,
     spread_eur_mwh:            Math.round(spread * 100) / 100,
     separation_pct:            Math.round(separationPct * 10) / 10,
+    pl_avg_eur_mwh:            pl_avg,
+    lt_pl_spread_eur_mwh:      lt_pl_spread_eur,
+    lt_pl_spread_pct,
     lt_daily_swing_eur_mwh,
     lt_evening_premium,
     state: signalState(separationPct),
@@ -1171,10 +1189,106 @@ async function sendDailyDigest(env) {
 function classifyTopic(text) {
   if (/bess|battery storage|energy storage|lfp|lithium iron|stationary/i.test(text)) return 'BESS';
   if (/data cent|dc power|hyperscal|coloc|megawatt campus/i.test(text)) return 'DC';
-  if (/hydrogen|electroly|\bh2\b|fuel cell/i.test(text)) return 'Hydrogen';
-  if (/lithium|cell price|catl|byd|battery tech|chemistry/i.test(text)) return 'Batteries';
-  if (/\bgrid\b|transmission|tso|ntc|interconnect|balancing/i.test(text)) return 'Grid';
-  return 'Technology';
+  if (/hydrogen|electroly|\bh2\b|fuel cell/i.test(text)) return 'HYDROGEN';
+  if (/lithium|cell price|catl|byd|battery tech|chemistry/i.test(text)) return 'BATTERIES';
+  if (/\bgrid\b|transmission|tso|ntc|interconnect|balancing/i.test(text)) return 'GRID';
+  return 'TECHNOLOGY';
+}
+
+// ─── Known companies for entity extraction ─────────────────────────────────────
+
+const KNOWN_COMPANIES = [
+  'Ignitis', 'Litgrid', 'Amber Grid', 'ESO', 'Elering', 'AST', 'Augstsprieguma tīkls',
+  'NordBalt', 'LitPol', 'ENGIE', 'Fortum', 'Vattenfall', 'Orsted', 'Ørsted',
+  'Fluence', 'Tesla Megapack', 'CATL', 'BYD', 'Saft', 'Leclanché',
+  'Nuvve', 'Wärtsilä', 'Aggreko', 'Eaton', 'ABB', 'Siemens Energy',
+  'Equinor', 'RWE', 'E.ON', 'EDP', 'Iberdrola',
+  'Google', 'Microsoft', 'Meta', 'Amazon AWS', 'Apple',
+  'Digital Realty', 'Equinix', 'NTT', 'Hetzner', 'Data4',
+  'Green Mountain', 'Kolos', 'Atria', 'Rail Baltica',
+];
+
+function extractCompanies(text) {
+  const found = [];
+  for (const co of KNOWN_COMPANIES) {
+    if (new RegExp(co.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i').test(text)) {
+      found.push(co);
+    }
+  }
+  return [...new Set(found)];
+}
+
+// ─── Telegram session helpers ──────────────────────────────────────────────────
+
+const SESSION_TTL_SECONDS = 30 * 60; // 30 minutes
+const SESSION_KEY = 'telegram_session';
+
+async function openFeedSession(kv, chatId, firstMessage) {
+  const session = {
+    chatId,
+    messages:   [firstMessage],
+    companies:  extractCompanies(firstMessage),
+    topic:      classifyTopic(firstMessage),
+    opened_at:  new Date().toISOString(),
+  };
+  await kv.put(SESSION_KEY, JSON.stringify(session), { expirationTtl: SESSION_TTL_SECONDS });
+  return session;
+}
+
+async function appendToSession(kv, message) {
+  const raw = await kv.get(SESSION_KEY).catch(() => null);
+  if (!raw) return null;
+  const session = JSON.parse(raw);
+  session.messages.push(message);
+  // Re-classify topic from all messages combined
+  const combined = session.messages.join(' ');
+  session.topic   = classifyTopic(combined);
+  // Merge new companies
+  const newCos    = extractCompanies(message);
+  session.companies = [...new Set([...session.companies, ...newCos])];
+  await kv.put(SESSION_KEY, JSON.stringify(session), { expirationTtl: SESSION_TTL_SECONDS });
+  return session;
+}
+
+async function finalizeFeedSession(kv, env) {
+  const raw = await kv.get(SESSION_KEY).catch(() => null);
+  if (!raw) return null;
+  const session = JSON.parse(raw);
+  await kv.delete(SESSION_KEY);
+
+  const combined   = session.messages.join('\n\n');
+  const urlMatch   = combined.match(/https?:\/\/[^\s]+/);
+  const id         = makeId();
+  const now        = new Date().toISOString();
+
+  let title  = null;
+  let source = null;
+  if (urlMatch) {
+    const pageUrl = urlMatch[0];
+    title  = await fetchPageTitle(pageUrl);
+    source = new URL(pageUrl).hostname.replace(/^www\./, '');
+    if (!title) title = pageUrl.slice(0, 80);
+  } else {
+    title = combined.slice(0, 80);
+  }
+
+  const summary = await generateSummary(env, title + '\n' + combined.slice(0, 400));
+
+  const item = {
+    id,
+    added_at:     now,
+    topic:        session.topic,
+    content_type: urlMatch ? 'url' : 'note',
+    url:          urlMatch ? urlMatch[0] : null,
+    raw_text:     combined.slice(0, 1000),
+    title:        title ?? combined.slice(0, 60),
+    source,
+    summary,
+    companies:    session.companies,
+  };
+
+  await saveFeedItem(kv, item);
+  return item;
 }
 
 async function sendTelegramReply(env, chatId, text) {
@@ -1374,6 +1488,238 @@ async function computeS5(env) {
   };
 }
 
+// ─── S6 — Nordic Hydro Reservoir ──────────────────────────────────────────────
+
+function getISOWeek(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const day = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return { week: Math.ceil((((d - yearStart) / 86400000) + 1) / 7), year: d.getUTCFullYear() };
+}
+
+async function fetchNordicHydro() {
+  const now = new Date();
+  const { week, year } = getISOWeek(now);
+  // Try current week; if empty (published mid-week), try previous week
+  const tryWeeks = [{ week, year }, { week: week - 1 > 0 ? week - 1 : 52, year: week - 1 > 0 ? year : year - 1 }];
+
+  for (const { week: w, year: y } of tryWeeks) {
+    const url = `https://biapi.nve.no/magasinstatistikk/api/Magasin?aar=${y}&uke=${w}`;
+    const res = await fetch(url, { headers: { Accept: 'application/json' } });
+    if (!res.ok) continue;
+    const data = await res.json();
+    // NVE returns array of objects; look for Norway aggregate (Område = "Norge")
+    const norway = Array.isArray(data)
+      ? data.find(r => r.omraadeNavn === 'Norge' || r.omraadenavn === 'Norge' || r.Omraadenavn === 'Norge')
+      : null;
+    if (!norway) continue;
+
+    // Field names from NVE biapi (camelCase varies — try both)
+    const fill     = norway.fyllingsgrad    ?? norway.Fyllingsgrad    ?? null;
+    const median   = norway.medianFylling   ?? norway.MedianFylling   ?? null;
+    const week_num = norway.uke             ?? norway.Uke             ?? w;
+
+    if (fill == null) continue;
+
+    const deviation_pp = (fill != null && median != null)
+      ? Math.round((fill - median) * 10) / 10
+      : null;
+
+    let signal = 'NORMAL';
+    if (deviation_pp != null) {
+      if (deviation_pp > 5)  signal = 'HIGH';
+      if (deviation_pp < -5) signal = 'LOW';
+    }
+
+    return {
+      timestamp:       new Date().toISOString(),
+      signal,
+      fill_pct:        Math.round(fill * 10) / 10,
+      median_fill_pct: median != null ? Math.round(median * 10) / 10 : null,
+      deviation_pp,
+      week:            week_num,
+      year:            y,
+      interpretation:  signal === 'HIGH'
+        ? 'Reservoirs above median — hydro surplus → lower Nordic baseload prices likely.'
+        : signal === 'LOW'
+          ? 'Reservoirs below median — hydro deficit → upward pressure on Nordic prices.'
+          : 'Reservoirs near historical median — neutral price signal.',
+    };
+  }
+  throw new Error('NVE biapi: no valid data for current or previous week');
+}
+
+// ─── S7 — TTF Gas Price ────────────────────────────────────────────────────────
+
+async function fetchTTFGas() {
+  // energy-charts.info free API — no auth required
+  const url = 'https://api.energy-charts.info/gas_prices?period=week&country=eu';
+  const res = await fetch(url, { headers: { Accept: 'application/json' } });
+  if (!res.ok) throw new Error(`TTF API: HTTP ${res.status}`);
+  const data = await res.json();
+
+  // Returns { unix_seconds: [...], price: [...] } — take most recent non-null
+  const prices     = data.price     ?? data.prices     ?? [];
+  const timestamps = data.unix_seconds ?? data.xAxisValues ?? [];
+  if (!prices.length) throw new Error('TTF: no price data');
+
+  // Walk backwards to find most recent valid value
+  let ttf_eur_mwh = null;
+  let ts_unix     = null;
+  for (let i = prices.length - 1; i >= 0; i--) {
+    if (prices[i] != null) { ttf_eur_mwh = prices[i]; ts_unix = timestamps[i] ?? null; break; }
+  }
+  if (ttf_eur_mwh == null) throw new Error('TTF: all prices null');
+
+  // 7-day trend: compare last value vs 7-values-ago
+  const prevIdx = Math.max(0, prices.length - 8);
+  const prev    = prices[prevIdx];
+  const delta   = prev != null ? ttf_eur_mwh - prev : null;
+  const ttf_trend = delta == null ? null
+    : delta >  2 ? '↑ rising'
+    : delta < -2 ? '↓ falling'
+    : '→ stable';
+
+  let signal = 'NORMAL';
+  if (ttf_eur_mwh > 50)      signal = 'HIGH';
+  else if (ttf_eur_mwh > 30) signal = 'ELEVATED';
+  else if (ttf_eur_mwh < 15) signal = 'LOW';
+
+  return {
+    timestamp:   new Date().toISOString(),
+    signal,
+    ttf_eur_mwh: Math.round(ttf_eur_mwh * 100) / 100,
+    ttf_trend,
+    data_ts:     ts_unix ? new Date(ts_unix * 1000).toISOString() : null,
+    interpretation: signal === 'HIGH'
+      ? 'Gas expensive — strong BESS arbitrage case vs peaker plants.'
+      : signal === 'LOW'
+        ? 'Gas cheap — peaker margin compressed; less urgency for storage.'
+        : 'Gas price neutral — standard storage economics apply.',
+  };
+}
+
+// ─── S8 — Interconnector Flows (NordBalt + LitPol) ────────────────────────────
+
+async function fetchInterconnectorFlows(env) {
+  const apiKey = env.ENTSOE_API_KEY;
+  if (!apiKey) throw new Error('ENTSOE_API_KEY not set');
+
+  // A11 = Aggregated generation per type / cross-border physical flow
+  // Use A11 document type with in/out domain pairs for each interconnector
+  // NordBalt: LT (10YLT-1001A0008Q) ↔ SE4 (10Y1001A1001A47J)
+  // LitPol:   LT (10YLT-1001A0008Q) ↔ PL  (10YPL-AREA-----S)
+
+  const period0 = utcPeriod(0);
+  const period1 = utcPeriod(1);
+
+  async function fetchFlow(inDomain, outDomain) {
+    const u = new URL(ENTSOE_API);
+    u.searchParams.set('documentType', 'A11');
+    u.searchParams.set('in_Domain',    inDomain);
+    u.searchParams.set('out_Domain',   outDomain);
+    u.searchParams.set('periodStart',  period0);
+    u.searchParams.set('periodEnd',    period1);
+    u.searchParams.set('securityToken', apiKey);
+    const r = await fetch(u.toString());
+    if (!r.ok) return [];
+    const xml = await r.text();
+    return extractPrices(xml);  // reuse same MW extractor (works for flows too)
+  }
+
+  // Positive = LT exports to SE4, Negative = LT imports from SE4
+  const [ltToSe4, se4ToLt, ltToPl, plToLt] = await Promise.allSettled([
+    fetchFlow(LT_BZN,  SE4_BZN),
+    fetchFlow(SE4_BZN, LT_BZN),
+    fetchFlow(LT_BZN,  PL_BZN),
+    fetchFlow(PL_BZN,  LT_BZN),
+  ]);
+
+  function netAvg(exp, imp) {
+    const e = exp.status === 'fulfilled' ? exp.value : [];
+    const i = imp.status === 'fulfilled' ? imp.value : [];
+    if (!e.length && !i.length) return null;
+    const len = Math.max(e.length, i.length);
+    let sum = 0;
+    for (let h = 0; h < len; h++) sum += (e[h] ?? 0) - (i[h] ?? 0);
+    return Math.round(sum / len);
+  }
+
+  const nordbalt_avg_mw = netAvg(ltToSe4, se4ToLt);
+  const litpol_avg_mw   = netAvg(ltToPl,  plToLt);
+
+  function flowSignal(mw) {
+    if (mw == null) return null;
+    if (mw >  50) return 'EXPORT';
+    if (mw < -50) return 'IMPORT';
+    return 'BALANCED';
+  }
+
+  const nordbalt_signal = flowSignal(nordbalt_avg_mw);
+  const litpol_signal   = flowSignal(litpol_avg_mw);
+
+  // Overall: if LT net exports dominate → EXPORTING; net imports → IMPORTING; mixed → NEUTRAL
+  const netTotal = (nordbalt_avg_mw ?? 0) + (litpol_avg_mw ?? 0);
+  const signal   = netTotal > 100 ? 'EXPORTING' : netTotal < -100 ? 'IMPORTING' : 'NEUTRAL';
+
+  return {
+    timestamp:        new Date().toISOString(),
+    signal,
+    nordbalt_avg_mw,
+    litpol_avg_mw,
+    nordbalt_signal,
+    litpol_signal,
+    interpretation: `NordBalt: ${nordbalt_signal ?? '—'} (${nordbalt_avg_mw != null ? nordbalt_avg_mw + ' MW' : '—'}). LitPol: ${litpol_signal ?? '—'} (${litpol_avg_mw != null ? litpol_avg_mw + ' MW' : '—'}).`,
+  };
+}
+
+// ─── S9 — EU ETS Carbon Price ──────────────────────────────────────────────────
+
+async function fetchEUCarbon() {
+  const url = 'https://api.energy-charts.info/co2_price?period=week&country=eu';
+  const res = await fetch(url, { headers: { Accept: 'application/json' } });
+  if (!res.ok) throw new Error(`EUA API: HTTP ${res.status}`);
+  const data = await res.json();
+
+  const prices     = data.price     ?? data.prices     ?? [];
+  const timestamps = data.unix_seconds ?? data.xAxisValues ?? [];
+  if (!prices.length) throw new Error('EUA: no price data');
+
+  let eua_eur_t = null;
+  let ts_unix   = null;
+  for (let i = prices.length - 1; i >= 0; i--) {
+    if (prices[i] != null) { eua_eur_t = prices[i]; ts_unix = timestamps[i] ?? null; break; }
+  }
+  if (eua_eur_t == null) throw new Error('EUA: all prices null');
+
+  const prevIdx  = Math.max(0, prices.length - 8);
+  const prev     = prices[prevIdx];
+  const delta    = prev != null ? eua_eur_t - prev : null;
+  const eua_trend = delta == null ? null
+    : delta >  2 ? '↑ rising'
+    : delta < -2 ? '↓ falling'
+    : '→ stable';
+
+  let signal = 'NORMAL';
+  if (eua_eur_t > 70)      signal = 'HIGH';
+  else if (eua_eur_t > 50) signal = 'ELEVATED';
+  else if (eua_eur_t < 30) signal = 'LOW';
+
+  return {
+    timestamp:   new Date().toISOString(),
+    signal,
+    eua_eur_t:   Math.round(eua_eur_t * 100) / 100,
+    eua_trend,
+    data_ts:     ts_unix ? new Date(ts_unix * 1000).toISOString() : null,
+    interpretation: signal === 'HIGH'
+      ? 'High carbon price — strong incentive to displace gas peakers with BESS.'
+      : signal === 'LOW'
+        ? 'Low EUA — carbon premium reduced; BESS vs gas economics less compelling.'
+        : 'Carbon price in normal range — standard BESS vs peaker economics.',
+  };
+}
+
 // ─── Main export ───────────────────────────────────────────────────────────────
 
 export default {
@@ -1385,7 +1731,7 @@ export default {
       return;
     }
 
-    const isWatchdog = event.cron === '0 9 * * *';
+    const isWatchdog = event.cron === '30 9 * * *';
 
     if (isWatchdog) {
       // 09:00 UTC daily: only run S2 watchdog + re-run S2 watchdog Telegram alert
@@ -1477,6 +1823,49 @@ export default {
       console.log(`[S5] ${s5Data.signal} free=${s5Data.grid_free_mw}MW news=${s5Data.news_items.length}`);
     }
 
+    // S6-S9 — Context signals (best-effort, run in parallel)
+    const [s6Res, s7Res, s8Res, s9Res] = await Promise.allSettled([
+      withTimeout(fetchNordicHydro(),           20000),
+      withTimeout(fetchTTFGas(),                20000),
+      withTimeout(fetchInterconnectorFlows(env), 30000),
+      withTimeout(fetchEUCarbon(),              20000),
+    ]);
+
+    if (s6Res.status === 'fulfilled') {
+      const d = s6Res.value;
+      await env.KKME_SIGNALS.put('s6', JSON.stringify(d));
+      console.log(`[S6] ${d.signal} fill=${d.fill_pct}% dev=${d.deviation_pp}pp week=${d.week}`);
+      await appendSignalHistory(env, 's6', { fill_pct: d.fill_pct, deviation_pp: d.deviation_pp }).catch(e => console.error('[S6/history]', e));
+    } else {
+      console.error('[S6] cron failed:', s6Res.reason);
+    }
+
+    if (s7Res.status === 'fulfilled') {
+      const d = s7Res.value;
+      await env.KKME_SIGNALS.put('s7', JSON.stringify(d));
+      console.log(`[S7] ${d.signal} ttf=${d.ttf_eur_mwh}€/MWh trend=${d.ttf_trend}`);
+      await appendSignalHistory(env, 's7', { ttf_eur_mwh: d.ttf_eur_mwh }).catch(e => console.error('[S7/history]', e));
+    } else {
+      console.error('[S7] cron failed:', s7Res.reason);
+    }
+
+    if (s8Res.status === 'fulfilled') {
+      const d = s8Res.value;
+      await env.KKME_SIGNALS.put('s8', JSON.stringify(d));
+      console.log(`[S8] ${d.signal} nordbalt=${d.nordbalt_avg_mw}MW litpol=${d.litpol_avg_mw}MW`);
+    } else {
+      console.error('[S8] cron failed:', s8Res.reason);
+    }
+
+    if (s9Res.status === 'fulfilled') {
+      const d = s9Res.value;
+      await env.KKME_SIGNALS.put('s9', JSON.stringify(d));
+      console.log(`[S9] ${d.signal} eua=${d.eua_eur_t}€/t trend=${d.eua_trend}`);
+      await appendSignalHistory(env, 's9', { eua_eur_t: d.eua_eur_t }).catch(e => console.error('[S9/history]', e));
+    } else {
+      console.error('[S9] cron failed:', s9Res.reason);
+    }
+
     // da_tomorrow is embedded in computeS1() and stored in the s1 KV key
   },
 
@@ -1534,46 +1923,68 @@ export default {
       }
 
       if (lower === '/help' || lower === '/help@gattana_bot') {
-        await sendTelegramReply(env, chatId, '/status — signal ages\n/validate — S4 pipeline check\nSend any URL or text to add to Intel Feed');
+        await sendTelegramReply(env, chatId,
+          '/status — signal ages\n' +
+          '/validate — S4 pipeline check\n' +
+          '/done — save current session to Intel Feed\n' +
+          '/cancel — discard current session\n' +
+          '/tag <company> — add company to session\n' +
+          'Send any URL or text to start/extend a feed session (auto-saved in 30 min)');
         return new Response('ok', { headers: CORS });
       }
 
-      // ── URL or text → Intel Feed ──────────────────────────────────────────
-      const urlMatch = text.match(/https?:\/\/[^\s]+/);
-      const topic    = classifyTopic(text);
-      const id       = makeId();
-      const now      = new Date().toISOString();
-
-      let title  = null;
-      let source = null;
-
-      if (urlMatch) {
-        const pageUrl = urlMatch[0];
-        title  = await fetchPageTitle(pageUrl);
-        source = new URL(pageUrl).hostname.replace(/^www\./, '');
-        if (!title) title = pageUrl.slice(0, 80);
-      } else {
-        title = text.slice(0, 80);
+      // ── Session commands ──────────────────────────────────────────────────
+      if (lower === '/done' || lower === '/done@gattana_bot') {
+        const item = await finalizeFeedSession(env.KKME_SIGNALS, env);
+        if (!item) {
+          await sendTelegramReply(env, chatId, 'No active session. Send a URL or text first.');
+        } else {
+          const cos = item.companies?.length ? `\n🏷 ${item.companies.join(', ')}` : '';
+          await sendTelegramReply(env, chatId, `✅ Saved [${item.topic}] ${(item.title ?? '').slice(0, 50)}${cos}\nID ${item.id.slice(-6)}`);
+        }
+        return new Response('ok', { headers: CORS });
       }
 
-      const summary = await generateSummary(env, title + ' ' + text.slice(0, 400));
+      if (lower === '/cancel' || lower === '/cancel@gattana_bot') {
+        await env.KKME_SIGNALS.delete(SESSION_KEY).catch(() => {});
+        await sendTelegramReply(env, chatId, '🗑 Session discarded.');
+        return new Response('ok', { headers: CORS });
+      }
 
-      const item = {
-        id,
-        added_at:     now,
-        topic,
-        content_type: urlMatch ? 'url' : 'note',
-        url:          urlMatch ? urlMatch[0] : null,
-        raw_text:     text.slice(0, 1000),
-        title:        title ?? text.slice(0, 60),
-        source,
-        summary,
-      };
+      if (lower.startsWith('/tag ')) {
+        const company = text.slice(5).trim();
+        const raw     = await env.KKME_SIGNALS.get(SESSION_KEY).catch(() => null);
+        if (!raw) {
+          await sendTelegramReply(env, chatId, 'No active session to tag.');
+        } else {
+          const session = JSON.parse(raw);
+          session.companies = [...new Set([...session.companies, company])];
+          await env.KKME_SIGNALS.put(SESSION_KEY, JSON.stringify(session), { expirationTtl: SESSION_TTL_SECONDS });
+          await sendTelegramReply(env, chatId, `🏷 Tagged: ${company}. Companies: ${session.companies.join(', ')}`);
+        }
+        return new Response('ok', { headers: CORS });
+      }
 
-      await saveFeedItem(env.KKME_SIGNALS, item);
+      // ── URL or text → Session-based Intel Feed intake ─────────────────────
+      const existingSession = await env.KKME_SIGNALS.get(SESSION_KEY).catch(() => null);
 
-      const reply = `✅ [${topic}] ${(item.title ?? '').slice(0, 50)}${source ? `\n${source}` : ''}\nID ${id.slice(-6)}`;
-      await sendTelegramReply(env, chatId, reply);
+      if (!existingSession) {
+        // Open new session
+        const session = await openFeedSession(env.KKME_SIGNALS, chatId, text);
+        const cos = session.companies.length ? `\n🏷 ${session.companies.join(', ')}` : '';
+        await sendTelegramReply(env, chatId, `📝 Session open [${session.topic}]${cos}\nSend more, /done to save, /cancel to discard. (30 min auto-expire)`);
+      } else {
+        // Append to existing session
+        const session = await appendToSession(env.KKME_SIGNALS, text);
+        if (!session) {
+          // Race condition — session expired between the get and append
+          await openFeedSession(env.KKME_SIGNALS, chatId, text);
+          await sendTelegramReply(env, chatId, `📝 New session started [${classifyTopic(text)}]. Previous session expired.`);
+        } else {
+          const cos = session.companies.length ? `\n🏷 ${session.companies.join(', ')}` : '';
+          await sendTelegramReply(env, chatId, `➕ Added (${session.messages.length} msgs) [${session.topic}]${cos}`);
+        }
+      }
       return new Response('ok', { headers: CORS });
     }
 
@@ -1762,6 +2173,35 @@ export default {
       await env.KKME_SIGNALS.delete('s5').catch(() => {});  // invalidate cache
       console.log(`[S5/manual] pipeline=${data.pipeline_mw}MW note="${data.note}"`);
       return Response.json({ ok: true, ...data }, { headers: CORS });
+    }
+
+    // ── GET /s6 · /s7 · /s8 · /s9 ───────────────────────────────────────────
+
+    for (const [sig, computeFn, def] of [
+      ['s6', () => fetchNordicHydro(),             DEFAULTS.s6],
+      ['s7', () => fetchTTFGas(),                  DEFAULTS.s7],
+      ['s8', () => fetchInterconnectorFlows(env),  DEFAULTS.s8],
+      ['s9', () => fetchEUCarbon(),                DEFAULTS.s9],
+    ]) {
+      if (request.method === 'GET' && url.pathname === `/${sig}`) {
+        const cached = await env.KKME_SIGNALS.get(sig).catch(() => null);
+        if (cached) {
+          return new Response(cached, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600', ...CORS } });
+        }
+        try {
+          const data = await computeFn();
+          await env.KKME_SIGNALS.put(sig, JSON.stringify(data));
+          return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json', ...CORS } });
+        } catch {
+          return Response.json({ ...def, unavailable: true, _serving: 'static_defaults' }, { headers: CORS });
+        }
+      }
+
+      // History endpoints for S6, S7, S9 (not S8 — flows are point-in-time)
+      if (sig !== 's8' && request.method === 'GET' && url.pathname === `/${sig}/history`) {
+        const raw = await env.KKME_SIGNALS.get(`${sig}_history`).catch(() => null);
+        return Response.json(raw ? JSON.parse(raw) : [], { headers: { ...CORS, 'Cache-Control': 'public, max-age=1800' } });
+      }
     }
 
     // ── GET /euribor ─────────────────────────────────────────────────────────

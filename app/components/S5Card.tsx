@@ -60,7 +60,7 @@ export function S5Card() {
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-        <p style={{ ...MONO, fontSize: '0.625rem', letterSpacing: '0.14em', color: text(0.35), textTransform: 'uppercase' }}>
+        <p style={{ ...MONO, fontSize: '0.625rem', letterSpacing: '0.14em', color: text(0.52), textTransform: 'uppercase' }}>
           S5 — DC Power Viability
         </p>
       </div>
@@ -105,7 +105,7 @@ function ErrorState() {
       <p style={{ ...MONO, fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', fontWeight: 400, color: text(0.1), lineHeight: 1, letterSpacing: '-0.02em', marginBottom: '0.75rem' }}>
         —
       </p>
-      <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.25), letterSpacing: '0.1em' }}>Data unavailable</p>
+      <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.40), letterSpacing: '0.1em' }}>Data unavailable</p>
     </>
   );
 }
@@ -140,7 +140,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason }: LiveDat
           ['Utilisation', data.grid_utilisation != null ? `${safeNum(data.grid_utilisation, 1)}%` : '—'],
         ] as [string, string][]).map(([label, value]) => (
           <div key={label}>
-            <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.25), letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.2rem' }}>{label}</p>
+            <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.40), letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.2rem' }}>{label}</p>
             <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.6) }}>{value}</p>
           </div>
         ))}
@@ -150,7 +150,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason }: LiveDat
       {data.pipeline_mw != null && (
         <>
           <div style={{ ...DIVIDER, marginBottom: '1rem' }} />
-          <p style={{ ...MONO, fontSize: '0.5rem', letterSpacing: '0.14em', color: text(0.25), textTransform: 'uppercase', marginBottom: '0.6rem' }}>
+          <p style={{ ...MONO, fontSize: '0.5rem', letterSpacing: '0.14em', color: text(0.40), textTransform: 'uppercase', marginBottom: '0.6rem' }}>
             Baltic DC pipeline
           </p>
           <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.55), marginBottom: '0.3rem' }}>
@@ -173,7 +173,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason }: LiveDat
       {data.news_items && data.news_items.length > 0 && (
         <>
           <div style={{ ...DIVIDER, marginBottom: '1rem' }} />
-          <p style={{ ...MONO, fontSize: '0.5rem', letterSpacing: '0.14em', color: text(0.25), textTransform: 'uppercase', marginBottom: '0.75rem' }}>
+          <p style={{ ...MONO, fontSize: '0.5rem', letterSpacing: '0.14em', color: text(0.40), textTransform: 'uppercase', marginBottom: '0.75rem' }}>
             DC industry
           </p>
           {data.news_items.map((item, i) => (
@@ -200,7 +200,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason }: LiveDat
         </>
       )}
 
-      <time dateTime={ts ?? ''} style={{ ...MONO, fontSize: '0.575rem', color: text(0.25), letterSpacing: '0.06em', display: 'block', textAlign: 'right', marginTop: '1rem' }}>
+      <time dateTime={ts ?? ''} style={{ ...MONO, fontSize: '0.575rem', color: text(0.40), letterSpacing: '0.06em', display: 'block', textAlign: 'right', marginTop: '1rem' }}>
         {ts ? new Date(ts).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'UTC', timeZoneName: 'short' }) : '—'}
         <StaleBanner isDefault={false} isStale={isStale} ageHours={ageHours} defaultReason={null} />
       </time>

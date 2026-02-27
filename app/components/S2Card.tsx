@@ -73,7 +73,7 @@ export function S2Card() {
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-        <p style={{ ...MONO, fontSize: '0.625rem', letterSpacing: '0.14em', color: text(0.35), textTransform: 'uppercase' }}>
+        <p style={{ ...MONO, fontSize: '0.625rem', letterSpacing: '0.14em', color: text(0.52), textTransform: 'uppercase' }}>
           S2 — Balancing Stack
         </p>
       </div>
@@ -120,7 +120,7 @@ function ErrorState() {
       <p style={{ ...MONO, fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', fontWeight: 400, color: text(0.1), lineHeight: 1, letterSpacing: '0.04em', marginBottom: '0.75rem' }}>
         ——————
       </p>
-      <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.25), letterSpacing: '0.1em' }}>
+      <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.40), letterSpacing: '0.1em' }}>
         Data unavailable
       </p>
     </>
@@ -186,7 +186,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
       </p>
 
       {/* Interpretation */}
-      <p style={{ ...MONO, fontSize: '0.6rem', color: data.unavailable ? text(0.2) : text(0.35), lineHeight: 1.5, marginBottom: '1.5rem' }}>
+      <p style={{ ...MONO, fontSize: '0.6rem', color: data.unavailable ? text(0.2) : text(0.52), lineHeight: 1.5, marginBottom: '1.5rem' }}>
         {data.unavailable ? 'Interpretation unavailable — feed incomplete.' : (data.interpretation ?? '—')}
       </p>
 
@@ -197,13 +197,13 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
         <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase' }}>aFRR ↑</p>
         <p style={{ ...MONO, fontSize: '0.6rem', color: colorAfrr(data.afrr_up_avg) }}>
           {safeNum(data.afrr_up_avg, 1)} €/MW/h
-          <span style={{ color: text(0.25) }}> · CH 2027: €20 · CH 2028: €10</span>
+          <span style={{ color: text(0.40) }}> · CH 2027: €20 · CH 2028: €10</span>
         </p>
 
         <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase' }}>mFRR ↑</p>
         <p style={{ ...MONO, fontSize: '0.6rem', color: colorAfrr(data.mfrr_up_avg) }}>
           {safeNum(data.mfrr_up_avg, 1)} €/MW/h
-          <span style={{ color: text(0.25) }}> · CH 2027: €20 · CH 2030: €11</span>
+          <span style={{ color: text(0.40) }}> · CH 2027: €20 · CH 2030: €11</span>
         </p>
 
         <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase' }}>Sys stress P90</p>
@@ -218,7 +218,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
       </p>
 
       {/* Timestamp */}
-      <time dateTime={ts ?? ''} style={{ ...MONO, fontSize: '0.575rem', color: text(0.25), letterSpacing: '0.06em', display: 'block', textAlign: 'right' }}>
+      <time dateTime={ts ?? ''} style={{ ...MONO, fontSize: '0.575rem', color: text(0.40), letterSpacing: '0.06em', display: 'block', textAlign: 'right' }}>
         {ts ? formatTimestamp(ts) : '—'}
         <StaleBanner isDefault={false} isStale={isStale} ageHours={ageHours} defaultReason={null} />
       </time>

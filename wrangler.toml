@@ -29,9 +29,9 @@ preview_urls = false
 
 [triggers]
 crons = [
-  "0 */4 * * *",   # Every 4h: S1 + S3 + S4 + Euribor
-  "0 9 * * *",     # 09:00 UTC daily: S2 watchdog
-  "0 8 * * *",     # 08:00 UTC daily: daily digest to Telegram
+  "0 */4 * * *",    # Every 4h: S1 + S3 + S4 + Euribor + S5 + S6 + S7 + S8 + S9
+  "30 9 * * *",     # 09:30 UTC daily: S2 watchdog
+  "0 8 * * *",      # 08:00 UTC daily: daily digest to Telegram
 ]
 
 [[kv_namespaces]]

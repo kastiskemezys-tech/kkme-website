@@ -1,0 +1,18 @@
+{
+  "timestamp": "2026-02-26T12:00:00.000Z",
+  "lithium_eur_t": 9200,
+  "lithium_trend": "↓ falling",
+  "cell_eur_kwh": null,
+  "china_system_eur_kwh": 68,
+  "europe_system_eur_kwh": 164,
+  "global_avg_eur_kwh": 109,
+  "ref_source": "BNEF Dec 2025 / frankfurter.app FX",
+  "euribor_3m": 2.6,
+  "euribor_trend": "↓ falling",
+  "signal": "COMPRESSING",
+  "interpretation": "Upstream costs falling. LFP cell direction negative — capex window improving. China system floor €68/kWh (BNEF Dec 2025).",
+  "unavailable": false,
+  "fx_rates": {"usd": 1.05, "cny": 7.60},
+  "fx_timestamp": "2026-02-26",
+  "source": "tradingeconomics.com + infolink-group.com"
+}

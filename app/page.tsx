@@ -1,15 +1,40 @@
+import type { CSSProperties } from 'react';
 import { S1Card } from '@/app/components/S1Card';
 import { S2Card } from '@/app/components/S2Card';
 import { S3Card } from '@/app/components/S3Card';
 import { S4Card } from '@/app/components/S4Card';
 import { S5Card } from '@/app/components/S5Card';
+import { S6Card } from '@/app/components/S6Card';
+import { S7Card } from '@/app/components/S7Card';
+import { S8Card } from '@/app/components/S8Card';
+import { S9Card } from '@/app/components/S9Card';
 import { RevenueCard } from '@/app/components/RevenueCard';
-import { TechTracker } from '@/app/components/TechTracker';
 import { CTASection } from '@/app/components/CTASection';
 import { Contact } from '@/app/components/Contact';
 import { ErrorBoundary } from '@/app/components/ErrorBoundary';
 import { CardBoundary } from '@/app/components/CardBoundary';
 import { IntelFeed } from '@/app/components/IntelFeed';
+
+const MONO: CSSProperties = { fontFamily: 'var(--font-mono)' };
+
+function LayerLabel({ label }: Readonly<{ label: string }>) {
+  return (
+    <p
+      style={{
+        ...MONO,
+        fontSize: '0.5rem',
+        letterSpacing: '0.2em',
+        color: 'rgba(232, 226, 217, 0.22)',
+        textTransform: 'uppercase',
+        width: '100%',
+        maxWidth: '440px',
+        marginBottom: '-1rem',
+      }}
+    >
+      {label}
+    </p>
+  );
+}
 
 export default function Home() {
   return (
@@ -52,46 +77,72 @@ export default function Home() {
         Baltic BESS · grid · DC · signal console
       </p>
 
-      {/* 3. S1 — Baltic Price Separation */}
+      {/* ── OPPORTUNITY ────────────────────────────────────────────────────── */}
+      <LayerLabel label="Opportunity" />
+
+      {/* S1 — Baltic Price Separation */}
       <CardBoundary signal="S1">
         <S1Card />
       </CardBoundary>
 
-      {/* 4. S2 — Balancing Market Tension */}
+      {/* S2 — Balancing Market Tension */}
       <CardBoundary signal="S2">
         <S2Card />
       </CardBoundary>
 
-      {/* 5. S3 — Lithium Cell Price */}
-      <CardBoundary signal="S3">
-        <S3Card />
-      </CardBoundary>
-
-      {/* 6. S4 — Grid Connection Scarcity */}
-      <CardBoundary signal="S4">
-        <S4Card />
-      </CardBoundary>
-
-      {/* 7. S5 — DC Power Viability */}
+      {/* S5 — DC Power Viability */}
       <CardBoundary signal="S5">
         <S5Card />
       </CardBoundary>
 
-      {/* 8. Intel Feed */}
+      {/* ── BUILD ──────────────────────────────────────────────────────────── */}
+      <LayerLabel label="Build" />
+
+      {/* S3 — Lithium Cell Price */}
+      <CardBoundary signal="S3">
+        <S3Card />
+      </CardBoundary>
+
+      {/* S4 — Grid Connection Scarcity */}
+      <CardBoundary signal="S4">
+        <S4Card />
+      </CardBoundary>
+
+      {/* ── MARKET CONTEXT ─────────────────────────────────────────────────── */}
+      <LayerLabel label="Market Context" />
+
+      {/* S6 — Nordic Hydro */}
+      <CardBoundary signal="S6">
+        <S6Card />
+      </CardBoundary>
+
+      {/* S7 — TTF Gas */}
+      <CardBoundary signal="S7">
+        <S7Card />
+      </CardBoundary>
+
+      {/* S8 — Interconnector Flows */}
+      <CardBoundary signal="S8">
+        <S8Card />
+      </CardBoundary>
+
+      {/* S9 — EU ETS Carbon */}
+      <CardBoundary signal="S9">
+        <S9Card />
+      </CardBoundary>
+
+      {/* ── INTEL ──────────────────────────────────────────────────────────── */}
       <IntelFeed />
 
-      {/* 8. Revenue Engine */}
+      {/* Revenue Engine */}
       <ErrorBoundary>
         <RevenueCard />
       </ErrorBoundary>
 
-      {/* 9. Technology thesis */}
-      <TechTracker />
-
-      {/* 9. CTA */}
+      {/* CTA */}
       <CTASection />
 
-      {/* 10. Contact */}
+      {/* Contact */}
       <Contact />
     </main>
   );

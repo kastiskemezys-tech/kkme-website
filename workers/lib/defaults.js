@@ -92,6 +92,53 @@ export const DEFAULTS = {
     _serving:          'static_defaults',
     timestamp:          null,
   },
+
+  s6: {
+    fill_pct:         null,   // Norway reservoir fill % (NVE weekly)
+    deviation_pp:     null,   // deviation from historical median (pp)
+    median_fill_pct:  null,   // historical median for same week
+    signal:          'NORMAL',
+    interpretation:  'Default values — live NVE data not yet available.',
+    _source:         'default',
+    _default_reason: 'S6 cron not yet run',
+    _serving:        'static_defaults',
+    timestamp:        null,
+  },
+
+  s7: {
+    ttf_eur_mwh:     null,    // TTF natural gas €/MWh
+    ttf_trend:       null,    // '↑ rising' | '→ stable' | '↓ falling'
+    signal:          'NORMAL',
+    interpretation:  'Default values — live TTF data not yet available.',
+    _source:         'default',
+    _default_reason: 'S7 cron not yet run',
+    _serving:        'static_defaults',
+    timestamp:        null,
+  },
+
+  s8: {
+    nordbalt_avg_mw:  null,   // NordBalt flow LT→SE4 (positive = export to SE4)
+    litpol_avg_mw:    null,   // LitPol flow LT→PL
+    nordbalt_signal:  null,   // 'EXPORT' | 'IMPORT' | 'BALANCED'
+    litpol_signal:    null,
+    signal:          'NEUTRAL',
+    interpretation:  'Default values — live interconnector data not yet available.',
+    _source:         'default',
+    _default_reason: 'S8 cron not yet run',
+    _serving:        'static_defaults',
+    timestamp:        null,
+  },
+
+  s9: {
+    eua_eur_t:        null,   // EU ETS carbon price €/t CO2
+    eua_trend:        null,   // '↑ rising' | '→ stable' | '↓ falling'
+    signal:          'NORMAL',
+    interpretation:  'Default values — live EUA data not yet available.',
+    _source:         'default',
+    _default_reason: 'S9 cron not yet run',
+    _serving:        'static_defaults',
+    timestamp:        null,
+  },
 };
 
 // Values outside these bounds are rejected as bad data (not stored in KV).
@@ -101,6 +148,8 @@ export const SANITY_BOUNDS = {
     se4_avg_eur_mwh:         [-500, 1000],
     spread_eur_mwh:          [-300,  500],
     lt_daily_swing_eur_mwh:  [0,    2000],
+    pl_avg_eur_mwh:          [-500, 1000],
+    lt_pl_spread_eur_mwh:    [-300,  500],
   },
   s2: {
     fcr_avg:       [0, 5000],
@@ -118,6 +167,20 @@ export const SANITY_BOUNDS = {
     connected_mw:    [0, 50000],
     utilisation_pct: [0,   100],
   },
+  s6: {
+    fill_pct:        [0, 100],
+    deviation_pp:    [-50, 50],
+  },
+  s7: {
+    ttf_eur_mwh:     [0, 500],
+  },
+  s8: {
+    nordbalt_avg_mw: [-1000, 1000],
+    litpol_avg_mw:   [-1000, 1000],
+  },
+  s9: {
+    eua_eur_t:       [0, 300],
+  },
 };
 
 // How old is too old per signal key.
@@ -129,4 +192,8 @@ export const STALE_THRESHOLDS_HOURS = {
   s4:          36,    // Litgrid: daily
   s4_pipeline: 840,   // VERT.lt: monthly
   s5:           6,    // DC news: every 4h cron
+  s6:         168,    // NVE: weekly data, check every 4h
+  s7:          12,    // TTF: daily market data
+  s8:          12,    // Cross-border flows: daily
+  s9:          12,    // EU ETS: daily market data
 };
