@@ -93,7 +93,8 @@ Next.js static export → components fetch Worker endpoints directly from browse
     Daily digest: 08:00 UTC cron → sendDailyDigest() → notifyTelegram()
     Intel Feed: GET /feed · feed_index KV · 200-item rolling window
     /telegram/test confirmed: {"sent":true}
-[ ] Animation pass
+[x] Animation pass — ShaderGradient hero, SignalIcons, BalticMap arcs, anime.js (rollNumber/drawSparkline/freshnessPulse/animateCards/flashOnChange), BulletCharts on S5/S7/S9, card stagger entrance
+[x] RevenueCard null guards — fPayback/fPct/fk handle null/Infinity; fixes "nullyr"/"€0k"/"0%" display
 
 ## Mac cron scripts (~/kkme-cron/)
 All use X-Update-Secret: kkme-btd-2026
