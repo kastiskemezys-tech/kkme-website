@@ -70,7 +70,7 @@ export function S3Card() {
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
         <SignalIcon type="battery-cost" size={20} />
         <h3 style={{ ...MONO, fontSize: '0.82rem', letterSpacing: '0.06em', color: text(0.72), fontWeight: 500, textTransform: 'uppercase' }}>
-          Cell Cost Stack
+          BESS Cost Stack
         </h3>
       </div>
 
@@ -163,7 +163,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
         Li carbonate {data.lithium_trend ?? ''}
       </p>
 
-      {data.unavailable && !data.lithium_eur_t && (
+      {!data.lithium_eur_t && (
         <div style={{ margin: '12px 0' }}>
           <div className="skeleton" style={{ height: '44px', width: '100%', marginBottom: '6px' }} />
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'rgba(232,226,217,0.28)', textAlign: 'center' }}>

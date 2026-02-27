@@ -90,16 +90,21 @@ export function animateArc(
 
   pathEl.style.strokeDasharray = `${dashLen} ${length - dashLen}`;
 
-  animate(pathEl, {
-    // forward  (LT exports): offset 0→-length  (dashes travel LT→SE4/PL)
-    // reverse  (LT imports): offset 0→+length  (dashes travel SE4/PL→LT)
-    strokeDashoffset: direction === 'forward'
-      ? [0, -length]
-      : [0, length],
-    duration,
-    ease: 'linear',
-    loop: true,
-  });
+  if (direction === 'forward') {
+    // offset 0 → -length: dashes travel LT→SE4/PL (exporting)
+    pathEl.style.strokeDashoffset = '0';
+    animate(pathEl, {
+      strokeDashoffset: [0, -length],
+      duration, ease: 'linear', loop: true,
+    });
+  } else {
+    // Start dash near SE4/PL end, animate offset -(length-dash) → 0: dashes travel SE4/PL→LT (importing)
+    pathEl.style.strokeDashoffset = String(-(length - dashLen));
+    animate(pathEl, {
+      strokeDashoffset: [-(length - dashLen), 0],
+      duration, ease: 'linear', loop: true,
+    });
+  }
 }
 
 // 6. VALUE CHANGE FLASH — brief color highlight

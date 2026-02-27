@@ -130,7 +130,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason }: LiveDat
     <>
       <StaleBanner isDefault={isDefault} isStale={isStale} ageHours={ageHours} defaultReason={defaultReason} />
 
-      {/* Hero: signal with glow ring badge */}
+      {/* Hero: dot + signal text */}
       {(() => {
         const glowColor = {
           OPEN:        'rgba(45,212,168,0.55)',
@@ -138,26 +138,32 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason }: LiveDat
           CONSTRAINED: 'rgba(212,88,88,0.55)',
         }[data.signal ?? 'OPEN'] ?? 'rgba(45,212,168,0.55)';
         return (
-          <div style={{ marginBottom: '0.5rem' }}>
-            <span style={{
-              display: 'inline-block',
-              padding: '4px 16px',
-              border: `1px solid ${glowColor}`,
-              boxShadow: `0 0 18px ${glowColor}, inset 0 0 12px ${glowColor.replace('0.55', '0.10')}`,
-              color: glowColor,
-              fontFamily: 'var(--font-mono)',
-              fontSize: 'clamp(1.8rem, 5vw, 3rem)',
-              letterSpacing: '0.10em',
-              fontWeight: 500,
-            }}>
-              {data.signal ?? 'OPEN'}
-            </span>
+          <div style={{ marginBottom: '1.25rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+              <span style={{
+                width: '10px', height: '10px', borderRadius: '50%',
+                background: glowColor,
+                boxShadow: `0 0 10px ${glowColor}`,
+                flexShrink: 0, display: 'inline-block',
+              }} />
+              <span style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: '2.2rem',
+                letterSpacing: '0.08em',
+                fontWeight: 500,
+                color: glowColor,
+                textShadow: `0 0 20px ${glowColor.replace('0.55', '0.25')}`,
+                lineHeight: 1,
+              }}>
+                {data.signal ?? 'OPEN'}
+              </span>
+            </div>
+            <p style={{ ...MONO, fontSize: '0.55rem', color: text(0.3), letterSpacing: '0.08em' }}>
+              Grid headroom for new DC connections
+            </p>
           </div>
         );
       })()}
-      <p style={{ ...MONO, fontSize: '0.55rem', color: text(0.3), letterSpacing: '0.08em', marginBottom: '1.25rem' }}>
-        Grid headroom for new DC connections
-      </p>
 
       {/* Grid metrics */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.25rem', marginBottom: '1rem' }}>

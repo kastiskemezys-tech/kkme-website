@@ -12,7 +12,7 @@ interface SparklineProps {
 }
 
 export function Sparkline({
-  values, width = 80, height = 24,
+  values, width, height = 24,
   color = '#4ade80', p50,
 }: SparklineProps) {
   const lineRef = useRef<SVGPolylineElement>(null);
@@ -30,11 +30,14 @@ export function Sparkline({
   const max   = Math.max(...valid);
   const range = max - min || 1;
 
+  // W is internal coordinate width; SVG width prop may be '100%' for responsive
+  const W = width ?? 600;
+
   const toY = (v: number) =>
     height - ((v - min) / range) * (height - 2) - 1;
 
   const pts = valid.map((v, i) => {
-    const x = (i / (valid.length - 1)) * width;
+    const x = (i / (valid.length - 1)) * W;
     return { x: parseFloat(x.toFixed(1)), y: parseFloat(toY(v).toFixed(1)) };
   });
 
@@ -51,12 +54,14 @@ export function Sparkline({
   const lastX  = pts[pts.length - 1].x;
   const lastY  = pts[pts.length - 1].y;
   const p50Y   = p50 !== undefined ? toY(p50) : null;
-  const gradId = `sg-${width}-${height}`;
+  const gradId = `sg-${W}-${height}`;
 
   return (
     <svg
-      width={width}
+      width={width ?? '100%'}
       height={height}
+      viewBox={`0 0 ${W} ${height}`}
+      preserveAspectRatio="none"
       style={{ display: 'block', overflow: 'visible' }}
     >
       <defs>
@@ -68,7 +73,7 @@ export function Sparkline({
 
       {p50Y !== null && (
         <line
-          x1={0} y1={p50Y} x2={width} y2={p50Y}
+          x1={0} y1={p50Y} x2={W} y2={p50Y}
           stroke="rgba(232,226,217,0.12)"
           strokeWidth={0.5}
           strokeDasharray="2,2"

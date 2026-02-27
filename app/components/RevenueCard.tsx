@@ -158,8 +158,9 @@ export function RevenueCard() {
       style={{
         border: `1px solid ${text(0.1)}`,
         padding: '2rem 2.5rem',
-        maxWidth: '520px',
+        maxWidth: '100%',
         width: '100%',
+        overflow: 'hidden',
       }}
     >
       {/* Header */}
@@ -245,7 +246,7 @@ function LiveData({ data }: { data: RevenueData }) {
   return (
     <>
       {/* Column headers */}
-      <div style={{ display: 'grid', gridTemplateColumns: '160px 90px 90px', gap: '0.45rem 1rem', marginBottom: '0.75rem', alignItems: 'baseline' }}>
+      <div className="revenue-table-row" style={{ display: 'grid', gridTemplateColumns: 'minmax(100px,1fr) minmax(60px,80px) minmax(60px,80px)', gap: '0.45rem 1rem', marginBottom: '0.75rem', alignItems: 'baseline' }}>
         <span />
         <p style={{ ...COL_HEADER }}>2h</p>
         <p style={{ ...COL_HEADER }}>4h</p>
@@ -298,7 +299,7 @@ function LiveData({ data }: { data: RevenueData }) {
       <div style={{ ...DIVIDER, marginBottom: '0.75rem' }} />
 
       {/* Payback + IRR */}
-      <div style={{ display: 'grid', gridTemplateColumns: '160px 90px 90px', gap: '0.45rem 1rem', marginBottom: '0.75rem', alignItems: 'baseline' }}>
+      <div className="revenue-table-row" style={{ display: 'grid', gridTemplateColumns: 'minmax(100px,1fr) minmax(60px,80px) minmax(60px,80px)', gap: '0.45rem 1rem', marginBottom: '0.75rem', alignItems: 'baseline' }}>
         <p style={{ ...MONO, fontSize: '0.65rem', color: text(0.30), letterSpacing: '0.08em', textTransform: 'uppercase', alignSelf: 'center' }}>Payback</p>
         <p style={{ ...MONO, fontSize: '0.82rem', fontWeight: 500, color: colorRevenue(h2.simple_payback_years, 'payback'), textAlign: 'right' }}>{fPayback(h2.simple_payback_years)}</p>
         <p style={{ ...MONO, fontSize: '0.82rem', fontWeight: 500, color: colorRevenue(h4.simple_payback_years, 'payback'), textAlign: 'right' }}>{fPayback(h4.simple_payback_years)}</p>
@@ -333,15 +334,15 @@ function LiveData({ data }: { data: RevenueData }) {
       </p>
 
       {/* EU ranking header */}
-      <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr 60px 80px 80px', gap: '0.2rem 0.5rem', alignItems: 'center', marginBottom: '4px' }}>
+      <div className="eu-ranking-grid" style={{ display: 'grid', gridTemplateColumns: '24px 1fr 60px 80px 80px', gap: '0.2rem 0.5rem', alignItems: 'center', marginBottom: '4px' }}>
         <span />
         <span style={{ ...MONO, fontSize: '0.48rem', color: text(0.25), letterSpacing: '0.08em', textTransform: 'uppercase' }}>Market</span>
-        <span style={{ ...MONO, fontSize: '0.48rem', color: text(0.25), letterSpacing: '0.08em', textTransform: 'uppercase', textAlign: 'right' }}>IRR</span>
-        <span />
-        <span style={{ ...MONO, fontSize: '0.48rem', color: text(0.25), letterSpacing: '0.08em', textTransform: 'uppercase', textAlign: 'right' }}>Net/MW/yr</span>
+        <span className="eu-ranking-irr" style={{ ...MONO, fontSize: '0.48rem', color: text(0.25), letterSpacing: '0.08em', textTransform: 'uppercase', textAlign: 'right' }}>IRR</span>
+        <span className="eu-ranking-bar" />
+        <span className="eu-ranking-net" style={{ ...MONO, fontSize: '0.48rem', color: text(0.25), letterSpacing: '0.08em', textTransform: 'uppercase', textAlign: 'right' }}>Net/MW/yr</span>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr 60px 80px 80px', gap: '0.35rem 0.5rem', marginBottom: '1rem', alignItems: 'center' }}>
+      <div className="eu-ranking-grid" style={{ display: 'grid', gridTemplateColumns: '24px 1fr 60px 80px 80px', gap: '0.35rem 0.5rem', marginBottom: '1rem', alignItems: 'center' }}>
         {eu_ranking.map((m) => {
           const isLT = m.country === 'Lithuania';
           const nameStyle: CSSProperties = isLT ? {
@@ -365,15 +366,15 @@ function LiveData({ data }: { data: RevenueData }) {
                     : <span style={{ ...MONO, fontSize: '0.60rem', color: text(0.3) }}>ref</span>
                   }
                 </p>
-                <p style={{ ...MONO, fontSize: '0.55rem', color: text(0.30), marginTop: '0.1rem' }}>{m.note}</p>
+                <p className="eu-ranking-desc" style={{ ...MONO, fontSize: '0.55rem', color: text(0.30), marginTop: '0.1rem' }}>{m.note}</p>
               </div>
-              <p style={{ ...MONO, fontSize: '0.65rem', color: colorIrrMarket(m.irr_pct), textAlign: 'right' }}>
+              <p className="eu-ranking-irr" style={{ ...MONO, fontSize: '0.65rem', color: colorIrrMarket(m.irr_pct), textAlign: 'right' }}>
                 {m.irr_pct != null ? `${m.irr_pct.toFixed(0)}%` : '—'}
               </p>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', paddingLeft: '4px' }}>
+              <div className="eu-ranking-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', paddingLeft: '4px' }}>
                 {m.irr_pct != null && <IrrBar irr={m.irr_pct} />}
               </div>
-              <p style={{ ...MONO, fontSize: '0.65rem', color: text(0.4), textAlign: 'right' }}>
+              <p className="eu-ranking-net" style={{ ...MONO, fontSize: '0.65rem', color: text(0.4), textAlign: 'right' }}>
                 {fk(m.net_annual_per_mw)}/MW
               </p>
             </React.Fragment>

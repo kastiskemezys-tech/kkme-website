@@ -57,7 +57,7 @@ export function StatusStrip() {
   }, []);
 
   return (
-    <div style={{ display: 'flex', gap: '1px', marginBottom: '32px', maxWidth: '440px', width: '100%' }}>
+    <div className="status-strip" style={{ display: 'flex', gap: '1px', marginBottom: '32px', maxWidth: '440px', width: '100%' }}>
       {items.map(({ label, value, state }) => (
         <div
           key={label}
