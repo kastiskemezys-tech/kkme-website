@@ -91,11 +91,11 @@ export function animateArc(
   pathEl.style.strokeDasharray = `${dashLen} ${length - dashLen}`;
 
   animate(pathEl, {
-    // forward  (LT exports): dashes travel from LT outward toward SE4/PL
-    // reverse  (LT imports): dashes travel inward toward LT
+    // forward  (LT exports): offset 0→-length  (dashes travel LT→SE4/PL)
+    // reverse  (LT imports): offset 0→+length  (dashes travel SE4/PL→LT)
     strokeDashoffset: direction === 'forward'
       ? [0, -length]
-      : [-(length - dashLen), 0],
+      : [0, length],
     duration,
     ease: 'linear',
     loop: true,
