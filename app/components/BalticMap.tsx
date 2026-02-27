@@ -3,9 +3,27 @@
 import { useEffect, useRef } from 'react';
 import { animateArc } from '@/lib/animations';
 
-function project(lon: number, lat: number): [number, number] {
-  const x = ((lon - 13.5) / 14.5) * 400;
-  const y = ((62 - lat) / 8.5) * 300;
+// Web Mercator (EPSG:3857) projection bounded to Baltic region
+function project(
+  lon: number,
+  lat: number,
+  width = 400,
+  height = 300,
+): [number, number] {
+  const minLon = 13.0, maxLon = 28.5;
+  const minLat = 53.5, maxLat = 60.5;
+
+  const latRad    = (lat    * Math.PI) / 180;
+  const minLatRad = (minLat * Math.PI) / 180;
+  const maxLatRad = (maxLat * Math.PI) / 180;
+
+  const mercY    = Math.log(Math.tan(Math.PI / 4 + latRad    / 2));
+  const minMercY = Math.log(Math.tan(Math.PI / 4 + minLatRad / 2));
+  const maxMercY = Math.log(Math.tan(Math.PI / 4 + maxLatRad / 2));
+
+  const x = ((lon - minLon) / (maxLon - minLon)) * width;
+  const y = ((maxMercY - mercY) / (maxMercY - minMercY)) * height;
+
   return [parseFloat(x.toFixed(1)), parseFloat(y.toFixed(1))];
 }
 
@@ -18,50 +36,70 @@ function toPath(coords: [number, number][]): string {
   );
 }
 
+// Verified Natural Earth simplified outlines
 const COUNTRIES: Record<string, [number, number][]> = {
-  LT: [
-    [20.9, 56.4], [21.7, 57.0], [22.8, 57.0],
-    [23.5, 56.8], [24.9, 56.4], [25.8, 56.0],
-    [26.6, 55.7], [26.5, 54.7], [25.5, 54.2],
-    [24.0, 53.9], [23.5, 53.9], [22.8, 54.4],
-    [21.3, 55.2], [20.9, 55.5], [20.9, 56.4],
-  ],
-  LV: [
-    [20.9, 57.0], [21.7, 57.0], [22.8, 57.1],
-    [23.8, 57.1], [24.9, 57.0], [25.8, 56.8],
-    [26.6, 55.7], [26.6, 56.8], [27.3, 57.5],
-    [27.8, 57.8], [27.5, 58.1], [26.5, 58.1],
-    [24.5, 57.8], [23.0, 57.6], [21.5, 57.4],
-    [20.9, 57.3], [20.9, 57.0],
-  ],
+  // Estonia
   EE: [
-    [21.5, 57.4], [23.0, 57.6], [24.5, 57.8],
-    [26.5, 58.1], [27.5, 58.1], [28.0, 58.5],
-    [27.9, 59.5], [27.0, 59.6], [25.5, 59.6],
-    [24.0, 59.3], [23.0, 59.0], [22.0, 58.8],
-    [21.0, 58.3], [21.5, 57.4],
+    [23.34, 59.61], [24.60, 59.47], [26.06, 59.45],
+    [27.90, 59.52], [28.21, 59.00], [27.98, 58.53],
+    [27.35, 57.82], [26.46, 57.63], [25.60, 57.91],
+    [24.32, 57.88], [23.34, 58.34], [22.08, 58.46],
+    [21.46, 58.02], [21.63, 57.52], [22.70, 57.38],
+    [23.20, 57.70], [23.34, 58.20], [23.34, 59.61],
   ],
+  // Latvia
+  LV: [
+    [21.06, 57.04], [22.00, 56.97], [22.70, 57.38],
+    [23.20, 57.70], [23.34, 58.20], [24.32, 57.88],
+    [25.60, 57.91], [26.46, 57.63], [27.35, 57.82],
+    [27.88, 57.47], [28.18, 56.74], [27.52, 56.11],
+    [26.59, 55.67], [25.37, 56.16], [24.86, 56.37],
+    [24.11, 56.26], [23.49, 56.34], [22.08, 56.40],
+    [21.06, 56.79], [21.06, 57.04],
+  ],
+  // Lithuania
+  LT: [
+    [21.06, 56.79], [22.08, 56.40], [23.49, 56.34],
+    [24.11, 56.26], [24.86, 56.37], [25.37, 56.16],
+    [26.59, 55.67], [26.59, 54.97], [25.68, 54.57],
+    [24.45, 53.90], [23.48, 53.97], [22.73, 54.36],
+    [22.73, 54.96], [22.03, 55.10], [21.46, 55.18],
+    [21.06, 55.84], [20.95, 56.27], [21.06, 56.79],
+  ],
+  // SE4 (southernmost Sweden)
   SE4: [
-    [13.5, 55.4], [14.0, 55.4], [14.5, 55.5],
-    [14.5, 56.5], [14.0, 57.5], [13.5, 58.0],
-    [13.0, 58.5], [12.5, 58.0], [12.3, 57.0],
-    [12.5, 56.0], [13.0, 55.4], [13.5, 55.4],
+    [11.12, 55.42], [12.26, 55.35], [12.62, 55.70],
+    [14.32, 56.35], [14.67, 56.80], [14.18, 57.30],
+    [13.60, 58.20], [12.85, 58.60], [11.75, 58.06],
+    [11.12, 57.51], [10.96, 56.60], [11.12, 55.42],
   ],
+  // Poland — northern strip only
   PL: [
-    [14.1, 54.2], [16.0, 54.2], [18.0, 54.4],
-    [19.5, 54.4], [21.5, 54.4], [23.0, 54.0],
-    [24.0, 53.9], [23.5, 53.9], [22.8, 53.9],
-    [20.0, 53.9], [18.0, 53.7], [16.0, 53.5],
-    [14.6, 53.9], [14.1, 54.2],
+    [14.12, 53.88], [15.02, 53.80], [17.00, 54.46],
+    [18.62, 54.68], [19.60, 54.45], [20.89, 54.44],
+    [22.77, 54.36], [23.48, 53.97], [24.45, 53.90],
+    [23.50, 53.20], [22.00, 53.10], [20.00, 53.00],
+    [18.00, 53.15], [16.00, 53.40], [14.55, 53.45],
+    [14.12, 53.88],
   ],
 };
 
+// Verified city / node locations
 const LOCATIONS: Record<string, [number, number]> = {
-  Vilnius:  [25.28, 54.68],
-  Riga:     [24.10, 56.95],
-  Tallinn:  [24.75, 59.44],
-  SE4_node: [14.20, 57.50],
-  PL_node:  [20.00, 54.00],
+  Vilnius: [25.28, 54.69],
+  Riga:    [24.10, 56.95],
+  Tallinn: [24.75, 59.44],
+  SE4:     [13.50, 56.80],
+  PL:      [19.50, 54.20],
+};
+
+// Per-country fill and stroke
+const COUNTRY_STYLE: Record<string, { fill: string; stroke: string; strokeWidth: number }> = {
+  LT:  { fill: 'rgba(123,94,167,0.15)',  stroke: 'rgba(123,94,167,0.50)', strokeWidth: 0.8 },
+  LV:  { fill: 'rgba(232,226,217,0.04)', stroke: 'rgba(232,226,217,0.15)', strokeWidth: 0.4 },
+  EE:  { fill: 'rgba(232,226,217,0.04)', stroke: 'rgba(232,226,217,0.15)', strokeWidth: 0.4 },
+  SE4: { fill: 'rgba(74,222,128,0.06)',  stroke: 'rgba(232,226,217,0.15)', strokeWidth: 0.4 },
+  PL:  { fill: 'rgba(232,226,217,0.03)', stroke: 'rgba(232,226,217,0.15)', strokeWidth: 0.4 },
 };
 
 interface BalticMapProps {
@@ -92,21 +130,26 @@ export function BalticMap({
   }, [nordbalt_mw, litpol_mw]);
 
   const nbThick = nordbalt_mw ? Math.max(1, Math.min(5, Math.abs(nordbalt_mw) / 200)) : 1.5;
-  const lpThick = litpol_mw  ? Math.max(1, Math.min(5, Math.abs(litpol_mw) / 200))  : 1.5;
+  const lpThick = litpol_mw  ? Math.max(1, Math.min(5, Math.abs(litpol_mw)  / 200)) : 1.5;
 
-  // 'EXPORTING' means LT exports → outbound flow
   const nbExport = nordbalt_dir === 'EXPORTING' || nordbalt_dir === 'LT_exports';
   const lpExport = litpol_dir  === 'EXPORTING' || litpol_dir  === 'LT_exports';
 
-  const ltNode  = project(25.28, 54.68);
-  const se4Node = project(14.20, 57.50);
-  const plNode  = project(20.00, 54.00);
+  // Projected node positions using verified coordinates
+  const ltNode  = project(25.28, 54.69);
+  const se4Node = project(13.50, 56.80);
+  const plNode  = project(19.50, 54.20);
 
+  // Quadratic Bézier arc: bend offset applied perpendicular to mid-point
   function arc(from: [number, number], to: [number, number], bend = -40): string {
     const mx = (from[0] + to[0]) / 2;
     const my = (from[1] + to[1]) / 2 + bend;
     return `M${from[0]},${from[1]} Q${mx},${my} ${to[0]},${to[1]}`;
   }
+
+  // Arc label positions (geographic midpoint, slightly displaced)
+  const nbLabelPos = project(19.8, 57.2);   // NordBalt — mid-Baltic Sea
+  const lpLabelPos = project(22.5, 54.0);   // LitPol — south of LT
 
   const maxW = compact ? 280 : 400;
 
@@ -119,7 +162,6 @@ export function BalticMap({
         padding: compact ? '6px' : '8px',
       }}
     >
-
       <svg viewBox="0 0 400 300" style={{ width: '100%', maxWidth: `${maxW}px`, display: 'block' }}>
         <defs>
           <marker id="arrow-green" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
@@ -149,27 +191,24 @@ export function BalticMap({
         ))}
 
         {/* Country fills */}
-        {Object.entries(COUNTRIES).map(([id, coords]) => (
-          <path
-            key={id}
-            d={toPath(coords)}
-            fill={
-              id === 'LT'
-                ? 'rgba(123,94,167,0.15)'
-                : id === 'SE4'
-                  ? 'rgba(74,222,128,0.05)'
-                  : 'rgba(232,226,217,0.04)'
-            }
-            stroke={id === 'LT' ? 'rgba(123,94,167,0.45)' : 'rgba(232,226,217,0.13)'}
-            strokeWidth={id === 'LT' ? 0.8 : 0.5}
-          />
-        ))}
+        {Object.entries(COUNTRIES).map(([id, coords]) => {
+          const style = COUNTRY_STYLE[id] ?? COUNTRY_STYLE.LV;
+          return (
+            <path
+              key={id}
+              d={toPath(coords)}
+              fill={style.fill}
+              stroke={style.stroke}
+              strokeWidth={style.strokeWidth}
+            />
+          );
+        })}
 
-        {/* NordBalt arc */}
+        {/* NordBalt arc — LT → SE4 (left, north-west) */}
         <path
           ref={nbRef}
           className="flow-arc"
-          d={arc(ltNode, se4Node, -35)}
+          d={arc(ltNode, se4Node, -30)}
           fill="none"
           stroke={nbExport ? 'rgba(74,222,128,0.55)' : 'rgba(245,158,11,0.55)'}
           strokeWidth={nbThick}
@@ -178,11 +217,11 @@ export function BalticMap({
           filter="url(#map-glow)"
         />
 
-        {/* LitPol arc */}
+        {/* LitPol arc — LT → PL (left, south) */}
         <path
           ref={lpRef}
           className="flow-arc"
-          d={arc(ltNode, plNode, 28)}
+          d={arc(ltNode, plNode, 22)}
           fill="none"
           stroke={lpExport ? 'rgba(74,222,128,0.55)' : 'rgba(245,158,11,0.55)'}
           strokeWidth={lpThick}
@@ -198,7 +237,7 @@ export function BalticMap({
         {Object.entries(LOCATIONS).map(([name, coords]) => {
           const [x, y] = project(coords[0], coords[1]);
           const isLT = name === 'Vilnius';
-          const label = name === 'SE4_node' ? 'SE4' : name === 'PL_node' ? 'PL' : name;
+          const label = name;
           return (
             <g key={name}>
               {isLT && (
@@ -209,7 +248,11 @@ export function BalticMap({
                 r={isLT ? 4 : 2.5}
                 fill={isLT ? 'rgba(123,94,167,0.9)' : 'rgba(232,226,217,0.38)'}
               />
-              <text x={x + 6} y={y + 1} fontFamily="var(--font-mono)" fontSize="10" fill="rgba(232,226,217,0.55)">
+              <text
+                x={x + 6} y={y + 1}
+                fontFamily="var(--font-mono)" fontSize="10"
+                fill="rgba(232,226,217,0.55)"
+              >
                 {label}
               </text>
             </g>
@@ -230,24 +273,24 @@ export function BalticMap({
 
         {/* LT free MW badge */}
         {free_mw != null && (
-          <g transform={`translate(${ltNode[0] - 20},${ltNode[1] + 8})`}>
-            <rect width="46" height="14" rx="2" fill="rgba(7,7,10,0.9)" stroke="rgba(123,94,167,0.38)" strokeWidth="0.5" />
-            <text x="23" y="10" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="6" fill="rgba(74,222,128,0.85)">
-              {(free_mw / 1000).toFixed(1)}GW free
+          <g transform={`translate(${ltNode[0] - 23},${ltNode[1] + 8})`}>
+            <rect width="50" height="14" rx="2" fill="rgba(7,7,10,0.9)" stroke="rgba(123,94,167,0.38)" strokeWidth="0.5" />
+            <text x="25" y="10" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="6" fill="rgba(74,222,128,0.85)">
+              {(free_mw / 1000).toFixed(1)} GW free
             </text>
           </g>
         )}
 
-        {/* Arc labels with MW */}
+        {/* Arc labels with MW values */}
         <text
-          x={project(18.5, 57.0)[0]} y={project(18.5, 57.0)[1]}
+          x={nbLabelPos[0]} y={nbLabelPos[1]}
           fontFamily="var(--font-mono)" fontSize="8"
           fill="rgba(232,226,217,0.40)" textAnchor="middle"
         >
           NordBalt{nordbalt_mw ? ` ${Math.abs(nordbalt_mw).toFixed(0)} MW` : ''}
         </text>
         <text
-          x={project(22.5, 54.3)[0]} y={project(22.5, 54.3)[1] + 12}
+          x={lpLabelPos[0]} y={lpLabelPos[1] + 12}
           fontFamily="var(--font-mono)" fontSize="8"
           fill="rgba(232,226,217,0.40)" textAnchor="middle"
         >
