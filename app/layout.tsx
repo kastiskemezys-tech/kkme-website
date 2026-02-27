@@ -21,26 +21,21 @@ const unbounded = Unbounded({
   weight: ["400", "600"],
 });
 
-const SITE_DESCRIPTION =
-  "KKME builds infrastructure Europe actually needs — energy storage, grid capacity, compute, the physical layer underneath everything. Operating in Baltic and Nordic markets where the bottlenecks are real and most people are still waiting for someone else to go first. New technologies get used when they work, not when they're fashionable. The thesis compounds. The assets grow.";
-
 export const metadata: Metadata = {
-  title: "KKME",
-  description: SITE_DESCRIPTION,
+  title: 'KKME — Baltic BESS Signal Console',
+  description:
+    'Live signals for Baltic and Nordic energy storage, grid, and DC infrastructure deals. ' +
+    'Baltic price separation, balancing markets, battery costs, grid connection, DC power.',
   openGraph: {
-    title: "KKME",
-    description: SITE_DESCRIPTION,
-    url: "https://kkme.eu",
-    siteName: "KKME",
-    type: "website",
-  },
-  twitter: {
-    card: "summary",
-    title: "KKME",
-    description: SITE_DESCRIPTION,
+    title: 'KKME — Baltic BESS Signal Console',
+    description:
+      'Live signals for Baltic energy infrastructure investment. BESS, grid, DC.',
+    url: 'https://kkme.eu',
+    siteName: 'KKME',
+    type: 'website',
   },
   alternates: {
-    canonical: "https://kkme.eu",
+    canonical: 'https://kkme.eu',
   },
 };
 
@@ -55,6 +50,22 @@ export default function RootLayout({
       className={`${cormorant.variable} ${dmMono.variable} ${unbounded.variable}`}
     >
       <body>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'WebSite',
+              name: 'KKME',
+              url: 'https://kkme.eu',
+              description: 'Baltic BESS and energy infrastructure signal console.',
+              author: {
+                '@type': 'Person',
+                name: 'Kastytis Kemežys',
+              },
+            }),
+          }}
+        />
         <SmoothScroll />
         {children}
       </body>

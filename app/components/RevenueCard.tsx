@@ -348,8 +348,8 @@ function LiveData({ data }: { data: RevenueData }) {
                   {m.country}{' '}
                   {m.is_live
                     ? (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '0.65rem', color: 'rgba(86,166,110,0.8)', background: 'rgba(86,166,110,0.12)', padding: '0 0.3em', borderRadius: '2px' }}>
-                        <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: 'rgba(86,166,110,0.8)', display: 'inline-block', animation: 'live-pulse 2s ease-in-out infinite' }} />
+                      <span className="live-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '0.65rem', color: 'rgba(86,166,110,0.8)', background: 'rgba(86,166,110,0.12)', padding: '0 0.3em', borderRadius: '2px' }}>
+                        <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: 'rgba(86,166,110,0.8)', display: 'inline-block' }} />
                         live
                       </span>
                     )

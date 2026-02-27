@@ -25,8 +25,12 @@
 
   /* Signal colours */
   --green:  rgba(86,166,110,0.88);
+  --teal:   rgba(45,212,168,0.88);
   --amber:  rgba(204,160,72,0.82);
+  --rose:   rgba(239,68,68,0.88);
   --red:    rgba(214,88,88,0.88);
+  --blue:   rgba(77,124,181,0.85);
+  --violet: rgba(123,94,167,0.80);
   --purple: #7b5ea7;
   --white:  rgba(232,226,217,1);
 
@@ -109,6 +113,21 @@ body::after {
   100% { opacity: 0.06; }
 }
 
+@keyframes skeleton-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg,
+    rgba(232,226,217,0.04) 25%,
+    rgba(232,226,217,0.10) 50%,
+    rgba(232,226,217,0.04) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.8s ease-in-out infinite;
+  border-radius: 2px;
+}
+
 @keyframes water-shimmer {
   0%, 100% { opacity: 0.04; transform: translateX(0); }
   50%       { opacity: 0.10; transform: translateX(3px); }
@@ -121,15 +140,57 @@ body::after {
 
 /* ── Components ────────────────────────────────────────────────────────────── */
 
-.cta-button:hover {
-  background: rgba(123, 94, 167, 0.18) !important;
-  border-color: rgba(123, 94, 167, 0.80) !important;
-  color: rgba(232, 226, 217, 0.98) !important;
+/* Card hover */
+.signal-card {
+  transition: border-color 0.2s ease, background 0.2s ease !important;
+}
+.signal-card:hover {
+  border-color: rgba(232,226,217,0.20) !important;
+  background: rgba(232,226,217,0.015) !important;
 }
 
-.signal-card:hover {
-  border-color: rgba(232, 226, 217, 0.16) !important;
-  transition: border-color 0.2s ease;
+/* Send Teaser button */
+.cta-button {
+  border: 1px solid rgba(212,160,60,0.50) !important;
+  background: rgba(212,160,60,0.06) !important;
+  color: rgba(232,226,217,0.88) !important;
+  padding: 12px 32px !important;
+  font-size: 0.75rem !important;
+  letter-spacing: 0.14em !important;
+  transition: all 0.2s ease !important;
+  cursor: pointer !important;
+}
+.cta-button:hover {
+  background: rgba(212,160,60,0.14) !important;
+  border-color: rgba(212,160,60,0.85) !important;
+  box-shadow: 0 0 22px rgba(212,160,60,0.25) !important;
+  color: rgba(232,226,217,0.98) !important;
+}
+
+/* LIVE badge pulse */
+@keyframes live-pulse {
+  0%, 100% { opacity: 1.0; }
+  50%       { opacity: 0.45; }
+}
+.live-badge {
+  animation: live-pulse 2s ease-in-out infinite;
+}
+
+/* Explain/Data disclosure buttons */
+.card-action-btn {
+  font-size: 0.65rem !important;
+  padding: 3px 10px !important;
+  background: none !important;
+  cursor: pointer !important;
+  font-family: var(--font-mono) !important;
+  letter-spacing: 0.08em !important;
+  transition: all 0.15s ease !important;
+  border: 1px solid rgba(232,226,217,0.20);
+  color: rgba(232,226,217,0.60);
+}
+.card-action-btn:hover {
+  border-color: rgba(232,226,217,0.40);
+  color: rgba(232,226,217,0.90);
 }
 
 /* Intel Feed — topic category pills */

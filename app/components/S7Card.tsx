@@ -17,11 +17,20 @@ const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 interface S7Signal {
   timestamp?:    string | null;
   signal?:       string | null;
+  regime?:       string | null;
+  bess_impact?:  string | null;
   ttf_eur_mwh?:  number | null;
   ttf_trend?:    string | null;
   interpretation?: string | null;
   _stale?:       boolean;
   _age_hours?:   number | null;
+}
+
+function regimeColor(r: string | null | undefined): string {
+  if (r === 'HIGH')     return 'rgba(239,68,68,0.90)';
+  if (r === 'ELEVATED') return 'rgba(245,158,11,0.90)';
+  if (r === 'LOW')      return 'rgba(45,212,168,0.85)';
+  return 'rgba(232,226,217,0.60)';
 }
 
 const text = (opacity: number) => `rgba(232, 226, 217, ${opacity})`;
@@ -124,8 +133,18 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
           <span style={{ fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', color: heroColor }}>
             {data.ttf_eur_mwh != null ? `${safeNum(data.ttf_eur_mwh, 1)}` : '—'}
           </span>
-          <span style={{ fontSize: '0.75rem', marginLeft: '0.4em', color: text(0.4) }}>
-            €/MWh {data.ttf_trend ?? ''}
+          <span style={{ fontSize: '0.75rem', marginLeft: '0.4em', color: text(0.4) }}>€/MWh</span>
+          <span style={{
+            display: 'inline-block',
+            marginLeft: '0.5em',
+            fontSize: '0.65rem',
+            padding: '0.1rem 0.4rem',
+            border: `1px solid ${regimeColor(data.regime ?? data.signal)}`,
+            color: regimeColor(data.regime ?? data.signal),
+            letterSpacing: '0.08em',
+            verticalAlign: 'middle',
+          }}>
+            {data.regime ?? data.signal ?? 'NORMAL'}
           </span>
         </p>
         <Sparkline values={history} color="#f6a35a" width={160} height={40} />

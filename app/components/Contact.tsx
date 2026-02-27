@@ -55,6 +55,18 @@ export function Contact() {
         marginTop: '2rem',
       }}
     >
+      <p style={{
+        fontFamily: 'Cormorant, serif',
+        fontStyle: 'italic',
+        fontWeight: 300,
+        fontSize: '0.90rem',
+        color: 'rgba(232,226,217,0.45)',
+        marginBottom: '16px',
+        textAlign: 'center',
+        letterSpacing: '0.02em',
+      }}>
+        Built by Kastytis Kemežys · Baltic energy infrastructure
+      </p>
       <ContactLink href="mailto:kastytis@kkme.eu">
         kastytis@kkme.eu
       </ContactLink>

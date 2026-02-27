@@ -31,10 +31,10 @@ export function CardDisclosure({ explain, dataLines }: CardDisclosureProps) {
   return (
     <div style={{ marginTop: '10px' }}>
       <div style={{ display: 'flex', gap: '6px' }}>
-        <button style={btnStyle(open === 'explain')} onClick={() => toggle('explain')}>
+        <button className="card-action-btn" style={btnStyle(open === 'explain')} onClick={() => toggle('explain')}>
           Explain
         </button>
-        <button style={btnStyle(open === 'data')} onClick={() => toggle('data')}>
+        <button className="card-action-btn" style={btnStyle(open === 'data')} onClick={() => toggle('data')}>
           Data
         </button>
       </div>

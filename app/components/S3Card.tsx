@@ -163,8 +163,17 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
         Li carbonate {data.lithium_trend ?? ''}
       </p>
 
+      {data.unavailable && !data.lithium_eur_t && (
+        <div style={{ margin: '12px 0' }}>
+          <div className="skeleton" style={{ height: '44px', width: '100%', marginBottom: '6px' }} />
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'rgba(232,226,217,0.28)', textAlign: 'center' }}>
+            Li carbonate · awaiting feed
+          </div>
+        </div>
+      )}
+
       <p style={{ ...MONO, fontSize: '0.6rem', color: data.unavailable ? text(0.2) : text(0.52), lineHeight: 1.5, marginBottom: '1.5rem' }}>
-        {data.unavailable ? 'Awaiting price feed — next update at scheduled cron run.' : (data.interpretation ?? '—')}
+        {data.unavailable ? '' : (data.interpretation ?? '—')}
       </p>
 
       <div style={{ ...DIVIDER, marginBottom: '1.25rem' }} />
@@ -185,9 +194,35 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
           <span style={{ color: text(0.3) }}> (CH S1 2025)</span>
         </p>
       </div>
-      <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.06em', marginBottom: '1.25rem' }}>
+      <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.06em', marginBottom: '1rem' }}>
         Turnkey includes BOS, civil, grid, HV: ~+€125k/MW vs equipment
       </p>
+
+      {/* CAPEX waterfall breakdown */}
+      {data.europe_system_eur_kwh != null && (
+        <div style={{ margin: '0 0 1.25rem' }}>
+          {[
+            { label: 'Equipment DC', val: data.europe_system_eur_kwh * 0.62, color: 'var(--blue)' },
+            { label: 'BOS + Civil',  val: data.europe_system_eur_kwh * 0.27, color: 'var(--violet)' },
+            { label: 'HV Grid fix',  val: data.europe_system_eur_kwh * 0.11, color: 'rgba(123,94,167,0.45)' },
+          ].map(({ label, val, color }) => {
+            const pct = (val / data.europe_system_eur_kwh!) * 100;
+            return (
+              <div key={label} style={{ marginBottom: '6px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'rgba(232,226,217,0.45)', marginBottom: '2px' }}>
+                  <span>{label}</span>
+                  <span style={{ color: 'rgba(232,226,217,0.70)' }}>€{val.toFixed(0)}/kWh</span>
+                </div>
+                <div style={{ height: '10px', width: `${pct}%`, background: color, opacity: 0.65, transition: 'width 0.6s ease' }} />
+              </div>
+            );
+          })}
+          <div style={{ borderTop: '1px solid rgba(232,226,217,0.10)', paddingTop: '6px', marginTop: '8px', display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-mono)', fontSize: '0.72rem', color: 'rgba(232,226,217,0.88)', fontWeight: 500 }}>
+            <span>Total installed</span>
+            <span>€{data.europe_system_eur_kwh.toFixed(0)}/kWh</span>
+          </div>
+        </div>
+      )}
 
       <div style={{ ...DIVIDER, marginBottom: '1.25rem' }} />
 

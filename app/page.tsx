@@ -69,21 +69,6 @@ export default function Home() {
             Baltic BESS · grid · DC · signal console
           </p>
 
-          {/* Human intro */}
-          <p
-            style={{
-              fontFamily: 'var(--font-serif)',
-              fontStyle: 'italic',
-              fontSize: '1.0rem',
-              fontWeight: 300,
-              color: 'rgba(232,226,217,0.52)',
-              margin: '8px auto 0',
-              letterSpacing: '0.02em',
-              textAlign: 'center',
-            }}
-          >
-            Built by Kastytis Kemežys — Baltic energy infrastructure.
-          </p>
         </div>
       </div>
 

@@ -130,31 +130,31 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason }: LiveDat
     <>
       <StaleBanner isDefault={isDefault} isStale={isStale} ageHours={ageHours} defaultReason={defaultReason} />
 
-      {/* Hero: signal with glow ring */}
-      <div style={{ display: 'inline-block', position: 'relative', marginBottom: '0.5rem' }}>
-        <p style={{
-          ...MONO,
-          fontSize: 'clamp(2.5rem, 6vw, 3.75rem)',
-          fontWeight: 400,
-          color: signalColor,
-          lineHeight: 1,
-          letterSpacing: '-0.02em',
-          textShadow: `0 0 40px ${signalColor.replace('1)', '0.25)')}`,
-        }}>
-          {data.signal ?? '—'}
-        </p>
-        {/* Glow ring indicator */}
-        <div style={{
-          position: 'absolute',
-          bottom: '-6px',
-          left: 0,
-          right: 0,
-          height: '2px',
-          background: signalColor,
-          opacity: 0.4,
-          filter: 'blur(2px)',
-        }} />
-      </div>
+      {/* Hero: signal with glow ring badge */}
+      {(() => {
+        const glowColor = {
+          OPEN:        'rgba(45,212,168,0.55)',
+          TIGHTENING:  'rgba(212,160,60,0.55)',
+          CONSTRAINED: 'rgba(212,88,88,0.55)',
+        }[data.signal ?? 'OPEN'] ?? 'rgba(45,212,168,0.55)';
+        return (
+          <div style={{ marginBottom: '0.5rem' }}>
+            <span style={{
+              display: 'inline-block',
+              padding: '4px 16px',
+              border: `1px solid ${glowColor}`,
+              boxShadow: `0 0 18px ${glowColor}, inset 0 0 12px ${glowColor.replace('0.55', '0.10')}`,
+              color: glowColor,
+              fontFamily: 'var(--font-mono)',
+              fontSize: 'clamp(1.8rem, 5vw, 3rem)',
+              letterSpacing: '0.10em',
+              fontWeight: 500,
+            }}>
+              {data.signal ?? 'OPEN'}
+            </span>
+          </div>
+        );
+      })()}
       <p style={{ ...MONO, fontSize: '0.55rem', color: text(0.3), letterSpacing: '0.08em', marginBottom: '1.25rem' }}>
         Grid headroom for new DC connections
       </p>

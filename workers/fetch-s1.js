@@ -1608,9 +1608,13 @@ async function fetchTTFGas() {
     else if (ttf_eur_mwh > 30) signal = 'ELEVATED';
     else if (ttf_eur_mwh < 15) signal = 'LOW';
 
+    const regime = signal; // alias for display
+    const bess_impact = ttf_eur_mwh > 30 ? 'arbitrage_bullish' : 'neutral';
     return {
       timestamp:   new Date().toISOString(),
       signal,
+      regime,
+      bess_impact,
       ttf_eur_mwh: Math.round(ttf_eur_mwh * 100) / 100,
       ttf_trend,
       interpretation: signal === 'HIGH'

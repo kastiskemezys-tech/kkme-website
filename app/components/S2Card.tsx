@@ -137,41 +137,37 @@ const DIVIDER: CSSProperties = {
   width: '100%',
 };
 
-// Revenue opportunity bar — shows aFRR and mFRR vs CH targets
-function OpportunityBar({ afrr, mfrr }: { afrr: number | null | undefined; mfrr: number | null | undefined }) {
-  const CH2027_AFRR = 20;
-  const CH2028_MFRR = 11;
-  const MAX = 35;
-
-  if (afrr == null && mfrr == null) return null;
-
-  const bars = [
-    { label: 'aFRR ↑', value: afrr, target: CH2027_AFRR, color: 'rgba(86,166,110,0.55)' },
-    { label: 'mFRR ↑', value: mfrr, target: CH2028_MFRR, color: 'rgba(123,94,167,0.55)' },
-  ] as const;
-
+function DecayBar({
+  label, current, target, max, color,
+}: {
+  label: string; current: number; target: number; max: number; color: string;
+}) {
+  const curPct = Math.min((current / max) * 100, 100);
+  const tgtPct = Math.min((target / max) * 100, 100);
+  const winPct = curPct - tgtPct;
   return (
-    <div style={{ marginBottom: '1rem' }}>
-      {bars.map(({ label, value, target, color }) => {
-        const pct    = value != null ? Math.min((value / MAX) * 100, 100) : 0;
-        const tgtPct = Math.min((target / MAX) * 100, 100);
-        return (
-          <div key={label} style={{ marginBottom: '6px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-mono)', fontSize: '0.58rem', color: 'rgba(232,226,217,0.40)', marginBottom: '2px' }}>
-              <span>{label}</span>
-              <span style={{ color: 'rgba(232,226,217,0.55)' }}>{value != null ? `${value.toFixed(1)} €/MW/h` : '—'}</span>
-            </div>
-            <div style={{ position: 'relative', height: '8px', background: 'rgba(232,226,217,0.06)' }}>
-              <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${pct}%`, background: color, transition: 'width 0.5s ease' }} />
-              {/* CH target marker */}
-              <div style={{ position: 'absolute', left: `${tgtPct}%`, top: '-2px', bottom: '-2px', width: '1px', background: 'rgba(232,226,217,0.35)' }} />
-            </div>
-          </div>
-        );
-      })}
-      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.48rem', color: 'rgba(232,226,217,0.25)', marginTop: '4px' }}>
-        · CH 2027 aFRR target €20/MW/h · CH 2028 mFRR target €11/MW/h
-      </p>
+    <div style={{ marginBottom: '12px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'rgba(232,226,217,0.45)', marginBottom: '4px' }}>
+        <span>{label}</span>
+        <span style={{ color: 'rgba(232,226,217,0.75)' }}>
+          {current.toFixed(0)} €/MW/h
+          <span style={{ color: 'rgba(232,226,217,0.35)', marginLeft: '6px' }}>→ {target} target</span>
+        </span>
+      </div>
+      <div style={{ position: 'relative', height: '20px', background: 'rgba(232,226,217,0.05)' }}>
+        {/* Base fill up to target (teal) */}
+        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${tgtPct}%`, background: 'rgba(45,212,168,0.20)' }} />
+        {/* Opportunity window above target (amber) */}
+        <div style={{ position: 'absolute', left: `${tgtPct}%`, width: `${Math.max(winPct, 0)}%`, top: 0, bottom: 0, background: 'rgba(212,160,60,0.18)' }} />
+        {/* Current value bar */}
+        <div style={{ position: 'absolute', left: `${curPct}%`, top: '-3px', bottom: '-3px', width: '2px', background: color }} />
+        {/* Target dashed marker */}
+        <div style={{ position: 'absolute', left: `${tgtPct}%`, top: 0, bottom: 0, width: '1px', borderLeft: '1px dashed rgba(232,226,217,0.25)' }}>
+          <span style={{ position: 'absolute', bottom: '100%', left: '3px', fontFamily: 'var(--font-mono)', fontSize: '0.55rem', color: 'rgba(232,226,217,0.30)', whiteSpace: 'nowrap' }}>
+            2027 target
+          </span>
+        </div>
+      </div>
     </div>
   );
 }
@@ -229,8 +225,40 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
         Per MW installed power · 0.5 MW service (2 MW/MW prequalification) · theoretical max if fully allocated
       </p>
 
-      {/* Revenue opportunity bars vs CH targets */}
-      <OpportunityBar afrr={data.afrr_up_avg} mfrr={data.mfrr_up_avg} />
+      {/* Revenue decay bars vs CH targets */}
+      <div style={{ marginTop: '16px' }}>
+        <DecayBar
+          label="aFRR up"
+          current={data.afrr_up_avg ?? 60}
+          target={20}
+          max={Math.max((data.afrr_up_avg ?? 60) * 1.2, 120)}
+          color="var(--teal)"
+        />
+        <DecayBar
+          label="mFRR up"
+          current={data.mfrr_up_avg ?? 80}
+          target={25}
+          max={Math.max((data.mfrr_up_avg ?? 80) * 1.2, 160)}
+          color="var(--teal)"
+        />
+      </div>
+
+      {/* P90 imbalance stress spike */}
+      {(data.stress_index_p90 ?? 0) > 0 && (
+        <div style={{ marginTop: '14px' }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'rgba(232,226,217,0.40)', marginBottom: '6px' }}>
+            P90 imbalance spike
+          </div>
+          <svg width="200" height="44" viewBox="0 0 200 44" style={{ display: 'block' }}>
+            <line x1="0" y1="34" x2="200" y2="34" stroke="rgba(232,226,217,0.07)" strokeWidth="0.5" />
+            <polyline points="0,34 70,34 100,6 130,34 200,34" fill="none" stroke="var(--rose)" strokeWidth="1.5" strokeLinejoin="round" />
+            <path d="M70,34 L100,6 L130,34 Z" fill="rgba(212,88,88,0.08)" />
+            <text x="100" y="4" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="8" fill="var(--rose)">
+              {(data.stress_index_p90 ?? 0).toFixed(0)} €/MWh
+            </text>
+          </svg>
+        </div>
+      )}
 
       {/* Interpretation */}
       <p style={{ ...MONO, fontSize: '0.6rem', color: data.unavailable ? text(0.2) : text(0.52), lineHeight: 1.5, marginBottom: '1.5rem' }}>

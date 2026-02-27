@@ -196,9 +196,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
           lineHeight: 1,
           letterSpacing: '-0.02em',
           margin: '0 0 0.3rem',
-          textShadow: heroColor !== 'rgba(232, 226, 217, 0.72)'
-            ? `0 0 32px ${heroColor.replace('0.88', '0.28')}`
-            : 'none',
+          textShadow: '0 0 28px rgba(212,160,60,0.30)',
         }}
       >
         {data.spread_eur_mwh >= 0 ? '+' : ''}{safeNum(data.spread_eur_mwh, 1)}
