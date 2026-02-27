@@ -145,7 +145,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '0.3rem' }}>
         <p style={{ ...MONO, fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', fontWeight: 400, lineHeight: 1, letterSpacing: '0.04em', margin: 0,
           color: data.unavailable ? text(0.1) : signalColor }}>
-          {data.unavailable ? '——————'
+          {data.unavailable ? '—'
             : data.lithium_eur_t != null
               ? `€${safeNum(data.lithium_eur_t / 1000, 0)}k/t`
               : '—'}
@@ -159,7 +159,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
       </p>
 
       <p style={{ ...MONO, fontSize: '0.6rem', color: data.unavailable ? text(0.2) : text(0.52), lineHeight: 1.5, marginBottom: '1.5rem' }}>
-        {data.unavailable ? 'Interpretation unavailable — feed incomplete.' : (data.interpretation ?? '—')}
+        {data.unavailable ? 'Awaiting price feed — next update at scheduled cron run.' : (data.interpretation ?? '—')}
       </p>
 
       <div style={{ ...DIVIDER, marginBottom: '1.25rem' }} />

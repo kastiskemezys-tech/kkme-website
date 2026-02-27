@@ -107,9 +107,16 @@ export function IntelFeed() {
       .catch(() => setLoading(false));
   }, []);
 
+  // Strip bot commands and items too short/incomplete to be useful
+  const visible = items.filter(i =>
+    !i.title?.match(/^\/\w+/) &&     // no bot commands
+    (i.title?.length ?? 0) >= 20 &&  // min title length
+    (i.url || (i.summary && i.summary.length > 30))  // needs URL or meaningful summary
+  );
+
   const filtered = active === 'ALL'
-    ? items
-    : items.filter(i => i.topic.toUpperCase() === active);
+    ? visible
+    : visible.filter(i => i.topic.toUpperCase() === active);
 
   return (
     <section style={{ maxWidth: '440px', width: '100%' }}>

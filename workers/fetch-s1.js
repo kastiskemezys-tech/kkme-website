@@ -903,6 +903,7 @@ const BESS_WORKER = {
   aggregator_pct_revenue: 0.08,
   availability: 0.97,
   roundtrip_efficiency: 0.85,
+  cycles_per_day: 1,  // 1 DA arbitrage cycle per day (model note: aFRR/mFRR + 1 DA cycle)
   project_life_years: 18,
   ch_irr_central: { h2: 16.6, h4: 10.8 },
   ch_irr_low:     { h2: 6,    h4: 6 },
@@ -1607,9 +1608,11 @@ async function fetchTTFGas() {
       ttf_trend,
       interpretation: signal === 'HIGH'
         ? 'Gas expensive — strong BESS arbitrage case vs peaker plants.'
-        : signal === 'LOW'
-          ? 'Gas cheap — peaker margin compressed; less urgency for storage.'
-          : 'Gas price neutral — standard storage economics apply.',
+        : signal === 'ELEVATED'
+          ? 'Gas at moderate premium — BESS vs peaker economics supported.'
+          : signal === 'LOW'
+            ? 'Gas cheap — peaker margin compressed; less urgency for storage.'
+            : 'Gas price in normal range — standard storage economics apply.',
     };
   } catch (err) {
     clearTimeout(timer);
@@ -1983,6 +1986,18 @@ export default {
           await env.KKME_SIGNALS.put(SESSION_KEY, JSON.stringify(session), { expirationTtl: SESSION_TTL_SECONDS });
           await sendTelegramReply(env, chatId, `🏷 Tagged: ${company}. Companies: ${session.companies.join(', ')}`);
         }
+        return new Response('ok', { headers: CORS });
+      }
+
+      // ── Filter unrecognised bot commands ──────────────────────────────────
+      if (/^\/\w+/.test(text)) {
+        await sendTelegramReply(env, chatId, 'Unknown command. Use /done to save, /cancel to discard, /tag <company> to tag.');
+        return new Response('ok', { headers: CORS });
+      }
+
+      // Filter empty / too-short messages
+      if (text.trim().length < 20) {
+        await sendTelegramReply(env, chatId, '⚠ Message too short (min 20 chars). Send a URL or a brief description.');
         return new Response('ok', { headers: CORS });
       }
 
