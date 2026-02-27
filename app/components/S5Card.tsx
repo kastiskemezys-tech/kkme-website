@@ -146,6 +146,10 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason }: LiveDat
         ))}
       </div>
 
+      <p style={{ ...MONO, fontSize: '0.45rem', color: text(0.25), letterSpacing: '0.06em', marginBottom: '1rem' }}>
+        Same grid dataset as S4 — filtered for DC-relevant connection nodes.
+      </p>
+
       {/* Baltic DC pipeline (manual, optional) */}
       {data.pipeline_mw != null && (
         <>

@@ -291,7 +291,7 @@ function LiveData({ data }: { data: RevenueData }) {
 
       {/* Model note */}
       <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.25), lineHeight: 1.7, marginBottom: '1.5rem' }}>
-        Model: aFRR/mFRR capacity + 1 DA cycle/day · 0.5 MW aFRR per MW installed (2h system) · 8%/yr revenue decay post-2028 · CAPEX from CH S1 2025 tier-1 quotes
+        Model: aFRR/mFRR capacity + 1 DA cycle/day · 4h system: full 0.5 MW aFRR per MW · 2h system: SoC-constrained ~0.31 MW · 8%/yr revenue decay post-2028 · CAPEX from CH S1 2025
       </p>
 
       {/* EU Market Ranking */}

@@ -904,6 +904,12 @@ const BESS_WORKER = {
   availability: 0.97,
   roundtrip_efficiency: 0.85,
   cycles_per_day: 1,  // 1 DA arbitrage cycle per day (model note: aFRR/mFRR + 1 DA cycle)
+  // 2h system is SoC-constrained for sustained balancing activation windows
+  // 4h system can sustain full aFRR/mFRR window → full 0.5 MW allocation
+  capacity_allocation: {
+    h2: { afrr: 0.628, mfrr: 0.778 },  // ~0.314 MW aFRR, ~0.389 MW mFRR per MW installed
+    h4: { afrr: 1.0,   mfrr: 1.0   },  // full 0.5 MW per MW installed
+  },
   project_life_years: 18,
   ch_irr_central: { h2: 16.6, h4: 10.8 },
   ch_irr_low:     { h2: 6,    h4: 6 },
@@ -950,9 +956,10 @@ function computeRevenueWorker(prices, duration_h) {
   const capex = B.capex_per_mw[key] * 1000; // €/MW
 
   // Baltic prequalification: 2 MW power per 1 MW service (binding = power constraint)
-  // 4h has more energy but same power rating → still 0.5 MW service per MW installed
-  const afrr_mw_provided = 0.5;
-  const mfrr_mw_provided = 0.5;
+  // 4h: full 0.5 MW per MW installed; 2h: SoC-constrained to shorter sustained windows
+  const alloc = B.capacity_allocation[key];
+  const afrr_mw_provided = 0.5 * alloc.afrr;
+  const mfrr_mw_provided = 0.5 * alloc.mfrr;
 
   const afrr_annual  = prices.afrr_up_avg * 8760 * B.availability * afrr_mw_provided;
   const mfrr_annual  = prices.mfrr_up_avg * 8760 * B.availability * mfrr_mw_provided;

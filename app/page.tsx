@@ -90,11 +90,6 @@ export default function Home() {
         <S2Card />
       </CardBoundary>
 
-      {/* S5 — DC Power Viability */}
-      <CardBoundary signal="S5">
-        <S5Card />
-      </CardBoundary>
-
       {/* ── BUILD ──────────────────────────────────────────────────────────── */}
       <LayerLabel label="Build" />
 
@@ -106,6 +101,11 @@ export default function Home() {
       {/* S4 — Grid Connection Scarcity */}
       <CardBoundary signal="S4">
         <S4Card />
+      </CardBoundary>
+
+      {/* S5 — DC Power Viability */}
+      <CardBoundary signal="S5">
+        <S5Card />
       </CardBoundary>
 
       {/* ── MARKET CONTEXT ─────────────────────────────────────────────────── */}

@@ -118,9 +118,10 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
 
   const spreadN   = data.spread_stats_90d?.days_of_data ?? 0;
   const spreadP50 = data.spread_stats_90d?.p50 ?? null;
+  const medianLabel = spreadN >= 90 ? '90d median' : spreadN > 0 ? `${spreadN}d median` : 'Median';
   const compare   = spreadN > 7
-    ? `vs ${spreadN}d median ${safeNum(spreadP50, 0)} €/MWh`
-    : 'vs 30d median: building history';
+    ? `vs ${medianLabel} ${safeNum(spreadP50, 0)} €/MWh`
+    : 'building history (< 7 days)';
 
   const rsi     = data.rsi_30d != null
     ? `${data.rsi_30d >= 0 ? '+' : ''}${data.rsi_30d.toFixed(2)}`
@@ -134,9 +135,9 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
     : (rsi !== '—' ? `${rsi} €` : '—');
 
   const regimeMetrics: [string, string][] = [
-    ['90d median', spread90d],
-    ['Trend',      trend],
-    ['Capture',    capture],
+    [medianLabel, spread90d],
+    ['Trend',     trend],
+    ['Capture',   capture],
   ];
 
   const sourceRows: [string, string][] = [
