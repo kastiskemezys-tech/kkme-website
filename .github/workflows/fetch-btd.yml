@@ -61,9 +61,9 @@ jobs:
             const url = `${BTD}?${params}`;
             console.log(`→ ${url}`);
 
-            // AbortController with 30s timeout (default undici is 10s — too short for cross-Atlantic)
+            // AbortController — 8s: BTD blocks GH Actions IPs via TCP drop; fail fast
             const ac    = new AbortController();
-            const timer = setTimeout(() => ac.abort(), 30000);
+            const timer = setTimeout(() => ac.abort(), 8000);
             try {
               const res = await fetch(url, { headers: BTD_HEADERS, signal: ac.signal });
               clearTimeout(timer);
@@ -96,80 +96,6 @@ jobs:
             }
           }
 
-          // ── Column extractor: handles 3 common BTD response formats ──────────
-          //  Format A: array of row objects → find key matching pattern
-          //  Format B: { headers: string[], data: [][]  } — tabular
-          //  Format C: { columns: [{group,name},...], rows: [][] }
-
-          function extractCol(raw, pattern) {
-            if (!raw) return [];
-            const pat = pattern.toLowerCase();
-            try {
-              // Format A
-              if (Array.isArray(raw)) {
-                const key = Object.keys(raw[0] || {}).find(k => k.toLowerCase().includes(pat));
-                if (!key) {
-                  console.log(`  [A] no column matching "${pattern}". Available: ${Object.keys(raw[0] || {}).join(' | ')}`);
-                  return [];
-                }
-                console.log(`  [A] using column "${key}"`);
-                return raw.flatMap(r => {
-                  const v = r[key];
-                  return (v !== null && v !== undefined && v !== '' && !isNaN(+v)) ? [+v] : [];
-                });
-              }
-              // Format B
-              if (raw.data && raw.headers) {
-                const hi = raw.headers.findIndex(h => String(h).toLowerCase().includes(pat));
-                if (hi < 0) {
-                  console.log(`  [B] no header matching "${pattern}". Available: ${raw.headers.slice(0, 10).join(' | ')}`);
-                  return [];
-                }
-                console.log(`  [B] using header[${hi}] = "${raw.headers[hi]}"`);
-                return raw.data.flatMap(r => {
-                  const v = r[hi];
-                  return (v !== null && v !== undefined && v !== '' && !isNaN(+v)) ? [+v] : [];
-                });
-              }
-              // Format C
-              if (raw.columns && raw.rows) {
-                const ci = raw.columns.findIndex(c => {
-                  const label = typeof c === 'string' ? c : [c.group, c.name].filter(Boolean).join(' / ');
-                  return label.toLowerCase().includes(pat);
-                });
-                if (ci < 0) {
-                  console.log(`  [C] no column matching "${pattern}". Available: ${JSON.stringify(raw.columns.slice(0, 6))}`);
-                  return [];
-                }
-                console.log(`  [C] using column[${ci}] = ${JSON.stringify(raw.columns[ci])}`);
-                return raw.rows.flatMap(r => {
-                  const v = r[ci];
-                  return (v !== null && v !== undefined && v !== '' && !isNaN(+v)) ? [+v] : [];
-                });
-              }
-              console.log(`  Unknown format. Preview: ${JSON.stringify(raw).slice(0, 500)}`);
-              return [];
-            } catch (e) {
-              console.error(`  extractCol("${pattern}") threw: ${e.message}`);
-              return [];
-            }
-          }
-
-          // ── Stats helpers ─────────────────────────────────────────────────────
-
-          function mean(arr)  { return arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null; }
-          function stdev(arr) {
-            if (arr.length < 2) return null;
-            const m = mean(arr);
-            return Math.sqrt(arr.reduce((s, x) => s + (x - m) ** 2, 0) / (arr.length - 1));
-          }
-          function p90(arr) {
-            if (!arr.length) return null;
-            const sorted = [...arr].sort((a, b) => a - b);
-            return sorted[Math.floor(sorted.length * 0.9)] ?? sorted[sorted.length - 1];
-          }
-          function r2(n) { return n === null ? null : Math.round(n * 100) / 100; }
-
           // ── Main ──────────────────────────────────────────────────────────────
 
           async function main() {
@@ -186,81 +112,23 @@ jobs:
             const imbRaw = results[2].status === 'fulfilled' ? results[2].value : null;
 
             if (!capRaw && !dirRaw && !imbRaw) {
-              console.error('All 3 BTD endpoints failed — pushing unavailable payload');
+              console.warn('All 3 BTD endpoints failed — BTD blocks GitHub Actions IPs (expected).');
+              console.warn('Mac residential cron (fetch-btd.js) is the active S2 pipeline.');
+              console.log('::notice::BTD unreachable from GH Actions — no KV update. Mac cron handles S2.');
+              process.exit(0);
             }
 
-            // price_procured_reserves: FCR-D and aFRR upward capacity prices for Lithuania
-            console.log('\n── Extracting capacity price columns ──');
-            let fcrVals  = extractCol(capRaw, 'fcr');
-            if (!fcrVals.length) fcrVals = extractCol(capRaw, 'fcr-d');
-            if (!fcrVals.length) fcrVals = extractCol(capRaw, 'fcrd');
-
-            let afrrVals = extractCol(capRaw, 'afrr');
-            if (!afrrVals.length) afrrVals = extractCol(capRaw, 'a-frr');
-
-            // Fallback: if product-specific columns not found, use Lithuania / Upward generic
-            if (!fcrVals.length && !afrrVals.length) {
-              const upVals = extractCol(capRaw, 'upward');
-              if (upVals.length) {
-                fcrVals  = upVals;
-                afrrVals = upVals;
-                console.log('  Fallback: using "upward" column for both fcr and afrr');
-              }
-            }
-
-            // direction_of_balancing_v2: Lithuania direction values
-            console.log('\n── Extracting direction columns ──');
-            let dirVals = extractCol(dirRaw, 'lithuania');
-            if (!dirVals.length) dirVals = extractCol(dirRaw, 'lt');
-
-            // imbalance_prices: Lithuania / Preliminary (most current)
-            console.log('\n── Extracting imbalance price columns ──');
-            let imbVals = extractCol(imbRaw, 'preliminary');
-            if (!imbVals.length) imbVals = extractCol(imbRaw, 'lithuania');
-            if (!imbVals.length) imbVals = extractCol(imbRaw, 'lt');
-
-            console.log(`\nSample counts: fcr=${fcrVals.length} afrr=${afrrVals.length} dir=${dirVals.length} imb=${imbVals.length}`);
-
-            // Compute metrics
-            const fcr_avg           = r2(mean(fcrVals));
-            const afrr_avg          = r2(mean(afrrVals));
-            const pct_up            = dirVals.length ? r2(dirVals.filter(v => v > 0).length / dirVals.length * 100) : null;
-            const pct_down          = dirVals.length ? r2(dirVals.filter(v => v < 0).length / dirVals.length * 100) : null;
-            const imbalance_mean_7d = r2(mean(imbVals));
-            const imbalance_p90_7d  = r2(p90(imbVals));
-            const pct_above_100     = imbVals.length ? r2(imbVals.filter(v => v > 100).length / imbVals.length * 100) : null;
-
-            // Signal: based on fcr_avg vs reference bands
-            let signal, interpretation;
-            if (fcr_avg === null) {
-              signal         = 'NORMAL';
-              interpretation = 'Capacity price data unavailable. Standard balancing revenue assumptions hold.';
-            } else if (fcr_avg > 8) {
-              signal         = 'DEEP';
-              interpretation = 'FCR/aFRR capacity clearing above baseline. Full balancing stack revenue available. Early-market depth before compression.';
-            } else if (fcr_avg >= 3) {
-              signal         = 'NORMAL';
-              interpretation = 'Capacity market within typical range. Standard balancing revenue assumptions hold.';
-            } else {
-              signal         = 'SHALLOW';
-              interpretation = 'Capacity prices thin. Market depth compressing. Monitor for saturation trend.';
-            }
-
+            // Send raw BTD data — Worker's s2ShapePayload() does the computation.
+            // (Pre-computing metrics here and sending them was the wrong format.)
             const payload = {
-              timestamp:        new Date().toISOString(),
-              fcr_avg,
-              afrr_avg,
-              pct_up,
-              pct_down,
-              imbalance_mean_7d,
-              imbalance_p90_7d,
-              pct_above_100,
-              signal,
-              interpretation,
-              source:           'baltic.transparency-dashboard.eu',
+              reserves:  capRaw,
+              direction: dirRaw,
+              imbalance: imbRaw,
             };
 
-            console.log('\nPayload:\n' + JSON.stringify(payload, null, 2));
+            console.log('\nPayload keys: reserves=' + (capRaw ? 'present' : 'null') +
+              ' direction=' + (dirRaw ? 'present' : 'null') +
+              ' imbalance=' + (imbRaw ? 'present' : 'null'));
 
             // Push to Worker — fail the workflow if this step fails
             const pushRes = await fetch(`${WORKER}/s2/update`, {
