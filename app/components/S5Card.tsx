@@ -249,6 +249,21 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason }: LiveDat
               )}
             </div>
           ))}
+          <a
+            href="https://experience.arcgis.com/experience/d5e4105c8c634a0aaa117d518ab1b37d/page/Page"
+            target="_blank"
+            rel="noopener"
+            style={{
+              display: 'inline-flex', alignItems: 'center',
+              gap: '6px', marginTop: '12px',
+              fontFamily: 'DM Mono', fontSize: '0.65rem',
+              color: 'var(--teal)',
+              textDecoration: 'none',
+              opacity: 0.75,
+            }}
+          >
+            ↗ Litgrid consumption capacity map
+          </a>
         </>
       )}
 

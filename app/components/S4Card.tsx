@@ -260,11 +260,38 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
       </div>
 
       {data.connected_mw != null && data.reserved_mw != null && data.free_mw != null && (
-        <CapacityBar
-          connected={data.connected_mw}
-          reserved={data.reserved_mw}
-          free={data.free_mw}
-        />
+        <>
+          <CapacityBar
+            connected={data.connected_mw}
+            reserved={data.reserved_mw}
+            free={data.free_mw}
+          />
+          <div style={{
+            display: 'flex', alignItems: 'flex-start',
+            gap: '8px', marginTop: '12px',
+            padding: '10px 12px',
+            background: 'rgba(212,160,60,0.06)',
+            border: '1px solid rgba(212,160,60,0.20)',
+          }}>
+            <span style={{
+              color: 'var(--amber)',
+              fontFamily: 'DM Mono',
+              fontSize: '0.65rem',
+              letterSpacing: '0.06em',
+              flexShrink: 0,
+            }}>⚑ PENDING</span>
+            <span style={{
+              color: 'rgba(232,226,217,0.55)',
+              fontFamily: 'DM Mono',
+              fontSize: '0.65rem',
+              lineHeight: 1.5,
+            }}>
+              Guarantee dropping €50 → €25/kW —{' '}
+              Seimas spring 2026. Lower barrier ={' '}
+              accelerated queue. Free 3.1 GW depletes faster.
+            </span>
+          </div>
+        </>
       )}
 
       {data.pipeline && (
