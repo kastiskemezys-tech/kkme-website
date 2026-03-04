@@ -85,9 +85,9 @@ export function S4Card() {
 
       <CardDisclosure
         explain={[
-          'Free MW: available transmission grid capacity.',
-          'Headline only — node quality and approvals matter more.',
-          'Pipeline filtered for BESS permits (validation pending).',
+          'Lithuania\'s grid connection guarantee drops €50→€25/kW — Seimas spring 2026. Halves the cost barrier for new applications.',
+          'Capex support scheme already 2× oversubscribed; Ministry target 1.5 GW / 4.4 GWh by 2028.',
+          'Free capacity: 3.1 GW today. At current application velocity, headroom compresses in 18–36 months — the guarantee cut increases that velocity.',
         ]}
         dataLines={[
           'Grid: Litgrid ArcGIS FeatureServer (near real-time)',
@@ -286,9 +286,9 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
               fontSize: '0.65rem',
               lineHeight: 1.5,
             }}>
-              Guarantee dropping €50 → €25/kW —{' '}
-              Seimas spring 2026. Lower barrier ={' '}
-              accelerated queue. Free 3.1 GW depletes faster.
+              Guarantee dropping €50 → €25/kW ·{' '}
+              Seimas spring 2026 · Lower barrier ={' '}
+              accelerated queue · Free 3.1 GW depletes faster
             </span>
           </div>
         </>

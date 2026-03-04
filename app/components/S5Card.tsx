@@ -71,9 +71,9 @@ export function S5Card() {
 
       <CardDisclosure
         explain={[
-          'Grid headroom available for new hyperscaler connections.',
-          'Open: >2000 MW free · Tightening: 500–2000 · Constrained: <500.',
-          'Baltic pipeline: announced DC MW, manually updated quarterly.',
+          'Litgrid publishes a consumption-side capacity map: grid nodes where DCs and large industrial users can connect with minimal upgrade cost.',
+          'Institutional signal: the TSO is actively marketing available capacity to large consumers — validates the DC corridor thesis for Vilnius and Kaunas nodes.',
+          'Lithuania electricity consumption growing ~4% per year — among the fastest in Europe — driven by heating electrification and new industrial load.',
         ]}
         dataLines={[
           'Grid: Litgrid ArcGIS FeatureServer (Kaupikliai, near real-time)',
@@ -252,7 +252,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason }: LiveDat
           <a
             href="https://experience.arcgis.com/experience/d5e4105c8c634a0aaa117d518ab1b37d/page/Page"
             target="_blank"
-            rel="noopener"
+            rel="noopener noreferrer"
             style={{
               display: 'inline-flex', alignItems: 'center',
               gap: '6px', marginTop: '12px',
@@ -260,7 +260,10 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason }: LiveDat
               color: 'var(--teal)',
               textDecoration: 'none',
               opacity: 0.75,
+              transition: 'opacity 0.15s ease',
             }}
+            onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+            onMouseLeave={e => (e.currentTarget.style.opacity = '0.75')}
           >
             ↗ Litgrid consumption capacity map
           </a>
