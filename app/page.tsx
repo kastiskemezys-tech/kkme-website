@@ -9,13 +9,13 @@ import { S8Card } from '@/app/components/S8Card';
 import { S9Card } from '@/app/components/S9Card';
 import { RevenueCard } from '@/app/components/RevenueCard';
 import { IntelFeed } from '@/app/components/IntelFeed';
-import { StatusStrip } from '@/app/components/StatusStrip';
 import { CardBoundary } from '@/app/components/CardBoundary';
 import { ErrorBoundary } from '@/app/components/ErrorBoundary';
 import { CardEntrance } from '@/app/components/CardEntrance';
 import { PageBackground } from '@/app/components/PageBackground';
 import { HeroRays } from '@/app/components/HeroRays';
 import StickyNav from '@/app/components/StickyNav';
+import MarketSnapshot from '@/app/components/MarketSnapshot';
 
 export default function Home() {
   return (
@@ -27,15 +27,15 @@ export default function Home() {
       <div className="page-container">
 
         {/* ═══ HERO ═══ */}
-        <header style={{ textAlign: 'center', padding: '80px 0 48px', position: 'relative' }}>
+        <header style={{ textAlign: 'center', padding: '40px 0 20px', position: 'relative' }}>
           <HeroRays />
           <h1 style={{
             fontFamily: 'var(--font-display)',
-            fontSize: 'clamp(2rem, 5vw, 3.5rem)',
+            fontSize: 'clamp(1.5rem, 3vw, 2rem)',
             color: 'var(--text-primary)',
             letterSpacing: '0.15em',
             marginBottom: '16px',
-            fontWeight: 400,
+            fontWeight: 300,
             position: 'relative',
             zIndex: 1,
           }}>KKME</h1>
@@ -49,25 +49,25 @@ export default function Home() {
             position: 'relative',
             zIndex: 1,
           }}>
-            Baltic BESS market console
+            Baltic battery market signals and project returns
           </p>
           <p style={{
             fontFamily: 'var(--font-mono)',
             fontSize: '0.75rem',
             color: 'var(--text-tertiary)',
             maxWidth: '440px',
-            margin: '16px auto 0',
+            margin: '8px auto 0',
             lineHeight: 1.6,
             position: 'relative',
             zIndex: 1,
           }}>
-            Revenue signals · grid constraints · build conditions ·
-            fleet competition. Updated every 4 hours.
+            Baltic battery spreads, grid constraints, and project returns.
+            Updated every four hours from ENTSO-E, Litgrid, and Baltic TSO data.
           </p>
           <div style={{
             display: 'flex', gap: '12px',
             justifyContent: 'center',
-            marginTop: '32px', flexWrap: 'wrap',
+            marginTop: '20px', flexWrap: 'wrap',
             position: 'relative', zIndex: 1,
           }}>
             <a href="#deal-flow" style={{
@@ -90,77 +90,47 @@ export default function Home() {
           </div>
         </header>
 
-        {/* ═══ STATUS STRIP ═══ */}
-        <div style={{ marginBottom: '48px' }}>
-          <StatusStrip />
+        {/* ═══ MARKET SNAPSHOT ═══ */}
+        <div style={{ marginBottom: '24px' }}>
+          <MarketSnapshot />
         </div>
 
         {/* ═══ BRIDGE TEXT ═══ */}
-        <div style={{ maxWidth: '640px', margin: '0 auto 96px', textAlign: 'center' }}>
+        <div style={{ maxWidth: '640px', margin: '0 auto 32px', textAlign: 'center' }}>
           <p style={{
             fontFamily: 'var(--font-serif)',
             fontSize: '1.05rem',
             color: 'var(--text-secondary)',
             lineHeight: 1.7,
           }}>
-            Nine signals track Baltic BESS viability.
-            Revenue spreads, grid access, and fleet competition
-            update every four hours from ENTSO-E, Litgrid,
-            and Baltic TSO data.
+            Nine signals track whether a Baltic battery project works.
+            Revenue spreads, grid access, and fleet competition update every four hours.
           </p>
-        </div>
-
-        {/* ═══ MARKET STATE INDICATOR ═══ */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '64px' }}>
-          <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '20px',
-            padding: '14px 32px',
-            background: 'rgba(232,226,217,0.02)',
-            border: '1px solid var(--border-card)',
-            borderRadius: '4px',
-          }}>
-            <div>
-              <div style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.5625rem',
-                color: 'var(--text-ghost)',
-                letterSpacing: '0.12em',
-                marginBottom: '4px',
-              }}>BALTIC BESS MARKET</div>
-              <div style={{
-                fontFamily: 'var(--font-display)',
-                fontSize: '1.1rem',
-                color: 'var(--teal)',
-                letterSpacing: '0.06em',
-              }}>BUILDABLE</div>
-            </div>
-            <div style={{ width: '1px', height: '32px', background: 'rgba(232,226,217,0.06)' }} />
-            <div style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: '0.6875rem',
-              color: 'var(--text-muted)',
-              lineHeight: 1.6,
-            }}>
-              Spread widening · Balancing tight · Fleet moderate
-            </div>
-          </div>
         </div>
 
         {/* ═══ REVENUE ENGINE — elevated ═══ */}
         <div className="section-elevated" id="revenue">
-          <h2 className="section-header">Project Economics</h2>
-          <div className="card card-tier1">
+          <div style={{ marginBottom: '32px' }}>
+            <h2 className="section-header" style={{ marginBottom: '6px' }}>Baltic Project Returns</h2>
+            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.6875rem', color: 'var(--text-muted)', paddingLeft: '16px' }}>20-year returns against Clean Horizon S1 2025</p>
+          </div>
+          <div>
             <ErrorBoundary>
               <RevenueCard />
             </ErrorBoundary>
+          </div>
+          {/* ═══ MID-PAGE CTA ═══ */}
+          <div className="inline-cta">
+            <a href="#deal-flow">Have a Baltic battery project? Send it for review ↗</a>
           </div>
         </div>
 
         {/* ═══ INVESTMENT SIGNALS ═══ */}
         <div className="section" id="signals">
-          <h2 className="section-header">Revenue Drivers</h2>
+          <div style={{ marginBottom: '32px' }}>
+            <h2 className="section-header" style={{ marginBottom: '6px' }}>Baltic Revenue Drivers</h2>
+            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.6875rem', color: 'var(--text-muted)', paddingLeft: '16px' }}>Capacity pricing and arbitrage — 86% of gross revenue</p>
+          </div>
           <div className="grid-2">
             <div className="card card-tier1">
               <CardBoundary signal="S1"><S1Card /></CardBoundary>
@@ -171,14 +141,12 @@ export default function Home() {
           </div>
         </div>
 
-        {/* ═══ MID-PAGE CTA ═══ */}
-        <div className="inline-cta">
-          <a href="#deal-flow">Have a Baltic BESS project? Submit for evaluation ↗</a>
-        </div>
-
         {/* ═══ BUILD SIGNALS ═══ */}
         <div className="section" id="build">
-          <h2 className="section-header">Build Conditions</h2>
+          <div style={{ marginBottom: '32px' }}>
+            <h2 className="section-header" style={{ marginBottom: '6px' }}>Build Conditions</h2>
+            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.6875rem', color: 'var(--text-muted)', paddingLeft: '16px' }}>CAPEX, financing, and grid connection</p>
+          </div>
           <div className="grid-2">
             <div className="card">
               <CardBoundary signal="S3"><S3Card /></CardBoundary>
@@ -191,8 +159,15 @@ export default function Home() {
 
         {/* ═══ MARKET CONTEXT — elevated ═══ */}
         <div className="section-elevated" id="context">
-          <h2 className="section-header">Market Drivers</h2>
-          <div className="grid-4">
+          <div style={{ marginBottom: '32px' }}>
+            <h2 className="section-header" style={{ marginBottom: '6px' }}>Baltic Power Market</h2>
+            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.6875rem', color: 'var(--text-muted)', paddingLeft: '16px' }}>Macro energy prices and structural factors</p>
+          </div>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+            gap: '24px',
+          }}>
             <div className="card card-tier3">
               <CardBoundary signal="S6"><S6Card /></CardBoundary>
             </div>
@@ -205,28 +180,42 @@ export default function Home() {
             <div className="card card-tier3">
               <CardBoundary signal="S9"><S9Card /></CardBoundary>
             </div>
-          </div>
-          <div className="card card-tier3" style={{ marginTop: '20px' }}>
-            <CardBoundary signal="S5"><S5Card /></CardBoundary>
+            <div className="card card-tier3">
+              <CardBoundary signal="S5"><S5Card /></CardBoundary>
+            </div>
           </div>
         </div>
 
         {/* ═══ MID-PAGE CTA ═══ */}
         <div className="inline-cta">
-          <a href="#deal-flow">Looking for Baltic energy deal flow? Get in touch ↗</a>
+          <a href="#deal-flow">Looking for Baltic battery deal flow? Get in touch ↗</a>
         </div>
 
         {/* ═══ INTEL FEED ═══ */}
         <div className="section" id="intel">
-          <h2 className="section-header">Market Intel</h2>
-          <div className="card">
+          <div style={{ marginBottom: '16px' }}>
+            <h2 className="section-header" style={{ marginBottom: '6px' }}>Market Intel</h2>
+            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.6875rem', color: 'var(--text-muted)', paddingLeft: '16px' }}>Baltic energy storage news via @gattana_bot</p>
+          </div>
+          <p style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: '0.6875rem',
+            color: 'var(--text-muted)',
+            marginBottom: '16px',
+          }}>
+            Latest Baltic energy storage signals via Telegram
+          </p>
+          <div>
             <IntelFeed />
           </div>
         </div>
 
         {/* ═══ DEAL FLOW ═══ */}
         <div className="section" id="deal-flow">
-          <h2 className="section-header">Deal Flow</h2>
+          <div style={{ marginBottom: '32px' }}>
+            <h2 className="section-header" style={{ marginBottom: '6px' }}>Deal Flow</h2>
+            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.6875rem', color: 'var(--text-muted)', paddingLeft: '16px' }}>Baltic BESS projects at RTB stage</p>
+          </div>
           <div className="grid-2">
             {/* LEFT: About + Contact */}
             <div>
@@ -245,9 +234,8 @@ export default function Home() {
                 lineHeight: 1.7,
                 marginBottom: '20px',
               }}>
-                Baltic BESS and hybrid projects at RTB or
-                near-RTB stage. Send a teaser — go/no-go
-                and proposed structure within 48 hours.
+                Baltic BESS and hybrid projects at RTB or near-RTB stage.
+                Send a teaser — go/no-go and proposed structure within 48 hours.
               </p>
               <p style={{
                 fontFamily: 'var(--font-serif)',
@@ -286,7 +274,7 @@ export default function Home() {
             </div>
 
             {/* RIGHT: Structured Form */}
-            <div className="card">
+            <div>
               {([
                 { label: 'Project name', name: 'project', type: 'text', placeholder: '' },
                 { label: 'MW / MWh', name: 'capacity', type: 'text', placeholder: '50 MW / 100 MWh' },

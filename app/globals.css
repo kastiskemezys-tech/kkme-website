@@ -304,11 +304,11 @@ body::after {
 
 .section-header {
   font-family: 'DM Mono', monospace;
-  font-size: 0.6875rem;
+  font-size: 0.875rem;
   color: var(--text-secondary);
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  margin-bottom: 32px;
+  margin-bottom: 0;
   padding-left: 16px;
   border-left: 2px solid var(--teal);
 }
@@ -365,6 +365,7 @@ body::after {
 .card-tier3 {
   background: rgba(232, 226, 217, 0.015);
   border-color: rgba(232, 226, 217, 0.06);
+  border: none;
   padding: 20px;
 }
 
@@ -392,8 +393,8 @@ body::after {
 .inline-cta {
   display: flex;
   justify-content: center;
-  padding: 32px 0;
-  margin-bottom: 96px;
+  padding: 16px 0;
+  margin-bottom: 48px;
 }
 
 .inline-cta a {
@@ -462,3 +463,21 @@ body::after {
 .card-split canvas { max-height: 200px; width: 100%; }
 .feed-row { min-width: 0; }
 .feed-row > * { min-width: 0; }
+
+/* ── Market Snapshot ─────────────────────────────────────────────────────── */
+.market-snapshot {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 20px;
+  padding: 20px 0;
+  border-top: 1px solid rgba(232, 226, 217, 0.06);
+  border-bottom: 1px solid rgba(232, 226, 217, 0.06);
+  margin-bottom: 32px;
+}
+.market-snapshot-cell { display: flex; flex-direction: column; gap: 3px; }
+@media (max-width: 768px) {
+  .market-snapshot { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 520px) {
+  .market-snapshot { grid-template-columns: repeat(2, 1fr); }
+}
