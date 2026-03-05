@@ -97,7 +97,11 @@ function processFleet(entries, demand) {
     const r  = sd_ratio + i * 0.15;
     const yr = baseYear + i;
     const ph = r < 0.6 ? 'SCARCITY' : r < 1.0 ? 'COMPRESS' : 'MATURE';
-    trajectory.push({ year: yr, sd_ratio: Math.round(r * 100) / 100, phase: ph });
+    let tc;
+    if (r < 0.6) tc = Math.min(1.0 + (0.6 - r) * 2.5, 2.0);
+    else if (r < 1.0) tc = Math.max(0.40, 1.0 - (r - 0.6) * 1.5);
+    else tc = Math.max(0.35, 0.40 - (r - 1.0) * 0.05);
+    trajectory.push({ year: yr, sd_ratio: Math.round(r * 100) / 100, phase: ph, cpi: Math.round(tc * 100) / 100 });
   }
   return {
     countries,
@@ -110,6 +114,220 @@ function processFleet(entries, demand) {
     cpi:                   Math.round(cpi * 100) / 100,
     trajectory,
     updated_at:            new Date().toISOString(),
+  };
+}
+
+// ─── Revenue Engine v4 ─────────────────────────────────────────────────────────
+
+function computeRevenue(systemKey, capexKey, grantKey, codYear, kv) {
+  const SYSTEMS = {
+    '2h':   { mw: 50, mwh: 100, duration: 2.0, label: '50 MW / 100 MWh (2H)' },
+    '2.4h': { mw: 50, mwh: 120, duration: 2.4, label: '50 MW / 120 MWh (2.4H)' },
+    '4h':   { mw: 50, mwh: 200, duration: 4.0, label: '50 MW / 200 MWh (4H)' },
+  };
+  const CAPEX_S = {
+    low:  { eur_kwh: 98,  label: 'Cube DDP (€98/kWh)' },
+    mid:  { eur_kwh: 164, label: 'CH Equipment (€164/kWh)' },
+    high: { eur_kwh: 262, label: 'CH Turnkey (€262/kWh)' },
+  };
+  const GRANTS = {
+    none:    { amount: 0,       label: 'No grant' },
+    partial: { amount: 2200000, label: '€2.2M APVA (conditional)' },
+  };
+  const MW_ALLOC = {
+    '2h':   { fcr: 5,  afrr: 15, mfrr: 30 },
+    '2.4h': { fcr: 8,  afrr: 17, mfrr: 25 },
+    '4h':   { fcr: 10, afrr: 20, mfrr: 20 },
+  };
+
+  const sys      = SYSTEMS[systemKey]  || SYSTEMS['2.4h'];
+  const capex_sc = CAPEX_S[capexKey]   || CAPEX_S['mid'];
+  const grant_sc = GRANTS[grantKey]    || GRANTS['none'];
+  const alloc    = MW_ALLOC[systemKey] || MW_ALLOC['2.4h'];
+  const cod      = parseInt(codYear)   || 2028;
+
+  const fleet = kv?.fleet;
+  const s2    = kv?.s2;
+  const s1    = kv?.s1;
+
+  // Live prices from BTD (s2 KV)
+  const prices = {
+    fcr:  { price: s2?.fcr_avg      ?? 20, avail: 0.92 },
+    afrr: { price: s2?.afrr_up_avg  ?? 15, avail: 0.85 },
+    mfrr: { price: s2?.mfrr_up_avg  ?? 11, avail: 0.80 },
+  };
+  const prices_source = s2?.fcr_avg != null ? 'BTD measured' : 'proxy';
+
+  const ACT = {
+    afrr: { rate: 0.18, depth: 0.55, margin: 40 },
+    mfrr: { rate: 0.10, depth: 0.75, margin: 55 },
+  };
+
+  const p_high       = s1?.p_high_avg || 120;
+  const p_low        = s1?.p_low_avg  || 55;
+  const rte          = 0.87;
+  const reserve_drag = 0.60;
+  const cycles_day   = 0.9;
+  const op_days      = 300;
+
+  const gross_capex  = capex_sc.eur_kwh * sys.mwh * 1000;
+  const grant_amount = grant_sc.amount || 0;
+  const net_capex    = gross_capex - grant_amount;
+  const bond         = 2500000;
+
+  const debt_pct     = 0.55;
+  const interest_r   = 0.045;
+  const tenor        = 8;
+  const grace        = 1;
+  const total_debt   = Math.round(net_capex * debt_pct);
+  const total_equity = net_capex - total_debt;
+  const annual_prin  = Math.round(total_debt / tenor);
+
+  const tax_rate    = 0.17;
+  const depr_years  = 10;
+  const depr_base   = gross_capex - bond;
+  const annual_depr = depr_base / depr_years;
+  const aug_capex   = 3000000;
+  const aug_year    = 10;
+  const aug_depr    = aug_capex / depr_years;
+
+  const opex_y1  = 1950000;
+  const opex_esc = 0.025;
+
+  function getCPI(year) {
+    if (fleet?.trajectory && Array.isArray(fleet.trajectory)) {
+      const t = fleet.trajectory.find(p => p.year === year);
+      if (t?.cpi != null) return t.cpi;
+    }
+    const y = year - cod;
+    const r = (fleet?.sd_ratio ?? 0.83) + Math.max(y, 0) * 0.15;
+    if (r < 0.6) return Math.min(1.0 + (0.6 - r) * 2.5, 2.0);
+    if (r < 1.0) return Math.max(0.40, 1.0 - (r - 0.6) * 1.5);
+    return Math.max(0.35, 0.40 - (r - 1.0) * 0.05);
+  }
+
+  const project_cf = [-net_capex];
+  const equity_cf  = [-total_equity];
+  const years      = [];
+  let debt_balance  = total_debt;
+  let cum_equity    = -total_equity;
+  let payback_year  = null;
+
+  for (let y = 1; y <= 20; y++) {
+    const cal_year = cod + y - 1;
+    const cpi      = getCPI(cal_year);
+    const deg_y    = y <= aug_year ? y - 1 : y - aug_year - 1;
+    const eff_mwh  = sys.mwh * Math.pow(0.975, deg_y);
+
+    const fcr_rev  = alloc.fcr  * prices.fcr.price  * 8760 * prices.fcr.avail  * cpi;
+    const afrr_rev = alloc.afrr * prices.afrr.price * 8760 * prices.afrr.avail * cpi;
+    const mfrr_rev = alloc.mfrr * prices.mfrr.price * 8760 * prices.mfrr.avail * cpi;
+    const cap_total = fcr_rev + afrr_rev + mfrr_rev;
+
+    const afrr_act = alloc.afrr * ACT.afrr.rate * ACT.afrr.depth * 8760 * ACT.afrr.margin * cpi;
+    const mfrr_act = alloc.mfrr * ACT.mfrr.rate * ACT.mfrr.depth * 8760 * ACT.mfrr.margin * cpi;
+    const act_total = afrr_act + mfrr_act;
+
+    const spread_decay  = Math.pow(0.98, y - 1);
+    const capture       = (p_high - p_low / rte) * spread_decay;
+    const mwh_per_cycle = eff_mwh * reserve_drag;
+    const arb_rev       = mwh_per_cycle * cycles_day * op_days * Math.max(0, capture);
+
+    const gross   = cap_total + act_total + arb_rev;
+    const opt_fee = gross * 0.10;
+    const brp_fee = 180000 * Math.pow(1.025, y - 1);
+    const net_rev = gross - opt_fee - brp_fee;
+
+    const opex    = opex_y1 * Math.pow(1 + opex_esc, y - 1);
+    const ebitda  = net_rev - opex;
+
+    let depr = 0;
+    if (y <= depr_years) depr += annual_depr;
+    if (y > aug_year && y <= aug_year + depr_years) depr += aug_depr;
+
+    let interest = 0, principal = 0;
+    if (debt_balance > 0) {
+      interest = debt_balance * interest_r;
+      if (y > grace) { principal = Math.min(annual_prin, debt_balance); debt_balance = Math.max(0, debt_balance - principal); }
+    }
+    const debt_service = interest + principal;
+
+    const tax_unlevered = Math.max(0, (ebitda - depr) * tax_rate);
+    const tax_levered   = Math.max(0, (ebitda - depr - interest) * tax_rate);
+    const aug           = (y === aug_year) ? aug_capex : 0;
+
+    const proj_fcf = ebitda - tax_unlevered - aug;
+    const eq_fcf   = ebitda - tax_levered - debt_service - aug;
+    const dscr     = debt_service > 0 ? (ebitda - tax_unlevered) / debt_service : null;
+
+    cum_equity += eq_fcf;
+    if (payback_year === null && cum_equity > 0) payback_year = y;
+
+    project_cf.push(proj_fcf);
+    equity_cf.push(eq_fcf);
+    years.push({
+      year: y, cal_year, cpi: Math.round(cpi * 100) / 100,
+      gross: Math.round(gross), net_rev: Math.round(net_rev),
+      opex: Math.round(opex), ebitda: Math.round(ebitda),
+      cap_total: Math.round(cap_total), act_total: Math.round(act_total), arb_rev: Math.round(arb_rev),
+      opt_fee: Math.round(opt_fee), brp_fee: Math.round(brp_fee),
+      interest: Math.round(interest), principal: Math.round(principal), debt_service: Math.round(debt_service),
+      tax_unlevered: Math.round(tax_unlevered), proj_fcf: Math.round(proj_fcf), eq_fcf: Math.round(eq_fcf),
+      dscr: dscr != null ? Math.round(dscr * 100) / 100 : null, cum_equity: Math.round(cum_equity),
+    });
+  }
+
+  function calcIRR(cf) {
+    let lo = -0.5, hi = 2.0;
+    for (let i = 0; i < 100; i++) {
+      const mid = (lo + hi) / 2;
+      const npv = cf.reduce((s, c, t) => s + c / Math.pow(1 + mid, t), 0);
+      if (npv > 0) lo = mid; else hi = mid;
+    }
+    return Math.round((lo + hi) / 2 * 10000) / 10000;
+  }
+
+  const project_irr = calcIRR(project_cf);
+  const equity_irr  = calcIRR(equity_cf);
+  const npv         = Math.round(project_cf.reduce((s, c, t) => s + c / Math.pow(1.08, t), 0));
+
+  const dscr_vals = years.filter(y => y.dscr != null).map(y => y.dscr);
+  const min_dscr  = dscr_vals.length ? Math.min(...dscr_vals) : null;
+  const bankability = (min_dscr != null && min_dscr >= 1.20) ? 'PASS' : 'FAIL';
+
+  const y1     = years[0];
+  const cod_sd = fleet?.trajectory?.find ? fleet.trajectory.find(t => t.year === cod) : null;
+
+  return {
+    system: sys.label, duration: sys.duration,
+    capex_scenario: capex_sc.label, capex_eur_kwh: capex_sc.eur_kwh,
+    gross_capex, grant_amount, grant_label: grant_sc.label, net_capex,
+    total_debt, total_equity, cod_year: cod,
+    sd_ratio: cod_sd?.sd_ratio ?? null, phase: cod_sd?.phase ?? null, cpi_at_cod: cod_sd?.cpi ?? null,
+    gross_revenue_y1: y1.gross, net_revenue_y1: y1.net_rev,
+    net_mw_yr: Math.round(y1.net_rev / sys.mw),
+    ebitda_y1: y1.ebitda, opex_y1: y1.opex,
+    rtm_fees_y1: y1.opt_fee + y1.brp_fee,
+    capacity_y1: y1.cap_total, activation_y1: y1.act_total, arbitrage_y1: y1.arb_rev,
+    capacity_pct: y1.gross > 0 ? Math.round(y1.cap_total / y1.gross * 100) / 100 : 0,
+    activation_pct: y1.gross > 0 ? Math.round(y1.act_total / y1.gross * 100) / 100 : 0,
+    arbitrage_pct: y1.gross > 0 ? Math.round(y1.arb_rev / y1.gross * 100) / 100 : 0,
+    project_irr, equity_irr, npv_at_wacc: npv,
+    min_dscr: min_dscr != null ? Math.round(min_dscr * 100) / 100 : null, bankability,
+    simple_payback_years: payback_year,
+    trajectory: [1, 3, 5, 10, 15, 20].map(y => {
+      const yr = years[y - 1];
+      return yr ? { year: y, cal_year: yr.cal_year, net_rev: yr.net_rev, ebitda: yr.ebitda, dscr: yr.dscr, cpi: yr.cpi } : null;
+    }).filter(Boolean),
+    fleet_trajectory: fleet?.trajectory ?? null,
+    ch_benchmark: { irr_2h: 0.166, range: '6–31%', target: 0.12, source: 'Clean Horizon S1 2025' },
+    prices_source, model_version: 'v4',
+    timestamp: new Date().toISOString(),
+    // Backward compat
+    irr_2h: systemKey === '2h'  ? project_irr : null,
+    irr_4h: systemKey === '4h'  ? project_irr : null,
+    net_mw_yr_2h: systemKey === '2h' ? Math.round(y1.net_rev / sys.mw) : null,
+    net_mw_yr_4h: systemKey === '4h' ? Math.round(y1.net_rev / sys.mw) : null,
   };
 }
 
@@ -278,6 +496,18 @@ async function computeS1(env) {
     ? Math.round((avg(ltEvening) - avg(ltShoulder)) * 100) / 100
     : null;
 
+  // BESS intraday capture: top-4h sell vs bottom-4h buy (revenue model arbitrage input)
+  let p_high_avg = null, p_low_avg = null, intraday_capture = null, bess_net_capture = null;
+  if (ltPrices.length >= 24) {
+    const sorted = [...ltPrices].sort((a, b) => a - b);
+    const bottom4 = sorted.slice(0, 4);
+    const top4    = sorted.slice(-4);
+    p_low_avg        = Math.round(bottom4.reduce((a, b) => a + b, 0) / 4 * 10) / 10;
+    p_high_avg       = Math.round(top4.reduce((a, b) => a + b, 0) / 4 * 10) / 10;
+    intraday_capture = Math.round((p_high_avg - p_low_avg) * 10) / 10;
+    bess_net_capture = Math.round((p_high_avg - p_low_avg / 0.87) * 10) / 10;
+  }
+
   console.log(`[S1] coupling_spread=${Math.round(spread*100)/100}€/MWh intraday_swing=${lt_daily_swing_eur_mwh}€/MWh evening_premium=${lt_evening_premium}€/MWh`);
   if (lt_daily_swing_eur_mwh !== null && lt_daily_swing_eur_mwh < spread) {
     console.warn(`[S1] WARNING: swing (${lt_daily_swing_eur_mwh}) < coupling spread (${Math.round(spread*100)/100}) — unusual`);
@@ -317,6 +547,7 @@ async function computeS1(env) {
     lt_pl_spread_pct,
     lt_daily_swing_eur_mwh,
     lt_evening_premium,
+    p_high_avg, p_low_avg, intraday_capture, bess_net_capture,
     state: signalState(separationPct),
     updated_at: new Date().toISOString(),
     lt_hours:  ltPrices.length,
@@ -2519,65 +2750,78 @@ export default {
     }
 
     // ── GET /revenue ─────────────────────────────────────────────────────────
-    // Revenue engine: reads live KV signals, computes 2h+4h BESS model,
-    // EU market comparison, and LLM interpretation. Cached 4h in KV.
+    // Revenue Engine v4: 3-scenario, DSCR, COD sensitivity, CPI-based pricing.
+    // Query params: system=2h|2.4h|4h  capex=low|mid|high  grant=none|partial  cod=2027|2028|2029
+    // NOT cached — params vary per request.
     if (request.method === 'GET' && url.pathname === '/revenue') {
-      const cached = await env.KKME_SIGNALS.get('revenue');
-      if (cached) {
-        return new Response(cached, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=14400', ...CORS } });
-      }
+      const system = url.searchParams.get('system') || '2.4h';
+      const capex  = url.searchParams.get('capex')  || 'mid';
+      const grant  = url.searchParams.get('grant')  || 'none';
+      const cod    = url.searchParams.get('cod')    || '2028';
 
-      const [s1Raw, s2Raw, s3Raw, s4Raw, eurRaw] = await Promise.all([
+      const [s1Raw, s2Raw, s3Raw, s4Raw, fleetRaw, eurRaw] = await Promise.all([
         env.KKME_SIGNALS.get('s1'),
         env.KKME_SIGNALS.get('s2'),
         env.KKME_SIGNALS.get('s3'),
         env.KKME_SIGNALS.get('s4'),
+        env.KKME_SIGNALS.get('s2_fleet').catch(() => null),
         env.KKME_SIGNALS.get('euribor'),
       ]);
-      const s1  = s1Raw  ? JSON.parse(s1Raw)  : null;
-      const s2  = s2Raw  ? JSON.parse(s2Raw)  : null;
-      const s3  = s3Raw  ? JSON.parse(s3Raw)  : null;
-      const s4  = s4Raw  ? JSON.parse(s4Raw)  : null;
-      const eur = eurRaw ? JSON.parse(eurRaw) : null;
+      const s1    = s1Raw    ? JSON.parse(s1Raw)    : null;
+      const s2    = s2Raw    ? JSON.parse(s2Raw)    : null;
+      const s3    = s3Raw    ? JSON.parse(s3Raw)    : null;
+      const s4    = s4Raw    ? JSON.parse(s4Raw)    : null;
+      const fleet = fleetRaw ? JSON.parse(fleetRaw) : null;
+      const eur   = eurRaw   ? JSON.parse(eurRaw)   : null;
 
-      // Build live price inputs — fallbacks to CH S1 2025 LT reference values
-      const prices = {
-        afrr_up_avg:             s2?.afrr_up_avg              ?? 20,   // €/MW/h
-        mfrr_up_avg:             s2?.mfrr_up_avg              ?? 15,   // €/MW/h
-        spread_eur_mwh:          s1?.spread_eur_mwh           ?? 15,   // €/MWh (coupling, for context)
-        lt_daily_swing_eur_mwh:  s1?.lt_daily_swing_eur_mwh  ?? null,  // €/MWh intraday swing (trading input)
-        euribor_3m:              eur?.euribor_3m              ?? 2.6,
+      const kv_data = { fleet, s2, s1 };
+      const result  = computeRevenue(system, capex, grant, cod, kv_data);
+
+      // Always compute 2h + 4h for backward compat and EU ranking
+      const r2h = system === '2h' ? result : computeRevenue('2h', capex, grant, cod, kv_data);
+      const r4h = system === '4h' ? result : computeRevenue('4h', capex, grant, cod, kv_data);
+      result.irr_2h       = r2h.project_irr;
+      result.net_mw_yr_2h = r2h.net_mw_yr;
+      result.irr_4h       = r4h.project_irr;
+      result.net_mw_yr_4h = r4h.net_mw_yr;
+      // h2/h4 backward compat for old RevenueCard shape
+      result.h2 = {
+        capex_per_mw: r2h.gross_capex / 50, irr_approx_pct: Math.round(r2h.project_irr * 1000) / 10,
+        simple_payback_years: r2h.simple_payback_years,
+        afrr_annual_per_mw: Math.round(r2h.capacity_y1 * 0.38), mfrr_annual_per_mw: Math.round(r2h.capacity_y1 * 0.27),
+        trading_annual_per_mw: r2h.arbitrage_y1, gross_annual_per_mw: r2h.gross_revenue_y1 / 50,
+        opex_annual_per_mw: r2h.opex_y1 / 50, net_annual_per_mw: r2h.net_revenue_y1 / 50,
+        ch_irr_central: 16.6, ch_irr_range: '6%–31%',
+      };
+      result.h4 = {
+        capex_per_mw: r4h.gross_capex / 50, irr_approx_pct: Math.round(r4h.project_irr * 1000) / 10,
+        simple_payback_years: r4h.simple_payback_years,
+        afrr_annual_per_mw: Math.round(r4h.capacity_y1 * 0.38), mfrr_annual_per_mw: Math.round(r4h.capacity_y1 * 0.27),
+        trading_annual_per_mw: r4h.arbitrage_y1, gross_annual_per_mw: r4h.gross_revenue_y1 / 50,
+        opex_annual_per_mw: r4h.opex_y1 / 50, net_annual_per_mw: r4h.net_revenue_y1 / 50,
+        ch_irr_central: 10.8, ch_irr_range: '6%–20%',
       };
 
-      const h2         = computeRevenueWorker(prices, 2);
-      const h4         = computeRevenueWorker(prices, 4);
-      const eu_ranking = computeMarketComparisonWorker(prices);
-
-      // LLM interpretation — best-effort, 10s budget
-      let interpretations = null;
-      try {
-        interpretations = await withTimeout(
-          computeInterpretations({ s1, s2, s3, s4 }, { h2, h4 }, env.ANTHROPIC_API_KEY),
-          10000,
-        );
-      } catch { /* serve without interpretation */ }
-
-      const payload = {
-        updated_at: new Date().toISOString(),
-        prices: {
-          afrr_up_avg:    prices.afrr_up_avg,
-          mfrr_up_avg:    prices.mfrr_up_avg,
-          spread_eur_mwh: prices.spread_eur_mwh,
-          euribor_3m:     prices.euribor_3m,
-        },
-        h2,
-        h4,
-        eu_ranking,
-        interpretations,
+      // Keep EU market ranking using old helper for comparison
+      const legacyPrices = {
+        afrr_up_avg:            s2?.afrr_up_avg             ?? 20,
+        mfrr_up_avg:            s2?.mfrr_up_avg             ?? 15,
+        spread_eur_mwh:         s1?.spread_eur_mwh          ?? 15,
+        lt_daily_swing_eur_mwh: s1?.lt_daily_swing_eur_mwh ?? null,
+        euribor_3m:             eur?.euribor_3m             ?? 2.6,
       };
-      const json = JSON.stringify(payload);
-      await env.KKME_SIGNALS.put('revenue', json, { expirationTtl: 14400 });
-      return new Response(json, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=14400', ...CORS } });
+      result.eu_ranking = computeMarketComparisonWorker(legacyPrices);
+
+      // Update Lithuania IRR in eu_ranking to live project IRR
+      if (result.eu_ranking) {
+        const lt = result.eu_ranking.find(m => m.country === 'Lithuania');
+        if (lt) lt.irr_pct = Math.round(result.project_irr * 1000) / 10;
+      }
+
+      result.prices = { afrr_up_avg: s2?.afrr_up_avg ?? null, mfrr_up_avg: s2?.mfrr_up_avg ?? null, spread_eur_mwh: s1?.spread_eur_mwh ?? null, euribor_3m: eur?.euribor_3m ?? null };
+      result.updated_at = result.timestamp;
+
+      return jsonResp(result);
     }
 
     // ── GET /s1/history · /s2/history · /s3/history · /s4/history ───────────
