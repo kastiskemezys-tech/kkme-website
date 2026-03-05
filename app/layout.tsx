@@ -22,14 +22,13 @@ const unbounded = Unbounded({
 });
 
 export const metadata: Metadata = {
-  title: 'KKME — Baltic BESS Signal Console',
+  title: 'KKME — Baltic BESS Market Signals & Revenue Analysis',
   description:
-    'Live signals for Baltic and Nordic energy storage, grid, and DC infrastructure deals. ' +
-    'Baltic price separation, balancing markets, battery costs, grid connection, DC power.',
+    'Live supply/demand ratio, capacity prices, grid data, and BESS revenue model for Lithuania and the Baltic energy storage market. Updated every 4 hours.',
   openGraph: {
-    title: 'KKME — Baltic BESS Signal Console',
+    title: 'KKME — Baltic BESS Market Signals & Revenue Analysis',
     description:
-      'Live signals for Baltic energy infrastructure investment. BESS, grid, DC.',
+      'Live S/D ratio, aFRR/mFRR prices, grid capacity, and BESS IRR model for Baltic energy storage investment.',
     url: 'https://kkme.eu',
     siteName: 'KKME',
     type: 'website',

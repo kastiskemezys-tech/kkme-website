@@ -171,8 +171,8 @@ function LiveData({ data, s2, cod, setCod, system }: {
     ? Object.fromEntries(fleetTraj.map(t => [String(t.year), t]))
     : {};
 
-  const projIrr = data.project_irr != null ? Math.round(data.project_irr * 10) / 10 : null;
-  const eqIrr   = data.equity_irr  != null ? Math.round(data.equity_irr  * 10) / 10 : null;
+  const projIrr = data.project_irr != null ? Math.round(data.project_irr * 1000) / 10 : null;
+  const eqIrr   = data.equity_irr  != null ? Math.round(data.equity_irr  * 1000) / 10 : null;
   const ts = data.updated_at ?? null;
 
   return (
@@ -237,7 +237,7 @@ function LiveData({ data, s2, cod, setCod, system }: {
         COD · Fleet S/D at delivery
       </p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '1.25rem' }}>
-        {(['2026', '2027', '2028', '2029'] as const).map(yr => {
+        {(['2027', '2028', '2029'] as const).map(yr => {
           const t = trajByYear[yr];
           const isCod = cod === yr;
           const sdVal = t?.sd_ratio ?? null;
@@ -378,7 +378,7 @@ export function RevenueCard() {
     { label: 'System', items: ['2.4h', '4h']             as const, value: system, set: (v: string) => setSystem(v as '2.4h' | '4h') },
     { label: 'CAPEX',  items: ['low', 'mid', 'high']      as const, value: capex,  set: (v: string) => setCapex(v as 'low' | 'mid' | 'high') },
     { label: 'Grant',  items: ['none', '30pct']           as const, value: grant,  set: (v: string) => setGrant(v as 'none' | '30pct'), labels: ['none', '30%'] },
-    { label: 'COD',    items: ['2026', '2027', '2028', '2029'] as const, value: cod, set: setCod },
+    { label: 'COD',    items: ['2027', '2028', '2029'] as const, value: cod, set: setCod },
   ];
 
   return (
@@ -392,9 +392,17 @@ export function RevenueCard() {
       <h3 style={{ ...MONO, fontSize: '0.8rem', letterSpacing: '0.14em', color: text(0.35), fontWeight: 400, textTransform: 'uppercase', marginBottom: '4px' }}>
         BESS Revenue Engine
       </h3>
-      <p style={{ ...MONO, fontSize: '0.55rem', color: text(0.25), letterSpacing: '0.06em', marginBottom: '1.25rem' }}>
-        50 MW LFP · Lithuania · 18yr life · CH S1 2025 anchor
-      </p>
+      {/* CH benchmark anchor */}
+      <div style={{
+        fontFamily: 'var(--font-mono)', fontSize: '0.6875rem',
+        color: 'var(--text-tertiary)', lineHeight: 1.6,
+        padding: '10px 12px', marginBottom: '20px',
+        background: 'var(--bg-elevated)', border: '1px solid var(--border-card)',
+      }}>
+        Clean Horizon S1 2025 central:{' '}
+        <span style={{ color: 'var(--text-secondary)' }}>16.6% IRR (2H)</span><br />
+        Range: 6–31% · Target hurdle: 12%
+      </div>
 
       {/* Selectors */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px 20px', marginBottom: '1.5rem' }}>

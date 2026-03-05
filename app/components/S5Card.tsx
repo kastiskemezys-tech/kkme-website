@@ -77,7 +77,7 @@ export function S5Card() {
         ]}
         dataLines={[
           'Grid: Litgrid ArcGIS FeatureServer (Kaupikliai, near real-time)',
-          'DC news: DataCenterKnowledge RSS (top 5 headlines)',
+          'Grid: Litgrid FeatureServer · filtered for DC-relevant nodes',
           'Pipeline: manual quarterly update via POST /s5/manual',
           'Stale: grid/news 6h',
         ]}
@@ -251,7 +251,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason }: LiveDat
       </div>
 
       <CardFooter
-        period="Grid: near real-time · News: DataCenterKnowledge RSS"
+        period="Grid: Litgrid FeatureServer · Signal: free MW vs 2 GW DC threshold"
         compare="Signal: free MW vs 2 GW DC-scale threshold"
         updated={`${formatHHMM(ts)} UTC`}
         timestamp={ts}

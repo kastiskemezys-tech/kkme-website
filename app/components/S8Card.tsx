@@ -139,7 +139,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, mapView, 
       <StaleBanner isDefault={isDefault} isStale={isStale} ageHours={ageHours} defaultReason={defaultReason} />
 
       {/* Hero — dominant direction */}
-      <p style={{ ...MONO, fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', fontWeight: 400, color: dirColor(dominantSig), lineHeight: 1, letterSpacing: '-0.02em', marginBottom: '0.5rem' }}>
+      <p style={{ ...MONO, fontSize: '1.4rem', fontWeight: 400, color: dirColor(dominantSig), lineHeight: 1, letterSpacing: '0.04em', marginBottom: '0.5rem' }}>
         {dirLabel(dominantSig)}
       </p>
       <p style={{ ...MONO, fontSize: '0.55rem', color: text(0.52), letterSpacing: '0.08em', marginBottom: '1.25rem' }}>

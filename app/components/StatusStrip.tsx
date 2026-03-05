@@ -13,7 +13,7 @@ interface StripItem {
 
 export function StatusStrip() {
   const [items, setItems] = useState<StripItem[]>([
-    { label: 'LT↔SE4 Spread', value: '—', state: 'neutral' },
+    { label: 'BESS Capture',   value: '—', state: 'neutral' },
     { label: 'aFRR',          value: '—', state: 'neutral' },
     { label: 'S/D Ratio',     value: '—', state: 'neutral' },
     { label: 'Grid Free',     value: '—', state: 'neutral' },
@@ -25,7 +25,7 @@ export function StatusStrip() {
       fetch(`${WORKER_URL}/s2`).then(r => r.json()).catch(() => null),
       fetch(`${WORKER_URL}/s4`).then(r => r.json()).catch(() => null),
     ]).then(([d1, d2, d4]) => {
-      const spread = d1?.spread_eur_mwh;
+      const bess   = d1?.bess_net_capture;
       const afrr   = d2?.afrr_up_avg;
       const free   = d4?.free_mw;
       const sdRatio = d2?.sd_ratio;
@@ -33,9 +33,9 @@ export function StatusStrip() {
 
       setItems([
         {
-          label: 'LT↔SE4 Spread',
-          value: spread != null ? `${spread >= 0 ? '+' : ''}${spread.toFixed(1)} €/MWh` : '—',
-          state: spread != null ? (spread > 20 ? 'positive' : spread > 5 ? 'warning' : 'neutral') : 'neutral',
+          label: 'BESS Capture',
+          value: bess != null ? `${bess.toFixed(1)} €/MWh` : '—',
+          state: bess != null ? (bess > 100 ? 'positive' : bess > 40 ? 'warning' : 'neutral') : 'neutral',
         },
         {
           label: 'aFRR',
