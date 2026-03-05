@@ -11,6 +11,18 @@ import { safeNum, fK, formatHHMM } from '@/lib/safeNum';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
+interface FleetCountry {
+  operational_mw: number;
+  pipeline_mw:    number;
+  weighted_mw:    number;
+}
+
+interface TrajectoryPoint {
+  year:     number;
+  sd_ratio: number;
+  phase:    string;
+}
+
 interface S2Signal {
   timestamp?: string | null;
   fcr_avg?:       number | null;
@@ -38,6 +50,15 @@ interface S2Signal {
   _stale?:         boolean;
   _age_hours?:     number | null;
   _serving?:       string;
+  // Fleet S/D ratio fields
+  sd_ratio?:              number | null;
+  phase?:                 string | null;
+  cpi?:                   number | null;
+  trajectory?:            TrajectoryPoint[] | null;
+  fleet?:                 Record<string, FleetCountry> | null;
+  baltic_operational_mw?: number | null;
+  baltic_pipeline_mw?:    number | null;
+  eff_demand_mw?:         number | null;
 }
 
 const text = (opacity: number) => `rgba(232, 226, 217, ${opacity})`;
@@ -190,8 +211,17 @@ interface LiveDataProps {
   data: S2Signal; isDefault: boolean; isStale: boolean; ageHours: number | null; defaultReason: string | null; history: number[];
 }
 
+function phaseColor(phase: string | null | undefined): string {
+  if (phase === 'SCARCITY') return 'rgba(74,222,128,0.90)';
+  if (phase === 'COMPRESS')  return 'rgba(212,160,60,0.88)';
+  if (phase === 'MATURE')    return 'rgba(232,226,217,0.50)';
+  return 'rgba(232,226,217,0.45)';
+}
+
 function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }: LiveDataProps) {
   const ts = data.timestamp ?? null;
+  const sdRatio = data.sd_ratio ?? null;
+  const phase   = data.phase   ?? null;
 
   return (
     <>
@@ -203,6 +233,50 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
           Tomorrow ordered{data.ordered_price != null ? ` ${data.ordered_price} €/MW/h` : ''}
           {data.ordered_mw != null ? ` · ${data.ordered_mw} MW` : ''}
         </p>
+      )}
+
+      {/* S/D Ratio section */}
+      {sdRatio != null && (
+        <div style={{ marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginBottom: '0.25rem' }}>
+            <p style={{ ...MONO, fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', fontWeight: 400, lineHeight: 1, letterSpacing: '0.04em', margin: 0, color: phaseColor(phase) }}>
+              {sdRatio.toFixed(2)}
+              <span style={{ fontSize: '0.38em', marginLeft: '0.2em', opacity: 0.6 }}>S/D</span>
+            </p>
+            <span style={{ ...MONO, fontSize: '0.65rem', color: phaseColor(phase), letterSpacing: '0.08em', fontWeight: 500 }}>
+              {phase}
+            </span>
+          </div>
+          <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.3), letterSpacing: '0.06em', marginBottom: '0.65rem' }}>
+            {data.baltic_operational_mw != null ? `${data.baltic_operational_mw} MW op` : ''}
+            {data.baltic_pipeline_mw    != null ? ` · ${data.baltic_pipeline_mw} MW pipeline` : ''}
+            {data.eff_demand_mw         != null ? ` · ${data.eff_demand_mw} MW demand` : ''}
+          </p>
+
+          {/* Trajectory bar */}
+          {data.trajectory && data.trajectory.length > 0 && (
+            <div style={{ marginBottom: '0.5rem' }}>
+              <div style={{ display: 'flex', gap: '2px', height: '16px' }}>
+                {data.trajectory.map(pt => (
+                  <div
+                    key={pt.year}
+                    title={`${pt.year}: ${pt.sd_ratio} (${pt.phase})`}
+                    style={{
+                      flex: 1,
+                      background: phaseColor(pt.phase),
+                      opacity: 0.25 + (data.trajectory!.indexOf(pt) * 0.12),
+                      borderRadius: '1px',
+                    }}
+                  />
+                ))}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', ...MONO, fontSize: '0.45rem', color: text(0.25), marginTop: '3px' }}>
+                <span>{data.trajectory[0].year}</span>
+                <span>{data.trajectory[data.trajectory.length - 1].year} ({data.trajectory[data.trajectory.length - 1].phase})</span>
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
       {/* PRIMARY: aFRR and mFRR capacity revenue — shown separately, not summed */}

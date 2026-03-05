@@ -48,6 +48,71 @@ const CORS = {
   'Access-Control-Allow-Headers': 'Content-Type, X-Update-Secret',
 };
 
+// ─── Fleet tracker helpers ──────────────────────────────────────────────────────
+
+function jsonResp(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+  });
+}
+
+const STATUS_WEIGHT = {
+  operational: 1.0, commissioned: 1.0,
+  under_construction: 0.9, connection_agreement: 0.6,
+  application: 0.3, announced: 0.1,
+};
+
+function processFleet(entries, demand) {
+  const countries = {};
+  for (const e of entries) {
+    const c = e.country || 'LT';
+    if (!countries[c]) countries[c] = { operational_mw: 0, pipeline_mw: 0, weighted_mw: 0, entries: [] };
+    const w = STATUS_WEIGHT[e.status] || 0.1;
+    countries[c].weighted_mw += e.mw * w;
+    if (e.status === 'operational' || e.status === 'commissioned') {
+      countries[c].operational_mw += e.mw;
+    } else {
+      countries[c].pipeline_mw += e.mw;
+    }
+    countries[c].entries.push(e);
+  }
+  const baltic_operational = Object.values(countries).reduce((s, c) => s + c.operational_mw, 0);
+  const baltic_weighted    = Object.values(countries).reduce((s, c) => s + c.weighted_mw, 0);
+  const baltic_pipeline    = Object.values(countries).reduce((s, c) => s + c.pipeline_mw, 0);
+  const eff_demand = demand?.eff_demand_mw || 935;
+  const sd_ratio   = baltic_weighted / eff_demand;
+  let phase, cpi;
+  if (sd_ratio < 0.6) {
+    phase = 'SCARCITY'; cpi = Math.min(1.0 + (0.6 - sd_ratio) * 2.5, 2.0);
+  } else if (sd_ratio < 1.0) {
+    phase = 'COMPRESS'; cpi = Math.max(0.40, 1.0 - (sd_ratio - 0.6) * 1.5);
+  } else {
+    phase = 'MATURE';   cpi = Math.max(0.35, 0.40 - (sd_ratio - 1.0) * 0.05);
+  }
+  // 5-year trajectory (0.15 sd_ratio growth/yr — conservative new entrant assumption)
+  const trajectory = [];
+  const baseYear = new Date().getUTCFullYear();
+  for (let i = 0; i <= 5; i++) {
+    const r  = sd_ratio + i * 0.15;
+    const yr = baseYear + i;
+    const ph = r < 0.6 ? 'SCARCITY' : r < 1.0 ? 'COMPRESS' : 'MATURE';
+    trajectory.push({ year: yr, sd_ratio: Math.round(r * 100) / 100, phase: ph });
+  }
+  return {
+    countries,
+    baltic_operational_mw: Math.round(baltic_operational),
+    baltic_pipeline_mw:    Math.round(baltic_pipeline),
+    baltic_weighted_mw:    Math.round(baltic_weighted),
+    eff_demand_mw:         eff_demand,
+    sd_ratio:              Math.round(sd_ratio * 100) / 100,
+    phase,
+    cpi:                   Math.round(cpi * 100) / 100,
+    trajectory,
+    updated_at:            new Date().toISOString(),
+  };
+}
+
 // ─── Timeout helper ────────────────────────────────────────────────────────────
 
 function withTimeout(promise, ms) {
@@ -2062,20 +2127,75 @@ export default {
       return Response.json(JSON.parse(raw), { headers: CORS });
     }
 
+    // ── POST /s2/fleet ────────────────────────────────────────────────────────
+    // Replace the full fleet dataset. Body: { entries: [...], demand: { eff_demand_mw } }
+    if (request.method === 'POST' && url.pathname === '/s2/fleet') {
+      const secret = request.headers.get('X-Update-Secret');
+      if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
+      let body;
+      try { body = await request.json(); } catch { return jsonResp({ error: 'Invalid JSON' }, 400); }
+      const { entries, demand } = body;
+      if (!Array.isArray(entries) || entries.length === 0) return jsonResp({ error: 'entries array required' }, 400);
+      const fleet = processFleet(entries, demand ?? null);
+      fleet.raw_entries = entries;
+      fleet.demand      = demand ?? { eff_demand_mw: 935 };
+      await env.KKME_SIGNALS.put('s2_fleet', JSON.stringify(fleet));
+      console.log(`[S2/fleet] seeded n=${entries.length} sd_ratio=${fleet.sd_ratio} phase=${fleet.phase}`);
+      return jsonResp({ ok: true, sd_ratio: fleet.sd_ratio, phase: fleet.phase, n: entries.length });
+    }
+
+    // ── POST /s2/fleet/entry ──────────────────────────────────────────────────
+    // Add or update a single fleet entry by project name.
+    if (request.method === 'POST' && url.pathname === '/s2/fleet/entry') {
+      const secret = request.headers.get('X-Update-Secret');
+      if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
+      let body;
+      try { body = await request.json(); } catch { return jsonResp({ error: 'Invalid JSON' }, 400); }
+      if (!body.name || !body.mw || !body.status) return jsonResp({ error: 'name, mw, status required' }, 400);
+      const raw     = await env.KKME_SIGNALS.get('s2_fleet').catch(() => null);
+      const current = raw ? JSON.parse(raw) : { raw_entries: [], demand: { eff_demand_mw: 935 } };
+      const entries = current.raw_entries ?? [];
+      const idx     = entries.findIndex(e => e.name === body.name);
+      if (idx >= 0) entries[idx] = body; else entries.push(body);
+      const fleet = processFleet(entries, current.demand);
+      fleet.raw_entries = entries;
+      fleet.demand      = current.demand;
+      await env.KKME_SIGNALS.put('s2_fleet', JSON.stringify(fleet));
+      return jsonResp({ ok: true, sd_ratio: fleet.sd_ratio, phase: fleet.phase, n: entries.length });
+    }
+
+    // ── GET /s2/fleet ─────────────────────────────────────────────────────────
+    if (request.method === 'GET' && url.pathname === '/s2/fleet') {
+      const raw = await env.KKME_SIGNALS.get('s2_fleet').catch(() => null);
+      if (!raw) return jsonResp({ error: 'no fleet data yet' }, 404);
+      return new Response(raw, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...CORS } });
+    }
+
     // ── GET /s2 ──────────────────────────────────────────────────────────────
-    // Populated by GitHub Action fetch-btd.yml via POST /s2/update
+    // Merges BTD capacity data + fleet S/D ratio data.
     if (request.method === 'GET' && url.pathname === '/s2') {
       try {
-        const cached = await env.KKME_SIGNALS.get('s2');
-        if (cached) {
-          return new Response(cached, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600', ...CORS } });
+        const [cached, fleetRaw] = await Promise.all([
+          env.KKME_SIGNALS.get('s2'),
+          env.KKME_SIGNALS.get('s2_fleet').catch(() => null),
+        ]);
+        const base = cached
+          ? JSON.parse(cached)
+          : { ...DEFAULTS.s2, unavailable: true, _serving: 'static_defaults' };
+        if (fleetRaw) {
+          const fleet = JSON.parse(fleetRaw);
+          base.sd_ratio              = fleet.sd_ratio              ?? null;
+          base.phase                 = fleet.phase                 ?? null;
+          base.cpi                   = fleet.cpi                   ?? null;
+          base.trajectory            = fleet.trajectory            ?? null;
+          base.fleet                 = fleet.countries             ?? null;
+          base.baltic_operational_mw = fleet.baltic_operational_mw ?? null;
+          base.baltic_pipeline_mw    = fleet.baltic_pipeline_mw    ?? null;
+          base.eff_demand_mw         = fleet.eff_demand_mw         ?? null;
         }
-        // KV empty — serve static floor defaults so the card never shows blank
-        const defaults = { ...DEFAULTS.s2, unavailable: true, _serving: 'static_defaults' };
-        return new Response(
-          JSON.stringify(defaults),
-          { status: 200, headers: { 'Content-Type': 'application/json', ...CORS } },
-        );
+        return new Response(JSON.stringify(base), {
+          headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600', ...CORS },
+        });
       } catch (e) {
         console.error('/s2 handler error:', e);
         return Response.json({
@@ -2120,6 +2240,39 @@ export default {
       console.log(`[S2/update] ${payload.signal} fcr=${payload.fcr_avg} afrr_up=${payload.afrr_up_avg} pct_up=${payload.pct_up} ordered=${ordered_price ?? '—'}€/MW/h ${ordered_mw ?? '—'}MW`);
       await appendSignalHistory(env, 's2', { afrr_up: payload.afrr_up_avg, mfrr_up: payload.mfrr_up_avg, fcr: payload.fcr_avg }).catch(e => console.error('[S2/history]', e));
       return new Response(JSON.stringify(payload), { status: 200, headers: { 'Content-Type': 'application/json', ...CORS } });
+    }
+
+    // ── GET /api/model-inputs ─────────────────────────────────────────────────
+    // Aggregated signal snapshot for analyst/model use.
+    if (request.method === 'GET' && url.pathname === '/api/model-inputs') {
+      const [s1r, s2r, s3r, s4r, eurR, fleetR] = await Promise.allSettled([
+        env.KKME_SIGNALS.get('s1'),
+        env.KKME_SIGNALS.get('s2'),
+        env.KKME_SIGNALS.get('s3'),
+        env.KKME_SIGNALS.get('s4'),
+        env.KKME_SIGNALS.get('euribor'),
+        env.KKME_SIGNALS.get('s2_fleet'),
+      ]);
+      const parse = r => (r.status === 'fulfilled' && r.value) ? JSON.parse(r.value) : null;
+      const s1 = parse(s1r), s2 = parse(s2r), s3 = parse(s3r), s4 = parse(s4r);
+      const eur = parse(eurR), fleet = parse(fleetR);
+      return Response.json({
+        as_of:                 new Date().toISOString(),
+        spread_eur_mwh:        s1?.spread_eur_mwh        ?? null,
+        afrr_up_avg:           s2?.afrr_up_avg           ?? null,
+        mfrr_up_avg:           s2?.mfrr_up_avg           ?? null,
+        sd_ratio:              fleet?.sd_ratio           ?? null,
+        phase:                 fleet?.phase              ?? null,
+        cpi:                   fleet?.cpi               ?? null,
+        lithium_eur_t:         s3?.lithium_eur_t         ?? null,
+        cell_eur_kwh:          s3?.cell_eur_kwh          ?? null,
+        euribor_nominal_3m:    eur?.euribor_nominal_3m   ?? null,
+        euribor_real_3m:       eur?.euribor_real_3m      ?? null,
+        grid_free_mw:          s4?.free_mw               ?? null,
+        baltic_operational_mw: fleet?.baltic_operational_mw ?? null,
+        baltic_pipeline_mw:    fleet?.baltic_pipeline_mw ?? null,
+        eff_demand_mw:         fleet?.eff_demand_mw      ?? null,
+      }, { headers: { ...CORS, 'Cache-Control': 'no-store' } });
     }
 
     // ── POST /curate ─────────────────────────────────────────────────────────
@@ -2176,10 +2329,11 @@ export default {
           const d = JSON.parse(s3Raw);
           if (eurRaw) {
             const eur = JSON.parse(eurRaw);
-            d.euribor_3m        = eur.euribor_3m        ?? null;
+            d.euribor_3m         = eur.euribor_3m         ?? null;
             d.euribor_nominal_3m = eur.euribor_nominal_3m ?? eur.euribor_3m ?? null;
-            d.hicp_yoy          = eur.hicp_yoy          ?? null;
-            d.euribor_trend     = eur.euribor_trend     ?? null;
+            d.euribor_real_3m    = eur.euribor_real_3m    ?? null;
+            d.hicp_yoy           = eur.hicp_yoy           ?? null;
+            d.euribor_trend      = eur.euribor_trend      ?? null;
           }
           return new Response(JSON.stringify(d), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600', ...CORS } });
         } catch { /* fall through to fresh compute */ }
