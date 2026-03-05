@@ -59,12 +59,7 @@ export function S7Card() {
   return (
     <article
       className="signal-card"
-      style={{
-        border: `1px solid ${text(0.1)}`,
-        padding: '2rem 2.5rem',
-        maxWidth: '440px',
-        width: '100%',
-      }}
+      style={{ width: '100%' }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
         <SignalIcon type="gas" size={20} />
@@ -73,18 +68,20 @@ export function S7Card() {
         </h3>
       </div>
 
-      <CardDisclosure
-        explain={[
-          'TTF: Dutch Title Transfer Facility — European gas benchmark.',
-          'HIGH >50 €/MWh: gas-fired peakers expensive → strong BESS arbitrage case.',
-          'LOW <15 €/MWh: cheap gas compresses peaker margins.',
-        ]}
-        dataLines={[
-          'Source: energy-charts.info API (weekly EU gas prices)',
-          'No authentication required',
-          'Stale: 12h',
-        ]}
-      />
+      <div className="tier3-detail">
+        <CardDisclosure
+          explain={[
+            'TTF: Dutch Title Transfer Facility — European gas benchmark.',
+            'HIGH >50 €/MWh: gas-fired peakers expensive → strong BESS arbitrage case.',
+            'LOW <15 €/MWh: cheap gas compresses peaker margins.',
+          ]}
+          dataLines={[
+            'Source: energy-charts.info API (weekly EU gas prices)',
+            'No authentication required',
+            'Stale: 12h',
+          ]}
+        />
+      </div>
 
       <div aria-live="polite" aria-atomic="false">
         {status === 'loading' && <Skeleton />}

@@ -43,6 +43,18 @@ export default function StickyNav() {
             letterSpacing: '0.04em',
           }}>{l.label}</a>
         ))}
+        <a href="#deal-flow" style={{
+          padding: '5px 16px',
+          fontFamily: 'var(--font-mono)',
+          fontSize: '0.6875rem',
+          background: 'rgba(212,160,60,0.08)',
+          border: '1px solid rgba(212,160,60,0.20)',
+          color: 'var(--amber)',
+          textDecoration: 'none',
+          letterSpacing: '0.04em',
+          marginLeft: '20px',
+          borderRadius: '2px',
+        }}>Submit Project</a>
       </div>
     </nav>
   );

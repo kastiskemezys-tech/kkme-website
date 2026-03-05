@@ -4,6 +4,23 @@ import { useState, useEffect, useMemo, type CSSProperties } from 'react';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
+function decodeEntities(str: string): string {
+  if (!str) return '';
+  return str
+    .replace(/&#039;/g, "'").replace(/&apos;/g, "'")
+    .replace(/&amp;/g, '&').replace(/&quot;/g, '"')
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+}
+
+function getCategoryColor(cat: string): string {
+  const colors: Record<string, string> = {
+    BESS: 'var(--teal)', DC: 'rgb(140,120,200)',
+    GRID: 'var(--amber)', HYDROGEN: 'rgb(120,180,120)',
+    TECHNOLOGY: 'rgb(180,140,100)', BATTERIES: 'rgb(180,160,80)',
+  };
+  return colors[(cat || '').toUpperCase()] || 'var(--text-tertiary)';
+}
+
 const TOPICS = ['ALL', 'BESS', 'DC', 'HYDROGEN', 'BATTERIES', 'GRID', 'TECHNOLOGY'] as const;
 type Topic = typeof TOPICS[number];
 
@@ -128,7 +145,7 @@ export function IntelFeed() {
     : visible.filter(i => i.topic.toUpperCase() === active);
 
   return (
-    <section style={{ maxWidth: '440px', width: '100%' }}>
+    <section style={{ width: '100%' }}>
       {/* Section header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.25rem' }}>
         <h2 style={{ ...MONO, fontSize: '0.75rem', letterSpacing: '0.14em', color: text(0.52), fontWeight: 400, textTransform: 'uppercase' }}>
@@ -193,70 +210,34 @@ export function IntelFeed() {
         </div>
       )}
 
-      {!loading && filtered.map(item => {
+      {!loading && filtered.map((item, i) => {
         const isOpen = expanded === item.id;
         return (
-          <div
-            key={item.id}
-            style={{
-              borderTop: `1px solid ${text(0.06)}`,
-              paddingTop: '0.75rem',
-              paddingBottom: '0.75rem',
-              cursor: 'pointer',
-            }}
-            onClick={() => setExpanded(isOpen ? null : item.id)}
-          >
-            {/* Row header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '0.5rem' }}>
-              <span className={`cat-pill cat-${item.topic.toUpperCase()}`}>
-                {item.topic}
-              </span>
-              <span style={{ ...MONO, fontSize: '0.65rem', color: text(0.35), flexShrink: 0 }}>
+          <div key={item.id || i} onClick={() => setExpanded(isOpen ? null : item.id)} style={{ cursor: 'pointer' }}>
+            <div className="feed-row">
+              <span className="feed-date" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', color: 'var(--text-muted)' }}>
                 {formatDate(item.added_at)}
               </span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', color: getCategoryColor(item.topic), textTransform: 'uppercase' as const, letterSpacing: '0.04em' }}>
+                {item.topic}
+              </span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
+                {item.url ? (
+                  <a href={item.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ color: 'inherit', textDecoration: 'none' }}>
+                    {decodeEntities(item.title)}
+                  </a>
+                ) : decodeEntities(item.title)}
+              </span>
+              <span className="feed-source" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', color: 'var(--text-ghost)', textAlign: 'right' as const, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
+                {item.source || ''}
+              </span>
             </div>
-
-            {/* Title with category dot */}
-            <p style={{ ...SERIF, fontSize: '0.75rem', color: text(0.65), lineHeight: 1.55, marginTop: '0.3rem', marginBottom: 0, display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
-              <span className={`cat-dot cat-${item.topic.toUpperCase()}`} style={{
-                display: 'inline-block',
-                width: '5px',
-                height: '5px',
-                borderRadius: '50%',
-                background: 'currentColor',
-                flexShrink: 0,
-                marginTop: '7px',
-                opacity: 0.7,
-              }} />
-              {item.url ? (
-                <a
-                  href={item.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={e => e.stopPropagation()}
-                  style={{ color: 'inherit', textDecoration: 'none', borderBottom: `1px solid ${text(0.15)}` }}
-                >
-                  {item.title}
-                </a>
-              ) : item.title}
-            </p>
-
-            {/* Source row: icon + domain */}
-            {item.source && (
-              <p style={{ ...MONO, fontSize: '0.65rem', color: text(0.35), marginTop: '0.2rem' }}>
-                <SourceIcon source={item.source} />
-                {item.source}
-              </p>
-            )}
-
-            {/* Company chips */}
-            <CompanyChips companies={item.companies} />
-
-            {/* Expanded: summary */}
             {isOpen && item.summary && (
-              <p style={{ ...MONO, fontSize: '0.55rem', color: text(0.45), lineHeight: 1.65, marginTop: '0.6rem', borderLeft: `2px solid rgba(123,94,167,0.22)`, paddingLeft: '0.6rem' }}>
-                {item.summary}
-              </p>
+              <div style={{ padding: '8px 12px 12px', background: 'rgba(123,94,167,0.04)', borderBottom: '1px solid rgba(232,226,217,0.04)' }}>
+                <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.55rem', color: 'rgba(232,226,217,0.45)', lineHeight: 1.65, borderLeft: '2px solid rgba(123,94,167,0.22)', paddingLeft: '8px', margin: 0 }}>
+                  {item.summary}
+                </p>
+              </div>
             )}
           </div>
         );

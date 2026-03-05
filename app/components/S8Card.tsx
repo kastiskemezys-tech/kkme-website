@@ -61,12 +61,7 @@ export function S8Card() {
   return (
     <article
       className="signal-card"
-      style={{
-        border: `1px solid ${text(0.1)}`,
-        padding: '2rem 2.5rem',
-        maxWidth: '440px',
-        width: '100%',
-      }}
+      style={{ width: '100%' }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
         <SignalIcon type="flows" size={20} />
@@ -75,18 +70,20 @@ export function S8Card() {
         </h3>
       </div>
 
-      <CardDisclosure
-        explain={[
-          'Net cross-border physical flows: LT → SE4 (NordBalt) and LT → PL (LitPol).',
-          'Positive = LT exporting. Negative = LT importing.',
-          'EXPORTING: >100 MW net out. IMPORTING: >100 MW net in.',
-        ]}
-        dataLines={[
-          'Source: ENTSO-E Transparency Platform (A11 document type)',
-          'Pairs: NordBalt (LT↔SE4), LitPol (LT↔PL)',
-          'Stale: 12h',
-        ]}
-      />
+      <div className="tier3-detail">
+        <CardDisclosure
+          explain={[
+            'Net cross-border physical flows: LT → SE4 (NordBalt) and LT → PL (LitPol).',
+            'Positive = LT exporting. Negative = LT importing.',
+            'EXPORTING: >100 MW net out. IMPORTING: >100 MW net in.',
+          ]}
+          dataLines={[
+            'Source: ENTSO-E Transparency Platform (A11 document type)',
+            'Pairs: NordBalt (LT↔SE4), LitPol (LT↔PL)',
+            'Stale: 12h',
+          ]}
+        />
+      </div>
 
       <div aria-live="polite" aria-atomic="false">
         {status === 'loading' && <Skeleton />}
@@ -179,6 +176,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, mapView, 
           >{v}</button>
         ))}
       </div>
+      <div style={{ maxHeight: '180px', overflow: 'hidden' }}>
       <BalticMap
         nordbalt_mw={data.nordbalt_avg_mw}
         nordbalt_dir={data.nordbalt_signal}
@@ -186,6 +184,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, mapView, 
         litpol_dir={data.litpol_signal}
         view={mapView}
       />
+      </div>
 
       <time dateTime={ts ?? ''} style={{ ...MONO, fontSize: '0.575rem', color: text(0.40), letterSpacing: '0.06em', display: 'block', textAlign: 'right', marginTop: '1rem' }}>
         {ts ? formatTs(ts) : '—'}

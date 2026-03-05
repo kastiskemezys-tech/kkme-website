@@ -50,12 +50,7 @@ export function S9Card() {
   return (
     <article
       className="signal-card"
-      style={{
-        border: `1px solid ${text(0.1)}`,
-        padding: '2rem 2.5rem',
-        maxWidth: '440px',
-        width: '100%',
-      }}
+      style={{ width: '100%' }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
         <SignalIcon type="carbon" size={20} />
@@ -64,18 +59,20 @@ export function S9Card() {
         </h3>
       </div>
 
-      <CardDisclosure
-        explain={[
-          'EU ETS: European Allowance price €/t CO₂.',
-          'HIGH >70 €/t: strong incentive to displace gas peakers with BESS.',
-          'LOW <30 €/t: reduced carbon premium on peaker economics.',
-        ]}
-        dataLines={[
-          'Source: energy-charts.info API (weekly EU CO₂ price)',
-          'No authentication required',
-          'Stale: 12h',
-        ]}
-      />
+      <div className="tier3-detail">
+        <CardDisclosure
+          explain={[
+            'EU ETS: European Allowance price €/t CO₂.',
+            'HIGH >70 €/t: strong incentive to displace gas peakers with BESS.',
+            'LOW <30 €/t: reduced carbon premium on peaker economics.',
+          ]}
+          dataLines={[
+            'Source: energy-charts.info API (weekly EU CO₂ price)',
+            'No authentication required',
+            'Stale: 12h',
+          ]}
+        />
+      </div>
 
       <div aria-live="polite" aria-atomic="false">
         {status === 'loading' && <Skeleton />}
