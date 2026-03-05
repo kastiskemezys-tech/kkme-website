@@ -192,6 +192,18 @@ function LiveData({ data, s2, cod, setCod, mw, mwh }: {
         ))}
       </div>
 
+      {/* Delta vs CH benchmark */}
+      {projIrr != null && (() => {
+        const benchmarkIrr = 16.6;
+        const delta = projIrr - benchmarkIrr;
+        const sign = delta >= 0 ? '+' : '';
+        return (
+          <div style={{ ...MONO, fontSize: '0.6rem', color: text(0.35), marginBottom: '1rem', textAlign: 'center' }}>
+            {`CH S1 2025 ref: ${benchmarkIrr.toFixed(1)}% · Live: ${sign}${delta.toFixed(1)}pp vs benchmark`}
+          </div>
+        );
+      })()}
+
       {/* DSCR bar */}
       <div style={{ marginBottom: '1.25rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>

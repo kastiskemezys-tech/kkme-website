@@ -287,3 +287,178 @@ body::after {
     max-width: 900px;
   }
 }
+
+/* ════════════════════════════════════════════
+   LAYOUT GRID SYSTEM
+   ════════════════════════════════════════════ */
+
+.page-container {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 0 32px;
+}
+
+.section {
+  margin-bottom: 96px;
+}
+
+.section-header {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 32px;
+  padding-left: 16px;
+  border-left: 2px solid var(--teal);
+}
+
+.section-elevated {
+  margin-left: -32px;
+  margin-right: -32px;
+  padding: 64px 32px;
+  background: rgba(232, 226, 217, 0.012);
+  border-top: 1px solid rgba(232, 226, 217, 0.04);
+  border-bottom: 1px solid rgba(232, 226, 217, 0.04);
+  margin-bottom: 96px;
+}
+
+/* ════════════════════════════════════════════
+   GRID VARIANTS
+   ════════════════════════════════════════════ */
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 28px;
+}
+
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+}
+
+/* ════════════════════════════════════════════
+   CARD SYSTEM
+   ════════════════════════════════════════════ */
+
+.card {
+  background: rgba(232, 226, 217, 0.018);
+  border: 1px solid var(--border-card);
+  border-radius: 4px;
+  padding: 28px;
+  overflow: hidden;
+}
+
+.card-tier1 {
+  background: rgba(232, 226, 217, 0.038);
+  border-color: var(--border-highlight);
+}
+
+.card-tier3 {
+  background: rgba(232, 226, 217, 0.015);
+  border-color: rgba(232, 226, 217, 0.06);
+  padding: 20px;
+}
+
+/* ════════════════════════════════════════════
+   HORIZONTAL CARD INTERNALS
+   ════════════════════════════════════════════ */
+
+.card-split {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 28px;
+  align-items: start;
+}
+
+/* ════════════════════════════════════════════
+   TIER 3 DETAIL COLLAPSE
+   ════════════════════════════════════════════ */
+
+.tier3-detail { display: none; }
+
+/* ════════════════════════════════════════════
+   INLINE CTA
+   ════════════════════════════════════════════ */
+
+.inline-cta {
+  display: flex;
+  justify-content: center;
+  padding: 32px 0;
+  margin-bottom: 96px;
+}
+
+.inline-cta a {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  text-decoration: none;
+  letter-spacing: 0.06em;
+  padding: 10px 28px;
+  border: 1px solid var(--border-card);
+  transition: all 0.2s ease;
+}
+
+.inline-cta a:hover {
+  color: var(--amber);
+  border-color: rgba(212, 160, 60, 0.30);
+  background: rgba(212, 160, 60, 0.04);
+}
+
+/* ════════════════════════════════════════════
+   COMPACT INTEL FEED
+   ════════════════════════════════════════════ */
+
+.feed-row {
+  display: grid;
+  grid-template-columns: 85px 95px 1fr 130px;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(232, 226, 217, 0.04);
+}
+
+.feed-row:last-child { border-bottom: none; }
+
+/* ════════════════════════════════════════════
+   RESPONSIVE
+   ════════════════════════════════════════════ */
+
+@media (max-width: 900px) {
+  .grid-2 { grid-template-columns: 1fr; }
+  .grid-3 { grid-template-columns: 1fr; }
+  .grid-4 { grid-template-columns: 1fr 1fr; }
+  .card-split { grid-template-columns: 1fr; }
+  .section { margin-bottom: 64px; }
+  .section-elevated {
+    margin-left: -16px;
+    margin-right: -16px;
+    padding: 40px 16px;
+  }
+  .feed-row {
+    grid-template-columns: auto 1fr;
+  }
+  .feed-row .feed-date,
+  .feed-row .feed-source { display: none; }
+}
+
+@media (max-width: 520px) {
+  .grid-4 { grid-template-columns: 1fr; }
+  .page-container { padding: 0 16px; }
+  .card { padding: 20px; }
+}
+
+/* ── Post-layout polish ──────────────────────────────────────────────────── */
+.grid-2 > .card { min-height: 0; align-self: start; }
+.card-split svg,
+.card-split canvas { max-height: 200px; width: 100%; }
+.feed-row { min-width: 0; }
+.feed-row > * { min-width: 0; }

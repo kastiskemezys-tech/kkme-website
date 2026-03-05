@@ -11,6 +11,13 @@ interface StripItem {
   state: SignalState;
 }
 
+const SECTION_MAP: Record<string, string> = {
+  'BESS Capture': 'signals',
+  'aFRR': 'signals',
+  'S/D Ratio': 'signals',
+  'Grid Free': 'build',
+};
+
 export function StatusStrip() {
   const [items, setItems] = useState<StripItem[]>([
     { label: 'BESS Capture',   value: '—', state: 'neutral' },
@@ -61,11 +68,13 @@ export function StatusStrip() {
       {items.map(({ label, value, state }) => (
         <div
           key={label}
+          onClick={() => document.getElementById(SECTION_MAP[label])?.scrollIntoView({ behavior: 'smooth' })}
           style={{
             flex: 1,
             padding: '8px 10px',
             border: '1px solid rgba(232,226,217,0.08)',
             background: 'rgba(232,226,217,0.02)',
+            cursor: 'pointer',
           }}
         >
           <div style={{
