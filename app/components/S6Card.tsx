@@ -205,6 +205,10 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
         <StaleBanner isDefault={false} isStale={isStale} ageHours={ageHours} defaultReason={null} />
       </time>
 
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.55rem', color: 'rgba(232,226,217,0.22)', letterSpacing: '0.06em', marginTop: '12px' }}>
+        MODEL INPUT → Indirect (SE4 price support)
+      </div>
+
       <CardFooter
         period="Weekly NVE release"
         compare="Signal: deviation vs historical median ±5pp"

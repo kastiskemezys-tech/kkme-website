@@ -349,6 +349,10 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
         <StaleBanner isDefault={false} isStale={isStale} ageHours={ageHours} defaultReason={null} />
       </time>
 
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.55rem', color: 'rgba(232,226,217,0.22)', letterSpacing: '0.06em', marginTop: '12px' }}>
+        MODEL INPUT → Grid constraint · Connection CAPEX
+      </div>
+
       <CardFooter
         period="Point-in-time snapshot"
         compare="Baseline: >2000 MW available"

@@ -246,6 +246,10 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason }: LiveDat
         <StaleBanner isDefault={false} isStale={isStale} ageHours={ageHours} defaultReason={null} />
       </time>
 
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.55rem', color: 'rgba(232,226,217,0.22)', letterSpacing: '0.06em', marginTop: '12px' }}>
+        MODEL INPUT → DC corridor thesis (qualitative)
+      </div>
+
       <CardFooter
         period="Grid: near real-time · News: DataCenterKnowledge RSS"
         compare="Signal: free MW vs 2 GW DC-scale threshold"

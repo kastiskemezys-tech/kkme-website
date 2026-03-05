@@ -31,6 +31,11 @@ export interface S1Signal {
   swing_stats_90d?:  { p25: number; p50: number; p75: number; p90: number; n: number; days_of_data: number } | null;
   // LLM interpretation — added by Worker computeInterpretations(); absent in old KV entries
   interpretation?: string | null;
+  // BESS intraday capture — top-4h sell minus bottom-4h buy, per RTE (arbitrage model input)
+  bess_net_capture?: number | null;
+  p_high_avg?: number | null;
+  p_low_avg?: number | null;
+  intraday_capture?: number | null;
   // DA tomorrow — embedded by computeS1(); null before ~13:00 CET publication
   da_tomorrow?: {
     lt_peak:       number | null;

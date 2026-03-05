@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { signalColor, regimeToState, type SignalState } from '@/lib/signalColor';
+import { signalColor, type SignalState } from '@/lib/signalColor';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
@@ -15,7 +15,7 @@ export function StatusStrip() {
   const [items, setItems] = useState<StripItem[]>([
     { label: 'LT↔SE4 Spread', value: '—', state: 'neutral' },
     { label: 'aFRR',          value: '—', state: 'neutral' },
-    { label: 'TTF Gas',       value: '—', state: 'neutral' },
+    { label: 'S/D Ratio',     value: '—', state: 'neutral' },
     { label: 'Grid Free',     value: '—', state: 'neutral' },
   ]);
 
@@ -23,13 +23,13 @@ export function StatusStrip() {
     Promise.all([
       fetch(`${WORKER_URL}/read`).then(r => r.json()).catch(() => null),
       fetch(`${WORKER_URL}/s2`).then(r => r.json()).catch(() => null),
-      fetch(`${WORKER_URL}/s7`).then(r => r.json()).catch(() => null),
       fetch(`${WORKER_URL}/s4`).then(r => r.json()).catch(() => null),
-    ]).then(([d1, d2, d7, d4]) => {
+    ]).then(([d1, d2, d4]) => {
       const spread = d1?.spread_eur_mwh;
       const afrr   = d2?.afrr_up_avg;
-      const ttf    = d7?.ttf_eur_mwh;
       const free   = d4?.free_mw;
+      const sdRatio = d2?.sd_ratio;
+      const phase   = d2?.phase;
 
       setItems([
         {
@@ -43,9 +43,9 @@ export function StatusStrip() {
           state: afrr != null ? (afrr > 40 ? 'positive' : afrr > 10 ? 'neutral' : 'warning') : 'neutral',
         },
         {
-          label: 'TTF Gas',
-          value: ttf != null ? `${ttf.toFixed(1)} €/MWh` : '—',
-          state: regimeToState(d7?.signal),
+          label: 'S/D Ratio',
+          value: sdRatio != null ? `${sdRatio.toFixed(2)}× ${phase ?? ''}`.trim() : '—',
+          state: phase === 'SCARCITY' ? 'positive' : phase === 'COMPRESS' ? 'warning' : 'neutral',
         },
         {
           label: 'Grid Free',

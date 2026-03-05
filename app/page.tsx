@@ -110,6 +110,13 @@ export default function Home() {
 
       <CardEntrance />
 
+      {/* Revenue Engine — above signals so it anchors the page */}
+      <section id="revenue" style={{ width: '100%', display: 'contents' }}>
+        <ErrorBoundary>
+          <RevenueCard />
+        </ErrorBoundary>
+      </section>
+
       {/* ── INVESTMENT SIGNALS ─────────────────────────────────────────────── */}
       <section id="signals" style={{ width: '100%', display: 'contents' }}>
         <SectionDivider label="Investment Signals" />
@@ -170,13 +177,6 @@ export default function Home() {
       {/* ── INTEL ──────────────────────────────────────────────────────────── */}
       <section id="intel" style={{ width: '100%', display: 'contents' }}>
         <IntelFeed />
-      </section>
-
-      {/* Revenue Engine */}
-      <section id="revenue" style={{ width: '100%', display: 'contents' }}>
-        <ErrorBoundary>
-          <RevenueCard />
-        </ErrorBoundary>
       </section>
 
       {/* Gradient threshold divider before CTA */}

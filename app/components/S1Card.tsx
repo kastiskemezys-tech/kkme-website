@@ -203,12 +203,25 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
         <span style={{ fontSize: '0.45em', marginLeft: '0.15em', opacity: 0.55 }}>€/MWh</span>
       </p>
 
-      <p style={{ ...MONO, fontSize: '0.55rem', color: text(0.3), letterSpacing: '0.08em', marginBottom: '0.75rem' }}>
+      <p style={{ ...MONO, fontSize: '0.55rem', color: text(0.3), letterSpacing: '0.08em', marginBottom: data.bess_net_capture != null ? '0.5rem' : '0.75rem' }}>
         {data.spread_eur_mwh >= 0 ? '+' : ''}{safeNum(data.separation_pct, 1)}% vs SE4
         {data.lt_daily_swing_eur_mwh != null
           ? ` · swing ${safeNum(data.lt_daily_swing_eur_mwh, 0)} €/MWh`
           : ''}
       </p>
+
+      {data.bess_net_capture != null && (
+        <div style={{ marginBottom: '0.75rem', padding: '8px 12px', background: 'rgba(45,212,168,0.03)', border: '1px solid rgba(45,212,168,0.08)' }}>
+          <div style={{ ...MONO, fontSize: '0.5rem', color: text(0.3), letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '3px' }}>BESS Capture</div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '1.1rem', color: 'var(--teal)', fontWeight: 400 }}>
+              {data.bess_net_capture.toFixed(1)}
+            </span>
+            <span style={{ ...MONO, fontSize: '0.6rem', color: text(0.35) }}>€/MWh</span>
+          </div>
+          <div style={{ ...MONO, fontSize: '0.5rem', color: text(0.25), marginTop: '2px' }}>Top-4h minus bottom-4h · net of RTE · LT DA</div>
+        </div>
+      )}
 
       <p style={{ ...MONO, fontSize: '0.6rem', color: text(0.52), lineHeight: 1.65, marginBottom: '1.5rem' }}>
         {data.interpretation ?? ''}
@@ -249,6 +262,10 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
         {ts ? formatTimestamp(ts) : '—'}
         <StaleBanner isDefault={false} isStale={isStale} ageHours={ageHours} defaultReason={null} />
       </time>
+
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.55rem', color: 'rgba(232,226,217,0.22)', letterSpacing: '0.06em', marginTop: '12px' }}>
+        MODEL INPUT → Arbitrage capture · P_high / P_low
+      </div>
 
       <CardFooter
         period={`Delivery ${data.da_tomorrow?.delivery_date ?? 'today'} · DA 24h avg`}

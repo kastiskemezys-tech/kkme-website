@@ -192,6 +192,10 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, mapView, 
         <StaleBanner isDefault={false} isStale={isStale} ageHours={ageHours} defaultReason={null} />
       </time>
 
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.55rem', color: 'rgba(232,226,217,0.22)', letterSpacing: '0.06em', marginTop: '12px' }}>
+        MODEL INPUT → Interconnector spread drag
+      </div>
+
       <CardFooter
         period="ENTSO-E A11 hourly flows"
         compare="Net: >+100MW EXPORTING · <−100MW IMPORTING"

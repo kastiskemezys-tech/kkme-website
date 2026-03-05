@@ -166,6 +166,10 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
         <StaleBanner isDefault={false} isStale={isStale} ageHours={ageHours} defaultReason={null} />
       </time>
 
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.55rem', color: 'rgba(232,226,217,0.22)', letterSpacing: '0.06em', marginTop: '12px' }}>
+        MODEL INPUT → P_high floor (carbon cost)
+      </div>
+
       <CardFooter
         period="energy-charts.info weekly"
         compare="Threshold: >70 HIGH · >50 ELEVATED · <30 LOW"
