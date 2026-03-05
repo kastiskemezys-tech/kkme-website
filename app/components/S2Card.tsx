@@ -98,15 +98,7 @@ export function S2Card() {
   }, []);
 
   return (
-    <article
-      className="signal-card"
-      style={{
-        border: `1px solid ${text(0.1)}`,
-        padding: '2rem 2.5rem',
-        maxWidth: '440px',
-        width: '100%',
-      }}
-    >
+    <article className="signal-card" style={{ width: '100%' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
         <SignalIcon type="balancing" size={20} />
         <h3 style={{ ...MONO, fontSize: '0.82rem', letterSpacing: '0.06em', color: text(0.72), fontWeight: 500, textTransform: 'uppercase' }}>
@@ -230,10 +222,30 @@ function phaseColor(phase: string | null | undefined): string {
   return 'rgba(232,226,217,0.45)';
 }
 
+function getPhaseProximity(sdRatio: number, phase: string | null, trajectory: TrajectoryPoint[] | null): string | null {
+  if (!trajectory || trajectory.length === 0) return null;
+  const currentYear = new Date().getFullYear();
+  const nextShift = trajectory.find(pt => pt.phase !== phase && pt.year > currentYear);
+  if (nextShift) {
+    const delta = Math.abs(nextShift.sd_ratio - sdRatio).toFixed(2);
+    return `${delta}× from ${nextShift.phase} (${nextShift.year} est.)`;
+  }
+  return null;
+}
+
 function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }: LiveDataProps) {
+  const [expandedFleet, setExpandedFleet] = useState<Set<string>>(new Set());
   const ts = data.timestamp ?? null;
   const sdRatio = data.sd_ratio ?? null;
   const phase   = data.phase   ?? null;
+
+  function toggleEntry(key: string) {
+    setExpandedFleet(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }
 
   return (
     <>
@@ -259,6 +271,14 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
               {phase}
             </span>
           </div>
+          {(() => {
+            const proximity = getPhaseProximity(sdRatio, phase, data.trajectory ?? null);
+            return proximity ? (
+              <p style={{ ...MONO, fontSize: '0.575rem', color: text(0.35), letterSpacing: '0.05em', marginBottom: '0.4rem' }}>
+                {proximity}
+              </p>
+            ) : null;
+          })()}
           <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.3), letterSpacing: '0.06em', marginBottom: '0.65rem' }}>
             {data.baltic_operational_mw != null ? `${data.baltic_operational_mw} MW op` : ''}
             {data.baltic_pipeline_mw    != null ? ` · ${data.baltic_pipeline_mw} MW pipeline` : ''}
@@ -289,7 +309,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
             </div>
           )}
 
-          {/* Fleet entry list */}
+          {/* Fleet entry list — expandable */}
           {(() => {
             const STATUS_ORDER: Record<string, number> = {
               operational: 0, commissioned: 1, under_construction: 2,
@@ -307,18 +327,40 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
             return (
               <div style={{ marginTop: '0.75rem' }}>
                 <p style={{ ...MONO, fontSize: '0.45rem', color: text(0.2), letterSpacing: '0.10em', textTransform: 'uppercase', marginBottom: '6px' }}>
-                  Baltic BESS fleet
+                  Baltic BESS fleet ({allEntries.length})
                 </p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                  {allEntries.map((e, i) => (
-                    <div key={e.id ?? i} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: '0 8px', alignItems: 'baseline' }}>
-                      <span style={{ ...MONO, fontSize: '0.575rem', color: text(0.55) }}>{e.name}</span>
-                      <span style={{ ...MONO, fontSize: '0.55rem', color: text(0.35), textAlign: 'right' }}>{e.mw} MW</span>
-                      <span style={{ ...MONO, fontSize: '0.5rem', color: entryColor(e.status), textAlign: 'right', minWidth: '80px' }}>
-                        {e.status.replace(/_/g, ' ')}
-                      </span>
-                    </div>
-                  ))}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  {allEntries.map((e, i) => {
+                    const entryKey = e.id ?? `${e.name}-${i}`;
+                    const isExpanded = expandedFleet.has(entryKey);
+                    const hasDetail = e.mwh != null || e.tso != null || e.cod != null;
+                    return (
+                      <div key={entryKey}>
+                        <div
+                          className={hasDetail ? 'fleet-entry' : undefined}
+                          onClick={hasDetail ? () => toggleEntry(entryKey) : undefined}
+                          style={{ display: 'grid', gridTemplateColumns: '1fr auto auto auto', gap: '0 8px', alignItems: 'baseline' }}
+                        >
+                          <span style={{ ...MONO, fontSize: '0.575rem', color: text(0.55) }}>
+                            {hasDetail && <span style={{ color: text(0.25), marginRight: '4px' }}>{isExpanded ? '▾' : '▸'}</span>}
+                            {e.name}
+                          </span>
+                          <span style={{ ...MONO, fontSize: '0.55rem', color: text(0.35), textAlign: 'right' }}>{e.mw} MW</span>
+                          <span style={{ ...MONO, fontSize: '0.5rem', color: entryColor(e.status), textAlign: 'right', minWidth: '80px' }}>
+                            {e.status.replace(/_/g, ' ')}
+                          </span>
+                        </div>
+                        {isExpanded && (
+                          <div style={{ ...MONO, fontSize: '0.5rem', color: text(0.38), paddingLeft: '12px', paddingTop: '2px', marginBottom: '2px', letterSpacing: '0.03em' }}>
+                            {e.mwh != null && `${e.mwh} MWh`}
+                            {e.mwh != null && e.mw ? ` · ${Math.round(e.mwh / e.mw)}h duration` : ''}
+                            {e.tso != null && ` · ${e.tso}`}
+                            {e.cod != null && ` · COD ${e.cod}`}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             );

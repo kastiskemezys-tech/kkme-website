@@ -125,7 +125,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
       <StaleBanner isDefault={isDefault} isStale={isStale} ageHours={ageHours} defaultReason={defaultReason} />
 
       {/* Hero + sparkline */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '0.5rem' }}>
         <p style={{ ...MONO, fontWeight: 400, lineHeight: 1, letterSpacing: '-0.02em', margin: 0 }}>
           <span style={{ fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', color: heroColor }}>
             {data.ttf_eur_mwh != null ? `${safeNum(data.ttf_eur_mwh, 1)}` : '—'}
@@ -146,6 +146,18 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
         </p>
         <Sparkline values={history} color="#f6a35a" width={160} height={40} />
       </div>
+      {data.ttf_eur_mwh != null && (() => {
+        const ttf = data.ttf_eur_mwh!;
+        let proximity = '';
+        if (ttf >= 50) proximity = `${(ttf - 50).toFixed(1)}€ above HIGH threshold`;
+        else if (ttf >= 30) proximity = `${(50 - ttf).toFixed(1)}€ from HIGH threshold`;
+        else proximity = `${(30 - ttf).toFixed(1)}€ from ELEVATED threshold`;
+        return (
+          <p style={{ ...MONO, fontSize: '0.575rem', color: text(0.35), letterSpacing: '0.05em', marginBottom: '1rem' }}>
+            {proximity}
+          </p>
+        );
+      })()}
 
       <p style={{ ...MONO, fontSize: '0.6rem', color: text(0.4), lineHeight: 1.5, marginBottom: '1rem' }}>
         {data.interpretation ?? '—'}

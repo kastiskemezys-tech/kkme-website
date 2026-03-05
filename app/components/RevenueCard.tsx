@@ -163,8 +163,9 @@ function ErrorState() {
 
 // ── LiveData ───────────────────────────────────────────────────────────────
 
-function LiveData({ data, s2, cod, setCod, mw, mwh }: {
+function LiveData({ data, s2, cod, setCod, mw, mwh, prevIrr, showDelta }: {
   data: RevenueData; s2: S2Data | null; cod: string; setCod: (v: string) => void; mw: number; mwh: number;
+  prevIrr: number | null; showDelta: boolean;
 }) {
   const fleetTraj = data.fleet_trajectory ?? s2?.trajectory ?? null;
   const trajByYear: Record<string, TrajPoint> = fleetTraj
@@ -178,7 +179,7 @@ function LiveData({ data, s2, cod, setCod, mw, mwh }: {
   return (
     <>
       {/* Dual IRR heroes */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1px', marginBottom: '1.25rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1px', marginBottom: '0.75rem' }}>
         {[
           { label: 'Project IRR', value: projIrr },
           { label: 'Equity IRR',  value: eqIrr },
@@ -191,6 +192,16 @@ function LiveData({ data, s2, cod, setCod, mw, mwh }: {
           </div>
         ))}
       </div>
+
+      {/* Comparison flash */}
+      {showDelta && prevIrr != null && projIrr != null && Math.abs(projIrr - prevIrr) >= 0.1 && (
+        <div className="irr-delta-flash" style={{
+          ...MONO, fontSize: '0.6rem', textAlign: 'center', marginBottom: '4px',
+          color: (projIrr - prevIrr) >= 0 ? 'rgba(74,222,128,0.80)' : 'rgba(239,68,68,0.75)',
+        }}>
+          {(projIrr - prevIrr) >= 0 ? '↑' : '↓'} {Math.abs(projIrr - prevIrr).toFixed(1)}pp vs previous
+        </div>
+      )}
 
       {/* Delta vs CH benchmark */}
       {projIrr != null && (() => {
@@ -222,7 +233,14 @@ function LiveData({ data, s2, cod, setCod, mw, mwh }: {
             <div style={{ position: 'absolute', inset: '0 auto 0 0', width: `${Math.min((data.min_dscr / 3) * 100, 100)}%`, background: dscrColor(data.min_dscr) }} />
           )}
         </div>
-        <div style={{ ...MONO, fontSize: '0.45rem', color: text(0.2), marginTop: '3px' }}>1.20× threshold · bankability floor</div>
+        <div style={{ ...MONO, fontSize: '0.45rem', color: text(0.2), marginTop: '3px' }}>
+          1.20× threshold · bankability floor
+          {data.min_dscr != null && (() => {
+            const delta = data.min_dscr - 1.20;
+            const sign = delta >= 0 ? '+' : '';
+            return ` · ${sign}${delta.toFixed(2)}× ${delta >= 0 ? 'above' : 'below'} floor`;
+          })()}
+        </div>
       </div>
 
       <div style={{ ...DIVIDER, marginBottom: '1.25rem' }} />
@@ -258,6 +276,7 @@ function LiveData({ data, s2, cod, setCod, mw, mwh }: {
             <button
               key={yr}
               onClick={() => setCod(yr)}
+              className="cod-bar"
               style={{
                 display: 'grid', gridTemplateColumns: '2.5rem 1fr 3rem 4.5rem',
                 gap: '0 8px', alignItems: 'center',
@@ -341,6 +360,20 @@ function LiveData({ data, s2, cod, setCod, mw, mwh }: {
         MODEL INPUT → IRR · DSCR · Revenue waterfall
       </div>
 
+      {/* Relative timestamp */}
+      {ts && (() => {
+        const diffMs  = Date.now() - new Date(ts).getTime();
+        const diffMin = Math.round(diffMs / 60000);
+        const diffH   = Math.floor(diffMin / 60);
+        const remMin  = diffMin % 60;
+        const label   = diffH > 0 ? `${diffH}h ${remMin}m ago` : `${diffMin}m ago`;
+        return (
+          <div style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), marginBottom: '0.5rem', letterSpacing: '0.04em' }}>
+            ● computed {label}
+          </div>
+        );
+      })()}
+
       <CardFooter
         period={`COD ${cod} · ${mw} MW / ${mwh} MWh`}
         compare="CH ref: 2h COD 2027 = 16.6% IRR"
@@ -362,6 +395,54 @@ export function RevenueCard() {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [data,   setData]   = useState<RevenueData | null>(null);
   const [s2,     setS2]     = useState<S2Data | null>(null);
+  const [prevIrr, setPrevIrr] = useState<number | null>(null);
+  const [showDelta, setShowDelta] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  // Read URL params on mount
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const urlMw  = parseInt(params.get('mw')  || '');
+    const urlMwh = parseInt(params.get('mwh') || '');
+    const urlCapex = params.get('capex');
+    const urlGrant = params.get('grant');
+    const urlCod   = params.get('cod');
+    if (!isNaN(urlMw)  && urlMw  > 0) setMw(urlMw);
+    if (!isNaN(urlMwh) && urlMwh > 0) setMwh(urlMwh);
+    if (urlCapex && ['low', 'mid', 'high'].includes(urlCapex)) setCapex(urlCapex as 'low' | 'mid' | 'high');
+    if (urlGrant && ['none', 'partial', 'full'].includes(urlGrant)) setGrant(urlGrant as 'none' | 'partial' | 'full');
+    if (urlCod   && ['2027', '2028', '2029'].includes(urlCod)) setCod(urlCod);
+  }, []);
+
+  // Write URL params on state change
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams();
+    if (mw   !== 50)    params.set('mw',    String(mw));
+    if (mwh  !== 100)   params.set('mwh',   String(mwh));
+    if (capex !== 'mid')  params.set('capex', capex);
+    if (grant !== 'none') params.set('grant', grant);
+    if (cod   !== '2028') params.set('cod',   cod);
+    const search = params.toString();
+    window.history.replaceState({}, '', search ? `?${search}` : window.location.pathname);
+  }, [mw, mwh, capex, grant, cod]);
+
+  const hasCustomParams = mw !== 50 || mwh !== 100 || capex !== 'mid' || grant !== 'none' || cod !== '2028';
+
+  function copyLink() {
+    if (typeof window === 'undefined') return;
+    navigator.clipboard.writeText(window.location.href).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {});
+  }
+
+  function shareLinkedIn() {
+    if (typeof window === 'undefined') return;
+    const url = encodeURIComponent(window.location.href);
+    window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${url}`, '_blank', 'noopener,noreferrer');
+  }
 
   const fetchData = useCallback(async () => {
     setStatus('loading');
@@ -371,7 +452,20 @@ export function RevenueCard() {
         fetch(`${WORKER_URL}/revenue?${params}`).then(r => r.json()),
         fetch(`${WORKER_URL}/s2`).then(r => r.json()).catch(() => null),
       ]);
-      setData(rev as RevenueData);
+      // Capture previous IRR for comparison flash
+      setData(prev => {
+        if (prev?.project_irr != null) {
+          const oldIrr = Math.round(prev.project_irr * 1000) / 10;
+          const newIrr = (rev as RevenueData).project_irr != null
+            ? Math.round((rev as RevenueData).project_irr! * 1000) / 10 : null;
+          if (newIrr != null && Math.abs(newIrr - oldIrr) >= 0.1) {
+            setPrevIrr(oldIrr);
+            setShowDelta(true);
+            setTimeout(() => setShowDelta(false), 1500);
+          }
+        }
+        return rev as RevenueData;
+      });
       setS2(s2r as S2Data);
       setStatus('success');
     } catch {
@@ -396,12 +490,24 @@ export function RevenueCard() {
         maxWidth: '100%', width: '100%', overflow: 'hidden',
       }}
     >
-      <h3 style={{ ...MONO, fontSize: '0.8rem', letterSpacing: '0.14em', color: text(0.35), fontWeight: 400, textTransform: 'uppercase', marginBottom: '4px' }}>
-        BESS Revenue Engine
-      </h3>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px', flexWrap: 'wrap', gap: '8px' }}>
+        <h3 style={{ ...MONO, fontSize: '0.8rem', letterSpacing: '0.14em', color: text(0.35), fontWeight: 400, textTransform: 'uppercase' }}>
+          {hasCustomParams ? 'Your Configuration' : 'BESS Revenue Engine'}
+        </h3>
+        <div style={{ display: 'flex', gap: '6px' }}>
+          <button
+            onClick={copyLink}
+            style={{ ...MONO, fontSize: '0.5rem', letterSpacing: '0.06em', padding: '2px 8px', background: 'transparent', border: '1px solid rgba(232,226,217,0.15)', color: copied ? 'var(--teal)' : text(0.35), cursor: 'pointer', borderRadius: '2px', transition: 'all 0.15s' }}
+          >{copied ? '✓ Copied' : 'Copy link'}</button>
+          <button
+            onClick={shareLinkedIn}
+            style={{ ...MONO, fontSize: '0.5rem', letterSpacing: '0.06em', padding: '2px 8px', background: 'transparent', border: '1px solid rgba(77,124,181,0.25)', color: 'rgba(110,160,220,0.65)', cursor: 'pointer', borderRadius: '2px', transition: 'all 0.15s' }}
+          >LinkedIn ↗</button>
+        </div>
+      </div>
       {/* CH benchmark anchor */}
       <div style={{
-        fontFamily: 'var(--font-mono)', fontSize: '0.6875rem',
+        fontFamily: 'var(--font-mono)', fontSize: '0.8125rem',
         color: 'var(--text-tertiary)', lineHeight: 1.6,
         padding: '10px 12px', marginBottom: '20px',
         background: 'var(--bg-elevated)', border: '1px solid var(--border-card)',
@@ -469,7 +575,7 @@ export function RevenueCard() {
         {status === 'loading' && <Skeleton />}
         {status === 'error'   && <ErrorState />}
         {status === 'success' && data && (
-          <LiveData data={data} s2={s2} cod={cod} setCod={setCod} mw={mw} mwh={mwh} />
+          <LiveData data={data} s2={s2} cod={cod} setCod={setCod} mw={mw} mwh={mwh} prevIrr={prevIrr} showDelta={showDelta} />
         )}
       </div>
     </article>

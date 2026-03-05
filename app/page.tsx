@@ -16,10 +16,12 @@ import { PageBackground } from '@/app/components/PageBackground';
 import { HeroRays } from '@/app/components/HeroRays';
 import StickyNav from '@/app/components/StickyNav';
 import MarketSnapshot from '@/app/components/MarketSnapshot';
+import { PageInteractions } from '@/app/components/PageInteractions';
 
 export default function Home() {
   return (
     <main style={{ minHeight: '100vh', background: 'var(--bg)' }}>
+      <PageInteractions />
       <PageBackground />
       <StickyNav />
       <CardEntrance />
@@ -112,7 +114,7 @@ export default function Home() {
         <div className="section-elevated" id="revenue">
           <div style={{ marginBottom: '32px' }}>
             <h2 className="section-header" style={{ marginBottom: '6px' }}>Baltic Project Returns</h2>
-            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.6875rem', color: 'var(--text-muted)', paddingLeft: '16px' }}>20-year returns against Clean Horizon S1 2025</p>
+            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.8125rem', color: 'var(--text-muted)', paddingLeft: '16px' }}>20-year returns against Clean Horizon S1 2025</p>
           </div>
           <div>
             <ErrorBoundary>
@@ -129,7 +131,7 @@ export default function Home() {
         <div className="section" id="signals">
           <div style={{ marginBottom: '32px' }}>
             <h2 className="section-header" style={{ marginBottom: '6px' }}>Baltic Revenue Drivers</h2>
-            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.6875rem', color: 'var(--text-muted)', paddingLeft: '16px' }}>Capacity pricing and arbitrage — 86% of gross revenue</p>
+            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.8125rem', color: 'var(--text-muted)', paddingLeft: '16px' }}>Capacity pricing and arbitrage — 86% of gross revenue</p>
           </div>
           <div className="grid-2">
             <div className="card card-tier1">
@@ -145,7 +147,7 @@ export default function Home() {
         <div className="section" id="build">
           <div style={{ marginBottom: '32px' }}>
             <h2 className="section-header" style={{ marginBottom: '6px' }}>Build Conditions</h2>
-            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.6875rem', color: 'var(--text-muted)', paddingLeft: '16px' }}>CAPEX, financing, and grid connection</p>
+            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.8125rem', color: 'var(--text-muted)', paddingLeft: '16px' }}>CAPEX, financing, and grid connection</p>
           </div>
           <div className="grid-2">
             <div className="card">
@@ -161,7 +163,7 @@ export default function Home() {
         <div className="section-elevated" id="context">
           <div style={{ marginBottom: '32px' }}>
             <h2 className="section-header" style={{ marginBottom: '6px' }}>Baltic Power Market</h2>
-            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.6875rem', color: 'var(--text-muted)', paddingLeft: '16px' }}>Macro energy prices and structural factors</p>
+            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.8125rem', color: 'var(--text-muted)', paddingLeft: '16px' }}>Macro energy prices and structural factors</p>
           </div>
           <div style={{
             display: 'grid',
@@ -195,11 +197,11 @@ export default function Home() {
         <div className="section" id="intel">
           <div style={{ marginBottom: '16px' }}>
             <h2 className="section-header" style={{ marginBottom: '6px' }}>Market Intel</h2>
-            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.6875rem', color: 'var(--text-muted)', paddingLeft: '16px' }}>Baltic energy storage news via @gattana_bot</p>
+            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.8125rem', color: 'var(--text-muted)', paddingLeft: '16px' }}>Baltic energy storage news via @gattana_bot</p>
           </div>
           <p style={{
             fontFamily: 'var(--font-mono)',
-            fontSize: '0.6875rem',
+            fontSize: '0.8125rem',
             color: 'var(--text-muted)',
             marginBottom: '16px',
           }}>
@@ -214,7 +216,7 @@ export default function Home() {
         <div className="section" id="deal-flow">
           <div style={{ marginBottom: '32px' }}>
             <h2 className="section-header" style={{ marginBottom: '6px' }}>Deal Flow</h2>
-            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.6875rem', color: 'var(--text-muted)', paddingLeft: '16px' }}>Baltic BESS projects at RTB stage</p>
+            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.8125rem', color: 'var(--text-muted)', paddingLeft: '16px' }}>Baltic BESS projects at RTB stage</p>
           </div>
           <div className="grid-2">
             {/* LEFT: About + Contact */}
@@ -249,7 +251,7 @@ export default function Home() {
               </p>
               <div style={{
                 fontFamily: 'var(--font-mono)',
-                fontSize: '0.6875rem',
+                fontSize: '0.8125rem',
                 color: 'var(--text-muted)',
                 lineHeight: 1.8,
               }}>
@@ -258,16 +260,16 @@ export default function Home() {
               </div>
               <div style={{ display: 'flex', gap: '20px', marginTop: '16px', flexWrap: 'wrap' }}>
                 <a href="mailto:kastytis@kkme.eu" style={{
-                  fontFamily: 'var(--font-mono)', fontSize: '0.6875rem',
+                  fontFamily: 'var(--font-mono)', fontSize: '0.8125rem',
                   color: 'var(--teal)', textDecoration: 'none',
                 }}>kastytis@kkme.eu</a>
                 <a href="tel:+37069822225" style={{
-                  fontFamily: 'var(--font-mono)', fontSize: '0.6875rem',
+                  fontFamily: 'var(--font-mono)', fontSize: '0.8125rem',
                   color: 'var(--text-muted)', textDecoration: 'none',
                 }}>+370 698 22225</a>
                 <a href="https://www.linkedin.com/in/kastytis-kemezys/"
                   target="_blank" rel="noopener noreferrer" style={{
-                  fontFamily: 'var(--font-mono)', fontSize: '0.6875rem',
+                  fontFamily: 'var(--font-mono)', fontSize: '0.8125rem',
                   color: 'var(--teal)', textDecoration: 'none',
                 }}>LinkedIn ↗</a>
               </div>
@@ -287,7 +289,7 @@ export default function Home() {
                   <label style={{
                     display: 'block',
                     fontFamily: 'var(--font-mono)',
-                    fontSize: '0.6875rem',
+                    fontSize: '0.8125rem',
                     color: 'var(--text-muted)',
                     marginBottom: '5px',
                     letterSpacing: '0.04em',
@@ -303,7 +305,7 @@ export default function Home() {
                       borderRadius: '2px',
                       color: 'var(--text-primary)',
                       fontFamily: 'var(--font-mono)',
-                      fontSize: '0.6875rem',
+                      fontSize: '0.8125rem',
                       boxSizing: 'border-box',
                     } as React.CSSProperties}
                   />
@@ -317,7 +319,7 @@ export default function Home() {
                 borderRadius: '2px',
                 color: 'var(--amber)',
                 fontFamily: 'var(--font-mono)',
-                fontSize: '0.6875rem',
+                fontSize: '0.8125rem',
                 letterSpacing: '0.06em',
                 cursor: 'pointer',
               }}>Submit Teaser</button>
@@ -340,14 +342,14 @@ export default function Home() {
           }}>
             <span style={{
               fontFamily: 'var(--font-mono)',
-              fontSize: '0.6875rem',
+              fontSize: '0.8125rem',
               color: 'var(--text-muted)',
               letterSpacing: '0.06em',
             }}>KKME · Baltic BESS Market Signals</span>
             <div style={{
               display: 'flex', gap: '24px',
               fontFamily: 'var(--font-mono)',
-              fontSize: '0.6875rem',
+              fontSize: '0.8125rem',
             }}>
               <span style={{ color: 'var(--text-muted)' }}>kastytis@kkme.eu</span>
               <span style={{ color: 'var(--text-muted)' }}>+370 698 22225</span>
@@ -358,11 +360,20 @@ export default function Home() {
           </div>
           <div style={{
             fontFamily: 'var(--font-mono)',
-            fontSize: '0.6875rem',
+            fontSize: '0.8125rem',
             color: 'var(--text-ghost)',
             marginTop: '16px',
           }}>
             Data: ENTSO-E · NVE · ECB · energy-charts.info · Litgrid · VERT.lt · Updated every 4h
+          </div>
+          <div style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: '0.5625rem',
+            color: 'var(--text-ghost)',
+            marginTop: '8px',
+            letterSpacing: '0.06em',
+          }}>
+            Keyboard: R revenue · S signals · B build · M market · I intel · D deal flow
           </div>
         </footer>
 

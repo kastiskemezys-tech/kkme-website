@@ -93,6 +93,7 @@ body {
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  line-height: 1.6;
 }
 
 /* Blueprint grid — barely perceptible purple grid */
@@ -480,4 +481,43 @@ body::after {
 }
 @media (max-width: 520px) {
   .market-snapshot { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ── Scroll progress bar ─────────────────────────────────────────────────── */
+.scroll-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 2px;
+  background: var(--teal);
+  z-index: 10000;
+  transition: width 0.1s linear;
+  pointer-events: none;
+}
+
+/* ── Micro-interactions ──────────────────────────────────────────────────── */
+.fleet-entry {
+  transition: background 0.12s ease;
+  cursor: pointer;
+  border-radius: 2px;
+  padding: 3px 4px;
+  margin: 0 -4px;
+}
+.fleet-entry:hover { background: rgba(232,226,217,0.05); }
+
+.cod-bar {
+  transition: background 0.12s ease;
+}
+.cod-bar:hover { background: rgba(232,226,217,0.06) !important; }
+
+button:active { transform: scale(0.97); }
+
+/* ── Delta flash animation ───────────────────────────────────────────────── */
+@keyframes fadeOut {
+  0%   { opacity: 1; }
+  60%  { opacity: 0.9; }
+  100% { opacity: 0; }
+}
+.irr-delta-flash {
+  animation: fadeOut 1.5s ease forwards;
 }
