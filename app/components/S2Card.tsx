@@ -11,10 +11,22 @@ import { safeNum, fK, formatHHMM } from '@/lib/safeNum';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
+interface FleetEntry {
+  id?:      string;
+  name:     string;
+  mw:       number;
+  mwh?:     number;
+  status:   string;
+  cod?:     number | null;
+  country?: string;
+  tso?:     string;
+}
+
 interface FleetCountry {
   operational_mw: number;
   pipeline_mw:    number;
   weighted_mw:    number;
+  entries?:       FleetEntry[];
 }
 
 interface TrajectoryPoint {
@@ -276,6 +288,41 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
               </div>
             </div>
           )}
+
+          {/* Fleet entry list */}
+          {(() => {
+            const STATUS_ORDER: Record<string, number> = {
+              operational: 0, commissioned: 1, under_construction: 2,
+              connection_agreement: 3, application: 4,
+            };
+            const allEntries: FleetEntry[] = Object.values(data.fleet || {})
+              .flatMap((c: unknown) => ((c as FleetCountry)?.entries || []))
+              .sort((a, b) => (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9));
+            if (allEntries.length === 0) return null;
+            function entryColor(status: string): string {
+              if (status === 'operational' || status === 'commissioned') return 'var(--teal)';
+              if (status === 'under_construction') return 'rgba(245,158,11,0.85)';
+              return 'rgba(232,226,217,0.25)';
+            }
+            return (
+              <div style={{ marginTop: '0.75rem' }}>
+                <p style={{ ...MONO, fontSize: '0.45rem', color: text(0.2), letterSpacing: '0.10em', textTransform: 'uppercase', marginBottom: '6px' }}>
+                  Baltic BESS fleet
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                  {allEntries.map((e, i) => (
+                    <div key={e.id ?? i} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: '0 8px', alignItems: 'baseline' }}>
+                      <span style={{ ...MONO, fontSize: '0.575rem', color: text(0.55) }}>{e.name}</span>
+                      <span style={{ ...MONO, fontSize: '0.55rem', color: text(0.35), textAlign: 'right' }}>{e.mw} MW</span>
+                      <span style={{ ...MONO, fontSize: '0.5rem', color: entryColor(e.status), textAlign: 'right', minWidth: '80px' }}>
+                        {e.status.replace(/_/g, ' ')}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 

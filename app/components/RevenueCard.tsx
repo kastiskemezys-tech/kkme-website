@@ -163,8 +163,8 @@ function ErrorState() {
 
 // ── LiveData ───────────────────────────────────────────────────────────────
 
-function LiveData({ data, s2, cod, setCod, system }: {
-  data: RevenueData; s2: S2Data | null; cod: string; setCod: (v: string) => void; system: string;
+function LiveData({ data, s2, cod, setCod, mw, mwh }: {
+  data: RevenueData; s2: S2Data | null; cod: string; setCod: (v: string) => void; mw: number; mwh: number;
 }) {
   const fleetTraj = data.fleet_trajectory ?? s2?.trajectory ?? null;
   const trajByYear: Record<string, TrajPoint> = fleetTraj
@@ -217,17 +217,17 @@ function LiveData({ data, s2, cod, setCod, system }: {
 
       {/* Revenue table */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.3rem 1.5rem', marginBottom: '0.5rem', alignItems: 'baseline' }}>
-        <TRow label="Capacity / yr"   value={fkMw(data.capacity_y1)}   valueColor="rgba(74,222,128,0.70)" />
-        <TRow label="Activation / yr" value={fkMw(data.activation_y1)} valueColor="rgba(74,222,128,0.55)" />
-        <TRow label="Arbitrage / yr"  value={fkMw(data.arbitrage_y1)}  valueColor="rgba(74,222,128,0.45)" />
-        <TRow label="RTM fees"        value={data.rtm_fees_y1 != null ? `−${fkMw(data.rtm_fees_y1)}` : '—'} valueColor={text(0.3)} />
-        <TRow label="Gross / yr"      value={fkMw(data.gross_revenue_y1)} bold />
-        <TRow label="OPEX / yr"       value={data.opex_y1 != null ? `−${fkMw(data.opex_y1)}` : '—'} valueColor="rgba(239,68,68,0.60)" />
-        <TRow label="EBITDA / yr"     value={fkMw(data.ebitda_y1)} bold valueColor="rgba(74,222,128,0.80)" net />
+        <TRow label="Capacity / yr"   value={fkMw(data.capacity_y1, mw)}   valueColor="rgba(74,222,128,0.70)" />
+        <TRow label="Activation / yr" value={fkMw(data.activation_y1, mw)} valueColor="rgba(74,222,128,0.55)" />
+        <TRow label="Arbitrage / yr"  value={fkMw(data.arbitrage_y1, mw)}  valueColor="rgba(74,222,128,0.45)" />
+        <TRow label="RTM fees"        value={data.rtm_fees_y1 != null ? `−${fkMw(data.rtm_fees_y1, mw)}` : '—'} valueColor={text(0.3)} />
+        <TRow label="Gross / yr"      value={fkMw(data.gross_revenue_y1, mw)} bold />
+        <TRow label="OPEX / yr"       value={data.opex_y1 != null ? `−${fkMw(data.opex_y1, mw)}` : '—'} valueColor="rgba(239,68,68,0.60)" />
+        <TRow label="EBITDA / yr"     value={fkMw(data.ebitda_y1, mw)} bold valueColor="rgba(74,222,128,0.80)" net />
         <TRow label="Net / MW / yr"   value={data.net_mw_yr != null ? `€${data.net_mw_yr.toLocaleString('en-GB')}` : '—'} />
       </div>
       <p style={{ ...MONO, fontSize: '0.45rem', color: text(0.2), marginBottom: '1.25rem' }}>
-        Per MW · Year 1 · {system === '2.4h' ? '120 MWh (2.4h)' : '200 MWh (4h)'} system
+        Per MW · Year 1 · {mw} MW / {mwh} MWh · 20yr model
       </p>
 
       <div style={{ ...DIVIDER, marginBottom: '1.25rem' }} />
@@ -330,7 +330,7 @@ function LiveData({ data, s2, cod, setCod, system }: {
       </div>
 
       <CardFooter
-        period={`COD ${cod} · ${system} · ${cod} capex`}
+        period={`COD ${cod} · ${mw} MW / ${mwh} MWh`}
         compare="CH ref: 2h COD 2027 = 16.6% IRR"
         updated={`computed ${formatHHMM(ts)} UTC`}
         timestamp={ts}
@@ -342,9 +342,10 @@ function LiveData({ data, s2, cod, setCod, system }: {
 // ── main export ────────────────────────────────────────────────────────────
 
 export function RevenueCard() {
-  const [system, setSystem] = useState<'2.4h' | '4h'>('2.4h');
+  const [mw,     setMw]     = useState<number>(50);
+  const [mwh,    setMwh]    = useState<number>(100);
   const [capex,  setCapex]  = useState<'low' | 'mid' | 'high'>('mid');
-  const [grant,  setGrant]  = useState<'none' | '30pct'>('none');
+  const [grant,  setGrant]  = useState<'none' | 'partial' | 'full'>('none');
   const [cod,    setCod]    = useState<string>('2028');
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [data,   setData]   = useState<RevenueData | null>(null);
@@ -353,7 +354,7 @@ export function RevenueCard() {
   const fetchData = useCallback(async () => {
     setStatus('loading');
     try {
-      const params = new URLSearchParams({ system, capex, grant, cod });
+      const params = new URLSearchParams({ mw: String(mw), mwh: String(mwh), capex, grant, cod });
       const [rev, s2r] = await Promise.all([
         fetch(`${WORKER_URL}/revenue?${params}`).then(r => r.json()),
         fetch(`${WORKER_URL}/s2`).then(r => r.json()).catch(() => null),
@@ -364,22 +365,16 @@ export function RevenueCard() {
     } catch {
       setStatus('error');
     }
-  }, [system, capex, grant, cod]);
+  }, [mw, mwh, capex, grant, cod]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const selectors: Array<{
-    label: string;
-    items: readonly string[];
-    value: string;
-    set: (v: string) => void;
-    labels?: string[];
-  }> = [
-    { label: 'System', items: ['2.4h', '4h']             as const, value: system, set: (v: string) => setSystem(v as '2.4h' | '4h') },
-    { label: 'CAPEX',  items: ['low', 'mid', 'high']      as const, value: capex,  set: (v: string) => setCapex(v as 'low' | 'mid' | 'high') },
-    { label: 'Grant',  items: ['none', '30pct']           as const, value: grant,  set: (v: string) => setGrant(v as 'none' | '30pct'), labels: ['none', '30%'] },
-    { label: 'COD',    items: ['2027', '2028', '2029'] as const, value: cod, set: setCod },
-  ];
+  const numInputStyle: CSSProperties = {
+    fontFamily: 'var(--font-mono)', fontSize: '0.6rem',
+    background: 'transparent', border: '1px solid rgba(232,226,217,0.12)',
+    color: text(0.65), padding: '2px 6px', width: '52px',
+    borderRadius: '2px', textAlign: 'center' as const,
+  };
 
   return (
     <article
@@ -406,23 +401,63 @@ export function RevenueCard() {
 
       {/* Selectors */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px 20px', marginBottom: '1.5rem' }}>
-        {selectors.map(({ label, items, value, set, labels }) => (
-          <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <span style={{ ...MONO, fontSize: '0.48rem', color: text(0.22), letterSpacing: '0.10em', textTransform: 'uppercase' }}>{label}</span>
-            <div style={{ display: 'flex', gap: '3px' }}>
-              {items.map((item, i) => (
-                <Pill key={item} label={labels ? labels[i] : item} active={value === item} onClick={() => set(item)} />
-              ))}
-            </div>
+        {/* System — presets + custom inputs */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <span style={{ ...MONO, fontSize: '0.48rem', color: text(0.22), letterSpacing: '0.10em', textTransform: 'uppercase' }}>System</span>
+          <div style={{ display: 'flex', gap: '3px', alignItems: 'center' }}>
+            <Pill label="2H" active={mw === 50 && mwh === 100} onClick={() => { setMw(50); setMwh(100); }} />
+            <Pill label="4H" active={mw === 50 && mwh === 200} onClick={() => { setMw(50); setMwh(200); }} />
+            <span style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), margin: '0 4px' }}>or</span>
+            <input
+              type="number" value={mw} min={1} max={500}
+              onChange={e => setMw(Math.max(1, parseInt(e.target.value) || 50))}
+              style={numInputStyle}
+              title="MW"
+            />
+            <span style={{ ...MONO, fontSize: '0.5rem', color: text(0.2) }}>MW</span>
+            <input
+              type="number" value={mwh} min={1} max={2000}
+              onChange={e => setMwh(Math.max(1, parseInt(e.target.value) || 100))}
+              style={numInputStyle}
+              title="MWh"
+            />
+            <span style={{ ...MONO, fontSize: '0.5rem', color: text(0.2) }}>MWh</span>
           </div>
-        ))}
+        </div>
+        {/* CAPEX */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <span style={{ ...MONO, fontSize: '0.48rem', color: text(0.22), letterSpacing: '0.10em', textTransform: 'uppercase' }}>CAPEX</span>
+          <div style={{ display: 'flex', gap: '3px' }}>
+            {(['low', 'mid', 'high'] as const).map(v => (
+              <Pill key={v} label={v === 'low' ? '€120' : v === 'mid' ? '€164' : '€262'} active={capex === v} onClick={() => setCapex(v)} />
+            ))}
+          </div>
+        </div>
+        {/* Grant */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <span style={{ ...MONO, fontSize: '0.48rem', color: text(0.22), letterSpacing: '0.10em', textTransform: 'uppercase' }}>Grant</span>
+          <div style={{ display: 'flex', gap: '3px' }}>
+            {(['none', 'partial', 'full'] as const).map((v, i) => (
+              <Pill key={v} label={['none', '10%', '30%'][i]} active={grant === v} onClick={() => setGrant(v)} />
+            ))}
+          </div>
+        </div>
+        {/* COD */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <span style={{ ...MONO, fontSize: '0.48rem', color: text(0.22), letterSpacing: '0.10em', textTransform: 'uppercase' }}>COD</span>
+          <div style={{ display: 'flex', gap: '3px' }}>
+            {(['2027', '2028', '2029'] as const).map(v => (
+              <Pill key={v} label={v} active={cod === v} onClick={() => setCod(v)} />
+            ))}
+          </div>
+        </div>
       </div>
 
       <div aria-live="polite" aria-atomic="false">
         {status === 'loading' && <Skeleton />}
         {status === 'error'   && <ErrorState />}
         {status === 'success' && data && (
-          <LiveData data={data} s2={s2} cod={cod} setCod={setCod} system={system} />
+          <LiveData data={data} s2={s2} cod={cod} setCod={setCod} mw={mw} mwh={mwh} />
         )}
       </div>
     </article>

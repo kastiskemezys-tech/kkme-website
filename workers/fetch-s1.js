@@ -80,7 +80,7 @@ function processFleet(entries, demand) {
   const baltic_operational = Object.values(countries).reduce((s, c) => s + c.operational_mw, 0);
   const baltic_weighted    = Object.values(countries).reduce((s, c) => s + c.weighted_mw, 0);
   const baltic_pipeline    = Object.values(countries).reduce((s, c) => s + c.pipeline_mw, 0);
-  const eff_demand = demand?.eff_demand_mw || 935;
+  const eff_demand = demand?.eff_demand_mw || 1190;
   const sd_ratio   = baltic_weighted / eff_demand;
   let phase, cpi;
   if (sd_ratio < 0.6) {
@@ -88,7 +88,7 @@ function processFleet(entries, demand) {
   } else if (sd_ratio < 1.0) {
     phase = 'COMPRESS'; cpi = Math.max(0.40, 1.0 - (sd_ratio - 0.6) * 1.5);
   } else {
-    phase = 'MATURE';   cpi = Math.max(0.35, 0.40 - (sd_ratio - 1.0) * 0.05);
+    phase = 'MATURE';   cpi = Math.max(0.40, 0.40 - (sd_ratio - 1.0) * 0.05);
   }
   // 5-year trajectory (0.15 sd_ratio growth/yr — conservative new entrant assumption)
   const trajectory = [];
@@ -100,7 +100,7 @@ function processFleet(entries, demand) {
     let tc;
     if (r < 0.6) tc = Math.min(1.0 + (0.6 - r) * 2.5, 2.0);
     else if (r < 1.0) tc = Math.max(0.40, 1.0 - (r - 0.6) * 1.5);
-    else tc = Math.max(0.35, 0.40 - (r - 1.0) * 0.05);
+    else tc = Math.max(0.40, 0.40 - (r - 1.0) * 0.05);
     trajectory.push({ year: yr, sd_ratio: Math.round(r * 100) / 100, phase: ph, cpi: Math.round(tc * 100) / 100 });
   }
   return {
@@ -119,32 +119,32 @@ function processFleet(entries, demand) {
 
 // ─── Revenue Engine v4 ─────────────────────────────────────────────────────────
 
-function computeRevenue(systemKey, capexKey, grantKey, codYear, kv) {
+function computeRevenue(systemKey, capexKey, grantKey, codYear, kv, mwParam, mwhParam) {
   const SYSTEMS = {
     '2h':   { mw: 50, mwh: 100, duration: 2.0, label: '50 MW / 100 MWh (2H)' },
     '2.4h': { mw: 50, mwh: 120, duration: 2.4, label: '50 MW / 120 MWh (2.4H)' },
     '4h':   { mw: 50, mwh: 200, duration: 4.0, label: '50 MW / 200 MWh (4H)' },
   };
   const CAPEX_S = {
-    low:  { eur_kwh: 98,  label: 'Cube DDP (€98/kWh)' },
+    low:  { eur_kwh: 120, label: '€120/kWh (competitive)' },
     mid:  { eur_kwh: 164, label: 'CH Equipment (€164/kWh)' },
     high: { eur_kwh: 262, label: 'CH Turnkey (€262/kWh)' },
   };
   const GRANTS = {
-    none:    { amount: 0,       label: 'No grant' },
-    partial: { amount: 2200000, label: '€2.2M APVA (conditional)' },
-  };
-  const MW_ALLOC = {
-    '2h':   { fcr: 5,  afrr: 15, mfrr: 30 },
-    '2.4h': { fcr: 8,  afrr: 17, mfrr: 25 },
-    '4h':   { fcr: 10, afrr: 20, mfrr: 20 },
+    none:    { pct: 0,    label: 'No grant' },
+    partial: { pct: 0.10, label: '10% grant' },
+    full:    { pct: 0.30, label: '30% APVA grant' },
   };
 
   const sys      = SYSTEMS[systemKey]  || SYSTEMS['2.4h'];
   const capex_sc = CAPEX_S[capexKey]   || CAPEX_S['mid'];
   const grant_sc = GRANTS[grantKey]    || GRANTS['none'];
-  const alloc    = MW_ALLOC[systemKey] || MW_ALLOC['2.4h'];
   const cod      = parseInt(codYear)   || 2028;
+  const mw       = mwParam  || sys.mw;
+  const mwh      = mwhParam || sys.mwh;
+  const fcr_alloc  = Math.round(mw * 0.16);
+  const afrr_alloc = Math.round(mw * 0.34);
+  const alloc = { fcr: fcr_alloc, afrr: afrr_alloc, mfrr: mw - fcr_alloc - afrr_alloc };
 
   const fleet = kv?.fleet;
   const s2    = kv?.s2;
@@ -152,9 +152,9 @@ function computeRevenue(systemKey, capexKey, grantKey, codYear, kv) {
 
   // Live prices from BTD (s2 KV)
   const prices = {
-    fcr:  { price: s2?.fcr_avg      ?? 20, avail: 0.92 },
-    afrr: { price: s2?.afrr_up_avg  ?? 15, avail: 0.85 },
-    mfrr: { price: s2?.mfrr_up_avg  ?? 11, avail: 0.80 },
+    fcr:  { price: s2?.fcr_avg      ?? 45, avail: 0.92 },
+    afrr: { price: s2?.afrr_up_avg  ?? 40, avail: 0.85 },
+    mfrr: { price: s2?.mfrr_up_avg  ?? 22, avail: 0.80 },
   };
   const prices_source = s2?.fcr_avg != null ? 'BTD measured' : 'proxy';
 
@@ -170,8 +170,8 @@ function computeRevenue(systemKey, capexKey, grantKey, codYear, kv) {
   const cycles_day   = 0.9;
   const op_days      = 300;
 
-  const gross_capex  = capex_sc.eur_kwh * sys.mwh * 1000;
-  const grant_amount = grant_sc.amount || 0;
+  const gross_capex  = capex_sc.eur_kwh * mwh * 1000;
+  const grant_amount = Math.round(gross_capex * (grant_sc.pct || 0));
   const net_capex    = gross_capex - grant_amount;
   const bond         = 2500000;
 
@@ -187,11 +187,11 @@ function computeRevenue(systemKey, capexKey, grantKey, codYear, kv) {
   const depr_years  = 10;
   const depr_base   = gross_capex - bond;
   const annual_depr = depr_base / depr_years;
-  const aug_capex   = 3000000;
+  const aug_capex   = mwh * 25 * 1000;
   const aug_year    = 10;
   const aug_depr    = aug_capex / depr_years;
 
-  const opex_y1  = 1950000;
+  const opex_y1  = mw * 39000;
   const opex_esc = 0.025;
 
   function getCPI(year) {
@@ -203,7 +203,7 @@ function computeRevenue(systemKey, capexKey, grantKey, codYear, kv) {
     const r = (fleet?.sd_ratio ?? 0.83) + Math.max(y, 0) * 0.15;
     if (r < 0.6) return Math.min(1.0 + (0.6 - r) * 2.5, 2.0);
     if (r < 1.0) return Math.max(0.40, 1.0 - (r - 0.6) * 1.5);
-    return Math.max(0.35, 0.40 - (r - 1.0) * 0.05);
+    return Math.max(0.40, 0.40 - (r - 1.0) * 0.05);
   }
 
   const project_cf = [-net_capex];
@@ -217,7 +217,7 @@ function computeRevenue(systemKey, capexKey, grantKey, codYear, kv) {
     const cal_year = cod + y - 1;
     const cpi      = getCPI(cal_year);
     const deg_y    = y <= aug_year ? y - 1 : y - aug_year - 1;
-    const eff_mwh  = sys.mwh * Math.pow(0.975, deg_y);
+    const eff_mwh  = mwh * Math.pow(0.975, deg_y);
 
     const fcr_rev  = alloc.fcr  * prices.fcr.price  * 8760 * prices.fcr.avail  * cpi;
     const afrr_rev = alloc.afrr * prices.afrr.price * 8760 * prices.afrr.avail * cpi;
@@ -305,7 +305,7 @@ function computeRevenue(systemKey, capexKey, grantKey, codYear, kv) {
     total_debt, total_equity, cod_year: cod,
     sd_ratio: cod_sd?.sd_ratio ?? null, phase: cod_sd?.phase ?? null, cpi_at_cod: cod_sd?.cpi ?? null,
     gross_revenue_y1: y1.gross, net_revenue_y1: y1.net_rev,
-    net_mw_yr: Math.round(y1.net_rev / sys.mw),
+    net_mw_yr: Math.round(y1.net_rev / mw),
     ebitda_y1: y1.ebitda, opex_y1: y1.opex,
     rtm_fees_y1: y1.opt_fee + y1.brp_fee,
     capacity_y1: y1.cap_total, activation_y1: y1.act_total, arbitrage_y1: y1.arb_rev,
@@ -326,8 +326,8 @@ function computeRevenue(systemKey, capexKey, grantKey, codYear, kv) {
     // Backward compat
     irr_2h: systemKey === '2h'  ? project_irr : null,
     irr_4h: systemKey === '4h'  ? project_irr : null,
-    net_mw_yr_2h: systemKey === '2h' ? Math.round(y1.net_rev / sys.mw) : null,
-    net_mw_yr_4h: systemKey === '4h' ? Math.round(y1.net_rev / sys.mw) : null,
+    net_mw_yr_2h: systemKey === '2h' ? Math.round(y1.net_rev / mw) : null,
+    net_mw_yr_4h: systemKey === '4h' ? Math.round(y1.net_rev / mw) : null,
   };
 }
 
@@ -2758,6 +2758,8 @@ export default {
       const capex  = url.searchParams.get('capex')  || 'mid';
       const grant  = url.searchParams.get('grant')  || 'none';
       const cod    = url.searchParams.get('cod')    || '2028';
+      const mw     = parseInt(url.searchParams.get('mw'))  || 0;
+      const mwh    = parseInt(url.searchParams.get('mwh')) || 0;
 
       const [s1Raw, s2Raw, s3Raw, s4Raw, fleetRaw, eurRaw] = await Promise.all([
         env.KKME_SIGNALS.get('s1'),
@@ -2775,11 +2777,11 @@ export default {
       const eur   = eurRaw   ? JSON.parse(eurRaw)   : null;
 
       const kv_data = { fleet, s2, s1 };
-      const result  = computeRevenue(system, capex, grant, cod, kv_data);
+      const result  = computeRevenue(system, capex, grant, cod, kv_data, mw, mwh);
 
-      // Always compute 2h + 4h for backward compat and EU ranking
-      const r2h = system === '2h' ? result : computeRevenue('2h', capex, grant, cod, kv_data);
-      const r4h = system === '4h' ? result : computeRevenue('4h', capex, grant, cod, kv_data);
+      // Always compute 2h + 4h for backward compat and EU ranking (use default system sizes)
+      const r2h = system === '2h' && !mw && !mwh ? result : computeRevenue('2h', capex, grant, cod, kv_data, 0, 0);
+      const r4h = system === '4h' && !mw && !mwh ? result : computeRevenue('4h', capex, grant, cod, kv_data, 0, 0);
       result.irr_2h       = r2h.project_irr;
       result.net_mw_yr_2h = r2h.net_mw_yr;
       result.irr_4h       = r4h.project_irr;
