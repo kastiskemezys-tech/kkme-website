@@ -178,9 +178,9 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
         </p>
       )}
 
-      {/* Full-width sparkline at top — bleeds to card edges */}
+      {/* Full-width sparkline */}
       {history.length > 1 && (
-        <div style={{ marginBottom: '1.25rem', marginLeft: '-20px', marginRight: '-20px', overflow: 'hidden' }}>
+        <div style={{ marginBottom: '1.25rem', overflow: 'hidden' }}>
           <Sparkline values={history} p50={spreadP50 ?? undefined} color="#4ade80" height={72} />
         </div>
       )}

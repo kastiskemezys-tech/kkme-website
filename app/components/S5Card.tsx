@@ -221,54 +221,25 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason }: LiveDat
         </>
       )}
 
-      {/* DC news */}
-      {data.news_items && data.news_items.length > 0 && (
-        <>
-          <div style={{ ...DIVIDER, marginBottom: '1rem' }} />
-          <p style={{ ...MONO, fontSize: '0.5rem', letterSpacing: '0.14em', color: text(0.40), textTransform: 'uppercase', marginBottom: '0.75rem' }}>
-            DC industry
-          </p>
-          {data.news_items.map((item, i) => (
-            <div key={i} style={{ marginBottom: '0.65rem' }}>
-              <p style={{ ...SERIF, fontSize: '0.7rem', color: text(0.6), lineHeight: 1.5 }}>
-                {item.url ? (
-                  <a
-                    href={item.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ color: 'inherit', textDecoration: 'none', borderBottom: `1px solid ${text(0.12)}` }}
-                  >
-                    {item.title}
-                  </a>
-                ) : item.title}
-              </p>
-              {item.date && (
-                <p style={{ ...MONO, fontSize: '0.45rem', color: text(0.2), marginTop: '0.15rem' }}>
-                  {parseNewsDate(item.date)}
-                </p>
-              )}
-            </div>
-          ))}
-          <a
-            href="https://experience.arcgis.com/experience/d5e4105c8c634a0aaa117d518ab1b37d/page/Page"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              display: 'inline-flex', alignItems: 'center',
-              gap: '6px', marginTop: '12px',
-              fontFamily: 'DM Mono', fontSize: '0.65rem',
-              color: 'var(--teal)',
-              textDecoration: 'none',
-              opacity: 0.75,
-              transition: 'opacity 0.15s ease',
-            }}
-            onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
-            onMouseLeave={e => (e.currentTarget.style.opacity = '0.75')}
-          >
-            ↗ Litgrid consumption capacity map
-          </a>
-        </>
-      )}
+      {/* DC news feed removed — generic RSS headlines undermine card credibility */}
+      <a
+        href="https://experience.arcgis.com/experience/d5e4105c8c634a0aaa117d518ab1b37d/page/Page"
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          display: 'inline-flex', alignItems: 'center',
+          gap: '6px', marginTop: '12px',
+          fontFamily: 'var(--font-mono)', fontSize: '0.6875rem',
+          color: 'var(--teal)',
+          textDecoration: 'none',
+          opacity: 0.75,
+          transition: 'opacity 0.15s ease',
+        }}
+        onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+        onMouseLeave={e => (e.currentTarget.style.opacity = '0.75')}
+      >
+        ↗ Litgrid consumption capacity map
+      </a>
 
       <time dateTime={ts ?? ''} style={{ ...MONO, fontSize: '0.575rem', color: text(0.40), letterSpacing: '0.06em', display: 'block', textAlign: 'right', marginTop: '1rem' }}>
         {ts ? new Date(ts).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'UTC', timeZoneName: 'short' }) : '—'}

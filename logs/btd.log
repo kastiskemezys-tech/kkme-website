@@ -1,0 +1,95 @@
+=== BTD + Litgrid fetch === 2026-03-02T14:00:01.912Z
+Litgrid page: 25613 chars
+Litgrid preview: <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+	
+	<script id="Cookiebot" data-culture="EN" src=https://consent.cookiebot.com/uc.js data-cbid="abcf2dd9-df20-4b27-92dd-c5348c22a9bd" data-blockingmode="auto" type="text/javascript"></script>
+	
+	<title>Litgrid</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+	<meta name="description" content="Litgrid" />
+	<meta name="keywords" content="Litgrid" />
+	<meta name="co
+Litgrid: no price/MW parsed — check preview above for structure
+Litgrid ordered: price=null €/MW/h  mw=null MW
+Worker response: 200 {"timestamp":"2026-03-02T14:00:03.375Z","fcr_avg":35.08,"afrr_up_avg":36.38,"afrr_down_avg":10.05,"mfrr_up_avg":22.74,"mfrr_down_avg":15.13,"pct_up":20.54,"pct_down":79.46,"imbalance_mean":60.91,"imbalance_p90":123.04,"pct_above_100":26.34,"afrr_annual_per_mw_installed":154564,"mfrr_annual_per_mw_installed":96613,"cvi_afrr_eur_mw_yr":309128,"cvi_mfrr_eur_mw_yr":193226,"stress_index_p90":123.04,"fcr_note":"FCR: 25MW Baltic market, saturating 2026","signal":"ACTIVE","interpretation":"Capacity market normalising. FCR/aFRR revenue intact. Monitor for compression trend as new BESS enters.","source":"baltic.transparency-dashboard.eu"}
+Heartbeat: 200
+=== BTD + Litgrid fetch === 2026-03-03T10:00:01.123Z
+Litgrid page: 25613 chars
+Litgrid preview: <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+	
+	<script id="Cookiebot" data-culture="EN" src=https://consent.cookiebot.com/uc.js data-cbid="abcf2dd9-df20-4b27-92dd-c5348c22a9bd" data-blockingmode="auto" type="text/javascript"></script>
+	
+	<title>Litgrid</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+	<meta name="description" content="Litgrid" />
+	<meta name="keywords" content="Litgrid" />
+	<meta name="co
+Litgrid: no price/MW parsed — check preview above for structure
+Litgrid ordered: price=null €/MW/h  mw=null MW
+Worker response: 200 {"timestamp":"2026-03-03T10:00:02.787Z","fcr_avg":45.37,"afrr_up_avg":37.02,"afrr_down_avg":9.36,"mfrr_up_avg":22.67,"mfrr_down_avg":15.18,"pct_up":23.81,"pct_down":76.19,"imbalance_mean":71.15,"imbalance_p90":127.97,"pct_above_100":30.21,"afrr_annual_per_mw_installed":157283,"mfrr_annual_per_mw_installed":96316,"cvi_afrr_eur_mw_yr":314566,"cvi_mfrr_eur_mw_yr":192632,"stress_index_p90":127.97,"fcr_note":"FCR: 25MW Baltic market, saturating 2026","signal":"ACTIVE","interpretation":"Capacity market normalising. FCR/aFRR revenue intact. Monitor for compression trend as new BESS enters.","source":"baltic.transparency-dashboard.eu"}
+Heartbeat: 200
+=== BTD + Litgrid fetch === 2026-03-04T10:00:00.278Z
+Litgrid page: 25613 chars
+Litgrid preview: <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+	
+	<script id="Cookiebot" data-culture="EN" src=https://consent.cookiebot.com/uc.js data-cbid="abcf2dd9-df20-4b27-92dd-c5348c22a9bd" data-blockingmode="auto" type="text/javascript"></script>
+	
+	<title>Litgrid</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+	<meta name="description" content="Litgrid" />
+	<meta name="keywords" content="Litgrid" />
+	<meta name="co
+Litgrid: no price/MW parsed — check preview above for structure
+Litgrid ordered: price=null €/MW/h  mw=null MW
+Worker response: 200 {"timestamp":"2026-03-04T10:00:01.768Z","fcr_avg":45.61,"afrr_up_avg":37.32,"afrr_down_avg":8.86,"mfrr_up_avg":22.94,"mfrr_down_avg":15.02,"pct_up":22.92,"pct_down":77.08,"imbalance_mean":72.12,"imbalance_p90":127.47,"pct_above_100":29.32,"afrr_annual_per_mw_installed":158558,"mfrr_annual_per_mw_installed":97463,"cvi_afrr_eur_mw_yr":317116,"cvi_mfrr_eur_mw_yr":194926,"stress_index_p90":127.47,"fcr_note":"FCR: 25MW Baltic market, saturating 2026","signal":"ACTIVE","interpretation":"Capacity market normalising. FCR/aFRR revenue intact. Monitor for compression trend as new BESS enters.","source":"baltic.transparency-dashboard.eu"}
+Heartbeat: 200
+=== BTD + Litgrid fetch === 2026-03-04T18:03:18.695Z
+Litgrid page: 25613 chars
+Litgrid preview: <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+	
+	<script id="Cookiebot" data-culture="EN" src=https://consent.cookiebot.com/uc.js data-cbid="abcf2dd9-df20-4b27-92dd-c5348c22a9bd" data-blockingmode="auto" type="text/javascript"></script>
+	
+	<title>Litgrid</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+	<meta name="description" content="Litgrid" />
+	<meta name="keywords" content="Litgrid" />
+	<meta name="co
+Litgrid: no price/MW parsed — check preview above for structure
+Litgrid ordered: price=null €/MW/h  mw=null MW
+Worker response: 401 {"error":"Unauthorized"}
+Heartbeat: 401
+=== BTD + Litgrid fetch === 2026-03-05T06:02:54.644Z
+[Guard] UTC hour=6 < 9 — skipping ordered_price/ordered_mw fetch (not yet published)
+Litgrid ordered: price=null €/MW/h  mw=null MW
+Worker response: 401 {"error":"Unauthorized"}
+Heartbeat: 401
+=== BTD + Litgrid fetch === 2026-03-05T10:00:00.470Z
+Litgrid page: 25613 chars
+Litgrid preview: <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+	
+	<script id="Cookiebot" data-culture="EN" src=https://consent.cookiebot.com/uc.js data-cbid="abcf2dd9-df20-4b27-92dd-c5348c22a9bd" data-blockingmode="auto" type="text/javascript"></script>
+	
+	<title>Litgrid</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+	<meta name="description" content="Litgrid" />
+	<meta name="keywords" content="Litgrid" />
+	<meta name="co
+Litgrid: no price/MW parsed — check preview above for structure
+Litgrid ordered: price=null €/MW/h  mw=null MW
+Worker response: 401 {"error":"Unauthorized"}
+Heartbeat: 401
