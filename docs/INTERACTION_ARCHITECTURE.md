@@ -238,7 +238,43 @@ How these rules translate to reusable UI patterns. These are naming suggestions 
 
 ---
 
-## 12. Section build checklist
+## 12. Card implementation checklist (mandatory for every card)
+
+Before considering a card done, verify ALL of these:
+
+### Default state
+- [ ] Default view has ≤9 elements (per strict list in CLAUDE.md "Card build rules")
+- [ ] No supporting metrics visible in default view
+- [ ] No methodology visible in default view
+- [ ] No sublabels visible (except one critical exception per card)
+- [ ] "derived"/"proxy" never appears as inline label text
+- [ ] Interpretation is commercially specific, not technical
+- [ ] Impact line uses "50MW reference asset:" format
+- [ ] Card height ≤450px when closed (excluding chart)
+
+### Drawer state
+- [ ] Drawer content grouped with uppercase subheads
+- [ ] 24px gaps between groups
+- [ ] Three hierarchy levels (evidence > notes > methodology)
+- [ ] No divider-line overuse (max 1)
+- [ ] If >4 groups, least critical is in nested drawer
+
+### Interaction
+- [ ] Drawer trigger uses standard wording ("View signal breakdown" / "View market detail")
+- [ ] Card title opens drawer on click
+- [ ] Source footer opens drawer on click
+- [ ] All clickable elements have cursor: pointer + hover feedback
+- [ ] Nothing looks clickable that isn't
+
+### Copy
+- [ ] All labels readable by outsider investor
+- [ ] No insider abbreviations in default view
+- [ ] Interpretation passes the "3 seconds" test
+- [ ] No AI-smell phrases ("supports returns", "requires revalidation")
+
+---
+
+## 13. Section build checklist
 
 Every section must pass this checklist before it is considered done.
 

@@ -116,6 +116,79 @@ Every signal card component follows this structure top-to-bottom:
 
 No Explain/Data toggle. No MODEL INPUT ghost footer. Default state must be fully readable without interaction.
 
+## Card build rules (learned from hero/S1/S2)
+
+Mandatory for ALL future card and section builds.
+
+### Default visible layer — strict limit
+Every card's default view must contain ONLY:
+1. Title + one-line subtitle (max ~15 words)
+2. Geography qualifier
+3. Hero metric + StatusChip (same line)
+4. One essential helper line (only for metrics that are otherwise uninterpretable — e.g. "Below 1.0× means...")
+5. Primary chart or visualization
+6. One interpretation sentence (Cormorant, not italic, var(--text-secondary))
+7. One "50MW reference asset:" impact line (teal at 0.75 opacity)
+8. Source footer (one line)
+9. Drawer trigger ("▸ View signal breakdown")
+
+Nothing else. No supporting metrics, no methodology, no caveats, no fleet lists, no price detail in the default view.
+
+### Data classification badges — never inline text
+The words "derived", "proxy", "modeled", "observed", "reference" must NEVER appear as part of a label string. They render ONLY via the DataClassBadge component. If a MetricTile label currently contains these words as inline text, it is a bug.
+
+### Sublabels — default hidden
+MetricTile sublabels (helper text below values) should NOT appear in the default card view. Move them into the DetailsDrawer under a "Metric definitions" section. Exception: one critical context sublabel per card if the metric is otherwise meaningless (e.g. "+541 MW pipeline" on fleet).
+
+### Interpretation lines — commercially specific
+Interpretation must say what the metric means for investment, not describe the metric technically. Bad: "Supply approaching demand. Revenue assumptions require revalidation." Good: "Competition is growing but has not yet matched demand. Storage revenues are supported, though new fleet is narrowing headroom."
+
+No italic. No analyst-memo tone. No "requires revalidation."
+
+### Drawer content — structured into groups
+DetailsDrawer content must be organized with:
+- DM Mono uppercase subheads (var(--font-xs), var(--text-tertiary), letter-spacing 0.1em)
+- 24px gaps between groups
+- Three hierarchy levels:
+  - Evidence values: var(--text-secondary), var(--font-sm)
+  - Notes/context: var(--text-muted), var(--font-xs)
+  - Methodology: lowest — var(--text-muted), var(--font-xs), opacity 0.8
+- Spacing instead of divider lines (max 1 divider before methodology)
+- If drawer has >4 content groups, use nested DetailsDrawer for the least critical group
+
+### Drawer trigger — consistent wording
+Use "▸ View signal breakdown" for signal cards.
+Use "▸ View market detail" for hero.
+Use "▸ View [specific content]" for nested drawers.
+Never use generic "Details" or "Method & assumptions."
+
+### Interaction — multiple click targets, same drawer
+Per card, these elements should open the same DetailsDrawer:
+- The drawer trigger text (primary)
+- The card title (secondary — cursor: pointer, hover brightness)
+- The source footer (secondary — cursor: pointer, hover brightness)
+
+Use the drawerKey state pattern:
+```
+const [drawerKey, setDrawerKey] = useState(0)
+const openDrawer = () => setDrawerKey(k => k + 1)
+<DetailsDrawer key={drawerKey} defaultOpen={drawerKey > 0}>
+```
+
+### Copy tone rules
+- Labels must be plain English, readable by a first-time investor
+- No insider abbreviations in primary view (aFRR allowed only inside drawers or with tooltip)
+- Interpretation must feel human-written, not AI-polished
+- Avoid: "supports returns", "requires revalidation", "tightening margin" unless expressed more specifically
+- Every number should pass the test: "Can a smart investor unfamiliar with Baltic balancing markets understand in 3 seconds what it measures, whether it's good or bad, and why it matters?"
+
+### Progressive disclosure — build sequence
+When building any new card:
+1. Write the default visible layer FIRST (the 9 items above)
+2. Build the DetailsDrawer content SECOND
+3. Verify the default card height — if taller than ~450px (excluding chart), move more into the drawer
+4. Test with drawer closed AND open before committing
+
 ## Content rules (binding)
 
 Reference asset section: Open with current Baltic reference asset economics, NOT "against Clean Horizon." CH benchmark is secondary context, not the framing device.
