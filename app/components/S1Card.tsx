@@ -6,7 +6,7 @@ import { useSignal } from '@/lib/useSignal';
 import { safeNum } from '@/lib/safeNum';
 import { Sparkline } from './Sparkline';
 import {
-  MetricTile, StatusChip, ImpactLine, SourceFooter, DetailsDrawer,
+  MetricTile, StatusChip, SourceFooter, DetailsDrawer,
 } from '@/app/components/primitives';
 import type { ImpactState, Sentiment } from '@/app/lib/types';
 
@@ -115,7 +115,7 @@ export function S1Card() {
           color: 'var(--text-secondary)',
           lineHeight: 1.6,
         }}>
-          How far Baltic day-ahead prices diverge from neighboring markets. Wider spreads mean better arbitrage economics for storage.
+          How far Baltic day-ahead prices diverge from neighbors. Wider spreads support storage arbitrage.
         </p>
         <p style={{
           fontFamily: 'var(--font-mono)',
@@ -195,7 +195,7 @@ export function S1Card() {
 
       {/* DETAILS DRAWER */}
       <div style={{ marginTop: '16px' }}>
-        <DetailsDrawer label="Signal detail and methodology">
+        <DetailsDrawer label="Price detail, supporting metrics, and methodology">
           {/* Supporting metrics */}
           <div style={{
             display: 'grid',

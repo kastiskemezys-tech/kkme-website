@@ -179,7 +179,7 @@ export function S2Card() {
           color: 'var(--text-secondary)',
           lineHeight: 1.6,
         }}>
-          How much balancing revenue remains as battery competition grows. The key question for storage economics.
+          Balancing revenue support vs battery fleet competition. The central question for storage economics.
         </p>
         <p style={{
           fontFamily: 'var(--font-mono)',
@@ -326,8 +326,18 @@ export function S2Card() {
 
       {/* DETAILS DRAWER */}
       <div style={{ marginTop: '16px' }}>
-        <DetailsDrawer label="Signal detail and methodology">
-          {/* Supporting metrics */}
+        <DetailsDrawer label="Fleet detail, market references, and methodology">
+          {/* Market references */}
+          <p style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-xs)',
+            color: 'var(--text-muted)',
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            marginBottom: '8px',
+          }}>
+            Market references
+          </p>
           <div style={{
             display: 'grid',
             gridTemplateColumns: '1fr 1fr',
