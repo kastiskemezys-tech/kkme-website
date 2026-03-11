@@ -142,6 +142,10 @@ export function RevenueCard() {
   const [s2, setS2] = useState<S2Data | null>(null);
   const [drawerKey, setDrawerKey] = useState(0);
 
+  // Sensitivity matrix state
+  const [matrixData, setMatrixData] = useState<Record<string, number | null>>({});
+  const [matrixStatus, setMatrixStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+
   // "Why it moved" state
   const [movedLine, setMovedLine] = useState<string | null>(null);
   const [prevSnapshot, setPrevSnapshot] = useState<{ irr: number | null; dscr: number | null; ebitda: number | null } | null>(null);
@@ -191,6 +195,40 @@ export function RevenueCard() {
   }, [capex, cod]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Sensitivity matrix — fetch all 6 scenarios for selected duration
+  useEffect(() => {
+    const mwh = duration === '4h' ? '200' : '100';
+    const scenarios = [
+      { cod: '2027', capex: 'mid', key: '2027_mid' },
+      { cod: '2027', capex: 'high', key: '2027_high' },
+      { cod: '2028', capex: 'mid', key: '2028_mid' },
+      { cod: '2028', capex: 'high', key: '2028_high' },
+      { cod: '2029', capex: 'mid', key: '2029_mid' },
+      { cod: '2029', capex: 'high', key: '2029_high' },
+    ];
+    setMatrixStatus('loading');
+    Promise.allSettled(
+      scenarios.map(s =>
+        fetch(`${WORKER_URL}/revenue?${new URLSearchParams({ mw: '50', mwh, capex: s.capex, grant: 'none', cod: s.cod })}`)
+          .then(r => r.json())
+          .then(d => ({ key: s.key, irr: irrPct((d as RevenueData).project_irr) }))
+      )
+    ).then(results => {
+      const md: Record<string, number | null> = {};
+      let anySuccess = false;
+      results.forEach((r, i) => {
+        if (r.status === 'fulfilled') {
+          md[r.value.key] = r.value.irr;
+          anySuccess = true;
+        } else {
+          md[scenarios[i].key] = null;
+        }
+      });
+      setMatrixData(md);
+      setMatrixStatus(anySuccess ? 'success' : 'error');
+    }).catch(() => setMatrixStatus('error'));
+  }, [duration]);
 
   // "Why it moved" — compute after data arrives
   useEffect(() => {
@@ -570,6 +608,74 @@ export function RevenueCard() {
           }}>
             Per MW · Year 1 · {duration === '4h' ? '50 MW / 200 MWh' : '50 MW / 100 MWh'} · 20-year model
           </p>
+        </div>
+      )}
+
+      {/* 6B. IRR SENSITIVITY MATRIX */}
+      {matrixStatus === 'error' ? (
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '20px' }}>
+          Sensitivity view temporarily unavailable
+        </p>
+      ) : (
+        <div style={{ marginBottom: '20px' }}>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-tertiary)', letterSpacing: '0.04em', marginBottom: '4px' }}>
+            IRR sensitivity
+          </p>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '12px' }}>
+            Selected duration · Project IRR across COD and installed cost
+          </p>
+          {matrixStatus === 'loading' || matrixStatus === 'idle' ? (
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', padding: '16px 0' }}>
+              Loading sensitivity...
+            </div>
+          ) : (() => {
+            const mxHdr: React.CSSProperties = { fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', padding: '4px 8px', textAlign: 'center', letterSpacing: '0.06em' };
+            const mxRow: React.CSSProperties = { fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', padding: '8px', display: 'flex', alignItems: 'center' };
+            return (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr 1fr', gap: '4px', marginBottom: '8px' }}>
+                  <span style={{ padding: '4px 8px' }} />
+                  <span style={mxHdr}>BASE</span>
+                  <span style={mxHdr}>HIGH CAPEX</span>
+                  {(['2027', '2028', '2029'] as const).map(yr => (
+                    <React.Fragment key={yr}>
+                      <span style={mxRow}>{yr}</span>
+                      {(['mid', 'high'] as const).map(cx => {
+                        const irr = matrixData[`${yr}_${cx}`] ?? null;
+                        const isSelected = yr === cod && cx === capex;
+                        const bg = irr != null && irr > 12 ? 'rgba(0,180,160,0.08)'
+                          : irr != null && irr > 8 ? 'rgba(212,160,60,0.08)'
+                          : irr != null ? 'rgba(214,88,88,0.08)' : 'transparent';
+                        return (
+                          <div key={cx} style={{
+                            textAlign: 'center', padding: '8px', background: bg,
+                            border: isSelected ? '2px solid var(--border-highlight)' : '1px solid var(--border-card)',
+                          }}>
+                            <span style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '1rem', color: irrColor(irr), fontWeight: 400 }}>
+                              {irr != null ? fmtPct(irr) : '—'}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </React.Fragment>
+                  ))}
+                </div>
+                {(() => {
+                  const codIrrs = (['2027', '2028', '2029'] as const).map(yr => matrixData[`${yr}_${capex}`]).filter((v): v is number => v != null);
+                  const codSpread = codIrrs.length >= 2 ? Math.max(...codIrrs) - Math.min(...codIrrs) : 0;
+                  const capexIrrs = (['mid', 'high'] as const).map(cx => matrixData[`${cod}_${cx}`]).filter((v): v is number => v != null);
+                  const capexSpread = capexIrrs.length >= 2 ? Math.max(...capexIrrs) - Math.min(...capexIrrs) : 0;
+                  const dur = duration === '4h' ? '4H' : '2H';
+                  const summary = codSpread > capexSpread + 2
+                    ? `For ${dur}, COD timing drives more IRR variance than installed cost at the current step.`
+                    : capexSpread > codSpread + 2
+                    ? `For ${dur}, installed cost drives more IRR variance than COD timing at the current step.`
+                    : `For ${dur}, COD timing and installed cost have comparable impact on Project IRR.`;
+                  return <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', lineHeight: 1.5 }}>{summary}</p>;
+                })()}
+              </>
+            );
+          })()}
         </div>
       )}
 
