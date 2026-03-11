@@ -291,11 +291,22 @@ export function RevenueCard() {
   const takeawayBorder = selIrr != null && selIrr > 12
     ? 'var(--teal)' : selIrr != null && selIrr > 8
     ? 'var(--amber)' : 'var(--rose)';
-  const takeawayText = selIrr != null && selIrr > 12
-    ? 'At current conditions, the reference asset clears model hurdles. Duration and CAPEX choice refine the case.'
-    : selIrr != null && selIrr > 8
-    ? 'Returns are near the model hurdle. COD timing is now the dominant variable — later entry materially weakens the case.'
-    : 'Under current assumptions, returns fall below the model hurdle. Viability depends on earlier COD or lower installed cost.';
+  const irrSpread = (irr2h != null && irr4h != null) ? irr2h - irr4h : null;
+  const durationTag = duration === '4h' ? '4H' : '2H';
+
+  let takeawayText: string;
+  if (selIrr != null && selIrr > 12) {
+    if (irrSpread != null && Math.abs(irrSpread) >= 1.5) {
+      const leader = irrSpread > 0 ? '2H' : '4H';
+      takeawayText = `${durationTag}: ${fmtPct(selIrr)} project IRR, ${selDscr != null ? selDscr.toFixed(2) : '—'}× DSCR. ${leader} leads by ${Math.abs(irrSpread).toFixed(1)}pp — ${irrSpread > 0 ? 'capital efficiency outweighs energy uplift at this cost' : 'energy uplift justifies the capital step-up'}.`;
+    } else {
+      takeawayText = `${durationTag}: ${fmtPct(selIrr)} project IRR, ${selDscr != null ? selDscr.toFixed(2) : '—'}× DSCR. Both durations above hurdle at COD ${cod}.`;
+    }
+  } else if (selIrr != null && selIrr > 8) {
+    takeawayText = `${durationTag}: ${fmtPct(selIrr)} project IRR. Near model hurdle — COD timing is the dominant variable.`;
+  } else {
+    takeawayText = `${durationTag}: ${fmtPct(selIrr)} project IRR at COD ${cod}. Below hurdle — earlier timing or lower cost changes the outcome.`;
+  }
 
   const { impact, desc: impactDesc } = impactFromIrr(selIrr);
 
@@ -411,7 +422,10 @@ export function RevenueCard() {
         <div style={{
           padding: '16px',
           border: `1px solid ${duration === '2h' ? 'var(--border-highlight)' : 'var(--border-card)'}`,
+          borderLeft: duration === '2h' ? '2px solid rgba(0,180,160,0.30)' : undefined,
           background: duration === '2h' ? 'var(--bg-elevated)' : 'transparent',
+          opacity: duration === '2h' ? 1 : 0.65,
+          transition: 'opacity 150ms ease, border 150ms ease, background 150ms ease',
         }}>
           <p style={{
             fontFamily: 'var(--font-mono)',
@@ -450,7 +464,10 @@ export function RevenueCard() {
         <div style={{
           padding: '16px',
           border: `1px solid ${duration === '4h' ? 'var(--border-highlight)' : 'var(--border-card)'}`,
+          borderLeft: duration === '4h' ? '2px solid rgba(0,180,160,0.30)' : undefined,
           background: duration === '4h' ? 'var(--bg-elevated)' : 'transparent',
+          opacity: duration === '4h' ? 1 : 0.65,
+          transition: 'opacity 150ms ease, border 150ms ease, background 150ms ease',
         }}>
           <p style={{
             fontFamily: 'var(--font-mono)',
@@ -514,24 +531,35 @@ export function RevenueCard() {
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'auto 1fr',
-            gap: '4px 16px',
+            gap: '6px 20px',
             fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-xs)',
-            marginBottom: '6px',
+            fontSize: 'var(--font-sm)',
+            marginBottom: '8px',
           }}>
             {([
-              { label: 'Capacity / yr', value: fmtKPerMw(selected.capacity_y1), color: 'var(--text-secondary)' },
-              { label: 'Activation / yr', value: fmtKPerMw(selected.activation_y1), color: 'var(--text-secondary)' },
-              { label: 'Arbitrage / yr', value: fmtKPerMw(selected.arbitrage_y1), color: 'var(--text-secondary)' },
+              { label: 'Capacity', value: fmtKPerMw(selected.capacity_y1), color: 'var(--text-secondary)' },
+              { label: 'Activation', value: fmtKPerMw(selected.activation_y1), color: 'var(--text-secondary)' },
+              { label: 'Arbitrage', value: fmtKPerMw(selected.arbitrage_y1), color: 'var(--text-secondary)' },
               { label: 'RTM fees', value: selected.rtm_fees_y1 != null ? `−${fmtKPerMw(selected.rtm_fees_y1)}` : '—', color: 'var(--text-muted)' },
-              { label: 'Gross / yr', value: fmtKPerMw(selected.gross_revenue_y1), color: 'var(--text-primary)', bold: true },
-              { label: 'OPEX / yr', value: selected.opex_y1 != null ? `−${fmtKPerMw(selected.opex_y1)}` : '—', color: 'var(--rose)' },
-              { label: 'EBITDA / yr', value: fmtKPerMw(selected.ebitda_y1), color: 'var(--teal)', bold: true },
-              { label: 'Net / MW / yr', value: selected.net_mw_yr != null ? fmtEuro(selected.net_mw_yr) : '—', color: 'var(--text-secondary)' },
-            ] as Array<{ label: string; value: string; color: string; bold?: boolean }>).map(row => (
+              { label: 'Gross revenue', value: fmtKPerMw(selected.gross_revenue_y1), color: 'var(--text-primary)', bold: true, border: true },
+              { label: 'OPEX', value: selected.opex_y1 != null ? `−${fmtKPerMw(selected.opex_y1)}` : '—', color: 'var(--rose)' },
+              { label: 'EBITDA', value: fmtKPerMw(selected.ebitda_y1), color: 'var(--teal)', bold: true, border: true },
+              { label: 'Net / MW', value: selected.net_mw_yr != null ? fmtEuro(selected.net_mw_yr) : '—', color: 'var(--text-secondary)' },
+            ] as Array<{ label: string; value: string; color: string; bold?: boolean; border?: boolean }>).map(row => (
               <React.Fragment key={row.label}>
-                <span style={{ color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{row.label}</span>
-                <span style={{ color: row.color, fontWeight: row.bold ? 500 : 400, textAlign: 'right' }}>{row.value}</span>
+                <span style={{
+                  color: 'var(--text-tertiary)',
+                  letterSpacing: '0.04em',
+                  paddingTop: row.border ? '6px' : undefined,
+                  borderTop: row.border ? '1px solid var(--border-card)' : undefined,
+                }}>{row.label}</span>
+                <span style={{
+                  color: row.color,
+                  fontWeight: row.bold ? 500 : 400,
+                  textAlign: 'right',
+                  paddingTop: row.border ? '6px' : undefined,
+                  borderTop: row.border ? '1px solid var(--border-card)' : undefined,
+                }}>{row.value}</span>
               </React.Fragment>
             ))}
           </div>
@@ -545,17 +573,23 @@ export function RevenueCard() {
         </div>
       )}
 
-      {/* 7. INTERPRETATION */}
+      {/* 7. INTERPRETATION — explains WHY the numbers look like this */}
       {selected && (() => {
+        // Revenue composition context
+        const capShare = (selected.capacity_y1 != null && selected.gross_revenue_y1 != null && selected.gross_revenue_y1 > 0)
+          ? Math.round((selected.capacity_y1 / selected.gross_revenue_y1) * 100) : null;
+        const arbShare = (selected.arbitrage_y1 != null && selected.gross_revenue_y1 != null && selected.gross_revenue_y1 > 0)
+          ? Math.round((selected.arbitrage_y1 / selected.gross_revenue_y1) * 100) : null;
+
         let interp = '';
         if (selIrr != null && selIrr > 15 && selDscr != null && selDscr > 1.5) {
-          interp = 'Capacity prices and fleet competition at this COD create enough margin for both debt coverage and equity returns. The revenue stack is broad enough to absorb moderate compression.';
-        } else if (selIrr != null && selIrr > 12 && selDscr != null && selDscr > 1.2) {
-          interp = 'Revenue composition at this COD supports workable economics. Capacity and activation income drive the bulk of returns, with arbitrage as a secondary contributor.';
+          interp = `Capacity and activation income make up ${capShare != null ? `~${capShare}%` : 'the majority'} of gross revenue. At COD ${cod}, fleet competition has not yet compressed these prices enough to narrow the margin.`;
+        } else if (selIrr != null && selIrr > 12) {
+          interp = `Revenue is split between capacity income${capShare != null ? ` (~${capShare}%)` : ''} and arbitrage${arbShare != null ? ` (~${arbShare}%)` : ''}. At COD ${cod}, fleet growth has begun to tighten capacity clearing but has not eliminated the spread.`;
         } else if (selIrr != null && selIrr > 8) {
-          interp = 'At this configuration, fleet growth narrows the revenue opportunity enough that small changes in timing, installed cost, or market conditions shift the outcome materially.';
+          interp = `Fleet additions by COD ${cod} compress capacity prices enough that small changes in timing or cost shift the outcome between viable and marginal. Arbitrage alone does not close the gap.`;
         } else {
-          interp = 'The combination of fleet competition at this COD and installed cost at this level compresses returns below levels that typically support project financing.';
+          interp = `By COD ${cod}, fleet growth drives supply past the compression threshold. Capacity clearing prices fall, and the remaining arbitrage and activation revenue cannot cover the cost structure at this CAPEX level.`;
         }
         return (
           <p style={{
@@ -603,21 +637,22 @@ export function RevenueCard() {
           {/* MODEL CONFIGURATION */}
           <p style={{
             fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-xs)',
+            fontSize: 'var(--font-sm)',
             color: 'var(--text-tertiary)',
             letterSpacing: '0.1em',
             textTransform: 'uppercase',
-            marginBottom: '8px',
+            marginBottom: '10px',
+            fontWeight: 500,
           }}>
             Model configuration
           </p>
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'auto 1fr',
-            gap: '5px 16px',
+            gap: '6px 16px',
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-sm)',
-            marginBottom: '20px',
+            marginBottom: '24px',
           }}>
             <span style={{ color: 'var(--text-muted)' }}>Duration</span>
             <span style={{ color: 'var(--text-secondary)' }}>{duration === '4h' ? '4H (50 MW / 200 MWh)' : '2H (50 MW / 100 MWh)'}</span>
@@ -632,21 +667,22 @@ export function RevenueCard() {
           {/* REVENUE DETAIL — both durations */}
           <p style={{
             fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-xs)',
+            fontSize: 'var(--font-sm)',
             color: 'var(--text-tertiary)',
             letterSpacing: '0.1em',
             textTransform: 'uppercase',
-            marginBottom: '8px',
+            marginBottom: '10px',
+            fontWeight: 500,
           }}>
             Revenue detail
           </p>
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'auto 1fr 1fr',
-            gap: '5px 16px',
+            gap: '6px 16px',
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-sm)',
-            marginBottom: '20px',
+            marginBottom: '24px',
           }}>
             <span style={{ color: 'var(--text-muted)' }}></span>
             <span style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-xs)' }}>2H</span>
@@ -672,18 +708,19 @@ export function RevenueCard() {
           {/* FINANCING ASSUMPTIONS */}
           <p style={{
             fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-xs)',
+            fontSize: 'var(--font-sm)',
             color: 'var(--text-tertiary)',
             letterSpacing: '0.1em',
             textTransform: 'uppercase',
-            marginBottom: '8px',
+            marginBottom: '10px',
+            fontWeight: 500,
           }}>
             Financing assumptions
           </p>
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'auto 1fr',
-            gap: '5px 16px',
+            gap: '6px 16px',
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-sm)',
             marginBottom: '8px',
@@ -712,18 +749,19 @@ export function RevenueCard() {
           {/* ASSET LIFE AND AUGMENTATION */}
           <p style={{
             fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-xs)',
+            fontSize: 'var(--font-sm)',
             color: 'var(--text-tertiary)',
             letterSpacing: '0.1em',
             textTransform: 'uppercase',
-            marginBottom: '8px',
+            marginBottom: '10px',
+            fontWeight: 500,
           }}>
             Asset life and augmentation
           </p>
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'auto 1fr',
-            gap: '5px 16px',
+            gap: '6px 16px',
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-sm)',
             marginBottom: '8px',
@@ -750,18 +788,19 @@ export function RevenueCard() {
           {/* REVENUE QUALITY */}
           <p style={{
             fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-xs)',
+            fontSize: 'var(--font-sm)',
             color: 'var(--text-tertiary)',
             letterSpacing: '0.1em',
             textTransform: 'uppercase',
-            marginBottom: '8px',
+            marginBottom: '10px',
+            fontWeight: 500,
           }}>
             Revenue quality
           </p>
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'auto 1fr',
-            gap: '5px 16px',
+            gap: '6px 16px',
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-sm)',
             marginBottom: '8px',
@@ -790,21 +829,22 @@ export function RevenueCard() {
           {/* DATA CONFIDENCE */}
           <p style={{
             fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-xs)',
+            fontSize: 'var(--font-sm)',
             color: 'var(--text-tertiary)',
             letterSpacing: '0.1em',
             textTransform: 'uppercase',
-            marginBottom: '8px',
+            marginBottom: '10px',
+            fontWeight: 500,
           }}>
             Data confidence
           </p>
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'auto 1fr',
-            gap: '5px 16px',
+            gap: '6px 16px',
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-sm)',
-            marginBottom: '20px',
+            marginBottom: '24px',
           }}>
             <span style={{ color: 'var(--text-muted)' }}>Arbitrage</span>
             <span style={{ color: 'var(--text-secondary)' }}>Observed/Derived (ENTSO-E A44)</span>
@@ -818,7 +858,8 @@ export function RevenueCard() {
             <span style={{ color: 'var(--text-secondary)' }}>Observed (Euribor) + Modeled (margin)</span>
           </div>
 
-          {/* METHODOLOGY */}
+          {/* METHODOLOGY — lowest emphasis, separated by divider */}
+          <div style={{ borderTop: '1px solid var(--border-card)', paddingTop: '16px' }}>
           <p style={{
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-xs)',
@@ -839,6 +880,7 @@ export function RevenueCard() {
           }}>
             20-year DCF. Hierarchy dispatch. CPI from fleet S/D trajectory. 17% CIT, 10yr depreciation. CFADS-based DSCR. WACC 8%. Full model: BESS_Financial_Model_Visaginas_50MW v5.
           </p>
+          </div>
         </DetailsDrawer>
       </div>
     </article>
