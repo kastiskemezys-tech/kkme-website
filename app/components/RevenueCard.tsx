@@ -84,28 +84,22 @@ function irrColor(v: number | null): string {
   return 'var(--rose)';
 }
 
-function dscrSentiment(v: number | null): 'positive' | 'caution' | 'negative' {
-  if (v == null || v < 1.0) return 'negative';
-  if (v >= 1.20) return 'positive';
-  return 'caution';
-}
-
 function hurdleStatus(irr: number | null, dscr: number | null): { label: string; sentiment: 'positive' | 'caution' | 'negative' } {
   if (irr != null && irr > 12 && dscr != null && dscr >= 1.20)
-    return { label: 'Clears model hurdle', sentiment: 'positive' };
+    return { label: 'Above model hurdle', sentiment: 'positive' };
   if (irr != null && irr > 8 && dscr != null && dscr >= 1.0)
-    return { label: 'Borderline', sentiment: 'caution' };
-  return { label: 'Fails model hurdle', sentiment: 'negative' };
+    return { label: 'Near model hurdle', sentiment: 'caution' };
+  return { label: 'Below model hurdle', sentiment: 'negative' };
 }
 
 function impactFromIrr(irr: number | null): { impact: ImpactState; desc: string } {
   if (irr != null && irr > 12) return {
     impact: 'slight_positive',
-    desc: '50MW reference asset: Returns clear model hurdles at current assumptions',
+    desc: '50MW reference asset: Returns above model hurdles at current assumptions',
   };
   if (irr != null && irr > 8) return {
     impact: 'mixed',
-    desc: '50MW reference asset: Borderline — earlier COD or lower CAPEX would materially improve the case',
+    desc: '50MW reference asset: Near hurdle — COD timing and CAPEX level are the dominant variables',
   };
   return {
     impact: 'slight_negative',
@@ -208,26 +202,32 @@ export function RevenueCard() {
     const newDscr = selected.min_dscr;
     const irrDelta = (newIrr != null && prevSnapshot.irr != null) ? newIrr - prevSnapshot.irr : null;
 
+    // Only show "why it moved" if delta is meaningful (>= 0.5pp IRR)
+    const absIrrDelta = irrDelta != null ? Math.abs(irrDelta) : 0;
     let line: string | null = null;
-    if (lastChanged === 'cod' && irrDelta != null) {
-      if (Math.abs(irrDelta) >= 0.3) {
-        const sdStr = selected.sd_ratio != null ? ` (S/D ${selected.sd_ratio.toFixed(2)}×)` : '';
-        line = `COD ${cod}${sdStr}. IRR moved ${irrDelta >= 0 ? '+' : ''}${irrDelta.toFixed(1)}pp.`;
-      } else {
-        line = `COD shift had limited impact at this CAPEX level.`;
-      }
-    } else if (lastChanged === 'capex' && newDscr != null && prevSnapshot.dscr != null) {
-      const dscrDelta = newDscr - prevSnapshot.dscr;
-      if (Math.abs(dscrDelta) >= 0.02) {
+
+    if (absIrrDelta < 0.5 && lastChanged !== 'duration') {
+      // Small changes don't warrant explanation
+      setMovedLine(null);
+      return;
+    }
+
+    if (lastChanged === 'cod' && irrDelta != null && absIrrDelta >= 0.5) {
+      const sdStr = selected.sd_ratio != null ? ` (S/D ${selected.sd_ratio.toFixed(2)}×)` : '';
+      line = `COD ${cod}${sdStr}. IRR moved ${irrDelta >= 0 ? '+' : ''}${irrDelta.toFixed(1)}pp.`;
+    } else if (lastChanged === 'capex' && irrDelta != null && absIrrDelta >= 0.5) {
+      if (newDscr != null && prevSnapshot.dscr != null) {
         line = `Higher installed cost compresses debt coverage. DSCR moved from ${prevSnapshot.dscr.toFixed(2)}× to ${newDscr.toFixed(2)}×.`;
-      } else {
-        line = `Higher CAPEX reduced returns but debt sizing absorbed some impact.`;
       }
     } else if (lastChanged === 'duration' && irrDelta != null) {
+      if (absIrrDelta < 0.5) {
+        setMovedLine(null);
+        return;
+      }
       if (irrDelta < 0) {
-        line = `4H doubles energy capacity but requires proportionally higher CAPEX, reducing capital efficiency at current cost.`;
+        line = `4H increases capital intensity faster than it adds energy value at this cost level.`;
       } else {
-        line = `4H captures enough additional arbitrage to offset the higher CAPEX at this cost level.`;
+        line = `4H captures enough additional energy value to offset the higher capital intensity at this cost level.`;
       }
     }
     setMovedLine(line);
@@ -549,13 +549,13 @@ export function RevenueCard() {
       {selected && (() => {
         let interp = '';
         if (selIrr != null && selIrr > 15 && selDscr != null && selDscr > 1.5) {
-          interp = 'Current conditions support strong risk-adjusted returns. Both coverage and return metrics clear typical screening thresholds.';
+          interp = 'Capacity prices and fleet competition at this COD create enough margin for both debt coverage and equity returns. The revenue stack is broad enough to absorb moderate compression.';
         } else if (selIrr != null && selIrr > 12 && selDscr != null && selDscr > 1.2) {
-          interp = 'Returns clear the hurdle. Coverage metrics are within a more workable range under the model assumptions.';
+          interp = 'Revenue composition at this COD supports workable economics. Capacity and activation income drive the bulk of returns, with arbitrage as a secondary contributor.';
         } else if (selIrr != null && selIrr > 8) {
-          interp = 'Returns are near the hurdle. Viability is sensitive to small shifts in timing, cost, or market conditions.';
+          interp = 'At this configuration, fleet growth narrows the revenue opportunity enough that small changes in timing, installed cost, or market conditions shift the outcome materially.';
         } else {
-          interp = 'Returns fall below the hurdle under these assumptions. Earlier COD or lower installed cost would be needed to improve the case.';
+          interp = 'The combination of fleet competition at this COD and installed cost at this level compresses returns below levels that typically support project financing.';
         }
         return (
           <p style={{
