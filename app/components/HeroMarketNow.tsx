@@ -320,14 +320,14 @@ export function HeroMarketNow() {
         <div style={{ marginTop: '12px' }}>
           <DetailsDrawer
             key={drawerKey}
-            label="Market detail and methodology"
+            label="View market detail"
             defaultOpen={drawerKey > 0}
           >
             {/* Metric definitions */}
             <p style={{
               fontFamily: 'var(--font-mono)',
               fontSize: 'var(--font-xs)',
-              color: 'var(--text-muted)',
+              color: 'var(--text-tertiary)',
               letterSpacing: '0.08em',
               textTransform: 'uppercase',
               marginBottom: '8px',
@@ -339,26 +339,26 @@ export function HeroMarketNow() {
               gridTemplateColumns: 'auto 1fr',
               gap: '6px 16px',
               fontFamily: 'var(--font-mono)',
-              fontSize: 'var(--font-sm)',
-              marginBottom: '16px',
+              fontSize: 'var(--font-xs)',
+              marginBottom: '24px',
             }}>
               <span style={{ color: 'var(--text-muted)' }}>S/D balance</span>
-              <span style={{ color: 'var(--text-secondary)' }}>Battery fleet supply divided by estimated balancing demand. Below 1.0× = demand exceeds supply.</span>
+              <span style={{ color: 'var(--text-muted)' }}>Battery fleet supply divided by estimated balancing demand. Below 1.0× = demand exceeds supply.</span>
               <span style={{ color: 'var(--text-muted)' }}>Arbitrage capture</span>
-              <span style={{ color: 'var(--text-secondary)' }}>Top-4h minus bottom-4h day-ahead spread, net of round-trip efficiency. Derived from ENTSO-E A44.</span>
+              <span style={{ color: 'var(--text-muted)' }}>Top-4h minus bottom-4h day-ahead spread, net of round-trip efficiency. Derived from ENTSO-E A44.</span>
               <span style={{ color: 'var(--text-muted)' }}>Capacity reference</span>
-              <span style={{ color: 'var(--text-secondary)' }}>Estimated aFRR capacity price. Baltic-calibrated proxy from AST Latvia data, not observed clearing.</span>
+              <span style={{ color: 'var(--text-muted)' }}>Estimated aFRR capacity price. Baltic-calibrated proxy from AST Latvia data, not observed clearing.</span>
               <span style={{ color: 'var(--text-muted)' }}>Grid capacity</span>
-              <span style={{ color: 'var(--text-secondary)' }}>Publicly listed available capacity on the Lithuanian transmission grid. Snapshot from Litgrid data.</span>
+              <span style={{ color: 'var(--text-muted)' }}>Publicly listed available capacity on the Lithuanian transmission grid. Snapshot from Litgrid data.</span>
               <span style={{ color: 'var(--text-muted)' }}>BESS fleet</span>
-              <span style={{ color: 'var(--text-secondary)' }}>Operational battery storage across the Baltics. Pipeline includes projects with connection agreements or under construction.</span>
+              <span style={{ color: 'var(--text-muted)' }}>Operational battery storage across the Baltics. Pipeline includes projects with connection agreements or under construction.</span>
             </div>
 
             {/* Data sources and methodology */}
             <p style={{
               fontFamily: 'var(--font-mono)',
               fontSize: 'var(--font-xs)',
-              color: 'var(--text-muted)',
+              color: 'var(--text-tertiary)',
               letterSpacing: '0.08em',
               textTransform: 'uppercase',
               marginBottom: '8px',
@@ -370,17 +370,17 @@ export function HeroMarketNow() {
               gridTemplateColumns: 'auto 1fr',
               gap: '6px 16px',
               fontFamily: 'var(--font-mono)',
-              fontSize: 'var(--font-sm)',
+              fontSize: 'var(--font-xs)',
               marginBottom: '12px',
             }}>
               <span style={{ color: 'var(--text-muted)' }}>Price data</span>
-              <span style={{ color: 'var(--text-secondary)' }}>ENTSO-E A44 day-ahead prices (LT, SE4, PL). Updated every 4 hours.</span>
+              <span style={{ color: 'var(--text-muted)' }}>ENTSO-E A44 day-ahead prices (LT, SE4, PL). Updated every 4 hours.</span>
               <span style={{ color: 'var(--text-muted)' }}>Balancing data</span>
-              <span style={{ color: 'var(--text-secondary)' }}>Baltic TSO balancing market references via BTD. Updated every 4 hours.</span>
+              <span style={{ color: 'var(--text-muted)' }}>Baltic TSO balancing market references via BTD. Updated every 4 hours.</span>
               <span style={{ color: 'var(--text-muted)' }}>Grid data</span>
-              <span style={{ color: 'var(--text-secondary)' }}>Litgrid FeatureServer via VERT.lt ArcGIS. Monthly refresh.</span>
+              <span style={{ color: 'var(--text-muted)' }}>Litgrid FeatureServer via VERT.lt ArcGIS. Monthly refresh.</span>
               <span style={{ color: 'var(--text-muted)' }}>Fleet data</span>
-              <span style={{ color: 'var(--text-secondary)' }}>Aggregated from public TSO connection registers and project announcements.</span>
+              <span style={{ color: 'var(--text-muted)' }}>Aggregated from public TSO connection registers and project announcements.</span>
             </div>
             <p style={{
               fontFamily: 'var(--font-mono)',

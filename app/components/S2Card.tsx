@@ -338,12 +338,12 @@ export function S2Card() {
 
       {/* DETAILS DRAWER */}
       <div style={{ marginTop: '16px' }}>
-        <DetailsDrawer key={drawerKey} label="Fleet detail, market references, and methodology" defaultOpen={drawerKey > 0}>
+        <DetailsDrawer key={drawerKey} label="View market references" defaultOpen={drawerKey > 0}>
           {/* Market references */}
           <p style={{
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-xs)',
-            color: 'var(--text-muted)',
+            color: 'var(--text-tertiary)',
             letterSpacing: '0.08em',
             textTransform: 'uppercase',
             marginBottom: '8px',
@@ -354,7 +354,7 @@ export function S2Card() {
             display: 'grid',
             gridTemplateColumns: '1fr 1fr',
             gap: '12px',
-            marginBottom: '16px',
+            marginBottom: '24px',
           }}>
             <MetricTile
               label="aFRR capacity reference"
@@ -376,11 +376,11 @@ export function S2Card() {
 
           {/* Fleet composition */}
           {allEntries.length > 0 && (
-            <div style={{ marginBottom: '16px' }}>
+            <div style={{ marginBottom: '24px' }}>
               <p style={{
                 fontFamily: 'var(--font-mono)',
                 fontSize: 'var(--font-xs)',
-                color: 'var(--text-muted)',
+                color: 'var(--text-tertiary)',
                 letterSpacing: '0.08em',
                 textTransform: 'uppercase',
                 marginBottom: '8px',
@@ -424,7 +424,7 @@ export function S2Card() {
           <p style={{
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-xs)',
-            color: 'var(--text-muted)',
+            color: 'var(--text-tertiary)',
             letterSpacing: '0.08em',
             textTransform: 'uppercase',
             marginBottom: '8px',
@@ -436,8 +436,8 @@ export function S2Card() {
             gridTemplateColumns: 'auto 1fr',
             gap: '6px 16px',
             fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-sm)',
-            marginBottom: '12px',
+            fontSize: 'var(--font-xs)',
+            marginBottom: '24px',
           }}>
             <span style={{ color: 'var(--text-muted)' }}>aFRR up</span>
             <span style={{ color: 'var(--text-secondary)' }}>
@@ -467,9 +467,9 @@ export function S2Card() {
           {(data.afrr_annual_per_mw_installed != null || data.mfrr_annual_per_mw_installed != null) && (
             <div style={{
               fontFamily: 'var(--font-mono)',
-              fontSize: 'var(--font-sm)',
-              color: 'var(--text-secondary)',
-              marginBottom: '12px',
+              fontSize: 'var(--font-xs)',
+              color: 'var(--text-muted)',
+              marginBottom: '24px',
             }}>
               {data.afrr_annual_per_mw_installed != null && (
                 <div>aFRR annual estimate: €{Math.round(data.afrr_annual_per_mw_installed / 1000)}k/MW/yr</div>
@@ -487,7 +487,7 @@ export function S2Card() {
           <p style={{
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-xs)',
-            color: 'var(--text-muted)',
+            color: 'var(--text-tertiary)',
             letterSpacing: '0.08em',
             textTransform: 'uppercase',
             marginBottom: '6px',

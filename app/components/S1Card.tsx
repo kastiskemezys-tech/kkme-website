@@ -206,13 +206,23 @@ export function S1Card() {
 
       {/* DETAILS DRAWER */}
       <div style={{ marginTop: '16px' }}>
-        <DetailsDrawer key={drawerKey} label="Price detail, supporting metrics, and methodology" defaultOpen={drawerKey > 0}>
+        <DetailsDrawer key={drawerKey} label="View price detail" defaultOpen={drawerKey > 0}>
           {/* Supporting metrics */}
+          <p style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-xs)',
+            color: 'var(--text-tertiary)',
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            marginBottom: '8px',
+          }}>
+            Supporting metrics
+          </p>
           <div style={{
             display: 'grid',
             gridTemplateColumns: '1fr 1fr 1fr',
             gap: '12px',
-            marginBottom: '16px',
+            marginBottom: '24px',
           }}>
             <MetricTile
               label="Battery arbitrage capture"
@@ -253,7 +263,7 @@ export function S1Card() {
           <p style={{
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-xs)',
-            color: 'var(--text-muted)',
+            color: 'var(--text-tertiary)',
             letterSpacing: '0.08em',
             textTransform: 'uppercase',
             marginBottom: '8px',
@@ -265,8 +275,8 @@ export function S1Card() {
             gridTemplateColumns: 'auto 1fr',
             gap: '6px 16px',
             fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-sm)',
-            marginBottom: '12px',
+            fontSize: 'var(--font-xs)',
+            marginBottom: '24px',
           }}>
             <span style={{ color: 'var(--text-muted)' }}>LT average</span>
             <span style={{ color: 'var(--text-secondary)' }}>{safeNum(data.lt_avg_eur_mwh, 2)} €/MWh</span>
@@ -299,9 +309,9 @@ export function S1Card() {
           {data.da_tomorrow?.lt_peak != null && (
             <div style={{
               fontFamily: 'var(--font-mono)',
-              fontSize: 'var(--font-sm)',
-              color: 'var(--text-secondary)',
-              marginBottom: '12px',
+              fontSize: 'var(--font-xs)',
+              color: 'var(--text-muted)',
+              marginBottom: '24px',
             }}>
               Tomorrow DA: {safeNum(data.da_tomorrow.lt_peak, 0)} peak · {safeNum(data.da_tomorrow.lt_avg, 0)} avg €/MWh
               {data.da_tomorrow.delivery_date && ` · ${data.da_tomorrow.delivery_date}`}
@@ -312,7 +322,7 @@ export function S1Card() {
           <p style={{
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-xs)',
-            color: 'var(--text-muted)',
+            color: 'var(--text-tertiary)',
             letterSpacing: '0.08em',
             textTransform: 'uppercase',
             marginBottom: '6px',
