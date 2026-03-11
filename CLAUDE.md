@@ -337,5 +337,31 @@ Full rebuild architecture docs are in ~/kkme/claude-handover/:
 02_DATA_MODEL_RULES.md — data classification (observed/derived/modeled/proxy)
 03_DO_NOTS.md — hard constraints
 KKME_TECHNICAL_HANDOVER.md — current tech state, file map, endpoints, deploy
-PACK_1 through PACK_5 — detailed per-section rebuild specifications
+KKME_ASSET_SUMMARY.md — full asset inventory (signals, fleet, revenue engine, data quality)
+PACK_1_MARKET_NOW_AND_REVENUE.md — Hero + S1 + S2 rebuild specs
+PACK_2_COMPETITION_AND_BUILDABILITY.md — Market Pressure + Grid Access
+PACK_3_STRUCTURAL_AND_MARKET_REALITY.md — Structural Drivers + Market Design
+PACK_4_COST_AND_REFERENCE_ASSET.md — Cost Trend + Reference Asset Economics
+PACK_5_CONTEXT_AND_CONVERSION.md — Europe Map + Intel Board + Closing CTA
+PIPELINE_DATA_MAP.md — maps Hetzner scraper pipeline to website sections (S2 fleet 8→145+, S4 grid enrichment, intel auto-generation)
+PIPELINE_ADMIN_PROMPT.md — spec for future VPS API + admin panel (separate workstream, build after main rebuild)
 images/screenshot_01-11.png — current state reference screenshots
+
+## Shared primitives (Phase 1 complete)
+
+Reusable UI building blocks in ~/kkme/app/components/primitives/:
+SectionHeader — left-aligned section header with title, subtitle, metadata row
+MetricTile — metric display (hero/standard/compact) with label, unit, data class badge
+StatusChip — plain-language state pill colored by sentiment (positive/caution/negative/neutral)
+ImpactLine — "Reference asset impact: ..." with optional 2H/4H split
+FreshnessBadge — source + update time + data class + live pulse or stale warning
+ConfidenceBadge — revenue confidence level (high/medium/low) with reason
+DetailsDrawer — collapsible details area replacing Explain/Data toggles
+SourceFooter — compact card footer (source, updated, data class, methodology link)
+DataClassBadge — inline badge (proxy ⚠, modeled, derived, ref)
+
+Shared types in ~/kkme/app/lib/types.ts:
+DataClass, FreshnessClass, ImpactState, Sentiment, GeographyClass
+sentimentColor(), impactToSentiment() helpers
+
+Import via: import { SectionHeader, MetricTile, ... } from '@/app/components/primitives'
