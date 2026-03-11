@@ -381,6 +381,8 @@ Each signal should eventually have its own URL for search indexing and AI citati
 
 ## Planned features (do NOT build unless explicitly instructed)
 
+**Decision filter:** Before building any planned feature, check it against claude-handover/FREE_TOOL_PRODUCT_PRINCIPLES.md §8 checklist. Features that do not improve a real decision for developers, investors, or counterparties should be deprioritized.
+
 High impact (SEO + conversion):
 SSR signal pages — each signal gets own route with server-rendered content
 Dynamic OG images for LinkedIn sharing (signal value + phase colour)
@@ -411,6 +413,7 @@ aFRR/mFRR price history chart on S2
 10. Deploy: npx tsc --noEmit → npm run build → npx wrangler deploy → git add -A → git commit → git push.
 11. Before rebuilding any section: audit current component, state flow, data dependencies. Decide: refactor or clean rebuild.
 12. Build data-first, not JSX-first. Every section needs a clean view-model layer. Do not hardcode business logic into presentational components.
+13. Product principles: read claude-handover/FREE_TOOL_PRODUCT_PRINCIPLES.md before proposing new features. Every addition must pass the 7-question checklist in §8.
 
 ## Rebuild handover
 
