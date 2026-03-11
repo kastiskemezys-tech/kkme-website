@@ -207,22 +207,22 @@ export function S1Card() {
       {/* DETAILS DRAWER */}
       <div style={{ marginTop: '16px' }}>
         <DetailsDrawer key={drawerKey} label="View signal breakdown" defaultOpen={drawerKey > 0}>
-          {/* Supporting metrics — vertical stack for breathing room */}
+          {/* Supporting metrics */}
           <p style={{
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-xs)',
             color: 'var(--text-tertiary)',
             letterSpacing: '0.1em',
             textTransform: 'uppercase',
-            marginBottom: '12px',
+            marginBottom: '8px',
           }}>
             Supporting metrics
           </p>
           <div style={{
             display: 'grid',
             gridTemplateColumns: '1fr 1fr',
-            gap: '16px',
-            marginBottom: '24px',
+            gap: '14px',
+            marginBottom: '20px',
           }}>
             <div>
               <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>
@@ -269,17 +269,17 @@ export function S1Card() {
             color: 'var(--text-tertiary)',
             letterSpacing: '0.1em',
             textTransform: 'uppercase',
-            marginBottom: '12px',
+            marginBottom: '8px',
           }}>
             Price breakdown
           </p>
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'auto 1fr',
-            gap: '6px 16px',
+            gap: '5px 16px',
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-sm)',
-            marginBottom: '24px',
+            marginBottom: '20px',
           }}>
             <span style={{ color: 'var(--text-muted)' }}>LT average</span>
             <span style={{ color: 'var(--text-secondary)' }}>{safeNum(data.lt_avg_eur_mwh, 2)} €/MWh</span>
@@ -314,21 +314,22 @@ export function S1Card() {
               fontFamily: 'var(--font-mono)',
               fontSize: 'var(--font-xs)',
               color: 'var(--text-muted)',
-              marginBottom: '24px',
+              marginBottom: '20px',
             }}>
               Tomorrow DA: {safeNum(data.da_tomorrow.lt_peak, 0)} peak · {safeNum(data.da_tomorrow.lt_avg, 0)} avg €/MWh
               {data.da_tomorrow.delivery_date && ` · ${data.da_tomorrow.delivery_date}`}
             </div>
           )}
 
-          {/* Methodology — lowest emphasis */}
+          {/* Methodology — footer-level */}
           <p style={{
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-xs)',
-            color: 'var(--text-tertiary)',
+            color: 'var(--text-muted)',
             letterSpacing: '0.1em',
             textTransform: 'uppercase',
-            marginBottom: '6px',
+            marginBottom: '4px',
+            opacity: 0.7,
           }}>
             Methodology
           </p>
@@ -336,8 +337,8 @@ export function S1Card() {
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-xs)',
             color: 'var(--text-muted)',
-            lineHeight: 1.6,
-            opacity: 0.8,
+            lineHeight: 1.5,
+            opacity: 0.6,
           }}>
             Day-ahead directional estimate. Realised arbitrage depends on intraday conditions, efficiency, and market access.
           </p>

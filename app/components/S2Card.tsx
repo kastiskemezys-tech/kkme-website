@@ -346,18 +346,18 @@ export function S2Card() {
             color: 'var(--text-tertiary)',
             letterSpacing: '0.1em',
             textTransform: 'uppercase',
-            marginBottom: '12px',
+            marginBottom: '8px',
           }}>
             Market references
           </p>
           <div style={{
             display: 'grid',
             gridTemplateColumns: '1fr 1fr',
-            gap: '16px',
-            marginBottom: '24px',
+            gap: '14px',
+            marginBottom: '20px',
           }}>
             <div>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--font-base)', color: 'var(--text-secondary)' }}>
                 {data.afrr_up_avg != null ? safeNum(data.afrr_up_avg, 0) : '—'} <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>€/MW/h</span>
               </div>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
@@ -365,7 +365,7 @@ export function S2Card() {
               </div>
             </div>
             <div>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--font-base)', color: 'var(--text-secondary)' }}>
                 {data.mfrr_up_avg != null ? safeNum(data.mfrr_up_avg, 0) : '—'} <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>€/MW/h</span>
               </div>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
@@ -376,14 +376,14 @@ export function S2Card() {
 
           {/* Fleet composition */}
           {allEntries.length > 0 && (
-            <div style={{ marginBottom: '24px' }}>
+            <div style={{ marginBottom: '20px' }}>
               <p style={{
                 fontFamily: 'var(--font-mono)',
                 fontSize: 'var(--font-xs)',
                 color: 'var(--text-tertiary)',
                 letterSpacing: '0.1em',
                 textTransform: 'uppercase',
-                marginBottom: '12px',
+                marginBottom: '8px',
               }}>
                 Baltic BESS fleet ({allEntries.length})
               </p>
@@ -421,7 +421,7 @@ export function S2Card() {
           )}
 
           {/* Nested price detail drawer */}
-          <div style={{ marginBottom: '24px' }}>
+          <div style={{ marginBottom: '20px' }}>
             <DetailsDrawer label="View price detail and estimates">
               <div style={{
                 display: 'grid',
@@ -474,14 +474,15 @@ export function S2Card() {
             </DetailsDrawer>
           </div>
 
-          {/* Methodology — lowest emphasis */}
+          {/* Methodology — footer-level */}
           <p style={{
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-xs)',
-            color: 'var(--text-tertiary)',
+            color: 'var(--text-muted)',
             letterSpacing: '0.1em',
             textTransform: 'uppercase',
-            marginBottom: '6px',
+            marginBottom: '4px',
+            opacity: 0.7,
           }}>
             Methodology
           </p>
@@ -489,8 +490,8 @@ export function S2Card() {
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-xs)',
             color: 'var(--text-muted)',
-            lineHeight: 1.6,
-            opacity: 0.8,
+            lineHeight: 1.5,
+            opacity: 0.6,
           }}>
             Baltic-calibrated proxies from AST Latvia reference data. Not observed clearing prices. Proxy flag applies until BTD measured data.
           </p>
