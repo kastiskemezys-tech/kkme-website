@@ -332,18 +332,19 @@ export function RevenueCard() {
   const irrSpread = (irr2h != null && irr4h != null) ? irr2h - irr4h : null;
   const durationTag = duration === '4h' ? '4H' : '2H';
 
+  const dscrStr = selDscr != null ? `${selDscr.toFixed(2)}×` : '—';
   let takeawayText: string;
   if (selIrr != null && selIrr > 12) {
     if (irrSpread != null && Math.abs(irrSpread) >= 1.5) {
       const leader = irrSpread > 0 ? '2H' : '4H';
-      takeawayText = `${durationTag}: ${fmtPct(selIrr)} project IRR, ${selDscr != null ? selDscr.toFixed(2) : '—'}× DSCR. ${leader} leads by ${Math.abs(irrSpread).toFixed(1)}pp — ${irrSpread > 0 ? 'capital efficiency outweighs energy uplift at this cost' : 'energy uplift justifies the capital step-up'}.`;
+      takeawayText = `${fmtPct(selIrr)} project IRR at ${durationTag}, ${dscrStr} DSCR. ${leader} leads by ${Math.abs(irrSpread).toFixed(1)}pp — ${irrSpread > 0 ? 'capital efficiency outweighs the energy uplift at this cost' : 'the energy uplift justifies the capital step-up'}.`;
     } else {
-      takeawayText = `${durationTag}: ${fmtPct(selIrr)} project IRR, ${selDscr != null ? selDscr.toFixed(2) : '—'}× DSCR. Both durations above hurdle at COD ${cod}.`;
+      takeawayText = `${fmtPct(selIrr)} project IRR at ${durationTag}, ${dscrStr} DSCR. Both durations above hurdle at COD ${cod}.`;
     }
   } else if (selIrr != null && selIrr > 8) {
-    takeawayText = `${durationTag}: ${fmtPct(selIrr)} project IRR. Near model hurdle — COD timing is the dominant variable.`;
+    takeawayText = `${fmtPct(selIrr)} project IRR at ${durationTag}. Near model hurdle — COD timing is the dominant variable.`;
   } else {
-    takeawayText = `${durationTag}: ${fmtPct(selIrr)} project IRR at COD ${cod}. Below hurdle — earlier timing or lower cost changes the outcome.`;
+    takeawayText = `${fmtPct(selIrr)} project IRR at ${durationTag}, COD ${cod}. Below hurdle — earlier timing or lower cost changes the outcome.`;
   }
 
   const { impact, desc: impactDesc } = impactFromIrr(selIrr);
@@ -629,8 +630,8 @@ export function RevenueCard() {
               Loading sensitivity...
             </div>
           ) : (() => {
-            const mxHdr: React.CSSProperties = { fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', padding: '4px 8px', textAlign: 'center', letterSpacing: '0.06em' };
-            const mxRow: React.CSSProperties = { fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', padding: '8px', display: 'flex', alignItems: 'center' };
+            const mxHdr: React.CSSProperties = { fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-tertiary)', padding: '6px 8px', textAlign: 'center', letterSpacing: '0.06em', fontWeight: 500 };
+            const mxRow: React.CSSProperties = { fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-tertiary)', padding: '8px', display: 'flex', alignItems: 'center', fontWeight: 500 };
             return (
               <>
                 <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr 1fr', gap: '4px', marginBottom: '8px' }}>
@@ -671,7 +672,7 @@ export function RevenueCard() {
                     : capexSpread > codSpread + 2
                     ? `For ${dur}, installed cost drives more IRR variance than COD timing at the current step.`
                     : `For ${dur}, COD timing and installed cost have comparable impact on Project IRR.`;
-                  return <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', lineHeight: 1.5 }}>{summary}</p>;
+                  return <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', lineHeight: 1.5, marginTop: '6px' }}>{summary}</p>;
                 })()}
               </>
             );
@@ -700,10 +701,10 @@ export function RevenueCard() {
         return (
           <p style={{
             fontFamily: 'var(--font-serif)',
-            fontSize: 'var(--font-sm)',
+            fontSize: '0.9375rem',
             color: 'var(--text-secondary)',
             lineHeight: 1.7,
-            margin: '0 0 16px',
+            margin: '4px 0 16px',
           }}>
             {interp}
           </p>
