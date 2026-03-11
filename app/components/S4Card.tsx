@@ -1,28 +1,20 @@
 'use client';
 
-import { useState, useEffect, type CSSProperties } from 'react';
-import { gridColor } from './s4-utils';
-import { CardFooter } from './CardFooter';
-import { CardDisclosure } from './CardDisclosure';
-import { StaleBanner } from './StaleBanner';
-import { Sparkline } from './Sparkline';
-import { SignalIcon } from './SignalIcon';
+import { useState } from 'react';
 import { useSignal } from '@/lib/useSignal';
-import { safeNum, formatHHMM } from '@/lib/safeNum';
+import { safeNum } from '@/lib/safeNum';
+import {
+  MetricTile, StatusChip, SourceFooter, DetailsDrawer,
+} from '@/app/components/primitives';
+import type { ImpactState, Sentiment } from '@/app/lib/types';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
 interface S4Pipeline {
   dev_total_mw:       number | null;
-  dev_total_raw_mw:   number | null;
-  filter_applied:     string | null;
-  dev_count_filtered: number | null;
-  dev_count_raw:      number | null;
-  parse_warning:      string | null;
   gen_total_mw:       number | null;
-  dev_velocity_3m:    number | null;
-  dev_expiring_2027:  number | null;
-  top_projects:       Array<{ company: string; mw: number; type: string }>;
+  parse_warning:      string | null;
+  dev_count_filtered: number | null;
   updated_at:         string | null;
 }
 
@@ -39,323 +31,380 @@ interface S4Signal {
   _age_hours?:     number | null;
 }
 
-const text = (opacity: number) => `rgba(232, 226, 217, ${opacity})`;
-const MONO: CSSProperties = { fontFamily: 'var(--font-mono)' };
-
-function fmw(n: number | null | undefined): string {
-  return n == null ? '—' : `${n.toLocaleString('en-GB')} MW`;
+function computeFreePct(free: number, connected: number, reserved: number): number {
+  const total = connected + reserved + free;
+  if (total <= 0) return 0;
+  return (free / total) * 100;
 }
 
-function formatTimestamp(iso: string): string {
-  return new Date(iso).toLocaleString('en-GB', {
-    day: '2-digit', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-    timeZone: 'UTC', timeZoneName: 'short',
-  });
+function freeSentiment(pct: number): Sentiment {
+  if (pct > 40) return 'positive';
+  if (pct > 15) return 'caution';
+  return 'negative';
+}
+
+function freeStatus(pct: number): string {
+  if (pct > 40) return 'Headroom visible';
+  if (pct > 25) return 'Access tightening';
+  if (pct > 15) return 'Tightening';
+  return 'Constrained';
+}
+
+function freeInterpretation(pct: number): string {
+  if (pct > 40) return 'Public headroom remains visible at national level, though local connection access can still be selective.';
+  if (pct > 25) return 'Headline capacity remains, but reservation pressure is reducing practical access faster than the aggregate snapshot suggests.';
+  if (pct > 15) return 'Available headroom is narrowing. Queue position, node choice, and timing increasingly determine viability.';
+  return 'Grid access is becoming a material constraint. New projects face elevated connection risk without early queue entry and strong siting.';
+}
+
+function freeImpact(pct: number): ImpactState {
+  if (pct > 40) return 'slight_positive';
+  if (pct > 25) return 'mixed';
+  if (pct > 15) return 'slight_negative';
+  return 'strong_negative';
+}
+
+function freeImpactDesc(pct: number): string {
+  if (pct > 40) return '50MW reference asset: National headroom visible, but node-specific access still matters';
+  if (pct > 25) return '50MW reference asset: Buildable, but queue timing and substation choice matter more';
+  if (pct > 15) return '50MW reference asset: Access tightening — early queue position increasingly matters';
+  return '50MW reference asset: Elevated grid-access risk for new entrants';
+}
+
+function formatMW(n: number | null | undefined): string {
+  if (n == null) return '—';
+  return n.toLocaleString('en-GB');
+}
+
+function formatHeroMW(n: number | null | undefined): string {
+  if (n == null) return '—';
+  if (n >= 1000) return (n / 1000).toFixed(1);
+  return n.toString();
+}
+
+function heroUnit(n: number | null | undefined): string {
+  if (n == null) return '';
+  return n >= 1000 ? 'GW' : 'MW';
+}
+
+function reservedPressure(reserved: number, total: number): string {
+  if (total <= 0) return 'Unknown';
+  const pct = (reserved / total) * 100;
+  if (pct > 50) return 'High';
+  if (pct > 30) return 'Moderate';
+  return 'Low';
 }
 
 export function S4Card() {
-  const { status, data, isDefault, isStale, ageHours, defaultReason } =
+  const { status, data } =
     useSignal<S4Signal>(`${WORKER_URL}/s4`);
-  const [history, setHistory] = useState<number[]>([]);
+  const [drawerKey, setDrawerKey] = useState(0);
+  const openDrawer = () => setDrawerKey(k => k + 1);
 
-  useEffect(() => {
-    fetch(`${WORKER_URL}/s4/history`)
-      .then(r => r.json())
-      .then((h: Array<{ free_mw: number }>) => setHistory(h.map(e => e.free_mw)))
-      .catch(() => {});
-  }, []);
-
-  return (
-    <article
-      className="signal-card"
-      style={{ width: '100%' }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-        <SignalIcon type="grid" size={20} />
-        <h3 style={{ ...MONO, fontSize: '0.82rem', letterSpacing: '0.06em', color: text(0.72), fontWeight: 500, textTransform: 'uppercase' }}>
-          Grid Connection Scarcity
-        </h3>
-      </div>
-
-      <CardDisclosure
-        explain={[
-          'Lithuania\'s grid connection guarantee drops €50→€25/kW — Seimas spring 2026. Halves the cost barrier for new applications.',
-          'Capex support scheme already 2× oversubscribed; Ministry target 1.5 GW / 4.4 GWh by 2028.',
-          'Free capacity: 3.1 GW today. At current application velocity, headroom compresses in 18–36 months — the guarantee cut increases that velocity.',
-        ]}
-        dataLines={[
-          'Grid: Litgrid ArcGIS FeatureServer (near real-time)',
-          'Pipeline: VERT.lt permit registry (monthly)',
-          'Filter: Kaupikliai storage type only',
-          'Stale: grid 6h · permits 35d',
-        ]}
-      />
-
-      <div aria-live="polite" aria-atomic="false">
-        {status === 'loading' && <Skeleton />}
-        {status === 'error'   && <ErrorState />}
-        {status === 'success' && data && (
-          <LiveData data={data} isDefault={isDefault} isStale={isStale} ageHours={ageHours} defaultReason={defaultReason} history={history} />
-        )}
-      </div>
-    </article>
-  );
-}
-
-function Skeleton() {
-  return (
-    <>
-      <p style={{ ...MONO, fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', fontWeight: 400, color: text(0.1), lineHeight: 1, letterSpacing: '-0.02em', marginBottom: '0.75rem' }}>
-        —
-      </p>
-      <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.2), letterSpacing: '0.1em' }}>
-        Fetching
-      </p>
-    </>
-  );
-}
-
-function ErrorState() {
-  return (
-    <>
-      <p style={{ ...MONO, fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', fontWeight: 400, color: text(0.1), lineHeight: 1, letterSpacing: '-0.02em', marginBottom: '0.75rem' }}>
-        —
-      </p>
-      <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.40), letterSpacing: '0.1em' }}>
-        Data unavailable
-      </p>
-    </>
-  );
-}
-
-const DIVIDER: CSSProperties = {
-  borderTop: `1px solid rgba(232, 226, 217, 0.06)`,
-  width: '100%',
-};
-
-function PipelineFlow({ dev, gen }: { dev: number | null; gen: number | null }) {
-  const devGW  = dev  != null ? dev  / 1000 : null;
-  const genGW  = gen  != null ? gen  / 1000 : null;
-  const maxGW  = Math.max(devGW ?? 0, genGW ?? 0, 1);
-
-  const stages: Array<{ label: string; sub: string; gw: number | null; color: string }> = [
-    { label: 'Dev permits',  sub: 'VERT.lt storage', gw: devGW, color: 'rgba(123,94,167,0.65)' },
-    { label: 'Gen permits',  sub: 'Operating / built', gw: genGW, color: 'rgba(86,166,110,0.65)' },
-  ];
-
-  return (
-    <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-end', marginBottom: '1rem' }}>
-      {stages.map(({ label, sub, gw, color }) => {
-        const r = gw != null ? 12 + (gw / maxGW) * 28 : 8;
-        return (
-          <div key={label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-            <div style={{
-              width: r * 2,
-              height: r * 2,
-              borderRadius: '50%',
-              border: `1px solid ${color}`,
-              background: color.replace('0.65', '0.08'),
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
-              {gw != null && (
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.55rem', color, fontWeight: 500 }}>
-                  {gw.toFixed(1)}G
-                </span>
-              )}
-            </div>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.55rem', color: 'rgba(232,226,217,0.45)', textTransform: 'uppercase', textAlign: 'center', lineHeight: 1.4 }}>
-              {label}
-            </span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.48rem', color: 'rgba(232,226,217,0.28)', textAlign: 'center' }}>
-              {sub}
-            </span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function CapacityBar({ connected, reserved, free }: { connected: number; reserved: number; free: number }) {
-  const reservedPct = (reserved / connected) * 100;
-  const freePct     = (free     / connected) * 100;
-  const usedPct     = Math.max(0, 100 - reservedPct - freePct);
-
-  return (
-    <div style={{ margin: '0 0 1.5rem' }}>
-      <div style={{ display: 'flex', height: '20px', gap: '1px', overflow: 'hidden' }}>
-        <div style={{ flex: usedPct,     background: 'rgba(214,88,88,0.25)' }} />
-        <div style={{ flex: reservedPct, background: 'rgba(204,160,72,0.25)' }} />
-        <div style={{ flex: freePct,     background: 'rgba(86,166,110,0.30)' }} />
-      </div>
-      <div style={{ display: 'flex', gap: '16px', marginTop: '5px', fontFamily: 'var(--font-mono)', fontSize: '0.65rem' }}>
-        {([
-          ['Used',     usedPct,     'rgba(214,88,88,0.7)'],
-          ['Reserved', reservedPct, 'rgba(204,160,72,0.7)'],
-          ['Free',     freePct,     'rgba(86,166,110,0.8)'],
-        ] as [string, number, string][]).map(([label, pct, color]) => (
-          <span key={label} style={{ color }}>{label} {pct.toFixed(0)}%</span>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-interface LiveDataProps {
-  data: S4Signal; isDefault: boolean; isStale: boolean; ageHours: number | null; defaultReason: string | null; history: number[];
-}
-
-function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }: LiveDataProps) {
-  const signalColor = gridColor(data.free_mw ?? 0);
-  const ts          = data.timestamp ?? null;
-
-  const metrics: [string, string][] = [
-    ['Connected',   fmw(data.connected_mw)],
-    ['Reserved',    fmw(data.reserved_mw)],
-    ['Utilisation', data.utilisation_pct != null ? `${safeNum(data.utilisation_pct, 1)}%` : '—'],
-  ];
-
-  return (
-    <>
-      <StaleBanner isDefault={isDefault} isStale={isStale} ageHours={ageHours} defaultReason={defaultReason} />
-
-      {/* Hero + sparkline */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1rem' }}>
-        <p style={{ ...MONO, fontWeight: 400, lineHeight: 1, letterSpacing: '-0.02em', margin: 0 }}>
-          <span style={{ fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', color: signalColor }}>
-            {safeNum(data.free_mw, 0, '')}
-          </span>
-          <span style={{ fontSize: '0.75rem', marginLeft: '0.4em', color: text(0.52) }}>
-            MW free
-          </span>
+  if (status === 'loading') {
+    return (
+      <article style={{ padding: '24px' }}>
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>
+          Loading grid capacity data...
         </p>
-        <Sparkline values={history} color="#86efac" width={160} height={40} />
+      </article>
+    );
+  }
+
+  if (status === 'error' || !data) {
+    return (
+      <article style={{ padding: '24px' }}>
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>
+          Grid capacity data unavailable
+        </p>
+      </article>
+    );
+  }
+
+  const free = data.free_mw ?? null;
+  const connected = data.connected_mw ?? 0;
+  const reserved = data.reserved_mw ?? 0;
+  const freeVal = free ?? 0;
+  const total = connected + reserved + freeVal;
+  const freePct = computeFreePct(freeVal, connected, reserved);
+
+  // Bar segment widths
+  const connPct = total > 0 ? (connected / total) * 100 : 0;
+  const resPct = total > 0 ? (reserved / total) * 100 : 0;
+  const availPct = total > 0 ? (freeVal / total) * 100 : 0;
+
+  return (
+    <article style={{ width: '100%' }}>
+      {/* HEADER */}
+      <div style={{ marginBottom: '16px' }}>
+        <h3
+          onClick={openDrawer}
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-sm)',
+            color: 'var(--text-tertiary)',
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+            fontWeight: 500,
+            marginBottom: '6px',
+            cursor: 'pointer',
+            transition: 'color 150ms ease',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-secondary)')}
+          onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-tertiary)')}
+        >
+          Grid access and buildability
+        </h3>
+        <p style={{
+          fontFamily: 'var(--font-serif)',
+          fontSize: 'var(--font-sm)',
+          color: 'var(--text-secondary)',
+          lineHeight: 1.6,
+        }}>
+          Whether new Lithuanian storage projects can still connect. Public capacity, reservation pressure, and policy signals.
+        </p>
+        <p style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: 'var(--font-xs)',
+          color: 'var(--text-tertiary)',
+          marginTop: '4px',
+        }}>
+          Lithuania public grid snapshot
+        </p>
       </div>
 
-      <p style={{ ...MONO, fontSize: '0.6rem', color: data.free_mw == null ? text(0.2) : text(0.52), lineHeight: 1.5, marginBottom: '1.5rem' }}>
-        {data.free_mw == null ? 'Interpretation unavailable — feed incomplete.' : (data.interpretation ?? '—')}
-      </p>
-
-      <div style={{ borderTop: `1px solid rgba(232, 226, 217, 0.06)`, width: '100%', marginBottom: '1.25rem' }} />
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.25rem', marginBottom: '0.75rem' }}>
-        {metrics.map(([label, value]) => (
-          <div key={label}>
-            <p style={{ ...MONO, fontSize: '0.65rem', color: text(0.40), letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.2rem' }}>
-              {label}
-            </p>
-            <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.6) }}>
-              {value}
-            </p>
+      {/* HERO METRIC */}
+      {free != null && (
+        <div style={{ marginBottom: '4px' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+            <MetricTile
+              label="Indicative available capacity"
+              value={formatHeroMW(free)}
+              unit={heroUnit(free)}
+              size="hero"
+              dataClass="observed"
+            />
+            <StatusChip status={freeStatus(freePct)} sentiment={freeSentiment(freePct)} />
           </div>
-        ))}
-      </div>
-
-      {data.connected_mw != null && data.reserved_mw != null && data.free_mw != null && (
-        <>
-          <CapacityBar
-            connected={data.connected_mw}
-            reserved={data.reserved_mw}
-            free={data.free_mw}
-          />
-          <div style={{
-            display: 'flex', alignItems: 'flex-start',
-            gap: '8px', marginTop: '12px',
-            padding: '10px 12px',
-            background: 'rgba(212,160,60,0.06)',
-            border: '1px solid rgba(212,160,60,0.20)',
-          }}>
-            <span style={{
-              color: 'var(--amber)',
-              fontFamily: 'DM Mono',
-              fontSize: '0.65rem',
-              letterSpacing: '0.06em',
-              flexShrink: 0,
-            }}>⚑ PENDING</span>
-            <span style={{
-              color: 'rgba(232,226,217,0.55)',
-              fontFamily: 'DM Mono',
-              fontSize: '0.65rem',
-              lineHeight: 1.5,
-            }}>
-              Guarantee dropping €50 → €25/kW ·{' '}
-              Seimas spring 2026 · Lower barrier ={' '}
-              accelerated queue · Free 3.1 GW depletes faster
-            </span>
-          </div>
-        </>
+        </div>
       )}
 
-      {data.pipeline && (
-        <>
-          <div style={{ ...DIVIDER, marginBottom: '1.25rem' }} />
+      {/* STACKED HORIZONTAL BAR */}
+      {total > 0 && (
+        <div style={{ margin: '16px 0' }}>
+          <div style={{ display: 'flex', height: '40px', gap: '1px', borderRadius: '2px', overflow: 'hidden' }}>
+            {connPct > 0 && (
+              <div style={{ flex: connPct, background: 'rgba(214,88,88,0.5)' }} />
+            )}
+            {resPct > 0 && (
+              <div style={{ flex: resPct, background: 'rgba(212,160,60,0.5)' }} />
+            )}
+            {availPct > 0 && (
+              <div style={{ flex: availPct, background: 'rgba(0,180,160,0.5)' }} />
+            )}
+          </div>
+          <div style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-xs)',
+            color: 'var(--text-muted)',
+            marginTop: '6px',
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '4px 12px',
+          }}>
+            <span>Connected: {formatMW(connected)} MW</span>
+            <span>Reserved: {formatMW(reserved)} MW</span>
+            <span>Available: {formatMW(free)} MW</span>
+          </div>
+        </div>
+      )}
 
-          <PipelineFlow dev={data.pipeline.dev_total_mw} gen={data.pipeline.gen_total_mw} />
+      {/* INTERPRETATION */}
+      {free != null && (
+        <p style={{
+          fontFamily: 'var(--font-serif)',
+          fontSize: 'var(--font-sm)',
+          color: 'var(--text-secondary)',
+          lineHeight: 1.6,
+          margin: '12px 0 16px',
+        }}>
+          {freeInterpretation(freePct)}
+        </p>
+      )}
 
-          <p style={{ ...MONO, fontSize: '0.5rem', letterSpacing: '0.14em', color: text(0.40), textTransform: 'uppercase', marginBottom: '0.9rem' }}>
-            Development permits (BESS filtered)
+      {/* POLICY WATCH */}
+      <div style={{
+        background: 'var(--bg-elevated)',
+        padding: '12px',
+        borderLeft: '2px solid var(--amber)',
+        marginBottom: '16px',
+      }}>
+        <p style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: 'var(--font-xs)',
+          color: 'var(--text-secondary)',
+          lineHeight: 1.6,
+        }}>
+          Policy watch · Connection guarantee currently €50/kW (VERT). Proposed reduction to €25/kW under discussion. If enacted, may lower entry barriers but accelerate queue depletion.
+        </p>
+      </div>
+
+      {/* IMPACT LINE */}
+      {free != null && (
+        <div style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: 'var(--font-sm)',
+          color: 'rgba(0,180,160,0.75)',
+          marginBottom: '16px',
+        }}>
+          {freeImpactDesc(freePct)}
+        </div>
+      )}
+
+      {/* SOURCE FOOTER — clickable to open drawer */}
+      <div onClick={openDrawer} style={{ cursor: 'pointer' }}>
+        <SourceFooter
+          source="VERT.lt ArcGIS · Litgrid"
+          updatedAt={data.timestamp ? new Date(data.timestamp).toLocaleString('en-GB', {
+            day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC',
+          }) : undefined}
+          dataClass="observed"
+        />
+      </div>
+
+      {/* DETAILS DRAWER */}
+      <div style={{ marginTop: '16px' }}>
+        <DetailsDrawer key={drawerKey} label="View grid detail" defaultOpen={drawerKey > 0}>
+          {/* Capacity breakdown */}
+          <p style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-xs)',
+            color: 'var(--text-tertiary)',
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+            marginBottom: '8px',
+          }}>
+            Capacity breakdown
+          </p>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'auto 1fr',
+            gap: '5px 16px',
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-sm)',
+            marginBottom: '20px',
+          }}>
+            <span style={{ color: 'var(--text-muted)' }}>Connected</span>
+            <span style={{ color: 'var(--text-secondary)' }}>{formatMW(connected)} MW</span>
+            <span style={{ color: 'var(--text-muted)' }}>Reserved</span>
+            <span style={{ color: 'var(--text-secondary)' }}>{formatMW(reserved)} MW</span>
+            <span style={{ color: 'var(--text-muted)' }}>Available</span>
+            <span style={{ color: 'var(--text-secondary)' }}>{formatMW(free)} MW</span>
+            <span style={{ color: 'var(--text-muted)' }}>Utilisation</span>
+            <span style={{ color: 'var(--text-secondary)' }}>{data.utilisation_pct != null ? `${safeNum(data.utilisation_pct, 1)}%` : '—'}</span>
+            <span style={{ color: 'var(--text-muted)' }}>Free share</span>
+            <span style={{ color: 'var(--text-secondary)' }}>{free != null ? `${safeNum(freePct, 1)}%` : '—'}</span>
+          </div>
+
+          {/* Permits */}
+          <p style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-xs)',
+            color: 'var(--text-tertiary)',
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+            marginBottom: '8px',
+          }}>
+            Permits
+          </p>
+          {data.pipeline && !data.pipeline.parse_warning && data.pipeline.dev_total_mw != null ? (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'auto 1fr',
+              gap: '5px 16px',
+              fontFamily: 'var(--font-mono)',
+              fontSize: 'var(--font-sm)',
+              marginBottom: '20px',
+            }}>
+              <span style={{ color: 'var(--text-muted)' }}>Development permits</span>
+              <span style={{ color: 'var(--text-secondary)' }}>{(data.pipeline.dev_total_mw / 1000).toFixed(1)} GW</span>
+              {data.pipeline.gen_total_mw != null && (
+                <>
+                  <span style={{ color: 'var(--text-muted)' }}>Generation permits</span>
+                  <span style={{ color: 'var(--text-secondary)' }}>{(data.pipeline.gen_total_mw / 1000).toFixed(1)} GW</span>
+                </>
+              )}
+              <span style={{ color: 'var(--text-muted)' }}>Source</span>
+              <span style={{ color: 'var(--text-muted)' }}>VERT.lt storage permits, BESS filtered</span>
+            </div>
+          ) : (
+            <p style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 'var(--font-xs)',
+              color: 'var(--text-muted)',
+              marginBottom: '20px',
+            }}>
+              Permit data temporarily unavailable
+            </p>
+          )}
+
+          {/* Buildability assessment */}
+          <p style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-xs)',
+            color: 'var(--text-tertiary)',
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+            marginBottom: '8px',
+          }}>
+            Buildability assessment
+          </p>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'auto 1fr',
+            gap: '5px 16px',
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-sm)',
+            marginBottom: '8px',
+          }}>
+            <span style={{ color: 'var(--text-muted)' }}>Reserved pressure</span>
+            <span style={{ color: 'var(--text-secondary)' }}>{reservedPressure(reserved, total)}</span>
+            <span style={{ color: 'var(--text-muted)' }}>Buildability outlook</span>
+            <span style={{ color: 'var(--text-secondary)' }}>{freeStatus(freePct)}</span>
+          </div>
+          <p style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-xs)',
+            color: 'var(--text-muted)',
+            lineHeight: 1.5,
+            marginBottom: '20px',
+          }}>
+            Current buildability view based on public capacity snapshot. Node-specific access, queue position, and reinforcement scope are not captured in this aggregate view.
           </p>
 
-          {(data.pipeline.parse_warning || (data.pipeline.dev_total_mw != null && data.pipeline.dev_total_mw > 5000)) ? (
-            <p style={{ ...MONO, fontSize: '0.55rem', color: text(0.3), fontStyle: 'italic', marginBottom: '0.75rem' }}>
-              Pipeline: validation pending
-            </p>
-          ) : (
-            <>
-              <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '0.4rem 1.25rem', marginBottom: '0.75rem', alignItems: 'baseline' }}>
-                <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase' }}>Dev (storage)</p>
-                <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.55) }}>{fmw(data.pipeline.dev_total_mw)}</p>
-
-                <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase' }}>Gen total</p>
-                <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.55) }}>{fmw(data.pipeline.gen_total_mw)}</p>
-
-                <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase' }}>Expiring 2027</p>
-                <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.55) }}>{fmw(data.pipeline.dev_expiring_2027)}</p>
-              </div>
-
-              {data.pipeline.dev_total_raw_mw != null && (
-                <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.06em', marginBottom: '0.75rem' }}>
-                  Raw total: {data.pipeline.dev_total_raw_mw.toLocaleString('en-GB')} MW
-                  {data.pipeline.dev_count_raw != null ? ` (${data.pipeline.dev_count_raw} permits)` : ''}
-                  {' | '}Filtered for storage type: {(data.pipeline.dev_total_mw ?? 0).toLocaleString('en-GB')} MW
-                  {data.pipeline.dev_count_filtered != null ? ` (${data.pipeline.dev_count_filtered})` : ''}
-                </p>
-              )}
-
-              {data.pipeline.top_projects && data.pipeline.top_projects.length > 0 && (
-                <div style={{ marginBottom: '1rem' }}>
-                  {data.pipeline.top_projects.map((p, i) => (
-                    <p key={i} style={{ ...MONO, fontSize: '0.575rem', color: text(0.52), lineHeight: 1.6 }}>
-                      · {p.company.slice(0, 36)} — {p.mw} MW
-                    </p>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-        </>
-      )}
-
-      <time dateTime={ts ?? ''} style={{ ...MONO, fontSize: '0.575rem', color: text(0.40), letterSpacing: '0.06em', display: 'block', textAlign: 'right' }}>
-        {ts ? formatTimestamp(ts) : '—'}
-        <StaleBanner isDefault={false} isStale={isStale} ageHours={ageHours} defaultReason={null} />
-      </time>
-
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.55rem', color: 'rgba(232,226,217,0.22)', letterSpacing: '0.06em', marginTop: '12px' }}>
-        MODEL INPUT → Grid constraint · Connection CAPEX
+          {/* Methodology — footer-level */}
+          <p style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-xs)',
+            color: 'var(--text-muted)',
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+            marginBottom: '4px',
+            opacity: 0.7,
+          }}>
+            Methodology
+          </p>
+          <p style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-xs)',
+            color: 'var(--text-muted)',
+            lineHeight: 1.5,
+            opacity: 0.6,
+          }}>
+            Public grid capacity from VERT.lt ArcGIS (Litgrid data). Reservation data is a point-in-time snapshot — not all reserved capacity converts to built projects. This is a national pressure indicator, not a node-level buildability assessment.
+          </p>
+        </DetailsDrawer>
       </div>
-
-      <CardFooter
-        period="Point-in-time snapshot"
-        compare="Baseline: >2000 MW available"
-        updated={`ArcGIS ${formatHHMM(ts)} UTC · Permits: monthly`}
-        timestamp={ts}
-        isStale={isStale}
-        ageHours={ageHours}
-      />
-    </>
+    </article>
   );
 }
