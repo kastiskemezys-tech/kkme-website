@@ -75,6 +75,16 @@ Connected markets explicit. Sweden/Finland/Poland influence must be visible in i
 Private data rules. Private pipeline/scraper data improves interpretation behind the scenes. Public cards show only aggregated, public-safe outputs. No confidential project names, term sheet dates, or commercial details.
 Degraded states. Never show "—", "Fetching...", or "Computing..." as primary state. Use last known good value + stale badge + confidence warning.
 
+## Interaction architecture (see docs/INTERACTION_ARCHITECTURE.md)
+
+- Information layers: Layer A (default visible) → Layer B (expanded detail) → Layer C (methodology/trust) → optional Layer D (dedicated page)
+- Default card view shows only: title, hero metric, status, chart, interpretation, impact line, source footer, one detail trigger
+- Supporting metrics, fleet lists, price tables, methodology → DetailsDrawer (Layer B/C)
+- Every clickable element must do something. Every non-interactive element must not look clickable.
+- Hover may enhance (chart value readout, term tooltip) but must never gate core meaning
+- Navigation anchors must map to real DOM sections. Dead links must be hidden.
+- Mobile is first-class: no hover-only meaning, touch-friendly targets, no horizontal overflow
+
 ## Page structure (top to bottom)
 
 1. Hero / Market Now (id="top") — KKME wordmark + value prop + CTA (LEFT column) + Market Now card with regime, 4-5 KPIs, interpretation, reference-asset impact (RIGHT column). Two-column asymmetric, NOT centered poster. No "BUILDABLE" label. No centered body copy.
