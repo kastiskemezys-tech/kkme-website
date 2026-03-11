@@ -346,7 +346,7 @@ export function S2Card() {
         updatedAt={data.timestamp ? new Date(data.timestamp).toLocaleString('en-GB', {
           day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC',
         }) : undefined}
-        dataClass="proxy"
+        dataClass="reference estimates"
       />
 
       {/* DETAILS DRAWER */}

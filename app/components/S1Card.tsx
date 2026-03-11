@@ -232,7 +232,7 @@ export function S1Card() {
         updatedAt={data.updated_at ? new Date(data.updated_at).toLocaleString('en-GB', {
           day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC',
         }) : undefined}
-        dataClass="observed"
+        dataClass="observed data"
       />
 
       {/* DETAILS DRAWER */}
