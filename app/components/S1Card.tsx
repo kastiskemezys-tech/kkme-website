@@ -206,56 +206,59 @@ export function S1Card() {
 
       {/* DETAILS DRAWER */}
       <div style={{ marginTop: '16px' }}>
-        <DetailsDrawer key={drawerKey} label="View price detail" defaultOpen={drawerKey > 0}>
-          {/* Supporting metrics */}
+        <DetailsDrawer key={drawerKey} label="View signal breakdown" defaultOpen={drawerKey > 0}>
+          {/* Supporting metrics — vertical stack for breathing room */}
           <p style={{
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-xs)',
             color: 'var(--text-tertiary)',
-            letterSpacing: '0.08em',
+            letterSpacing: '0.1em',
             textTransform: 'uppercase',
-            marginBottom: '8px',
+            marginBottom: '12px',
           }}>
             Supporting metrics
           </p>
           <div style={{
             display: 'grid',
-            gridTemplateColumns: '1fr 1fr 1fr',
-            gap: '12px',
+            gridTemplateColumns: '1fr 1fr',
+            gap: '16px',
             marginBottom: '24px',
           }}>
-            <MetricTile
-              label="Battery arbitrage capture"
-              value={data.bess_net_capture != null ? safeNum(data.bess_net_capture, 1) : '—'}
-              unit="€/MWh"
-              size="compact"
-              dataClass="derived"
-              sublabel="net of round-trip efficiency"
-            />
-            <MetricTile
-              label={daysOfData >= 90 ? '90-day median spread' : daysOfData > 0 ? `${daysOfData}-day median` : 'Median spread'}
-              value={spreadP50 != null ? `${spreadP50 >= 0 ? '+' : ''}${safeNum(spreadP50, 1)}` : '—'}
-              unit="€/MWh"
-              size="compact"
-              dataClass="derived"
-              sublabel="rolling baseline"
-            />
-            {percentileLabel ? (
-              <MetricTile
-                label="Spread percentile"
-                value={percentileLabel}
-                size="compact"
-                dataClass="derived"
-                sublabel="vs last 30 days"
-              />
-            ) : (
-              <MetricTile
-                label="Hours above 20% spread"
-                value={data.pct_hours_above_20 != null ? `${safeNum(data.pct_hours_above_20, 1)}%` : '—'}
-                size="compact"
-                dataClass="derived"
-                sublabel="capture frequency"
-              />
+            <div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>
+                {data.bess_net_capture != null ? safeNum(data.bess_net_capture, 1) : '—'} <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>€/MWh</span>
+              </div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
+                Battery arbitrage capture · net of RTE
+              </div>
+            </div>
+            <div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>
+                {spreadP50 != null ? `${spreadP50 >= 0 ? '+' : ''}${safeNum(spreadP50, 1)}` : '—'} <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>€/MWh</span>
+              </div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
+                {daysOfData >= 90 ? '90-day' : daysOfData > 0 ? `${daysOfData}-day` : ''} median spread
+              </div>
+            </div>
+            {percentileLabel && (
+              <div>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>
+                  {percentileLabel}
+                </div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  Spread percentile vs 30 days
+                </div>
+              </div>
+            )}
+            {!percentileLabel && data.pct_hours_above_20 != null && (
+              <div>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>
+                  {safeNum(data.pct_hours_above_20, 1)}%
+                </div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  Hours above 20% spread
+                </div>
+              </div>
             )}
           </div>
 
@@ -264,9 +267,9 @@ export function S1Card() {
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-xs)',
             color: 'var(--text-tertiary)',
-            letterSpacing: '0.08em',
+            letterSpacing: '0.1em',
             textTransform: 'uppercase',
-            marginBottom: '8px',
+            marginBottom: '12px',
           }}>
             Price breakdown
           </p>
@@ -275,7 +278,7 @@ export function S1Card() {
             gridTemplateColumns: 'auto 1fr',
             gap: '6px 16px',
             fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-xs)',
+            fontSize: 'var(--font-sm)',
             marginBottom: '24px',
           }}>
             <span style={{ color: 'var(--text-muted)' }}>LT average</span>
@@ -318,12 +321,12 @@ export function S1Card() {
             </div>
           )}
 
-          {/* Methodology */}
+          {/* Methodology — lowest emphasis */}
           <p style={{
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-xs)',
             color: 'var(--text-tertiary)',
-            letterSpacing: '0.08em',
+            letterSpacing: '0.1em',
             textTransform: 'uppercase',
             marginBottom: '6px',
           }}>
@@ -334,6 +337,7 @@ export function S1Card() {
             fontSize: 'var(--font-xs)',
             color: 'var(--text-muted)',
             lineHeight: 1.6,
+            opacity: 0.8,
           }}>
             Day-ahead directional estimate. Realised arbitrage depends on intraday conditions, efficiency, and market access.
           </p>

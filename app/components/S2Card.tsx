@@ -338,40 +338,40 @@ export function S2Card() {
 
       {/* DETAILS DRAWER */}
       <div style={{ marginTop: '16px' }}>
-        <DetailsDrawer key={drawerKey} label="View market references" defaultOpen={drawerKey > 0}>
+        <DetailsDrawer key={drawerKey} label="View signal breakdown" defaultOpen={drawerKey > 0}>
           {/* Market references */}
           <p style={{
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-xs)',
             color: 'var(--text-tertiary)',
-            letterSpacing: '0.08em',
+            letterSpacing: '0.1em',
             textTransform: 'uppercase',
-            marginBottom: '8px',
+            marginBottom: '12px',
           }}>
             Market references
           </p>
           <div style={{
             display: 'grid',
             gridTemplateColumns: '1fr 1fr',
-            gap: '12px',
+            gap: '16px',
             marginBottom: '24px',
           }}>
-            <MetricTile
-              label="aFRR capacity reference"
-              value={data.afrr_up_avg != null ? safeNum(data.afrr_up_avg, 0) : '—'}
-              unit="€/MW/h"
-              size="standard"
-              dataClass="proxy"
-              sublabel="Baltic proxy, not clearing price"
-            />
-            <MetricTile
-              label="mFRR capacity reference"
-              value={data.mfrr_up_avg != null ? safeNum(data.mfrr_up_avg, 0) : '—'}
-              unit="€/MW/h"
-              size="standard"
-              dataClass="proxy"
-              sublabel="Baltic proxy, not clearing price"
-            />
+            <div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>
+                {data.afrr_up_avg != null ? safeNum(data.afrr_up_avg, 0) : '—'} <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>€/MW/h</span>
+              </div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
+                aFRR capacity · Baltic proxy
+              </div>
+            </div>
+            <div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>
+                {data.mfrr_up_avg != null ? safeNum(data.mfrr_up_avg, 0) : '—'} <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>€/MW/h</span>
+              </div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
+                mFRR capacity · Baltic proxy
+              </div>
+            </div>
           </div>
 
           {/* Fleet composition */}
@@ -381,9 +381,9 @@ export function S2Card() {
                 fontFamily: 'var(--font-mono)',
                 fontSize: 'var(--font-xs)',
                 color: 'var(--text-tertiary)',
-                letterSpacing: '0.08em',
+                letterSpacing: '0.1em',
                 textTransform: 'uppercase',
-                marginBottom: '8px',
+                marginBottom: '12px',
               }}>
                 Baltic BESS fleet ({allEntries.length})
               </p>
@@ -420,75 +420,66 @@ export function S2Card() {
             </div>
           )}
 
-          {/* Price detail */}
-          <p style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-xs)',
-            color: 'var(--text-tertiary)',
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
-            marginBottom: '8px',
-          }}>
-            Price detail
-          </p>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'auto 1fr',
-            gap: '6px 16px',
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-xs)',
-            marginBottom: '24px',
-          }}>
-            <span style={{ color: 'var(--text-muted)' }}>aFRR up</span>
-            <span style={{ color: 'var(--text-secondary)' }}>
-              {safeNum(data.afrr_up_avg, 1)} €/MW/h · CH 2027: €20 · CH 2028: €10
-            </span>
-            <span style={{ color: 'var(--text-muted)' }}>mFRR up</span>
-            <span style={{ color: 'var(--text-secondary)' }}>
-              {safeNum(data.mfrr_up_avg, 1)} €/MW/h · CH 2027: €20 · CH 2030: €11
-            </span>
-            {data.fcr_avg != null && (
-              <>
-                <span style={{ color: 'var(--text-muted)' }}>FCR</span>
+          {/* Nested price detail drawer */}
+          <div style={{ marginBottom: '24px' }}>
+            <DetailsDrawer label="View price detail and estimates">
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'auto 1fr',
+                gap: '6px 16px',
+                fontFamily: 'var(--font-mono)',
+                fontSize: 'var(--font-sm)',
+                marginBottom: '16px',
+              }}>
+                <span style={{ color: 'var(--text-muted)' }}>aFRR up</span>
                 <span style={{ color: 'var(--text-secondary)' }}>
-                  {safeNum(data.fcr_avg, 1)} €/MW/h · 25 MW total Baltic market
+                  {safeNum(data.afrr_up_avg, 1)} €/MW/h · CH 2027: €20 · CH 2028: €10
                 </span>
-              </>
-            )}
-            {data.stress_index_p90 != null && (data.stress_index_p90 > 0) && (
-              <>
-                <span style={{ color: 'var(--text-muted)' }}>P90 imbalance spike</span>
-                <span style={{ color: 'var(--rose)' }}>{safeNum(data.stress_index_p90, 0)} €/MWh</span>
-              </>
-            )}
+                <span style={{ color: 'var(--text-muted)' }}>mFRR up</span>
+                <span style={{ color: 'var(--text-secondary)' }}>
+                  {safeNum(data.mfrr_up_avg, 1)} €/MW/h · CH 2027: €20 · CH 2030: €11
+                </span>
+                {data.fcr_avg != null && (
+                  <>
+                    <span style={{ color: 'var(--text-muted)' }}>FCR</span>
+                    <span style={{ color: 'var(--text-secondary)' }}>
+                      {safeNum(data.fcr_avg, 1)} €/MW/h · 25 MW total Baltic market
+                    </span>
+                  </>
+                )}
+                {data.stress_index_p90 != null && (data.stress_index_p90 > 0) && (
+                  <>
+                    <span style={{ color: 'var(--text-muted)' }}>P90 imbalance spike</span>
+                    <span style={{ color: 'var(--rose)' }}>{safeNum(data.stress_index_p90, 0)} €/MWh</span>
+                  </>
+                )}
+              </div>
+              {(data.afrr_annual_per_mw_installed != null || data.mfrr_annual_per_mw_installed != null) && (
+                <div style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 'var(--font-xs)',
+                  color: 'var(--text-muted)',
+                }}>
+                  {data.afrr_annual_per_mw_installed != null && (
+                    <div>aFRR annual estimate: €{Math.round(data.afrr_annual_per_mw_installed / 1000)}k/MW/yr</div>
+                  )}
+                  {data.mfrr_annual_per_mw_installed != null && (
+                    <div>mFRR annual estimate: €{Math.round(data.mfrr_annual_per_mw_installed / 1000)}k/MW/yr</div>
+                  )}
+                  <p style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '4px', opacity: 0.8 }}>
+                    Per MW installed · 0.5 MW service (2 MW/MW prequalification) · theoretical max if fully allocated
+                  </p>
+                </div>
+              )}
+            </DetailsDrawer>
           </div>
 
-          {/* Annual revenue estimates */}
-          {(data.afrr_annual_per_mw_installed != null || data.mfrr_annual_per_mw_installed != null) && (
-            <div style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: 'var(--font-xs)',
-              color: 'var(--text-muted)',
-              marginBottom: '24px',
-            }}>
-              {data.afrr_annual_per_mw_installed != null && (
-                <div>aFRR annual estimate: €{Math.round(data.afrr_annual_per_mw_installed / 1000)}k/MW/yr</div>
-              )}
-              {data.mfrr_annual_per_mw_installed != null && (
-                <div>mFRR annual estimate: €{Math.round(data.mfrr_annual_per_mw_installed / 1000)}k/MW/yr</div>
-              )}
-              <p style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '4px' }}>
-                Per MW installed · 0.5 MW service (2 MW/MW prequalification) · theoretical max if fully allocated
-              </p>
-            </div>
-          )}
-
-          {/* Methodology */}
+          {/* Methodology — lowest emphasis */}
           <p style={{
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-xs)',
             color: 'var(--text-tertiary)',
-            letterSpacing: '0.08em',
+            letterSpacing: '0.1em',
             textTransform: 'uppercase',
             marginBottom: '6px',
           }}>
@@ -499,6 +490,7 @@ export function S2Card() {
             fontSize: 'var(--font-xs)',
             color: 'var(--text-muted)',
             lineHeight: 1.6,
+            opacity: 0.8,
           }}>
             Baltic-calibrated proxies from AST Latvia reference data. Not observed clearing prices. Proxy flag applies until BTD measured data.
           </p>
