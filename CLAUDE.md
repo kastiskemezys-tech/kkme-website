@@ -1,204 +1,341 @@
 # KKME — Claude Code Context
 
 ## What this is
-Single-page infrastructure intelligence site for Kastis Kemežys.
-One public page. No password. Console IS the homepage.
-Full thesis: see KKME.md in this repo.
+Baltic flexibility and storage market intelligence platform centered on a 50MW reference asset.
+Market regime → structural drivers → competition pressure → market design reality → cost direction → reference asset economics.
+Built by Kastis Kemežys. kkme.eu.
+
+The site answers: What is the Baltic flexibility market doing right now, and what does that mean for a reference storage asset?
+
+S/D ratio determines the market phase. Structural drivers explain why. Market design filters what is usable.
+The reference asset section translates all of it into economics. The closing section converts credibility into conversation.
+
+This is not a generic dashboard, not a broker landing page, not a news feed, and not a fake Bloomberg clone.
+It is a premium market-intelligence product: investor-facing first, Baltic-focused, high-trust, restrained, analytical.
+
+## Who it's for (in priority order)
+
+Investors — EU infrastructure funds / LPs screening Baltic storage and flexibility exposure. Need: S/D ratio, reference asset IRR, DSCR, COD timing, market regime.
+Developers — go/no-go on a project. Need: grid capacity, CAPEX benchmarks, revenue model, fleet competition.
+BESS operators — monitoring revenue trends. Need: aFRR/mFRR prices, compression trajectory, arbitrage capture.
+Aggregators/Optimizers — portfolio opportunity. Need: fleet pipeline, market structure, node-level grid data.
+Analysts/AI — research and citation. Need: crawlable data, methodology, structured markup.
+
+## Conversion funnel (do not break this flow)
+
+Land (hero/market now) → Understand why (revenue drivers + structural drivers + competition + market design) → See what it means (reference asset economics) → Compare (Europe context) → Stay informed (intelligence board) → Act (conversation CTA)
+
+Revenue drivers and structural explanation come BEFORE the reference asset section, because understanding must precede conclusion.
 
 ## Stack
-- Next.js 16 App Router + TypeScript
-- Tailwind CSS + CSS custom properties for design tokens
-- D3.js + Observable Plot for data visualisation
-- Lenis for smooth scroll
-- anime.js for state-change animations only
-- Cloudflare Pages (hosting) + Workers (data fetching) + KV (data storage)
-- Anthropic API for daily LLM digest
 
-## Design tokens (never change without checking KKME.md)
---bg: #07070a
---text: #e8e2d9
---accent: #7b5ea7
---font-serif: 'Cormorant', serif        ← primary voice, dominant
---font-mono: 'DM Mono', monospace       ← data and numbers
---font-display: 'Unbounded', sans-serif ← headings only, sparingly
+Next.js 16 App Router + TypeScript
+Tailwind CSS + CSS custom properties (design tokens in globals.css :root)
+D3.js for data viz, Lenis for scroll, anime.js for state-change animations only
+Cloudflare Pages (hosting) + Workers (data) + KV (storage)
+Mixed styling: Tailwind utilities + inline styles. When editing, match the pattern of the file you're in.
 
-## Design references (Overfinch / Tuscan manor / Lynch)
-- Nothing tries to impress, but everything does
-- Function is the aesthetic
-- Animation ONLY on state changes — never decorative
-- Warm off-white text on near-black background
-- Something operating just beneath the surface
-- Visually datable to 2026: fluid typography, real-time data, considered micro-interactions
+## Design tokens (globals.css :root — always use var() references)
 
-## Page structure (single page, top to bottom)
-1. KKME wordmark
-2. Statement — "Baltic energy infrastructure is mispriced. KKME tracks where."
-3. S1 — Baltic Price Separation
-4. S2 — Balancing Stack (BTD pipeline, metrics show — until BTD unblocks)
-5. S3 — Cell Cost Stack
-6. S4 — Grid Connection Scarcity
-7. TechTracker
-8. CTASection
-9. Contact
+--bg-page: #07070a
+--text-primary: rgba(232,226,217,0.88)    ← headings, hero numbers, bold values
+--text-secondary: rgba(232,226,217,0.65)  ← body text, table values
+--text-tertiary: rgba(232,226,217,0.45)   ← labels, section headers, descriptions
+--text-muted: rgba(232,226,217,0.30)      ← footnotes, timestamps, source citations
+--text-ghost: rgba(232,226,217,0.15)      ← ghost/decorative labels only
+--teal: rgb(0,180,160)       ← positive: supportive phase, bankable, IRR above target, active signals
+--amber: rgb(212,160,60)     ← caution: tightening phase, marginal DSCR, pending regulatory, warnings
+--rose: rgb(214,88,88)       ← negative: compressed phase, not bankable, IRR below hurdle, failures
+--bg-elevated: rgba(232,226,217,0.04)
+--border-card: rgba(232,226,217,0.10)
+--border-highlight: rgba(232,226,217,0.20)  ← primary card borders
+--font-xs: 0.6875rem (11px)  ← ghost/terminal labels only, NOT for readable text
+--font-sm: 0.8125rem (13px)  ← minimum for any text a user needs to read
+--font-base: 1rem (16px)
 
-## The 5 signals
-- S1: Baltic Price Separation — ENTSO-E API, daily ✓ LIVE
-- S2: Balancing Stack — BTD via GitHub Action 05:30 UTC; BTD currently blocks all automated IPs
-- S3: Cell Cost Stack — Trading Economics + InfoLink, daily ✓ LIVE (InfoLink optional)
-- S4: Grid Connection Scarcity — Litgrid FeatureServer/8, daily ✓ LIVE
-- S5: DC Power Viability — DataCenterDynamics RSS, monthly ← NEXT
+## Design principles (binding — do not violate)
 
-## Data flow
-Cloudflare Worker (cron 06:00 UTC) → computes S1/S3/S4 → writes to KV
-GitHub Action (cron 05:30 UTC) → fetches BTD → writes S2 to KV via POST /s2/update
-Next.js static export → components fetch Worker endpoints directly from browser
+Function is the aesthetic. No decoration. Every pixel communicates data or enables action.
+Animation ONLY on state changes. No looping animations except the LIVE pulse dot.
+Minimum contrast: 0.45 opacity for readable text. 0.15 only for ghost/decorative labels.
+Minimum font size: 0.8125rem (13px) for readable text. 0.6875rem only for ghost/terminal labels.
+Typography rules: Unbounded = hero numbers and section headings only. DM Mono = data, labels, UI, footers, everything else. Cormorant Garamond = narrative paragraphs (interpretation lines, about section, investor copy).
+Spacing: Cards have 24px internal padding. Sections have 48px vertical gap. Sub-elements within cards use 8-16px gaps.
+Voice: Terse. Precise. Numbers before words. Sources always cited. No adjectives. No hype. But always include one plain-language interpretation line per card.
+Dark terminal aesthetic: warm off-white on near-black. Understated precision.
 
-## Build status
-[x] Step 1: Repo + stack installed
-[x] Step 2: Cloudflare Pages connected
-[x] Step 3: Design system (tokens, fonts, grain, base layout)
-[x] Step 4: S1 live — Baltic Price Separation (ENTSO-E A44, regime view)
-[x] Step 5: LLM digest skeleton (Worker endpoints live; UI stripped pending redesign)
-[x] S4 live — Grid Connection Scarcity (Litgrid FeatureServer)
-    + VERT.lt pipeline: dev=19,393MW (62 permits) gen=203MW (5 permits) via monthly cron
-[x] S3 live — Cell Cost Stack (TE lithium CNY/T + InfoLink + BNEF/Ember refs)
-    + Euribor 3M: 2.03% ↓ falling (ECB live — FM/M.U2.EUR.RT.MM.EURIBOR3MD_.HSTA confirmed working)
-    + HICP YoY: 1.9% (ECB live — ICP/M.U2.N.000000.4.ANR)
-[x] S2 live — Balancing Regime (BTD Mac cron 05:30 UTC)
-    FCR ~90 €/MW/h | aFRR ~20 €/MW/h | EARLY regime confirmed (post-sync)
-    + Litgrid tomorrow ordered capacity: fetch in fetch-btd.js (logging pending first run)
-[x] S1 live — Nord Pool DA tomorrow line added (optional, via Mac cron fetch-np-da.js 13:00 UTC or Worker cron)
-[x] Resilience architecture — 3-layer fallback (live → stale KV → static defaults) for all signals
-    + workers/lib/defaults.js: floor defaults + SANITY_BOUNDS + STALE_THRESHOLDS_HOURS
-    + workers/lib/kv.js: kvWrite/kvRead with validation and staleness metadata
-    + workers/lib/notify.js: Telegram alerting helper (TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID)
-    + lib/useSignal.ts: unified fetch hook (timeout 5s, 1 retry) exposing isStale/isDefault/ageHours
-    + app/components/StaleBanner.tsx: amber block banner (defaults) or inline stale suffix
-    + app/components/CardBoundary.tsx: per-card React error boundary with retry
-    + All 4 signal cards updated: useSignal hook + StaleBanner + null-safe timestamps
-    + page.tsx: CardBoundary with signal name wraps S1–S4
-    + Worker GET /health: all-signal staleness check + mac_cron heartbeat tracking
-    + Worker POST /heartbeat: Mac cron alive ping (fetch-btd.js now calls after each run)
-    + Cron schedule: every-4h (S1/S3/S4/Euribor) + 09:00 UTC daily (S2 watchdog)
-    + POST /s2/update: validates required fields + sanity bounds; rejects bad data; Telegram alert
-[x] ECB live Euribor fetch — FM/M.U2.EUR.RT.MM.EURIBOR3MD_.HSTA · 2.03% Jan 2026 confirmed live
-[x] S5 — DC Power Viability ✓ LIVE
-    Signal: OPEN/TIGHTENING/CONSTRAINED from S4 grid_free_mw
-    Grid: derived from S4 Litgrid FeatureServer (Kaupikliai)
-    News: DataCenterKnowledge RSS (5 headlines, every 4h cron)
-    Pipeline: manual quarterly via POST /s5/manual (X-Update-Secret)
-    DataCenterDynamics blocked by CF JS challenge → DCKnowledge used instead
-[x] Telegram webhook — secrets set (TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID), webhook registered
-    POST /telegram/webhook · handleFeedIngest · classifyTopic · /status · /validate · /help
-    Daily digest: 08:00 UTC cron → sendDailyDigest() → notifyTelegram()
-    Intel Feed: GET /feed · feed_index KV · 200-item rolling window
-    /telegram/test confirmed: {"sent":true}
-[x] Animation pass — ShaderGradient hero, SignalIcons, BalticMap arcs, anime.js (rollNumber/drawSparkline/freshnessPulse/animateCards/flashOnChange), BulletCharts on S5/S7/S9, card stagger entrance
-[x] RevenueCard null guards — fPayback/fPct/fk handle null/Infinity; fixes "nullyr"/"€0k"/"0%" display
-[x] UX audit pass — type scale min 10px, brighter green/amber colour system (lib/signalColor.ts),
-    S6 fill bar, S4 capacity bar, S8 BESS/DC tabs functional, Intel Feed counts + pulse dot,
-    Revenue colour coding + IrrBar + Lithuania highlight + shimmer skeleton,
-    2-col Market Context grid, StatusStrip 4-KPI above fold, CTA button prominence
+No centered poster hero. Hero is two-column: value prop left, market state right.
+No Explain/Data toggle buttons on any card. Default state must be readable. Extra detail goes in collapsible details drawer.
+No insider abbreviations in primary labels. Use "Supply/demand ratio" not "S/D". Use "Battery arbitrage capture" not "BESS CAPTURE". Abbreviations allowed only in secondary/detail views.
+50MW reference asset is the throughline. Every signal card must include a reference-asset impact line showing whether the signal is positive/negative/mixed for the reference asset.
+Data classification system. Every metric must be classified as: Observed / Derived / Modeled / Proxy / Reference. This must be visible in the UI where appropriate.
+Impact classification. Every signal translates to: Strong positive / Slight positive / Mixed / Slight negative / Strong negative / Low confidence. Where relevant, show different impacts for 2H and 4H.
+Baltic framing honesty. Use "Baltics with LT-led signal depth." Do not imply perfect Baltic symmetry. Allowed: "Baltic blended signal", "Lithuania-led proxy", "Baltic-calibrated reference."
+Connected markets explicit. Sweden/Finland/Poland influence must be visible in interconnectors and structural drivers, not hidden.
+Private data rules. Private pipeline/scraper data improves interpretation behind the scenes. Public cards show only aggregated, public-safe outputs. No confidential project names, term sheet dates, or commercial details.
+Degraded states. Never show "—", "Fetching...", or "Computing..." as primary state. Use last known good value + stale badge + confidence warning.
 
-## Mac cron scripts (~/kkme-cron/)
-All use X-Update-Secret: kkme-btd-2026
+## Page structure (top to bottom)
 
-| Script          | Schedule        | What it does                                          |
-|-----------------|-----------------|-------------------------------------------------------|
-| fetch-btd.js    | 30 5 * * *      | BTD S2 (reserves/direction/imbalance) + Litgrid ordered |
-| fetch-np-da.js  | 0 13 * * *      | Nord Pool DA prices LT+SE4 → POST /da_tomorrow/update  |
-| fetch-vert.js   | 0 6 1 * *       | VERT.lt permits PDF+XLSX → POST /s4/pipeline           |
+1. Hero / Market Now (id="top") — KKME wordmark + value prop + CTA (LEFT column) + Market Now card with regime, 4-5 KPIs, interpretation, reference-asset impact (RIGHT column). Two-column asymmetric, NOT centered poster. No "BUILDABLE" label. No centered body copy.
+2. StickyNav — appears on scroll >300px. Links match new section names: Market / Revenue / Competition / Structure / Design / Cost / Build / Returns / Europe / Intel / Contact.
+3. Revenue Opportunity (id="revenue-drivers") — S1 Baltic Price Separation + S2 Baltic Balancing Market. These are the two Tier 1 revenue signals. 2-column grid.
+4. Baltic Market Pressure (id="competition") — COD window cards (2027/2028/2029) showing battery competition vs system need for flexibility. Replaces old COD compression bars. Net effect label per window. Reference-asset implication per card.
+5. Structural Market Drivers (id="structural") — Primary row: Wind, Solar, Demand/Load, Interconnectors & Connected Markets. Secondary row: TTF Gas, EU ETS Carbon. NO Nordic Hydro as primary card. NO DC Power Viability in this section.
+6. Market Design & Trading Reality (id="market-design") — NEW section. Balancing market usability + market regime context + reference asset confidence layer. Core concept: "Posted price ≠ usable revenue."
+7. Project Cost Trend (id="cost") — Replaces old BESS Cost Stack. Full-project CAPEX direction, driver decomposition, tracked signals, reference asset sensitivity. NOT lithium-led.
+8. Grid Access & Buildability (id="buildability") — Replaces old Grid Connection Scarcity. Indicative capacity + reserved/queue pressure + policy watch. Uses private dataset behind scenes only for interpretation.
+9. Baltic Reference Asset Returns (id="reference-asset") — Replaces old Revenue Engine. Fixed 50MW anchor. 2H vs 4H visible side-by-side. Base/Conservative/Stress cases. Revenue mix chart. Driver impact waterfall. "What changed" event rail. Data confidence strip. NOT a calculator hero. NOT equity IRR as hero.
+10. European BESS Market Map (id="europe") — 2-axis scatter (crowding vs revenue opportunity). NOT a ranking table. Detail panel per country. Freshness per market (Live/Recent/Reference).
+11. Market Intelligence (id="intel") — Curated board, NOT raw feed. Pinned "This week's market movers" strip. Cards with "why it matters" + impact + horizon tags. Filters: Revenue / Competition / Structure / Market Design / Cost / Buildability / Future Demand / Watchlist.
+12. Discuss Baltic Storage Opportunities (id="conversation") — Replaces Deal Flow. Investor-first. Adaptive form starting with "I'm contacting you about." CTA: "Start the conversation." NOT "Submit Teaser."
 
-### fetch-btd.js (S2 + Litgrid)
-- Fetches BTD: price_procured_reserves / direction_of_balancing_v2 / imbalance_prices
-  Date window: 9 days ago → 2 days ago (BTD publishes with ~2 day lag)
-- Also scrapes Litgrid dashboard for tomorrow ordered capacity (ordered_price, ordered_mw)
-- Posts { reserves, direction, imbalance, ordered_price?, ordered_mw? } to POST /s2/update
-- Worker parses timeseries (d.data.timeseries), extracts LT columns by confirmed index:
-  [10] FCR Symmetric · [11] aFRR Up · [12] aFRR Down · [13] mFRR Up · [14] mFRR Down
-- Signal thresholds (recalibrated Feb 2026): EARLY >50 · ACTIVE 15-50 · COMPRESSING <15
-- BTD blocks CF Worker + GitHub Actions IPs — Mac residential IP is the only working path
+## Signal card anatomy (follow for every card)
 
-## S2 data source — BTD blocking note
-- BTD API blocks Cloudflare Worker IPs (decoy SPA HTML) and GitHub Actions IPs (TCP timeout).
-- Mac cron bypasses this via residential IP. GitHub Action fetch-btd.yml kept as fallback
-  but currently non-functional for BTD fetching.
-  All 3 BTD fetches fail → allSettled → pushes NORMAL/null payload to KV.
-  S2Card displays NORMAL with "—" for all metrics.
-- Pipeline is correct. When BTD eventually unblocks (or we route via residential proxy),
-  the column parsing code will pick up the data automatically.
-- To get real BTD data: run from a residential IP or a non-datacenter proxy.
-  Options: Fly.io (Bucharest edge, EU IP) · Oracle Free Tier · own VPS.
-  Alternative: BTD has a dashboard with manual CSV export — could seed S2 manually.
+Every signal card component follows this structure top-to-bottom:
 
-## Known issues / next session
-- www.kkme.eu not added as custom domain yet (only kkme.eu configured)
-- ANTHROPIC_API_KEY: run `wrangler secret put ANTHROPIC_API_KEY` for production Worker
-  (GET /digest returns 503 without it)
-- @cloudflare/next-on-pages doesn't support Next.js 16 yet; KV is read via
-  Worker HTTP endpoints instead of getRequestContext(). Wire up properly
-  when next-on-pages adds Next.js 16 support.
-- GitHub default branch changed from `dev` to `main` this session
-  (`dev` branch preserved but is 4 commits behind main)
+1. Header — title + subtitle explaining what this signal tracks
+2. Hero metric — the primary number, largest font (Unbounded)
+3. Status tag — plain-language state (e.g., "Supportive", "Tightening", NOT "COMPRESS")
+4. Interpretation line — one sentence explaining what the metric means right now
+5. Main visualization — chart, bar, or map (should be the dominant visual element, not decorative)
+6. Supporting metrics — max 3, with clear labels and units
+7. Reference asset impact — explicit line: "Impact on reference asset: [positive/mixed/negative for 2H/4H]"
+8. Source/freshness footer — source name, update time, data classification (Observed/Derived/Proxy/Modeled)
+9. Collapsible details — all additional data, breakdowns, methodology notes, raw tables
 
-## Cloudflare KV — deployed and wired
-- KV namespace: KKME_SIGNALS (id: 323b493a50764b24b88a8b4a5687a24b)
-- Worker secrets: ENTSOE_API_KEY · ANTHROPIC_API_KEY · UPDATE_SECRET
-- Worker: kkme-fetch-s1.kastis-kemezys.workers.dev — cron 06:00 UTC daily
-  GET /              → fresh S1 fetch + KV write (manual trigger)
-  GET /read          → cached S1 KV (merges da_tomorrow fields if available)
-  GET /s2            → cached S2 KV (written by Mac cron fetch-btd.js)
-  POST /s2/update    → write S2 payload to KV (X-Update-Secret required)
-  GET /s3            → cached S3 KV (merges euribor from 'euribor' KV key)
-  GET /euribor       → cached Euribor KV; computes fresh if empty
-  GET /s4            → cached S4 KV (merges pipeline from 's4_pipeline' KV key)
-  POST /s4/pipeline  → write VERT.lt pipeline to KV (X-Update-Secret required)
-  GET /da_tomorrow   → cached Nord Pool DA KV; computes fresh if empty
-  POST /da_tomorrow/update → write Nord Pool DA payload (X-Update-Secret required)
-  POST /curate       → store CurationEntry in KV
-  GET /curations     → raw curation entries (last 7 days)
-  GET /digest        → Anthropic haiku digest; cached 1h in KV
-  GET /health        → staleness check for all signals + mac_cron heartbeat status
-  POST /heartbeat    → Mac cron alive ping (X-Update-Secret required)
-- KV keys: s1 | s2 | s3 | s4 | euribor | da_tomorrow | s4_pipeline | cron_heartbeat | curation:{id} | curations:index | digest:cache
-- Cron schedule: 0 every-4h (S1/S3/S4/Euribor) + 0 9 * * * (S2 watchdog); S2 written by Mac cron fetch-btd.js
-- Worker secrets needed: ENTSOE_API_KEY · ANTHROPIC_API_KEY · UPDATE_SECRET · TELEGRAM_BOT_TOKEN · TELEGRAM_CHAT_ID
+No Explain/Data toggle. No MODEL INPUT ghost footer. Default state must be fully readable without interaction.
 
-## S3 signal states
-- COMPRESSING: lithium < 120k CNY/T → falling costs, build window
-- STABLE:      lithium 120-180k → predictable capex
-- PRESSURE:    lithium > 180k AND cell > 90 €/kWh → re-underwrite capex
-- WATCH:       lithium > 180k, cell unavailable → verify OEM quotes
-- InfoLink DC-side 2h ESS price (RMB/Wh): best-effort scrape; null if site unreachable
-- Static refs: China $73/kWh, Europe $177/kWh, Global avg $117/kWh (BNEF Dec 2025)
+## Content rules (binding)
 
-## S2 signal states
-- DEEP:    fcr_avg > 8 €/MW/h → full balancing stack revenue, early-market depth
-- NORMAL:  fcr_avg 3-8 €/MW/h → standard revenue assumptions hold
-- SHALLOW: fcr_avg < 3 €/MW/h → market compressing, monitor saturation
+Reference asset section: Open with current Baltic reference asset economics, NOT "against Clean Horizon." CH benchmark is secondary context, not the framing device.
+Three cases: Base (DEFAULT) / Conservative / Stress. Base is always the default view. Do not default to the highest-return scenario.
+No freeform MW/MWh input boxes at top of reference asset section. Fixed 50MW anchor for comparability.
+COD sensitivity is the #1 insight: 2027 COD ≈ investable, 2028+ ≈ fails under current conditions. Always visible.
+Revenue mix must be visible as stacked bars, not buried in a table.
+2H vs 4H comparison must be visible simultaneously, not toggled.
+Stacking disclosure always visible: "Realised revenue typically 65–80% of theoretical max..."
+Proxy flag: all capacity prices show "proxy" badge until BTD measured data uploaded.
+DSCR threshold: 1.20× = bankability floor. Rose below, teal above.
+IRR colours: Project >12% teal, 8-12% amber, <8% rose. Equity >15% / >10% / <10%.
+DC news feed was REMOVED from S5. Never re-add.
+Nordic Hydro demoted from primary card. Use in details or behind scenes only.
+No giant equity IRR as hero number. Project IRR and EBITDA/MW are primary. Equity IRR is secondary/demoted.
 
-## Rules for every session
-- Read this file first, read KKME.md for design/content decisions
-- Update build status when a step completes
-- Never touch Step 8 until all signals are live
-- One component at a time — build, check in browser, then move on
-- Keep components modular — content separated from structure
-- Every session ends with a git commit
+## Key model assumptions (for Reference Asset section)
 
-## S4 Data Sources
-### Litgrid FeatureServer/8 — confirmed working
-URL: https://services-eu1.arcgis.com/NDrrY0T7kE7A7pU0/arcgis/rest/services/ElektrosPerdavimasAEI/FeatureServer/8/query?f=json&cacheHint=true&resultOffset=0&resultRecordCount=1000&where=1%3D1&orderByFields=&outFields=*&resultType=standard&returnGeometry=false&spatialRel=esriSpatialRelIntersects
+These are the defaults. Changing any requires updating computeRevenue() in the worker.
+MW allocation: scales proportionally (16% FCR, 34% aFRR, 50% mFRR of grid cap)
+Capacity prices: FCR €45, aFRR €40, mFRR €22 /MW/h (Baltic-calibrated, ⚠ PROXY until BTD)
+  Source: AST Latvia Sept 2025 — Baltic FCR ~2× Finland, aFRR ~10× Finland, mFRR ~4× Finland.
+  These represent S/D = 1.0 (balanced market). CPI adjusts for actual S/D phase.
+Activation: aFRR 18% rate × 0.55 depth × €40 margin, mFRR 10% × 0.75 × €55
+Arbitrage: P_high €120, P_low €55, RTE 0.87, reserve drag 0.60, 0.9 cycles/day, 300 days/yr
+OPEX: €39k/MW/yr Y1 (scales with MW), 2.5% escalation
+CAPEX scenarios: €120/kWh competitive, €164/kWh CH S1 2025, €262/kWh turnkey EPC
+Financing: 55% debt, 4.5% rate, 8yr tenor, 1yr grace
+Tax: 17% Lithuanian CIT (from Jan 2026)
+Augmentation: €25/kWh at year 10 (scales with MWh)
+Depreciation: 10yr on gross CAPEX excl bond
+WACC: 8%
+Demand: 1190 MW effective (1700 MW total × 0.70 multi-product stacking, Elering Oct 2025)
+S/D thresholds: <0.6 SCARCITY, 0.6-1.0 COMPRESS, >1.0 MATURE
+CPI floor: 0.40 (Baltic structural reserve need ensures non-zero clearing)
+These match BESS_Financial_Model_Visaginas_50MW__5_.xlsx (v5, corrected March 2026).
+Expected outputs: Project IRR ~19%, Equity IRR ~29%, DSCR ~2.0×, Y1 Net/MW ~€177k.
 
-No auth required. Returns 5 rows by Tipas.
-Filter: attributes.Tipas === "Kaupikliai"
-Key fields: Laisva_galia_prijungimui (free MW), Prijungtoji_galia_PT (connected MW),
-            Pasirasytu_ketinimu_pro_galia (reserved MW)
-Signal: free_mw > 2000 = OPEN | 500–2000 = TIGHTENING | <500 = SCARCE
-Current reading (2026-02-25): free=3107 MW, connected=8802 MW, util=73.9% → OPEN
+## The signals
 
-### VERT Leidimai Plėtoti (confirmed working)
-Dev permits PDF: https://www.vert.lt/elektra/SiteAssets/Leidimai/Leidimai%20pl%C4%97toti%20kaupimo%20paj%C4%97gumus%202026-01-31.pdf
-Gen permits XLSX: https://www.vert.lt/SiteAssets/atsinaujinantys-istekliai/2025-02/Leidimai%20generuoti%20i%C5%A1%20kaupimo%20%C4%AFrengini%C5%B3%202025-02-05.xlsx
-Update URLs in ~/kkme-cron/fetch-vert.js (PDF_URL / XLSX_URL) on the 1st of each month.
-Current reading (2026-02-25): dev_total_mw=19,393 (62 permits) gen_total_mw=203 (5 permits)
-POST /s4/pipeline → stores as 's4_pipeline' KV key, merged into GET /s4 response
+S1 — Baltic Price Separation [Revenue Opportunity]
+Source: ENTSO-E A44 (LT + SE4 + PL) · every 4h · KV: s1, s1_history
+Returns: LT/SE4/PL avg, spread, history, p_high_avg, p_low_avg, intraday_capture, bess_net_capture
+Card: S1Card.tsx — single-story card: spread hero + 30D chart + 3 supporting metrics + status tag + interpretation + reference-asset impact
+Rename: "BESS capture" → "Battery arbitrage capture"
+Model feeds: Assumptions!D72-D73 (P_high, P_low → arbitrage revenue)
+
+S2 — Baltic Balancing Market [Revenue Opportunity]
+Source: BTD via Mac cron + manual fleet input + BTD CSV upload · KV: s2, s2_fleet, s2_btd
+Returns: aFRR/mFRR/FCR prices, sd_ratio, phase, cpi, trajectory, fleet, prices_source
+Phases: SCARCITY (S/D <0.6, CPI >1.0) · COMPRESS (0.6-1.0) · MATURE (>1.0, CPI floor 0.35)
+Card: S2Card.tsx — S/D ratio hero + plain-language status tag (NOT "COMPRESS") + aFRR/mFRR revenue support + fleet pressure summary (NOT full list) + S/D trend chart + reference-asset impact
+Fleet list moves to collapsible details. Full fleet detail is NOT in the primary card view.
+Model feeds: Assumptions!D46,D50,D54 (capacity prices) · Market Drivers!D19-D21 (S/D, CPI)
+
+S3 — Project Cost Trend [Cost / Bankability]
+Source: ECB API (Euribor, HICP) + static CAPEX refs · KV: s3
+Card: S3Card.tsx — full-project CAPEX direction + driver decomposition + tracked signals + reference-asset sensitivity
+NOT lithium-led. Lithium is one input signal, not the hero.
+Model feeds: Assumptions!D37 (interest rate) · Assumptions!D18 (equipment cost)
+
+S4 — Grid Access & Buildability [Buildability]
+Source: VERT.lt ArcGIS (Litgrid FeatureServer/8) · KV: s4, s4_pipeline
+Card: S4Card.tsx — indicative capacity + reserved/queue pressure + policy watch + buildability status + reference-asset implication
+Policy flag (€50→€25/kW) already exists. Litgrid map link already exists.
+Private dataset used behind scenes for interpretation only.
+Model feeds: Grid constraint (connection availability + cost)
+
+S5 — DC Power Viability [Removed from main sections]
+Source: ENTSO-E grid (shared with S4) · KV: s5
+Card: S5Card.tsx — OPEN/CLOSED + headroom bar + Litgrid map link (already exists)
+NOTE: RSS feed removed. Do not re-add. DC Power Viability is NOT part of Structural Market Drivers. Keep as standalone minor card or future module.
+
+S6 — Nordic Hydro [Demoted — details/behind-scenes only]
+Source: NVE biapi.nve.no (weekly) · KV: s6, s6_history
+NOT a primary card in the new architecture. Use in details layer or interpretation logic only.
+
+S7 — TTF Gas [Structural — thermal floor support]
+Source: energy-charts.info (every 4h) · KV: s7, s7_history
+Regimes: LOW (<15) · NORMAL (15-30) · ELEVATED (30-50) · HIGH (>50)
+Secondary card in Structural Market Drivers section.
+Model feeds: Market Drivers!D40 (gas marginal cost → P_high floor)
+
+S8 — Interconnectors & Connected Markets [Structural — primary]
+Source: ENTSO-E A11 (every 4h) · KV: s8
+Card: S8Card.tsx — interconnector state + regime tag + connected-market influence (SE4/NordBalt, Finland/EstLink, Poland/LitPol)
+Primary card in Structural Market Drivers section. Must explicitly show Sweden/Finland/Poland influence.
+Model feeds: Market Drivers!D35-D37 (spread drag coefficient)
+
+S9 — EU ETS Carbon [Structural — thermal floor support]
+Source: energy-charts.info (every 4h) · KV: s9, s9_history
+Secondary card in Structural Market Drivers section.
+Model feeds: Market Drivers!D41 (carbon cost → P_high floor)
+
+Reference Asset Returns [Primary synthesis — replaces Revenue Engine]
+Source: computed from s2_fleet, s2_btd, s1 KV data
+Endpoint: GET /revenue?system=2h|2.4h|4h&capex=low|mid|high&grant=none|partial&cod=2027|2028|2029
+Component: ReferenceAssetSection.tsx (or refactored RevenueCard.tsx) — self-fetching, no props from page.tsx
+
+## Hard DO NOTs
+
+Do not use centered poster hero layout
+Do not use "MARKET STATE: BUILDABLE" or similar unexplained state labels
+Do not use Explain/Data toggle buttons on any card
+Do not use giant equity IRR as hero number
+Do not use oversized glow halos or fake AI-dashboard styling
+Do not use decorative motion (animation ONLY on state changes)
+Do not use freeform MW/MWh inputs at top of reference asset section
+Do not use ranking table for Europe (use 2-axis map)
+Do not use raw Telegram/news table (use curated intelligence board)
+Do not use "Submit Teaser" CTA (use "Start the conversation")
+Do not put DC Power Viability inside structural drivers section
+Do not put Nordic Hydro as equal-weight primary card
+Do not stuff queue intelligence into buildability card (keep it narrow and public-safe)
+Do not use lithium as hero of cost section
+Do not use broker/deal-flow tone in closing CTA
+Do not show any metric without unit, geography, and scope
+Do not use tiny pale text pretending to be premium (min 13px for readable text)
+Do not use debug-panel styling or nested-box feeling
+Do not use unexplained abbreviations in primary labels (S/D, BESS, aFRR allowed only in secondary views)
+Do not present data as live/observed when it is proxy or modeled
+Do not make Baltic-wide claims when data is Lithuania-only without disclosure
+Do not patch existing components blindly — audit structure first, prefer clean rebuilds over preserving bad architecture
+Do not hardcode business logic into presentational components
+Do not keep everything in one monolithic component
+Do not expose private project names, term sheet dates, or confidential commercial details in public cards
+
+## Worker endpoints (kkme-fetch-s1.kastis-kemezys.workers.dev)
+
+GET: /s1 /s2 /s3 /s4 /s5 /s6 /s7 /s8 /s9 /read /health /revenue /api/model-inputs /s2/fleet
+POST: /s2/fleet /s2/fleet/entry /s2/btd /s2/update /s4/pipeline /s5/manual /da_tomorrow/update /heartbeat
+All POST endpoints require X-Update-Secret header or Content-Type: application/json.
+jsonResp() helper handles CORS + JSON serialisation for all responses.
+
+## KV keys
+
+s1 · s1_history · s2 · s2_fleet · s2_btd · s3 · euribor · s4 · s4_pipeline · s5 · s6 · s6_history · s7 · s7_history · s8 · s9 · s9_history · da_tomorrow · feed_index · cron_heartbeat · digest:cache
+
+## File map
+
+Worker (DO NOT cat entire file — use grep)
+~/kkme/workers/fetch-s1.js (~2600 lines)
+grep -n "^function|pathname.*===" workers/fetch-s1.js | head -60
+Top: jsonResp(), STATUS_WEIGHT, processFleet(), computeRevenue()
+Routing: if (pathname === '/...') in main fetch handler
+
+Frontend
+~/kkme/app/page.tsx — layout + section order + card rendering
+~/kkme/app/globals.css — tokens + responsive + font loading
+~/kkme/app/components/StickyNav.tsx — fixed nav (appears >300px scroll)
+~/kkme/app/components/MarketSnapshot.tsx — hero market-now KPI card (being rebuilt)
+~/kkme/app/components/RevenueCard.tsx — self-fetching reference asset section (being rebuilt)
+~/kkme/app/components/S1Card.tsx — Baltic Price Separation
+~/kkme/app/components/S2Card.tsx — Baltic Balancing Market + Fleet Tracker
+~/kkme/app/components/S3Card.tsx — Project Cost Trend (being rebuilt from BESS Cost Stack)
+~/kkme/app/components/S4Card.tsx — Grid Access & Buildability
+~/kkme/app/components/S5Card.tsx — DC Power Viability (demoted)
+~/kkme/app/components/S6Card.tsx — Nordic Hydro (demoted)
+~/kkme/app/components/S7Card.tsx — TTF Gas
+~/kkme/app/components/S8Card.tsx — Interconnectors & Connected Markets
+~/kkme/app/components/S9Card.tsx — EU ETS Carbon
+~/kkme/app/components/IntelFeed.tsx — Market Intelligence board (being rebuilt from Telegram feed)
+~/kkme/app/lib/useSignal.ts — shared fetch hook with cache layer
+
+Data typing
+Signal cards use typed interfaces (e.g., S2Signal in S2Card.tsx).
+When adding new fields to a /sN endpoint, also update the interface in the card component.
+
+## Mac cron (~/kkme-cron/) · Secret: kkme-btd-2026
+
+| fetch-btd.js   | 0 */4 * * *  | BTD S2 + Litgrid ordered capacity |
+| fetch-np-da.js | 0 13 * * *   | Nord Pool DA LT+SE4               |
+| fetch-vert.js  | 0 6 1 * *    | VERT.lt permits PDF+XLSX          |
+
+## Infrastructure
+
+Worker: kkme-fetch-s1.kastis-kemezys.workers.dev
+Pages: kkme.eu (auto-deploy from main)
+KV: KKME_SIGNALS (bound as env.KV)
+Secrets: ENTSOE_API_KEY · ANTHROPIC_API_KEY · UPDATE_SECRET · TELEGRAM_BOT_TOKEN · TELEGRAM_CHAT_ID
+Deploy: npx wrangler deploy (worker) is SEPARATE from npm run build (Next.js Pages)
+
+## SEO / Discoverability (current gaps — address when instructed)
+
+Page title should be: "KKME — Baltic Flexibility Market Intelligence & Storage Economics"
+Meta description: "Live supply/demand ratio, structural drivers, competition pressure, and reference-asset economics for Baltic energy storage. Updated every 4 hours."
+Currently a single-page JS app with client-side rendering — not crawlable by AI training pipelines
+Planned: SSR signal pages, JSON-LD structured data, OG images, sitemap.xml
+Each signal should eventually have its own URL for search indexing and AI citation
+
+## Planned features (do NOT build unless explicitly instructed)
+
+High impact (SEO + conversion):
+SSR signal pages — each signal gets own route with server-rendered content
+Dynamic OG images for LinkedIn sharing (signal value + phase colour)
+JSON-LD structured data on every page
+Weekly market brief at /briefs/ (templated from signal deltas)
+
+Medium impact (UX):
+Mobile card accordion (secondary cards collapse on mobile)
+Auto-refresh every 5 minutes
+Alert signup placeholder
+
+Lower priority:
+Branded metric name ("KKME Baltic BESS Index")
+Individual fleet entry pages (/fleet/ignitis-kelme)
+aFRR/mFRR price history chart on S2
+
+## Session rules
+
+1. Read THIS file first. It is the single source of truth.
+2. Worker file map: never cat the whole worker. Use grep for targeted line ranges.
+3. Design tokens: always use var(--token-name), never raw rgba() values.
+4. Reference asset section: self-fetching. No props from page.tsx.
+5. Existing features preserved: S4 policy flag ✓, S5 Litgrid map link ✓, S5 RSS removed ✓. Do not duplicate or re-add.
+6. Every card needs: reference-asset impact line + source/freshness footer + data classification badge.
+7. TypeScript: when adding fields to worker responses, update the interface in the consuming component.
+8. Card structure: follow the NEW card anatomy (header → hero → status → interpretation → viz → supporting → impact → footer → details).
+9. Voice: terse, precise, numbers first. But always include one plain-language interpretation line per card.
+10. Deploy: npx tsc --noEmit → npm run build → npx wrangler deploy → git add -A → git commit → git push.
+11. Before rebuilding any section: audit current component, state flow, data dependencies. Decide: refactor or clean rebuild.
+12. Build data-first, not JSX-first. Every section needs a clean view-model layer. Do not hardcode business logic into presentational components.
+
+## Rebuild handover
+
+Full rebuild architecture docs are in ~/kkme/claude-handover/:
+00_MASTER_ARCHITECTURE.md — vision, audience, page narrative, global rules
+01_IMPLEMENTATION_PHASES.md — phased build plan
+02_DATA_MODEL_RULES.md — data classification (observed/derived/modeled/proxy)
+03_DO_NOTS.md — hard constraints
+KKME_TECHNICAL_HANDOVER.md — current tech state, file map, endpoints, deploy
+PACK_1 through PACK_5 — detailed per-section rebuild specifications
+images/screenshot_01-11.png — current state reference screenshots
