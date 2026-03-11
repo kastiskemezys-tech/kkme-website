@@ -33,8 +33,8 @@ export default function Home() {
         {/* ═══ REVENUE ENGINE — elevated ═══ */}
         <div className="section-elevated" id="revenue">
           <div style={{ marginBottom: '32px' }}>
-            <h2 className="section-header" style={{ marginBottom: '6px' }}>Baltic Project Returns</h2>
-            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.8125rem', color: 'var(--text-muted)', paddingLeft: '16px' }}>20-year returns against Clean Horizon S1 2025</p>
+            <h2 className="section-header" style={{ marginBottom: '6px' }}>Baltic Reference Asset Returns</h2>
+            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.8125rem', color: 'var(--text-muted)', paddingLeft: '16px' }}>How timing, duration, and installed cost shape storage economics</p>
           </div>
           <div>
             <ErrorBoundary>
