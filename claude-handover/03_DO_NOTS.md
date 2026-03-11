@@ -1,0 +1,82 @@
+# KKME — Hard Do Nots
+
+- Do not make the site sound like:
+- Do not improvise around it.
+- Must not include
+- Do not imply perfect Baltic symmetry where it does not exist.
+- Do not hardcode business logic into presentational components.
+- Do not let premium sections collapse into:
+- Do not start with styling.
+- Do not start by tweaking old cards in place.
+- Do not preserve weak concepts just because components already exist.
+- Do not make visual changes yet except if needed to inspect structure.
+- Remove or quarantine obsolete sections/cards that do not fit this architecture
+- Remove poster-like centered layout
+- no unexplained jargon in primary labels
+- Do not overload with detailed breakdowns in primary view.
+- remove DC power viability from this section
+- demote/remove Nordic hydro
+- do not merge into structural drivers or balancing card
+- remove lithium-led placeholder logic
+- Do not leave this as a raw feed at any point after this phase.
+- remove broker-like deal-flow framing
+- remove leftover glow / fintech noise
+- Do not let polish obscure logic.
+- no DC viability inside structural drivers
+- no Nordic hydro as equal-weight main card
+- no queue intelligence stuffed into buildability card
+- no ranking table for Europe context
+- no raw Telegram/news table
+- no generic teaser form
+- do not immediately rush into the next phase if the previous one remains structurally weak
+- no oversized glow halos
+- no tiny pale text pretending to be premium
+- no unexplained abbreviations in hero
+- no generic AI-dashboard tropes
+- no decorative analysis language
+- no metric without unit, geography, and scope
+- no giant empty dark space
+- Better remove from hero unless clearly evidenced
+- Do not expose freeform MW/MWh input boxes at the top.
+- no pill explosion
+- no oversized segmented controls
+- no more than one row on desktop
+- no decorative icons
+- Do not make equity IRR visually equal to project IRR.
+- Do not force the user to toggle just to compare 2H and 4H.
+- no donut/pie chart
+- no rainbow palette
+- no more than 5 revenue colors
+- no fake precision
+- do not bury this only in methodology
+- Do not default to the highest-return scenario
+- Do not let big numbers dominate before explanation
+- Remove from prominence
+- Do not let this section open with “against Clean Horizon” logic.
+- Do not imply all values are equally Baltic-wide if they are not.
+- Do not invent filler revenue categories.
+- Do not skip the middle step.
+- Do not use weak macro signals casually.
+- no dense tables in the main body
+- no washed-out low-contrast copy
+- No decorative motion.
+- Do not patch the existing component blindly.
+- Do not keep everything in one monolithic component.
+- No unexplained acronyms in primary labels unless standard and tooltipped.
+- do not keep giant equity IRR as hero
+- do not expose freeform scenario inputs at top
+- do not bury revenue mix in a small table
+- do not add decorative widgets
+- do not overuse glow / gradients
+- do not hide data quality
+- do not imply Baltic-wide coverage where the number is only LT without disclosure
+- remove or demote all old calculator-first behavior
+- Do not expose formulas on the card itself.
+- Do not expose internal formulas in the main UI.
+- do not collapse into placeholders
+- Do not fake “live” if it is not live.
+- Do not hardcode random positions by taste.
+- Do not pretend you have the same level of live coverage.
+- Do not hardwire them as fixed text in the frontend.
+- Do not encode point positions directly in JSX.
+- no baked-in copy inside component logic
