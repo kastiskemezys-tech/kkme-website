@@ -67,7 +67,7 @@ export default function Home() {
         <div className="section" id="build">
           <div style={{ marginBottom: '32px' }}>
             <h2 className="section-header" style={{ marginBottom: '6px' }}>Build conditions</h2>
-            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.8125rem', color: 'var(--text-muted)', paddingLeft: '16px' }}>Project costs, financing, and grid access — the practical constraints on Baltic storage buildability.</p>
+            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.8125rem', color: 'var(--text-muted)', paddingLeft: '16px' }}>Project costs, financing, and grid access — the practical constraints on storage buildability.</p>
           </div>
           <div className="grid-2">
             <div className="card">

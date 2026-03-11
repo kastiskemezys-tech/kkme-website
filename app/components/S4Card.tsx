@@ -191,7 +191,7 @@ export function S4Card() {
 
       {/* STACKED HORIZONTAL BAR */}
       {total > 0 && (
-        <div style={{ margin: '16px 0' }}>
+        <div style={{ margin: '16px 0 20px' }}>
           <div style={{ display: 'flex', height: '40px', gap: '1px', borderRadius: '2px', overflow: 'hidden' }}>
             {connPct > 0 && (
               <div style={{ flex: connPct, background: 'rgba(214,88,88,0.5)' }} />
@@ -225,24 +225,23 @@ export function S4Card() {
           fontFamily: 'var(--font-serif)',
           fontSize: 'var(--font-sm)',
           color: 'var(--text-secondary)',
-          lineHeight: 1.6,
-          margin: '12px 0 16px',
+          lineHeight: 1.7,
+          margin: '0 0 16px',
         }}>
           {freeInterpretation(freePct)}
         </p>
       )}
 
-      {/* POLICY WATCH */}
+      {/* POLICY WATCH — secondary context */}
       <div style={{
-        background: 'var(--bg-elevated)',
-        padding: '12px',
-        borderLeft: '2px solid var(--amber)',
+        padding: '10px 12px',
+        borderLeft: '1px solid rgba(212,160,60,0.35)',
         marginBottom: '16px',
       }}>
         <p style={{
           fontFamily: 'var(--font-mono)',
           fontSize: 'var(--font-xs)',
-          color: 'var(--text-secondary)',
+          color: 'var(--text-muted)',
           lineHeight: 1.6,
         }}>
           Policy watch · Connection guarantee currently €50/kW (VERT). Proposed reduction to €25/kW under discussion. If enacted, may lower entry barriers but accelerate queue depletion.
@@ -254,7 +253,7 @@ export function S4Card() {
         <div style={{
           fontFamily: 'var(--font-mono)',
           fontSize: 'var(--font-sm)',
-          color: 'rgba(0,180,160,0.75)',
+          color: 'rgba(0,180,160,0.6)',
           marginBottom: '16px',
         }}>
           {freeImpactDesc(freePct)}
