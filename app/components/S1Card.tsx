@@ -38,15 +38,7 @@ export function S1Card() {
   }, []);
 
   return (
-    <article
-      className="signal-card"
-      style={{
-        border: `1px solid ${text(0.1)}`,
-        padding: '2rem 2.5rem',
-        maxWidth: '440px',
-        width: '100%',
-      }}
-    >
+    <article className="signal-card" style={{ width: '100%' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
         <SignalIcon type="price-separation" size={20} />
         <h3 style={{ ...MONO, fontSize: '0.82rem', letterSpacing: '0.06em', color: text(0.72), fontWeight: 500, textTransform: 'uppercase' }}>

@@ -52,12 +52,7 @@ export function S6Card() {
   return (
     <article
       className="signal-card"
-      style={{
-        border: `1px solid ${text(0.1)}`,
-        padding: '2rem 2.5rem',
-        maxWidth: '440px',
-        width: '100%',
-      }}
+      style={{ width: '100%' }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
         <SignalIcon type="hydro" size={20} />
@@ -66,18 +61,20 @@ export function S6Card() {
         </h3>
       </div>
 
-      <CardDisclosure
-        explain={[
-          'Norway reservoir fill as % of total capacity.',
-          'HIGH: >5pp above median → surplus, lower Nordic baseload likely.',
-          'LOW: >5pp below median → deficit, upward price pressure.',
-        ]}
-        dataLines={[
-          'Source: NVE biapi (magasinstatistikk) — weekly release',
-          'Coverage: Norway aggregate (all reservoirs)',
-          'Stale: 168h (weekly data)',
-        ]}
-      />
+      <div className="tier3-detail">
+        <CardDisclosure
+          explain={[
+            'Norway reservoir fill as % of total capacity.',
+            'HIGH: >5pp above median → surplus, lower Nordic baseload likely.',
+            'LOW: >5pp below median → deficit, upward price pressure.',
+          ]}
+          dataLines={[
+            'Source: NVE biapi (magasinstatistikk) — weekly release',
+            'Coverage: Norway aggregate (all reservoirs)',
+            'Stale: 168h (weekly data)',
+          ]}
+        />
+      </div>
 
       <div aria-live="polite" aria-atomic="false">
         {status === 'loading' && <Skeleton />}

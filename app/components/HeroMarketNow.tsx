@@ -1,0 +1,288 @@
+'use client';
+
+import { useState, useEffect, useMemo } from 'react';
+import { MetricTile, StatusChip, ImpactLine, FreshnessBadge } from '@/app/components/primitives';
+import type { ImpactState, Sentiment } from '@/app/lib/types';
+
+const BASE = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
+
+function phaseToSentiment(phase: string | null | undefined): Sentiment {
+  if (phase === 'SCARCITY') return 'positive';
+  if (phase === 'COMPRESS') return 'caution';
+  if (phase === 'MATURE') return 'negative';
+  return 'neutral';
+}
+
+function phaseToLabel(phase: string | null | undefined): string {
+  if (phase === 'SCARCITY') return 'Supportive';
+  if (phase === 'COMPRESS') return 'Tightening';
+  if (phase === 'MATURE') return 'Compressed';
+  return 'Loading';
+}
+
+function deriveImpact(sd: number | null | undefined, phase: string | null | undefined): ImpactState {
+  if (sd == null) return 'low_confidence';
+  if (sd < 0.6) return 'strong_positive';
+  if (sd < 0.8) return 'slight_positive';
+  if (sd < 1.0) return 'mixed';
+  return 'slight_negative';
+}
+
+function interpretationText(phase: string | null | undefined, sd: number | null | undefined): string {
+  if (sd == null) return 'Waiting for balancing market data.';
+  if (phase === 'SCARCITY') return 'Baltic flexibility demand exceeds supply. Capacity prices support new-build economics.';
+  if (phase === 'COMPRESS') return 'Supply approaching demand. Revenue assumptions require revalidation against fleet pipeline.';
+  if (phase === 'MATURE') return 'Supply exceeds demand. Differentiated assets and grid proximity determine outperformance.';
+  return 'Market data loading.';
+}
+
+function impactDescription(sd: number | null | undefined): string {
+  if (sd == null) return 'Insufficient data for impact assessment';
+  if (sd < 0.6) return 'Revenue environment supports 50MW reference asset at current S/D levels';
+  if (sd < 0.8) return 'Marginal support for reference asset — COD timing becomes critical';
+  if (sd < 1.0) return 'Mixed outlook — 2027 COD viable, 2028+ under pressure';
+  return 'Compressed market — reference asset economics challenged at current fleet levels';
+}
+
+export function HeroMarketNow() {
+  const [s1, setS1] = useState<Record<string, unknown>>({});
+  const [s2, setS2] = useState<Record<string, unknown>>({});
+  const [s4, setS4] = useState<Record<string, unknown>>({});
+  const [visitDelta, setVisitDelta] = useState<{ sd: number; capture: number } | null>(null);
+
+  useEffect(() => {
+    Promise.all([
+      fetch(`${BASE}/read`).then(r => r.json()).catch(() => ({})),
+      fetch(`${BASE}/s2`).then(r => r.json()).catch(() => ({})),
+      fetch(`${BASE}/s4`).then(r => r.json()).catch(() => ({})),
+    ]).then(([d1, d2, d4]) => { setS1(d1); setS2(d2); setS4(d4); });
+  }, []);
+
+  const bess = s1?.bess_net_capture as number | null | undefined;
+  const afrr = s2?.afrr_up_avg as number | null | undefined;
+  const sd = s2?.sd_ratio as number | null | undefined;
+  const phase = s2?.phase as string | null | undefined;
+  const freeMw = s4?.free_mw as number | null | undefined;
+  const opMw = s2?.baltic_operational_mw as number | null | undefined;
+  const pipeMw = s2?.baltic_pipeline_mw as number | null | undefined;
+  const updatedAt = s2?.updated_at as string | null | undefined;
+
+  // Visit delta from localStorage
+  useEffect(() => {
+    if (sd == null && bess == null) return;
+    const key = 'kkme_last_visit';
+    const now = Date.now();
+    try {
+      const stored = localStorage.getItem(key);
+      if (stored) {
+        const prev = JSON.parse(stored) as { sd: number; capture: number; ts: number };
+        const ageH = (now - prev.ts) / 3600000;
+        if (ageH > 1 && sd != null && bess != null) {
+          setVisitDelta({ sd: sd - prev.sd, capture: bess - prev.capture });
+        }
+      }
+      localStorage.setItem(key, JSON.stringify({ sd: sd ?? 0, capture: bess ?? 0, ts: now }));
+    } catch { /* localStorage unavailable */ }
+  }, [sd, bess]);
+
+  const impact = useMemo(() => deriveImpact(sd, phase), [sd, phase]);
+
+  return (
+    <header style={{
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr',
+      gap: '48px',
+      alignItems: 'start',
+      padding: '48px 0 32px',
+    }}>
+
+      {/* ═══ LEFT COLUMN — Value Prop ═══ */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <h1 style={{
+          fontFamily: 'var(--font-display)',
+          fontSize: 'clamp(1.5rem, 3vw, 2rem)',
+          color: 'var(--text-primary)',
+          letterSpacing: '0.15em',
+          fontWeight: 300,
+        }}>KKME</h1>
+
+        <p style={{
+          fontFamily: 'var(--font-serif)',
+          fontSize: '1.25rem',
+          color: 'var(--text-secondary)',
+          lineHeight: 1.5,
+          maxWidth: '420px',
+        }}>
+          Baltic flexibility market regime and reference-asset economics
+        </p>
+
+        <p style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: 'var(--font-sm)',
+          color: 'var(--text-tertiary)',
+          lineHeight: 1.6,
+          maxWidth: '400px',
+        }}>
+          Market signals, structural drivers, and 50MW storage returns.
+          Updated every four hours from ENTSO-E, Litgrid, and Baltic TSO data.
+        </p>
+
+        <p style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: 'var(--font-sm)',
+          color: 'var(--text-muted)',
+        }}>
+          Baltic blended view · LT-led signal depth
+        </p>
+
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '4px' }}>
+          <a href="#conversation" style={{
+            display: 'inline-block',
+            padding: '10px 28px',
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-sm)',
+            letterSpacing: '0.06em',
+            background: 'rgba(212,160,60,0.12)',
+            color: 'var(--amber)',
+            border: '1px solid rgba(212,160,60,0.25)',
+            textDecoration: 'none',
+          }}>Start the Conversation</a>
+          <a href="#revenue-drivers" style={{
+            display: 'inline-block',
+            padding: '10px 28px',
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-sm)',
+            letterSpacing: '0.06em',
+            color: 'var(--text-tertiary)',
+            border: '1px solid var(--border-card)',
+            textDecoration: 'none',
+          }}>View Market Signals ↓</a>
+        </div>
+      </div>
+
+      {/* ═══ RIGHT COLUMN — Market Now Card ═══ */}
+      <div style={{
+        background: 'var(--bg-card)',
+        border: '1px solid var(--border-highlight)',
+        padding: '24px',
+      }}>
+        {/* Card header */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: '20px',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 'var(--font-sm)',
+              color: 'var(--text-tertiary)',
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+            }}>Market Now</span>
+            <span style={{
+              display: 'inline-block',
+              width: '6px',
+              height: '6px',
+              borderRadius: '50%',
+              background: 'var(--teal)',
+              animation: 'pulse 2s ease-in-out infinite',
+              flexShrink: 0,
+            }} />
+          </div>
+          {phase && <StatusChip status={phaseToLabel(phase)} sentiment={phaseToSentiment(phase)} />}
+        </div>
+
+        {/* S/D Ratio hero metric */}
+        <div style={{ marginBottom: '20px' }}>
+          <MetricTile
+            label="Supply / demand ratio"
+            value={sd != null ? sd.toFixed(2) : '—'}
+            unit="×"
+            size="hero"
+            dataClass="derived"
+          />
+          {visitDelta && Math.abs(visitDelta.sd) > 0.01 && (
+            <span style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 'var(--font-sm)',
+              color: 'var(--text-muted)',
+              marginTop: '4px',
+              display: 'block',
+            }}>
+              {visitDelta.sd >= 0 ? '+' : ''}{visitDelta.sd.toFixed(2)} since last visit
+            </span>
+          )}
+        </div>
+
+        {/* 2×2 supporting metrics */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: '16px',
+          marginBottom: '20px',
+        }}>
+          <MetricTile
+            label="Battery arbitrage capture"
+            value={bess != null ? bess.toFixed(0) : '—'}
+            unit="€/MWh"
+            size="standard"
+            dataClass="derived"
+          />
+          <MetricTile
+            label="aFRR capacity price"
+            value={afrr != null ? Math.round(afrr).toString() : '—'}
+            unit="€/MW/h"
+            size="standard"
+            dataClass="proxy"
+          />
+          <MetricTile
+            label="Grid capacity available"
+            value={freeMw != null ? (freeMw / 1000).toFixed(1) : '—'}
+            unit="GW"
+            size="standard"
+            dataClass="observed"
+            sublabel="indicative, public snapshot"
+          />
+          <MetricTile
+            label="Operational fleet"
+            value={opMw != null ? opMw.toString() : '—'}
+            unit="MW"
+            size="standard"
+            dataClass="observed"
+            sublabel={pipeMw != null ? `+${pipeMw} MW pipeline` : undefined}
+          />
+        </div>
+
+        {/* Interpretation */}
+        <p style={{
+          fontFamily: 'var(--font-serif)',
+          fontSize: '0.9375rem',
+          fontStyle: 'italic',
+          color: 'var(--text-secondary)',
+          lineHeight: 1.6,
+          marginBottom: '16px',
+        }}>
+          {interpretationText(phase, sd)}
+        </p>
+
+        {/* Reference asset impact */}
+        <div style={{ marginBottom: '16px' }}>
+          <ImpactLine
+            impact={impact}
+            description={impactDescription(sd)}
+          />
+        </div>
+
+        {/* Freshness */}
+        <FreshnessBadge
+          source="ENTSO-E · BTD · Litgrid"
+          updatedAt={updatedAt ?? undefined}
+          freshnessClass={updatedAt ? 'live' : 'stale'}
+          dataClass="derived"
+        />
+      </div>
+    </header>
+  );
+}

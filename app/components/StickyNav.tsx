@@ -41,7 +41,7 @@ export default function StickyNav() {
           ].map(l => (
             <a key={l.href} href={l.href} style={{
               fontFamily: 'var(--font-mono)',
-              fontSize: '0.6875rem',
+              fontSize: '0.8125rem',
               color: 'var(--text-tertiary)',
               textDecoration: 'none',
               letterSpacing: '0.04em',
@@ -50,7 +50,7 @@ export default function StickyNav() {
           <a href="#deal-flow" style={{
             padding: '5px 16px',
             fontFamily: 'var(--font-mono)',
-            fontSize: '0.6875rem',
+            fontSize: '0.8125rem',
             background: 'rgba(212,160,60,0.08)',
             border: '1px solid rgba(212,160,60,0.20)',
             color: 'var(--amber)',

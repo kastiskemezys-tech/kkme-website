@@ -215,20 +215,20 @@ export function IntelFeed() {
         return (
           <div key={item.id || i} onClick={() => setExpanded(isOpen ? null : item.id)} style={{ cursor: 'pointer' }}>
             <div className="feed-row">
-              <span className="feed-date" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', color: 'var(--text-muted)' }}>
+              <span className="feed-date" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
                 {formatDate(item.added_at)}
               </span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', color: getCategoryColor(item.topic), textTransform: 'uppercase' as const, letterSpacing: '0.04em' }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', color: getCategoryColor(item.topic), textTransform: 'uppercase' as const, letterSpacing: '0.04em' }}>
                 {item.topic}
               </span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
                 {item.url ? (
                   <a href={item.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ color: 'inherit', textDecoration: 'none' }}>
                     {decodeEntities(item.title)}
                   </a>
                 ) : decodeEntities(item.title)}
               </span>
-              <span className="feed-source" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', color: 'var(--text-ghost)', textAlign: 'right' as const, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
+              <span className="feed-source" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', color: 'var(--text-ghost)', textAlign: 'right' as const, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
                 {item.source || ''}
               </span>
             </div>

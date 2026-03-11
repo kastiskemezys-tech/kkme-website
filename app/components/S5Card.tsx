@@ -55,12 +55,7 @@ export function S5Card() {
   return (
     <article
       className="signal-card"
-      style={{
-        border: `1px solid ${text(0.1)}`,
-        padding: '2rem 2.5rem',
-        maxWidth: '440px',
-        width: '100%',
-      }}
+      style={{ width: '100%' }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
         <SignalIcon type="dc-power" size={20} />
@@ -229,7 +224,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason }: LiveDat
         style={{
           display: 'inline-flex', alignItems: 'center',
           gap: '6px', marginTop: '12px',
-          fontFamily: 'var(--font-mono)', fontSize: '0.6875rem',
+          fontFamily: 'var(--font-mono)', fontSize: '0.8125rem',
           color: 'var(--teal)',
           textDecoration: 'none',
           opacity: 0.75,

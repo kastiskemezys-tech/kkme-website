@@ -13,9 +13,8 @@ import { CardBoundary } from '@/app/components/CardBoundary';
 import { ErrorBoundary } from '@/app/components/ErrorBoundary';
 import { CardEntrance } from '@/app/components/CardEntrance';
 import { PageBackground } from '@/app/components/PageBackground';
-import { HeroRays } from '@/app/components/HeroRays';
+import { HeroMarketNow } from '@/app/components/HeroMarketNow';
 import StickyNav from '@/app/components/StickyNav';
-import MarketSnapshot from '@/app/components/MarketSnapshot';
 import { PageInteractions } from '@/app/components/PageInteractions';
 
 export default function Home() {
@@ -28,87 +27,8 @@ export default function Home() {
 
       <div className="page-container">
 
-        {/* ═══ HERO ═══ */}
-        <header style={{ textAlign: 'center', padding: '40px 0 20px', position: 'relative' }}>
-          <HeroRays />
-          <h1 style={{
-            fontFamily: 'var(--font-display)',
-            fontSize: 'clamp(1.5rem, 3vw, 2rem)',
-            color: 'var(--text-primary)',
-            letterSpacing: '0.15em',
-            marginBottom: '16px',
-            fontWeight: 300,
-            position: 'relative',
-            zIndex: 1,
-          }}>KKME</h1>
-          <p style={{
-            fontFamily: 'var(--font-serif)',
-            fontSize: '1.25rem',
-            color: 'var(--text-secondary)',
-            maxWidth: '480px',
-            margin: '0 auto',
-            lineHeight: 1.5,
-            position: 'relative',
-            zIndex: 1,
-          }}>
-            Baltic battery market signals and project returns
-          </p>
-          <p style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: '0.75rem',
-            color: 'var(--text-tertiary)',
-            maxWidth: '440px',
-            margin: '8px auto 0',
-            lineHeight: 1.6,
-            position: 'relative',
-            zIndex: 1,
-          }}>
-            Baltic battery spreads, grid constraints, and project returns.
-            Updated every four hours from ENTSO-E, Litgrid, and Baltic TSO data.
-          </p>
-          <div style={{
-            display: 'flex', gap: '12px',
-            justifyContent: 'center',
-            marginTop: '20px', flexWrap: 'wrap',
-            position: 'relative', zIndex: 1,
-          }}>
-            <a href="#deal-flow" style={{
-              display: 'inline-block', padding: '10px 28px',
-              fontFamily: 'var(--font-mono)', fontSize: '0.75rem',
-              letterSpacing: '0.06em',
-              background: 'rgba(212,160,60,0.12)',
-              color: 'var(--amber)',
-              border: '1px solid rgba(212,160,60,0.25)',
-              textDecoration: 'none',
-            }}>Submit a Project</a>
-            <a href="#signals" style={{
-              display: 'inline-block', padding: '10px 28px',
-              fontFamily: 'var(--font-mono)', fontSize: '0.75rem',
-              letterSpacing: '0.06em',
-              color: 'var(--text-tertiary)',
-              border: '1px solid var(--border-card)',
-              textDecoration: 'none',
-            }}>View Signals ↓</a>
-          </div>
-        </header>
-
-        {/* ═══ MARKET SNAPSHOT ═══ */}
-        <div style={{ marginBottom: '24px' }}>
-          <MarketSnapshot />
-        </div>
-
-        {/* ═══ BRIDGE TEXT ═══ */}
-        <div style={{ maxWidth: '640px', margin: '0 auto 32px', textAlign: 'center' }}>
-          <p style={{
-            fontFamily: 'var(--font-serif)',
-            fontSize: '1.05rem',
-            color: 'var(--text-secondary)',
-            lineHeight: 1.7,
-          }}>
-            Nine signals track whether a Baltic battery project works.
-            Revenue spreads, grid access, and fleet competition update every four hours.
-          </p>
-        </div>
+        {/* ═══ HERO / MARKET NOW ═══ */}
+        <HeroMarketNow />
 
         {/* ═══ REVENUE ENGINE — elevated ═══ */}
         <div className="section-elevated" id="revenue">
