@@ -168,6 +168,8 @@ export function HeroMarketNow() {
         background: 'var(--bg-card)',
         border: '1px solid var(--border-highlight)',
         padding: '20px',
+        overflow: 'hidden',
+        minWidth: 0,
       }}>
         {/* Card header */}
         <div style={{
@@ -198,7 +200,7 @@ export function HeroMarketNow() {
         </div>
 
         {/* S/D Ratio hero metric */}
-        <div style={{ marginBottom: '16px' }}>
+        <div style={{ marginBottom: '12px' }}>
           <MetricTile
             label="Supply / demand balance"
             value={sd != null ? sd.toFixed(2) : '—'}
@@ -232,7 +234,7 @@ export function HeroMarketNow() {
         <div style={{
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
-          gap: '16px',
+          gap: '12px',
           marginBottom: '12px',
         }}>
           <MetricTile
