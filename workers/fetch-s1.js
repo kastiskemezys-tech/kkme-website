@@ -2051,6 +2051,195 @@ async function fetchEUCarbon() {
   }
 }
 
+// ─── Baltic Generation (Wind + Solar + Load) ────────────────────────────────────
+// Source: energy-charts.info public_power API (Fraunhofer ISE)
+// Fetches 7-day range for LT/EE/LV, extracts wind, solar, load.
+// Returns { wind, solar, load } payloads for 3 KV keys.
+
+const BALTIC_GEN_COUNTRIES = [
+  { code: 'lt', label: 'LT', wind_installed_mw: 1800, solar_installed_mw: 2200 },
+  { code: 'ee', label: 'EE', wind_installed_mw:  900, solar_installed_mw:  400 },
+  { code: 'lv', label: 'LV', wind_installed_mw:  200, solar_installed_mw:  200 },
+  // installed_mw: approximate 2026 references, not exact. Classify as "reference".
+];
+
+function extractSeries(apiData, typeName) {
+  const types = Array.isArray(apiData?.production_types) ? apiData.production_types : [];
+  const match = types.find(t => t.name === typeName);
+  if (!match) return null;
+  const raw = match.data ?? [];
+  const ts = apiData.unix_seconds ?? [];
+  // Return paired [timestamp, value] for non-null entries
+  const pairs = [];
+  for (let i = 0; i < raw.length; i++) {
+    if (raw[i] != null) pairs.push({ ts: ts[i] ?? 0, mw: raw[i] });
+  }
+  return pairs;
+}
+
+function seriesStats(pairs) {
+  if (!pairs || pairs.length === 0) return null;
+  const vals = pairs.map(p => p.mw);
+  const current = vals[vals.length - 1];
+  const avg = Math.round(vals.reduce((s, v) => s + v, 0) / vals.length);
+  return { current_mw: Math.round(current), avg_7d_mw: avg, n: vals.length };
+}
+
+function genTrend(current, avg) {
+  if (current == null || avg == null || avg === 0) return 'unknown';
+  const ratio = current / avg;
+  if (ratio > 1.10) return 'above_baseline';
+  if (ratio < 0.90) return 'below_baseline';
+  return 'stable';
+}
+
+async function fetchBalticGeneration() {
+  const now = new Date();
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 3600 * 1000);
+  const startParam = sevenDaysAgo.toISOString().replace(/:\d{2}\.\d+Z/, ':00Z');
+  const endParam   = now.toISOString().replace(/:\d{2}\.\d+Z/, ':00Z');
+
+  // Fetch all 3 countries in parallel (one call per country gives wind+solar+load)
+  const fetches = BALTIC_GEN_COUNTRIES.map(c =>
+    fetch(`https://api.energy-charts.info/public_power?country=${c.code}&start=${startParam}&end=${endParam}`, {
+      headers: { Accept: 'application/json' },
+    })
+    .then(r => { if (!r.ok) throw new Error(`energy-charts ${c.code}: HTTP ${r.status}`); return r.json(); })
+    .then(data => ({ country: c, data, ok: true }))
+    .catch(err => { console.error(`[Gen/${c.label}]`, String(err)); return { country: c, data: null, ok: false }; })
+  );
+  const results = await Promise.all(fetches);
+
+  const timestamp = now.toISOString();
+  const coverage = results.filter(r => r.ok).map(r => r.country.label);
+
+  // Extract per-country stats for each type
+  const windByCountry = {};
+  const solarByCountry = {};
+  const loadByCountry = {};
+
+  for (const r of results) {
+    if (!r.ok) {
+      windByCountry[r.country.label] = null;
+      solarByCountry[r.country.label] = null;
+      loadByCountry[r.country.label] = null;
+      continue;
+    }
+    windByCountry[r.country.label]  = seriesStats(extractSeries(r.data, 'Wind onshore'));
+    solarByCountry[r.country.label] = seriesStats(extractSeries(r.data, 'Solar'));
+    loadByCountry[r.country.label]  = seriesStats(extractSeries(r.data, 'Load'));
+  }
+
+  // Aggregate Baltic totals from available countries
+  function balticSum(byCountry, field) {
+    let total = 0; let found = false;
+    for (const label of ['LT', 'EE', 'LV']) {
+      const v = byCountry[label]?.[field];
+      if (v != null) { total += v; found = true; }
+    }
+    return found ? total : null;
+  }
+
+  const balticWindCurrent = balticSum(windByCountry, 'current_mw');
+  const balticWindAvg     = balticSum(windByCountry, 'avg_7d_mw');
+  const balticWindInstalled = BALTIC_GEN_COUNTRIES.reduce((s, c) => s + c.wind_installed_mw, 0);
+
+  const balticSolarCurrent = balticSum(solarByCountry, 'current_mw');
+  const balticSolarAvg     = balticSum(solarByCountry, 'avg_7d_mw');
+  const balticSolarInstalled = BALTIC_GEN_COUNTRIES.reduce((s, c) => s + c.solar_installed_mw, 0);
+
+  const balticLoadCurrent = balticSum(loadByCountry, 'current_mw');
+  const balticLoadAvg     = balticSum(loadByCountry, 'avg_7d_mw');
+
+  // Wind signal
+  let windSignal = 'MODERATE';
+  if (balticWindCurrent != null && balticWindInstalled > 0) {
+    const pct = balticWindCurrent / balticWindInstalled;
+    if (pct > 0.60) windSignal = 'HIGH';
+    else if (pct < 0.30) windSignal = 'LOW';
+  }
+
+  // Solar signal
+  let solarSignal = 'MODERATE';
+  if (balticSolarCurrent != null) {
+    if (balticSolarCurrent === 0) solarSignal = 'NIGHT';
+    else if (balticSolarInstalled > 0) {
+      const pct = balticSolarCurrent / balticSolarInstalled;
+      if (pct > 0.50) solarSignal = 'HIGH';
+      else if (pct < 0.20) solarSignal = 'LOW';
+    }
+  }
+
+  // Load signal
+  let loadSignal = 'NORMAL';
+  if (balticLoadCurrent != null) {
+    if (balticLoadCurrent > 3200) loadSignal = 'PEAK';
+    else if (balticLoadCurrent < 2400) loadSignal = 'LOW';
+  }
+
+  const wind = {
+    timestamp, source: 'energy-charts.info', data_class: 'observed',
+    coverage_countries: coverage,
+    baltic_mw: balticWindCurrent, avg_7d_mw: balticWindAvg,
+    trend_7d: genTrend(balticWindCurrent, balticWindAvg),
+    baltic_installed_mw: balticWindInstalled,
+    // baltic_share_pct: share of installed capacity currently generating
+    // Denominator: sum of installed wind capacity across LT+EE+LV (reference values, ~2026)
+    baltic_share_pct: (balticWindCurrent != null && balticWindInstalled > 0)
+      ? Math.round(balticWindCurrent / balticWindInstalled * 1000) / 10
+      : null,
+    lt_mw: windByCountry.LT?.current_mw ?? null,
+    ee_mw: windByCountry.EE?.current_mw ?? null,
+    lv_mw: windByCountry.LV?.current_mw ?? null,
+    signal: windSignal,
+    interpretation: windSignal === 'HIGH'
+      ? 'High wind generation — wider price spreads likely, supporting BESS arbitrage.'
+      : windSignal === 'LOW'
+        ? 'Low wind — narrower spreads expected, reduced arbitrage opportunity.'
+        : 'Moderate wind output — typical spread conditions.',
+  };
+
+  const solar = {
+    timestamp, source: 'energy-charts.info', data_class: 'observed',
+    coverage_countries: coverage,
+    baltic_mw: balticSolarCurrent, avg_7d_mw: balticSolarAvg,
+    trend_7d: genTrend(balticSolarCurrent, balticSolarAvg),
+    baltic_installed_mw: balticSolarInstalled,
+    baltic_share_pct: (balticSolarCurrent != null && balticSolarInstalled > 0)
+      ? Math.round(balticSolarCurrent / balticSolarInstalled * 1000) / 10
+      : null,
+    lt_mw: solarByCountry.LT?.current_mw ?? null,
+    ee_mw: solarByCountry.EE?.current_mw ?? null,
+    lv_mw: solarByCountry.LV?.current_mw ?? null,
+    signal: solarSignal,
+    interpretation: solarSignal === 'HIGH'
+      ? 'High solar output — low midday prices create a cheap BESS charging window.'
+      : solarSignal === 'NIGHT'
+        ? 'Nighttime — no solar generation.'
+        : solarSignal === 'LOW'
+          ? 'Low solar — minimal impact on midday pricing.'
+          : 'Moderate solar — some midday price suppression.',
+  };
+
+  const load = {
+    timestamp, source: 'energy-charts.info', data_class: 'observed',
+    coverage_countries: coverage,
+    baltic_mw: balticLoadCurrent, avg_7d_mw: balticLoadAvg,
+    trend_7d: genTrend(balticLoadCurrent, balticLoadAvg),
+    lt_mw: loadByCountry.LT?.current_mw ?? null,
+    ee_mw: loadByCountry.EE?.current_mw ?? null,
+    lv_mw: loadByCountry.LV?.current_mw ?? null,
+    signal: loadSignal,
+    interpretation: loadSignal === 'PEAK'
+      ? 'Peak demand — higher prices support BESS discharge revenue.'
+      : loadSignal === 'LOW'
+        ? 'Low demand — reduced price levels, typical off-peak.'
+        : 'Normal demand levels.',
+  };
+
+  return { wind, solar, load };
+}
+
 // ─── Main export ───────────────────────────────────────────────────────────────
 
 export default {
@@ -2154,12 +2343,13 @@ export default {
       console.log(`[S5] ${s5Data.signal} free=${s5Data.grid_free_mw}MW news=${s5Data.news_items.length}`);
     }
 
-    // S6-S9 — Context signals (best-effort, run in parallel)
-    const [s6Res, s7Res, s8Res, s9Res] = await Promise.allSettled([
+    // S6-S9 + Baltic generation — Context signals (best-effort, run in parallel)
+    const [s6Res, s7Res, s8Res, s9Res, genRes] = await Promise.allSettled([
       withTimeout(fetchNordicHydro(),           20000),
       withTimeout(fetchTTFGas(),                20000),
       withTimeout(fetchInterconnectorFlows(), 30000),
       withTimeout(fetchEUCarbon(),              20000),
+      withTimeout(fetchBalticGeneration(),      25000),
     ]);
 
     if (s6Res.status === 'fulfilled') {
@@ -2195,6 +2385,19 @@ export default {
       await appendSignalHistory(env, 's9', { eua_eur_t: d.eua_eur_t }).catch(e => console.error('[S9/history]', e));
     } else {
       console.error('[S9] cron failed:', s9Res.reason);
+    }
+
+    // Baltic generation (wind + solar + load) — writes 3 KV keys
+    if (genRes.status === 'fulfilled') {
+      const { wind, solar, load } = genRes.value;
+      await Promise.all([
+        env.KKME_SIGNALS.put('s_wind', JSON.stringify(wind)),
+        env.KKME_SIGNALS.put('s_solar', JSON.stringify(solar)),
+        env.KKME_SIGNALS.put('s_load', JSON.stringify(load)),
+      ]);
+      console.log(`[Gen] wind=${wind.baltic_mw}MW solar=${solar.baltic_mw}MW load=${load.baltic_mw}MW [${wind.coverage_countries}]`);
+    } else {
+      console.error('[Gen] cron failed:', genRes.reason);
     }
 
     // da_tomorrow is embedded in computeS1() and stored in the s1 KV key
@@ -2638,6 +2841,32 @@ export default {
       if (sig !== 's8' && request.method === 'GET' && url.pathname === `/${sig}/history`) {
         const raw = await env.KKME_SIGNALS.get(`${sig}_history`).catch(() => null);
         return Response.json(raw ? JSON.parse(raw) : [], { headers: { ...CORS, 'Cache-Control': 'public, max-age=1800' } });
+      }
+    }
+
+    // ── GET /s_wind · /s_solar · /s_load ──────────────────────────────────────
+    for (const genSig of ['s_wind', 's_solar', 's_load']) {
+      if (request.method === 'GET' && url.pathname === `/${genSig}`) {
+        const cached = await env.KKME_SIGNALS.get(genSig).catch(() => null);
+        if (cached) {
+          return new Response(cached, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600', ...CORS } });
+        }
+        // No cached data yet — try live fetch
+        try {
+          const { wind, solar, load } = await fetchBalticGeneration();
+          const map = { s_wind: wind, s_solar: solar, s_load: load };
+          const data = map[genSig];
+          // Best-effort write all 3
+          await Promise.all([
+            env.KKME_SIGNALS.put('s_wind', JSON.stringify(wind)),
+            env.KKME_SIGNALS.put('s_solar', JSON.stringify(solar)),
+            env.KKME_SIGNALS.put('s_load', JSON.stringify(load)),
+          ]).catch(() => {});
+          return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json', ...CORS } });
+        } catch (err) {
+          console.error(`[${genSig}] live fetch failed:`, String(err));
+          return Response.json({ unavailable: true, signal: 'UNKNOWN', _serving: 'no_data_yet', timestamp: null }, { headers: CORS });
+        }
       }
     }
 
