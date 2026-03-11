@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { MetricTile, StatusChip } from '@/app/components/primitives';
+import { MetricTile, StatusChip, DetailsDrawer } from '@/app/components/primitives';
 import type { Sentiment } from '@/app/lib/types';
 
 const BASE = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
@@ -55,6 +55,7 @@ export function HeroMarketNow() {
   const [s2, setS2] = useState<Record<string, unknown>>({});
   const [s4, setS4] = useState<Record<string, unknown>>({});
   const [visitDelta, setVisitDelta] = useState<{ sd: number; capture: number } | null>(null);
+  const [drawerKey, setDrawerKey] = useState(0);
 
   useEffect(() => {
     Promise.all([
@@ -100,7 +101,7 @@ export function HeroMarketNow() {
       padding: '48px 0 32px',
     }}>
 
-      {/* ═══ LEFT COLUMN — Value Prop ═══ */}
+      {/* LEFT COLUMN — Value Prop */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
         <h1 style={{
           fontFamily: 'var(--font-display)',
@@ -149,21 +150,26 @@ export function HeroMarketNow() {
           }}>
             Baltic blended view · LT-led signal depth
           </p>
-          <a href="#revenue-drivers" style={{
-            display: 'inline-block',
-            padding: '10px 28px',
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-sm)',
-            letterSpacing: '0.06em',
-            color: 'var(--text-tertiary)',
-            border: '1px solid var(--border-card)',
-            textDecoration: 'none',
-          }}>View Market Signals ↓</a>
+          <a
+            href="#revenue-drivers"
+            onClick={(e) => { e.preventDefault(); document.querySelector('#revenue-drivers')?.scrollIntoView({ behavior: 'smooth' }); }}
+            style={{
+              display: 'inline-block',
+              padding: '10px 28px',
+              fontFamily: 'var(--font-mono)',
+              fontSize: 'var(--font-sm)',
+              letterSpacing: '0.06em',
+              color: 'var(--text-tertiary)',
+              border: '1px solid var(--border-card)',
+              textDecoration: 'none',
+              cursor: 'pointer',
+            }}
+          >View Market Signals ↓</a>
         </div>
       </div>
 
 
-      {/* ═══ RIGHT COLUMN — Market Now Card ═══ */}
+      {/* RIGHT COLUMN — Market Now Card */}
       <div style={{
         background: 'var(--bg-card)',
         border: '1px solid var(--border-highlight)',
@@ -230,7 +236,7 @@ export function HeroMarketNow() {
           )}
         </div>
 
-        {/* 2×2 supporting metrics */}
+        {/* 2×2 supporting metrics — values and labels only, sublabels moved to drawer */}
         <div style={{
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
@@ -243,7 +249,6 @@ export function HeroMarketNow() {
             unit="€/MWh"
             size="standard"
             dataClass="derived"
-            sublabel="top-4h minus bottom-4h spread"
           />
           <MetricTile
             label="Balancing capacity reference"
@@ -251,7 +256,6 @@ export function HeroMarketNow() {
             unit="€/MW/h"
             size="standard"
             dataClass="proxy"
-            sublabel="estimated, not observed clearing"
           />
           <MetricTile
             label="Indicative grid capacity"
@@ -259,7 +263,6 @@ export function HeroMarketNow() {
             unit="GW"
             size="standard"
             dataClass="observed"
-            sublabel="public snapshot, LT grid"
           />
           <MetricTile
             label="Operational BESS fleet"
@@ -292,14 +295,96 @@ export function HeroMarketNow() {
           {impactDescription(sd)}
         </div>
 
-        {/* Freshness footer */}
-        <span style={{
-          fontFamily: 'var(--font-mono)',
-          fontSize: 'var(--font-xs)',
-          color: 'var(--text-muted)',
-        }}>
+        {/* Freshness footer — clickable to open drawer */}
+        <span
+          onClick={() => setDrawerKey(k => k + 1)}
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-xs)',
+            color: 'var(--text-muted)',
+            cursor: 'pointer',
+            display: 'block',
+          }}
+        >
           {formatFreshnessFooter(updatedAt)}
         </span>
+
+        {/* Details drawer */}
+        <div style={{ marginTop: '12px' }}>
+          <DetailsDrawer
+            key={drawerKey}
+            label="Market detail and methodology"
+            defaultOpen={drawerKey > 0}
+          >
+            {/* Metric definitions */}
+            <p style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 'var(--font-xs)',
+              color: 'var(--text-muted)',
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              marginBottom: '8px',
+            }}>
+              Metric definitions
+            </p>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'auto 1fr',
+              gap: '6px 16px',
+              fontFamily: 'var(--font-mono)',
+              fontSize: 'var(--font-sm)',
+              marginBottom: '16px',
+            }}>
+              <span style={{ color: 'var(--text-muted)' }}>S/D balance</span>
+              <span style={{ color: 'var(--text-secondary)' }}>Battery fleet supply divided by estimated balancing demand. Below 1.0× = demand exceeds supply.</span>
+              <span style={{ color: 'var(--text-muted)' }}>Arbitrage capture</span>
+              <span style={{ color: 'var(--text-secondary)' }}>Top-4h minus bottom-4h day-ahead spread, net of round-trip efficiency. Derived from ENTSO-E A44.</span>
+              <span style={{ color: 'var(--text-muted)' }}>Capacity reference</span>
+              <span style={{ color: 'var(--text-secondary)' }}>Estimated aFRR capacity price. Baltic-calibrated proxy from AST Latvia data, not observed clearing.</span>
+              <span style={{ color: 'var(--text-muted)' }}>Grid capacity</span>
+              <span style={{ color: 'var(--text-secondary)' }}>Publicly listed available capacity on the Lithuanian transmission grid. Snapshot from Litgrid data.</span>
+              <span style={{ color: 'var(--text-muted)' }}>BESS fleet</span>
+              <span style={{ color: 'var(--text-secondary)' }}>Operational battery storage across the Baltics. Pipeline includes projects with connection agreements or under construction.</span>
+            </div>
+
+            {/* Data sources and methodology */}
+            <p style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 'var(--font-xs)',
+              color: 'var(--text-muted)',
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              marginBottom: '8px',
+            }}>
+              Data sources and methodology
+            </p>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'auto 1fr',
+              gap: '6px 16px',
+              fontFamily: 'var(--font-mono)',
+              fontSize: 'var(--font-sm)',
+              marginBottom: '12px',
+            }}>
+              <span style={{ color: 'var(--text-muted)' }}>Price data</span>
+              <span style={{ color: 'var(--text-secondary)' }}>ENTSO-E A44 day-ahead prices (LT, SE4, PL). Updated every 4 hours.</span>
+              <span style={{ color: 'var(--text-muted)' }}>Balancing data</span>
+              <span style={{ color: 'var(--text-secondary)' }}>Baltic TSO balancing market references via BTD. Updated every 4 hours.</span>
+              <span style={{ color: 'var(--text-muted)' }}>Grid data</span>
+              <span style={{ color: 'var(--text-secondary)' }}>Litgrid FeatureServer via VERT.lt ArcGIS. Monthly refresh.</span>
+              <span style={{ color: 'var(--text-muted)' }}>Fleet data</span>
+              <span style={{ color: 'var(--text-secondary)' }}>Aggregated from public TSO connection registers and project announcements.</span>
+            </div>
+            <p style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 'var(--font-xs)',
+              color: 'var(--text-muted)',
+              lineHeight: 1.6,
+            }}>
+              S/D ratio uses effective demand of 1,190 MW (1,700 MW total adjusted for 0.70 multi-product stacking). Fleet weighted by status: operational 1.0, construction 0.7, agreement 0.4, application 0.15. &quot;Derived&quot; means computed from observed inputs using documented methodology.
+            </p>
+          </DetailsDrawer>
+        </div>
       </div>
     </header>
   );
