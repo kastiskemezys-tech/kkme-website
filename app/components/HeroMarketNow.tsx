@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { MetricTile, StatusChip, ImpactLine } from '@/app/components/primitives';
-import type { ImpactState, Sentiment } from '@/app/lib/types';
+import { useState, useEffect } from 'react';
+import { MetricTile, StatusChip } from '@/app/components/primitives';
+import type { Sentiment } from '@/app/lib/types';
 
 const BASE = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
@@ -20,20 +20,12 @@ function phaseToLabel(phase: string | null | undefined): string {
   return 'Loading';
 }
 
-function deriveImpact(sd: number | null | undefined): ImpactState {
-  if (sd == null) return 'low_confidence';
-  if (sd < 0.5) return 'strong_positive';
-  if (sd < 0.7) return 'slight_positive';
-  if (sd < 0.9) return 'mixed';
-  return 'slight_negative';
-}
-
 function interpretationText(sd: number | null | undefined): string {
   if (sd == null) return 'Waiting for balancing market data.';
-  if (sd < 0.5) return 'Market conditions are strongly supportive. Limited competition leaves significant revenue headroom.';
-  if (sd < 0.7) return 'The market still supports storage returns, but pipeline growth is tightening the margin for late entrants.';
-  if (sd < 0.9) return 'Competition is rising faster than system flexibility demand. Revenue selectivity and timing now matter more.';
-  return 'Supply is approaching or exceeding demand. Revenue compression is underway for most configurations.';
+  if (sd < 0.5) return 'Battery supply covers less than half of estimated balancing demand. Revenue conditions are strongly supportive.';
+  if (sd < 0.7) return 'Competition is growing but has not yet matched demand. Storage revenues are supported, though new fleet is narrowing headroom.';
+  if (sd < 0.9) return 'Battery fleet is approaching system demand levels. Returns depend increasingly on timing, duration choice, and market access.';
+  return 'Fleet supply is near or above estimated demand. Revenue compression is underway — later entrants face materially weaker economics.';
 }
 
 function impactDescription(sd: number | null | undefined): string {
@@ -98,8 +90,6 @@ export function HeroMarketNow() {
       localStorage.setItem(key, JSON.stringify({ sd: sd ?? 0, capture: bess ?? 0, ts: now }));
     } catch { /* localStorage unavailable */ }
   }, [sd, bess]);
-
-  const impact = useMemo(() => deriveImpact(sd), [sd]);
 
   return (
     <header style={{
@@ -216,6 +206,15 @@ export function HeroMarketNow() {
             size="hero"
             dataClass="derived"
           />
+          <span style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-xs)',
+            color: 'var(--text-muted)',
+            marginTop: '4px',
+            display: 'block',
+          }}>
+            Below 1.0× means battery supply has not yet matched system balancing demand
+          </span>
           {visitDelta && Math.abs(visitDelta.sd) > 0.01 && (
             <span style={{
               fontFamily: 'var(--font-mono)',
@@ -242,6 +241,7 @@ export function HeroMarketNow() {
             unit="€/MWh"
             size="standard"
             dataClass="derived"
+            sublabel="top-4h minus bottom-4h spread"
           />
           <MetricTile
             label="Balancing capacity reference"
@@ -249,6 +249,7 @@ export function HeroMarketNow() {
             unit="€/MW/h"
             size="standard"
             dataClass="proxy"
+            sublabel="estimated, not observed clearing"
           />
           <MetricTile
             label="Indicative grid capacity"
@@ -256,7 +257,7 @@ export function HeroMarketNow() {
             unit="GW"
             size="standard"
             dataClass="observed"
-            sublabel="indicative, public snapshot"
+            sublabel="public snapshot, LT grid"
           />
           <MetricTile
             label="Operational BESS fleet"
@@ -280,11 +281,13 @@ export function HeroMarketNow() {
         </p>
 
         {/* Reference asset impact */}
-        <div style={{ marginBottom: '12px' }}>
-          <ImpactLine
-            impact={impact}
-            description={impactDescription(sd)}
-          />
+        <div style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: 'var(--font-sm)',
+          color: 'rgba(0,180,160,0.75)',
+          marginBottom: '12px',
+        }}>
+          {impactDescription(sd)}
         </div>
 
         {/* Freshness footer */}
