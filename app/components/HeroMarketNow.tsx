@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { MetricTile, StatusChip, ImpactLine, FreshnessBadge } from '@/app/components/primitives';
+import { MetricTile, StatusChip, ImpactLine } from '@/app/components/primitives';
 import type { ImpactState, Sentiment } from '@/app/lib/types';
 
 const BASE = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
@@ -20,28 +20,42 @@ function phaseToLabel(phase: string | null | undefined): string {
   return 'Loading';
 }
 
-function deriveImpact(sd: number | null | undefined, phase: string | null | undefined): ImpactState {
+function deriveImpact(sd: number | null | undefined): ImpactState {
   if (sd == null) return 'low_confidence';
-  if (sd < 0.6) return 'strong_positive';
-  if (sd < 0.8) return 'slight_positive';
-  if (sd < 1.0) return 'mixed';
+  if (sd < 0.5) return 'strong_positive';
+  if (sd < 0.7) return 'slight_positive';
+  if (sd < 0.9) return 'mixed';
   return 'slight_negative';
 }
 
-function interpretationText(phase: string | null | undefined, sd: number | null | undefined): string {
+function interpretationText(sd: number | null | undefined): string {
   if (sd == null) return 'Waiting for balancing market data.';
-  if (phase === 'SCARCITY') return 'Baltic flexibility demand exceeds supply. Capacity prices support new-build economics.';
-  if (phase === 'COMPRESS') return 'Supply approaching demand. Revenue assumptions require revalidation against fleet pipeline.';
-  if (phase === 'MATURE') return 'Supply exceeds demand. Differentiated assets and grid proximity determine outperformance.';
-  return 'Market data loading.';
+  if (sd < 0.5) return 'Market conditions are strongly supportive. Limited competition leaves significant revenue headroom.';
+  if (sd < 0.7) return 'The market still supports storage returns, but pipeline growth is tightening the margin for late entrants.';
+  if (sd < 0.9) return 'Competition is rising faster than system flexibility demand. Revenue selectivity and timing now matter more.';
+  return 'Supply is approaching or exceeding demand. Revenue compression is underway for most configurations.';
 }
 
 function impactDescription(sd: number | null | undefined): string {
-  if (sd == null) return 'Insufficient data for impact assessment';
-  if (sd < 0.6) return 'Revenue environment supports 50MW reference asset at current S/D levels';
-  if (sd < 0.8) return 'Marginal support for reference asset — COD timing becomes critical';
-  if (sd < 1.0) return 'Mixed outlook — 2027 COD viable, 2028+ under pressure';
-  return 'Compressed market — reference asset economics challenged at current fleet levels';
+  if (sd == null) return 'Insufficient data for assessment';
+  if (sd < 0.5) return '50MW reference asset: Strong support across configurations';
+  if (sd < 0.7) return '50MW reference asset: Supportive, but COD timing increasingly critical';
+  if (sd < 0.9) return '50MW reference asset: Mixed — duration and market access determine viability';
+  return '50MW reference asset: Revenue compression risk for new entrants';
+}
+
+function formatFreshnessFooter(updatedAt: string | null | undefined): string {
+  if (!updatedAt) return 'Public sources · observed + derived · awaiting refresh';
+  try {
+    const updated = new Date(updatedAt);
+    const hoursAgo = Math.round((Date.now() - updated.getTime()) / 3600000);
+    if (hoursAgo < 6) {
+      return `Public sources · observed + derived · updated ${hoursAgo}h ago`;
+    }
+    return `Public sources · observed + derived · last refresh ${hoursAgo}h ago`;
+  } catch {
+    return 'Public sources · observed + derived';
+  }
 }
 
 export function HeroMarketNow() {
@@ -85,7 +99,7 @@ export function HeroMarketNow() {
     } catch { /* localStorage unavailable */ }
   }, [sd, bess]);
 
-  const impact = useMemo(() => deriveImpact(sd, phase), [sd, phase]);
+  const impact = useMemo(() => deriveImpact(sd), [sd]);
 
   return (
     <header style={{
@@ -113,19 +127,28 @@ export function HeroMarketNow() {
           lineHeight: 1.5,
           maxWidth: '420px',
         }}>
-          Baltic flexibility market regime and reference-asset economics
+          Baltic storage market signals and reference-asset economics
         </p>
 
-        <p style={{
-          fontFamily: 'var(--font-mono)',
-          fontSize: 'var(--font-sm)',
-          color: 'var(--text-tertiary)',
-          lineHeight: 1.6,
-          maxWidth: '400px',
-        }}>
-          Market signals, structural drivers, and 50MW storage returns.
-          Updated every four hours from ENTSO-E, Litgrid, and Baltic TSO data.
-        </p>
+        <div>
+          <p style={{
+            fontFamily: 'var(--font-serif)',
+            fontSize: '1rem',
+            color: 'var(--text-secondary)',
+            lineHeight: 1.7,
+            maxWidth: '400px',
+          }}>
+            Market signals, structural drivers, and reference-asset returns for Baltic energy storage.
+          </p>
+          <p style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-xs)',
+            color: 'var(--text-muted)',
+            marginTop: '8px',
+          }}>
+            Built from ENTSO-E, Litgrid, and Baltic TSO data. Updated every four hours.
+          </p>
+        </div>
 
         <p style={{
           fontFamily: 'var(--font-mono)',
@@ -135,18 +158,7 @@ export function HeroMarketNow() {
           Baltic blended view · LT-led signal depth
         </p>
 
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '4px' }}>
-          <a href="#conversation" style={{
-            display: 'inline-block',
-            padding: '10px 28px',
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-sm)',
-            letterSpacing: '0.06em',
-            background: 'rgba(212,160,60,0.12)',
-            color: 'var(--amber)',
-            border: '1px solid rgba(212,160,60,0.25)',
-            textDecoration: 'none',
-          }}>Start the Conversation</a>
+        <div style={{ marginTop: '4px' }}>
           <a href="#revenue-drivers" style={{
             display: 'inline-block',
             padding: '10px 28px',
@@ -164,14 +176,14 @@ export function HeroMarketNow() {
       <div style={{
         background: 'var(--bg-card)',
         border: '1px solid var(--border-highlight)',
-        padding: '24px',
+        padding: '20px',
       }}>
         {/* Card header */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          marginBottom: '20px',
+          marginBottom: '16px',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span style={{
@@ -195,9 +207,9 @@ export function HeroMarketNow() {
         </div>
 
         {/* S/D Ratio hero metric */}
-        <div style={{ marginBottom: '20px' }}>
+        <div style={{ marginBottom: '16px' }}>
           <MetricTile
-            label="Supply / demand ratio"
+            label="Supply / demand balance"
             value={sd != null ? sd.toFixed(2) : '—'}
             unit="×"
             size="hero"
@@ -221,24 +233,24 @@ export function HeroMarketNow() {
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
           gap: '16px',
-          marginBottom: '20px',
+          marginBottom: '12px',
         }}>
           <MetricTile
-            label="Battery arbitrage capture"
+            label="Day-ahead arbitrage capture"
             value={bess != null ? bess.toFixed(0) : '—'}
             unit="€/MWh"
             size="standard"
             dataClass="derived"
           />
           <MetricTile
-            label="aFRR capacity price"
+            label="Balancing capacity reference"
             value={afrr != null ? Math.round(afrr).toString() : '—'}
             unit="€/MW/h"
             size="standard"
             dataClass="proxy"
           />
           <MetricTile
-            label="Grid capacity available"
+            label="Indicative grid capacity"
             value={freeMw != null ? (freeMw / 1000).toFixed(1) : '—'}
             unit="GW"
             size="standard"
@@ -246,7 +258,7 @@ export function HeroMarketNow() {
             sublabel="indicative, public snapshot"
           />
           <MetricTile
-            label="Operational fleet"
+            label="Operational BESS fleet"
             value={opMw != null ? opMw.toString() : '—'}
             unit="MW"
             size="standard"
@@ -258,30 +270,30 @@ export function HeroMarketNow() {
         {/* Interpretation */}
         <p style={{
           fontFamily: 'var(--font-serif)',
-          fontSize: '0.9375rem',
-          fontStyle: 'italic',
+          fontSize: 'var(--font-sm)',
           color: 'var(--text-secondary)',
           lineHeight: 1.6,
-          marginBottom: '16px',
+          marginBottom: '8px',
         }}>
-          {interpretationText(phase, sd)}
+          {interpretationText(sd)}
         </p>
 
         {/* Reference asset impact */}
-        <div style={{ marginBottom: '16px' }}>
+        <div style={{ marginBottom: '12px' }}>
           <ImpactLine
             impact={impact}
             description={impactDescription(sd)}
           />
         </div>
 
-        {/* Freshness */}
-        <FreshnessBadge
-          source="ENTSO-E · BTD · Litgrid"
-          updatedAt={updatedAt ?? undefined}
-          freshnessClass={updatedAt ? 'live' : 'stale'}
-          dataClass="derived"
-        />
+        {/* Freshness footer */}
+        <span style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: 'var(--font-xs)',
+          color: 'var(--text-muted)',
+        }}>
+          {formatFreshnessFooter(updatedAt)}
+        </span>
       </div>
     </header>
   );
