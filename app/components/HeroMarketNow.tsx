@@ -134,7 +134,7 @@ export function HeroMarketNow() {
           <p style={{
             fontFamily: 'var(--font-serif)',
             fontSize: '1rem',
-            color: 'var(--text-secondary)',
+            color: 'rgba(232,226,217,0.72)',
             lineHeight: 1.7,
             maxWidth: '400px',
           }}>
@@ -150,15 +150,15 @@ export function HeroMarketNow() {
           </p>
         </div>
 
-        <p style={{
-          fontFamily: 'var(--font-mono)',
-          fontSize: 'var(--font-sm)',
-          color: 'var(--text-muted)',
-        }}>
-          Baltic blended view · LT-led signal depth
-        </p>
-
-        <div style={{ marginTop: '4px' }}>
+        <div>
+          <p style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-sm)',
+            color: 'var(--text-muted)',
+            marginBottom: '12px',
+          }}>
+            Baltic blended view · LT-led signal depth
+          </p>
           <a href="#revenue-drivers" style={{
             display: 'inline-block',
             padding: '10px 28px',
@@ -171,6 +171,7 @@ export function HeroMarketNow() {
           }}>View Market Signals ↓</a>
         </div>
       </div>
+
 
       {/* ═══ RIGHT COLUMN — Market Now Card ═══ */}
       <div style={{
@@ -185,7 +186,7 @@ export function HeroMarketNow() {
           justifyContent: 'space-between',
           marginBottom: '16px',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{
               fontFamily: 'var(--font-mono)',
               fontSize: 'var(--font-sm)',
