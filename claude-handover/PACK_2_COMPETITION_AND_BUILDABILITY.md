@@ -1,428 +1,668 @@
 # PACK 2 — Competition and Buildability
 
-overly optimistic default scenarios
 
+## Baltic Market Pressure (COD windows)
 
-Benchmark rule
-The Clean Horizon benchmark can remain only as a contextual comparison.
-It must be:
-secondary
+KKME — Rebuild current COD compression bars into a Baltic Market Pressure module
 
-clearly labeled as external reference
+Objective
+Delete the current unexplained COD compression bars (2027 / 2028 / 2029, 0.88x / 0.95x / 1.10x, COMPRESS / MATURE).
+Replace them with a Baltic Market Pressure module that explains one real idea:
+More BESS online tends to compress revenues, but growing system need for flexibility from renewables, load growth, balancing needs, and cross-border stress can offset some of that pressure.
+This module must not simplify the story to:
+ later COD = worse.
+It must feel like a real Baltic market-intelligence module, not an AI-decorated internal formula.
 
-not the framing device of the section
+What this module must answer
+Is Baltic battery competition rising?
 
-Do not let this section open with “against Clean Horizon” logic.
- Open with current Baltic reference asset economics.
+Is system need for flexibility also rising?
 
-Baltic framing rules
-Move from Lithuania-first language to Baltics, but stay honest.
-Where needed, explicitly label:
-LT-led proxy
+What does that net out to for a 50MW reference asset by COD window?
 
-Baltic-calibrated reference
+This is not a precise forecast panel.
+ It is a pressure balance panel.
 
-Lithuania signal used as regional directional input
+Section title
+Baltic market pressure
+Support copy
+Battery revenues tighten as more storage comes online, but renewables growth, demand growth, balancing needs, and cross-border constraints can increase system need for flexibility.
+Meta row
+Region: Baltics · Updated from pipeline + market signals · Methodology
 
-Do not imply all values are equally Baltic-wide if they are not.
+Core layout
+Render three year cards side by side for:
+2027
 
-Revenue mix rules
-Allowed categories:
-FCR
+2028
 
-aFRR
+2029
 
-mFRR
+Treat these as COD windows, not exact predictions.
+Each card must have three layers:
+A. Battery competition
+Public label: Battery competition
+This is the negative force.
+Show:
+paired bar / filled meter
 
-Arbitrage
+one supporting metric underneath, such as:
 
-Optional only if grounded:
-intraday as separate
+Weighted BESS pipeline: XXX MW
 
-Do not invent filler revenue categories.
+or Competition score: 62 / 100
 
-Event-to-model rules
-Every event must follow:
-observed change
+short note if useful:
 
-market interpretation
+Rising
 
-effect on model
+Accelerating
 
-Do not skip the middle step.
+B. System need for flexibility
+Public label: System need for flexibility
+This is the offsetting force.
+Show:
+paired bar / filled meter
 
-Macro-driver caution
-Do not use weak macro signals casually.
-Use caution with:
-oil price as direct BESS driver
+one supporting metric underneath, such as:
 
-lithium as daily headline in this section
+Flexibility support score: 48 / 100
 
-war headlines with deterministic revenue claims
+this score can be built from:
 
-Only include macro through real transmission mechanisms:
-gas / thermal floor
+renewables growth
 
-logistics / CAPEX
+load / demand growth
 
-volatility / interconnector stress
+balancing context
 
-flexibility demand
+cross-border stress / spread opportunity
 
+congestion / interconnector conditions
 
-Design rules
-Overall feel
-premium market console
+C. Net market effect
+This is the conclusion layer.
+Show:
+one short label:
 
-restrained
-
-editorial
-
-serious
-
-clear
-
-Avoid
-crypto dashboard look
-
-hacker terminal look
-
-startup landing page behavior
-
-AI-fintech clichés
-
-Layout
-left-align content
-
-strong grid
-
-consistent spacing rhythm
-
-one major chart + one secondary chart + compact event strip
-
-no dense tables in the main body
-
-Typography
-no tiny labels
-
-no washed-out low-contrast copy
-
-large numbers only where earned
-
-labels understandable to a smart outsider
-
-Color
-restrained palette
-
-one accent
-
-one positive
-
-one negative
-
-one warning
-
-max 4 revenue colors plus neutral
-
-Motion
-Use animation only for:
-case switch
-
-2H/4H focus shift
-
-chart transitions
-
-delta updates
-
-No decorative motion.
-
-Engineering rules
-Important
-This section has been worked on for a long time.
- Do not patch the existing component blindly.
-First do a structural audit
-Inspect:
-current Revenue Engine component tree
-
-data dependencies
-
-styling patterns
-
-state location
-
-what is reusable vs contaminated
-
-Then decide:
-refactor
-
-or clean rebuild from new parent component
-
-Prefer clean rebuild if entangled.
-Suggested component structure
-ReferenceAssetSection
-
-ReferenceAssetHeader
-
-ReferenceAssetControls
-
-ReferenceAssetTopSummary
-
-ReferenceAssetSummaryRow
-
-DurationComparisonCards
-
-RevenueMixChart
-
-DriverImpactWaterfall
-
-MarketEventsRail
-
-DataConfidenceStrip
-
-MethodologyDrawer
-
-Do not keep everything in one monolithic component.
-State model
-Keep state minimal:
-duration: 2h | 4h
-
-case: base | conservative | stress
-
-cod: 2027 | 2028 | 2029
-
-capexMode: live | low | mid | high
-
-Derived outputs should come from one memoized selector layer.
-View-model shape
-Use a normalized section view model.
-Conceptually:
-type ReferenceAssetViewModel = {
- config: {...},
- topSummary: {
-   netDirection: 'improving' | 'tightening' | 'mixed'
-   mainDriver: string
-   favoredDuration: '2h' | '4h' | 'mixed'
- },
- summary: {
-   projectIrr: number,
-   projectIrrDelta7d: number,
-   projectIrrDelta30d: number,
-   ebitdaPerMw: number,
-   ebitdaDelta7d: number,
-   ebitdaDelta30d: number,
-   minDscr: number,
-   minDscrDelta7d: number,
-   minDscrDelta30d: number,
-   hurdleStatus: 'pass' | 'borderline' | 'fail',
-   equityIrr?: number
- },
- comparison: {
-   twoHour: {...},
-   fourHour: {...}
- },
- revenueMix: {
-   twoHour: RevenueSegment[],
-   fourHour: RevenueSegment[]
- },
- driverImpact: DriverContribution[],
- events: MarketEvent[],
-
-It is a market interpretation card.
-It should explain one simple story:
-When Baltic prices detach from nearby markets, storage arbitrage may improve — but the signal needs context, not just a raw spread number.
-
-Problems to fix
-card is too tall with too much dead space
-chart is too small and decorative
-too many tiny low-priority stats are visible
-BESS capture is too insider-coded
-Explain / Data buttons clutter the card
-significance of the main spread number is unclear
-the card is not clearly tied back to the reference asset
-
-Rebuild with this hierarchy
-1. Header
-Title:
-Baltic price separation
-Subtitle:
-How far Baltic day-ahead prices are diverging from nearby markets. Wider spreads can improve storage arbitrage.
-Add a small methodology qualifier if needed:
-Lithuania-led Baltic proxy
-or similar, if the signal is primarily LT vs SE4
-Do not imply perfect Baltic-wide symmetry if the signal is LT-led.
-
-2. Main metric
-Show one large spread number, for example:
-+0.5 €/MWh
-Under it show:
-comparison label, e.g. Today vs SE4
-one status tag derived from stable thresholds and recent baseline:
-Weak
-Neutral
-Slightly supportive
 Supportive
-The tag must be based on real threshold logic, not decorative copy.
 
-3. Hero chart
-Make the chart the main visual element.
-Requirements:
-clean 30D line chart for spread history
-clear zero line
-current point highlighted
-optional faint 30D average or median reference line
-enough size to actually show whether today is unusual
-no tiny sparkline pretending to be a chart
-The chart must answer:
-stable or unstable?
-above or below normal?
-recent spike or not?
+Balanced
 
-4. Supporting metrics row
-Show only 3 supporting metrics:
-Battery arbitrage capture
-30D median spread
-30D percentile or similarly strong contextual metric
-Do not show all of these in the main body:
-trend
-LT avg
-SE4 avg
-raw spread table
-timestamps
-model notes
-tomorrow preview
-Keep the main card minimal.
+Tightening
 
-5. Reference asset impact line
-Add one short line explicitly translating the signal into the reference asset logic.
+Compressed
+
+one short explanation line
+
+one explicit reference-asset implication line
+
 Examples:
-Reference asset impact: slightly positive for 2H and 4H arbitrage
-Reference asset impact: positive, but not an exceptional spread regime
-This is required so the card fits the overall site architecture.
+Net effect: Tightening
 
-6. Interpretation line
-Add one plain-language interpretation sentence.
-Example:
-Baltic spreads are slightly positive today, keeping arbitrage open but not exceptional.
-This should sit below the supporting metrics, not buried in footnotes.
+Storage growth is outpacing system flexibility demand
 
-7. Footer
-Use a compact source/freshness line only.
-Example:
-Source: ENTSO-E A44 · Updated 04:00 UTC
-Keep footer clean and small.
+Implication for 50MW reference asset: lower ancillary support, more selective merchant upside
 
-Move into collapsible details
-Hide these from the default main card view:
-LT avg
-SE4 avg
-spread breakdown table
-model input mapping
-tomorrow DA preview
-raw publication notes
-methodological detail on capture calculation
-Put them in a clean details drawer or expand area.
+Do not use:
+COMPRESS
 
-Rename for clarity
-BESS capture → Battery arbitrage capture
-In methodology/details, clarify that this is:
-a day-ahead directional arbitrage metric
-likely derived from top/bottom price spread logic
-net of RTE if that is true
-not the same as guaranteed realized project revenue
-Do not leave the term ambiguous.
+MATURE
+
+mystery multipliers
+
+internal jargon
+
 
 Visual rules
-remove Explain and Data from the primary layout
-reduce nested-box feeling
-increase internal padding
-left-align content
-remove decorative dead space
-no tiny unreadable labels
-no debug-panel styling
-no false sense of precision through tiny dense text
-This card should feel editorial, premium, and readable.
+Must do
+one clean year card per COD window
 
-Data / logic rules
-be explicit about the benchmark used
-main number must have context, not just raw value
-status tag must use stable threshold logic tied to recent norm
-keep the default card understandable to a smart outsider
-round sensibly; avoid debug-style precision in the primary view
-If the signal is LT-led but used as Baltic directional context, say so honestly.
+paired bars with clear labels
+
+readable without hover
+
+one short conclusion sentence
+
+one short reference-asset implication line
+
+visible labels, not color-only meaning
+
+Must not do
+long unexplained bars
+
+hidden axes
+
+tiny faint text on dark background
+
+internal model states in all caps
+
+numeric clutter pretending to be rigor
+
+
+Data model
+Use two internal composite indices plus a net effect score.
+Internal only
+Do not expose formulas on the card itself.
+1. batteryCompetitionScore
+0–100 scale
+Built from:
+operational BESS MW
+
+under-construction BESS MW
+
+likely COD pipeline MW
+
+weighted by confidence and year relevance
+
+2. flexibilityDemandScore
+0–100 scale
+Built from:
+renewable penetration / growth
+
+load / demand growth
+
+spread persistence / volatility
+
+balancing demand proxies
+
+cross-border / congestion stress
+
+3. netPressureScore
+Derived from competition vs flexibility demand balance.
+Translate to public labels:
+Supportive
+
+Balanced
+
+Tightening
+
+Compressed
+
+Do not expose internal formulas in the main UI.
+
+Recommended data inputs
+A. Battery competition
+From your Baltic pipeline / project database:
+operational projects
+
+under construction
+
+connection agreement / reserved-capacity stage
+
+applications with lower weight
+
+optional announced projects at very low weight
+
+Required project fields:
+country
+
+project name
+
+owner / parent group
+
+MW
+
+MWh if available
+
+status
+
+expected COD
+
+confidence weight
+
+last verified date
+
+source
+
+Suggested status weights:
+operational = 1.0
+
+under construction = 0.9
+
+connection agreement = 0.6
+
+application = 0.3
+
+announced = 0.1
+
+These are methodology choices, not facts. Keep them documented.
+B. System need for flexibility
+Use:
+load / demand
+
+wind generation / share
+
+solar generation / share
+
+balancing market context
+
+interconnector / congestion / spread conditions
+
+Good source classes:
+ENTSO-E
+
+BTD / balancing ingest
+
+Litgrid / AST / Elering where useful
+
+your existing connected-market flow logic
+
+Optional:
+gas / carbon floor as secondary support only
+
+large demand nodes only if grounded and not overclaimed
+
+Do not use:
+oil
+
+lithium
+
+random macro noise
+
+
+Scoring rules
+Keep the scoring simple, documented, and internal.
+Competition
+For each COD window:
+include projects with COD <= that year
+
+sum weighted MW
+
+normalize to reference band
+
+clamp 0–100
+
+Flexibility need
+Combine weighted signals such as:
+renewables
+
+load growth
+
+spread / volatility persistence
+
+balancing demand proxies
+
+cross-border stress
+
+Net effect
+Net pressure = competition minus flexibility support
+Public translation:
+Supportive
+
+Balanced
+
+Tightening
+
+Compressed
+
+This is a directional framework, not a claim of precise forecasting.
+
+Copy rules
+Good
+Battery competition rising faster than system flexibility demand
+
+Renewables and cross-border stress partly offset revenue compression
+
+Later COD faces tighter ancillary support
+
+Implication for reference asset: more merchant selectivity required
+
+Bad
+COMPRESS
+
+MATURE
+
+0.88x
+
+S/D at delivery
+
+unexplained abbreviations
+
+overconfident deterministic wording
+
+
+Degraded-state rules
+If one demand-side input is missing:
+keep the card visible
+
+mark Partial flexibility model
+
+use last good value where reasonable
+
+show stale marker
+
+do not collapse into placeholders
+
+
+Suggested components
+MarketPressureSection
+
+MarketPressureHeader
+
+MarketPressureYearCard
+
+PressureBalanceBars
+
+PressureMethodologyNote
+
 
 Acceptance criteria
-The rebuild succeeds only if:
-the chart is clearly the hero
-only 3 supporting stats remain visible
-the main spread number is understandable with a status label
-the card explains why the signal matters for storage
-the card clearly connects to the 50MW reference asset
-the card no longer feels cramped, terminal-like, or debug-oriented
+This rebuild succeeds only if:
+A first-time user can understand in 5–10 seconds that the module compares battery competition versus system need for flexibility by COD window.
+
+An expert can see that the module does not pretend later COD is automatically worse.
+
+Each year card clearly ends in a reference-asset implication, not just an abstract label.
+
+The module feels like real Baltic market intelligence, not internal logic painted as UI.
+
 
 One-line instruction
-Rebuild the current Baltic Price Separation card as a single-story market signal card with one large spread metric, one large 30D history chart, three supporting stats, a clear status label, a short interpretation line, and an explicit reference-asset impact note; move all low-priority breakdown data into a collapsible details layer and keep the framing honest if the signal is LT-led rather than fully Baltic-wide.
+Delete the current COD compression bars and rebuild them as a Baltic Market Pressure module with 2027/2028/2029 COD-window cards, each showing battery competition versus system need for flexibility as paired bars, a net market-effect label, and a short implication for the 50MW reference asset, using Baltic pipeline data and market-demand proxies from load, renewables, balancing, and cross-border conditions.
 
-KKME — Rebuild the Balancing Stack / S2 card
+Here’s the rewritten Claude Code brief for the EU/Baltics comparison block, using a 2-axis map and making freshness part of the design instead of pretending false precision.
+
+## Grid Access & Buildability
+
+KKME — Rebuild the current Grid Connection Scarcity card into a Grid Access & Buildability module
 
 
 Objective
-Refactor the current S2 card into a cleaner market pressure + revenue support card.
-The card must answer in one glance:
-Is the Baltic balancing market still supportive for storage revenues?
-How much competitive pressure is coming from new BESS fleet?
-What does that mean for the 50MW Baltic reference asset?
-Do not preserve the current card as a denser analyst widget. Simplify it.
+Refactor the current card into a focused buildability card.
+This card must answer in one glance:
+Can a new Baltic storage project still get built?
 
-Core concept
-This card is not a raw balancing dashboard.
-It is a market support card that explains whether the Baltic balancing market is still monetizable and how fast competition is starting to compress that opportunity.
-It should sit inside the site as part of revenue opportunity, while the deeper liquidity / distortion logic lives later in Market Design & Trading Reality.
+Is access tightening because of reserved capacity and queue behavior, not just physical grid limits?
 
-Problems to fix
-too many tiny numbers and labels fighting for attention
-0.65 S/D COMPRESS is too internal and cryptic
-fleet list is too detailed for the default card
-aFRR / mFRR bars are hard to interpret
-revenue numbers float without enough context
-right-side chart is weak and unclear
-P90 imbalance spike and extra footnotes overload the card
-Explain / Data buttons clutter the layout
-overall card feels like a compressed terminal instead of a clear signal
+What is the practical implication for the 50MW reference asset and for new project origination?
 
-Rebuild with this hierarchy
-1. Header
-Title:
-Baltic balancing market
-Subtitle:
-How supportive reserve and balancing markets are for storage, and how fast rising battery competition is starting to compress them.
-If needed, add a small qualifier:
-Baltic blended view with LT-led signal depth
-Do not imply perfect uniformity across all Baltic markets if the underlying depth is not fully symmetric.
+This is a structural support / buildability card, not a pipeline-intelligence or competition-pressure module.
 
-2. Main signal
-Replace the current 0.65 S/D COMPRESS treatment with a clearer primary block.
-Show:
-large main number: e.g. 0.65x
-label: Battery competition vs balancing demand
-one plain-language status tag:
-Supportive
+Important boundary
+A much richer private/scraped infrastructure dataset exists behind the scenes, including:
+BESS
+
+wind
+
+solar
+
+hybrids
+
+other infrastructure
+
+term sheet and reservation timing
+
+development status
+
+grid constraints
+
+ongoing updates
+
+Do not dump that raw intelligence into this card.
+Use it only to improve:
+interpretation
+
+queue-pressure read
+
+buildability status
+
+policy effect context
+
+country / node pressure hints where safe
+
+The public card must remain:
+aggregated
+
+public-safe
+
+narrow
+
+readable
+
+The richer intelligence belongs in a separate future module such as:
+Baltic Pipeline Intelligence
+
+Competition Pressure
+
+Project Pipeline
+
+
+Rename
+Change:
+Grid Connection Scarcity
+
+To:
+Grid access and buildability
+
+Subtitle if needed:
+ Public capacity, reservation pressure, and policy signals affecting whether new Baltic storage projects can still move.
+Do not use “scarcity” unless the data clearly justifies it.
+
+Core narrative
+This card must communicate a simple buildability truth:
+indicative grid capacity still exists on paper
+
+reserved / queue pressure may tighten real access faster than the headline suggests
+
+policy changes may accelerate queue formation
+
+buildability remains open, but timing matters
+
+That is the correct tone.
+
+Required card structure
+1. Headline block
+Show one strong top-line metric:
+3020 MW
+
+label: Indicative available capacity
+
+Directly under it, show a visible geography qualifier such as:
+Lithuania public grid snapshot
+
+Baltic interpretation layer applied
+
+Do not present the number as if it were a pure Baltic-wide buildability fact.
+Add one status tag:
+Open but tightening
+
+Moderately available
+
 Tightening
-Competitive
-Compressed
-Do not use COMPRESS as the user-facing state.
-Add one short interpretation line, for example:
-Battery competition is rising, but the balancing market still supports meaningful storage revenues.
 
-3. Two key revenue outputs
-Keep only two prominent revenue outputs visible:
-aFRR reference
-mFRR reference
-These must be clearly labeled.
-If the numbers represent modeled or annualized values, label them explicitly, for example:
-Indicative annual revenue per MW
-Modeled reference value
-Reference annualized support
----
-## Screenshots of Current State
-Upload the corresponding screenshot images alongside this pack for visual reference.
-Relevant screenshots: screenshot_03.png (COD/Market Pressure), screenshot_08.png (Grid)
+Constrained
+
+This tag may use private interpretation behind the scenes, but must remain public-safe.
+
+2. Main visual
+Use one strong stacked horizontal bar as the main visual.
+Show clearly:
+Connected
+
+Reserved
+
+Indicative available
+
+Make it:
+large
+
+legible
+
+clearly labeled
+
+Do not use circles as core visuals.
+ Do not mix too many small visual treatments.
+Optional:
+small note versus prior month / quarter if reliable
+
+
+3. Reservation / queue pressure summary
+Add one compact interpretation block.
+Use 2–3 public-safe lines such as:
+Reserved pressure: rising / stable / falling
+
+Queue pressure: accelerating / stable / easing
+
+Buildability outlook: open / tightening / constrained
+
+Important:
+Reserved pressure = current reserved share / reservation load
+
+Queue pressure = speed and direction of incoming pipeline pressure
+
+Do not expose private project-level detail.
+Examples of allowed safe statements:
+Live pipeline suggests tightening faster than headline headroom implies
+
+Reservation churn may reopen limited access
+
+Pressure is rising faster in LT than in LV/EE
+ only if true and safe
+
+
+4. Policy watch block
+Keep one clean integrated policy block.
+Example:
+ Policy watch
+ Proposed guarantee reduction from €50 to €25/kW may lower entry barriers and accelerate queue growth.
+Add one short effect line:
+ Possible effect: quicker depletion of available headroom
+Do not make policy sound settled if still pending.
+
+5. Reference asset / origination implication
+Add one explicit line near the bottom tying the card to the site logic.
+Examples:
+Reference asset implication: buildability remains open, but connection timing risk is rising
+
+Origination implication: viable, but queue acceleration matters more than headline headroom alone
+
+This is required.
+
+6. Interpretation line
+Add one short plain-language takeaway.
+Examples:
+Public grid headroom remains open on paper, but reservation pressure could tighten project access quickly.
+
+Buildability is still viable, but queue acceleration matters more than the headline capacity number alone.
+
+This is the most important sentence in the card.
+
+7. Footer
+Use a compact source / freshness line only.
+Example:
+ Source: public grid capacity data + KKME interpretation layer · Updated 04:00 UTC
+If LT-led public data is being used with Baltic interpretation, say so honestly.
+
+Move into details
+Hide from the primary layout:
+permit circles
+
+permit counts unless unusually strong and clear
+
+parsing / validation notes
+
+model input notes
+
+ArcGIS technical notes
+
+baseline/debug copy
+
+monthly permit caveats
+
+any project-level view
+
+If permit data is useful, place it in details or a later deeper module.
+
+Private/scraped data rules
+Use the private dataset only behind the scenes for:
+interpreting whether public headroom is being consumed faster than visible
+
+estimating reserved pressure
+
+estimating queue acceleration
+
+flagging churn / expiry pressure
+
+improving buildability status
+
+improving country / node interpretation
+
+Do not display:
+owner groups
+
+project-by-project tables
+
+term sheet dates
+
+confidential stage detail
+
+commercial relevance scoring
+
+supplier / optimizer opportunity logic
+
+Those belong elsewhere.
+
+Visual rules
+one strong number
+
+one strong bar
+
+one clean policy block
+
+one short takeaway
+
+one reference asset / origination implication line
+
+no overloaded sub-elements
+
+no tiny labels carrying core meaning
+
+no nested debug-panel feeling
+
+no mixed visual language
+
+This card should feel calm, adult, and useful.
+
+Data / state rules
+use public headroom as headline
+
+use private dataset only to improve interpretation
+
+keep geography honest
+
+keep language public-safe
+
+If data is stale:
+keep last known value
+
+show stale badge if needed
+
+do not collapse into blanks or placeholders
+
+
+Acceptance criteria
+The rebuild succeeds only if:
+a first-time visitor understands the headline number is public indicative capacity, not guaranteed immediate buildability
+
+the card clearly separates:
+
+public headroom
+
+reserved pressure
+
+queue pressure
+
+policy effect
+
+the private dataset improves interpretation without being exposed directly
+
+the card stays narrow and readable instead of becoming a pipeline dump
+
+the card includes a clear implication for the reference asset or project origination
+
+the main takeaway is obvious: buildability is still open, but tightening can happen faster than the headline number suggests
+
+
+One-line instruction
+Rebuild the current grid card as a narrow Grid Access & Buildability module showing indicative available capacity, reserved and queue pressure, policy watch, and a clear public-safe implication for the 50MW reference asset or new project origination, while using the private infrastructure dataset only behind the scenes to improve interpretation rather than exposing raw project intelligence.

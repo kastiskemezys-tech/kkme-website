@@ -1,296 +1,230 @@
 # PACK 4 — Cost and Reference Asset
 
-Do not pretend you have the same level of live coverage.
-Use a mix of:
-public market reports
-benchmark references
-known structural characteristics
-periodically refreshed market notes
-public articles / reports you can parse into directional scores
-your own manually verified structural summaries
-Important
-Design the data model so these countries can gradually become more current over time.
-Do not hardwire them as fixed text in the frontend.
 
-Data architecture Claude should implement
-Create a market map config / dataset
-Do not encode point positions directly in JSX.
-Create a structured dataset, e.g. marketMapData.
-Suggested shape
-type MarketMapPoint = {
+## Project Cost Trend
+
+KKME — Rebuild the current BESS Cost Stack into a Project Cost Trend module
+
+Objective
+Delete the current lithium-led cost stack card and rebuild it as a public-data-first Project Cost Trend module for Baltic utility-scale LFP BESS.
+This module must answer:
+Is full-project Baltic BESS CAPEX drifting up, down, or flat?
+What is causing the move?
+Which drivers are fast-moving versus slow-moving?
+What does that mean for the 50MW Baltic reference asset?
+This is not a live turnkey quote engine.
+It is a directional cost-pressure module tied back to the reference asset.
+
+Section title
+Project cost trend
+Subtitle
+How battery supply, freight, financing, and electrical scope are shifting delivered Baltic utility-scale LFP BESS CAPEX.
+
+Core product logic
+This module tracks full project cost direction, not one commodity and not a fake current quote.
+It should help an investor or developer understand:
+whether procurement conditions are improving or worsening
+which drivers matter most right now
+whether the move is battery-led, freight-led, financing-led, or local electrical/EPC-led
+what that means for the 50MW reference asset
+It is not for:
+precise real-time turnkey quote simulation
+public disclosure of proprietary supplier intelligence
+overfitting to one commodity
+mixing LFP, sodium-ion, and other chemistries into one number
+
+Required module structure
+1. Top summary strip
+Show one clean top-line conclusion:
+Project cost trend: Improving / Flat / Worsening
+30D move
+90D move
+one short explanation
+Example:
+Project cost trend: Slightly improving
+Battery oversupply still offsets freight and electrical cost pressure
+Also include:
+confidence level
+freshness note
+This is the top-line conclusion, not lithium.
+
+2. Driver decomposition
+Show the main physical project cost buckets for the 50MW reference asset:
+Battery system / DC block
+PCS / inverter / transformer / electrical
+Freight & logistics
+BOS / civil / installation
+Grid / HV connection allowance
+Show financing pressure separately as a companion influence, not as if it were physical CAPEX.
+Preferred visual:
+ranked horizontal bars
+or
+clean decomposition stack
+For each driver show:
+direction: up / flat / down
+confidence: high / medium / low
+update class: live / recent / reference
+Important:
+These are driver buckets, not fake live project quotes.
+
+3. What moved recently
+Add a compact recent-move summary panel.
+Examples:
+Battery supply pressure: improving
+Freight: slightly worse
+Financing: unchanged
+Electrical scope: still sticky
+This should make the module feel current and readable without overloading the chart.
+
+4. Tracked signals panel
+Show the tracked public inputs feeding the module.
+Split into two groups:
+Fast / recent signals
+lithium carbonate direction
+China → North Europe freight direction
+Euribor / financing direction
+public ESS oversupply / manufacturing pressure signals
+public transformer / electrical market pressure if grounded
+Slow / structural signals
+turnkey system benchmark direction
+EPC / BOS pressure
+grid / HV allowance direction
+public tender or award hints
+benchmark / industry report direction
+Do not pretend all of these update daily.
+This panel should show:
+direction
+freshness
+confidence
+source note if useful
+
+5. Reference asset sensitivity
+This bottom block is mandatory and must show:
+Reference CAPEX range
+Project IRR impact
+Min DSCR impact
+Display:
+Reference CAPEX range: €X–Y/kWh
+30D move: +/- %
+Project IRR impact: +/- X.Xpp
+Min DSCR impact: +/- X.XXx
+Rules:
+keep it simple
+do not turn it into a sensitivity matrix
+use conservative rounding
+clearly tie it to the 50MW reference asset assumptions
+if data is directional, present this as:
+Indicative
+Modeled sensitivity
+not as hard observed fact
+Suggested copy:
+For the 50MW Baltic reference asset, recent cost pressure has shifted the indicative CAPEX range and slightly changed both return and bankability metrics.
+
+Chemistry / technology handling
+Main tracked chemistry
+LFP utility-scale BESS only
+Secondary watchlist
+Add a small secondary watchlist only:
+sodium-ion
+flow / LDES
+other emerging technologies
+Purpose:
+show technology direction without contaminating the LFP cost model.
+Example:
+Technology watch: Sodium-ion pricing improving, but not yet a primary input to Baltic utility-scale LFP reference assumptions.
+This must remain visually minor.
+
+Data rules
+Public-data-first
+Use only public, scrapeable, or benchmarkable signals.
+Battery system pressure
+Possible inputs:
+lithium carbonate direction
+public LFP cell / pack benchmark direction
+Chinese ESS manufacturing oversupply / undersupply signals
+public tender / award / trade references
+Freight / logistics pressure
+Possible inputs:
+China → Europe freight direction
+shipping disruption indicators
+freight indices
+Financing pressure
+Possible inputs:
+Euribor / ECB rates
+inflation if relevant
+Electrical / EPC pressure
+Possible inputs:
+public transformer / electrical equipment stress
+copper only as secondary context
+BOS / EPC directional notes
+Important caution
+Chinese internet / industrial sources may inform direction, but must not be treated as validated benchmark pricing automatically.
+Use them to support:
+direction
+confidence
+sourceNote
+Do not surface them as hard price truth unless verified.
+
+Scoring / normalization approach
+Do not compute a fake “true live turnkey CAPEX.”
+Instead create a cost pressure framework.
+For each driver:
+direction score
+confidence
+freshness
+source note
+Example:
+type CostDriver = {
   id: string
   label: string
-  region: string
-  crowdingScore: number
-  revenueOpportunityScore: number
+  direction: 'down' | 'flat' | 'up'
+  magnitude: number
+  confidence: 'high' | 'medium' | 'low'
   updateClass: 'live' | 'recent' | 'reference'
   lastUpdated: string
-  revenueProfile: {
-    balancing: number
-    arbitrage: number
-    policy: number
-  }
-  regimeLabel: string
-  description: string
-  whyHere: string[]
   sourceNote: string
 }
 
-All positions and copy should come from this dataset.
+Then derive:
+overall project cost trend
+reference CAPEX range shift
+IRR sensitivity
+DSCR sensitivity
+Do not expose formulas on the card.
 
-Required implementation rule
-Make it easy to update / enrich later.
-This means:
-no baked-in copy inside component logic
-no fixed x/y positions in UI code
-no hardcoded flags and percentages in JSX
-no mixing presentational code with scoring logic
+Remove from the current card
+lithium placeholder as hero
+broken feed dominating the card
+static cost stack pretending to be dynamic
+tiny hardcoded cost lines without context
+debug-style notes in the main body
+oversized emphasis on ECB pills
+unexplained fixed total installed number
 
-Visual design rules
-Must do
-big enough plotting area
-readable country labels
-subtle Baltic emphasis, not trophy styling
-light connecting grid if useful
-hover/click tooltips
-right-side detail panel
-visible axes with plain language
-Must not do
-rank numbers
-giant percentage badges
-“best market” framing
-overglow or terminal cosplay
-tiny unreadable annotations
-false precision
-
-Copy rules
-Good
-Transition market with rising competition
-Mature market with deeper optimisation and tighter economics
-Ancillary-heavy support, but more crowded
-Merchant upside exists, but depends on structure and policy
-Bad
-#1
-Best
-Gold rush
-post-sync anomaly
-ref
-live
-without explanation
-
-Interaction rules
-Default state
-Show all countries plotted.
-Selected default:
-Baltics
-Why:
-This gives the visitor an anchor.
-On hover / click
-Open detail panel for selected country.
-In detail panel show
-regime label
-short description
-crowding status
-opportunity status
-revenue profile bar
-why this market sits here
-update class + timestamp
-source note
-
-Expandability
-The user explicitly noted that EU has more countries.
-So build for expansion.
-Do not lock this to 6 markets only
-Initial markets can be:
-Baltics
-Ireland
-Great Britain
-Italy
-Germany
-Belgium
-But the system should support adding:
-Spain
-Netherlands
-France
-Nordics
-Poland
-others
-without redesigning the component.
-
-How to keep it recent as often as possible
-Implementation strategy
-Use a layered freshness model:
-Layer 1 — live market logic
-For Baltics:
-update from live KKME sources
-Layer 2 — refreshed structural scores
-For other markets:
-maintain country score records in a data file / DB
-refresh them on schedule
-attach lastUpdated
-attach updateClass
-Layer 3 — editorial override
-Allow manual adjustment when an important market shift happens faster than the full scoring pipeline can catch it.
-This matters because EU market structure changes are not always machine-readable in real time.
-
-Why this matters professionally
-Because otherwise the module will drift into one of two bad outcomes:
-Bad outcome 1
-It becomes a static decorative map that ages badly.
-Bad outcome 2
-It pretends to be live everywhere, which a serious user will immediately distrust.
-This architecture gives:
-live where you can be live
-structured recency where you cannot
-honesty everywhere
-That is professional.
-
-Engineering instructions for Claude
-Step 1 — delete ranking mindset
-Do not convert the old ranking list into a prettier ranking list.
-This is a full concept change.
-Step 2 — build data-driven market map
-Create the market point dataset first.
-Step 3 — build plotting component
-Use a reusable chart / SVG / D3-friendly approach.
-Prefer a simple, clean scatter-map style.
-Step 4 — build selected-market detail panel
-This is mandatory. The map alone is not enough.
-Step 5 — add freshness layer
-Every point needs update metadata.
-Step 6 — add regime explanations
-The value of this module is explanation, not dots in space.
+Visual rules
+remove Explain / Data
+strong hierarchy
+top summary first
+driver chart second
+tracked signals third
+reference asset sensitivity last
+no dense debug-panel feel
+no fake precision by tiny text
+no giant static commodity placeholder
 
 Acceptance criteria
-The rebuild succeeds only if:
-A first-time visitor understands that BESS revenue conditions differ by country and change over time.
-The module does not look like a promotional ranking.
-Baltics are shown clearly but not boastfully.
-Each country has visible freshness / methodology context.
-The component is data-driven and expandable to more EU markets later.
+This rebuild succeeds only if:
+a visitor understands this is about full project cost direction, not lithium alone
+the module shows drivers, not just one weak feed
+the module clearly separates physical cost drivers from financing/context
+the module ties cost movement back to the 50MW reference asset
+the module clearly separates LFP core model from technology watch
+the module remains credible even when some inputs are only directional or low-frequency
 
-One-line instruction for Claude
-Replace the current EU ranking list with a data-driven 2-axis European BESS market map plotting countries by crowding versus revenue opportunity, with Baltic live logic where available, refreshed structural reference scores for other markets, per-country freshness metadata, and a selected-market detail panel that explains why each market sits where it does.
-Additional rules
-The map is directional, not a precise ranking or like-for-like modeled comparison.
-Add a visible small note under the section or in the detail panel:
-Directional market positioning, not a like-for-like ranked model.
-Every market must have:
-phase
-why it sits here
-update class
-source note
-The Baltics must use a Baltic blended view with LT-led signal depth, not silently default to Lithuania.
-If a country’s placement is partly editorial or structurally inferred, that must be reflected in:
-updateClass
-sourceNote
-and not hidden behind false precision
-Do not render point positions as if they are exact measured facts when they are composite scores.
-Add one field to the data model:
-phase: 'emerging' | 'transition' | 'mature' | 'compressed'
-Add to tooltip / detail panel
-For each market show:
-market name
-phase
-short regime description
-crowding status
-revenue support status
-why it sits here
-update class
-last updated
-source note
+One-line instruction
+Delete the current lithium-led cost stack and rebuild it as a Project Cost Trend module for Baltic utility-scale LFP BESS, focused on directional full-project CAPEX pressure, visible driver buckets, recent move summaries, tracked public signals, and a reference asset sensitivity block showing indicative CAPEX range plus IRR and DSCR impact.
 
-KKME — Rebuild the Baltic Price Separation / S1 card
-
-
-Objective
-Refactor the current S1 card into a clean single-story market signal card.
-This card must answer in one glance:
-Are Baltic spreads helping storage arbitrage right now?
-Is today unusual versus recent history?
-What is the practical implication for the 50MW Baltic reference asset?
-Do not patch visually around the current layout. Simplify the structure.
-
-Core concept
-This card is not a mini terminal or debug panel.
-
-no decorative analysis language
-
-no metric without unit, geography, and scope
-
-no giant empty dark space
-
-
-What I would add now that was missing before
-Add a reference-asset translation
-The hero should not only show market stats. It should also answer:
-What does this mean for the reference asset right now?
-Even if it is just one small line like:
-Net effect on 50MW 2H case: slightly positive this week
- or
-
-Reference asset outlook: tightening, but still buildable
-
-That would make the hero much stronger.
-Add geography honesty
-Because we later decided on Baltics with LT-led signal depth, the hero should explicitly say that somewhere small but visible.
-Example:
-Baltic blended view · LT-led signal depth
-
-
-Professional credibility check — still correct, but refine it
-Keep, but clarify
-aFRR price 35 €/MW/h
- Keep only if clearly marked as reference, proxy, or observed depending on truth.
-
-Fleet op 375 MW
- Keep only if scope is explicit:
-
-Baltic or mixed
-
-operational only or weighted
-
-whether pipeline is separate
-
-Grid free 3.0 GW
- Keep only if clearly qualified as:
-
-public snapshot
-
-indicative available capacity
-
-not directly equal to easy BESS buildability
-
-Change
-Market compressing
- Still too hand-wavy. Replace with something observable:
-
-New committed fleet is increasing revenue pressure
-
-Supply / demand ratio has moved from scarcity toward compression
-
-Better remove from hero unless clearly evidenced
-any hard market conclusion without visible method
-
-any metric mixing manual inputs, proxies, and live data without a quality marker
-
-any giant “buildable” style label unless it is clearly explained
-
-
-What a serious market person will question immediately
-This part is exactly right and should stay:
-Is this observed data, derived estimate, or model output?
-
-Is the geography Lithuania, Baltics, or mixed?
-
-Is the value current, rolling average, or forecast?
-
-Does “grid free” mean transmission headroom, queue estimate, legal availability, or practical connectionability?
-
-That distinction must be visible on the screen, not hidden in code.
-
-NEXT:
-
+## Reference Asset Economics (Revenue Engine rebuild)
 
 KKME — Rebuild the Revenue Engine into a Baltic Reference Asset Economics section
 
@@ -666,7 +600,352 @@ giant equity IRR hero
 thin benchmark strip pretending to validate everything
 
 overly optimistic default scenarios
----
-## Screenshots of Current State
-Upload the corresponding screenshot images alongside this pack for visual reference.
-Relevant screenshots: screenshot_07.png (Cost Stack), screenshot_02.png (Revenue Engine)
+
+
+Benchmark rule
+The Clean Horizon benchmark can remain only as a contextual comparison.
+It must be:
+secondary
+
+clearly labeled as external reference
+
+not the framing device of the section
+
+Do not let this section open with “against Clean Horizon” logic.
+ Open with current Baltic reference asset economics.
+
+Baltic framing rules
+Move from Lithuania-first language to Baltics, but stay honest.
+Where needed, explicitly label:
+LT-led proxy
+
+Baltic-calibrated reference
+
+Lithuania signal used as regional directional input
+
+Do not imply all values are equally Baltic-wide if they are not.
+
+Revenue mix rules
+Allowed categories:
+FCR
+
+aFRR
+
+mFRR
+
+Arbitrage
+
+Optional only if grounded:
+intraday as separate
+
+Do not invent filler revenue categories.
+
+Event-to-model rules
+Every event must follow:
+observed change
+
+market interpretation
+
+effect on model
+
+Do not skip the middle step.
+
+Macro-driver caution
+Do not use weak macro signals casually.
+Use caution with:
+oil price as direct BESS driver
+
+lithium as daily headline in this section
+
+war headlines with deterministic revenue claims
+
+Only include macro through real transmission mechanisms:
+gas / thermal floor
+
+logistics / CAPEX
+
+volatility / interconnector stress
+
+flexibility demand
+
+
+Design rules
+Overall feel
+premium market console
+
+restrained
+
+editorial
+
+serious
+
+clear
+
+Avoid
+crypto dashboard look
+
+hacker terminal look
+
+startup landing page behavior
+
+AI-fintech clichés
+
+Layout
+left-align content
+
+strong grid
+
+consistent spacing rhythm
+
+one major chart + one secondary chart + compact event strip
+
+no dense tables in the main body
+
+Typography
+no tiny labels
+
+no washed-out low-contrast copy
+
+large numbers only where earned
+
+labels understandable to a smart outsider
+
+Color
+restrained palette
+
+one accent
+
+one positive
+
+one negative
+
+one warning
+
+max 4 revenue colors plus neutral
+
+Motion
+Use animation only for:
+case switch
+
+2H/4H focus shift
+
+chart transitions
+
+delta updates
+
+No decorative motion.
+
+Engineering rules
+Important
+This section has been worked on for a long time.
+ Do not patch the existing component blindly.
+First do a structural audit
+Inspect:
+current Revenue Engine component tree
+
+data dependencies
+
+styling patterns
+
+state location
+
+what is reusable vs contaminated
+
+Then decide:
+refactor
+
+or clean rebuild from new parent component
+
+Prefer clean rebuild if entangled.
+Suggested component structure
+ReferenceAssetSection
+
+ReferenceAssetHeader
+
+ReferenceAssetControls
+
+ReferenceAssetTopSummary
+
+ReferenceAssetSummaryRow
+
+DurationComparisonCards
+
+RevenueMixChart
+
+DriverImpactWaterfall
+
+MarketEventsRail
+
+DataConfidenceStrip
+
+MethodologyDrawer
+
+Do not keep everything in one monolithic component.
+State model
+Keep state minimal:
+duration: 2h | 4h
+
+case: base | conservative | stress
+
+cod: 2027 | 2028 | 2029
+
+capexMode: live | low | mid | high
+
+Derived outputs should come from one memoized selector layer.
+View-model shape
+Use a normalized section view model.
+Conceptually:
+type ReferenceAssetViewModel = {
+ config: {...},
+ topSummary: {
+   netDirection: 'improving' | 'tightening' | 'mixed'
+   mainDriver: string
+   favoredDuration: '2h' | '4h' | 'mixed'
+ },
+ summary: {
+   projectIrr: number,
+   projectIrrDelta7d: number,
+   projectIrrDelta30d: number,
+   ebitdaPerMw: number,
+   ebitdaDelta7d: number,
+   ebitdaDelta30d: number,
+   minDscr: number,
+   minDscrDelta7d: number,
+   minDscrDelta30d: number,
+   hurdleStatus: 'pass' | 'borderline' | 'fail',
+   equityIrr?: number
+ },
+ comparison: {
+   twoHour: {...},
+   fourHour: {...}
+ },
+ revenueMix: {
+   twoHour: RevenueSegment[],
+   fourHour: RevenueSegment[]
+ },
+ driverImpact: DriverContribution[],
+ events: MarketEvent[],
+ confidence: ConfidenceItem[]
+}
+Chart components must not derive business logic themselves.
+
+Fallback / stale-data rules
+This section must degrade gracefully.
+Required
+last good value retention where reasonable
+
+stale badge if source is old
+
+section still readable if one feed is missing
+
+charts remain structured where possible
+
+confidence strip reflects degraded state
+
+Bad
+—
+
+Fetching...
+
+Computing...
+ everywhere
+
+Good
+Awaiting fresh balancing reference
+
+Using last confirmed value
+
+Stale
+
+Partial update
+
+
+Content rules
+Rename wherever needed:
+capture → arbitrage capture
+
+S/D → supply / demand
+
+grid free → indicative grid capacity
+
+No unexplained acronyms in primary labels unless standard and tooltipped.
+
+Do not do
+do not keep giant equity IRR as hero
+
+do not expose freeform scenario inputs at top
+
+do not bury revenue mix in a small table
+
+do not add decorative widgets
+
+do not overuse glow / gradients
+
+do not hide data quality
+
+do not imply Baltic-wide coverage where the number is only LT without disclosure
+
+
+Acceptance criteria
+The rebuild is successful only if:
+A new visitor understands within 10 seconds:
+
+this is a Baltic reference asset
+
+2H and 4H are being compared
+
+where revenue comes from
+
+whether current conditions improved or worsened returns
+
+A market professional can see:
+
+what is observed vs proxied vs modeled
+
+what changed in the market
+
+how that translated into returns
+
+The section no longer feels like:
+
+a pitch-deck screenshot
+
+a generic calculator
+
+an AI-made dashboard
+
+The section stays visually premium even when one data source is stale.
+
+
+Build order
+audit current section and data flow
+
+define new view model
+
+build static layout skeleton
+
+build controls
+
+build top summary strip
+
+build summary row
+
+build 2H/4H comparison cards
+
+build revenue mix chart
+
+build driver waterfall
+
+build event rail
+
+build confidence strip
+
+wire data
+
+handle degraded states
+
+remove or demote all old calculator-first behavior
+
+
+One-line instruction
+Rebuild the current Revenue Engine into a Baltic reference asset economics console centered on a 50MW asset, visible 2H vs 4H comparison, revenue mix, recent market-driven return changes, and explicit confidence labeling; make it an economics interpretation layer, not a calculator hero, and prioritize credibility, causality, and premium clarity over configurability or flashy outputs.

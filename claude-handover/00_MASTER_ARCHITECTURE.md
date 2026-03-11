@@ -1,5 +1,8 @@
 # KKME — Master Architecture
 
+
+## Core Objective + Strategy + Page Logic
+
 Use this as the final master Claude prompt.
 
 Read the current KKME site as a whole and stop treating it as a collection of separate cards. Rebuild the page around a single coherent logic.

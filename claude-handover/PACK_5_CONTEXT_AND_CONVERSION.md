@@ -1,907 +1,1075 @@
 # PACK 5 — Context and Conversion
 
-}
-Chart components must not derive business logic themselves.
 
-Fallback / stale-data rules
-This section must degrade gracefully.
-Required
-last good value retention where reasonable
+## European BESS Market Map
 
-stale badge if source is old
-
-section still readable if one feed is missing
-
-charts remain structured where possible
-
-confidence strip reflects degraded state
-
-Bad
-—
-
-Fetching...
-
-Computing...
- everywhere
-
-Good
-Awaiting fresh balancing reference
-
-Using last confirmed value
-
-Stale
-
-Partial update
-
-
-Content rules
-Rename wherever needed:
-capture → arbitrage capture
-
-S/D → supply / demand
-
-grid free → indicative grid capacity
-
-No unexplained acronyms in primary labels unless standard and tooltipped.
-
-Do not do
-do not keep giant equity IRR as hero
-
-do not expose freeform scenario inputs at top
-
-do not bury revenue mix in a small table
-
-do not add decorative widgets
-
-do not overuse glow / gradients
-
-do not hide data quality
-
-do not imply Baltic-wide coverage where the number is only LT without disclosure
-
-
-Acceptance criteria
-The rebuild is successful only if:
-A new visitor understands within 10 seconds:
-
-this is a Baltic reference asset
-
-2H and 4H are being compared
-
-where revenue comes from
-
-whether current conditions improved or worsened returns
-
-A market professional can see:
-
-what is observed vs proxied vs modeled
-
-what changed in the market
-
-how that translated into returns
-
-The section no longer feels like:
-
-a pitch-deck screenshot
-
-a generic calculator
-
-an AI-made dashboard
-
-The section stays visually premium even when one data source is stale.
-
-
-Build order
-audit current section and data flow
-
-define new view model
-
-build static layout skeleton
-
-build controls
-
-build top summary strip
-
-build summary row
-
-build 2H/4H comparison cards
-
-build revenue mix chart
-
-build driver waterfall
-
-build event rail
-
-build confidence strip
-
-wire data
-
-handle degraded states
-
-remove or demote all old calculator-first behavior
-
-
-One-line instruction
-Rebuild the current Revenue Engine into a Baltic reference asset economics console centered on a 50MW asset, visible 2H vs 4H comparison, revenue mix, recent market-driven return changes, and explicit confidence labeling; make it an economics interpretation layer, not a calculator hero, and prioritize credibility, causality, and premium clarity over configurability or flashy outputs.
-
-
-KKME — Rebuild current COD compression bars into a Baltic Market Pressure module
+KKME.eu — Rebuild “EU market ranking” into a 2-axis European BESS market map
 
 Objective
-Delete the current unexplained COD compression bars (2027 / 2028 / 2029, 0.88x / 0.95x / 1.10x, COMPRESS / MATURE).
-Replace them with a Baltic Market Pressure module that explains one real idea:
-More BESS online tends to compress revenues, but growing system need for flexibility from renewables, load growth, balancing needs, and cross-border stress can offset some of that pressure.
-This module must not simplify the story to:
- later COD = worse.
-It must feel like a real Baltic market-intelligence module, not an AI-decorated internal formula.
+Delete the current ranked list with flags, tiny notes, and hard percentages.
+Replace it with a 2-axis map of European BESS markets that teaches one point clearly:
+BESS revenues are not universally high or permanently attractive. They expand and contract differently by country depending on crowding, products, spreads, policy support, and system conditions.
+This module must feel analytical, not promotional.
+It should help a visitor understand:
+why markets differ
+why market conditions change
+why infrastructure assets must be monitored, not romanticized
+where the Baltics sit in relation to other European markets
 
-What this module must answer
-Is Baltic battery competition rising?
+Core concept
+Build a 2-axis positioning map
+X-axis
+Market crowding / storage saturation
+Interpretation:
+left = less crowded
+right = more crowded
+Y-axis
+Revenue opportunity / merchant support
+Interpretation:
+bottom = weaker revenue opportunity
+top = stronger revenue opportunity
+Each country is a point on the map.
+Examples:
+Baltics
+Ireland
+Great Britain
+Italy
+Germany
+Belgium
+and optionally more EU countries over time if enough grounded data exists
+This is not a ranking.
+It is a positioning map.
 
-Is system need for flexibility also rising?
+Why this is better than a ranking
+1. It matches the truth better
+A ranking implies false precision and stable superiority.
+A 2-axis map shows the real structure:
+some markets are attractive but crowded
+some are uncrowded but weaker
+some are mature and compressed
+some are emerging and volatile
+That is closer to reality.
+2. It is harder to attack
+A serious market participant will question any clean ranked league table.
+A positioning map is more defensible because it presents directional structure rather than pretending exact comparability.
+3. It is more useful to visitors
+A visitor learns how markets differ, not just “who is first.”
+That supports the site’s positioning as market intelligence, not sales material.
+4. It allows mixed update frequencies honestly
+Some markets can be updated more frequently than others.
+A map can reflect:
+live / recent Baltic logic
+periodically refreshed external regime scores for other countries
+A ranked list with exact percentages makes that asymmetry look dishonest.
 
-What does that net out to for a 50MW reference asset by COD window?
+Product intent
+This block should answer:
+Why do BESS revenue regimes differ across Europe?
+Where do the Baltics sit today?
+Are some markets crowded even if still attractive?
+Are some markets supportive but structurally different?
+Is this based on live Baltic data, static references, or refreshed external inputs?
 
-This is not a precise forecast panel.
- It is a pressure balance panel.
-
+What Claude should build
 Section title
-Baltic market pressure
+How BESS revenue regimes differ across Europe
 Support copy
-Battery revenues tighten as more storage comes online, but renewables growth, demand growth, balancing needs, and cross-border constraints can increase system need for flexibility.
-Meta row
-Region: Baltics · Updated from pipeline + market signals · Methodology
-
-Core layout
-Render three year cards side by side for:
-2027
-
-2028
-
-2029
-
-Treat these as COD windows, not exact predictions.
-Each card must have three layers:
-A. Battery competition
-Public label: Battery competition
-This is the negative force.
-Show:
-paired bar / filled meter
-
-one supporting metric underneath, such as:
-
-Weighted BESS pipeline: XXX MW
-
-or Competition score: 62 / 100
-
-short note if useful:
-
-Rising
-
-Accelerating
-
-B. System need for flexibility
-Public label: System need for flexibility
-This is the offsetting force.
-Show:
-paired bar / filled meter
-
-one supporting metric underneath, such as:
-
-Flexibility support score: 48 / 100
-
-this score can be built from:
-
-renewables growth
-
-load / demand growth
-
-balancing context
-
-cross-border stress / spread opportunity
-
-congestion / interconnector conditions
-
-C. Net market effect
-This is the conclusion layer.
-Show:
-one short label:
-
-Supportive
-
-Balanced
-
-Tightening
-
-Compressed
-
-one short explanation line
-
-one explicit reference-asset implication line
-
-Examples:
-Net effect: Tightening
-
-Storage growth is outpacing system flexibility demand
-
-Implication for 50MW reference asset: lower ancillary support, more selective merchant upside
-
-Do not use:
-COMPRESS
-
-MATURE
-
-mystery multipliers
-
-internal jargon
-
-
-Visual rules
-Must do
-one clean year card per COD window
-
-paired bars with clear labels
-
-readable without hover
-
-one short conclusion sentence
-
-one short reference-asset implication line
-
-visible labels, not color-only meaning
-
-Must not do
-long unexplained bars
-
-hidden axes
-
-tiny faint text on dark background
-
-internal model states in all caps
-
-numeric clutter pretending to be rigor
-
-
-Data model
-Use two internal composite indices plus a net effect score.
-Internal only
-Do not expose formulas on the card itself.
-1. batteryCompetitionScore
-0–100 scale
-Built from:
-operational BESS MW
-
-under-construction BESS MW
-
-likely COD pipeline MW
-
-weighted by confidence and year relevance
-
-2. flexibilityDemandScore
-0–100 scale
-Built from:
-renewable penetration / growth
-
-load / demand growth
-
-spread persistence / volatility
-
-balancing demand proxies
-
-cross-border / congestion stress
-
-3. netPressureScore
-Derived from competition vs flexibility demand balance.
-Translate to public labels:
-Supportive
-
-Balanced
-
-Tightening
-
-Compressed
-
-Do not expose internal formulas in the main UI.
-
-Recommended data inputs
-A. Battery competition
-From your Baltic pipeline / project database:
-operational projects
-
-under construction
-
-connection agreement / reserved-capacity stage
-
-applications with lower weight
-
-optional announced projects at very low weight
-
-Required project fields:
-country
-
-project name
-
-owner / parent group
-
-MW
-
-MWh if available
-
-status
-
-expected COD
-
-confidence weight
-
-last verified date
-
-source
-
-Suggested status weights:
-operational = 1.0
-
-under construction = 0.9
-
-connection agreement = 0.6
-
-application = 0.3
-
-announced = 0.1
-
-These are methodology choices, not facts. Keep them documented.
-B. System need for flexibility
-Use:
-load / demand
-
-wind generation / share
-
-That is not a coherent driver map.
-The rebuilt section must separate:
-system-balance drivers
-
-thermal-floor support drivers
-
-future strategic-demand ideas that do not belong here
-
-
-New section title
-Structural market drivers
-Support copy
-The slower system forces shaping Baltic flexibility value beyond today’s spreads.
-Optional secondary line:
-Wind, solar, demand, interconnectors, and thermal floor support all influence how much value storage can capture over time.
-
-Required section structure
-Primary row — system-balance drivers
-Build four primary cards:
-Wind generation
-
-Solar generation
-
-Demand / load
-
-Interconnectors & connected markets
-
-These are the dominant structural drivers and should be visually primary.
-Secondary row — thermal-floor support
-Build two secondary cards:
-TTF gas
-
-EU ETS carbon
-
-These matter, but they are supporting signals rather than the main story.
-Remove from this section
-DC power viability must be removed entirely from this section
-
-Nordic hydro must be removed or heavily demoted into a minor contextual note only
-
-balancing liquidity / distortion / usable depth must not be forced into this section; that belongs in a separate future module focused on market design and trading reality
-
-
-Important connected-market rule
-Do not model this section as “Baltics only” in an isolated sense.
-This section must explicitly acknowledge that Baltic structural drivers are influenced by connected-market conditions via:
-Sweden / SE4
-
-Finland
-
-Poland
-
-These matter through:
-cross-border price coupling
-
-import/export dependence
-
-renewable oversupply in neighboring zones
-
-demand and scarcity conditions in connected markets
-
-interconnector outages or deratings
-
-cross-zonal capacity constraints
-
-So the interconnector card is not just about Baltic wire status. It is also about imported system conditions.
-Example logic:
-strong Swedish wind or low SE4 demand can push cheaper energy toward the Baltics when NordBalt is available
-
-Finnish scarcity or EstLink issues can tighten Baltic conditions
-
-Polish conditions matter through LitPol and broader Continental linkage
-
-This must be reflected in copy, data model, and interpretation.
-
-Card-by-card requirements
-1. Wind generation card
-Purpose:
- Show how Baltic wind conditions affect low-price windows, volatility, charging opportunities, and renewable pressure.
-Must show:
-current Baltic wind generation or wind share
-
-7D and 30D comparison versus recent baseline
-
-one plain-language interpretation line
-
-one small impact tag for the reference asset
-
-Optional secondary stat:
-negative-price pressure proxy
-
-curtailment-pressure proxy
- but only if reliable enough
-
-Interpretation examples:
-High wind is increasing low-price charging windows but suppressing some hours
-
-Low wind is reducing cheap charging opportunity and weakening some arbitrage setups
-
-Impact examples:
-Impact on 2H: mixed
-
-Impact on 4H: slight positive
-
-Important:
- Do not merge wind and solar. They shape spreads differently.
-
-2. Solar generation card
-Purpose:
- Show how solar affects midday price suppression, intraday shape, charging windows, and negative-price risk.
-Must show:
-current Baltic solar generation or solar share
-
-7D and 30D comparison
-
-one plain-language interpretation line
-
-one small reference-asset impact tag
-
-Optional secondary stat:
-midday negative-price pressure
-
-solar-overgeneration proxy
-
-Interpretation examples:
-Rising solar output is deepening midday price pressure and improving charging windows
-
-Weak solar reduces midday suppression and narrows some intraday spreads
-
-Impact examples:
-Impact on 2H: slight positive
-
-Impact on 4H: positive
-
-
-3. Demand / load card
-Purpose:
- Show whether Baltic system demand is strengthening or weakening the need for flexibility.
-Must show:
-Baltic total load / demand
-
-recent trend over 7D / 30D and, if useful, YoY
-
-one interpretation line
-
-one small reference-asset impact tag
-
-In details layer, allow:
-LT / LV / EE split
-
-notes on demand drivers if available
-
-Interpretation examples:
-Demand remains supportive for flexibility value
-
-Soft industrial load is easing system tightness
-
-Electrification is gradually increasing structural flexibility demand
-
-Important:
- This card should reflect not only current demand but the fact that future flexible demand can come from EVs, heat pumps, industrial electrification, and later large loads.
-Do not overclaim future data-centre impact here; keep that as future context only.
-
-4. Interconnectors & connected markets card
-Purpose:
- This is the most important redesign in the section.
-This card must show that Baltic system conditions are shaped by:
-interconnector availability
-
-cross-border flow regime
-
-connected-market conditions in Sweden, Finland, and Poland
-
-outage or derating events
-
-cross-zonal coupling constraints
-
-This card should replace the weak current flow card with something much more explanatory.
-Must show:
-current interconnector state summary
-
-regime tag such as:
-
-Balanced
-
-Import-supported
-
-Constrained
-
-Dislocated
-
-one plain-language interpretation line
-
-one small reference-asset impact tag
-
-Strongly preferred additional structure:
- Show a compact summary of the three most relevant connected influences:
-SE4 / NordBalt
-
-Finland / EstLink
-
-Poland / LitPol
-
-Not with full complexity, but enough to indicate whether the Baltics are being:
-supported by cheap imports
-
-isolated by outages / constraints
-
-tightened by neighboring scarcity
-
-dislocated from surrounding zones
-
-Examples:
-Cheap imports from Sweden are limiting Baltic price dislocation
-
-Reduced Finland link support is increasing Baltic stress
-
-Cross-border constraints are widening local volatility
-
-This card should explicitly make the user understand:
- Baltic storage value is partly imported through interconnector physics and neighboring market conditions.
-
-5. TTF gas card
-Purpose:
- Show thermal-floor support.
-Must show:
-current TTF level
-
-recent trend
-
-regime tag:
-
-Low
-
-Elevated
-
-High
-
-one interpretation line
-
-one reference-asset impact tag
-
-Examples:
-Higher gas keeps thermal peak pricing more supportive
-
-Weaker gas floor reduces some peak discharge support
-
-This card should be smaller and visually secondary to the system-balance cards.
-
-6. EU ETS carbon card
-Purpose:
- Show carbon contribution to thermal marginal-cost support.
-Must show:
-current EUA / ETS level
-
-recent trend
-
-regime tag
-
-one interpretation line
-
-one reference-asset impact tag
-
-Examples:
-Carbon cost continues to support fossil marginal pricing
-
-Carbon remains a secondary but supportive floor signal
-
-This card should visually pair with gas.
-
-Nordic hydro
-Do not keep Nordic hydro as a standalone primary card.
-If retained at all, it must be:
-a small contextual note
-
-folded into a minor “Nordic context” detail
-
-or used behind the scenes in interpretation logic
-
-It does not deserve equal visual weight with wind, solar, demand, or interconnectors.
-
-DC power viability
-Remove this card from the section completely.
-It belongs in a separate future module such as:
-Large demand / strategic infrastructure watch
-
-Future flexibility demand
-
-Do not leave it in Structural Market Drivers.
-
-Missing-driver treatment
-Add negative-price / curtailment pressure as a secondary metric inside Wind and Solar first.
-Do not create a separate standalone curtailment card unless:
-the data quality is solid
-
-the section still remains clean
-
-This is enough for now.
-
-Impact-on-reference-asset layer
-This is required.
-Every card in this section must not only show a driver. It must also show whether that driver is:
-Positive for IRR
-
-Negative for IRR
-
-Mixed
-
-Low confidence
-
-Prefer a 5-state system:
-strong positive
-
-slight positive
-
-mixed
-
-slight negative
-
-strong negative
-
-and optionally a confidence marker:
-high
-
-medium
-
-low
-
-Where relevant, allow different impacts for:
-50MW 2H
-
-50MW 4H
-
+Battery storage is not a permanent gold rush. Revenue conditions expand and contract differently by country depending on crowding, products, spreads, policy support, and system conditions.
+Small methodology sub-line
+Baltics are updated from current KKME market logic. Other markets use refreshed structural reference scores where recent public signals are available.
+
+Main layout
+Left / main area
+A large 2-axis map
+Axes
+horizontal: Less crowded → More crowded
+vertical: Lower revenue opportunity → Higher revenue opportunity
+Points
+Plot countries as labeled markers.
+Marker behavior
+Each country marker should show:
+country name
+hover / tap tooltip
+small regime summary
+last refreshed date
+source type
+Tooltip content
+For each market:
+market name
+regime label
+revenue character
+crowding level
+refresh status
+source note
 Example:
-solar up → more positive for 4H than for 2H
+Baltics
+Transition market
+Revenue character: balancing + arbitrage mix
+Crowding: rising
+Updated: 2h ago
+Source: KKME live + modeled
+Example:
+Great Britain
+Mature market
+Revenue character: optimisation-heavy, more crowded
+Updated: monthly reference refresh
+Source: external structural benchmark
 
-gas up → slight positive for both
+Right / side panel
+A compact selected market detail panel
+When user hovers or clicks a point, show:
+market name
+one-line regime description
+crowding status
+revenue support status
+revenue profile bar
+why it sits there
+freshness / methodology note
+Revenue profile bar
+Use only 3 simple directional buckets:
+balancing / ancillary
+arbitrage
+policy / capacity support
+This is a directional regime indicator, not a like-for-like exact revenue split unless fully grounded.
 
-interconnector outage → mixed but often positive for volatility, negative for import smoothing
+Freshness / update logic
+This is important.
+The user wants the map to reflect recent info as often as possible, not sit as a static graphic forever.
+Build the map with two update classes
+Class A — live / frequently refreshed
+Use for Baltics and any other market where you have direct enough signal coverage.
+Can update daily / 4-hourly / whatever is available.
+Class B — periodic structural refresh
+Use for other EU countries where you do not have true live internal coverage.
+Refresh:
+weekly
+biweekly
+monthly
+depending on data availability and source quality
+Do not fake “live” if it is not live.
 
-Do not make this childish. It should be a restrained market-intelligence badge, not a gaming arrow.
+Freshness label per country
+Each point must carry one of:
+Live
+Recent
+Reference
+And show timestamp / refresh basis in tooltip.
+Examples
+Baltics — Live
+Ireland — Recent
+Great Britain — Recent
+Belgium — Reference
+This makes the module honest.
 
-Visual layout rules
-Do not rebuild this as one flat row of tall skinny cards.
-Preferred layout:
-Top row — dominant system-balance layer
-Wind
+Scoring model
+Do not hardcode random positions by taste.
+Create a lightweight scoring framework.
+For each country compute two directional scores
+1. Crowding score
+0–100
+Inputs can include:
+estimated operational BESS fleet
+committed / under-construction fleet
+market maturity
+optimiser saturation / sophistication
+observed or referenced storage penetration
+Higher score = more crowded
+2. Revenue opportunity score
+0–100
+Inputs can include:
+volatility / arbitrage depth
+ancillary market support
+policy / capacity support where relevant
+current merchant opportunity
+congestion / flexibility need
+structural spread opportunity
+Higher score = stronger revenue opportunity
 
-Solar
+Positioning rule
+Map coordinates:
+x = crowding score
+y = revenue opportunity score
+This should produce the visual position.
 
-Demand / load
+Data input structure
+A. Baltics
+This point should use current KKME logic and freshest available market inputs.
+Use:
+Baltic BESS pipeline / operational fleet
+interconnector flow logic
+Baltic spread / volatility context
+balancing market structure
+fleet pressure model
+current reference asset logic
+This is your strongest point and should be the most current.
 
-Interconnectors & connected markets
+B. Other EU markets
+Do not pretend you have the same level of live coverage.
+Use a mix of:
+public market reports
+benchmark references
+known structural characteristics
+periodically refreshed market notes
+public articles / reports you can parse into directional scores
+your own manually verified structural summaries
+Important
+Design the data model so these countries can gradually become more current over time.
+Do not hardwire them as fixed text in the frontend.
 
-Bottom row — supporting thermal-floor layer
-TTF gas
+Data architecture Claude should implement
+Create a market map config / dataset
+Do not encode point positions directly in JSX.
+Create a structured dataset, e.g. marketMapData.
+Suggested shape
+type MarketMapPoint = {
+  id: string
+  label: string
+  region: string
+  crowdingScore: number
+  revenueOpportunityScore: number
+  updateClass: 'live' | 'recent' | 'reference'
+  lastUpdated: string
+  revenueProfile: {
+    balancing: number
+    arbitrage: number
+    policy: number
+  }
+  regimeLabel: string
+  description: string
+  whyHere: string[]
+  sourceNote: string
+}
 
-EU ETS carbon
+All positions and copy should come from this dataset.
 
-The bottom row can be slightly smaller / visually subordinate.
-The interconnector card may need to be wider than the others if necessary because it carries cross-border logic.
+Required implementation rule
+Make it easy to update / enrich later.
+This means:
+no baked-in copy inside component logic
+no fixed x/y positions in UI code
+no hardcoded flags and percentages in JSX
+no mixing presentational code with scoring logic
+
+Visual design rules
+Must do
+big enough plotting area
+readable country labels
+subtle Baltic emphasis, not trophy styling
+light connecting grid if useful
+hover/click tooltips
+right-side detail panel
+visible axes with plain language
+Must not do
+rank numbers
+giant percentage badges
+“best market” framing
+overglow or terminal cosplay
+tiny unreadable annotations
+false precision
+
+Copy rules
+Good
+Transition market with rising competition
+Mature market with deeper optimisation and tighter economics
+Ancillary-heavy support, but more crowded
+Merchant upside exists, but depends on structure and policy
+Bad
+#1
+Best
+Gold rush
+post-sync anomaly
+ref
+live
+without explanation
 
 Interaction rules
-Remove Explain / Data buttons from the card chrome
+Default state
+Show all countries plotted.
+Selected default:
+Baltics
+Why:
+This gives the visitor an anchor.
+On hover / click
+Open detail panel for selected country.
+In detail panel show
+regime label
+short description
+crowding status
+opportunity status
+revenue profile bar
+why this market sits here
+update class + timestamp
+source note
 
-default state must be readable without interaction
+Expandability
+The user explicitly noted that EU has more countries.
+So build for expansion.
+Do not lock this to 6 markets only
+Initial markets can be:
+Baltics
+Ireland
+Great Britain
+Italy
+Germany
+Belgium
+But the system should support adding:
+Spain
+Netherlands
+France
+Nordics
+Poland
+others
+without redesigning the component.
 
-if extra detail is needed, use one clean expand action or hover details
+How to keep it recent as often as possible
+Implementation strategy
+Use a layered freshness model:
+Layer 1 — live market logic
+For Baltics:
+update from live KKME sources
+Layer 2 — refreshed structural scores
+For other markets:
+maintain country score records in a data file / DB
+refresh them on schedule
+attach lastUpdated
+attach updateClass
+Layer 3 — editorial override
+Allow manual adjustment when an important market shift happens faster than the full scoring pipeline can catch it.
+This matters because EU market structure changes are not always machine-readable in real time.
 
-avoid nested debug-panel feel
+Why this matters professionally
+Because otherwise the module will drift into one of two bad outcomes:
+Bad outcome 1
+It becomes a static decorative map that ages badly.
+Bad outcome 2
+It pretends to be live everywhere, which a serious user will immediately distrust.
+This architecture gives:
+live where you can be live
+structured recency where you cannot
+honesty everywhere
+That is professional.
 
-
-Data and freshness rules
-Design the data model so each card can clearly distinguish:
-observed
-
-proxy
-
-derived
-
-reference
-
-Suggested freshness classes:
-Wind / solar / demand / interconnectors → Live or Recent
-
-TTF / ETS → Recent
-
-Nordic context if retained → Reference
-
-Do not imply all cards update at the same frequency.
-
-Data-source expectations for future scraper integration
-This section should be built so it can later consume data from:
-ENTSO-E for generation by type, load, and cross-border exchanges
-
-Nord Pool UMM / REMIT or equivalent event sources for outages and major interconnector events
-
-BTD / Baltic TSO materials only where relevant to structural interpretation
-
-TTF and ETS public feeds for thermal-floor support
-
-local TSO sources where they improve regional fidelity
-
-Important:
- The interconnector card must be built with the expectation that Sweden, Finland, and Poland conditions will be represented indirectly through:
-price spreads
-
-flow / capacity state
-
-outage state
-
-import/export orientation
-
-
-Content rules
-Every card must answer:
-what changed
-
-why it matters
-
-whether it supports or weakens Baltic flexibility value
-
-what it means for the 50MW reference asset
-
-Use plain language.
-Prefer:
-Supports charging windows
-
-Weakens flexibility value
-
-Widens Baltic dislocation
-
-Supports thermal floor
-
-Positive for 4H
-
-Mixed for 2H
-
-Avoid:
-cryptic internal abbreviations
-
-unexplained market shorthand
-
-giant isolated numbers with tiny notes
-
+Engineering instructions for Claude
+Step 1 — delete ranking mindset
+Do not convert the old ranking list into a prettier ranking list.
+This is a full concept change.
+Step 2 — build data-driven market map
+Create the market point dataset first.
+Step 3 — build plotting component
+Use a reusable chart / SVG / D3-friendly approach.
+Prefer a simple, clean scatter-map style.
+Step 4 — build selected-market detail panel
+This is mandatory. The map alone is not enough.
+Step 5 — add freshness layer
+Every point needs update metadata.
+Step 6 — add regime explanations
+The value of this module is explanation, not dots in space.
 
 Acceptance criteria
-This rebuild is successful only if:
-A first-time visitor understands why these drivers belong together.
+The rebuild succeeds only if:
+A first-time visitor understands that BESS revenue conditions differ by country and change over time.
+The module does not look like a promotional ranking.
+Baltics are shown clearly but not boastfully.
+Each country has visible freshness / methodology context.
+The component is data-driven and expandable to more EU markets later.
 
-The section clearly shows that Baltic storage value is shaped not only by Baltic conditions, but also by connected-market influence from Sweden, Finland, and Poland.
+One-line instruction for Claude
+Replace the current EU ranking list with a data-driven 2-axis European BESS market map plotting countries by crowding versus revenue opportunity, with Baltic live logic where available, refreshed structural reference scores for other markets, per-country freshness metadata, and a selected-market detail panel that explains why each market sits where it does.
+Additional rules
+The map is directional, not a precise ranking or like-for-like modeled comparison.
+Add a visible small note under the section or in the detail panel:
+Directional market positioning, not a like-for-like ranked model.
+Every market must have:
+phase
+why it sits here
+update class
+source note
+The Baltics must use a Baltic blended view with LT-led signal depth, not silently default to Lithuania.
+If a country’s placement is partly editorial or structurally inferred, that must be reflected in:
+updateClass
+sourceNote
+and not hidden behind false precision
+Do not render point positions as if they are exact measured facts when they are composite scores.
+Add one field to the data model:
+phase: 'emerging' | 'transition' | 'mature' | 'compressed'
+Add to tooltip / detail panel
+For each market show:
+market name
+phase
+short regime description
+crowding status
+revenue support status
+why it sits here
+update class
+last updated
+source note
 
-Wind, solar, demand, and interconnectors become the primary structural driver layer.
+## Market Intelligence
 
-Gas and ETS are visibly supporting signals, not the headline story.
+KKME — Rebuild the current Market Intel section into a Baltic Market Intelligence board
 
-DC power viability is removed from this section.
 
-Nordic hydro is demoted or removed.
+Objective
+Read the current Market Intel section and rebuild it completely.
+Treat the current version as a weak raw-feed prototype, not something to polish.
+This section must become a Baltic Market Intelligence board.
+It must answer:
+What changed recently that actually matters for Baltic flexibility, storage, buildability, competition, market design, cost, or future demand?
+Why does it matter?
+Is it positive, negative, mixed, neutral, or just a watch item for the 50MW Baltic reference asset?
+Is the impact immediate, near-term, structural, or long-term?
+This must feel like curated intelligence, not a Telegram dump, RSS table, or random article wall.
 
-Each card visibly translates into an impact on the reference asset rather than just showing a market fact.
+Core concept
+Do not present this as “latest news.”
+Present it as:
+curated developments that change how someone should think about Baltic storage economics, buildability, competition, market design, cost, or future flexibility demand.
+If an item does not materially affect one of those, it should not be prominent here.
+This section is the site’s editorial intelligence layer.
+It should:
+surface meaningful developments
+explain why they matter
+connect them to the reference asset and overall Baltic market logic
+make the site feel actively maintained, filtered, and informed
+It should not:
+act like a generic energy news feed
+reward irrelevant hype
+list random technology stories with no Baltic relevance
+mix weak global battery gossip with actual Baltic market-moving developments
 
-The section feels like a coherent system map, not a pile of miscellaneous cards.
+Section title
+Market intelligence
+Support copy
+Curated developments affecting Baltic flexibility value, buildability, competition, market design, cost direction, and future demand.
+Optional secondary line:
+Each item is filtered for relevance and tagged by likely impact on the 50MW Baltic reference asset.
+
+Content rules
+Only include items that materially affect one of these buckets:
+Revenue
+Competition
+Structure
+Market Design
+Cost
+Buildability
+Future Demand
+Watchlist
+Exclude or strongly demote:
+generic battery hype
+weak hydrogen PR with no Baltic relevance
+random global technology headlines
+generic startup announcements
+articles that do not affect Baltic storage economics, buildability, or future flexibility demand
+fluff with no “so what”
+duplicate stories
+items that look included only because the bot found them
+If an item is interesting but not actionable yet, classify it as:
+Watch
+Long-term
+Low immediate impact
+This section must behave like an analyst, not a scraper.
+
+Replace the current category system
+Remove primary filters like:
+BESS
+DC
+Hydrogen
+Grid
+Technology
+These are too generic and do not match the site’s logic.
+Replace them with:
+All
+Revenue
+Competition
+Structure
+Market Design
+Cost
+Buildability
+Future Demand
+Watchlist
+Optional secondary tags may include:
+BESS
+Wind
+Solar
+Grid
+Data centres
+Hydrogen
+Storage tech
+Interconnectors
+Policy
+But these are metadata, not the main filter system.
+
+Required item structure
+Every visible intelligence item must include:
+Headline
+Primary category
+One-line “why it matters” explanation
+Impact tag
+Horizon tag
+Source
+Timestamp
+Thumbnail or source visual
+Optional:
+9. Reference asset note if especially useful
+Impact tags
+Use:
+Positive
+Negative
+Mixed
+Neutral
+Watch
+Optional later extension:
+More positive for 2H
+More positive for 4H
+But do not overload the default UI.
+Horizon tags
+Use:
+Immediate
+Near-term
+Structural
+Long-term
+“Why it matters” examples
+Supports thermal floor and discharge economics
+Increases future competition pressure
+May tighten buildability
+Improves charging-window depth
+No near-term impact on Baltic utility-scale LFP economics
+Could increase future flexibility demand
+This field is mandatory. It is what turns a headline into intelligence.
+
+Thumbnail / source visual rules
+Each item should include a compact visual cue.
+Priority:
+Source logo / favicon
+Clean article thumbnail if relevant and available
+Category icon fallback
+Rules:
+thumbnails must be small and consistent
+they must support scanning, not decoration
+no noisy stock images
+no giant editorial images
+fixed aspect ratio
+do not let visuals overpower the text
+source recognition is often more useful than generic article art
+The purpose is scanability and source trust.
+
+Required layout
+Do not keep the current flat table/feed layout.
+A. Pinned top strip
+Add a small editorial strip above the main board.
+Title:
+This week’s market movers
+Show exactly 3 pinned items.
+Each pinned item must include:
+headline
+one-line relevance note
+impact tag
+optional horizon tag
+Important:
+These must be editorially pinned, not simply the latest 3 items.
+The pinned strip should answer:
+What matters most right now?
+
+B. Main intelligence board
+Below the pinned strip, build a 2-column layout.
+Left column
+A filterable list of compact intelligence cards.
+Each card must show:
+thumbnail / source visual
+headline
+one-line “why it matters”
+category
+impact chip
+horizon chip
+source
+timestamp
+Right column
+A selected-item detail panel.
+When clicked, show:
+full headline
+short summary
+why it matters
+likely impact on the 50MW reference asset
+horizon
+category
+source / source link
+timestamp
+optional reference asset note
+This should feel like an intelligence board, not a feed.
+Acceptable fallback
+If 2-column is too heavy, use a single-column intelligence card list with expandable detail rows.
+But the default visible state must still show:
+why it matters
+impact
+horizon
+
+Relevance / editorial layer
+Not every item deserves equal weight.
+Each item must carry internal editorial fields:
+relevanceScore
+isPinned
+reviewState
+isWatchlist
+isArchived
+Internal states to support
+pinned
+reviewed
+watchlist
+low relevance
+archived
+Even if not all are public yet, the structure must support them.
+Optional visible editorial state:
+High relevance
+Watchlist
+Low immediate impact
+Use sparingly.
+
+Reference-asset translation
+Every item must connect back to the 50MW Baltic reference asset.
+At minimum, each item must include:
+impact tag
+horizon tag
+one-line relevance explanation
+Optional selected-item detail may also include:
+Reference asset note
+Examples:
+Negative for ancillary-heavy 2H case
+Positive for future 4H arbitrage logic
+No near-term change to base case
+This is optional in the list but useful in the detail panel.
+
+Enrichment layer requirement
+Do not let the public UI render raw feed items directly.
+There must be an enrichment layer between source ingestion and the board.
+The enrichment layer should:
+classify category
+generate / validate “why it matters”
+assign impact
+assign horizon
+score relevance
+decide pinned vs normal vs watchlist
+reject or demote weak items
+This is mandatory.
+Without this, the section will fall back into a decorated feed.
+
+Data model guidance
+Build around enriched items, not raw feed entries.
+Suggested conceptual schema:
+type IntelItem = {
+  id: string
+  title: string
+  primaryCategory:
+    | 'revenue'
+    | 'competition'
+    | 'structure'
+    | 'market_design'
+    | 'cost'
+    | 'buildability'
+    | 'future_demand'
+    | 'watchlist'
+  secondaryTags?: string[]
+  sourceName: string
+  sourceUrl?: string
+  sourceVisualUrl?: string
+  publishedAt: string
+  whyItMatters: string
+  impact:
+    | 'positive'
+    | 'negative'
+    | 'mixed'
+    | 'neutral'
+    | 'watch'
+  horizon:
+    | 'immediate'
+    | 'near_term'
+    | 'structural'
+    | 'long_term'
+  referenceAssetNote?: string
+  geography?: string
+  confidence?: 'high' | 'medium' | 'low'
+  relevanceScore?: number
+  isPinned?: boolean
+  reviewState?: 'new' | 'reviewed' | 'demoted' | 'archived'
+}
+
+Do not mix raw ingestion logic into the UI components.
+
+Styling / UX rules
+This section must feel:
+curated
+current
+premium
+analytical
+readable
+It must not feel:
+like a Telegram export
+like an RSS table
+like a low-contrast terminal log
+like an AI-generated news wall
+like a generic media page
+Specific rules:
+strong hierarchy
+clear chunking
+fewer but better visible items
+cards easy to scan
+restrained readable chips
+enough whitespace
+no large dead dark gaps
+no overcrowded rows
+thumbnails handled consistently
+
+CTA rule
+The current top CTA feels disconnected.
+If you keep a CTA in this section, integrate it with the intelligence purpose.
+Better examples:
+Have a project or market development we should review?
+Discuss Baltic project flow or investment opportunities
+Submit a project or market lead
+The CTA should feel like intelligence gathering / discussion, not random lead capture.
+
+Degraded-state rule
+If one source feed or thumbnail fails:
+keep the board usable
+fall back to source logo or category icon
+preserve enriched item text
+do not let the section collapse into broken placeholders
+
+Acceptance criteria
+This rebuild succeeds only if:
+A visitor immediately understands this is a curated intelligence layer, not a raw feed.
+Every visible item explains why it matters.
+Every item is tagged with impact and horizon.
+The filter system matches the site’s real logic, not generic topics.
+The board feels curated and modern, with thumbnails/source visuals improving scanability.
+The pinned top strip feels editorial, not just recent.
+The section supports internal workflow states like pinned, reviewed, watchlist, and archived.
+Generic irrelevant tech/news clutter is removed or strongly demoted.
+
+One-line instruction
+Rebuild the current Market Intel section into a curated Baltic Market Intelligence board with an editorial “This week’s market movers” strip, compact intelligence cards with thumbnails/source visuals, meaningful driver-bucket filters, a mandatory one-line “why it matters” explanation for every item, and impact/horizon tagging tied back to the 50MW Baltic reference asset.
+
+## Closing CTA / Conversation
+
+KKME — Rebuild the final CTA / contact section as an investor-first conversation layer
+
+
+Objective
+Replace the current Deal Flow / Submit Teaser section with a more premium, investor-first closing section.
+This section must not feel like:
+a broker form
+
+a generic lead form
+
+a seller page
+
+an advisory pitch
+
+a teaser inbox
+
+It must feel like:
+a high-trust closing layer
+
+investor-facing first
+
+Baltic market-intelligence-led
+
+access-oriented
+
+selective, relevant, and serious
+
+The section should open conversations with:
+EU-based infrastructure investors and financial institutions exploring Baltic storage / flexibility exposure
+
+Baltic developers, project owners, and sponsors who may also want to get in touch
+
+The public posture must remain:
+ context, access, judgment, and relevance
+ —not explicit monetization.
+
+Strategic purpose
+This section exists to communicate, implicitly, that:
+KKME understands the Baltic market deeply
+
+KKME sees project timing and market shifts early
+
+KKME is worth speaking to if someone wants Baltic exposure
+
+investors can use it as a starting point for market discussion and opportunity filtering
+
+project owners can also reach out if they have something serious
+
+Do not say:
+you broker projects
+
+you earn commissions
+
+you supply equipment
+
+you originate for optimizers
+
+you have deal flow for sale
+
+That should remain implicit.
+
+New section title
+Discuss Baltic storage opportunities
+This is the preferred title.
+It is broad enough to include:
+investors
+
+developers
+
+project owners
+
+strategic discussions
+
+without sounding cheap or transactional.
+
+Core section structure
+Build this section as a two-column closing block.
+Left column
+A sharp positioning block aimed primarily at investors.
+Right column
+A short adaptive conversation form that adjusts by user type.
+
+Left column — positioning block
+Required tone
+Investor-first, concise, calm, credible.
+Suggested content direction
+Use copy along these lines:
+Discuss Baltic storage opportunities
+KKME tracks Baltic storage and flexibility markets through live signals, structural analysis, and project-screening logic.
+For investors and infrastructure capital looking at Baltic exposure, this can be a starting point for market discussion, pipeline review, and opportunity filtering.
+Then add one smaller secondary line:
+If you are a Baltic project owner or developer with a live project, you can also get in touch.
+This keeps the hierarchy right:
+investors first
+
+project owners still welcome
+
+no explicit monetization model
+
+Add optional small proof/positioning cues
+You may include 2–3 short bullets or inline cues such as:
+Baltic market focus
+
+Infrastructure context
+
+Project and capital discussions
+
+Market timing and screening
+
+Keep them restrained. Do not turn this into a credentials wall.
+
+Right column — adaptive form
+The form must not look like a teaser-broker inbox.
+First field
+Start with:
+I’m contacting you about
+Options:
+Investor / capital discussion
+
+Project / asset discussion
+
+Market / strategic discussion
+
+This is mandatory.
+Why:
+investors should not feel they are filling in a project teaser form
+
+project owners still have a relevant route
+
+one form can serve multiple serious conversations without feeling generic
+
+
+Required form fields
+Always visible
+I’m contacting you about
+
+Name / firm
+
+Email
+
+Country / market focus
+
+Short note
+
+Conditional fields
+If user selects Project / asset discussion, then additionally show:
+Project name
+
+MW / MWh
+
+Country
+
+Target COD
+
+If user selects Investor / capital discussion, optionally show:
+Mandate / interest area
+ or simply rely on:
+
+Short note
+
+Do not overcomplicate the investor flow.
+Form philosophy
+Keep it short.
+ This should feel like the start of a serious conversation, not a data-harvesting form.
+
+CTA wording
+Do not use:
+Submit Teaser
+
+Use:
+Start the conversation
+
+This is the preferred CTA.
+Alternatives if needed:
+Send details
+
+Discuss opportunity
+
+Get in touch
+
+But best is:
+ Start the conversation
+
+Trust / confidentiality layer
+Add a small trust note under the form.
+Example:
+ Confidential discussions. Baltic-focused. Relevant investor and project conversations only.
+Optional if true:
+response timing
+
+selective review note
+
+Example:
+ Confidential discussions. Baltic-focused. Relevant investor and project conversations only. Initial replies typically within 48 hours.
+This raises the tone and reduces generic-contact-form feel.
+
+Visual / UX rules
+This section should feel like the final handshake of the site.
+Must feel like
+selective
+
+premium
+
+calm
+
+direct
+
+high-trust
+
+Must not feel like
+a broker landing page
+
+an M&A teaser form
+
+a CRM funnel
+
+a startup lead gen widget
+
+a generic “contact us” footer block
+
+Layout rules
+stronger hierarchy on the left than the current vague copy block
+
+form fields should not feel overlong and empty
+
+avoid giant dead space
+
+keep good alignment and rhythm
+
+CTA button should feel deliberate, not promotional
+
+this section should be visually cleaner than the old version
+
+Optional enhancement
+If useful, add a small 3-path selector visually before or above the form:
+Investor discussion
+
+Project discussion
+
+Market discussion
+
+This can help clarify the section before the form fields appear.
+
+Content rules
+Good public signals
+Baltic focus
+
+market context
+
+opportunity discussion
+
+project screening
+
+market timing
+
+infrastructure relevance
+
+Avoid
+“deal flow”
+
+“teaser”
+
+“go/no-go in 48h” unless you really want that promise visible
+
+overt broker language
+
+explicit commercial mechanics
+
+vague sales copy
+
+long self-promotional paragraphs
+
+The section should communicate:
+ access, judgment, and seriousness.
+
+Relationship to the rest of the site
+This section comes at the end because the rest of the site has already done the work:
+explained the market
+
+shown drivers
+
+shown design/liquidity reality
+
+translated economics into a reference asset
+
+built credibility
+
+This final block should convert that credibility into the right kind of inbound conversation.
+It is a closing layer, not a standalone sales section.
+
+Suggested component structure
+ConversationSection
+
+ConversationIntro
+
+ConversationPathSelector
+
+ConversationForm
+
+ConversationTrustNote
+
+Keep logic clean and adaptive.
+Do not hardcode one project-teaser form for all users.
+
+Acceptance criteria
+This rebuild succeeds only if:
+The section clearly speaks to EU infrastructure investors first.
+
+Project owners and developers still feel welcome without dominating the framing.
+
+The section no longer feels like a broker or teaser form.
+
+The adaptive form avoids forcing investors through project-style inputs.
+
+The CTA feels premium and low-friction.
+
+The trust/confidentiality note makes the section feel more serious.
+
+The section implicitly communicates access, judgment, and Baltic relevance without exposing how money is made.
 
 
 One-line instruction
-Rebuild the current “Baltic Power Market” row as a Structural Market Drivers section centered on wind, solar, demand/load, and interconnectors plus connected-market influence from Sweden, Finland, and Poland, with TTF gas and EU ETS as secondary thermal-floor support cards, and add a restrained per-card impact layer showing whether each driver is positive, negative, or mixed for the 50MW Baltic reference asset.
-Additional implementation rules
-Add one explicit line in the section support copy stating that Baltic flexibility value is influenced by both local Baltic system conditions and connected-market conditions in Sweden, Finland, and Poland.
-
-Each primary card must have:
-
-one main state or headline metric
-
-one baseline comparison
-
-one plain-language interpretation line
-
-one reference-asset impact tag
-
-Do not overload cards with multiple competing mini-metrics.
-
-The Interconnectors & connected markets card may span extra width if needed and should be treated as the most explanatory card in the section.
-
-The Demand / load card should separate:
-
-current load trend
-
-structural demand support
- even if the second part is only a small note.
-
-If a driver’s effect on the reference asset is ambiguous, use Mixed rather than forcing a directional label.
-
-Do not keep Nordic hydro in the main visible layout. Use only behind the scenes or in details if necessary.
-Yes. The logic is right, but I’d tighten it so Claude doesn’t turn this into either a rulebook dump or a fake market-microstructure panel.
-The biggest improvements are:
-make Module A the clear hero
-make “posted price vs usable revenue” the visible headline concept
-force public-safe simplification
-keep confidence impact tied directly to the reference asset, not as a side note
-stop Claude from overbuilding detailed auction mechanics into the UI
-
-KKME — Add a new standalone section: Market Design & Trading Reality
-Objective
-Add a new standalone section called Market Design & Trading Reality.
-This section must be separate from Structural Market Drivers.
-Do not merge them.
-This section exists to explain one core truth:
-Posted prices are not the same as repeatable, monetizable revenues. Market design and usable liquidity matter.
-The site currently risks implying that Baltic BESS economics are explained only by:
-spreads
-balancing prices
-fleet growth
-wind / solar / demand
-interconnectors
-That is incomplete.
-Baltic BESS economics are also shaped by:
-market design
-balancing auction structure
-liquidity quality
-accepted vs offered depth
-thin or distorted clears
-transitional post-synchronization effects
-differences between visible price spikes and bankable revenue opportunity
-This section is essential for credibility.
-
-Core purpose
-This section must answer:
-Is the Baltic balancing market deep or thin right now?
-Are visible balancing prices supported by real depth or by small marginal clears?
-Are there design quirks or transitional effects that make naive backtests misleading?
-What does this mean for confidence in the 50MW Baltic reference asset?
-This is the site’s market-reality layer.
-It should make the platform feel like it understands how the market actually works, not just how charts look.
-
-What this section is not
-Do not turn this into:
-a live dispatch terminal
-a raw trading blotter
-a microstructure simulator
-a legal/rulebook dump
-a dense methodology wall
-This section must remain:
-public-facing
-selective
-intelligible
----
-## Screenshots of Current State
-Upload the corresponding screenshot images alongside this pack for visual reference.
-Relevant screenshots: screenshot_04.png (EU Ranking), screenshot_10.png (Intel Feed), screenshot_11.png (CTA)
+Rebuild the final CTA/contact section as an investor-first closing layer titled Discuss Baltic storage opportunities, with a sharp Baltic market positioning block on the left, an adaptive short form on the right starting with “I’m contacting you about,” a premium CTA like Start the conversation, and a small confidentiality/trust note so the section opens serious Baltic investor and project discussions without sounding like a broker form.

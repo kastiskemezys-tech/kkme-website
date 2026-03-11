@@ -1,5 +1,8 @@
 # KKME — Data Model Rules
 
+
+## Data Classes + Freshness + Geography + Impact + Degraded States
+
 short confidentiality / trust note
 premium CTA:
 Start the conversation

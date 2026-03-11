@@ -1,5 +1,8 @@
 # KKME — Implementation Phases
 
+
+## Phases + QA + Cross-cutting Rules
+
 Acceptance criteria for the full rebuild
 The rebuild is successful only if all of these are true:
 A first-time investor understands within 10 seconds what KKME is and what decision it helps make.
@@ -314,3 +317,54 @@ review mobile and tablet responsiveness
 fix footer / nav consistency
 ensure each section still makes sense in isolation
 Important
+Do not let polish obscure logic.
+
+Phase 10 — Data honesty and QA pass
+Goal
+Make sure the rebuilt site is hard to attack.
+Required QA checks
+For every major section confirm:
+Is the main question of the section obvious?
+Is the geography honest?
+Is the data type honest?
+Is the freshness honest?
+Is the impact on the reference asset clear?
+Is the confidence level appropriate?
+Would a serious market participant call this sloppy or overclaimed?
+Does this section duplicate another section?
+Does this section fit the page narrative?
+Does it degrade gracefully when one feed fails?
+Specific attack-surface review
+Check for:
+overconfident point estimates
+hidden Lithuania-only assumptions presented as Baltic
+raw prices presented as monetizable revenue without caveat
+thin-market outputs overstated as repeatable
+market comparisons presented as rankings
+generic news items masquerading as intelligence
+
+What must not be missed
+These are mandatory and easy to forget:
+Mandatory concept layers
+impact on reference asset
+confidence / data-type labels
+freshness classes
+connected-market influence from Sweden / Finland / Poland
+distinction between structural drivers and market design
+distinction between public-safe outputs and private dataset intelligence
+posted price vs usable revenue
+investor-first final CTA
+intelligence board as curation, not ingestion
+Mandatory removals / separations
+no DC viability inside structural drivers
+no Nordic hydro as equal-weight main card
+no queue intelligence stuffed into buildability card
+no ranking table for Europe context
+no raw Telegram/news table
+no generic teaser form
+
+Working method rule for Claude
+At the end of each phase:
+stop
+verify the section/page logic still holds
+do not immediately rush into the next phase if the previous one remains structurally weak
