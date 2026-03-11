@@ -185,13 +185,20 @@ export function HeroMarketNow() {
           marginBottom: '16px',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: 'var(--font-sm)',
-              color: 'var(--text-tertiary)',
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-            }}>Market Now</span>
+            <span
+              onClick={() => setDrawerKey(k => k + 1)}
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 'var(--font-sm)',
+                color: 'var(--text-tertiary)',
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                cursor: 'pointer',
+                transition: 'color 150ms ease',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-secondary)')}
+              onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-tertiary)')}
+            >Market Now</span>
             <span style={{
               display: 'inline-block',
               width: '6px',

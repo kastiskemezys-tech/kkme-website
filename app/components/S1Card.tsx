@@ -52,6 +52,8 @@ export function S1Card() {
   const { status, data } =
     useSignal<S1Signal>(`${WORKER_URL}/read`);
   const [history, setHistory] = useState<number[]>([]);
+  const [drawerKey, setDrawerKey] = useState(0);
+  const openDrawer = () => setDrawerKey(k => k + 1);
 
   useEffect(() => {
     fetch(`${WORKER_URL}/s1/history`)
@@ -98,15 +100,22 @@ export function S1Card() {
     <article style={{ width: '100%' }}>
       {/* HEADER */}
       <div style={{ marginBottom: '16px' }}>
-        <h3 style={{
-          fontFamily: 'var(--font-mono)',
-          fontSize: 'var(--font-sm)',
-          color: 'var(--text-tertiary)',
-          letterSpacing: '0.06em',
-          textTransform: 'uppercase',
-          fontWeight: 500,
-          marginBottom: '6px',
-        }}>
+        <h3
+          onClick={openDrawer}
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-sm)',
+            color: 'var(--text-tertiary)',
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+            fontWeight: 500,
+            marginBottom: '6px',
+            cursor: 'pointer',
+            transition: 'color 150ms ease',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-secondary)')}
+          onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-tertiary)')}
+        >
           Baltic price separation
         </h3>
         <p style={{
@@ -184,18 +193,20 @@ export function S1Card() {
         {spreadImpactDesc(spread)}
       </div>
 
-      {/* SOURCE FOOTER */}
-      <SourceFooter
-        source="ENTSO-E A44"
-        updatedAt={data.updated_at ? new Date(data.updated_at).toLocaleString('en-GB', {
-          day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC',
-        }) : undefined}
-        dataClass="observed data"
-      />
+      {/* SOURCE FOOTER — clickable to open drawer */}
+      <div onClick={openDrawer} style={{ cursor: 'pointer' }}>
+        <SourceFooter
+          source="ENTSO-E A44"
+          updatedAt={data.updated_at ? new Date(data.updated_at).toLocaleString('en-GB', {
+            day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC',
+          }) : undefined}
+          dataClass="observed data"
+        />
+      </div>
 
       {/* DETAILS DRAWER */}
       <div style={{ marginTop: '16px' }}>
-        <DetailsDrawer label="Price detail, supporting metrics, and methodology">
+        <DetailsDrawer key={drawerKey} label="Price detail, supporting metrics, and methodology" defaultOpen={drawerKey > 0}>
           {/* Supporting metrics */}
           <div style={{
             display: 'grid',

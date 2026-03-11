@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useSignal } from '@/lib/useSignal';
 import { safeNum } from '@/lib/safeNum';
 import {
@@ -123,6 +124,8 @@ function pressureTrend(trajectory: TrajectoryPoint[] | null | undefined, current
 export function S2Card() {
   const { status, data } =
     useSignal<S2Signal>(`${WORKER_URL}/s2`);
+  const [drawerKey, setDrawerKey] = useState(0);
+  const openDrawer = () => setDrawerKey(k => k + 1);
 
   if (status === 'loading') {
     return (
@@ -162,15 +165,22 @@ export function S2Card() {
     <article style={{ width: '100%' }}>
       {/* HEADER */}
       <div style={{ marginBottom: '16px' }}>
-        <h3 style={{
-          fontFamily: 'var(--font-mono)',
-          fontSize: 'var(--font-sm)',
-          color: 'var(--text-tertiary)',
-          letterSpacing: '0.06em',
-          textTransform: 'uppercase',
-          fontWeight: 500,
-          marginBottom: '6px',
-        }}>
+        <h3
+          onClick={openDrawer}
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-sm)',
+            color: 'var(--text-tertiary)',
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+            fontWeight: 500,
+            marginBottom: '6px',
+            cursor: 'pointer',
+            transition: 'color 150ms ease',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-secondary)')}
+          onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-tertiary)')}
+        >
           Baltic balancing market
         </h3>
         <p style={{
@@ -315,18 +325,20 @@ export function S2Card() {
         </div>
       )}
 
-      {/* SOURCE FOOTER */}
-      <SourceFooter
-        source="Baltic balancing references + fleet tracker"
-        updatedAt={data.timestamp ? new Date(data.timestamp).toLocaleString('en-GB', {
-          day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC',
-        }) : undefined}
-        dataClass="reference estimates"
-      />
+      {/* SOURCE FOOTER — clickable to open drawer */}
+      <div onClick={openDrawer} style={{ cursor: 'pointer' }}>
+        <SourceFooter
+          source="Baltic balancing references + fleet tracker"
+          updatedAt={data.timestamp ? new Date(data.timestamp).toLocaleString('en-GB', {
+            day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC',
+          }) : undefined}
+          dataClass="reference estimates"
+        />
+      </div>
 
       {/* DETAILS DRAWER */}
       <div style={{ marginTop: '16px' }}>
-        <DetailsDrawer label="Fleet detail, market references, and methodology">
+        <DetailsDrawer key={drawerKey} label="Fleet detail, market references, and methodology" defaultOpen={drawerKey > 0}>
           {/* Market references */}
           <p style={{
             fontFamily: 'var(--font-mono)',
