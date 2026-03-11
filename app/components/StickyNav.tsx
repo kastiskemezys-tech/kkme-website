@@ -5,7 +5,7 @@ import SignalBar from './SignalBar';
 const NAV_LINKS = [
   { label: 'Signals', href: '#revenue-drivers' },
   { label: 'Build',   href: '#build' },
-  { label: 'Context', href: '#context' },
+  { label: 'Structure', href: '#structural' },
   { label: 'Intel',   href: '#intel' },
   { label: 'Contact', href: '#deal-flow' },
 ];
