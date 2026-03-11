@@ -32,6 +32,7 @@ interface TrajectoryPoint {
   year: number;
   sd_ratio: number;
   phase: string;
+  cpi?: number;
 }
 
 interface S2Signal {
@@ -282,7 +283,7 @@ export function S2Card() {
               const maxSd = Math.max(...trajectory.map(p => p.sd_ratio), 1.5);
               const heightPct = (pt.sd_ratio / maxSd) * 100;
               return (
-                <div key={pt.year} title={`${pt.year}: S/D ${pt.sd_ratio.toFixed(2)}× · ${pt.phase}`} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end' }}>
+                <div key={pt.year} title={`${pt.year}: S/D ${pt.sd_ratio.toFixed(2)}× · CPI ${(pt.cpi ?? 0).toFixed(2)} · ${pt.phase}`} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end' }}>
                   <span style={{
                     fontFamily: 'var(--font-mono)',
                     fontSize: 'var(--font-xs)',
@@ -306,12 +307,54 @@ export function S2Card() {
                   }}>
                     {pt.year}
                   </span>
+                  {pt.cpi != null && (
+                    <span style={{
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: 'var(--font-xs)',
+                      color: 'var(--text-muted)',
+                      opacity: 0.7,
+                      marginTop: '1px',
+                    }}>
+                      {pt.cpi.toFixed(2)}
+                    </span>
+                  )}
                 </div>
               );
             })}
           </div>
+          <div style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-xs)',
+            color: 'var(--text-muted)',
+            textAlign: 'right',
+            marginTop: '1px',
+            opacity: 0.6,
+          }}>
+            CPI (modeled)
+          </div>
         </div>
       )}
+
+      {/* COD WINDOW INTERPRETATION */}
+      {trajectory && trajectory.length >= 2 && (() => {
+        const pt27 = trajectory.find(p => p.year === 2027);
+        const pt29 = trajectory.find(p => p.year === 2029);
+        if (!pt27 && !pt29) return null;
+        const parts: string[] = [];
+        if (pt27) parts.push(`2027 COD enters at ${pt27.sd_ratio.toFixed(2)}× S/D${pt27.cpi != null ? ` (CPI ${pt27.cpi.toFixed(2)})` : ''}`);
+        if (pt29) parts.push(`2029 at ${pt29.sd_ratio.toFixed(2)}×${pt29.cpi != null ? ` (CPI floor ${pt29.cpi.toFixed(2)})` : ''}`);
+        return (
+          <p style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-xs)',
+            color: 'var(--text-tertiary)',
+            lineHeight: 1.5,
+            marginBottom: '12px',
+          }}>
+            {parts.join('; ')} — later COD faces a structurally lower capacity-price environment.
+          </p>
+        );
+      })()}
 
       {/* IMPACT LINE */}
       {sd != null && (
@@ -493,7 +536,7 @@ export function S2Card() {
             lineHeight: 1.5,
             opacity: 0.6,
           }}>
-            Baltic-calibrated proxies from AST Latvia reference data. Not observed clearing prices. Proxy flag applies until BTD measured data.
+            Baltic-calibrated proxies from AST Latvia reference data. Not observed clearing prices. Proxy flag applies until BTD measured data. CPI is modeled from the piecewise S/D-to-CPI function — it reflects fleet trajectory assumptions, not observed market clearing.
           </p>
         </DetailsDrawer>
       </div>
