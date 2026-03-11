@@ -1,32 +1,55 @@
 'use client';
 
-import { useState, useEffect, useRef, type CSSProperties } from 'react';
+import { useState, useEffect } from 'react';
 import type { S1Signal } from '@/lib/signals/s1';
-import { spreadColor } from './s1-utils';
-import { CardFooter } from './CardFooter';
-import { CardDisclosure } from './CardDisclosure';
-import { StaleBanner } from './StaleBanner';
-import { Sparkline } from './Sparkline';
-import { SignalIcon } from './SignalIcon';
 import { useSignal } from '@/lib/useSignal';
-import { safeNum, formatHHMM } from '@/lib/safeNum';
-import { flashOnChange } from '@/lib/animations';
+import { safeNum } from '@/lib/safeNum';
+import { Sparkline } from './Sparkline';
+import {
+  MetricTile, StatusChip, ImpactLine, SourceFooter, DetailsDrawer,
+} from '@/app/components/primitives';
+import type { ImpactState, Sentiment } from '@/app/lib/types';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
-const text = (opacity: number) => `rgba(232, 226, 217, ${opacity})`;
-const MONO: CSSProperties = { fontFamily: 'var(--font-mono)' };
+function spreadSentiment(spread: number): Sentiment {
+  if (spread < -5) return 'negative';
+  if (spread < 2) return 'neutral';
+  if (spread < 10) return 'caution';
+  return 'positive';
+}
 
-function formatTimestamp(iso: string): string {
-  return new Date(iso).toLocaleString('en-GB', {
-    day: '2-digit', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-    timeZone: 'UTC', timeZoneName: 'short',
-  });
+function spreadStatus(spread: number): string {
+  if (spread < -5) return 'Inverted';
+  if (spread < 2) return 'Weak';
+  if (spread < 10) return 'Slightly supportive';
+  if (spread < 25) return 'Supportive';
+  return 'Strong';
+}
+
+function spreadInterpretation(spread: number): string {
+  if (spread < 0) return 'Baltic prices are currently below neighboring markets. Arbitrage conditions are not supportive.';
+  if (spread < 5) return 'Spreads are narrow. Arbitrage exists but contributes modestly to storage economics.';
+  if (spread < 15) return 'Moderate price separation. Day-ahead arbitrage provides meaningful but not exceptional revenue support.';
+  return 'Wide Baltic price separation. Arbitrage is a significant contributor to storage revenues.';
+}
+
+function spreadImpact(spread: number): ImpactState {
+  if (spread < 0) return 'slight_negative';
+  if (spread < 5) return 'mixed';
+  if (spread < 15) return 'slight_positive';
+  return 'strong_positive';
+}
+
+function spreadImpactDesc(spread: number): string {
+  if (spread < 0) return '50MW reference asset: Arbitrage drag on both 2H and 4H';
+  if (spread < 5) return '50MW reference asset: Minor arbitrage support for 2H and 4H';
+  if (spread < 15) return '50MW reference asset: Moderate arbitrage support, stronger for 4H';
+  return '50MW reference asset: Strong arbitrage upside, especially for 4H duration';
 }
 
 export function S1Card() {
-  const { status, data, isDefault, isStale, ageHours, defaultReason } =
+  const { status, data } =
     useSignal<S1Signal>(`${WORKER_URL}/read`);
   const [history, setHistory] = useState<number[]>([]);
 
@@ -37,236 +60,242 @@ export function S1Card() {
       .catch(() => {});
   }, []);
 
+  if (status === 'loading') {
+    return (
+      <article style={{ padding: '24px' }}>
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>
+          Loading price separation data...
+        </p>
+      </article>
+    );
+  }
+
+  if (status === 'error' || !data) {
+    return (
+      <article style={{ padding: '24px' }}>
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>
+          Price separation data unavailable
+        </p>
+      </article>
+    );
+  }
+
+  const spread = data.spread_eur_mwh;
+  const spreadP50 = data.spread_stats_90d?.p50 ?? null;
+  const daysOfData = data.spread_stats_90d?.days_of_data ?? 0;
+  const impact = spreadImpact(spread);
+
+  // Compute spread percentile vs 30D history
+  let percentileLabel = '';
+  if (history.length > 7) {
+    const sorted = [...history].sort((a, b) => a - b);
+    const rank = sorted.filter(v => v <= spread).length;
+    const pct = Math.round((rank / sorted.length) * 100);
+    percentileLabel = `${pct}th`;
+  }
+
   return (
-    <article className="signal-card" style={{ width: '100%' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-        <SignalIcon type="price-separation" size={20} />
-        <h3 style={{ ...MONO, fontSize: '0.82rem', letterSpacing: '0.06em', color: text(0.72), fontWeight: 500, textTransform: 'uppercase' }}>
-          Baltic Price Separation
+    <article style={{ width: '100%' }}>
+      {/* HEADER */}
+      <div style={{ marginBottom: '16px' }}>
+        <h3 style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: 'var(--font-sm)',
+          color: 'var(--text-tertiary)',
+          letterSpacing: '0.06em',
+          textTransform: 'uppercase',
+          fontWeight: 500,
+          marginBottom: '6px',
+        }}>
+          Baltic price separation
         </h3>
+        <p style={{
+          fontFamily: 'var(--font-serif)',
+          fontSize: 'var(--font-sm)',
+          color: 'var(--text-secondary)',
+          lineHeight: 1.6,
+        }}>
+          How far Baltic day-ahead prices diverge from nearby markets. Wider spreads improve storage arbitrage economics.
+        </p>
+        <p style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: 'var(--font-xs)',
+          color: 'var(--text-muted)',
+          marginTop: '4px',
+        }}>
+          Lithuania-led · ENTSO-E day-ahead data
+        </p>
       </div>
 
-      <CardDisclosure
-        explain={[
-          'Spread: LT minus SE4 day-ahead hourly average.',
-          'Driver: usually NTC cap or Nordic wind dump to SE4.',
-          'Below €15/MWh: coupling day, low congestion value.',
-        ]}
-        dataLines={[
-          'Source: ENTSO-E A44 day-ahead prices',
-          'Method: mean of 24 hourly prices, LT and SE4',
-          'LT: 10YLT-1001A0008Q · SE4: 10Y1001A1001A46L',
-          'Stale threshold: 36h',
-        ]}
-      />
+      {/* HERO METRIC */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '4px' }}>
+        <MetricTile
+          label="Day-ahead price spread"
+          value={`${spread >= 0 ? '+' : ''}${safeNum(spread, 1)}`}
+          unit="€/MWh"
+          size="hero"
+          dataClass="observed"
+          sublabel="LT minus SE4 average"
+        />
+        <StatusChip status={spreadStatus(spread)} sentiment={spreadSentiment(spread)} />
+      </div>
 
-      <div aria-live="polite" aria-atomic="false">
-        {status === 'loading' && <Skeleton />}
-        {status === 'error'   && <ErrorState />}
-        {status === 'success' && data && (
-          <LiveData data={data} isDefault={isDefault} isStale={isStale} ageHours={ageHours} defaultReason={defaultReason} history={history} />
+      {/* HERO CHART — 30-day spread history */}
+      {history.length > 1 && (
+        <div style={{ margin: '16px 0', overflow: 'hidden' }}>
+          <Sparkline
+            values={history}
+            p50={spreadP50 ?? undefined}
+            color="rgba(0,180,160,0.75)"
+            height={200}
+          />
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-xs)',
+            color: 'var(--text-muted)',
+            marginTop: '4px',
+          }}>
+            <span>{daysOfData > 0 ? `${daysOfData} days` : ''}</span>
+            <span>today</span>
+          </div>
+        </div>
+      )}
+
+      {/* SUPPORTING METRICS — 3 in a row */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr 1fr',
+        gap: '12px',
+        marginBottom: '16px',
+      }}>
+        <MetricTile
+          label="Battery arbitrage capture"
+          value={data.bess_net_capture != null ? safeNum(data.bess_net_capture, 1) : '—'}
+          unit="€/MWh"
+          size="compact"
+          dataClass="derived"
+          sublabel="top-4h vs bottom-4h, net of efficiency"
+        />
+        <MetricTile
+          label={daysOfData >= 90 ? '90-day median spread' : daysOfData > 0 ? `${daysOfData}-day median` : 'Median spread'}
+          value={spreadP50 != null ? `${spreadP50 >= 0 ? '+' : ''}${safeNum(spreadP50, 1)}` : '—'}
+          unit="€/MWh"
+          size="compact"
+          dataClass="derived"
+          sublabel="recent baseline for comparison"
+        />
+        {percentileLabel ? (
+          <MetricTile
+            label="Spread percentile"
+            value={percentileLabel}
+            size="compact"
+            dataClass="derived"
+            sublabel="vs last 30 days"
+          />
+        ) : (
+          <MetricTile
+            label="Hours above 20% spread"
+            value={data.pct_hours_above_20 != null ? `${safeNum(data.pct_hours_above_20, 1)}%` : '—'}
+            size="compact"
+            dataClass="derived"
+            sublabel="30-day capture frequency"
+          />
         )}
       </div>
-    </article>
-  );
-}
 
-function Skeleton() {
-  return (
-    <>
-      <p style={{ ...MONO, fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', fontWeight: 400, color: text(0.1), lineHeight: 1, letterSpacing: '-0.02em', marginBottom: '0.75rem' }}>
-        —
-      </p>
-      <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.2), letterSpacing: '0.1em' }}>
-        Fetching
-      </p>
-    </>
-  );
-}
-
-function ErrorState() {
-  return (
-    <>
-      <p style={{ ...MONO, fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', fontWeight: 400, color: text(0.1), lineHeight: 1, letterSpacing: '-0.02em', marginBottom: '0.75rem' }}>
-        —
-      </p>
-      <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.40), letterSpacing: '0.1em' }}>
-        Data unavailable
-      </p>
-    </>
-  );
-}
-
-const DIVIDER: CSSProperties = {
-  borderTop: `1px solid rgba(232, 226, 217, 0.06)`,
-  width: '100%',
-};
-
-interface LiveDataProps {
-  data:          S1Signal;
-  isDefault:     boolean;
-  isStale:       boolean;
-  ageHours:      number | null;
-  defaultReason: string | null;
-  history:       number[];
-}
-
-function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }: LiveDataProps) {
-  const heroRef   = useRef<HTMLParagraphElement>(null);
-  const prevSpread = useRef<number | null>(null);
-
-  useEffect(() => {
-    if (heroRef.current && data.spread_eur_mwh != null) {
-      if (prevSpread.current !== null && prevSpread.current !== data.spread_eur_mwh) {
-        const dir: 'up' | 'down' | 'neutral' =
-          data.spread_eur_mwh > prevSpread.current ? 'up' : 'down';
-        flashOnChange(heroRef.current, dir);
-      }
-      prevSpread.current = data.spread_eur_mwh;
-    }
-  }, [data.spread_eur_mwh]);
-
-  const heroColor = spreadColor(data.spread_eur_mwh);
-
-  const spreadN   = data.spread_stats_90d?.days_of_data ?? 0;
-  const spreadP50 = data.spread_stats_90d?.p50 ?? null;
-  const medianLabel = spreadN >= 90 ? '90d median' : spreadN > 0 ? `${spreadN}d median` : 'Median';
-  const compare   = spreadN > 7
-    ? `vs ${medianLabel} ${safeNum(spreadP50, 0)} €/MWh`
-    : 'building history (< 7 days)';
-
-  const rsi     = data.rsi_30d != null
-    ? `${data.rsi_30d >= 0 ? '+' : ''}${data.rsi_30d.toFixed(2)}`
-    : '—';
-  const trend   = data.trend_vs_90d != null ? (data.trend_vs_90d >= 0 ? '↑' : '↓') : '—';
-  const capture = data.pct_hours_above_20 != null
-    ? `${data.pct_hours_above_20.toFixed(1)}%` : '—';
-
-  const spread90d = spreadP50 != null
-    ? `${spreadP50 >= 0 ? '+' : ''}${spreadP50.toFixed(1)} €`
-    : (rsi !== '—' ? `${rsi} €` : '—');
-
-  const regimeMetrics: [string, string][] = [
-    [medianLabel, spread90d],
-    ['Trend',     trend],
-    ['Capture',   capture],
-  ];
-
-  const sourceRows: [string, string][] = [
-    ['LT avg',  `${safeNum(data.lt_avg_eur_mwh, 2)} €/MWh`],
-    ['SE4 avg', `${safeNum(data.se4_avg_eur_mwh, 2)} €/MWh`],
-    ['Spread',  `${data.spread_eur_mwh >= 0 ? '+' : ''}${safeNum(data.spread_eur_mwh, 2)} €/MWh`],
-  ];
-
-  const ts = data.updated_at ?? null;
-
-  return (
-    <>
-      <StaleBanner isDefault={isDefault} isStale={isStale} ageHours={ageHours} defaultReason={defaultReason} />
-
-      {data.da_tomorrow?.lt_peak != null && (
-        <p style={{ ...MONO, fontSize: '0.6rem', color: text(0.52), letterSpacing: '0.06em', marginBottom: '1rem' }}>
-          Tomorrow: {safeNum(data.da_tomorrow.lt_peak, 0)} peak · {safeNum(data.da_tomorrow.lt_avg, 0)} avg €/MWh
-        </p>
-      )}
-
-      {/* Full-width sparkline */}
-      {history.length > 1 && (
-        <div style={{ marginBottom: '1.25rem', overflow: 'hidden' }}>
-          <Sparkline values={history} p50={spreadP50 ?? undefined} color="#4ade80" height={72} />
-        </div>
-      )}
-
-      {/* Hero number */}
-      <p
-        ref={heroRef}
-        style={{
-          ...MONO,
-          fontSize: 'clamp(2.5rem, 6vw, 3.75rem)',
-          fontWeight: 400,
-          color: heroColor,
-          lineHeight: 1,
-          letterSpacing: '-0.02em',
-          margin: '0 0 0.3rem',
-          textShadow: '0 0 28px rgba(212,160,60,0.30)',
-        }}
-      >
-        {data.spread_eur_mwh >= 0 ? '+' : ''}{safeNum(data.spread_eur_mwh, 1)}
-        <span style={{ fontSize: '0.45em', marginLeft: '0.15em', opacity: 0.55 }}>€/MWh</span>
+      {/* INTERPRETATION */}
+      <p style={{
+        fontFamily: 'var(--font-serif)',
+        fontSize: 'var(--font-sm)',
+        color: 'var(--text-secondary)',
+        lineHeight: 1.6,
+        marginBottom: '8px',
+      }}>
+        {spreadInterpretation(spread)}
       </p>
 
-      <p style={{ ...MONO, fontSize: '0.55rem', color: text(0.3), letterSpacing: '0.08em', marginBottom: data.bess_net_capture != null ? '0.5rem' : '0.75rem' }}>
-        {data.spread_eur_mwh >= 0 ? '+' : ''}{safeNum(data.separation_pct, 1)}% vs SE4
-        {data.lt_daily_swing_eur_mwh != null
-          ? ` · swing ${safeNum(data.lt_daily_swing_eur_mwh, 0)} €/MWh`
-          : ''}
-      </p>
-
-      {data.bess_net_capture != null && (
-        <div style={{ marginBottom: '0.75rem', padding: '8px 12px', background: 'rgba(45,212,168,0.03)', border: '1px solid rgba(45,212,168,0.08)' }}>
-          <div style={{ ...MONO, fontSize: '0.5rem', color: text(0.3), letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '3px' }}>BESS Capture</div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '1.1rem', color: 'var(--teal)', fontWeight: 400 }}>
-              {data.bess_net_capture.toFixed(1)}
-            </span>
-            <span style={{ ...MONO, fontSize: '0.6rem', color: text(0.35) }}>€/MWh</span>
-          </div>
-          <div style={{ ...MONO, fontSize: '0.5rem', color: text(0.25), marginTop: '2px' }}>Top-4h minus bottom-4h · net of RTE · LT DA</div>
-        </div>
-      )}
-
-      <p style={{ ...MONO, fontSize: '0.6rem', color: text(0.52), lineHeight: 1.65, marginBottom: '1.5rem' }}>
-        {data.interpretation ?? ''}
-      </p>
-
-      <div style={{ ...DIVIDER, marginBottom: '1.25rem' }} />
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.25rem', marginBottom: '0.5rem' }}>
-        {regimeMetrics.map(([label, value]) => (
-          <div key={label}>
-            <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.2rem' }}>
-              {label}
-            </p>
-            <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.55) }}>
-              {value}
-            </p>
-          </div>
-        ))}
-      </div>
-      <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.06em', marginBottom: '1.25rem' }}>
-        {spreadN < 14
-          ? `Building history — ${spreadN} day${spreadN === 1 ? '' : 's'} of data`
-          : `${spreadN} days of data`}
-      </p>
-
-      <div style={{ ...DIVIDER, marginBottom: '1.25rem' }} />
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: '1.5rem', rowGap: '0.35rem', marginBottom: '1.5rem' }}>
-        {sourceRows.map(([label, value]) => (
-          <span key={label} style={{ display: 'contents' }}>
-            <span style={{ ...MONO, fontSize: '0.625rem', color: text(0.3), letterSpacing: '0.06em' }}>{label}</span>
-            <span style={{ ...MONO, fontSize: '0.625rem', color: text(0.6) }}>{value}</span>
-          </span>
-        ))}
+      {/* IMPACT LINE */}
+      <div style={{
+        fontFamily: 'var(--font-mono)',
+        fontSize: 'var(--font-sm)',
+        color: 'rgba(0,180,160,0.75)',
+        marginBottom: '16px',
+      }}>
+        {spreadImpactDesc(spread)}
       </div>
 
-      <time dateTime={ts ?? ''} style={{ ...MONO, fontSize: '0.575rem', color: text(0.40), letterSpacing: '0.06em' }}>
-        {ts ? formatTimestamp(ts) : '—'}
-        <StaleBanner isDefault={false} isStale={isStale} ageHours={ageHours} defaultReason={null} />
-      </time>
-
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.55rem', color: 'rgba(232,226,217,0.22)', letterSpacing: '0.06em', marginTop: '12px' }}>
-        MODEL INPUT → Arbitrage capture · P_high / P_low
-      </div>
-
-      <CardFooter
-        period={`Delivery ${data.da_tomorrow?.delivery_date ?? 'today'} · DA 24h avg`}
-        compare={compare}
-        updated={`~13:00 CET publish · fetched ${formatHHMM(ts)} UTC`}
-        timestamp={ts}
-        isStale={isStale}
-        ageHours={ageHours}
+      {/* SOURCE FOOTER */}
+      <SourceFooter
+        source="ENTSO-E A44"
+        updatedAt={data.updated_at ? new Date(data.updated_at).toLocaleString('en-GB', {
+          day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC',
+        }) : undefined}
+        dataClass="observed"
       />
-    </>
+
+      {/* DETAILS DRAWER */}
+      <div style={{ marginTop: '16px' }}>
+        <DetailsDrawer label="Price breakdown and methodology">
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'auto 1fr',
+            gap: '6px 16px',
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-sm)',
+            marginBottom: '12px',
+          }}>
+            <span style={{ color: 'var(--text-muted)' }}>LT average</span>
+            <span style={{ color: 'var(--text-secondary)' }}>{safeNum(data.lt_avg_eur_mwh, 2)} €/MWh</span>
+            <span style={{ color: 'var(--text-muted)' }}>SE4 average</span>
+            <span style={{ color: 'var(--text-secondary)' }}>{safeNum(data.se4_avg_eur_mwh, 2)} €/MWh</span>
+            <span style={{ color: 'var(--text-muted)' }}>Spread</span>
+            <span style={{ color: 'var(--text-secondary)' }}>{spread >= 0 ? '+' : ''}{safeNum(spread, 2)} €/MWh</span>
+            <span style={{ color: 'var(--text-muted)' }}>Separation</span>
+            <span style={{ color: 'var(--text-secondary)' }}>{safeNum(data.separation_pct, 1)}% vs SE4</span>
+            {data.lt_daily_swing_eur_mwh != null && (
+              <>
+                <span style={{ color: 'var(--text-muted)' }}>LT daily swing</span>
+                <span style={{ color: 'var(--text-secondary)' }}>{safeNum(data.lt_daily_swing_eur_mwh, 0)} €/MWh</span>
+              </>
+            )}
+            {data.p_high_avg != null && (
+              <>
+                <span style={{ color: 'var(--text-muted)' }}>P_high (top-4h)</span>
+                <span style={{ color: 'var(--text-secondary)' }}>{safeNum(data.p_high_avg, 1)} €/MWh</span>
+              </>
+            )}
+            {data.p_low_avg != null && (
+              <>
+                <span style={{ color: 'var(--text-muted)' }}>P_low (bottom-4h)</span>
+                <span style={{ color: 'var(--text-secondary)' }}>{safeNum(data.p_low_avg, 1)} €/MWh</span>
+              </>
+            )}
+          </div>
+
+          {data.da_tomorrow?.lt_peak != null && (
+            <div style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 'var(--font-sm)',
+              color: 'var(--text-secondary)',
+              marginBottom: '12px',
+            }}>
+              Tomorrow DA: {safeNum(data.da_tomorrow.lt_peak, 0)} peak · {safeNum(data.da_tomorrow.lt_avg, 0)} avg €/MWh
+              {data.da_tomorrow.delivery_date && ` · ${data.da_tomorrow.delivery_date}`}
+            </div>
+          )}
+
+          <p style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-xs)',
+            color: 'var(--text-muted)',
+            lineHeight: 1.6,
+          }}>
+            This metric is a day-ahead directional estimate. Realised arbitrage depends on intraday conditions, battery efficiency, and market access.
+          </p>
+        </DetailsDrawer>
+      </div>
+    </article>
   );
 }

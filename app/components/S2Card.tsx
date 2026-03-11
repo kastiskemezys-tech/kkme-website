@@ -1,472 +1,466 @@
 'use client';
 
-import { useState, useEffect, type CSSProperties } from 'react';
-import { CardFooter } from './CardFooter';
-import { CardDisclosure } from './CardDisclosure';
-import { StaleBanner } from './StaleBanner';
-import { Sparkline } from './Sparkline';
-import { SignalIcon } from './SignalIcon';
 import { useSignal } from '@/lib/useSignal';
-import { safeNum, fK, formatHHMM } from '@/lib/safeNum';
+import { safeNum } from '@/lib/safeNum';
+import {
+  MetricTile, StatusChip, SourceFooter, DetailsDrawer,
+} from '@/app/components/primitives';
+import type { ImpactState, Sentiment } from '@/app/lib/types';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
 interface FleetEntry {
-  id?:      string;
-  name:     string;
-  mw:       number;
-  mwh?:     number;
-  status:   string;
-  cod?:     number | null;
+  id?: string;
+  name: string;
+  mw: number;
+  mwh?: number;
+  status: string;
+  cod?: number | null;
   country?: string;
-  tso?:     string;
+  tso?: string;
 }
 
 interface FleetCountry {
   operational_mw: number;
-  pipeline_mw:    number;
-  weighted_mw:    number;
-  entries?:       FleetEntry[];
+  pipeline_mw: number;
+  weighted_mw: number;
+  entries?: FleetEntry[];
 }
 
 interface TrajectoryPoint {
-  year:     number;
+  year: number;
   sd_ratio: number;
-  phase:    string;
+  phase: string;
 }
 
 interface S2Signal {
   timestamp?: string | null;
-  fcr_avg?:       number | null;
-  afrr_up_avg?:   number | null;
+  fcr_avg?: number | null;
+  afrr_up_avg?: number | null;
   afrr_down_avg?: number | null;
-  mfrr_up_avg?:   number | null;
+  mfrr_up_avg?: number | null;
   mfrr_down_avg?: number | null;
-  pct_up?:        number | null;
-  pct_down?:      number | null;
+  pct_up?: number | null;
+  pct_down?: number | null;
   imbalance_mean?: number | null;
-  imbalance_p90?:  number | null;
-  pct_above_100?:  number | null;
+  imbalance_p90?: number | null;
+  pct_above_100?: number | null;
   afrr_annual_per_mw_installed?: number | null;
   mfrr_annual_per_mw_installed?: number | null;
-  cvi_afrr_eur_mw_yr?:           number | null;
-  cvi_mfrr_eur_mw_yr?:           number | null;
-  stress_index_p90?:             number | null;
-  fcr_note?:       string | null;
-  ordered_price?:  number | null;
-  ordered_mw?:     number | null;
-  signal?:         string | null;
+  cvi_afrr_eur_mw_yr?: number | null;
+  cvi_mfrr_eur_mw_yr?: number | null;
+  stress_index_p90?: number | null;
+  fcr_note?: string | null;
+  ordered_price?: number | null;
+  ordered_mw?: number | null;
+  signal?: string | null;
   interpretation?: string | null;
-  source?:         string | null;
-  unavailable?:    boolean;
-  _stale?:         boolean;
-  _age_hours?:     number | null;
-  _serving?:       string;
-  // Fleet S/D ratio fields
-  sd_ratio?:              number | null;
-  phase?:                 string | null;
-  cpi?:                   number | null;
-  trajectory?:            TrajectoryPoint[] | null;
-  fleet?:                 Record<string, FleetCountry> | null;
+  source?: string | null;
+  unavailable?: boolean;
+  _stale?: boolean;
+  _age_hours?: number | null;
+  _serving?: string;
+  sd_ratio?: number | null;
+  phase?: string | null;
+  cpi?: number | null;
+  trajectory?: TrajectoryPoint[] | null;
+  fleet?: Record<string, FleetCountry> | null;
   baltic_operational_mw?: number | null;
-  baltic_pipeline_mw?:    number | null;
-  eff_demand_mw?:         number | null;
+  baltic_pipeline_mw?: number | null;
+  eff_demand_mw?: number | null;
 }
 
-const text = (opacity: number) => `rgba(232, 226, 217, ${opacity})`;
-const MONO: CSSProperties = { fontFamily: 'var(--font-mono)' };
-
-function formatTimestamp(iso: string): string {
-  return new Date(iso).toLocaleString('en-GB', {
-    day: '2-digit', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-    timeZone: 'UTC', timeZoneName: 'short',
-  });
+function sdSentiment(sd: number): Sentiment {
+  if (sd < 0.5) return 'positive';
+  if (sd < 0.7) return 'caution';
+  if (sd < 0.9) return 'caution';
+  return 'negative';
 }
 
+function sdStatus(sd: number): string {
+  if (sd < 0.5) return 'Supportive';
+  if (sd < 0.7) return 'Tightening';
+  if (sd < 0.9) return 'Competitive';
+  return 'Compressed';
+}
+
+function sdInterpretation(sd: number): string {
+  if (sd < 0.5) return 'Limited battery fleet leaves strong revenue support from balancing markets.';
+  if (sd < 0.7) return 'Competition is building but balancing demand still exceeds fleet supply. Revenue support remains, with compression risk on the horizon.';
+  if (sd < 0.9) return 'Battery fleet is catching up with system needs. Revenue quality depends on product mix and market access.';
+  return 'Fleet supply matches or exceeds estimated demand. Balancing revenues are under compression pressure.';
+}
+
+function sdImpact(sd: number): ImpactState {
+  if (sd < 0.5) return 'strong_positive';
+  if (sd < 0.7) return 'slight_positive';
+  if (sd < 0.9) return 'mixed';
+  return 'slight_negative';
+}
+
+function sdImpactDesc(sd: number): string {
+  if (sd < 0.5) return '50MW reference asset: Strong balancing revenue support for both 2H and 4H';
+  if (sd < 0.7) return '50MW reference asset: Revenue support holds but 2027+ COD timing increasingly matters';
+  if (sd < 0.9) return '50MW reference asset: Revenue mix and market access now determine viability';
+  return '50MW reference asset: Compression risk — earlier COD and shorter duration may be more resilient';
+}
+
+function trajectoryBarColor(phase: string): string {
+  if (phase === 'SCARCITY') return 'rgba(0,180,160,0.75)';
+  if (phase === 'COMPRESS') return 'rgba(212,160,60,0.75)';
+  return 'rgba(214,88,88,0.75)';
+}
+
+function pressureTrend(trajectory: TrajectoryPoint[] | null | undefined, currentSd: number): string {
+  if (!trajectory || trajectory.length < 2) return 'Unknown';
+  const nextYear = trajectory.find(pt => pt.year > new Date().getFullYear());
+  if (!nextYear) return 'Stable';
+  if (nextYear.sd_ratio > currentSd + 0.05) return 'Rising';
+  if (nextYear.sd_ratio < currentSd - 0.05) return 'Easing';
+  return 'Stable';
+}
 
 export function S2Card() {
-  const { status, data, isDefault, isStale, ageHours, defaultReason } =
+  const { status, data } =
     useSignal<S2Signal>(`${WORKER_URL}/s2`);
-  const [history, setHistory] = useState<number[]>([]);
 
-  useEffect(() => {
-    fetch(`${WORKER_URL}/s2/history`)
-      .then(r => r.json())
-      .then((h: Array<{ afrr_up: number }>) => setHistory(h.map(e => e.afrr_up)))
-      .catch(() => {});
-  }, []);
+  if (status === 'loading') {
+    return (
+      <article style={{ padding: '24px' }}>
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>
+          Loading balancing market data...
+        </p>
+      </article>
+    );
+  }
+
+  if (status === 'error' || !data) {
+    return (
+      <article style={{ padding: '24px' }}>
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>
+          Balancing market data unavailable
+        </p>
+      </article>
+    );
+  }
+
+  const sd = data.sd_ratio ?? null;
+  const opMw = data.baltic_operational_mw;
+  const pipeMw = data.baltic_pipeline_mw;
+  const trajectory = data.trajectory ?? null;
+
+  // Collect all fleet entries for the details drawer
+  const STATUS_ORDER: Record<string, number> = {
+    operational: 0, commissioned: 1, under_construction: 2,
+    connection_agreement: 3, application: 4,
+  };
+  const allEntries: FleetEntry[] = Object.values(data.fleet || {})
+    .flatMap((c: unknown) => ((c as FleetCountry)?.entries || []))
+    .sort((a, b) => (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9));
 
   return (
-    <article className="signal-card" style={{ width: '100%' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-        <SignalIcon type="balancing" size={20} />
-        <h3 style={{ ...MONO, fontSize: '0.82rem', letterSpacing: '0.06em', color: text(0.72), fontWeight: 500, textTransform: 'uppercase' }}>
-          Balancing Stack
+    <article style={{ width: '100%' }}>
+      {/* HEADER */}
+      <div style={{ marginBottom: '16px' }}>
+        <h3 style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: 'var(--font-sm)',
+          color: 'var(--text-tertiary)',
+          letterSpacing: '0.06em',
+          textTransform: 'uppercase',
+          fontWeight: 500,
+          marginBottom: '6px',
+        }}>
+          Baltic balancing market
         </h3>
+        <p style={{
+          fontFamily: 'var(--font-serif)',
+          fontSize: 'var(--font-sm)',
+          color: 'var(--text-secondary)',
+          lineHeight: 1.6,
+        }}>
+          Whether reserve and balancing markets support storage revenues, and how fast battery competition is compressing them.
+        </p>
+        <p style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: 'var(--font-xs)',
+          color: 'var(--text-muted)',
+          marginTop: '4px',
+        }}>
+          Baltic blended · LT-led signal depth
+        </p>
       </div>
 
-      <CardDisclosure
-        explain={[
-          'aFRR/mFRR: Baltic TSO D-1 capacity auctions.',
-          '0.5 MW service per 1 MW installed (2 MW/MW prequalification).',
-          'aFRR saturates ~2028 per CH forecast. Revenue is per MW installed power.',
-        ]}
-        dataLines={[
-          'Source: Baltic Transparency Dashboard · daily clearing, pay-as-clear',
-          '7-day rolling window · LT cols: FCR[10] aFRR↑[11] aFRR↓[12] mFRR↑[13] mFRR↓[14]',
-          'BTD blocks datacenter IPs — residential proxy only',
-          'Stale threshold: 48h',
-        ]}
-      />
-
-      <div aria-live="polite" aria-atomic="false">
-        {status === 'loading' && <Skeleton />}
-        {status === 'error'   && <ErrorState />}
-        {status === 'success' && data && (
-          <LiveData data={data} isDefault={isDefault} isStale={isStale} ageHours={ageHours} defaultReason={defaultReason} history={history} />
-        )}
-      </div>
-    </article>
-  );
-}
-
-function Skeleton() {
-  return (
-    <>
-      <p style={{ ...MONO, fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', fontWeight: 400, color: text(0.1), lineHeight: 1, letterSpacing: '0.04em', marginBottom: '0.75rem' }}>
-        ——————
-      </p>
-      <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.2), letterSpacing: '0.1em' }}>
-        Fetching
-      </p>
-    </>
-  );
-}
-
-function ErrorState() {
-  return (
-    <>
-      <p style={{ ...MONO, fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', fontWeight: 400, color: text(0.1), lineHeight: 1, letterSpacing: '0.04em', marginBottom: '0.75rem' }}>
-        ——————
-      </p>
-      <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.40), letterSpacing: '0.1em' }}>
-        Data unavailable
-      </p>
-    </>
-  );
-}
-
-const DIVIDER: CSSProperties = {
-  borderTop: `1px solid rgba(232, 226, 217, 0.06)`,
-  width: '100%',
-};
-
-function DecayBar({
-  label, current, target, max, color,
-}: {
-  label: string; current: number; target: number; max: number; color: string;
-}) {
-  const curPct = Math.min((current / max) * 100, 100);
-  const tgtPct = Math.min((target / max) * 100, 100);
-  const winPct = curPct - tgtPct;
-  return (
-    <div style={{ marginBottom: '12px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'rgba(232,226,217,0.45)', marginBottom: '4px' }}>
-        <span>{label}</span>
-        <span style={{ color: 'rgba(232,226,217,0.75)' }}>
-          {current.toFixed(0)} €/MW/h
-          <span style={{ color: 'rgba(232,226,217,0.35)', marginLeft: '6px' }}>→ {target} target</span>
-        </span>
-      </div>
-      <div style={{ position: 'relative', height: '20px', background: 'rgba(232,226,217,0.05)' }}>
-        {/* Base fill up to target (teal) */}
-        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${tgtPct}%`, background: 'rgba(45,212,168,0.20)' }} />
-        {/* Opportunity window above target (amber) */}
-        <div style={{ position: 'absolute', left: `${tgtPct}%`, width: `${Math.max(winPct, 0)}%`, top: 0, bottom: 0, background: 'rgba(212,160,60,0.18)' }} />
-        {/* Current value bar */}
-        <div style={{ position: 'absolute', left: `${curPct}%`, top: '-3px', bottom: '-3px', width: '2px', background: color }} />
-        {/* Target dashed marker */}
-        <div style={{ position: 'absolute', left: `${tgtPct}%`, top: 0, bottom: 0, width: '1px', borderLeft: '1px dashed rgba(232,226,217,0.25)' }}>
-          <span style={{ position: 'absolute', bottom: '100%', left: '3px', fontFamily: 'var(--font-mono)', fontSize: '0.55rem', color: 'rgba(232,226,217,0.30)', whiteSpace: 'nowrap' }}>
-            2027 target
-          </span>
+      {/* HERO METRIC */}
+      {sd != null && (
+        <div style={{ marginBottom: '4px' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+            <MetricTile
+              label="Battery competition vs balancing demand"
+              value={sd.toFixed(2)}
+              unit="×"
+              size="hero"
+              dataClass="derived"
+              sublabel="Below 1.0× means demand exceeds current fleet supply"
+            />
+            <StatusChip status={sdStatus(sd)} sentiment={sdSentiment(sd)} />
+          </div>
         </div>
-      </div>
-    </div>
-  );
-}
+      )}
 
-function colorAfrr(v: number | null | undefined): string {
-  if (v == null || !isFinite(v)) return text(0.3);
-  if (v > 15) return 'rgba(74, 124, 89, 0.9)';
-  if (v > 5)  return 'rgba(100, 160, 110, 0.75)';
-  return text(0.5);
-}
-
-function colorStress(v: number | null | undefined): string {
-  if (v == null || !isFinite(v)) return text(0.3);
-  if (v > 200) return 'rgba(74, 124, 89, 0.9)';
-  if (v > 100) return 'rgba(100, 160, 110, 0.75)';
-  return text(0.5);
-}
-
-interface LiveDataProps {
-  data: S2Signal; isDefault: boolean; isStale: boolean; ageHours: number | null; defaultReason: string | null; history: number[];
-}
-
-function phaseColor(phase: string | null | undefined): string {
-  if (phase === 'SCARCITY') return 'rgba(74,222,128,0.90)';
-  if (phase === 'COMPRESS')  return 'rgba(212,160,60,0.88)';
-  if (phase === 'MATURE')    return 'rgba(232,226,217,0.50)';
-  return 'rgba(232,226,217,0.45)';
-}
-
-function getPhaseProximity(sdRatio: number, phase: string | null, trajectory: TrajectoryPoint[] | null): string | null {
-  if (!trajectory || trajectory.length === 0) return null;
-  const currentYear = new Date().getFullYear();
-  const nextShift = trajectory.find(pt => pt.phase !== phase && pt.year > currentYear);
-  if (nextShift) {
-    const delta = Math.abs(nextShift.sd_ratio - sdRatio).toFixed(2);
-    return `${delta}× from ${nextShift.phase} (${nextShift.year} est.)`;
-  }
-  return null;
-}
-
-function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }: LiveDataProps) {
-  const [expandedFleet, setExpandedFleet] = useState<Set<string>>(new Set());
-  const ts = data.timestamp ?? null;
-  const sdRatio = data.sd_ratio ?? null;
-  const phase   = data.phase   ?? null;
-
-  function toggleEntry(key: string) {
-    setExpandedFleet(prev => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key); else next.add(key);
-      return next;
-    });
-  }
-
-  return (
-    <>
-      <StaleBanner isDefault={isDefault} isStale={isStale} ageHours={ageHours} defaultReason={defaultReason} />
-
-      {/* Optional Litgrid tomorrow ordered line */}
-      {(data.ordered_price != null || data.ordered_mw != null) && (
-        <p style={{ ...MONO, fontSize: '0.575rem', color: text(0.3), letterSpacing: '0.06em', marginBottom: '1rem' }}>
-          Tomorrow ordered{data.ordered_price != null ? ` ${data.ordered_price} €/MW/h` : ''}
-          {data.ordered_mw != null ? ` · ${data.ordered_mw} MW` : ''}
+      {/* INTERPRETATION — right after hero */}
+      {sd != null && (
+        <p style={{
+          fontFamily: 'var(--font-serif)',
+          fontSize: 'var(--font-sm)',
+          color: 'var(--text-secondary)',
+          lineHeight: 1.6,
+          margin: '12px 0 16px',
+        }}>
+          {sdInterpretation(sd)}
         </p>
       )}
 
-      {/* S/D Ratio section */}
-      {sdRatio != null && (
-        <div style={{ marginBottom: '1.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginBottom: '0.25rem' }}>
-            <p style={{ ...MONO, fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', fontWeight: 400, lineHeight: 1, letterSpacing: '0.04em', margin: 0, color: phaseColor(phase) }}>
-              {sdRatio.toFixed(2)}
-              <span style={{ fontSize: '0.38em', marginLeft: '0.2em', opacity: 0.6 }}>S/D</span>
-            </p>
-            <span style={{ ...MONO, fontSize: '0.65rem', color: phaseColor(phase), letterSpacing: '0.08em', fontWeight: 500 }}>
-              {phase}
-            </span>
-          </div>
-          {(() => {
-            const proximity = getPhaseProximity(sdRatio, phase, data.trajectory ?? null);
-            return proximity ? (
-              <p style={{ ...MONO, fontSize: '0.575rem', color: text(0.35), letterSpacing: '0.05em', marginBottom: '0.4rem' }}>
-                {proximity}
-              </p>
-            ) : null;
-          })()}
-          <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.3), letterSpacing: '0.06em', marginBottom: '0.65rem' }}>
-            {data.baltic_operational_mw != null ? `${data.baltic_operational_mw} MW op` : ''}
-            {data.baltic_pipeline_mw    != null ? ` · ${data.baltic_pipeline_mw} MW pipeline` : ''}
-            {data.eff_demand_mw         != null ? ` · ${data.eff_demand_mw} MW demand` : ''}
-          </p>
+      {/* REVENUE SUPPORT — two key metrics */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: '12px',
+        marginBottom: '16px',
+      }}>
+        <MetricTile
+          label="aFRR capacity reference"
+          value={data.afrr_up_avg != null ? safeNum(data.afrr_up_avg, 0) : '—'}
+          unit="€/MW/h"
+          size="standard"
+          dataClass="proxy"
+          sublabel="indicative annual reference, not clearing price"
+        />
+        <MetricTile
+          label="mFRR capacity reference"
+          value={data.mfrr_up_avg != null ? safeNum(data.mfrr_up_avg, 0) : '—'}
+          unit="€/MW/h"
+          size="standard"
+          dataClass="proxy"
+          sublabel="indicative annual reference, not clearing price"
+        />
+      </div>
 
-          {/* Trajectory bar */}
-          {data.trajectory && data.trajectory.length > 0 && (
-            <div style={{ marginBottom: '0.5rem' }}>
-              <div style={{ display: 'flex', gap: '2px', height: '16px' }}>
-                {data.trajectory.map(pt => (
+      {/* FLEET PRESSURE SUMMARY — compact */}
+      <div style={{
+        display: 'flex',
+        gap: '16px',
+        fontFamily: 'var(--font-mono)',
+        fontSize: 'var(--font-xs)',
+        color: 'var(--text-secondary)',
+        marginBottom: '16px',
+        flexWrap: 'wrap',
+      }}>
+        {opMw != null && <span>Operational: {opMw} MW</span>}
+        {pipeMw != null && (
+          <>
+            <span style={{ color: 'var(--text-muted)' }}>·</span>
+            <span>Pipeline: {pipeMw} MW</span>
+          </>
+        )}
+        {sd != null && trajectory && (
+          <>
+            <span style={{ color: 'var(--text-muted)' }}>·</span>
+            <span>Pressure: {pressureTrend(trajectory, sd)}</span>
+          </>
+        )}
+      </div>
+
+      {/* TRAJECTORY CHART — S/D ratio by year */}
+      {trajectory && trajectory.length > 0 && (
+        <div style={{ marginBottom: '16px' }}>
+          <div style={{ position: 'relative', height: '160px', display: 'flex', alignItems: 'flex-end', gap: '4px' }}>
+            {/* 1.0× threshold line */}
+            <div style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              bottom: `${Math.min((1.0 / Math.max(...trajectory.map(pt => pt.sd_ratio), 1.5)) * 100, 100)}%`,
+              borderTop: '1px dashed rgba(232,226,217,0.20)',
+              zIndex: 1,
+            }}>
+              <span style={{
+                position: 'absolute',
+                right: 0,
+                top: '-14px',
+                fontFamily: 'var(--font-mono)',
+                fontSize: 'var(--font-xs)',
+                color: 'var(--text-muted)',
+              }}>1.0×</span>
+            </div>
+            {trajectory.map(pt => {
+              const maxSd = Math.max(...trajectory.map(p => p.sd_ratio), 1.5);
+              const heightPct = (pt.sd_ratio / maxSd) * 100;
+              return (
+                <div key={pt.year} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end' }}>
+                  <span style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: 'var(--font-xs)',
+                    color: 'var(--text-muted)',
+                    marginBottom: '4px',
+                  }}>
+                    {pt.sd_ratio.toFixed(1)}
+                  </span>
+                  <div style={{
+                    width: '100%',
+                    height: `${heightPct}%`,
+                    background: trajectoryBarColor(pt.phase),
+                    borderRadius: '2px 2px 0 0',
+                    minHeight: '4px',
+                  }} />
+                  <span style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: 'var(--font-xs)',
+                    color: 'var(--text-muted)',
+                    marginTop: '4px',
+                  }}>
+                    {pt.year}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* IMPACT LINE */}
+      {sd != null && (
+        <div style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: 'var(--font-sm)',
+          color: 'rgba(0,180,160,0.75)',
+          marginBottom: '16px',
+        }}>
+          {sdImpactDesc(sd)}
+        </div>
+      )}
+
+      {/* SOURCE FOOTER */}
+      <SourceFooter
+        source="Baltic balancing references + fleet tracker"
+        updatedAt={data.timestamp ? new Date(data.timestamp).toLocaleString('en-GB', {
+          day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC',
+        }) : undefined}
+        dataClass="proxy"
+      />
+
+      {/* DETAILS DRAWER */}
+      <div style={{ marginTop: '16px' }}>
+        <DetailsDrawer label="Fleet list, price detail, and methodology">
+          {/* Full fleet list */}
+          {allEntries.length > 0 && (
+            <div style={{ marginBottom: '16px' }}>
+              <p style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 'var(--font-xs)',
+                color: 'var(--text-muted)',
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                marginBottom: '8px',
+              }}>
+                Baltic BESS fleet ({allEntries.length})
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {allEntries.map((e, i) => (
                   <div
-                    key={pt.year}
-                    title={`${pt.year}: ${pt.sd_ratio} (${pt.phase})`}
+                    key={e.id ?? `${e.name}-${i}`}
                     style={{
-                      flex: 1,
-                      background: phaseColor(pt.phase),
-                      opacity: 0.25 + (data.trajectory!.indexOf(pt) * 0.12),
-                      borderRadius: '1px',
+                      display: 'grid',
+                      gridTemplateColumns: '1fr auto auto auto',
+                      gap: '0 8px',
+                      alignItems: 'baseline',
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: 'var(--font-xs)',
                     }}
-                  />
+                  >
+                    <span style={{ color: 'var(--text-secondary)' }}>{e.name}</span>
+                    <span style={{ color: 'var(--text-muted)', textAlign: 'right' }}>{e.mw} MW</span>
+                    <span style={{
+                      color: (e.status === 'operational' || e.status === 'commissioned') ? 'rgba(0,180,160,0.75)' :
+                        e.status === 'under_construction' ? 'var(--amber)' : 'var(--text-muted)',
+                      textAlign: 'right',
+                      minWidth: '80px',
+                    }}>
+                      {e.status.replace(/_/g, ' ')}
+                    </span>
+                    <span style={{ color: 'var(--text-muted)', textAlign: 'right' }}>
+                      {e.cod ? `COD ${e.cod}` : ''}
+                      {e.country ? ` · ${e.country}` : ''}
+                    </span>
+                  </div>
                 ))}
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', ...MONO, fontSize: '0.45rem', color: text(0.25), marginTop: '3px' }}>
-                <span>{data.trajectory[0].year}</span>
-                <span>{data.trajectory[data.trajectory.length - 1].year} ({data.trajectory[data.trajectory.length - 1].phase})</span>
               </div>
             </div>
           )}
 
-          {/* Fleet entry list — expandable */}
-          {(() => {
-            const STATUS_ORDER: Record<string, number> = {
-              operational: 0, commissioned: 1, under_construction: 2,
-              connection_agreement: 3, application: 4,
-            };
-            const allEntries: FleetEntry[] = Object.values(data.fleet || {})
-              .flatMap((c: unknown) => ((c as FleetCountry)?.entries || []))
-              .sort((a, b) => (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9));
-            if (allEntries.length === 0) return null;
-            function entryColor(status: string): string {
-              if (status === 'operational' || status === 'commissioned') return 'var(--teal)';
-              if (status === 'under_construction') return 'rgba(245,158,11,0.85)';
-              return 'rgba(232,226,217,0.25)';
-            }
-            return (
-              <div style={{ marginTop: '0.75rem' }}>
-                <p style={{ ...MONO, fontSize: '0.45rem', color: text(0.2), letterSpacing: '0.10em', textTransform: 'uppercase', marginBottom: '6px' }}>
-                  Baltic BESS fleet ({allEntries.length})
-                </p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                  {allEntries.map((e, i) => {
-                    const entryKey = e.id ?? `${e.name}-${i}`;
-                    const isExpanded = expandedFleet.has(entryKey);
-                    const hasDetail = e.mwh != null || e.tso != null || e.cod != null;
-                    return (
-                      <div key={entryKey}>
-                        <div
-                          className={hasDetail ? 'fleet-entry' : undefined}
-                          onClick={hasDetail ? () => toggleEntry(entryKey) : undefined}
-                          style={{ display: 'grid', gridTemplateColumns: '1fr auto auto auto', gap: '0 8px', alignItems: 'baseline' }}
-                        >
-                          <span style={{ ...MONO, fontSize: '0.575rem', color: text(0.55) }}>
-                            {hasDetail && <span style={{ color: text(0.25), marginRight: '4px' }}>{isExpanded ? '▾' : '▸'}</span>}
-                            {e.name}
-                          </span>
-                          <span style={{ ...MONO, fontSize: '0.55rem', color: text(0.35), textAlign: 'right' }}>{e.mw} MW</span>
-                          <span style={{ ...MONO, fontSize: '0.5rem', color: entryColor(e.status), textAlign: 'right', minWidth: '80px' }}>
-                            {e.status.replace(/_/g, ' ')}
-                          </span>
-                        </div>
-                        {isExpanded && (
-                          <div style={{ ...MONO, fontSize: '0.5rem', color: text(0.38), paddingLeft: '12px', paddingTop: '2px', marginBottom: '2px', letterSpacing: '0.03em' }}>
-                            {e.mwh != null && `${e.mwh} MWh`}
-                            {e.mwh != null && e.mw ? ` · ${Math.round(e.mwh / e.mw)}h duration` : ''}
-                            {e.tso != null && ` · ${e.tso}`}
-                            {e.cod != null && ` · COD ${e.cod}`}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })()}
-        </div>
-      )}
-
-      {/* PRIMARY: aFRR and mFRR capacity revenue — shown separately, not summed */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: '0.4rem 1.25rem', marginBottom: '0.75rem', alignItems: 'center' }}>
-        <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase' }}>aFRR</p>
-        <p style={{ ...MONO, fontSize: 'clamp(1.2rem, 3vw, 1.8rem)', fontWeight: 400, color: data.unavailable ? text(0.1) : colorAfrr(data.afrr_up_avg), lineHeight: 1, letterSpacing: '0.02em', margin: 0 }}>
-          {data.unavailable ? '——' : fK(data.afrr_annual_per_mw_installed)}
-          <span style={{ fontSize: '0.45em', marginLeft: '0.15em', color: text(0.3) }}>/MW/yr</span>
-        </p>
-        <Sparkline values={history} color="#86efac" width={160} height={40} />
-
-        <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase' }}>mFRR</p>
-        <p style={{ ...MONO, fontSize: 'clamp(1.2rem, 3vw, 1.8rem)', fontWeight: 400, color: data.unavailable ? text(0.1) : colorAfrr(data.mfrr_up_avg), lineHeight: 1, letterSpacing: '0.02em', margin: 0 }}>
-          {data.unavailable ? '——' : fK(data.mfrr_annual_per_mw_installed)}
-          <span style={{ fontSize: '0.45em', marginLeft: '0.15em', color: text(0.3) }}>/MW/yr</span>
-        </p>
-        <span />
-      </div>
-      <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.06em', marginBottom: '1rem' }}>
-        Per MW installed power · 0.5 MW service (2 MW/MW prequalification) · theoretical max if fully allocated
-      </p>
-
-      {/* Revenue decay bars vs CH targets */}
-      <div style={{ marginTop: '16px' }}>
-        <DecayBar
-          label="aFRR up"
-          current={data.afrr_up_avg ?? 60}
-          target={20}
-          max={Math.max((data.afrr_up_avg ?? 60) * 1.2, 120)}
-          color="var(--teal)"
-        />
-        <DecayBar
-          label="mFRR up"
-          current={data.mfrr_up_avg ?? 80}
-          target={25}
-          max={Math.max((data.mfrr_up_avg ?? 80) * 1.2, 160)}
-          color="var(--teal)"
-        />
-      </div>
-
-      {/* P90 imbalance stress spike */}
-      {(data.stress_index_p90 ?? 0) > 0 && (
-        <div style={{ marginTop: '14px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'rgba(232,226,217,0.40)', marginBottom: '4px' }}>
-            <span>P90 imbalance spike</span>
-            <span style={{ color: 'var(--rose)' }}>{(data.stress_index_p90 ?? 0).toFixed(0)} €/MWh</span>
+          {/* aFRR / mFRR detail */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'auto 1fr',
+            gap: '6px 16px',
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-sm)',
+            marginBottom: '12px',
+          }}>
+            <span style={{ color: 'var(--text-muted)' }}>aFRR up</span>
+            <span style={{ color: 'var(--text-secondary)' }}>
+              {safeNum(data.afrr_up_avg, 1)} €/MW/h · CH 2027: €20 · CH 2028: €10
+            </span>
+            <span style={{ color: 'var(--text-muted)' }}>mFRR up</span>
+            <span style={{ color: 'var(--text-secondary)' }}>
+              {safeNum(data.mfrr_up_avg, 1)} €/MW/h · CH 2027: €20 · CH 2030: €11
+            </span>
+            {data.fcr_avg != null && (
+              <>
+                <span style={{ color: 'var(--text-muted)' }}>FCR</span>
+                <span style={{ color: 'var(--text-secondary)' }}>
+                  {safeNum(data.fcr_avg, 1)} €/MW/h · 25 MW total Baltic market
+                </span>
+              </>
+            )}
+            {data.stress_index_p90 != null && (data.stress_index_p90 > 0) && (
+              <>
+                <span style={{ color: 'var(--text-muted)' }}>P90 imbalance spike</span>
+                <span style={{ color: 'var(--rose)' }}>{safeNum(data.stress_index_p90, 0)} €/MWh</span>
+              </>
+            )}
           </div>
-          <svg width="100%" height="40" viewBox="0 0 200 40" preserveAspectRatio="none" style={{ display: 'block' }}>
-            <line x1="0" y1="32" x2="200" y2="32" stroke="rgba(232,226,217,0.07)" strokeWidth="0.5" />
-            <polyline points="0,32 70,32 100,6 130,32 200,32" fill="none" stroke="var(--rose)" strokeWidth="1.5" strokeLinejoin="round" />
-            <path d="M70,32 L100,6 L130,32 Z" fill="rgba(212,88,88,0.08)" />
-          </svg>
-        </div>
-      )}
 
-      {/* Interpretation */}
-      <p style={{ ...MONO, fontSize: '0.6rem', color: data.unavailable ? text(0.2) : text(0.52), lineHeight: 1.5, marginBottom: '1.5rem' }}>
-        {data.unavailable ? 'Interpretation unavailable — feed incomplete.' : (data.interpretation ?? '—')}
-      </p>
+          {/* Annual revenue estimates */}
+          {(data.afrr_annual_per_mw_installed != null || data.mfrr_annual_per_mw_installed != null) && (
+            <div style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 'var(--font-sm)',
+              color: 'var(--text-secondary)',
+              marginBottom: '12px',
+            }}>
+              {data.afrr_annual_per_mw_installed != null && (
+                <div>aFRR annual estimate: €{Math.round(data.afrr_annual_per_mw_installed / 1000)}k/MW/yr</div>
+              )}
+              {data.mfrr_annual_per_mw_installed != null && (
+                <div>mFRR annual estimate: €{Math.round(data.mfrr_annual_per_mw_installed / 1000)}k/MW/yr</div>
+              )}
+              <p style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '4px' }}>
+                Per MW installed · 0.5 MW service (2 MW/MW prequalification) · theoretical max if fully allocated
+              </p>
+            </div>
+          )}
 
-      <div style={{ ...DIVIDER, marginBottom: '1.25rem' }} />
-
-      {/* SECONDARY: spot rates + stress */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '0.4rem 1.25rem', marginBottom: '1rem', alignItems: 'baseline' }}>
-        <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase' }}>aFRR ↑</p>
-        <p style={{ ...MONO, fontSize: '0.6rem', color: colorAfrr(data.afrr_up_avg) }}>
-          {safeNum(data.afrr_up_avg, 1)} €/MW/h
-          <span style={{ color: text(0.40) }}> · CH 2027: €20 · CH 2028: €10</span>
-        </p>
-
-        <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase' }}>mFRR ↑</p>
-        <p style={{ ...MONO, fontSize: '0.6rem', color: colorAfrr(data.mfrr_up_avg) }}>
-          {safeNum(data.mfrr_up_avg, 1)} €/MW/h
-          <span style={{ color: text(0.40) }}> · CH 2027: €20 · CH 2030: €11</span>
-        </p>
-
-        <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase' }}>Sys stress P90</p>
-        <p style={{ ...MONO, fontSize: '0.6rem', color: colorStress(data.stress_index_p90) }}>
-          {safeNum(data.stress_index_p90, 1)} €/MWh
-        </p>
+          <p style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-xs)',
+            color: 'var(--text-muted)',
+            lineHeight: 1.6,
+          }}>
+            Capacity prices are Baltic-calibrated proxies based on AST Latvia reference data. Not observed clearing prices. Proxy flag applies until BTD measured data is uploaded.
+          </p>
+        </DetailsDrawer>
       </div>
-
-      {/* TERTIARY: FCR — muted, context only */}
-      <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.06em', marginBottom: '1.25rem' }}>
-        FCR {safeNum(data.fcr_avg, 1)} €/MW/h · market: 25 MW (all three Baltics) · saturating 2026
-      </p>
-
-      {/* Timestamp */}
-      <time dateTime={ts ?? ''} style={{ ...MONO, fontSize: '0.575rem', color: text(0.40), letterSpacing: '0.06em', display: 'block', textAlign: 'right' }}>
-        {ts ? formatTimestamp(ts) : '—'}
-        <StaleBanner isDefault={false} isStale={isStale} ageHours={ageHours} defaultReason={null} />
-      </time>
-
-      <CardFooter
-        period="D-1 capacity auction · 24h imbalance MTUs"
-        compare="aFRR vs CH 2027 target: €20/MW/h"
-        updated={`fetched ${formatHHMM(ts)} UTC`}
-        timestamp={ts}
-        isStale={isStale}
-        ageHours={ageHours}
-      />
-    </>
+    </article>
   );
 }

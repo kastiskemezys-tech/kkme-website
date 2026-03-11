@@ -47,11 +47,11 @@ export default function Home() {
           </div>
         </div>
 
-        {/* ═══ INVESTMENT SIGNALS ═══ */}
-        <div className="section" id="signals">
+        {/* ═══ REVENUE OPPORTUNITY ═══ */}
+        <div className="section" id="revenue-drivers">
           <div style={{ marginBottom: '32px' }}>
-            <h2 className="section-header" style={{ marginBottom: '6px' }}>Baltic Revenue Drivers</h2>
-            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.8125rem', color: 'var(--text-muted)', paddingLeft: '16px' }}>Capacity pricing and arbitrage — 86% of gross revenue</p>
+            <h2 className="section-header" style={{ marginBottom: '6px' }}>Revenue Opportunity</h2>
+            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.8125rem', color: 'var(--text-muted)', paddingLeft: '16px' }}>Baltic price spreads and balancing market support — the two signals that drive 80% of storage economics</p>
           </div>
           <div className="grid-2">
             <div className="card card-tier1">
