@@ -190,15 +190,7 @@ export function S2Card() {
           color: 'var(--text-secondary)',
           lineHeight: 1.6,
         }}>
-          Balancing revenue support vs battery fleet competition. The central question for storage economics.
-        </p>
-        <p style={{
-          fontFamily: 'var(--font-mono)',
-          fontSize: 'var(--font-xs)',
-          color: 'var(--text-tertiary)',
-          marginTop: '4px',
-        }}>
-          Baltic blended · LT-led signal depth
+          Battery fleet competition vs balancing demand — the supply/demand ratio that drives capacity pricing.
         </p>
       </div>
 
@@ -237,22 +229,22 @@ export function S2Card() {
         display: 'flex',
         gap: '16px',
         fontFamily: 'var(--font-mono)',
-        fontSize: 'var(--font-sm)',
-        color: 'var(--text-secondary)',
+        fontSize: 'var(--font-xs)',
+        color: 'var(--text-muted)',
         marginBottom: '16px',
         flexWrap: 'wrap',
       }}>
-        {opMw != null && <span>Operational: {opMw} MW</span>}
+        {opMw != null && <span>{opMw} MW operational</span>}
         {pipeMw != null && (
           <>
-            <span style={{ color: 'var(--text-muted)' }}>·</span>
-            <span>Pipeline: {pipeMw} MW</span>
+            <span>·</span>
+            <span>{pipeMw} MW pipeline</span>
           </>
         )}
         {sd != null && trajectory && (
           <>
-            <span style={{ color: 'var(--text-muted)' }}>·</span>
-            <span>Pressure: {pressureTrend(trajectory, sd)}</span>
+            <span>·</span>
+            <span>Pressure {pressureTrend(trajectory, sd).toLowerCase()}</span>
           </>
         )}
       </div>
@@ -312,7 +304,7 @@ export function S2Card() {
                       fontFamily: 'var(--font-mono)',
                       fontSize: 'var(--font-xs)',
                       color: 'var(--text-muted)',
-                      opacity: 0.7,
+                      opacity: 0.5,
                       marginTop: '1px',
                     }}>
                       {pt.cpi.toFixed(2)}
@@ -328,7 +320,7 @@ export function S2Card() {
             color: 'var(--text-muted)',
             textAlign: 'right',
             marginTop: '1px',
-            opacity: 0.6,
+            opacity: 0.45,
           }}>
             CPI (modeled)
           </div>
@@ -341,8 +333,8 @@ export function S2Card() {
         const pt29 = trajectory.find(p => p.year === 2029);
         if (!pt27 && !pt29) return null;
         const parts: string[] = [];
-        if (pt27) parts.push(`2027 COD enters at ${pt27.sd_ratio.toFixed(2)}× S/D${pt27.cpi != null ? ` (CPI ${pt27.cpi.toFixed(2)})` : ''}`);
-        if (pt29) parts.push(`2029 at ${pt29.sd_ratio.toFixed(2)}×${pt29.cpi != null ? ` (CPI floor ${pt29.cpi.toFixed(2)})` : ''}`);
+        if (pt27) parts.push(`2027 COD: ${pt27.sd_ratio.toFixed(2)}× S/D${pt27.cpi != null ? `, CPI ${pt27.cpi.toFixed(2)}` : ''}`);
+        if (pt29) parts.push(`2029: ${pt29.sd_ratio.toFixed(2)}×${pt29.cpi != null ? `, CPI floor ${pt29.cpi.toFixed(2)}` : ''}`);
         return (
           <p style={{
             fontFamily: 'var(--font-mono)',
@@ -351,7 +343,7 @@ export function S2Card() {
             lineHeight: 1.5,
             marginBottom: '12px',
           }}>
-            {parts.join('; ')} — later COD faces a structurally lower capacity-price environment.
+            {parts.join(' · ')} — later COD = lower capacity-price environment.
           </p>
         );
       })()}
