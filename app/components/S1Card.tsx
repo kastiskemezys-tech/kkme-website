@@ -28,9 +28,9 @@ function spreadStatus(spread: number): string {
 }
 
 function spreadInterpretation(spread: number): string {
-  if (spread < 0) return 'Baltic prices are currently below neighboring markets. Arbitrage conditions are not supportive.';
-  if (spread < 5) return 'Spreads are narrow. Arbitrage exists but contributes modestly to storage economics.';
-  if (spread < 15) return 'Moderate price separation. Day-ahead arbitrage provides meaningful but not exceptional revenue support.';
+  if (spread < 0) return 'Baltic prices are below neighboring markets. Arbitrage is not supportive at current levels.';
+  if (spread < 5) return 'Narrow spreads. Arbitrage contributes modestly to storage economics.';
+  if (spread < 15) return 'Moderate price separation. Day-ahead arbitrage provides meaningful revenue support.';
   return 'Wide Baltic price separation. Arbitrage is a significant contributor to storage revenues.';
 }
 
@@ -115,12 +115,12 @@ export function S1Card() {
           color: 'var(--text-secondary)',
           lineHeight: 1.6,
         }}>
-          How far Baltic day-ahead prices diverge from nearby markets. Wider spreads improve storage arbitrage economics.
+          How far Baltic day-ahead prices diverge from neighboring markets. Wider spreads mean better arbitrage economics for storage.
         </p>
         <p style={{
           fontFamily: 'var(--font-mono)',
           fontSize: 'var(--font-xs)',
-          color: 'var(--text-muted)',
+          color: 'var(--text-tertiary)',
           marginTop: '4px',
         }}>
           Lithuania-led · ENTSO-E day-ahead data
@@ -163,48 +163,6 @@ export function S1Card() {
         </div>
       )}
 
-      {/* SUPPORTING METRICS — 3 in a row */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr 1fr',
-        gap: '12px',
-        marginBottom: '16px',
-      }}>
-        <MetricTile
-          label="Battery arbitrage capture"
-          value={data.bess_net_capture != null ? safeNum(data.bess_net_capture, 1) : '—'}
-          unit="€/MWh"
-          size="compact"
-          dataClass="derived"
-          sublabel="top-4h vs bottom-4h, net of efficiency"
-        />
-        <MetricTile
-          label={daysOfData >= 90 ? '90-day median spread' : daysOfData > 0 ? `${daysOfData}-day median` : 'Median spread'}
-          value={spreadP50 != null ? `${spreadP50 >= 0 ? '+' : ''}${safeNum(spreadP50, 1)}` : '—'}
-          unit="€/MWh"
-          size="compact"
-          dataClass="derived"
-          sublabel="recent baseline for comparison"
-        />
-        {percentileLabel ? (
-          <MetricTile
-            label="Spread percentile"
-            value={percentileLabel}
-            size="compact"
-            dataClass="derived"
-            sublabel="vs last 30 days"
-          />
-        ) : (
-          <MetricTile
-            label="Hours above 20% spread"
-            value={data.pct_hours_above_20 != null ? `${safeNum(data.pct_hours_above_20, 1)}%` : '—'}
-            size="compact"
-            dataClass="derived"
-            sublabel="30-day capture frequency"
-          />
-        )}
-      </div>
-
       {/* INTERPRETATION */}
       <p style={{
         fontFamily: 'var(--font-serif)',
@@ -237,7 +195,60 @@ export function S1Card() {
 
       {/* DETAILS DRAWER */}
       <div style={{ marginTop: '16px' }}>
-        <DetailsDrawer label="Price breakdown and methodology">
+        <DetailsDrawer label="Signal detail and methodology">
+          {/* Supporting metrics */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr 1fr',
+            gap: '12px',
+            marginBottom: '16px',
+          }}>
+            <MetricTile
+              label="Battery arbitrage capture"
+              value={data.bess_net_capture != null ? safeNum(data.bess_net_capture, 1) : '—'}
+              unit="€/MWh"
+              size="compact"
+              dataClass="derived"
+              sublabel="net of round-trip efficiency"
+            />
+            <MetricTile
+              label={daysOfData >= 90 ? '90-day median spread' : daysOfData > 0 ? `${daysOfData}-day median` : 'Median spread'}
+              value={spreadP50 != null ? `${spreadP50 >= 0 ? '+' : ''}${safeNum(spreadP50, 1)}` : '—'}
+              unit="€/MWh"
+              size="compact"
+              dataClass="derived"
+              sublabel="rolling baseline"
+            />
+            {percentileLabel ? (
+              <MetricTile
+                label="Spread percentile"
+                value={percentileLabel}
+                size="compact"
+                dataClass="derived"
+                sublabel="vs last 30 days"
+              />
+            ) : (
+              <MetricTile
+                label="Hours above 20% spread"
+                value={data.pct_hours_above_20 != null ? `${safeNum(data.pct_hours_above_20, 1)}%` : '—'}
+                size="compact"
+                dataClass="derived"
+                sublabel="capture frequency"
+              />
+            )}
+          </div>
+
+          {/* Price breakdown */}
+          <p style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-xs)',
+            color: 'var(--text-muted)',
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            marginBottom: '8px',
+          }}>
+            Price breakdown
+          </p>
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'auto 1fr',
@@ -286,13 +297,24 @@ export function S1Card() {
             </div>
           )}
 
+          {/* Methodology */}
+          <p style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-xs)',
+            color: 'var(--text-muted)',
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            marginBottom: '6px',
+          }}>
+            Methodology
+          </p>
           <p style={{
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-xs)',
             color: 'var(--text-muted)',
             lineHeight: 1.6,
           }}>
-            This metric is a day-ahead directional estimate. Realised arbitrage depends on intraday conditions, battery efficiency, and market access.
+            Day-ahead directional estimate. Realised arbitrage depends on intraday conditions, efficiency, and market access.
           </p>
         </DetailsDrawer>
       </div>

@@ -2,11 +2,30 @@
 import { useState, useEffect } from 'react';
 import SignalBar from './SignalBar';
 
+const NAV_LINKS = [
+  { label: 'Signals', href: '#revenue-drivers' },
+  { label: 'Build',   href: '#build' },
+  { label: 'Context', href: '#context' },
+  { label: 'Intel',   href: '#intel' },
+  { label: 'Contact', href: '#deal-flow' },
+];
+
+function scrollTo(id: string) {
+  document.querySelector(id)?.scrollIntoView({ behavior: 'smooth' });
+}
+
 export default function StickyNav() {
   const [show, setShow] = useState(false);
+  const [visibleLinks, setVisibleLinks] = useState(NAV_LINKS);
+
   useEffect(() => {
     const h = () => setShow(window.scrollY > 300);
     window.addEventListener('scroll', h, { passive: true });
+
+    // Only show links whose target exists on the page
+    const existing = NAV_LINKS.filter(l => document.querySelector(l.href));
+    setVisibleLinks(existing.length > 0 ? existing : NAV_LINKS);
+
     return () => window.removeEventListener('scroll', h);
   }, []);
 
@@ -33,32 +52,36 @@ export default function StickyNav() {
           color: 'var(--text-primary)',
         }}>KKME</span>
         <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-          {[
-            { label: 'Signals', href: '#signals' },
-            { label: 'Build',   href: '#build' },
-            { label: 'Intel',   href: '#intel' },
-            { label: 'Contact', href: '#deal-flow' },
-          ].map(l => (
-            <a key={l.href} href={l.href} style={{
+          {visibleLinks.map(l => (
+            <a
+              key={l.href}
+              href={l.href}
+              onClick={(e) => { e.preventDefault(); scrollTo(l.href); }}
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.8125rem',
+                color: 'var(--text-tertiary)',
+                textDecoration: 'none',
+                letterSpacing: '0.04em',
+              }}
+            >{l.label}</a>
+          ))}
+          <a
+            href="#deal-flow"
+            onClick={(e) => { e.preventDefault(); scrollTo('#deal-flow'); }}
+            style={{
+              padding: '5px 16px',
               fontFamily: 'var(--font-mono)',
               fontSize: '0.8125rem',
+              background: 'transparent',
+              border: '1px solid var(--border-card)',
               color: 'var(--text-tertiary)',
               textDecoration: 'none',
               letterSpacing: '0.04em',
-            }}>{l.label}</a>
-          ))}
-          <a href="#deal-flow" style={{
-            padding: '5px 16px',
-            fontFamily: 'var(--font-mono)',
-            fontSize: '0.8125rem',
-            background: 'rgba(212,160,60,0.08)',
-            border: '1px solid rgba(212,160,60,0.20)',
-            color: 'var(--amber)',
-            textDecoration: 'none',
-            letterSpacing: '0.04em',
-            marginLeft: '20px',
-            borderRadius: '2px',
-          }}>Submit Project</a>
+              marginLeft: '20px',
+              borderRadius: '2px',
+            }}
+          >Get in touch</a>
         </div>
       </nav>
       <SignalBar />

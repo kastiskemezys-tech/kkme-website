@@ -85,10 +85,10 @@ function sdStatus(sd: number): string {
 }
 
 function sdInterpretation(sd: number): string {
-  if (sd < 0.5) return 'Limited battery fleet leaves strong revenue support from balancing markets.';
-  if (sd < 0.7) return 'Competition is building but balancing demand still exceeds fleet supply. Revenue support remains, with compression risk on the horizon.';
-  if (sd < 0.9) return 'Battery fleet is catching up with system needs. Revenue quality depends on product mix and market access.';
-  return 'Fleet supply matches or exceeds estimated demand. Balancing revenues are under compression pressure.';
+  if (sd < 0.5) return 'Fleet supply covers less than half of balancing demand. Revenue conditions are strongly supportive.';
+  if (sd < 0.7) return 'Competition is building but demand still exceeds fleet supply. Revenue support holds, with compression risk ahead.';
+  if (sd < 0.9) return 'Battery fleet is approaching system demand. Revenue quality depends on product mix and market access.';
+  return 'Fleet supply meets or exceeds demand. Balancing revenues are under compression pressure.';
 }
 
 function sdImpact(sd: number): ImpactState {
@@ -179,12 +179,12 @@ export function S2Card() {
           color: 'var(--text-secondary)',
           lineHeight: 1.6,
         }}>
-          Whether reserve and balancing markets support storage revenues, and how fast battery competition is compressing them.
+          How much balancing revenue remains as battery competition grows. The key question for storage economics.
         </p>
         <p style={{
           fontFamily: 'var(--font-mono)',
           fontSize: 'var(--font-xs)',
-          color: 'var(--text-muted)',
+          color: 'var(--text-tertiary)',
           marginTop: '4px',
         }}>
           Baltic blended · LT-led signal depth
@@ -201,7 +201,7 @@ export function S2Card() {
               unit="×"
               size="hero"
               dataClass="derived"
-              sublabel="Below 1.0× means demand exceeds current fleet supply"
+              sublabel="below 1.0× = demand exceeds fleet supply"
             />
             <StatusChip status={sdStatus(sd)} sentiment={sdSentiment(sd)} />
           </div>
@@ -221,37 +221,12 @@ export function S2Card() {
         </p>
       )}
 
-      {/* REVENUE SUPPORT — two key metrics */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gap: '12px',
-        marginBottom: '16px',
-      }}>
-        <MetricTile
-          label="aFRR capacity reference"
-          value={data.afrr_up_avg != null ? safeNum(data.afrr_up_avg, 0) : '—'}
-          unit="€/MW/h"
-          size="standard"
-          dataClass="proxy"
-          sublabel="indicative annual reference, not clearing price"
-        />
-        <MetricTile
-          label="mFRR capacity reference"
-          value={data.mfrr_up_avg != null ? safeNum(data.mfrr_up_avg, 0) : '—'}
-          unit="€/MW/h"
-          size="standard"
-          dataClass="proxy"
-          sublabel="indicative annual reference, not clearing price"
-        />
-      </div>
-
       {/* FLEET PRESSURE SUMMARY — compact */}
       <div style={{
         display: 'flex',
         gap: '16px',
         fontFamily: 'var(--font-mono)',
-        fontSize: 'var(--font-xs)',
+        fontSize: 'var(--font-sm)',
         color: 'var(--text-secondary)',
         marginBottom: '16px',
         flexWrap: 'wrap',
@@ -297,7 +272,7 @@ export function S2Card() {
               const maxSd = Math.max(...trajectory.map(p => p.sd_ratio), 1.5);
               const heightPct = (pt.sd_ratio / maxSd) * 100;
               return (
-                <div key={pt.year} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end' }}>
+                <div key={pt.year} title={`${pt.year}: S/D ${pt.sd_ratio.toFixed(2)}× · ${pt.phase}`} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end' }}>
                   <span style={{
                     fontFamily: 'var(--font-mono)',
                     fontSize: 'var(--font-xs)',
@@ -351,8 +326,33 @@ export function S2Card() {
 
       {/* DETAILS DRAWER */}
       <div style={{ marginTop: '16px' }}>
-        <DetailsDrawer label="Fleet list, price detail, and methodology">
-          {/* Full fleet list */}
+        <DetailsDrawer label="Signal detail and methodology">
+          {/* Supporting metrics */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: '12px',
+            marginBottom: '16px',
+          }}>
+            <MetricTile
+              label="aFRR capacity reference"
+              value={data.afrr_up_avg != null ? safeNum(data.afrr_up_avg, 0) : '—'}
+              unit="€/MW/h"
+              size="standard"
+              dataClass="proxy"
+              sublabel="Baltic proxy, not clearing price"
+            />
+            <MetricTile
+              label="mFRR capacity reference"
+              value={data.mfrr_up_avg != null ? safeNum(data.mfrr_up_avg, 0) : '—'}
+              unit="€/MW/h"
+              size="standard"
+              dataClass="proxy"
+              sublabel="Baltic proxy, not clearing price"
+            />
+          </div>
+
+          {/* Fleet composition */}
           {allEntries.length > 0 && (
             <div style={{ marginBottom: '16px' }}>
               <p style={{
@@ -398,7 +398,17 @@ export function S2Card() {
             </div>
           )}
 
-          {/* aFRR / mFRR detail */}
+          {/* Price detail */}
+          <p style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-xs)',
+            color: 'var(--text-muted)',
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            marginBottom: '8px',
+          }}>
+            Price detail
+          </p>
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'auto 1fr',
@@ -451,13 +461,24 @@ export function S2Card() {
             </div>
           )}
 
+          {/* Methodology */}
+          <p style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-xs)',
+            color: 'var(--text-muted)',
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            marginBottom: '6px',
+          }}>
+            Methodology
+          </p>
           <p style={{
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-xs)',
             color: 'var(--text-muted)',
             lineHeight: 1.6,
           }}>
-            Capacity prices are Baltic-calibrated proxies based on AST Latvia reference data. Not observed clearing prices. Proxy flag applies until BTD measured data is uploaded.
+            Baltic-calibrated proxies from AST Latvia reference data. Not observed clearing prices. Proxy flag applies until BTD measured data.
           </p>
         </DetailsDrawer>
       </div>
