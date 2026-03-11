@@ -433,7 +433,7 @@ export function RevenueCard() {
             <div>
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>EBITDA/MW/yr</span>
               <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1rem', color: 'var(--text-primary)', marginTop: '2px' }}>
-                {data2h.net_mw_yr != null ? fmtEuro(data2h.net_mw_yr) : '—'}
+                {data2h.ebitda_y1 != null ? fmtEuro(Math.round(data2h.ebitda_y1 / 50)) : '—'}
               </p>
             </div>
             <div>
@@ -472,7 +472,7 @@ export function RevenueCard() {
             <div>
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>EBITDA/MW/yr</span>
               <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1rem', color: 'var(--text-primary)', marginTop: '2px' }}>
-                {data4h?.net_mw_yr != null ? fmtEuro(data4h.net_mw_yr) : '—'}
+                {data4h?.ebitda_y1 != null ? fmtEuro(Math.round(data4h.ebitda_y1 / 50)) : '—'}
               </p>
             </div>
             <div>
