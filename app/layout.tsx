@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Cormorant, DM_Mono, Unbounded } from "next/font/google";
 import { SmoothScroll } from "./providers";
+import { ClarityScript } from "@/app/components/ClarityScript";
 import "./globals.css";
 
 const cormorant = Cormorant({
@@ -67,6 +68,7 @@ export default function RootLayout({
         />
         <SmoothScroll />
         {children}
+        <ClarityScript />
       </body>
     </html>
   );
