@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import SignalBar from './SignalBar';
+import { ThemeToggle } from './ThemeToggle';
 
 const NAV_LINKS = [
   { label: 'Signals',   href: '#revenue-drivers' },
@@ -44,9 +45,9 @@ export default function StickyNav() {
         justifyContent: 'space-between',
         alignItems: 'center',
         padding: '10px 24px',
-        background: 'rgba(7,7,10,0.92)',
+        background: 'var(--overlay-heavy)',
         backdropFilter: 'blur(12px)',
-        borderBottom: '1px solid rgba(232,226,217,0.06)',
+        borderBottom: '1px solid var(--border-subtle)',
       }}>
         <span style={{
           fontFamily: 'var(--font-display)',
@@ -74,6 +75,7 @@ export default function StickyNav() {
               onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-secondary)')}
             >{l.label}</a>
           ))}
+          <ThemeToggle />
           <a
             href="#conversation"
             onClick={(e) => { e.preventDefault(); scrollTo('#conversation'); }}
@@ -117,9 +119,9 @@ export default function StickyNav() {
           display: 'none',
           flexDirection: 'column',
           gap: '0',
-          background: 'rgba(7,7,10,0.96)',
+          background: 'var(--overlay-heavy)',
           backdropFilter: 'blur(12px)',
-          borderBottom: '1px solid rgba(232,226,217,0.06)',
+          borderBottom: '1px solid var(--border-subtle)',
           padding: '8px 0',
         }}>
           {visibleLinks.map(l => (
@@ -137,6 +139,10 @@ export default function StickyNav() {
               }}
             >{l.label}</a>
           ))}
+          <div style={{ padding: '10px 24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <ThemeToggle />
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>Theme</span>
+          </div>
           <a
             href="#conversation"
             onClick={(e) => { e.preventDefault(); scrollTo('#conversation'); setMenuOpen(false); }}

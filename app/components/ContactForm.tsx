@@ -16,7 +16,7 @@ const TYPE_OPTIONS: { value: ContactType; label: string }[] = [
 const fieldStyle = {
   width: '100%',
   padding: '10px 12px',
-  background: 'rgba(232,226,217,0.03)',
+  background: 'var(--bg-card)',
   border: '1px solid var(--border-card)',
   borderRadius: '2px',
   color: 'var(--text-primary)',
@@ -232,8 +232,8 @@ export function ContactForm() {
           disabled={status === 'sending'}
           style={{
             padding: '11px 28px',
-            background: 'rgba(0,180,160,0.10)',
-            border: '1px solid rgba(0,180,160,0.30)',
+            background: 'var(--teal-bg)',
+            border: '1px solid var(--teal-subtle)',
             borderRadius: '2px',
             color: 'var(--teal)',
             fontFamily: 'var(--font-mono)',

@@ -2,8 +2,6 @@
 
 import React from 'react';
 
-const text = (opacity: number) => `rgba(232, 226, 217, ${opacity})`;
-
 interface Props {
   children: React.ReactNode;
 }
@@ -31,7 +29,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
       return (
         <article
           style={{
-            border: `1px solid ${text(0.1)}`,
+            border: '1px solid var(--border-card)',
             padding: '2rem 2.5rem',
             maxWidth: '440px',
             width: '100%',
@@ -42,7 +40,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
               fontFamily: 'var(--font-mono)',
               fontSize: '0.625rem',
               letterSpacing: '0.14em',
-              color: text(0.25),
+              color: 'var(--text-muted)',
               textTransform: 'uppercase',
             }}
           >

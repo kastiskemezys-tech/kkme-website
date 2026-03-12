@@ -119,7 +119,7 @@ function Pill({ label, active, onClick }: { label: string; active: boolean; onCl
         letterSpacing: '0.05em',
         padding: '3px 10px',
         border: `1px solid ${active ? 'rgba(0,180,160,0.40)' : 'var(--border-card)'}`,
-        background: active ? 'rgba(0,180,160,0.06)' : 'transparent',
+        background: active ? 'var(--teal-bg)' : 'transparent',
         color: active ? 'var(--teal)' : 'var(--text-muted)',
         cursor: 'pointer',
         transition: 'all 150ms ease',
@@ -461,7 +461,7 @@ export function RevenueCard() {
         <div style={{
           padding: '16px',
           border: `1px solid ${duration === '2h' ? 'var(--border-highlight)' : 'var(--border-card)'}`,
-          borderLeft: duration === '2h' ? '2px solid rgba(0,180,160,0.30)' : undefined,
+          borderLeft: duration === '2h' ? '2px solid var(--teal-subtle)' : undefined,
           background: duration === '2h' ? 'var(--bg-elevated)' : 'transparent',
           opacity: duration === '2h' ? 1 : 0.65,
           transition: 'opacity 150ms ease, border 150ms ease, background 150ms ease',
@@ -503,7 +503,7 @@ export function RevenueCard() {
         <div style={{
           padding: '16px',
           border: `1px solid ${duration === '4h' ? 'var(--border-highlight)' : 'var(--border-card)'}`,
-          borderLeft: duration === '4h' ? '2px solid rgba(0,180,160,0.30)' : undefined,
+          borderLeft: duration === '4h' ? '2px solid var(--teal-subtle)' : undefined,
           background: duration === '4h' ? 'var(--bg-elevated)' : 'transparent',
           opacity: duration === '4h' ? 1 : 0.65,
           transition: 'opacity 150ms ease, border 150ms ease, background 150ms ease',
@@ -644,9 +644,9 @@ export function RevenueCard() {
                       {(['mid', 'high'] as const).map(cx => {
                         const irr = matrixData[`${yr}_${cx}`] ?? null;
                         const isSelected = yr === cod && cx === capex;
-                        const bg = irr != null && irr > 12 ? 'rgba(0,180,160,0.08)'
-                          : irr != null && irr > 8 ? 'rgba(212,160,60,0.08)'
-                          : irr != null ? 'rgba(214,88,88,0.08)' : 'transparent';
+                        const bg = irr != null && irr > 12 ? 'var(--teal-bg)'
+                          : irr != null && irr > 8 ? 'var(--amber-bg)'
+                          : irr != null ? 'var(--rose-bg)' : 'transparent';
                         return (
                           <div key={cx} style={{
                             textAlign: 'center', padding: '8px', background: bg,

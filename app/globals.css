@@ -10,8 +10,6 @@
   --font-mono: var(--font-dm-mono), 'DM Mono', monospace;
   --font-display: var(--font-unbounded), 'Unbounded', sans-serif;
 
-  /* Legacy type scale — REMOVED (use --font-xs through --font-2xl) */
-
   /* Opacity scale */
   --opacity-primary:   0.92;
   --opacity-secondary: 0.65;
@@ -46,6 +44,42 @@
   --border-highlight: rgba(232, 226, 217, 0.20);
   --border-subtle:  rgba(232, 226, 217, 0.07);
 
+  /* Overlay */
+  --overlay-heavy: rgba(7, 7, 10, 0.95);
+
+  /* Accent alpha variants — teal */
+  --teal-strong: rgba(0, 180, 160, 0.75);
+  --teal-medium: rgba(0, 180, 160, 0.65);
+  --teal-subtle: rgba(0, 180, 160, 0.30);
+  --teal-bg:     rgba(0, 180, 160, 0.08);
+
+  /* Accent alpha variants — amber */
+  --amber-strong: rgba(212, 160, 60, 0.75);
+  --amber-subtle: rgba(212, 160, 60, 0.30);
+  --amber-bg:     rgba(212, 160, 60, 0.06);
+
+  /* Accent alpha variants — rose */
+  --rose-strong: rgba(214, 88, 88, 0.75);
+  --rose-bg:     rgba(214, 88, 88, 0.08);
+
+  /* Chart chrome */
+  --chart-grid:  rgba(232, 226, 217, 0.12);
+  --chart-label: rgba(232, 226, 217, 0.55);
+  --chart-tick:  rgba(232, 226, 217, 0.18);
+  --chart-bar:   rgba(232, 226, 217, 0.62);
+
+  /* Map */
+  --map-bg: rgba(7, 7, 10, 0.85);
+
+  /* Signal state colors (used by signalColor utility) */
+  --signal-positive: rgba(86, 166, 110, 0.88);
+  --signal-warning:  rgba(204, 160, 72, 0.82);
+  --signal-negative: rgba(214, 88, 88, 0.88);
+  --signal-neutral:  rgba(232, 226, 217, 0.72);
+
+  /* Section elevated surface */
+  --bg-section-elevated: rgba(232, 226, 217, 0.012);
+
   /* Type scale */
   --font-xs:   0.6875rem;
   --font-sm:   0.8125rem;
@@ -60,6 +94,80 @@
   --space-md: 16px;
   --space-lg: 24px;
   --space-xl: 48px;
+}
+
+/* ════════════════════════════════════════════
+   LIGHT THEME
+   ════════════════════════════════════════════ */
+
+[data-theme="light"] {
+  --bg: #f5f2ed;
+  --bg-page: #f5f2ed;
+  --text: #1a1a1f;
+  --white: #1a1a1f;
+
+  --text-primary:   rgba(26, 26, 31, 0.92);
+  --text-secondary: rgba(26, 26, 31, 0.65);
+  --text-tertiary:  rgba(26, 26, 31, 0.50);
+  --text-muted:     rgba(26, 26, 31, 0.45);
+  --text-faint:     rgba(26, 26, 31, 0.30);
+  --text-ghost:     rgba(26, 26, 31, 0.15);
+
+  --bg-card:           rgba(26, 26, 31, 0.03);
+  --bg-card-highlight: rgba(26, 26, 31, 0.06);
+  --bg-elevated:       rgba(26, 26, 31, 0.02);
+
+  --border-card:      rgba(26, 26, 31, 0.10);
+  --border-highlight: rgba(26, 26, 31, 0.18);
+  --border-subtle:    rgba(26, 26, 31, 0.06);
+
+  --teal:   #1a9e84;
+  --green:  #3d8a55;
+  --amber:  #a67d2e;
+  --rose:   #dc3535;
+  --red:    #c04848;
+  --blue:   #3a6499;
+  --violet: #6b4f94;
+  --purple: #6b4f94;
+  --accent: #6b4f94;
+  --accent-purple: #6b4f94;
+  --accent-green:  #2d9a5e;
+
+  --overlay-heavy: rgba(245, 242, 237, 0.95);
+
+  --teal-strong: rgba(26, 158, 132, 0.80);
+  --teal-medium: rgba(26, 158, 132, 0.70);
+  --teal-subtle: rgba(26, 158, 132, 0.25);
+  --teal-bg:     rgba(26, 158, 132, 0.06);
+
+  --amber-strong: rgba(166, 125, 46, 0.80);
+  --amber-subtle: rgba(166, 125, 46, 0.25);
+  --amber-bg:     rgba(166, 125, 46, 0.04);
+
+  --rose-strong: rgba(192, 72, 72, 0.80);
+  --rose-bg:     rgba(192, 72, 72, 0.06);
+
+  --chart-grid:  rgba(26, 26, 31, 0.10);
+  --chart-label: rgba(26, 26, 31, 0.50);
+  --chart-tick:  rgba(26, 26, 31, 0.14);
+  --chart-bar:   rgba(26, 26, 31, 0.55);
+
+  --map-bg: rgba(245, 242, 237, 0.90);
+
+  --signal-positive: rgba(61, 138, 85, 0.90);
+  --signal-warning:  rgba(166, 125, 46, 0.85);
+  --signal-negative: rgba(192, 72, 72, 0.90);
+  --signal-neutral:  rgba(26, 26, 31, 0.65);
+
+  --bg-section-elevated: rgba(26, 26, 31, 0.02);
+
+  color-scheme: light;
+}
+
+[data-theme="light"] body::before {
+  background-image:
+    linear-gradient(rgba(107, 79, 148, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(107, 79, 148, 0.04) 1px, transparent 1px);
 }
 
 @theme inline {
@@ -78,6 +186,10 @@
 
 html {
   color-scheme: dark;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
 }
 
 body {
@@ -116,6 +228,17 @@ body::after {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23noise)' opacity='0.06'/%3E%3C/svg%3E");
   background-repeat: repeat;
   background-size: 200px 200px;
+}
+
+/* ── Theme transitions ────────────────────────────────────────────────────── */
+body,
+.card,
+.card-tier1,
+.card-tier3,
+.section-elevated,
+.signal-card,
+.inline-cta a {
+  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
 }
 
 /* ── Minimum contrast enforcement ─────────────────────────────────────────── */
@@ -159,9 +282,9 @@ body::after {
 
 .skeleton {
   background: linear-gradient(90deg,
-    rgba(232,226,217,0.04) 25%,
-    rgba(232,226,217,0.10) 50%,
-    rgba(232,226,217,0.04) 75%);
+    var(--bg-elevated) 25%,
+    var(--border-card) 50%,
+    var(--bg-elevated) 75%);
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.8s ease-in-out infinite;
   border-radius: 2px;
@@ -185,8 +308,8 @@ body::after {
   overflow: hidden !important;
 }
 .signal-card:hover {
-  border-color: rgba(232,226,217,0.20) !important;
-  background: rgba(232,226,217,0.015) !important;
+  border-color: var(--border-highlight) !important;
+  background: var(--bg-card) !important;
 }
 
 /* LIVE badge pulse */
@@ -255,9 +378,9 @@ body::after {
   margin-left: -32px;
   margin-right: -32px;
   padding: 64px 32px;
-  background: rgba(232, 226, 217, 0.012);
-  border-top: 1px solid rgba(232, 226, 217, 0.04);
-  border-bottom: 1px solid rgba(232, 226, 217, 0.04);
+  background: var(--bg-section-elevated);
+  border-top: 1px solid var(--bg-elevated);
+  border-bottom: 1px solid var(--bg-elevated);
   margin-bottom: 96px;
 }
 
@@ -288,7 +411,7 @@ body::after {
    ════════════════════════════════════════════ */
 
 .card {
-  background: rgba(232, 226, 217, 0.018);
+  background: var(--bg-card);
   border: 1px solid var(--border-card);
   border-radius: 4px;
   padding: 28px;
@@ -296,13 +419,13 @@ body::after {
 }
 
 .card-tier1 {
-  background: rgba(232, 226, 217, 0.038);
+  background: var(--bg-card-highlight);
   border-color: var(--border-highlight);
 }
 
 .card-tier3 {
-  background: rgba(232, 226, 217, 0.015);
-  border-color: rgba(232, 226, 217, 0.06);
+  background: var(--bg-card);
+  border-color: var(--border-subtle);
   border: none;
   padding: 20px;
 }
@@ -348,8 +471,8 @@ body::after {
 
 .inline-cta a:hover {
   color: var(--amber);
-  border-color: rgba(212, 160, 60, 0.30);
-  background: rgba(212, 160, 60, 0.04);
+  border-color: var(--amber-subtle);
+  background: var(--amber-bg);
 }
 
 /* ════════════════════════════════════════════
@@ -395,8 +518,8 @@ body::after {
   grid-template-columns: repeat(5, 1fr);
   gap: 20px;
   padding: 20px 0;
-  border-top: 1px solid rgba(232, 226, 217, 0.06);
-  border-bottom: 1px solid rgba(232, 226, 217, 0.06);
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
   margin-bottom: 32px;
 }
 .market-snapshot-cell { display: flex; flex-direction: column; gap: 3px; }
@@ -427,12 +550,12 @@ body::after {
   padding: 3px 4px;
   margin: 0 -4px;
 }
-.fleet-entry:hover { background: rgba(232,226,217,0.05); }
+.fleet-entry:hover { background: var(--bg-card-highlight); }
 
 .cod-bar {
   transition: background 0.12s ease;
 }
-.cod-bar:hover { background: rgba(232,226,217,0.06) !important; }
+.cod-bar:hover { background: var(--bg-card-highlight) !important; }
 
 button:active { transform: scale(0.97); }
 

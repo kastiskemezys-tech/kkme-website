@@ -36,14 +36,14 @@ export function BulletChart({
       <div
         style={{
           fontSize: '0.65rem',
-          color: 'rgba(232,226,217,0.60)',
+          color: 'var(--chart-label)',
           marginBottom: '3px',
           display: 'flex',
           justifyContent: 'space-between',
         }}
       >
         <span>{label}</span>
-        <span style={{ color: 'rgba(232,226,217,0.85)' }}>
+        <span style={{ color: 'var(--text-primary)' }}>
           {value.toFixed(1)} {unit}
         </span>
       </div>
@@ -85,7 +85,7 @@ export function BulletChart({
             <line
               x1={toX(t.value)} y1={barY - 2}
               x2={toX(t.value)} y2={barY + barH + 2}
-              stroke="rgba(232,226,217,0.18)"
+              stroke="var(--chart-tick)"
               strokeWidth="0.5"
             />
             <text
@@ -94,7 +94,7 @@ export function BulletChart({
               textAnchor="middle"
               fontSize="8"
               fontFamily="var(--font-mono)"
-              fill="rgba(232,226,217,0.28)"
+              fill="var(--text-muted)"
             >
               {t.label}
             </text>
@@ -108,7 +108,7 @@ export function BulletChart({
           width={valueX}
           height={barH - 2}
           rx="1"
-          fill="rgba(232,226,217,0.62)"
+          fill="var(--chart-bar)"
         />
 
         {/* Current value marker — downward triangle above bar */}

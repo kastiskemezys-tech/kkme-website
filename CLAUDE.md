@@ -37,7 +37,10 @@ Mixed styling: Tailwind utilities + inline styles. When editing, match the patte
 
 ## Design tokens (globals.css :root — always use var() references)
 
---bg-page: #07070a
+Theming: dark/light via `data-theme` attribute on `<html>`. All tokens defined in `:root` (dark default) with `[data-theme="light"]` overrides in globals.css. Anti-flash script in `<head>` reads localStorage before first paint. ThemeToggle component in StickyNav.
+
+### Core tokens
+--bg-page: #07070a / light: #f4f1ec
 --text-primary: rgba(232,226,217,0.88)    ← headings, hero numbers, bold values
 --text-secondary: rgba(232,226,217,0.65)  ← body text, table values
 --text-tertiary: rgba(232,226,217,0.45)   ← labels, section headers, descriptions
@@ -53,6 +56,24 @@ Mixed styling: Tailwind utilities + inline styles. When editing, match the patte
 --font-sm: 0.8125rem (13px)  ← minimum for any text a user needs to read
 --font-base: 1rem (16px)
 
+### Semantic color tokens (teal/amber/rose opacity variants)
+--teal-strong / --teal-medium / --teal-subtle / --teal-bg ← impact lines, reference asset annotations
+--amber-strong / --amber-subtle / --amber-bg ← warning states, caution indicators
+--rose-strong / --rose-bg ← negative states, failure indicators
+--signal-positive / --signal-warning / --signal-negative / --signal-neutral ← signal state colors (used by signalColor.ts)
+
+### Chart chrome tokens (tokenized separately from data-semantic colors)
+--chart-grid / --chart-label / --chart-tick / --chart-bar ← chart axes, labels, gridlines
+--map-bg ← BalticMap container background
+--overlay-heavy ← StickyNav, SignalBar, overlays
+
+### Theming rules
+- All component inline styles use var() references — never raw rgba() values
+- signalColor.ts and s*-utils.ts return var() references for inline style consumption
+- SVG data URIs (ContactForm select arrow) cannot use var() — documented exception
+- Data-semantic colors (chart series, arc export/import, LT purple fill) are NOT tokenized for theme — they stay consistent across themes
+- Theme transition: 150ms on background-color, color, border-color, box-shadow (applied globally via CSS)
+
 ## Design principles (binding — do not violate)
 
 Function is the aesthetic. No decoration. Every pixel communicates data or enables action.
@@ -62,7 +83,8 @@ Minimum font size: 0.8125rem (13px) for readable text. 0.6875rem only for ghost/
 Typography rules: Unbounded = hero numbers and section headings only. DM Mono = data, labels, UI, footers, everything else. Cormorant Garamond = narrative paragraphs (interpretation lines, about section, investor copy).
 Spacing: Cards have 24px internal padding. Sections have 48px vertical gap. Sub-elements within cards use 8-16px gaps.
 Voice: Terse. Precise. Numbers before words. Sources always cited. No adjectives. No hype. But always include one plain-language interpretation line per card.
-Dark terminal aesthetic: warm off-white on near-black. Understated precision.
+Dark theme: warm off-white on near-black. Light theme: warm cream/stone with dark text. Both understated and precise.
+Theme toggle in StickyNav. Preference persisted to localStorage. Anti-flash script prevents FOUC.
 
 No centered poster hero. Hero is two-column: value prop left, market state right.
 No Explain/Data toggle buttons on any card. Default state must be readable. Extra detail goes in collapsible details drawer.
@@ -338,7 +360,8 @@ Routing: if (pathname === '/...') in main fetch handler
 Frontend
 ~/kkme/app/page.tsx — layout + section order + card rendering
 ~/kkme/app/globals.css — tokens + responsive + font loading
-~/kkme/app/components/StickyNav.tsx — fixed nav (appears >300px scroll)
+~/kkme/app/components/StickyNav.tsx — fixed nav (appears >300px scroll) + ThemeToggle
+~/kkme/app/components/ThemeToggle.tsx — dark/light theme toggle (client component, sun/moon icons)
 ~/kkme/app/components/MarketSnapshot.tsx — hero market-now KPI card (being rebuilt)
 ~/kkme/app/components/RevenueCard.tsx — self-fetching reference asset section (being rebuilt)
 ~/kkme/app/components/S1Card.tsx — Baltic Price Separation
@@ -352,6 +375,7 @@ Frontend
 ~/kkme/app/components/S9Card.tsx — EU ETS Carbon
 ~/kkme/app/components/IntelFeed.tsx — Market Intelligence board (being rebuilt from Telegram feed)
 ~/kkme/app/lib/useSignal.ts — shared fetch hook with cache layer
+~/kkme/lib/signalColor.ts — signal state → var() CSS color mapping (theme-aware)
 
 Data typing
 Signal cards use typed interfaces (e.g., S2Signal in S2Card.tsx).

@@ -11,6 +11,6 @@ export function getInterpretation(state: SignalState, separationPct: number): st
 export function spreadColor(eur_mwh: number): string {
   if (eur_mwh > 30)  return 'rgba(74, 124, 89, 0.9)';
   if (eur_mwh > 15)  return 'rgba(100, 160, 110, 0.75)';
-  if (eur_mwh > 5)   return 'rgba(232, 226, 217, 0.6)';
-  return 'rgba(232, 226, 217, 0.3)';
+  if (eur_mwh > 5)   return 'var(--signal-neutral)';
+  return 'var(--text-muted)';
 }

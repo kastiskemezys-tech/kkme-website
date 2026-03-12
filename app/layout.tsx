@@ -47,8 +47,23 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      data-theme="dark"
       className={`${cormorant.variable} ${dmMono.variable} ${unbounded.variable}`}
     >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{ __html: `
+            (function(){
+              try{
+                var t=localStorage.getItem('theme');
+                document.documentElement.setAttribute('data-theme',t==='light'?'light':'dark');
+              }catch(e){
+                document.documentElement.setAttribute('data-theme','dark');
+              }
+            })();
+          `}}
+        />
+      </head>
       <body>
         <script
           type="application/ld+json"

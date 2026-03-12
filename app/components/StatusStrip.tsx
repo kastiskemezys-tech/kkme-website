@@ -72,15 +72,15 @@ export function StatusStrip() {
           style={{
             flex: 1,
             padding: '8px 10px',
-            border: '1px solid rgba(232,226,217,0.08)',
-            background: 'rgba(232,226,217,0.02)',
+            border: '1px solid var(--border-card)',
+            background: 'var(--bg-card)',
             cursor: 'pointer',
           }}
         >
           <div style={{
             fontFamily: 'var(--font-mono)',
             fontSize: '0.58rem',
-            color: 'rgba(232,226,217,0.40)',
+            color: 'var(--text-tertiary)',
             letterSpacing: '0.06em',
             marginBottom: '4px',
             textTransform: 'uppercase',

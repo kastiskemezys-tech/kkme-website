@@ -97,10 +97,10 @@ const LOCATIONS: Record<string, [number, number]> = {
 // Per-country fill and stroke
 const COUNTRY_STYLE: Record<string, { fill: string; stroke: string; strokeWidth: number }> = {
   LT:  { fill: 'rgba(123,94,167,0.15)',  stroke: 'rgba(123,94,167,0.50)', strokeWidth: 0.8 },
-  LV:  { fill: 'rgba(232,226,217,0.04)', stroke: 'rgba(232,226,217,0.15)', strokeWidth: 0.4 },
-  EE:  { fill: 'rgba(232,226,217,0.04)', stroke: 'rgba(232,226,217,0.15)', strokeWidth: 0.4 },
-  SE4: { fill: 'rgba(74,222,128,0.06)',  stroke: 'rgba(232,226,217,0.15)', strokeWidth: 0.4 },
-  PL:  { fill: 'rgba(232,226,217,0.03)', stroke: 'rgba(232,226,217,0.15)', strokeWidth: 0.4 },
+  LV:  { fill: 'var(--bg-elevated)', stroke: 'var(--text-ghost)', strokeWidth: 0.4 },
+  EE:  { fill: 'var(--bg-elevated)', stroke: 'var(--text-ghost)', strokeWidth: 0.4 },
+  SE4: { fill: 'rgba(74,222,128,0.06)',  stroke: 'var(--text-ghost)', strokeWidth: 0.4 },
+  PL:  { fill: 'var(--bg-card)', stroke: 'var(--text-ghost)', strokeWidth: 0.4 },
 };
 
 interface BalticMapProps {
@@ -163,8 +163,8 @@ export function BalticMap({
   return (
     <div
       style={{
-        background: 'rgba(7,7,10,0.85)',
-        border: '1px solid rgba(232,226,217,0.07)',
+        background: 'var(--map-bg)',
+        border: '1px solid var(--border-subtle)',
         borderRadius: '4px',
         padding: compact ? '6px' : '8px',
       }}
@@ -253,17 +253,17 @@ export function BalticMap({
           return (
             <g key={name}>
               {isLT && (
-                <circle cx={x} cy={y} r={8} fill="none" stroke="rgba(123,94,167,0.22)" strokeWidth="1" />
+                <circle cx={x} cy={y} r={8} fill="none" stroke="var(--border-subtle)" strokeWidth="1" />
               )}
               <circle
                 cx={x} cy={y}
                 r={isLT ? 4 : 2.5}
-                fill={isLT ? 'rgba(123,94,167,0.9)' : 'rgba(232,226,217,0.38)'}
+                fill={isLT ? 'rgba(123,94,167,0.9)' : 'var(--text-muted)'}
               />
               <text
                 x={x + 6} y={y + 1}
                 fontFamily="var(--font-mono)" fontSize="10"
-                fill="rgba(232,226,217,0.65)"
+                fill="var(--text-secondary)"
               >
                 {name}
               </text>
@@ -286,7 +286,7 @@ export function BalticMap({
         {/* LT free MW badge */}
         {free_mw != null && (
           <g transform={`translate(${ltNode[0] - 23},${ltNode[1] + 8})`}>
-            <rect width="50" height="14" rx="2" fill="rgba(7,7,10,0.9)" stroke="rgba(123,94,167,0.38)" strokeWidth="0.5" />
+            <rect width="50" height="14" rx="2" fill="var(--overlay-heavy)" stroke="var(--violet)" strokeWidth="0.5" />
             <text x="25" y="10" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="6" fill="rgba(74,222,128,0.85)">
               {(free_mw / 1000).toFixed(1)} GW free
             </text>
@@ -297,14 +297,14 @@ export function BalticMap({
         <text
           x={nbLabelPos[0]} y={nbLabelPos[1]}
           fontFamily="var(--font-mono)" fontSize="8"
-          fill="rgba(232,226,217,0.55)" textAnchor="middle"
+          fill="var(--chart-label)" textAnchor="middle"
         >
           NordBalt{nordbalt_mw ? ` ${Math.abs(nordbalt_mw).toFixed(0)} MW` : ''}
         </text>
         <text
           x={lpLabelPos[0]} y={lpLabelPos[1] + 12}
           fontFamily="var(--font-mono)" fontSize="8"
-          fill="rgba(232,226,217,0.55)" textAnchor="middle"
+          fill="var(--chart-label)" textAnchor="middle"
         >
           LitPol{litpol_mw ? ` ${Math.abs(litpol_mw).toFixed(0)} MW` : ''}
         </text>

@@ -29,7 +29,7 @@ export function SectionDivider({ label, sub }: SectionDividerProps) {
           transform: 'translateY(-50%)',
           width: '160px',
           height: '48px',
-          background: 'radial-gradient(ellipse at left center, rgba(123,94,167,0.14), transparent 70%)',
+          background: 'radial-gradient(ellipse at left center, var(--bg-elevated), transparent 70%)',
           pointerEvents: 'none',
         }}
       />
@@ -39,7 +39,7 @@ export function SectionDivider({ label, sub }: SectionDividerProps) {
         style={{
           width: '3px',
           height: '22px',
-          background: 'rgba(123, 94, 167, 0.65)',
+          background: 'var(--violet)',
           flexShrink: 0,
           position: 'relative',
         }}
@@ -51,7 +51,7 @@ export function SectionDivider({ label, sub }: SectionDividerProps) {
           ...MONO,
           fontSize: '0.72rem',
           letterSpacing: '0.2em',
-          color: 'rgba(232, 226, 217, 0.60)',
+          color: 'var(--text-secondary)',
           textTransform: 'uppercase',
           fontWeight: 500,
           flexShrink: 0,
@@ -65,7 +65,7 @@ export function SectionDivider({ label, sub }: SectionDividerProps) {
         style={{
           flex: 1,
           height: '1px',
-          background: 'rgba(232, 226, 217, 0.06)',
+          background: 'var(--border-subtle)',
         }}
       />
 
@@ -76,7 +76,7 @@ export function SectionDivider({ label, sub }: SectionDividerProps) {
             ...MONO,
             fontSize: '0.58rem',
             letterSpacing: '0.10em',
-            color: 'rgba(232, 226, 217, 0.28)',
+            color: 'var(--text-muted)',
             textTransform: 'uppercase',
             flexShrink: 0,
           }}

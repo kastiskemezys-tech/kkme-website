@@ -149,7 +149,7 @@ export function S3Card() {
                   <span style={{ color: 'var(--text-secondary)' }}>€{val.toFixed(0)}/kWh <span style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)' }}>· {layer}</span></span>
                 </div>
               ))}
-              <div style={{ borderTop: '1px solid rgba(232,226,217,0.08)', marginTop: '8px', paddingTop: '6px', display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-primary)' }}>
+              <div style={{ borderTop: '1px solid var(--border-card)', marginTop: '8px', paddingTop: '6px', display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-primary)' }}>
                 <span>Total installed (EU)</span>
                 <span>€{installedCost}/kWh</span>
               </div>
@@ -166,7 +166,7 @@ export function S3Card() {
           {history.length > 1 && (
             <div style={{ marginBottom: '20px' }}>
               <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>Equipment cost trend</p>
-              <Sparkline values={history} color="rgba(232,226,217,0.55)" width={200} height={40} />
+              <Sparkline values={history} color="var(--chart-label)" width={200} height={40} />
             </div>
           )}
 

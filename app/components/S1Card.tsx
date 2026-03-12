@@ -157,7 +157,7 @@ export function S1Card() {
           <Sparkline
             values={history}
             p50={spreadP50 ?? undefined}
-            color="rgba(0,180,160,0.75)"
+            color="var(--teal-strong)"
             height={200}
           />
           <div style={{
@@ -189,7 +189,7 @@ export function S1Card() {
       <div style={{
         fontFamily: 'var(--font-mono)',
         fontSize: 'var(--font-sm)',
-        color: 'rgba(0,180,160,0.75)',
+        color: 'var(--teal-strong)',
         marginBottom: '16px',
       }}>
         {spreadImpactDesc(spread)}

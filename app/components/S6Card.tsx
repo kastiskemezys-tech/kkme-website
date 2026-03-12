@@ -125,7 +125,7 @@ function FillBar({ fill, median }: { fill: number; median: number }) {
 
   return (
     <div style={{ margin: '12px 0 8px' }}>
-      <div style={{ position: 'relative', height: '28px', background: 'rgba(232,226,217,0.06)', border: '1px solid rgba(232,226,217,0.10)', overflow: 'hidden' }}>
+      <div style={{ position: 'relative', height: '28px', background: 'var(--bg-elevated)', border: '1px solid var(--border-card)', overflow: 'hidden' }}>
         {/* Fill level */}
         <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${Math.min(fill, 100)}%`, background: bg, transition: 'width 0.6s ease' }} />
         {/* Water-shimmer highlight */}
@@ -139,15 +139,15 @@ function FillBar({ fill, median }: { fill: number; median: number }) {
           animation: 'water-shimmer 3s ease-in-out infinite',
         }} />
         {/* Median marker */}
-        <div style={{ position: 'absolute', left: `${Math.min(median, 100)}%`, top: '-4px', bottom: '-4px', width: '1px', background: 'rgba(232,226,217,0.40)' }} />
-        <span style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', fontFamily: 'var(--font-mono)', fontSize: '0.68rem', color: 'rgba(232,226,217,0.80)' }}>
+        <div style={{ position: 'absolute', left: `${Math.min(median, 100)}%`, top: '-4px', bottom: '-4px', width: '1px', background: 'var(--text-tertiary)' }} />
+        <span style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', fontFamily: 'var(--font-mono)', fontSize: '0.68rem', color: 'var(--text-primary)' }}>
           {fill.toFixed(1)}%
         </span>
-        <span style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'rgba(232,226,217,0.42)' }}>
+        <span style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'var(--text-tertiary)' }}>
           median {median.toFixed(1)}%
         </span>
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '3px', fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'rgba(232,226,217,0.32)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '3px', fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'var(--text-muted)' }}>
         <span>0%</span><span>50%</span><span>100%</span>
       </div>
     </div>
@@ -202,7 +202,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
         <StaleBanner isDefault={false} isStale={isStale} ageHours={ageHours} defaultReason={null} />
       </time>
 
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.55rem', color: 'rgba(232,226,217,0.22)', letterSpacing: '0.06em', marginTop: '12px' }}>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.55rem', color: 'var(--text-faint)', letterSpacing: '0.06em', marginTop: '12px' }}>
         MODEL INPUT → Indirect (SE4 price support)
       </div>
 

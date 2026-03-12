@@ -159,12 +159,12 @@ export function SignalIcon({ type, size = 48, dim = false }: SignalIconProps) {
       <defs>
         <radialGradient id={`bg-${id}`} cx="50%" cy="50%" r="50%">
           <stop offset="0%"   stopColor="#7b5ea7" stopOpacity={dim ? 0.04 : 0.10} />
-          <stop offset="100%" stopColor="#07070a" stopOpacity={0} />
+          <stop offset="100%" stopColor="var(--bg)" stopOpacity={0} />
         </radialGradient>
       </defs>
 
       {/* Background circle */}
-      <circle cx="24" cy="24" r="23" fill="#07070a" opacity={dim ? 0.5 : 1} />
+      <circle cx="24" cy="24" r="23" fill="var(--bg)" opacity={dim ? 0.5 : 1} />
       <circle cx="24" cy="24" r="23" fill={`url(#bg-${id})`} />
 
       {/* Star dust */}

@@ -108,9 +108,9 @@ function sdImpactDesc(sd: number): string {
 }
 
 function trajectoryBarColor(phase: string): string {
-  if (phase === 'SCARCITY') return 'rgba(0,180,160,0.75)';
-  if (phase === 'COMPRESS') return 'rgba(212,160,60,0.75)';
-  return 'rgba(214,88,88,0.75)';
+  if (phase === 'SCARCITY') return 'var(--teal-strong)';
+  if (phase === 'COMPRESS') return 'var(--amber-strong)';
+  return 'var(--rose-strong)';
 }
 
 function pressureTrend(trajectory: TrajectoryPoint[] | null | undefined, currentSd: number): string {
@@ -259,7 +259,7 @@ export function S2Card() {
               left: 0,
               right: 0,
               bottom: `${Math.min((1.0 / Math.max(...trajectory.map(pt => pt.sd_ratio), 1.5)) * 100, 100)}%`,
-              borderTop: '1px dashed rgba(232,226,217,0.20)',
+              borderTop: '1px dashed var(--border-highlight)',
               zIndex: 1,
             }}>
               <span style={{
@@ -353,7 +353,7 @@ export function S2Card() {
         <div style={{
           fontFamily: 'var(--font-mono)',
           fontSize: 'var(--font-sm)',
-          color: 'rgba(0,180,160,0.75)',
+          color: 'var(--teal-strong)',
           marginBottom: '16px',
         }}>
           {sdImpactDesc(sd)}
@@ -493,7 +493,7 @@ export function S2Card() {
                     <span style={{ color: 'var(--text-secondary)' }}>{e.name}</span>
                     <span style={{ color: 'var(--text-muted)', textAlign: 'right' }}>{e.mw} MW</span>
                     <span style={{
-                      color: (e.status === 'operational' || e.status === 'commissioned') ? 'rgba(0,180,160,0.75)' :
+                      color: (e.status === 'operational' || e.status === 'commissioned') ? 'var(--teal-strong)' :
                         e.status === 'under_construction' ? 'var(--amber)' : 'var(--text-muted)',
                       textAlign: 'right',
                       minWidth: '80px',

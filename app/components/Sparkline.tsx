@@ -74,7 +74,7 @@ export function Sparkline({
       {p50Y !== null && (
         <line
           x1={0} y1={p50Y} x2={W} y2={p50Y}
-          stroke="rgba(232,226,217,0.12)"
+          stroke="var(--chart-grid)"
           strokeWidth={0.5}
           strokeDasharray="2,2"
         />

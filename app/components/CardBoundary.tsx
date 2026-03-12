@@ -31,7 +31,7 @@ export class CardBoundary extends React.Component<Props, State> {
           padding:     '2rem 2.5rem',
           fontFamily:  'var(--font-mono)',
           fontSize:    '0.6rem',
-          color:       'rgba(232,226,217,0.5)',
+          color:       'var(--text-tertiary)',
           maxWidth:    '440px',
           width:       '100%',
         }}>

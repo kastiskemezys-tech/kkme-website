@@ -279,7 +279,7 @@ export function HeroMarketNow() {
         <div style={{
           fontFamily: 'var(--font-mono)',
           fontSize: 'var(--font-sm)',
-          color: 'rgba(0,180,160,0.75)',
+          color: 'var(--teal-strong)',
           marginBottom: '12px',
         }}>
           {impactDescription(sd)}

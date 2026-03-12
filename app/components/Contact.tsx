@@ -8,14 +8,14 @@ const BASE_STYLE: CSSProperties = {
   ...MONO,
   fontSize: '0.625rem',
   letterSpacing: '0.08em',
-  color: 'rgba(232, 226, 217, 0.3)',
+  color: 'var(--text-muted)',
   textDecoration: 'none',
   transition: 'color 0.2s ease',
   display: 'block',
 };
 
-const HOVER_COLOR = 'rgba(232, 226, 217, 0.65)';
-const BASE_COLOR  = 'rgba(232, 226, 217, 0.3)';
+const HOVER_COLOR = 'var(--text-secondary)';
+const BASE_COLOR  = 'var(--text-muted)';
 
 function ContactLink({
   href,
@@ -60,7 +60,7 @@ export function Contact() {
         fontStyle: 'italic',
         fontWeight: 300,
         fontSize: '0.90rem',
-        color: 'rgba(232,226,217,0.45)',
+        color: 'var(--text-tertiary)',
         marginBottom: '16px',
         textAlign: 'center',
         letterSpacing: '0.02em',

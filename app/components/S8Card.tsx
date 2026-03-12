@@ -68,7 +68,7 @@ function dirLabel(sig: string | null | undefined): string {
 function dirColor(sig: string | null | undefined): string {
   if (sig === 'EXPORTING') return 'rgba(45,212,168,0.85)';
   if (sig === 'IMPORTING') return 'rgba(245,158,11,0.85)';
-  return 'rgba(232,226,217,0.38)';
+  return 'var(--text-muted)';
 }
 
 export function S8Card() {

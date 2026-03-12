@@ -48,15 +48,15 @@ export default function SignalBar() {
       gridTemplateColumns: `repeat(${signals.length}, 1fr)`,
       gap: '16px',
       padding: '8px 32px',
-      borderBottom: '1px solid rgba(232,226,217,0.04)',
-      background: 'rgba(7,7,10,0.95)',
+      borderBottom: '1px solid var(--bg-elevated)',
+      background: 'var(--overlay-heavy)',
     }}>
       {signals.map(s => (
         <div key={s.label} style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
           <span style={{
             fontFamily: 'DM Mono, monospace',
             fontSize: '0.5625rem',
-            color: 'rgba(232,226,217,0.18)',
+            color: 'var(--text-ghost)',
             letterSpacing: '0.10em',
             textTransform: 'uppercase',
           }}>{s.label}</span>

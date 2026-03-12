@@ -19,8 +19,8 @@ export function CardDisclosure({ explain, dataLines }: CardDisclosureProps) {
     letterSpacing: '0.06em',
     textTransform: 'uppercase',
     background: 'transparent',
-    border: `1px solid ${active ? 'rgba(123,94,167,0.55)' : 'rgba(232,226,217,0.13)'}`,
-    color: active ? 'rgba(232,226,217,0.85)' : 'rgba(232,226,217,0.55)',
+    border: `1px solid ${active ? 'var(--violet)' : 'var(--border-card)'}`,
+    color: active ? 'var(--text-primary)' : 'var(--text-tertiary)',
     padding: '2px 8px',
     cursor: 'pointer',
     borderRadius: '2px',
@@ -43,13 +43,13 @@ export function CardDisclosure({ explain, dataLines }: CardDisclosureProps) {
         <div style={{
           marginTop: '8px',
           paddingLeft: '10px',
-          borderLeft: '1px solid rgba(123,94,167,0.22)',
+          borderLeft: '1px solid var(--border-subtle)',
         }}>
           {lines.map((line, i) => (
             <div key={i} style={{
               fontFamily: 'var(--font-mono)',
               fontSize: '0.52rem',
-              color: 'rgba(232,226,217,0.50)',
+              color: 'var(--text-tertiary)',
               lineHeight: 1.6,
               marginBottom: '2px',
             }}>

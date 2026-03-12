@@ -197,13 +197,13 @@ export function S4Card() {
         <div style={{ margin: '16px 0 20px' }}>
           <div style={{ display: 'flex', height: '40px', gap: '1px', borderRadius: '2px', overflow: 'hidden' }}>
             {connPct > 0 && (
-              <div style={{ flex: connPct, background: 'rgba(214,88,88,0.5)' }} />
+              <div style={{ flex: connPct, background: 'var(--rose-strong)' }} />
             )}
             {resPct > 0 && (
-              <div style={{ flex: resPct, background: 'rgba(212,160,60,0.5)' }} />
+              <div style={{ flex: resPct, background: 'var(--amber-strong)' }} />
             )}
             {availPct > 0 && (
-              <div style={{ flex: availPct, background: 'rgba(0,180,160,0.5)' }} />
+              <div style={{ flex: availPct, background: 'var(--teal-medium)' }} />
             )}
           </div>
           <div style={{
@@ -249,7 +249,7 @@ export function S4Card() {
       {/* POLICY WATCH — secondary context */}
       <div style={{
         padding: '10px 12px',
-        borderLeft: '1px solid rgba(212,160,60,0.35)',
+        borderLeft: '1px solid var(--amber-subtle)',
         marginBottom: '16px',
       }}>
         <p style={{
@@ -267,7 +267,7 @@ export function S4Card() {
         <div style={{
           fontFamily: 'var(--font-mono)',
           fontSize: 'var(--font-xs)',
-          color: 'rgba(0,180,160,0.65)',
+          color: 'var(--teal-medium)',
           marginBottom: '16px',
         }}>
           {freeImpactDesc(freePct)}
