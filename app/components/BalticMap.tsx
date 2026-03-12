@@ -199,14 +199,6 @@ export function BalticMap({
           </filter>
         </defs>
 
-        {/* Star field */}
-        {Array.from({ length: 18 }, (_, i) => ({
-          x: (i * 47 + 13) % 390,
-          y: (i * 31 + 7) % 290,
-        })).map((s, i) => (
-          <circle key={i} cx={s.x} cy={s.y} r="0.6" fill="white" opacity="0.12" />
-        ))}
-
         {/* Country fills */}
         {Object.entries(COUNTRIES).map(([id, coords]) => {
           const style = COUNTRY_STYLE[id] ?? COUNTRY_STYLE.LV;
@@ -271,7 +263,7 @@ export function BalticMap({
               <text
                 x={x + 6} y={y + 1}
                 fontFamily="var(--font-mono)" fontSize="10"
-                fill="rgba(232,226,217,0.55)"
+                fill="rgba(232,226,217,0.65)"
               >
                 {name}
               </text>
@@ -305,14 +297,14 @@ export function BalticMap({
         <text
           x={nbLabelPos[0]} y={nbLabelPos[1]}
           fontFamily="var(--font-mono)" fontSize="8"
-          fill="rgba(232,226,217,0.40)" textAnchor="middle"
+          fill="rgba(232,226,217,0.55)" textAnchor="middle"
         >
           NordBalt{nordbalt_mw ? ` ${Math.abs(nordbalt_mw).toFixed(0)} MW` : ''}
         </text>
         <text
           x={lpLabelPos[0]} y={lpLabelPos[1] + 12}
           fontFamily="var(--font-mono)" fontSize="8"
-          fill="rgba(232,226,217,0.40)" textAnchor="middle"
+          fill="rgba(232,226,217,0.55)" textAnchor="middle"
         >
           LitPol{litpol_mw ? ` ${Math.abs(litpol_mw).toFixed(0)} MW` : ''}
         </text>

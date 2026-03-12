@@ -39,15 +39,15 @@ function trendSentiment(t: string | null | undefined): Sentiment {
 }
 
 function windInterpretation(trend: string | null | undefined): string {
-  if (trend === 'above_baseline') return 'Elevated wind is widening low-price windows — supportive for arbitrage charging.';
-  if (trend === 'below_baseline') return 'Low wind is narrowing cheap charging opportunity — reduced spread potential.';
-  return 'Wind generation near recent baseline — typical spread conditions.';
+  if (trend === 'above_baseline') return 'Elevated wind is widening low-price windows — supportive for low-cost charging.';
+  if (trend === 'below_baseline') return 'Below-average wind is reducing cheap-hour availability — narrowing charging windows.';
+  return 'Wind generation near recent baseline — typical charging conditions.';
 }
 
 function windImpact(trend: string | null | undefined): string {
-  if (trend === 'above_baseline') return '50MW reference asset: wider arbitrage spreads likely — slight positive';
-  if (trend === 'below_baseline') return '50MW reference asset: narrower spreads — mixed';
-  return '50MW reference asset: neutral';
+  if (trend === 'above_baseline') return '50MW ref: supportive for charging spreads';
+  if (trend === 'below_baseline') return '50MW ref: reducing charging opportunity';
+  return '50MW ref: neutral for spreads';
 }
 
 export function WindCard() {
@@ -89,7 +89,7 @@ export function WindCard() {
         {windInterpretation(trend)}
       </p>
 
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'rgba(0,180,160,0.75)', marginBottom: '12px' }}>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'rgba(0,180,160,0.65)', marginBottom: '12px' }}>
         {windImpact(trend)}
       </div>
 

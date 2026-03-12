@@ -1,16 +1,12 @@
 'use client';
 
-import { useState, useEffect, type CSSProperties } from 'react';
-import { carbonColor } from './s9-utils';
-import { CardFooter } from './CardFooter';
-import { CardDisclosure } from './CardDisclosure';
-import { StaleBanner } from './StaleBanner';
-import { Sparkline } from './Sparkline';
-import { SignalIcon } from './SignalIcon';
-import { BulletChart } from './BulletChart';
+import { useState, useEffect } from 'react';
 import { useSignal } from '@/lib/useSignal';
-import { safeNum, formatHHMM } from '@/lib/safeNum';
-import { signalColor, regimeToState } from '@/lib/signalColor';
+import {
+  MetricTile, StatusChip, SourceFooter, DetailsDrawer,
+} from '@/app/components/primitives';
+import { Sparkline } from './Sparkline';
+import type { Sentiment } from '@/app/lib/types';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
@@ -24,20 +20,37 @@ interface S9Signal {
   _age_hours?:    number | null;
 }
 
-const text = (opacity: number) => `rgba(232, 226, 217, ${opacity})`;
-const MONO: CSSProperties = { fontFamily: 'var(--font-mono)' };
+function regimeLabel(sig: string | null | undefined): string {
+  if (sig === 'HIGH') return 'High';
+  if (sig === 'ELEVATED') return 'Elevated';
+  if (sig === 'LOW') return 'Low';
+  return 'Normal';
+}
 
-function formatTs(iso: string): string {
-  return new Date(iso).toLocaleString('en-GB', {
-    day: '2-digit', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-    timeZone: 'UTC', timeZoneName: 'short',
-  });
+function regimeSentiment(sig: string | null | undefined): Sentiment {
+  if (sig === 'HIGH') return 'caution';
+  if (sig === 'ELEVATED') return 'caution';
+  if (sig === 'LOW') return 'positive';
+  return 'neutral';
+}
+
+function carbonInterpretation(sig: string | null | undefined, price: number | null | undefined): string {
+  if (sig === 'HIGH') return 'High carbon cost is strengthening the case for displacing gas peakers with BESS.';
+  if (sig === 'ELEVATED') return 'Above-normal carbon pricing is adding to peaker marginal costs.';
+  if (sig === 'LOW') return 'Low carbon price is reducing the emissions premium on gas generation.';
+  return 'Carbon price near mid-range — moderate effect on peaker displacement economics.';
+}
+
+function carbonImpact(sig: string | null | undefined, price: number | null | undefined): string {
+  if (price != null && price >= 55) return '50MW ref: above BESS displacement breakeven (~55 €/t)';
+  if (price != null && price < 55) return '50MW ref: below BESS displacement breakeven (~55 €/t)';
+  if (sig === 'HIGH') return '50MW ref: supportive for peaker displacement';
+  if (sig === 'LOW') return '50MW ref: reducing displacement premium';
+  return '50MW ref: neutral for carbon floor';
 }
 
 export function S9Card() {
-  const { status, data, isDefault, isStale, ageHours, defaultReason } =
-    useSignal<S9Signal>(`${WORKER_URL}/s9`);
+  const { status, data } = useSignal<S9Signal>(`${WORKER_URL}/s9`);
   const [history, setHistory] = useState<number[]>([]);
 
   useEffect(() => {
@@ -47,134 +60,59 @@ export function S9Card() {
       .catch(() => {});
   }, []);
 
+  if (status === 'loading') {
+    return <article style={{ padding: '24px' }}><p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Loading carbon data...</p></article>;
+  }
+  if (status === 'error' || !data) {
+    return <article style={{ padding: '24px' }}><p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Carbon data unavailable</p></article>;
+  }
+
   return (
-    <article
-      className="signal-card"
-      style={{ width: '100%' }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-        <SignalIcon type="carbon" size={20} />
-        <h3 style={{ ...MONO, fontSize: '0.82rem', letterSpacing: '0.06em', color: text(0.72), fontWeight: 500, textTransform: 'uppercase' }}>
-          EU ETS Carbon
-        </h3>
+    <article style={{ width: '100%' }}>
+      <h3 style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-tertiary)', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 500, marginBottom: '6px' }}>
+        EU ETS Carbon
+      </h3>
+
+      {data.eua_eur_t != null && (
+        <div style={{ marginBottom: '4px' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+            <MetricTile label="EUA carbon price" value={data.eua_eur_t.toFixed(1)} unit="€/t" size="hero" dataClass="observed" />
+            <StatusChip status={regimeLabel(data.signal)} sentiment={regimeSentiment(data.signal)} />
+          </div>
+        </div>
+      )}
+
+      <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', lineHeight: 1.6, margin: '8px 0 12px' }}>
+        {carbonInterpretation(data.signal, data.eua_eur_t)}
+      </p>
+
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'rgba(0,180,160,0.65)', marginBottom: '12px' }}>
+        {carbonImpact(data.signal, data.eua_eur_t)}
       </div>
 
-      <div className="tier3-detail">
-        <CardDisclosure
-          explain={[
-            'EU ETS: European Allowance price €/t CO₂.',
-            'HIGH >70 €/t: strong incentive to displace gas peakers with BESS.',
-            'LOW <30 €/t: reduced carbon premium on peaker economics.',
-          ]}
-          dataLines={[
-            'Source: energy-charts.info API (weekly EU CO₂ price)',
-            'No authentication required',
-            'Stale: 12h',
-          ]}
-        />
-      </div>
+      <SourceFooter source="energy-charts.info" updatedAt={data.timestamp ? new Date(data.timestamp).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) : undefined} dataClass="observed" />
 
-      <div aria-live="polite" aria-atomic="false">
-        {status === 'loading' && <Skeleton />}
-        {status === 'error'   && <ErrorState />}
-        {status === 'success' && data && (
-          <LiveData data={data} isDefault={isDefault} isStale={isStale} ageHours={ageHours} defaultReason={defaultReason} history={history} />
-        )}
+      <div style={{ marginTop: '12px' }}>
+        <DetailsDrawer label="View carbon detail">
+          {history.length > 0 && (
+            <div style={{ marginBottom: '16px' }}>
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>Recent trend</p>
+              <Sparkline values={history} color="#c084fc" width={200} height={40} />
+            </div>
+          )}
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>BESS context</p>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+            BESS peaker displacement breakeven: ~55 €/t. Above this, the carbon premium on gas generation strengthens the BESS arbitrage case.
+          </p>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px', marginTop: '16px' }}>Methodology</p>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+            EU ETS European Allowance price (€/t CO₂). Source: energy-charts.info weekly. Updated every 4h.
+          </p>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-ghost)', letterSpacing: '0.06em', marginTop: '16px' }}>
+            MODEL INPUT → P_high floor (carbon cost)
+          </div>
+        </DetailsDrawer>
       </div>
     </article>
-  );
-}
-
-function Skeleton() {
-  return (
-    <>
-      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', fontWeight: 400, color: text(0.1), lineHeight: 1, letterSpacing: '-0.02em', marginBottom: '0.75rem' }}>—</p>
-      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.625rem', color: text(0.2), letterSpacing: '0.1em' }}>Fetching</p>
-    </>
-  );
-}
-
-function ErrorState() {
-  return (
-    <>
-      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', fontWeight: 400, color: text(0.1), lineHeight: 1, letterSpacing: '-0.02em', marginBottom: '0.75rem' }}>—</p>
-      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.625rem', color: text(0.40), letterSpacing: '0.1em' }}>Data unavailable</p>
-    </>
-  );
-}
-
-interface LiveDataProps {
-  data: S9Signal; isDefault: boolean; isStale: boolean; ageHours: number | null; defaultReason: string | null; history: number[];
-}
-
-function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }: LiveDataProps) {
-  const heroColor = signalColor(regimeToState(data.signal));
-  const ts = data.timestamp ?? null;
-
-  return (
-    <>
-      <StaleBanner isDefault={isDefault} isStale={isStale} ageHours={ageHours} defaultReason={defaultReason} />
-
-      {/* Hero + sparkline */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1rem' }}>
-        <p style={{ ...MONO, fontWeight: 400, lineHeight: 1, letterSpacing: '-0.02em', margin: 0 }}>
-          <span style={{ fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', color: heroColor }}>
-            {data.eua_eur_t != null ? `${safeNum(data.eua_eur_t, 1)}` : '—'}
-          </span>
-          <span style={{ fontSize: '0.75rem', marginLeft: '0.4em', color: text(0.4) }}>
-            €/t {data.eua_trend ?? ''}
-          </span>
-        </p>
-        <Sparkline values={history} color="#c084fc" width={160} height={40} />
-      </div>
-
-      <p style={{ ...MONO, fontSize: '0.6rem', color: text(0.4), lineHeight: 1.5, marginBottom: '1rem' }}>
-        {data.interpretation ?? '—'}
-      </p>
-
-      {/* Bullet chart — EUA carbon range */}
-      <BulletChart
-        label="EUA carbon price"
-        value={data.eua_eur_t ?? 0}
-        min={0}
-        max={120}
-        unit="€/t"
-        width={180}
-        thresholds={[
-          { value: 40, label: '40', color: 'rgba(74,222,128,1)' },
-          { value: 60, label: '60', color: 'rgba(245,158,11,1)' },
-          { value: 80, label: '80', color: 'rgba(239,68,68,1)' },
-        ]}
-      />
-
-      {/* BESS breakeven annotation */}
-      <p style={{ ...MONO, fontSize: '0.58rem', color: text(0.30), letterSpacing: '0.06em', marginTop: '0.35rem', marginBottom: '1rem' }}>
-        BESS peaker displacement breakeven: ~€55/t · arbitrage premium above that threshold
-        {data.eua_eur_t != null && data.eua_eur_t >= 55 && (
-          <span style={{ color: 'rgba(86,166,110,0.75)', marginLeft: '6px' }}>↑ above breakeven</span>
-        )}
-        {data.eua_eur_t != null && data.eua_eur_t < 55 && (
-          <span style={{ color: 'rgba(204,160,72,0.70)', marginLeft: '6px' }}>↓ below breakeven</span>
-        )}
-      </p>
-
-      <time dateTime={ts ?? ''} style={{ ...MONO, fontSize: '0.575rem', color: text(0.40), letterSpacing: '0.06em', display: 'block', textAlign: 'right', marginTop: '1rem' }}>
-        {ts ? formatTs(ts) : '—'}
-        <StaleBanner isDefault={false} isStale={isStale} ageHours={ageHours} defaultReason={null} />
-      </time>
-
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.55rem', color: 'rgba(232,226,217,0.22)', letterSpacing: '0.06em', marginTop: '12px' }}>
-        MODEL INPUT → P_high floor (carbon cost)
-      </div>
-
-      <CardFooter
-        period="energy-charts.info weekly"
-        compare="Threshold: >70 HIGH · >50 ELEVATED · <30 LOW"
-        updated={`EUA ${formatHHMM(ts)} UTC`}
-        timestamp={ts}
-        isStale={isStale}
-        ageHours={ageHours}
-      />
-    </>
   );
 }

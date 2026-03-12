@@ -1,16 +1,12 @@
 'use client';
 
-import { useState, useEffect, type CSSProperties } from 'react';
-import { gasColor } from './s7-utils';
-import { CardFooter } from './CardFooter';
-import { CardDisclosure } from './CardDisclosure';
-import { StaleBanner } from './StaleBanner';
-import { Sparkline } from './Sparkline';
-import { SignalIcon } from './SignalIcon';
-import { BulletChart } from './BulletChart';
+import { useState, useEffect } from 'react';
 import { useSignal } from '@/lib/useSignal';
-import { safeNum, formatHHMM } from '@/lib/safeNum';
-import { signalColor, regimeToState } from '@/lib/signalColor';
+import {
+  MetricTile, StatusChip, SourceFooter, DetailsDrawer,
+} from '@/app/components/primitives';
+import { Sparkline } from './Sparkline';
+import type { Sentiment } from '@/app/lib/types';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
@@ -26,27 +22,36 @@ interface S7Signal {
   _age_hours?:   number | null;
 }
 
-function regimeColor(r: string | null | undefined): string {
-  if (r === 'HIGH')     return 'rgba(239,68,68,0.90)';
-  if (r === 'ELEVATED') return 'rgba(245,158,11,0.90)';
-  if (r === 'LOW')      return 'rgba(45,212,168,0.85)';
-  return 'rgba(232,226,217,0.60)';
+function regimeLabel(r: string | null | undefined): string {
+  if (r === 'HIGH') return 'High';
+  if (r === 'ELEVATED') return 'Elevated';
+  if (r === 'LOW') return 'Low';
+  return 'Normal';
 }
 
-const text = (opacity: number) => `rgba(232, 226, 217, ${opacity})`;
-const MONO: CSSProperties = { fontFamily: 'var(--font-mono)' };
+function regimeSentiment(r: string | null | undefined): Sentiment {
+  if (r === 'HIGH') return 'caution';
+  if (r === 'ELEVATED') return 'caution';
+  if (r === 'LOW') return 'positive';
+  return 'neutral';
+}
 
-function formatTs(iso: string): string {
-  return new Date(iso).toLocaleString('en-GB', {
-    day: '2-digit', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-    timeZone: 'UTC', timeZoneName: 'short',
-  });
+function gasInterpretation(regime: string | null | undefined): string {
+  if (regime === 'HIGH') return 'Expensive gas is raising the peaker marginal cost — strengthening the BESS arbitrage case.';
+  if (regime === 'ELEVATED') return 'Above-normal gas prices are supporting wider peak-hour spreads.';
+  if (regime === 'LOW') return 'Cheap gas is compressing peaker margins — reducing the BESS displacement premium.';
+  return 'Gas prices near mid-range — moderate effect on peak-hour pricing.';
+}
+
+function gasImpact(regime: string | null | undefined): string {
+  if (regime === 'HIGH') return '50MW ref: supportive for arbitrage vs gas peakers';
+  if (regime === 'ELEVATED') return '50MW ref: supporting wider peak spreads';
+  if (regime === 'LOW') return '50MW ref: reducing peaker displacement value';
+  return '50MW ref: neutral for spread floor';
 }
 
 export function S7Card() {
-  const { status, data, isDefault, isStale, ageHours, defaultReason } =
-    useSignal<S7Signal>(`${WORKER_URL}/s7`);
+  const { status, data } = useSignal<S7Signal>(`${WORKER_URL}/s7`);
   const [history, setHistory] = useState<number[]>([]);
 
   useEffect(() => {
@@ -56,145 +61,61 @@ export function S7Card() {
       .catch(() => {});
   }, []);
 
-  return (
-    <article
-      className="signal-card"
-      style={{ width: '100%' }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-        <SignalIcon type="gas" size={20} />
-        <h3 style={{ ...MONO, fontSize: '0.82rem', letterSpacing: '0.06em', color: text(0.72), fontWeight: 500, textTransform: 'uppercase' }}>
-          TTF Gas Price
-        </h3>
-      </div>
+  if (status === 'loading') {
+    return <article style={{ padding: '24px' }}><p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Loading gas data...</p></article>;
+  }
+  if (status === 'error' || !data) {
+    return <article style={{ padding: '24px' }}><p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Gas data unavailable</p></article>;
+  }
 
-      <div className="tier3-detail">
-        <CardDisclosure
-          explain={[
-            'TTF: Dutch Title Transfer Facility — European gas benchmark.',
-            'HIGH >50 €/MWh: gas-fired peakers expensive → strong BESS arbitrage case.',
-            'LOW <15 €/MWh: cheap gas compresses peaker margins.',
-          ]}
-          dataLines={[
-            'Source: energy-charts.info API (weekly EU gas prices)',
-            'No authentication required',
-            'Stale: 12h',
-          ]}
-        />
-      </div>
-
-      <div aria-live="polite" aria-atomic="false">
-        {status === 'loading' && <Skeleton />}
-        {status === 'error'   && <ErrorState />}
-        {status === 'success' && data && (
-          <LiveData data={data} isDefault={isDefault} isStale={isStale} ageHours={ageHours} defaultReason={defaultReason} history={history} />
-        )}
-      </div>
-    </article>
-  );
-}
-
-function Skeleton() {
-  return (
-    <>
-      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', fontWeight: 400, color: text(0.1), lineHeight: 1, letterSpacing: '-0.02em', marginBottom: '0.75rem' }}>—</p>
-      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.625rem', color: text(0.2), letterSpacing: '0.1em' }}>Fetching</p>
-    </>
-  );
-}
-
-function ErrorState() {
-  return (
-    <>
-      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', fontWeight: 400, color: text(0.1), lineHeight: 1, letterSpacing: '-0.02em', marginBottom: '0.75rem' }}>—</p>
-      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.625rem', color: text(0.40), letterSpacing: '0.1em' }}>Data unavailable</p>
-    </>
-  );
-}
-
-interface LiveDataProps {
-  data: S7Signal; isDefault: boolean; isStale: boolean; ageHours: number | null; defaultReason: string | null; history: number[];
-}
-
-function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }: LiveDataProps) {
-  const heroColor = signalColor(regimeToState(data.signal));
-  const ts = data.timestamp ?? null;
+  const regime = data.regime ?? data.signal;
 
   return (
-    <>
-      <StaleBanner isDefault={isDefault} isStale={isStale} ageHours={ageHours} defaultReason={defaultReason} />
+    <article style={{ width: '100%' }}>
+      <h3 style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-tertiary)', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 500, marginBottom: '6px' }}>
+        TTF Gas Price
+      </h3>
 
-      {/* Hero + sparkline */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '0.5rem' }}>
-        <p style={{ ...MONO, fontWeight: 400, lineHeight: 1, letterSpacing: '-0.02em', margin: 0 }}>
-          <span style={{ fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', color: heroColor }}>
-            {data.ttf_eur_mwh != null ? `${safeNum(data.ttf_eur_mwh, 1)}` : '—'}
-          </span>
-          <span style={{ fontSize: '0.75rem', marginLeft: '0.4em', color: text(0.4) }}>€/MWh</span>
-          <span style={{
-            display: 'inline-block',
-            marginLeft: '0.5em',
-            fontSize: '0.65rem',
-            padding: '0.1rem 0.4rem',
-            border: `1px solid ${regimeColor(data.regime ?? data.signal)}`,
-            color: regimeColor(data.regime ?? data.signal),
-            letterSpacing: '0.08em',
-            verticalAlign: 'middle',
-          }}>
-            {data.regime ?? data.signal ?? 'NORMAL'}
-          </span>
-        </p>
-        <Sparkline values={history} color="#f6a35a" width={160} height={40} />
-      </div>
-      {data.ttf_eur_mwh != null && (() => {
-        const ttf = data.ttf_eur_mwh!;
-        let proximity = '';
-        if (ttf >= 50) proximity = `${(ttf - 50).toFixed(1)}€ above HIGH threshold`;
-        else if (ttf >= 30) proximity = `${(50 - ttf).toFixed(1)}€ from HIGH threshold`;
-        else proximity = `${(30 - ttf).toFixed(1)}€ from ELEVATED threshold`;
-        return (
-          <p style={{ ...MONO, fontSize: '0.575rem', color: text(0.35), letterSpacing: '0.05em', marginBottom: '1rem' }}>
-            {proximity}
-          </p>
-        );
-      })()}
+      {data.ttf_eur_mwh != null && (
+        <div style={{ marginBottom: '4px' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+            <MetricTile label="TTF day-ahead" value={data.ttf_eur_mwh.toFixed(1)} unit="€/MWh" size="hero" dataClass="observed" />
+            <StatusChip status={regimeLabel(regime)} sentiment={regimeSentiment(regime)} />
+          </div>
+        </div>
+      )}
 
-      <p style={{ ...MONO, fontSize: '0.6rem', color: text(0.4), lineHeight: 1.5, marginBottom: '1rem' }}>
-        {data.interpretation ?? '—'}
+      <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', lineHeight: 1.6, margin: '8px 0 12px' }}>
+        {gasInterpretation(regime)}
       </p>
 
-      {/* Bullet chart — TTF range */}
-      <BulletChart
-        label="TTF day-ahead"
-        value={data.ttf_eur_mwh ?? 0}
-        min={0}
-        max={80}
-        unit="€/MWh"
-        width={180}
-        thresholds={[
-          { value: 15, label: '15', color: 'rgba(74,222,128,1)' },
-          { value: 30, label: '30', color: 'rgba(245,158,11,1)' },
-          { value: 50, label: '50', color: 'rgba(239,68,68,1)' },
-        ]}
-      />
-
-      <time dateTime={ts ?? ''} style={{ ...MONO, fontSize: '0.575rem', color: text(0.40), letterSpacing: '0.06em', display: 'block', textAlign: 'right', marginTop: '1rem' }}>
-        {ts ? formatTs(ts) : '—'}
-        <StaleBanner isDefault={false} isStale={isStale} ageHours={ageHours} defaultReason={null} />
-      </time>
-
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.55rem', color: 'rgba(232,226,217,0.22)', letterSpacing: '0.06em', marginTop: '12px' }}>
-        MODEL INPUT → P_high floor (gas marginal cost)
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'rgba(0,180,160,0.65)', marginBottom: '12px' }}>
+        {gasImpact(regime)}
       </div>
 
-      <CardFooter
-        period="energy-charts.info weekly"
-        compare="Threshold: >50 HIGH · >30 ELEVATED · <15 LOW"
-        updated={`TTF ${formatHHMM(ts)} UTC`}
-        timestamp={ts}
-        isStale={isStale}
-        ageHours={ageHours}
-      />
-    </>
+      <SourceFooter source="energy-charts.info" updatedAt={data.timestamp ? new Date(data.timestamp).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) : undefined} dataClass="observed" />
+
+      <div style={{ marginTop: '12px' }}>
+        <DetailsDrawer label="View gas detail">
+          {history.length > 0 && (
+            <div style={{ marginBottom: '16px' }}>
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>Recent trend</p>
+              <Sparkline values={history} color="#f6a35a" width={200} height={40} />
+            </div>
+          )}
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>Thresholds</p>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+            HIGH &gt;50 €/MWh · ELEVATED &gt;30 · NORMAL 15–30 · LOW &lt;15
+          </p>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px', marginTop: '16px' }}>Methodology</p>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+            TTF Dutch Title Transfer Facility — European gas benchmark. Source: energy-charts.info weekly EU gas prices. Updated every 4h.
+          </p>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-ghost)', letterSpacing: '0.06em', marginTop: '16px' }}>
+            MODEL INPUT → P_high floor (gas marginal cost)
+          </div>
+        </DetailsDrawer>
+      </div>
+    </article>
   );
 }

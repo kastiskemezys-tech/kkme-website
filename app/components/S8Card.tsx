@@ -1,14 +1,11 @@
 'use client';
 
-import { useState, type CSSProperties } from 'react';
-import { flowColor, flowSignalColor } from './s8-utils';
-import { CardFooter } from './CardFooter';
-import { CardDisclosure } from './CardDisclosure';
-import { StaleBanner } from './StaleBanner';
-import { SignalIcon } from './SignalIcon';
-import { BalticMap } from './BalticMap';
 import { useSignal } from '@/lib/useSignal';
-import { safeNum, formatHHMM } from '@/lib/safeNum';
+import {
+  MetricTile, StatusChip, SourceFooter, DetailsDrawer,
+} from '@/app/components/primitives';
+import { BalticMap } from './BalticMap';
+import type { Sentiment } from '@/app/lib/types';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
@@ -24,15 +21,36 @@ interface S8Signal {
   _age_hours?:       number | null;
 }
 
-const text = (opacity: number) => `rgba(232, 226, 217, ${opacity})`;
-const MONO: CSSProperties = { fontFamily: 'var(--font-mono)' };
+function regimeLabel(sig: string | null | undefined): string {
+  if (sig === 'EXPORTING') return 'Net exporter';
+  if (sig === 'IMPORTING') return 'Net importer';
+  return 'Balanced';
+}
 
-function formatTs(iso: string): string {
-  return new Date(iso).toLocaleString('en-GB', {
-    day: '2-digit', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-    timeZone: 'UTC', timeZoneName: 'short',
-  });
+function regimeSentiment(sig: string | null | undefined): Sentiment {
+  if (sig === 'IMPORTING') return 'caution';
+  if (sig === 'EXPORTING') return 'positive';
+  return 'neutral';
+}
+
+function flowInterpretation(
+  dominantSig: string | null | undefined,
+  nbSig: string | null | undefined,
+  lpSig: string | null | undefined,
+): string {
+  if (dominantSig === 'IMPORTING') {
+    return 'Import-supported conditions are limiting local Baltic dislocation — cross-border supply is smoothing prices.';
+  }
+  if (dominantSig === 'EXPORTING') {
+    return 'Cross-border support is weaker with Lithuania exporting — Baltic prices are more locally set.';
+  }
+  return 'Balanced flows are reducing directional pressure from neighboring markets.';
+}
+
+function flowImpact(dominantSig: string | null | undefined): string {
+  if (dominantSig === 'IMPORTING') return '50MW ref: limiting local price volatility';
+  if (dominantSig === 'EXPORTING') return '50MW ref: supportive for local spread capture';
+  return '50MW ref: neutral for spread direction';
 }
 
 function mwLabel(mw: number | null | undefined): string {
@@ -42,8 +60,8 @@ function mwLabel(mw: number | null | undefined): string {
 }
 
 function dirLabel(sig: string | null | undefined): string {
-  if (sig === 'EXPORTING') return 'EXPORTING';
-  if (sig === 'IMPORTING') return 'IMPORTING';
+  if (sig === 'EXPORTING') return 'EXPORT';
+  if (sig === 'IMPORTING') return 'IMPORT';
   return 'BALANCED';
 }
 
@@ -54,155 +72,84 @@ function dirColor(sig: string | null | undefined): string {
 }
 
 export function S8Card() {
-  const { status, data, isDefault, isStale, ageHours, defaultReason } =
-    useSignal<S8Signal>(`${WORKER_URL}/s8`);
-  const [mapView, setMapView] = useState<'bess' | 'dc'>('bess');
+  const { status, data } = useSignal<S8Signal>(`${WORKER_URL}/s8`);
 
-  return (
-    <article
-      className="signal-card"
-      style={{ width: '100%' }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-        <SignalIcon type="flows" size={20} />
-        <h3 style={{ ...MONO, fontSize: '0.82rem', letterSpacing: '0.06em', color: text(0.72), fontWeight: 500, textTransform: 'uppercase' }}>
-          Interconnector Flows
-        </h3>
-      </div>
+  if (status === 'loading') {
+    return <article style={{ padding: '24px' }}><p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Loading interconnector data...</p></article>;
+  }
+  if (status === 'error' || !data) {
+    return <article style={{ padding: '24px' }}><p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Interconnector data unavailable</p></article>;
+  }
 
-      <div className="tier3-detail">
-        <CardDisclosure
-          explain={[
-            'Net cross-border physical flows: LT → SE4 (NordBalt) and LT → PL (LitPol).',
-            'Positive = LT exporting. Negative = LT importing.',
-            'EXPORTING: >100 MW net out. IMPORTING: >100 MW net in.',
-          ]}
-          dataLines={[
-            'Source: ENTSO-E Transparency Platform (A11 document type)',
-            'Pairs: NordBalt (LT↔SE4), LitPol (LT↔PL)',
-            'Stale: 12h',
-          ]}
-        />
-      </div>
-
-      <div aria-live="polite" aria-atomic="false">
-        {status === 'loading' && <Skeleton />}
-        {status === 'error'   && <ErrorState />}
-        {status === 'success' && data && (
-          <LiveData data={data} isDefault={isDefault} isStale={isStale} ageHours={ageHours} defaultReason={defaultReason} mapView={mapView} setMapView={setMapView} />
-        )}
-      </div>
-    </article>
-  );
-}
-
-function Skeleton() {
-  return (
-    <>
-      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', fontWeight: 400, color: text(0.1), lineHeight: 1, letterSpacing: '-0.02em', marginBottom: '0.75rem' }}>—</p>
-      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.625rem', color: text(0.2), letterSpacing: '0.1em' }}>Fetching</p>
-    </>
-  );
-}
-
-function ErrorState() {
-  return (
-    <>
-      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', fontWeight: 400, color: text(0.1), lineHeight: 1, letterSpacing: '-0.02em', marginBottom: '0.75rem' }}>—</p>
-      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.625rem', color: text(0.40), letterSpacing: '0.1em' }}>Data unavailable</p>
-    </>
-  );
-}
-
-interface LiveDataProps {
-  data: S8Signal; isDefault: boolean; isStale: boolean; ageHours: number | null; defaultReason: string | null;
-  mapView: 'bess' | 'dc'; setMapView: (v: 'bess' | 'dc') => void;
-}
-
-function LiveData({ data, isDefault, isStale, ageHours, defaultReason, mapView, setMapView }: LiveDataProps) {
-  const ts = data.timestamp ?? null;
-
-  // Per-arc direction — fully independent
   const nbSig = data.nordbalt_signal ?? null;
-  const lpSig = data.litpol_signal  ?? null;
-
-  // Hero: dominant direction = whichever arc has higher |MW|
+  const lpSig = data.litpol_signal ?? null;
   const nbMw = Math.abs(data.nordbalt_avg_mw ?? 0);
-  const lpMw = Math.abs(data.litpol_avg_mw  ?? 0);
+  const lpMw = Math.abs(data.litpol_avg_mw ?? 0);
   const dominantSig = nbMw >= lpMw ? nbSig : lpSig;
 
   return (
-    <>
-      <StaleBanner isDefault={isDefault} isStale={isStale} ageHours={ageHours} defaultReason={defaultReason} />
+    <article style={{ width: '100%' }}>
+      <h3 style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-tertiary)', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 500, marginBottom: '6px' }}>
+        Interconnectors
+      </h3>
 
-      {/* Hero — dominant direction */}
-      <p style={{ ...MONO, fontSize: '1.4rem', fontWeight: 400, color: dirColor(dominantSig), lineHeight: 1, letterSpacing: '0.04em', marginBottom: '0.5rem' }}>
-        {dirLabel(dominantSig)}
-      </p>
-      <p style={{ ...MONO, fontSize: '0.55rem', color: text(0.52), letterSpacing: '0.08em', marginBottom: '1.25rem' }}>
-        LT net cross-border balance
-      </p>
+      <div style={{ marginBottom: '4px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+          <div>
+            <p style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(1.5rem, 3vw, 1.75rem)', fontWeight: 400, color: dirColor(dominantSig), lineHeight: 1, letterSpacing: '0.02em', margin: 0 }}>
+              {regimeLabel(dominantSig)}
+            </p>
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '4px' }}>
+              LT cross-border balance
+            </p>
+          </div>
+          <StatusChip status={dirLabel(dominantSig)} sentiment={regimeSentiment(dominantSig)} />
+        </div>
+      </div>
 
-      {/* Flow rows — each arc independently coloured */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem 1rem', marginBottom: '1.25rem' }}>
+      {/* Compact corridor summary */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 12px', marginBottom: '12px', marginTop: '8px' }}>
         {([
-          ['NordBalt (→SE4)', data.nordbalt_avg_mw, nbSig],
-          ['LitPol (→PL)',    data.litpol_avg_mw,   lpSig],
+          ['NordBalt → SE4', data.nordbalt_avg_mw, nbSig],
+          ['LitPol → PL', data.litpol_avg_mw, lpSig],
         ] as [string, number | null | undefined, string | null | undefined][]).map(([label, mw, sig]) => (
-          <div key={label}>
-            <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.40), letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.2rem' }}>{label}</p>
-            <p style={{ ...MONO, fontSize: '0.625rem', color: flowSignalColor(sig ?? null) }}>{mwLabel(mw)}</p>
-            <span style={{ ...MONO, fontSize: '0.52rem', letterSpacing: '0.08em', color: dirColor(sig), marginTop: '0.1rem', display: 'block' }}>
-              {dirLabel(sig)}
-            </span>
+          <div key={label} style={{ fontFamily: 'var(--font-mono)' }}>
+            <div style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>{label}</div>
+            <div style={{ fontSize: 'var(--font-sm)', color: dirColor(sig) }}>{mwLabel(mw)}</div>
           </div>
         ))}
       </div>
 
-      {/* Baltic map with view tabs */}
-      <div style={{ display: 'flex', gap: '0', marginBottom: '6px' }}>
-        {(['bess', 'dc'] as const).map(v => (
-          <button
-            key={v}
-            onClick={() => setMapView(v)}
-            style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              fontFamily: 'var(--font-mono)', fontSize: '0.68rem',
-              letterSpacing: '0.08em', textTransform: 'uppercase',
-              color: mapView === v ? 'rgba(232,226,217,0.88)' : 'rgba(232,226,217,0.35)',
-              borderBottom: mapView === v ? '1px solid rgba(123,94,167,0.7)' : '1px solid transparent',
-              padding: '0 0 2px 0', marginRight: '12px',
-            }}
-          >{v}</button>
-        ))}
-      </div>
-      <div style={{ maxHeight: '180px', overflow: 'hidden' }}>
-      <BalticMap
-        nordbalt_mw={data.nordbalt_avg_mw}
-        nordbalt_dir={data.nordbalt_signal}
-        litpol_mw={data.litpol_avg_mw}
-        litpol_dir={data.litpol_signal}
-        view={mapView}
-      />
+      <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', lineHeight: 1.6, margin: '8px 0 12px' }}>
+        {flowInterpretation(dominantSig, nbSig, lpSig)}
+      </p>
+
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'rgba(0,180,160,0.65)', marginBottom: '12px' }}>
+        {flowImpact(dominantSig)}
       </div>
 
-      <time dateTime={ts ?? ''} style={{ ...MONO, fontSize: '0.575rem', color: text(0.40), letterSpacing: '0.06em', display: 'block', textAlign: 'right', marginTop: '1rem' }}>
-        {ts ? formatTs(ts) : '—'}
-        <StaleBanner isDefault={false} isStale={isStale} ageHours={ageHours} defaultReason={null} />
-      </time>
+      <SourceFooter source="ENTSO-E Transparency" updatedAt={data.timestamp ? new Date(data.timestamp).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) : undefined} dataClass="observed" />
 
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.55rem', color: 'rgba(232,226,217,0.22)', letterSpacing: '0.06em', marginTop: '12px' }}>
-        MODEL INPUT → Interconnector spread drag
+      <div style={{ marginTop: '12px' }}>
+        <DetailsDrawer label="View flow map and detail">
+          <div style={{ maxHeight: '200px', overflow: 'hidden', marginBottom: '16px' }}>
+            <BalticMap
+              nordbalt_mw={data.nordbalt_avg_mw}
+              nordbalt_dir={data.nordbalt_signal}
+              litpol_mw={data.litpol_avg_mw}
+              litpol_dir={data.litpol_signal}
+              compact
+            />
+          </div>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>Methodology</p>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+            Net physical flows from ENTSO-E A11 document type. NordBalt (LT↔SE4) and LitPol (LT↔PL). Positive = LT exporting. Updated every 4h.
+          </p>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-ghost)', letterSpacing: '0.06em', marginTop: '16px' }}>
+            MODEL INPUT → Interconnector spread drag
+          </div>
+        </DetailsDrawer>
       </div>
-
-      <CardFooter
-        period="ENTSO-E A11 hourly flows"
-        compare="Net: >+100MW EXPORTING · <−100MW IMPORTING"
-        updated={`ENTSO-E ${formatHHMM(ts)} UTC`}
-        timestamp={ts}
-        isStale={isStale}
-        ageHours={ageHours}
-      />
-    </>
+    </article>
   );
 }

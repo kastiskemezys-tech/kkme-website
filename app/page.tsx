@@ -84,7 +84,7 @@ export default function Home() {
         <div className="section" id="structural">
           <div style={{ marginBottom: '32px' }}>
             <h2 className="section-header" style={{ marginBottom: '6px' }}>Structural Market Drivers</h2>
-            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.8125rem', color: 'var(--text-muted)', paddingLeft: '16px' }}>Wind, solar, demand, and interconnector conditions shaping Baltic price spreads</p>
+            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.8125rem', color: 'var(--text-muted)', paddingLeft: '16px' }}>Wind, solar, demand, and interconnector conditions shaping Baltic price spreads and storage economics</p>
           </div>
 
           {/* Primary row — 4 structural drivers */}
@@ -104,11 +104,7 @@ export default function Home() {
           </div>
 
           {/* Secondary row — commodity price drivers */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-            gap: '24px',
-          }}>
+          <div className="grid-2">
             <div className="card card-tier3">
               <CardBoundary signal="S7"><S7Card /></CardBoundary>
             </div>
@@ -116,6 +112,10 @@ export default function Home() {
               <CardBoundary signal="S9"><S9Card /></CardBoundary>
             </div>
           </div>
+
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', opacity: 0.7, marginTop: '16px', paddingLeft: '4px' }}>
+            Baltic-wide aggregates can mask corridor and country-level divergence.
+          </p>
         </div>
 
         {/* ═══ MID-PAGE CTA ═══ */}

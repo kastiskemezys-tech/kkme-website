@@ -41,18 +41,20 @@ function solarSentiment(t: string | null | undefined, isNight: boolean | null | 
   return 'neutral';
 }
 
-function solarInterpretation(trend: string | null | undefined, isNight: boolean | null | undefined): string {
+function solarInterpretation(trend: string | null | undefined, isNight: boolean | null | undefined, mw: number | null | undefined): string {
   if (isNight) return 'Solar generation offline — nighttime across Baltic region.';
+  if (mw != null && mw < 50) return 'Solar remains a minor current Baltic driver — limited midday price suppression.';
   if (trend === 'above_baseline') return 'Elevated solar is compressing midday prices — supportive for low-cost charging windows.';
-  if (trend === 'below_baseline') return 'Below-average solar reduces midday price dips — narrower charging windows.';
+  if (trend === 'below_baseline') return 'Below-average solar is reducing midday price dips — narrower charging windows.';
   return 'Solar generation near recent baseline — typical midday price conditions.';
 }
 
-function solarImpact(trend: string | null | undefined, isNight: boolean | null | undefined): string {
-  if (isNight) return '50MW reference asset: no solar charging window';
-  if (trend === 'above_baseline') return '50MW reference asset: midday charging window likely — slight positive';
-  if (trend === 'below_baseline') return '50MW reference asset: reduced charging opportunity — neutral';
-  return '50MW reference asset: neutral';
+function solarImpact(trend: string | null | undefined, isNight: boolean | null | undefined, mw: number | null | undefined): string {
+  if (isNight) return '50MW ref: no solar charging window';
+  if (mw != null && mw < 50) return '50MW ref: minimal solar price effect';
+  if (trend === 'above_baseline') return '50MW ref: supportive for midday charging';
+  if (trend === 'below_baseline') return '50MW ref: reducing midday charging window';
+  return '50MW ref: neutral for charging';
 }
 
 export function SolarCard() {
@@ -92,11 +94,11 @@ export function SolarCard() {
       )}
 
       <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', lineHeight: 1.6, margin: '8px 0 12px' }}>
-        {solarInterpretation(trend, isNight)}
+        {solarInterpretation(trend, isNight, mw)}
       </p>
 
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'rgba(0,180,160,0.75)', marginBottom: '12px' }}>
-        {solarImpact(trend, isNight)}
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'rgba(0,180,160,0.65)', marginBottom: '12px' }}>
+        {solarImpact(trend, isNight, mw)}
       </div>
 
       <SourceFooter source="energy-charts.info" updatedAt={data.timestamp ? new Date(data.timestamp).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) : undefined} dataClass="observed" />

@@ -37,15 +37,15 @@ function loadSentiment(t: string | null | undefined): Sentiment {
 }
 
 function loadInterpretation(trend: string | null | undefined): string {
-  if (trend === 'above_baseline') return 'Elevated demand is supporting higher peak prices — wider discharge spreads.';
-  if (trend === 'below_baseline') return 'Below-average demand reduces peak pricing — narrower discharge opportunity.';
-  return 'Demand near recent baseline — typical price spread conditions.';
+  if (trend === 'above_baseline') return 'Elevated demand is supporting higher peak prices — widening discharge spreads.';
+  if (trend === 'below_baseline') return 'Below-average demand is softening peak pricing — reducing discharge opportunity.';
+  return 'Demand near recent baseline — typical discharge conditions.';
 }
 
 function loadImpact(trend: string | null | undefined): string {
-  if (trend === 'above_baseline') return '50MW reference asset: peak demand supports discharge revenue — slight positive';
-  if (trend === 'below_baseline') return '50MW reference asset: lower peak prices — mixed';
-  return '50MW reference asset: neutral';
+  if (trend === 'above_baseline') return '50MW ref: supportive for discharge revenue';
+  if (trend === 'below_baseline') return '50MW ref: softening peak-hour spreads';
+  return '50MW ref: neutral for discharge';
 }
 
 export function LoadCard() {
@@ -87,7 +87,7 @@ export function LoadCard() {
         {loadInterpretation(trend)}
       </p>
 
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'rgba(0,180,160,0.75)', marginBottom: '12px' }}>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'rgba(0,180,160,0.65)', marginBottom: '12px' }}>
         {loadImpact(trend)}
       </div>
 
