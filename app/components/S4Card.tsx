@@ -51,10 +51,10 @@ function freeStatus(pct: number): string {
 }
 
 function freeInterpretation(pct: number): string {
-  if (pct > 40) return 'Public headroom remains visible at national level, though local connection access can still be selective.';
-  if (pct > 25) return 'Headline capacity remains, but reservation pressure is reducing practical access faster than the aggregate snapshot suggests.';
-  if (pct > 15) return 'Available headroom is narrowing. Queue position, node choice, and timing increasingly determine viability.';
-  return 'Grid access is becoming a material constraint. New projects face elevated connection risk without early queue entry and strong siting.';
+  if (pct > 40) return 'Public headroom remains visible at national level, though connection scope, substation requirements, and equipment lead times still determine real buildability at each node.';
+  if (pct > 25) return 'Headline capacity remains, but reservation pressure is reducing practical access. Queue position and connection complexity increasingly matter — not just available MW.';
+  if (pct > 15) return 'Available headroom is narrowing. Queue position, connection scope, and substation requirements increasingly determine real buildability — not just headline MW.';
+  return 'Grid access is becoming a material constraint. Later entrants face higher connection complexity, longer timelines, and elevated substation reinforcement scope.';
 }
 
 function freeImpact(pct: number): ImpactState {
@@ -65,10 +65,10 @@ function freeImpact(pct: number): ImpactState {
 }
 
 function freeImpactDesc(pct: number): string {
-  if (pct > 40) return '50MW reference asset: National headroom visible, but node-specific access still matters';
-  if (pct > 25) return '50MW reference asset: Buildable, but queue timing and substation choice matter more';
-  if (pct > 15) return '50MW reference asset: Access tightening — early queue position increasingly matters';
-  return '50MW reference asset: Elevated grid-access risk for new entrants';
+  if (pct > 40) return '50MW ref: node-specific access still matters despite headline headroom';
+  if (pct > 25) return '50MW ref: queue timing and substation choice matter more than headline capacity';
+  if (pct > 15) return '50MW ref: early queue position increasingly matters — later entrants face higher connection complexity';
+  return '50MW ref: elevated grid-access risk — connection scope and reinforcement costs rising for new entrants';
 }
 
 function formatMW(n: number | null | undefined): string {
@@ -186,6 +186,9 @@ export function S4Card() {
             />
             <StatusChip status={freeStatus(freePct)} sentiment={freeSentiment(freePct)} />
           </div>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '4px' }}>
+            Litgrid public grid snapshot · does not reflect connection scope, substation requirements, or queue position
+          </p>
         </div>
       )}
 
@@ -232,6 +235,17 @@ export function S4Card() {
         </p>
       )}
 
+      {/* SCHEDULE RISK */}
+      <p style={{
+        fontFamily: 'var(--font-mono)',
+        fontSize: 'var(--font-xs)',
+        color: 'var(--text-muted)',
+        lineHeight: 1.6,
+        marginBottom: '12px',
+      }}>
+        Connection timeline: typically 18–36 months from application to energisation. Transformer and protection equipment lead times can extend this.
+      </p>
+
       {/* POLICY WATCH — secondary context */}
       <div style={{
         padding: '10px 12px',
@@ -252,8 +266,8 @@ export function S4Card() {
       {free != null && (
         <div style={{
           fontFamily: 'var(--font-mono)',
-          fontSize: 'var(--font-sm)',
-          color: 'rgba(0,180,160,0.6)',
+          fontSize: 'var(--font-xs)',
+          color: 'rgba(0,180,160,0.65)',
           marginBottom: '16px',
         }}>
           {freeImpactDesc(freePct)}

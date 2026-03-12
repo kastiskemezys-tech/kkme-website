@@ -1,53 +1,59 @@
 'use client';
 
-import { useState, useEffect, type CSSProperties } from 'react';
-import { lithiumColor } from './s3-utils';
-import { CardFooter } from './CardFooter';
-import { CardDisclosure } from './CardDisclosure';
-import { StaleBanner } from './StaleBanner';
-import { Sparkline } from './Sparkline';
-import { SignalIcon } from './SignalIcon';
+import { useState, useEffect } from 'react';
 import { useSignal } from '@/lib/useSignal';
-import { safeNum, formatHHMM } from '@/lib/safeNum';
+import {
+  MetricTile, StatusChip, SourceFooter, DetailsDrawer,
+} from '@/app/components/primitives';
+import { Sparkline } from './Sparkline';
+import { safeNum } from '@/lib/safeNum';
+import type { Sentiment } from '@/app/lib/types';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
 interface S3Signal {
   timestamp?:             string | null;
   lithium_eur_t?:         number | null;
-  lithium_trend?:         '↓ falling' | '→ stable' | '↑ rising' | null;
+  lithium_trend?:         string | null;
   cell_eur_kwh?:          number | null;
   china_system_eur_kwh?:  number | null;
   europe_system_eur_kwh?: number | null;
   global_avg_eur_kwh?:    number | null;
   ref_source?:            string | null;
+  ref_date?:              string | null;
   euribor_3m?:            number | null;
   euribor_nominal_3m?:    number | null;
   euribor_real_3m?:       number | null;
   hicp_yoy?:              number | null;
-  euribor_trend?:         '↓ falling' | '→ stable' | '↑ rising' | null;
+  euribor_trend?:         string | null;
   signal?:                string | null;
   interpretation?:        string | null;
   source?:                string | null;
   unavailable?:           boolean;
-  _stale?:                boolean;
-  _age_hours?:            number | null;
 }
 
-const text = (opacity: number) => `rgba(232, 226, 217, ${opacity})`;
-const MONO: CSSProperties = { fontFamily: 'var(--font-mono)' };
-
-function formatTimestamp(iso: string): string {
-  return new Date(iso).toLocaleString('en-GB', {
-    day: '2-digit', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-    timeZone: 'UTC', timeZoneName: 'short',
-  });
+function costSentiment(sig: string | null | undefined): Sentiment {
+  if (sig === 'FALLING') return 'positive';
+  if (sig === 'RISING') return 'caution';
+  return 'neutral';
 }
+
+function costLabel(sig: string | null | undefined): string {
+  if (sig === 'FALLING') return 'Easing';
+  if (sig === 'RISING') return 'Rising';
+  return 'Stable';
+}
+
+// Static cost direction assessment — update quarterly
+const COST_DIRECTIONS: { component: string; dir: string; color: string }[] = [
+  { component: 'Battery hardware', dir: '↓ easing', color: 'var(--teal)' },
+  { component: 'Electrical / PCS', dir: '→ constrained', color: 'var(--amber)' },
+  { component: 'EPC / civil', dir: '→ limited decline', color: 'var(--amber)' },
+  { component: 'Grid connection', dir: '↕ project-specific', color: 'var(--rose)' },
+];
 
 export function S3Card() {
-  const { status, data, isDefault, isStale, ageHours, defaultReason } =
-    useSignal<S3Signal>(`${WORKER_URL}/s3`);
+  const { status, data } = useSignal<S3Signal>(`${WORKER_URL}/s3`);
   const [history, setHistory] = useState<number[]>([]);
 
   useEffect(() => {
@@ -57,255 +63,187 @@ export function S3Card() {
       .catch(() => {});
   }, []);
 
-  return (
-    <article
-      className="signal-card"
-      style={{ width: '100%' }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-        <SignalIcon type="battery-cost" size={20} />
-        <h3 style={{ ...MONO, fontSize: '0.82rem', letterSpacing: '0.06em', color: text(0.72), fontWeight: 500, textTransform: 'uppercase' }}>
-          BESS Cost Stack
-        </h3>
-      </div>
+  if (status === 'loading') {
+    return <article style={{ padding: '24px' }}><p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Loading cost data...</p></article>;
+  }
+  if (status === 'error' || !data) {
+    return <article style={{ padding: '24px' }}><p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Cost data unavailable</p></article>;
+  }
 
-      <CardDisclosure
-        explain={[
-          'Equipment: AC system delivered from China, tier-1.',
-          'Installed cost adds EPC, civil works, HV grid.',
-          'Cell price drop ≠ installed CAPEX drop 1:1.',
-        ]}
-        dataLines={[
-          'Equipment: manual update (Ember/BNEF benchmark)',
-          'Euribor: ECB API nominal 3M',
-          'CAPEX: (equip + EPC) × MWh + €35k/MW HV fixed',
-          'Stale: equipment 30d · euribor 7d',
-        ]}
-      />
-
-      <div aria-live="polite" aria-atomic="false">
-        {status === 'loading' && <Skeleton />}
-        {status === 'error'   && <ErrorState />}
-        {status === 'success' && data && (
-          <LiveData data={data} isDefault={isDefault} isStale={isStale} ageHours={ageHours} defaultReason={defaultReason} history={history} />
-        )}
-      </div>
-    </article>
-  );
-}
-
-function Skeleton() {
-  return (
-    <>
-      <p style={{ ...MONO, fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', fontWeight: 400, color: text(0.1), lineHeight: 1, letterSpacing: '0.04em', marginBottom: '0.75rem' }}>
-        ——————
-      </p>
-      <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.2), letterSpacing: '0.1em' }}>
-        Fetching
-      </p>
-    </>
-  );
-}
-
-function ErrorState() {
-  return (
-    <>
-      <p style={{ ...MONO, fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', fontWeight: 400, color: text(0.1), lineHeight: 1, letterSpacing: '0.04em', marginBottom: '0.75rem' }}>
-        ——————
-      </p>
-      <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.40), letterSpacing: '0.1em' }}>
-        Data unavailable
-      </p>
-    </>
-  );
-}
-
-const DIVIDER: CSSProperties = {
-  borderTop: `1px solid rgba(232, 226, 217, 0.06)`,
-  width: '100%',
-};
-
-interface LiveDataProps {
-  data: S3Signal; isDefault: boolean; isStale: boolean; ageHours: number | null; defaultReason: string | null; history: number[];
-}
-
-function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }: LiveDataProps) {
-  const signalColor = lithiumColor(data.signal ?? null);
-  const nominal     = data.euribor_nominal_3m ?? data.euribor_3m ?? null;
-  const real        = data.euribor_real_3m ?? null;
-  const hicp        = data.hicp_yoy ?? null;
-  const turnkey_eur_kwh = 262.5;
-  const ts          = data.timestamp ?? null;
+  const installedCost = data.europe_system_eur_kwh;
+  const nominal = data.euribor_nominal_3m ?? data.euribor_3m ?? null;
+  const real = data.euribor_real_3m ?? null;
+  const hicp = data.hicp_yoy ?? null;
 
   return (
-    <>
-      <StaleBanner isDefault={isDefault} isStale={isStale} ageHours={ageHours} defaultReason={defaultReason} />
+    <article style={{ width: '100%' }}>
+      <h3 style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-tertiary)', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 500, marginBottom: '6px' }}>
+        Project cost trend
+      </h3>
 
-      {/* Lithium hero + sparkline */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '0.3rem' }}>
-        <p style={{ ...MONO, fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', fontWeight: 400, lineHeight: 1, letterSpacing: '0.04em', margin: 0,
-          color: data.unavailable ? text(0.1) : signalColor }}>
-          {data.unavailable ? '—'
-            : data.lithium_eur_t != null
-              ? `€${safeNum(data.lithium_eur_t / 1000, 0)}k/t`
-              : '—'}
-        </p>
-        {history.length > 1 && (
-          <Sparkline values={history} color="rgba(232,226,217,0.55)" width={80} height={24} />
-        )}
-      </div>
-      <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
-        Li carbonate {data.lithium_trend ?? ''}
-      </p>
-
-      {!data.lithium_eur_t && (
-        <div style={{ margin: '12px 0' }}>
-          <div className="skeleton" style={{ height: '44px', width: '100%', marginBottom: '6px' }} />
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'rgba(232,226,217,0.28)', textAlign: 'center' }}>
-            Li carbonate · awaiting feed
+      {/* HERO — installed cost reference */}
+      {installedCost != null && (
+        <div style={{ marginBottom: '4px' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+            <MetricTile label="Installed BESS cost reference" value={`€${installedCost}`} unit="/kWh" size="hero" dataClass="reference" />
+            <StatusChip status={costLabel(data.signal)} sentiment={costSentiment(data.signal)} />
           </div>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '4px' }}>
+            {data.ref_source ?? 'CH S1 2025'} · equipment + BoP + civil · excl. grid connection
+          </p>
         </div>
       )}
 
-      <p style={{ ...MONO, fontSize: '0.6rem', color: data.unavailable ? text(0.2) : text(0.52), lineHeight: 1.5, marginBottom: '1.5rem' }}>
-        {data.unavailable ? '' : (data.interpretation ?? '—')}
-      </p>
-
-      <div style={{ ...DIVIDER, marginBottom: '1.25rem' }} />
-
-      <p style={{ ...MONO, fontSize: '0.5rem', letterSpacing: '0.14em', color: text(0.40), textTransform: 'uppercase', marginBottom: '0.75rem' }}>
-        CAPEX tracks
-      </p>
-      <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '0.4rem 1.25rem', marginBottom: '0.5rem', alignItems: 'baseline' }}>
-        <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase' }}>Equipment DC</p>
-        <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.6) }}>
-          {data.europe_system_eur_kwh != null ? `€${safeNum(data.europe_system_eur_kwh, 0)}/kWh` : '—'}
-          <span style={{ color: text(0.3) }}> (containers/cells)</span>
-        </p>
-
-        <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase' }}>Turnkey AC 2h</p>
-        <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.6) }}>
-          €{turnkey_eur_kwh}/kWh
-          <span style={{ color: text(0.3) }}> (CH S1 2025)</span>
-        </p>
+      {/* Cost range context */}
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', margin: '8px 0 12px', lineHeight: 1.6 }}>
+        Range: €{data.china_system_eur_kwh ?? 68} equipment-only (China DDP) → €{installedCost ?? 164} installed (EU) → ~€262 turnkey incl. grid
       </div>
-      <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.06em', marginBottom: '1rem' }}>
-        Turnkey includes BOS, civil, grid, HV: ~+€125k/MW vs equipment
+
+      {/* COST DIRECTION — editorial assessment */}
+      <div style={{ marginBottom: '12px' }}>
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '6px' }}>
+          Cost direction · editorial assessment · Q1 2026
+        </p>
+        {COST_DIRECTIONS.map(({ component, dir, color }) => (
+          <div key={component} style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', marginBottom: '3px' }}>
+            <span style={{ color: 'var(--text-muted)' }}>{component}</span>
+            <span style={{ color, opacity: 0.75 }}>{dir}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Pass-through interpretation */}
+      <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', lineHeight: 1.6, margin: '8px 0 12px' }}>
+        Battery hardware pricing suggests downward pressure, but Baltic project evidence indicates grid connection and electrical scope are not declining at the same rate — pass-through to full project CAPEX appears partial.
       </p>
 
-      {/* CAPEX waterfall breakdown */}
-      {data.europe_system_eur_kwh != null && (
-        <div style={{ margin: '0 0 1.25rem' }}>
-          {[
-            { label: 'Equipment DC', val: data.europe_system_eur_kwh * 0.62, color: 'var(--blue)' },
-            { label: 'BOS + Civil',  val: data.europe_system_eur_kwh * 0.27, color: 'var(--violet)' },
-            { label: 'HV Grid fix',  val: data.europe_system_eur_kwh * 0.11, color: 'rgba(123,94,167,0.45)' },
-          ].map(({ label, val, color }) => {
-            const pct = (val / data.europe_system_eur_kwh!) * 100;
-            return (
-              <div key={label} style={{ marginBottom: '6px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'rgba(232,226,217,0.45)', marginBottom: '2px' }}>
-                  <span>{label}</span>
-                  <span style={{ color: 'rgba(232,226,217,0.70)' }}>€{val.toFixed(0)}/kWh</span>
-                </div>
-                <div style={{ height: '10px', width: `${pct}%`, background: color, opacity: 0.65, transition: 'width 0.6s ease' }} />
-              </div>
-            );
-          })}
-          <div style={{ borderTop: '1px solid rgba(232,226,217,0.10)', paddingTop: '6px', marginTop: '8px', display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-mono)', fontSize: '0.72rem', color: 'rgba(232,226,217,0.88)', fontWeight: 500 }}>
-            <span>Total installed</span>
-            <span>€{data.europe_system_eur_kwh.toFixed(0)}/kWh</span>
-          </div>
-        </div>
-      )}
+      {/* Cost layer honesty note */}
+      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: '12px' }}>
+        Equipment cost ≠ installed BESS ≠ full project CAPEX. Grid connection, substation expansion, and owner costs can add 50–200% to equipment-only benchmarks in Baltic projects.
+      </p>
 
-      <div style={{ ...DIVIDER, marginBottom: '1.25rem' }} />
+      {/* Impact tag */}
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'rgba(0,180,160,0.65)', marginBottom: '12px' }}>
+        50MW ref: CAPEX partially improving — grid scope remains the dominant variable
+      </div>
 
-      {/* Finance pill badges */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '1rem' }}>
+      {/* Finance context pills */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '12px' }}>
         {nominal != null && (
           <span style={{
-            ...MONO,
-            fontSize: '0.60rem',
-            padding: '0.18rem 0.55rem',
-            border: '1px solid rgba(77,124,181,0.30)',
-            background: 'rgba(77,124,181,0.08)',
-            color: 'rgba(110,160,220,0.80)',
+            fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+            padding: '2px 8px',
+            border: '1px solid rgba(77,124,181,0.25)',
+            background: 'rgba(77,124,181,0.06)',
+            color: 'rgba(110,160,220,0.75)',
             borderRadius: '2px',
-            letterSpacing: '0.04em',
           }}>
             Euribor 3M {safeNum(nominal, 2)}%
           </span>
         )}
         {hicp != null && (
           <span style={{
-            ...MONO,
-            fontSize: '0.60rem',
-            padding: '0.18rem 0.55rem',
-            border: '1px solid rgba(204,160,72,0.25)',
-            background: 'rgba(204,160,72,0.07)',
-            color: 'rgba(220,175,80,0.80)',
+            fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+            padding: '2px 8px',
+            border: '1px solid rgba(204,160,72,0.20)',
+            background: 'rgba(204,160,72,0.05)',
+            color: 'rgba(220,175,80,0.75)',
             borderRadius: '2px',
-            letterSpacing: '0.04em',
           }}>
             HICP {safeNum(hicp, 1)}%
           </span>
         )}
         {real != null && (
           <span style={{
-            ...MONO,
-            fontSize: '0.60rem',
-            padding: '0.18rem 0.55rem',
-            border: '1px solid rgba(232,226,217,0.10)',
-            background: 'rgba(232,226,217,0.03)',
-            color: text(0.45),
+            fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+            padding: '2px 8px',
+            border: '1px solid rgba(232,226,217,0.08)',
+            background: 'rgba(232,226,217,0.02)',
+            color: 'var(--text-muted)',
             borderRadius: '2px',
-            letterSpacing: '0.04em',
           }}>
             Real {safeNum(real, 2)}%
           </span>
         )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '0.4rem 1.25rem', marginBottom: '1.25rem', alignItems: 'baseline' }}>
-        <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase' }}>Euribor 3M</p>
-        <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.6) }}>
-          {nominal != null ? `${safeNum(nominal, 2)}%` : '—'}
-          <span style={{ color: text(0.3) }}> nominal (finance input)</span>
-        </p>
-
-        <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase' }}>HICP YoY</p>
-        <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.55) }}>
-          {hicp != null ? `${safeNum(hicp, 1)}%` : '—'}
-        </p>
-
-        <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.08em', textTransform: 'uppercase' }}>Real rate</p>
-        <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.4) }}>
-          {real != null ? `${safeNum(real, 2)}%` : '—'}
-          <span style={{ color: text(0.2) }}> (context)</span>
-        </p>
-      </div>
-      <p style={{ ...MONO, fontSize: '0.5rem', color: text(0.2), letterSpacing: '0.06em', marginBottom: '1.25rem' }}>
-        IRR model uses fixed 10% discount rate (CH S1 2025 convention)
-      </p>
-
-      <time dateTime={ts ?? ''} style={{ ...MONO, fontSize: '0.575rem', color: text(0.40), letterSpacing: '0.06em', display: 'block', textAlign: 'right' }}>
-        {ts ? formatTimestamp(ts) : '—'}
-        <StaleBanner isDefault={false} isStale={isStale} ageHours={ageHours} defaultReason={null} />
-      </time>
-
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.55rem', color: 'rgba(232,226,217,0.22)', letterSpacing: '0.06em', marginTop: '12px' }}>
-        MODEL INPUT → CAPEX reference · Financing cost
-      </div>
-
-      <CardFooter
-        period="Spot price · daily"
-        compare="Baseline: CH S1 2025 turnkey €262.5/kWh"
-        updated={`Euribor ${formatHHMM(ts)} UTC`}
-        timestamp={ts}
-        isStale={isStale}
-        ageHours={ageHours}
+      <SourceFooter
+        source={data.source ?? 'tradingeconomics.com + ECB'}
+        updatedAt={data.timestamp ? new Date(data.timestamp).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) : undefined}
+        dataClass="reference"
       />
-    </>
+
+      <div style={{ marginTop: '12px' }}>
+        <DetailsDrawer label="View cost breakdown">
+          {/* CAPEX waterfall */}
+          {installedCost != null && (
+            <div style={{ marginBottom: '20px' }}>
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>Installed cost breakdown</p>
+              {[
+                { label: 'Equipment DC (cells + containers)', val: installedCost * 0.62, layer: 'equipment only' },
+                { label: 'BOS + civil works', val: installedCost * 0.27, layer: 'installed excl. grid' },
+                { label: 'HV grid connection (fixed)', val: installedCost * 0.11, layer: 'grid scope dependent' },
+              ].map(({ label, val, layer }) => (
+                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', marginBottom: '4px' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>{label}</span>
+                  <span style={{ color: 'var(--text-secondary)' }}>€{val.toFixed(0)}/kWh <span style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)' }}>· {layer}</span></span>
+                </div>
+              ))}
+              <div style={{ borderTop: '1px solid rgba(232,226,217,0.08)', marginTop: '8px', paddingTop: '6px', display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-primary)' }}>
+                <span>Total installed (EU)</span>
+                <span>€{installedCost}/kWh</span>
+              </div>
+            </div>
+          )}
+
+          {/* Baltic evidence */}
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>Baltic transaction evidence</p>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: '20px' }}>
+            AST Latvia: ~€480/kWh all-in incl. substation (80MW/160MWh, 2025 contract) · Utilitas: ~€350/kWh (10MW/20MWh, smaller scope) · Scope drives Baltic variance.
+          </p>
+
+          {/* Sparkline if available */}
+          {history.length > 1 && (
+            <div style={{ marginBottom: '20px' }}>
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>Equipment cost trend</p>
+              <Sparkline values={history} color="rgba(232,226,217,0.55)" width={200} height={40} />
+            </div>
+          )}
+
+          {/* Lithium context */}
+          {data.lithium_eur_t != null && (
+            <div style={{ marginBottom: '20px' }}>
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>Raw input reference</p>
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                Li carbonate: €{safeNum(data.lithium_eur_t / 1000, 0)}k/t {data.lithium_trend ?? ''} · raw commodity input, not a project cost
+              </p>
+            </div>
+          )}
+
+          {/* Finance detail */}
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>Financing context</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 12px', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', marginBottom: '20px' }}>
+            {nominal != null && (
+              <><span style={{ color: 'var(--text-muted)' }}>Euribor 3M</span><span style={{ color: 'var(--text-secondary)' }}>{safeNum(nominal, 2)}% nominal</span></>
+            )}
+            {hicp != null && (
+              <><span style={{ color: 'var(--text-muted)' }}>HICP YoY</span><span style={{ color: 'var(--text-secondary)' }}>{safeNum(hicp, 1)}%</span></>
+            )}
+            {real != null && (
+              <><span style={{ color: 'var(--text-muted)' }}>Real rate</span><span style={{ color: 'var(--text-secondary)' }}>{safeNum(real, 2)}%</span></>
+            )}
+          </div>
+
+          {/* Methodology */}
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>Methodology</p>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+            Installed cost: BNEF / Clean Horizon S1 2025 benchmark. Equipment from tradingeconomics.com. Euribor: ECB API. Cost direction is editorial assessment based on public evidence, updated quarterly.
+          </p>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-ghost)', letterSpacing: '0.06em', marginTop: '16px' }}>
+            MODEL INPUT → CAPEX reference · Financing cost
+          </div>
+        </DetailsDrawer>
+      </div>
+    </article>
   );
 }
