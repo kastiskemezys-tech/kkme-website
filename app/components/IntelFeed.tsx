@@ -556,12 +556,13 @@ export function IntelFeed() {
           }}>
             No {activeFilter !== 'all' ? CATEGORY_LABELS[activeFilter].toLowerCase() : ''} intelligence items.
             {activeFilter !== 'all' && (
-              <span
+              <button
+                type="button"
                 onClick={() => setActiveFilter('all')}
-                style={{ color: 'var(--teal)', cursor: 'pointer', marginLeft: '6px', opacity: 0.7 }}
+                style={{ all: 'unset', color: 'var(--teal)', cursor: 'pointer', marginLeft: '6px', opacity: 0.7, fontFamily: 'inherit', fontSize: 'inherit' }}
               >
                 Show all
-              </span>
+              </button>
             )}
           </div>
         )}

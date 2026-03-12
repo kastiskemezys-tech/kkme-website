@@ -275,7 +275,7 @@ export function S4Card() {
       )}
 
       {/* SOURCE FOOTER — clickable to open drawer */}
-      <div onClick={openDrawer} style={{ cursor: 'pointer' }}>
+      <button type="button" onClick={openDrawer} style={{ all: 'unset', display: 'block', width: '100%', cursor: 'pointer' }}>
         <SourceFooter
           source="VERT.lt ArcGIS · Litgrid"
           updatedAt={data.timestamp ? new Date(data.timestamp).toLocaleString('en-GB', {
@@ -283,7 +283,7 @@ export function S4Card() {
           }) : undefined}
           dataClass="observed"
         />
-      </div>
+      </button>
 
       {/* DETAILS DRAWER */}
       <div style={{ marginTop: '16px' }}>

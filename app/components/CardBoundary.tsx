@@ -41,12 +41,13 @@ export class CardBoundary extends React.Component<Props, State> {
           <div style={{ opacity: 0.5, marginBottom: '0.75rem' }}>
             {this.state.error}
           </div>
-          <div
-            style={{ cursor: 'pointer', textDecoration: 'underline', opacity: 0.6 }}
+          <button
+            type="button"
+            style={{ all: 'unset', cursor: 'pointer', textDecoration: 'underline', opacity: 0.6, fontFamily: 'inherit', fontSize: 'inherit', color: 'inherit' }}
             onClick={() => this.setState({ hasError: false, error: null })}
           >
             retry
-          </div>
+          </button>
         </div>
       );
     }

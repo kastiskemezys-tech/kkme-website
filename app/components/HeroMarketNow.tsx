@@ -238,42 +238,50 @@ export function HeroMarketNow() {
           )}
         </div>
 
-        {/* 2×2 supporting metrics — values and labels only, sublabels moved to drawer */}
+        {/* 2×2 supporting metrics — clickable, scroll to relevant section */}
         <div style={{
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
           gap: '12px',
           marginBottom: '12px',
         }}>
-          <MetricTile
-            label="Day-ahead arbitrage capture"
-            value={bess != null ? bess.toFixed(0) : '—'}
-            unit="€/MWh"
-            size="standard"
-            dataClass="derived"
-          />
-          <MetricTile
-            label="Balancing capacity reference"
-            value={afrr != null ? Math.round(afrr).toString() : '—'}
-            unit="€/MW/h"
-            size="standard"
-            dataClass="proxy"
-          />
-          <MetricTile
-            label="Indicative grid capacity"
-            value={freeMw != null ? (freeMw / 1000).toFixed(1) : '—'}
-            unit="GW"
-            size="standard"
-            dataClass="observed"
-          />
-          <MetricTile
-            label="Operational BESS fleet"
-            value={opMw != null ? opMw.toString() : '—'}
-            unit="MW"
-            size="standard"
-            dataClass="observed"
-            sublabel={pipeMw != null ? `+${pipeMw} MW pipeline` : undefined}
-          />
+          <button type="button" onClick={() => document.getElementById('revenue-drivers')?.scrollIntoView({ behavior: 'smooth' })} style={{ all: 'unset', cursor: 'pointer' }}>
+            <MetricTile
+              label="Day-ahead arbitrage capture"
+              value={bess != null ? bess.toFixed(0) : '—'}
+              unit="€/MWh"
+              size="standard"
+              dataClass="derived"
+            />
+          </button>
+          <button type="button" onClick={() => document.getElementById('revenue-drivers')?.scrollIntoView({ behavior: 'smooth' })} style={{ all: 'unset', cursor: 'pointer' }}>
+            <MetricTile
+              label="Balancing capacity reference"
+              value={afrr != null ? Math.round(afrr).toString() : '—'}
+              unit="€/MW/h"
+              size="standard"
+              dataClass="proxy"
+            />
+          </button>
+          <button type="button" onClick={() => document.getElementById('build')?.scrollIntoView({ behavior: 'smooth' })} style={{ all: 'unset', cursor: 'pointer' }}>
+            <MetricTile
+              label="Indicative grid capacity"
+              value={freeMw != null ? (freeMw / 1000).toFixed(1) : '—'}
+              unit="GW"
+              size="standard"
+              dataClass="observed"
+            />
+          </button>
+          <button type="button" onClick={() => document.getElementById('structural')?.scrollIntoView({ behavior: 'smooth' })} style={{ all: 'unset', cursor: 'pointer' }}>
+            <MetricTile
+              label="Operational BESS fleet"
+              value={opMw != null ? opMw.toString() : '—'}
+              unit="MW"
+              size="standard"
+              dataClass="observed"
+              sublabel={pipeMw != null ? `+${pipeMw} MW pipeline` : undefined}
+            />
+          </button>
         </div>
 
         {/* Interpretation */}

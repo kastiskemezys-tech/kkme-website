@@ -728,7 +728,7 @@ export function RevenueCard() {
       </div>
 
       {/* 10. SOURCE FOOTER */}
-      <div onClick={openDrawer} style={{ cursor: 'pointer' }}>
+      <button type="button" onClick={openDrawer} style={{ all: 'unset', display: 'block', width: '100%', cursor: 'pointer' }}>
         <SourceFooter
           source={`Model v5 · observed + proxy + modeled`}
           updatedAt={ts ? new Date(ts).toLocaleString('en-GB', {
@@ -736,7 +736,7 @@ export function RevenueCard() {
           }) : undefined}
           dataClass="modeled"
         />
-      </div>
+      </button>
 
       {/* 11. DETAILS DRAWER */}
       <div style={{ marginTop: '16px' }}>

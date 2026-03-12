@@ -55,7 +55,7 @@ export function SectionHeader({ title, subtitle, metadata }: SectionHeaderProps)
           {metadata.methodology && (
             <>
               <span style={{ opacity: 0.5 }}>·</span>
-              <span style={{ color: 'var(--teal)', cursor: 'pointer' }}>{metadata.methodology}</span>
+              <span style={{ color: 'var(--text-muted)' }}>{metadata.methodology}</span>
             </>
           )}
         </div>

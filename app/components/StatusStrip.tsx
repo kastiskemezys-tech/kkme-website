@@ -12,9 +12,9 @@ interface StripItem {
 }
 
 const SECTION_MAP: Record<string, string> = {
-  'BESS Capture': 'signals',
-  'aFRR': 'signals',
-  'S/D Ratio': 'signals',
+  'BESS Capture': 'revenue-drivers',
+  'aFRR': 'revenue-drivers',
+  'S/D Ratio': 'revenue-drivers',
   'Grid Free': 'build',
 };
 
@@ -66,15 +66,17 @@ export function StatusStrip() {
   return (
     <div className="status-strip" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '24px', marginBottom: '32px', width: '100%' }}>
       {items.map(({ label, value, state }) => (
-        <div
+        <button
+          type="button"
           key={label}
           onClick={() => document.getElementById(SECTION_MAP[label])?.scrollIntoView({ behavior: 'smooth' })}
           style={{
-            flex: 1,
+            all: 'unset',
             padding: '8px 10px',
             border: '1px solid var(--border-card)',
             background: 'var(--bg-card)',
             cursor: 'pointer',
+            textAlign: 'left',
           }}
         >
           <div style={{
@@ -95,7 +97,7 @@ export function StatusStrip() {
           }}>
             {value}
           </div>
-        </div>
+        </button>
       ))}
     </div>
   );

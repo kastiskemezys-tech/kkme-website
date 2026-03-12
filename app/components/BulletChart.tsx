@@ -57,6 +57,9 @@ export function BulletChart({
         {sorted.map((t, i) => {
           const x1 = i === 0 ? 0 : toX(sorted[i - 1].value);
           const x2 = toX(t.value);
+          const rangeLabel = i === 0
+            ? `${t.label}: ${min}–${t.value} ${unit}`
+            : `${t.label}: ${sorted[i - 1].value}–${t.value} ${unit}`;
           return (
             <rect
               key={`range-${i}`}
@@ -66,7 +69,9 @@ export function BulletChart({
               height={barH}
               fill={t.color}
               opacity={0.18}
-            />
+            >
+              <title>{rangeLabel}</title>
+            </rect>
           );
         })}
         {/* Final range beyond last threshold */}
@@ -109,7 +114,9 @@ export function BulletChart({
           height={barH - 2}
           rx="1"
           fill="var(--chart-bar)"
-        />
+        >
+          <title>{`${label}: ${value.toFixed(1)} ${unit}`}</title>
+        </rect>
 
         {/* Current value marker — downward triangle above bar */}
         <polygon

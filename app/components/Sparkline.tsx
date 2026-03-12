@@ -5,6 +5,7 @@ import { drawSparkline } from '@/lib/animations';
 
 interface SparklineProps {
   values:  number[];
+  labels?: string[];
   width?:  number;
   height?: number;
   color?:  string;
@@ -12,7 +13,7 @@ interface SparklineProps {
 }
 
 export function Sparkline({
-  values, width, height = 24,
+  values, labels, width, height = 24,
   color = '#4ade80', p50,
 }: SparklineProps) {
   const lineRef = useRef<SVGPolylineElement>(null);
@@ -92,6 +93,26 @@ export function Sparkline({
         opacity={0.65}
       />
       <circle cx={lastX} cy={lastY} r={2} fill={color} opacity={0.9} />
+
+      {/* Hover zones with native tooltips */}
+      {pts.map((p, i) => {
+        const segW = W / valid.length;
+        const title = labels?.[i]
+          ? `${labels[i]}: ${valid[i].toFixed(1)}`
+          : `${valid[i].toFixed(1)}`;
+        return (
+          <rect
+            key={i}
+            x={p.x - segW / 2}
+            y={0}
+            width={segW}
+            height={height}
+            fill="transparent"
+          >
+            <title>{title}</title>
+          </rect>
+        );
+      })}
     </svg>
   );
 }

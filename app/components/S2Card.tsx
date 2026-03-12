@@ -361,7 +361,7 @@ export function S2Card() {
       )}
 
       {/* SOURCE FOOTER — clickable to open drawer */}
-      <div onClick={openDrawer} style={{ cursor: 'pointer' }}>
+      <button type="button" onClick={openDrawer} style={{ all: 'unset', display: 'block', width: '100%', cursor: 'pointer' }}>
         <SourceFooter
           source="Baltic balancing references + fleet tracker"
           updatedAt={data.timestamp ? new Date(data.timestamp).toLocaleString('en-GB', {
@@ -369,7 +369,7 @@ export function S2Card() {
           }) : undefined}
           dataClass="reference estimates"
         />
-      </div>
+      </button>
 
       {/* DETAILS DRAWER */}
       <div style={{ marginTop: '16px' }}>

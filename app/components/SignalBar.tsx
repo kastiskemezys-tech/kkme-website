@@ -3,6 +3,14 @@ import { useState, useEffect } from 'react';
 
 const BASE = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
+const SECTION_MAP: Record<string, string> = {
+  'BESS CAPTURE': 'revenue-drivers',
+  'S/D RATIO': 'revenue-drivers',
+  'aFRR': 'revenue-drivers',
+  'GRID FREE': 'build',
+  'FLEET OP': 'structural',
+};
+
 export default function SignalBar() {
   const [data, setData] = useState<{ s1?: any; s2?: any; s4?: any }>({});
 
@@ -42,6 +50,11 @@ export default function SignalBar() {
     },
   ];
 
+  function scrollTo(label: string) {
+    const id = SECTION_MAP[label];
+    if (id) document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+  }
+
   return (
     <div style={{
       display: 'grid',
@@ -52,7 +65,18 @@ export default function SignalBar() {
       background: 'var(--overlay-heavy)',
     }}>
       {signals.map(s => (
-        <div key={s.label} style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+        <button
+          key={s.label}
+          type="button"
+          onClick={() => scrollTo(s.label)}
+          style={{
+            all: 'unset',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '2px',
+            cursor: 'pointer',
+          }}
+        >
           <span style={{
             fontFamily: 'DM Mono, monospace',
             fontSize: '0.5625rem',
@@ -64,8 +88,9 @@ export default function SignalBar() {
             fontFamily: 'DM Mono, monospace',
             fontSize: '0.6875rem',
             color: 'var(--text-secondary)',
+            transition: 'color 150ms ease',
           }}>{s.value}</span>
-        </div>
+        </button>
       ))}
     </div>
   );

@@ -196,7 +196,7 @@ export function S1Card() {
       </div>
 
       {/* SOURCE FOOTER — clickable to open drawer */}
-      <div onClick={openDrawer} style={{ cursor: 'pointer' }}>
+      <button type="button" onClick={openDrawer} style={{ all: 'unset', display: 'block', width: '100%', cursor: 'pointer' }}>
         <SourceFooter
           source="ENTSO-E A44"
           updatedAt={data.updated_at ? new Date(data.updated_at).toLocaleString('en-GB', {
@@ -204,7 +204,7 @@ export function S1Card() {
           }) : undefined}
           dataClass="observed data"
         />
-      </div>
+      </button>
 
       {/* DETAILS DRAWER */}
       <div style={{ marginTop: '16px' }}>
