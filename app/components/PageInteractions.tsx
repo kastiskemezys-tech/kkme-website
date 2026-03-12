@@ -8,7 +8,7 @@ const SECTION_KEYS: Record<string, string> = {
   b: 'build',
   m: 'context',
   i: 'intel',
-  d: 'deal-flow',
+  c: 'conversation',
 };
 
 export function PageInteractions() {

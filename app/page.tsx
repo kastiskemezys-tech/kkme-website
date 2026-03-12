@@ -10,6 +10,7 @@ import { SolarCard } from '@/app/components/SolarCard';
 import { LoadCard } from '@/app/components/LoadCard';
 import { RevenueCard } from '@/app/components/RevenueCard';
 import { IntelFeed } from '@/app/components/IntelFeed';
+import { ContactForm } from '@/app/components/ContactForm';
 import { CardBoundary } from '@/app/components/CardBoundary';
 import { ErrorBoundary } from '@/app/components/ErrorBoundary';
 import { CardEntrance } from '@/app/components/CardEntrance';
@@ -44,7 +45,7 @@ export default function Home() {
           </div>
           {/* ═══ MID-PAGE CTA ═══ */}
           <div className="inline-cta">
-            <a href="#deal-flow">Have a Baltic battery project? Send it for review ↗</a>
+            <a href="#conversation">Looking at Baltic storage? Start the conversation ↗</a>
           </div>
         </div>
 
@@ -120,7 +121,7 @@ export default function Home() {
 
         {/* ═══ MID-PAGE CTA ═══ */}
         <div className="inline-cta">
-          <a href="#deal-flow">Looking for Baltic battery deal flow? Get in touch ↗</a>
+          <a href="#conversation">Interested in Baltic storage? Get in touch ↗</a>
         </div>
 
         {/* ═══ MARKET INTELLIGENCE ═══ */}
@@ -134,117 +135,64 @@ export default function Home() {
           <IntelFeed />
         </div>
 
-        {/* ═══ DEAL FLOW ═══ */}
-        <div className="section" id="deal-flow">
+        {/* ═══ DISCUSS BALTIC STORAGE ═══ */}
+        <div className="section" id="conversation">
           <div style={{ marginBottom: '32px' }}>
-            <h2 className="section-header" style={{ marginBottom: '6px' }}>Deal Flow</h2>
-            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.8125rem', color: 'var(--text-muted)', paddingLeft: '16px' }}>Baltic BESS projects at RTB stage</p>
+            <h2 className="section-header" style={{ marginBottom: '6px' }}>Discuss Baltic storage</h2>
           </div>
-          <div className="grid-2">
-            {/* LEFT: About + Contact */}
-            <div>
-              <h3 style={{
-                fontFamily: 'var(--font-display)',
-                fontSize: '1.1rem',
-                color: 'var(--text-primary)',
-                marginBottom: '16px',
-                fontWeight: 400,
-                letterSpacing: '0.06em',
-              }}>Baltic BESS Deal Flow</h3>
-              <p style={{
-                fontFamily: 'var(--font-serif)',
-                fontSize: '1rem',
-                color: 'var(--text-secondary)',
-                lineHeight: 1.7,
-                marginBottom: '20px',
-              }}>
-                Baltic BESS and hybrid projects at RTB or near-RTB stage.
-                Send a teaser — go/no-go and proposed structure within 48 hours.
-              </p>
-              <p style={{
-                fontFamily: 'var(--font-serif)',
-                fontSize: '0.95rem',
-                color: 'var(--text-tertiary)',
-                lineHeight: 1.6,
-                marginBottom: '20px',
-              }}>
-                Capital partners: if you deploy equity into energy infrastructure and
-                want Baltic exposure, contact me.
-              </p>
-              <div style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.8125rem',
-                color: 'var(--text-muted)',
-                lineHeight: 1.8,
-              }}>
-                Built by Kastytis Kemežys<br />
-                Baltic energy infrastructure
+          <div className="grid-2" style={{ alignItems: 'start' }}>
+            {/* LEFT: Copy + credit */}
+            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: '320px' }}>
+              <div>
+                <p style={{
+                  fontFamily: 'var(--font-serif)',
+                  fontSize: 'var(--font-base)',
+                  color: 'var(--text-secondary)',
+                  lineHeight: 1.7,
+                  marginBottom: '16px',
+                }}>
+                  KKME tracks Baltic storage through live market signals, project flow, and structural analysis.
+                  If you&apos;re looking at the region, working on a project, or want to compare notes — get in touch.
+                </p>
+                <p style={{
+                  fontFamily: 'var(--font-serif)',
+                  fontSize: 'var(--font-sm)',
+                  color: 'var(--text-tertiary)',
+                  lineHeight: 1.6,
+                }}>
+                  Investors, developers, project owners, and other serious market participants welcome.
+                </p>
               </div>
-              <div style={{ display: 'flex', gap: '20px', marginTop: '16px', flexWrap: 'wrap' }}>
-                <a href="mailto:kastytis@kkme.eu" style={{
-                  fontFamily: 'var(--font-mono)', fontSize: '0.8125rem',
-                  color: 'var(--teal)', textDecoration: 'none',
-                }}>kastytis@kkme.eu</a>
-                <a href="tel:+37069822225" style={{
-                  fontFamily: 'var(--font-mono)', fontSize: '0.8125rem',
-                  color: 'var(--text-muted)', textDecoration: 'none',
-                }}>+370 698 22225</a>
-                <a href="https://www.linkedin.com/in/kastytis-kemezys/"
-                  target="_blank" rel="noopener noreferrer" style={{
-                  fontFamily: 'var(--font-mono)', fontSize: '0.8125rem',
-                  color: 'var(--teal)', textDecoration: 'none',
-                }}>LinkedIn ↗</a>
+              <div style={{ marginTop: '32px' }}>
+                <p style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 'var(--font-sm)',
+                  color: 'var(--text-muted)',
+                  marginBottom: '10px',
+                }}>
+                  Kastytis Kemežys · Baltic energy infrastructure
+                </p>
+                <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                  <a href="mailto:kastytis@kkme.eu" style={{
+                    fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+                    color: 'var(--teal)', textDecoration: 'none',
+                  }}>kastytis@kkme.eu</a>
+                  <a href="tel:+37069822225" style={{
+                    fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+                    color: 'var(--text-muted)', textDecoration: 'none',
+                  }}>+370 698 22225</a>
+                  <a href="https://www.linkedin.com/in/kastytis-kemezys/"
+                    target="_blank" rel="noopener noreferrer" style={{
+                    fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+                    color: 'var(--teal)', textDecoration: 'none',
+                  }}>LinkedIn ↗</a>
+                </div>
               </div>
             </div>
 
-            {/* RIGHT: Structured Form */}
+            {/* RIGHT: Form */}
             <div>
-              {([
-                { label: 'Project name', name: 'project', type: 'text', placeholder: '' },
-                { label: 'MW / MWh', name: 'capacity', type: 'text', placeholder: '50 MW / 100 MWh' },
-                { label: 'Location', name: 'location', type: 'text', placeholder: 'Lithuania, Kaunas region' },
-                { label: 'Target COD', name: 'cod', type: 'text', placeholder: 'Q4 2027' },
-                { label: 'Stage', name: 'stage', type: 'text', placeholder: 'RTB / Construction / Development' },
-                { label: 'Your email', name: 'email', type: 'email', placeholder: '' },
-              ] as Array<{ label: string; name: string; type: string; placeholder: string }>).map(field => (
-                <div key={field.name} style={{ marginBottom: '14px' }}>
-                  <label style={{
-                    display: 'block',
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: '0.8125rem',
-                    color: 'var(--text-muted)',
-                    marginBottom: '5px',
-                    letterSpacing: '0.04em',
-                  }}>{field.label}</label>
-                  <input
-                    type={field.type}
-                    placeholder={field.placeholder}
-                    style={{
-                      width: '100%',
-                      padding: '9px 12px',
-                      background: 'rgba(232,226,217,0.02)',
-                      border: '1px solid var(--border-card)',
-                      borderRadius: '2px',
-                      color: 'var(--text-primary)',
-                      fontFamily: 'var(--font-mono)',
-                      fontSize: '0.8125rem',
-                      boxSizing: 'border-box',
-                    } as React.CSSProperties}
-                  />
-                </div>
-              ))}
-              <button style={{
-                padding: '10px 28px',
-                marginTop: '8px',
-                background: 'rgba(212,160,60,0.12)',
-                border: '1px solid rgba(212,160,60,0.25)',
-                borderRadius: '2px',
-                color: 'var(--amber)',
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.8125rem',
-                letterSpacing: '0.06em',
-                cursor: 'pointer',
-              }}>Submit Teaser</button>
+              <ContactForm />
             </div>
           </div>
         </div>
@@ -295,7 +243,7 @@ export default function Home() {
             marginTop: '8px',
             letterSpacing: '0.06em',
           }}>
-            Keyboard: R revenue · S signals · B build · M market · I intel · D deal flow
+            Keyboard: R revenue · S signals · B build · M market · I intel · C contact
           </div>
         </footer>
 

@@ -2728,6 +2728,39 @@ export default {
       return new Response(JSON.stringify({ ok: true, id: entry.id }), { status: 201, headers: { 'Content-Type': 'application/json', ...CORS } });
     }
 
+    // ── POST /contact ─────────────────────────────────────────────────────────
+    if (request.method === 'POST' && url.pathname === '/contact') {
+      let body;
+      try { body = await request.json(); } catch {
+        return jsonResp({ error: 'Invalid JSON' }, 400);
+      }
+      const { type, name, email, message, company, projectName, mwMwh, country, targetCod } = body;
+      if (!name || !email || !message || !type) {
+        return jsonResp({ error: 'Missing required fields: type, name, email, message' }, 400);
+      }
+      const entry = {
+        id: makeId(), type, name, email, message,
+        company: company || null, projectName: projectName || null,
+        mwMwh: mwMwh || null, country: country || null, targetCod: targetCod || null,
+        timestamp: new Date().toISOString(),
+      };
+      const raw = await env.KKME_SIGNALS.get('contact_submissions').catch(() => null);
+      const submissions = raw ? JSON.parse(raw) : [];
+      submissions.unshift(entry);
+      if (submissions.length > 500) submissions.length = 500;
+      await env.KKME_SIGNALS.put('contact_submissions', JSON.stringify(submissions));
+      await notifyTelegram(env, `📩 New inquiry (${type})\n${name} · ${email}${company ? ` · ${company}` : ''}\n${message.slice(0, 200)}`).catch(() => {});
+      return jsonResp({ ok: true });
+    }
+
+    // ── GET /contact ──────────────────────────────────────────────────────────
+    if (request.method === 'GET' && url.pathname === '/contact') {
+      const secret = request.headers.get('X-Update-Secret');
+      if (secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
+      const raw = await env.KKME_SIGNALS.get('contact_submissions').catch(() => null);
+      return jsonResp(raw ? JSON.parse(raw) : []);
+    }
+
     // ── GET /curations ───────────────────────────────────────────────────────
     if (request.method === 'GET' && url.pathname === '/curations') {
       const entries = await recentCurations(env.KKME_SIGNALS);

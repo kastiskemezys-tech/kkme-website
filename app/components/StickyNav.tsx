@@ -7,7 +7,7 @@ const NAV_LINKS = [
   { label: 'Build',   href: '#build' },
   { label: 'Structure', href: '#structural' },
   { label: 'Intel',   href: '#intel' },
-  { label: 'Contact', href: '#deal-flow' },
+  { label: 'Contact', href: '#conversation' },
 ];
 
 function scrollTo(id: string) {
@@ -67,8 +67,8 @@ export default function StickyNav() {
             >{l.label}</a>
           ))}
           <a
-            href="#deal-flow"
-            onClick={(e) => { e.preventDefault(); scrollTo('#deal-flow'); }}
+            href="#conversation"
+            onClick={(e) => { e.preventDefault(); scrollTo('#conversation'); }}
             style={{
               padding: '5px 16px',
               fontFamily: 'var(--font-mono)',
