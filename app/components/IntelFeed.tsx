@@ -40,10 +40,10 @@ const SEED_ITEMS: IntelItem[] = [
     primaryCategory: 'competition',
     sourceName: 'E energija / Litgrid',
     publishedAt: '2026-02-28',
-    whyItMatters: 'First major commercial BESS competitor — accelerates aFRR price compression',
-    impact: 'negative',
+    whyItMatters: 'First large-scale commercial BESS in Lithuania — marks the start of Baltic balancing market deepening',
+    impact: 'mixed',
     horizon: 'immediate',
-    referenceAssetNote: 'Negative for reference asset — validates market but begins price discovery in aFRR/mFRR',
+    referenceAssetNote: 'Validates the market and begins real price discovery in aFRR/mFRR',
     geography: 'Lithuania',
     confidence: 'high',
     isPinned: true,
@@ -55,10 +55,10 @@ const SEED_ITEMS: IntelItem[] = [
     primaryCategory: 'competition',
     sourceName: 'Ignitis Group',
     publishedAt: '2026-02-15',
-    whyItMatters: 'Largest Baltic BESS pipeline entry — will materially shift supply/demand ratio by 2027',
-    impact: 'negative',
+    whyItMatters: 'Largest announced Baltic BESS programme — 582 MWh across three sites, targeting 2027 COD',
+    impact: 'mixed',
     horizon: 'near_term',
-    referenceAssetNote: 'Strong negative for late movers — S/D ratio approaches 1.0 if all three sites deliver on schedule',
+    referenceAssetNote: 'Supply/demand ratio approaches 1.0 if all three sites deliver on schedule',
     geography: 'Lithuania',
     confidence: 'high',
     isPinned: true,
@@ -70,10 +70,10 @@ const SEED_ITEMS: IntelItem[] = [
     primaryCategory: 'revenue',
     sourceName: 'European Commission / Litgrid',
     publishedAt: '2026-02-20',
-    whyItMatters: 'New export corridor may compress LT spreads long-term, but no near-term flow impact',
+    whyItMatters: 'New 2GW export corridor — may reshape Lithuanian price spreads post-2032, no near-term flow impact',
     impact: 'mixed',
     horizon: 'long_term',
-    referenceAssetNote: 'Neutral for 2027 COD — relevant only for long-duration asset value post-2032',
+    referenceAssetNote: 'Relevant for long-duration asset value post-2032, not for 2027 COD decisions',
     geography: 'Lithuania / Germany',
     confidence: 'medium',
     isPinned: true,
@@ -85,7 +85,7 @@ const SEED_ITEMS: IntelItem[] = [
     primaryCategory: 'market_design',
     sourceName: 'VERT.lt',
     publishedAt: '2026-01-10',
-    whyItMatters: 'Changes net revenue — imbalance costs now partially borne by storage operators',
+    whyItMatters: 'Storage operators now bear 30% of system balancing costs — changes net revenue calculation',
     impact: 'negative',
     horizon: 'immediate',
     geography: 'Lithuania',
@@ -98,7 +98,7 @@ const SEED_ITEMS: IntelItem[] = [
     primaryCategory: 'buildability',
     sourceName: 'Lithuanian Energy Agency',
     publishedAt: '2026-01-25',
-    whyItMatters: 'Strong demand signal but accelerates grid queue congestion',
+    whyItMatters: '2.1x oversubscription signals strong developer interest — may accelerate grid queue congestion',
     impact: 'mixed',
     horizon: 'near_term',
     geography: 'Lithuania',
@@ -111,10 +111,10 @@ const SEED_ITEMS: IntelItem[] = [
     primaryCategory: 'revenue',
     sourceName: 'Litgrid / NordBalt',
     publishedAt: '2026-03-01',
-    whyItMatters: 'Reduced Swedish imports historically widen Lithuanian day-ahead spreads by 15–25%',
+    whyItMatters: '700MW Sweden–Lithuania link offline for 6 weeks — historical precedent: 15–25% wider DA spreads',
     impact: 'positive',
     horizon: 'near_term',
-    referenceAssetNote: 'Positive for arbitrage revenue — wider spreads during outage window',
+    referenceAssetNote: 'Wider spreads during outage window support arbitrage capture',
     geography: 'Lithuania / Sweden',
     confidence: 'high',
   },
@@ -125,7 +125,7 @@ const SEED_ITEMS: IntelItem[] = [
     primaryCategory: 'revenue',
     sourceName: 'ICE / energy-charts.info',
     publishedAt: '2026-03-05',
-    whyItMatters: 'Higher carbon floor supports peak-hour discharge economics vs gas peakers',
+    whyItMatters: '€71/t carbon floor sustains gas peaker marginal costs — anchors peak-hour discharge economics',
     impact: 'positive',
     horizon: 'structural',
     geography: 'EU-wide',
@@ -138,10 +138,10 @@ const SEED_ITEMS: IntelItem[] = [
     primaryCategory: 'cost',
     sourceName: 'BloombergNEF',
     publishedAt: '2026-02-10',
-    whyItMatters: 'Continued hardware cost decline — but Baltic installed costs still dominated by grid/BoP scope',
+    whyItMatters: 'LFP cells down 12% YoY to $92/kWh — but Baltic installed costs still dominated by grid/BoP scope',
     impact: 'positive',
     horizon: 'structural',
-    referenceAssetNote: 'Modest positive — equipment is ~60% of installed cost, but grid scope is the dominant variable',
+    referenceAssetNote: 'Equipment is ~60% of installed cost; grid scope remains the dominant CAPEX variable',
     geography: 'Global → Baltic',
     confidence: 'medium',
   },
@@ -169,22 +169,6 @@ const CATEGORY_COLORS: Record<Category, string> = {
   watchlist: 'var(--text-tertiary)',
 };
 
-const IMPACT_COLORS: Record<Impact, string> = {
-  positive: 'var(--teal)',
-  negative: 'var(--rose)',
-  mixed: 'var(--amber)',
-  neutral: 'var(--text-tertiary)',
-  watch: 'var(--text-muted)',
-};
-
-const IMPACT_LABELS: Record<Impact, string> = {
-  positive: 'Positive',
-  negative: 'Negative',
-  mixed: 'Mixed',
-  neutral: 'Neutral',
-  watch: 'Watch',
-};
-
 const HORIZON_LABELS: Record<Horizon, string> = {
   immediate: 'Immediate',
   near_term: 'Near-term',
@@ -206,20 +190,6 @@ function formatDate(iso: string): string {
 
 // ─── Chip components ──────────────────────────────────────────────────────────
 
-function ImpactChip({ impact }: { impact: Impact }) {
-  return (
-    <span style={{
-      fontFamily: 'var(--font-mono)',
-      fontSize: 'var(--font-xs)',
-      color: IMPACT_COLORS[impact],
-      opacity: 0.85,
-      letterSpacing: '0.04em',
-    }}>
-      {IMPACT_LABELS[impact]}
-    </span>
-  );
-}
-
 function HorizonChip({ horizon }: { horizon: Horizon }) {
   return (
     <span style={{
@@ -238,10 +208,10 @@ function CategoryChip({ category }: { category: Category }) {
     <span style={{
       fontFamily: 'var(--font-mono)',
       fontSize: 'var(--font-xs)',
-      color: CATEGORY_COLORS[category],
       letterSpacing: '0.06em',
       textTransform: 'uppercase',
-      opacity: 0.8,
+      color: CATEGORY_COLORS[category],
+      opacity: 0.7,
     }}>
       {CATEGORY_LABELS[category]}
     </span>
@@ -254,61 +224,52 @@ function PinnedStrip({ items }: { items: IntelItem[] }) {
   if (items.length === 0) return null;
 
   return (
-    <div style={{ marginBottom: '32px' }}>
+    <div style={{ marginBottom: '36px' }}>
       <p style={{
         fontFamily: 'var(--font-mono)',
         fontSize: 'var(--font-xs)',
         color: 'var(--text-tertiary)',
         letterSpacing: '0.1em',
         textTransform: 'uppercase',
-        marginBottom: '12px',
+        marginBottom: '14px',
         fontWeight: 500,
       }}>
         This week&apos;s market movers
       </p>
-      <div style={{
-        display: 'grid',
-        gap: '1px',
-        background: 'var(--border-card)',
-        border: '1px solid var(--border-card)',
-        borderRadius: '2px',
-      }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
         {items.map(item => (
           <div
             key={item.id}
             style={{
-              background: 'var(--bg-page)',
-              padding: '14px 16px',
+              background: 'var(--bg-elevated)',
+              padding: '16px 18px',
+              borderRadius: '2px',
               display: 'flex',
               flexDirection: 'column',
-              gap: '4px',
+              gap: '6px',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap' }}>
-              <span style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: 'var(--font-sm)',
-                color: 'var(--text-primary)',
-                lineHeight: 1.4,
-              }}>
-                {item.title}
-              </span>
-            </div>
+            <span style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 'var(--font-sm)',
+              color: 'var(--text-primary)',
+              lineHeight: 1.45,
+            }}>
+              {item.title}
+            </span>
             <p style={{
               fontFamily: 'var(--font-serif)',
               fontSize: 'var(--font-sm)',
               color: 'var(--text-secondary)',
-              lineHeight: 1.5,
+              lineHeight: 1.55,
               margin: 0,
             }}>
               {item.whyItMatters}
             </p>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '2px' }}>
-              <ImpactChip impact={item.impact} />
+              <CategoryChip category={item.primaryCategory} />
               <span style={{ color: 'var(--text-ghost)' }}>·</span>
               <HorizonChip horizon={item.horizon} />
-              <span style={{ color: 'var(--text-ghost)' }}>·</span>
-              <CategoryChip category={item.primaryCategory} />
             </div>
           </div>
         ))}
@@ -334,12 +295,12 @@ function IntelRow({ item, isExpanded, onToggle }: {
           width: '100%',
           background: 'none',
           border: 'none',
-          padding: '14px 0',
+          padding: '18px 0',
           cursor: 'pointer',
           textAlign: 'left',
           display: 'flex',
           flexDirection: 'column',
-          gap: '4px',
+          gap: '6px',
         }}
       >
         {/* Title row */}
@@ -353,7 +314,7 @@ function IntelRow({ item, isExpanded, onToggle }: {
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-sm)',
             color: 'var(--text-primary)',
-            lineHeight: 1.4,
+            lineHeight: 1.45,
             flex: 1,
           }}>
             {item.title}
@@ -373,13 +334,13 @@ function IntelRow({ item, isExpanded, onToggle }: {
           fontFamily: 'var(--font-serif)',
           fontSize: 'var(--font-sm)',
           color: 'var(--text-secondary)',
-          lineHeight: 1.5,
+          lineHeight: 1.55,
           margin: 0,
         }}>
           {item.whyItMatters}
         </p>
 
-        {/* Tags row */}
+        {/* Tags row — category + horizon only */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
@@ -388,8 +349,6 @@ function IntelRow({ item, isExpanded, onToggle }: {
           marginTop: '2px',
         }}>
           <CategoryChip category={item.primaryCategory} />
-          <span style={{ color: 'var(--text-ghost)' }}>·</span>
-          <ImpactChip impact={item.impact} />
           <span style={{ color: 'var(--text-ghost)' }}>·</span>
           <HorizonChip horizon={item.horizon} />
           <span style={{
@@ -406,7 +365,7 @@ function IntelRow({ item, isExpanded, onToggle }: {
       {/* Expanded detail */}
       {isExpanded && (
         <div style={{
-          padding: '0 0 16px',
+          padding: '0 0 18px',
           display: 'flex',
           flexDirection: 'column',
           gap: '10px',
@@ -549,7 +508,7 @@ export function IntelFeed() {
       {activeFilter === 'all' && <PinnedStrip items={pinned} />}
 
       {/* Filter bar */}
-      <nav aria-label="Intelligence filters" style={{ marginBottom: '20px' }}>
+      <nav aria-label="Intelligence filters" style={{ marginBottom: '24px' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
           {FILTER_CATEGORIES.map(cat => {
             const count = cat === 'all' ? allItems.length : (categoryCounts[cat] ?? 0);

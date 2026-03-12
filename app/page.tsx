@@ -128,7 +128,7 @@ export default function Home() {
           <div style={{ marginBottom: '24px' }}>
             <h2 className="section-header" style={{ marginBottom: '6px' }}>Market intelligence</h2>
             <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>
-              Curated developments affecting Baltic BESS revenue, buildability, competition, market design, cost direction, and future flexibility demand.
+              Curated developments affecting Baltic BESS revenue, buildability, and market structure.
             </p>
           </div>
           <IntelFeed />
