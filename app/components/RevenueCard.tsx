@@ -155,15 +155,15 @@ function ShareViewButton() {
         alignItems: 'flex-end',
         fontFamily: 'var(--font-mono)',
         fontSize: 'var(--font-xs)',
-        color: color ?? 'var(--text-ghost)',
+        color: color ?? 'var(--text-muted)',
         cursor: 'pointer',
         padding: '4px 0',
         transition: 'color 150ms ease',
         minHeight: '28px',
         whiteSpace: 'nowrap',
       }}
-      onMouseEnter={e => { if (label === 'idle') e.currentTarget.style.color = 'var(--text-muted)'; }}
-      onMouseLeave={e => { if (label === 'idle') e.currentTarget.style.color = 'var(--text-ghost)'; }}
+      onMouseEnter={e => { if (label === 'idle') e.currentTarget.style.color = 'var(--text-tertiary)'; }}
+      onMouseLeave={e => { if (label === 'idle') e.currentTarget.style.color = 'var(--text-muted)'; }}
     >
       {text}
     </button>

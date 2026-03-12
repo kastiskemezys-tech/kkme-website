@@ -30,8 +30,8 @@
   /* Readability scale */
   --text-primary:   rgba(232, 226, 217, 0.92);
   --text-secondary: rgba(232, 226, 217, 0.65);
-  --text-tertiary:  rgba(232, 226, 217, 0.50);
-  --text-muted:     rgba(232, 226, 217, 0.38);
+  --text-tertiary:  rgba(232, 226, 217, 0.55);
+  --text-muted:     rgba(232, 226, 217, 0.45);
   --text-faint:     rgba(232, 226, 217, 0.22);
   --text-ghost:     rgba(232, 226, 217, 0.15);
   --accent-purple:  #7b5ea7;
@@ -64,7 +64,7 @@
 
   /* Chart chrome */
   --chart-grid:  rgba(232, 226, 217, 0.12);
-  --chart-label: rgba(232, 226, 217, 0.55);
+  --chart-label: rgba(232, 226, 217, 0.60);
   --chart-tick:  rgba(232, 226, 217, 0.18);
   --chart-bar:   rgba(232, 226, 217, 0.62);
 
@@ -76,6 +76,11 @@
   --signal-warning:  rgba(204, 160, 72, 0.82);
   --signal-negative: rgba(214, 88, 88, 0.88);
   --signal-neutral:  rgba(232, 226, 217, 0.72);
+
+  /* Intel category accent colors */
+  --cat-design: rgba(140,160,220,0.85);
+  --cat-cost:   rgba(180,160,100,0.85);
+  --cat-demand: rgba(140,200,180,0.85);
 
   /* Section elevated surface */
   --bg-section-elevated: rgba(232, 226, 217, 0.012);
@@ -108,8 +113,8 @@
 
   --text-primary:   rgba(26, 26, 31, 0.92);
   --text-secondary: rgba(26, 26, 31, 0.65);
-  --text-tertiary:  rgba(26, 26, 31, 0.55);
-  --text-muted:     rgba(26, 26, 31, 0.45);
+  --text-tertiary:  rgba(26, 26, 31, 0.65);
+  --text-muted:     rgba(26, 26, 31, 0.60);
   --text-faint:     rgba(26, 26, 31, 0.30);
   --text-ghost:     rgba(26, 26, 31, 0.15);
 
@@ -121,9 +126,9 @@
   --border-highlight: rgba(26, 26, 31, 0.18);
   --border-subtle:    rgba(26, 26, 31, 0.06);
 
-  --teal:   #1a9e84;
+  --teal:   #137a65;
   --green:  #3d8a55;
-  --amber:  #a67d2e;
+  --amber:  #8a6620;
   --rose:   #dc3535;
   --red:    #c04848;
   --blue:   #3a6499;
@@ -135,29 +140,34 @@
 
   --overlay-heavy: rgba(245, 242, 237, 0.95);
 
-  --teal-strong: rgba(26, 158, 132, 0.80);
-  --teal-medium: rgba(26, 158, 132, 0.70);
-  --teal-subtle: rgba(26, 158, 132, 0.25);
-  --teal-bg:     rgba(26, 158, 132, 0.06);
+  --teal-strong: rgba(19, 122, 101, 0.90);
+  --teal-medium: rgba(19, 122, 101, 0.80);
+  --teal-subtle: rgba(19, 122, 101, 0.25);
+  --teal-bg:     rgba(19, 122, 101, 0.06);
 
-  --amber-strong: rgba(166, 125, 46, 0.80);
-  --amber-subtle: rgba(166, 125, 46, 0.25);
-  --amber-bg:     rgba(166, 125, 46, 0.04);
+  --amber-strong: rgba(138, 102, 32, 0.90);
+  --amber-subtle: rgba(138, 102, 32, 0.25);
+  --amber-bg:     rgba(138, 102, 32, 0.04);
 
   --rose-strong: rgba(192, 72, 72, 0.80);
   --rose-bg:     rgba(192, 72, 72, 0.06);
 
   --chart-grid:  rgba(26, 26, 31, 0.10);
-  --chart-label: rgba(26, 26, 31, 0.50);
+  --chart-label: rgba(26, 26, 31, 0.60);
   --chart-tick:  rgba(26, 26, 31, 0.14);
-  --chart-bar:   rgba(26, 26, 31, 0.55);
+  --chart-bar:   rgba(26, 26, 31, 0.65);
 
   --map-bg: rgba(245, 242, 237, 0.90);
 
   --signal-positive: rgba(61, 138, 85, 0.90);
-  --signal-warning:  rgba(166, 125, 46, 0.85);
+  --signal-warning:  rgba(138, 102, 32, 0.90);
   --signal-negative: rgba(192, 72, 72, 0.90);
   --signal-neutral:  rgba(26, 26, 31, 0.65);
+
+  /* Intel category accent colors — darkened for ivory bg */
+  --cat-design: #4a5a8a;
+  --cat-cost:   #7a6830;
+  --cat-demand: #3a7a65;
 
   --bg-section-elevated: rgba(26, 26, 31, 0.02);
 

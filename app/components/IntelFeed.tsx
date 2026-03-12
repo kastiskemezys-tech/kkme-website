@@ -172,9 +172,9 @@ const CATEGORY_COLORS: Record<Category, string> = {
   revenue: 'var(--teal)',
   competition: 'var(--rose)',
   buildability: 'var(--amber)',
-  market_design: 'rgba(140,160,220,0.85)',
-  cost: 'rgba(180,160,100,0.85)',
-  demand: 'rgba(140,200,180,0.85)',
+  market_design: 'var(--cat-design)',
+  cost: 'var(--cat-cost)',
+  demand: 'var(--cat-demand)',
   watchlist: 'var(--text-tertiary)',
 };
 
@@ -220,7 +220,6 @@ function CategoryChip({ category }: { category: Category }) {
       letterSpacing: '0.06em',
       textTransform: 'uppercase',
       color: CATEGORY_COLORS[category],
-      opacity: 0.7,
     }}>
       {CATEGORY_LABELS[category]}
     </span>
@@ -369,13 +368,13 @@ function IntelRow({ item, isExpanded, onToggle }: {
               style={{
                 fontFamily: 'var(--font-mono)',
                 fontSize: 'var(--font-xs)',
-                color: 'var(--text-ghost)',
+                color: 'var(--text-muted)',
                 marginLeft: 'auto',
                 textDecoration: 'none',
                 transition: 'color 0.15s',
               }}
-              onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-muted)')}
-              onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-ghost)')}
+              onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-tertiary)')}
+              onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
             >
               {item.sourceName} ↗
             </a>
@@ -383,7 +382,7 @@ function IntelRow({ item, isExpanded, onToggle }: {
             <span style={{
               fontFamily: 'var(--font-mono)',
               fontSize: 'var(--font-xs)',
-              color: 'var(--text-ghost)',
+              color: 'var(--text-muted)',
               marginLeft: 'auto',
             }}>
               {item.sourceName}

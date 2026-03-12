@@ -64,15 +64,15 @@ export function CopyButton({ value, label, variant = 'icon' }: CopyButtonProps) 
           gap: '4px',
           fontFamily: 'var(--font-mono)',
           fontSize: 'var(--font-xs)',
-          color: color ?? 'var(--text-ghost)',
+          color: color ?? 'var(--text-muted)',
           cursor: 'pointer',
           padding: '4px 8px',
           transition: 'color 150ms ease',
           minWidth: '44px',
           minHeight: '28px',
         }}
-        onMouseEnter={e => { if (state === 'idle') e.currentTarget.style.color = 'var(--text-muted)'; }}
-        onMouseLeave={e => { if (state === 'idle') e.currentTarget.style.color = 'var(--text-ghost)'; }}
+        onMouseEnter={e => { if (state === 'idle') e.currentTarget.style.color = 'var(--text-tertiary)'; }}
+        onMouseLeave={e => { if (state === 'idle') e.currentTarget.style.color = 'var(--text-muted)'; }}
       >
         {state === 'idle' ? ICON_CLIPBOARD : state === 'copied' ? ICON_CHECK : ICON_X}
         <span>{feedbackText ?? 'Copy table'}</span>
@@ -91,7 +91,7 @@ export function CopyButton({ value, label, variant = 'icon' }: CopyButtonProps) 
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        color: color ?? 'var(--text-ghost)',
+        color: color ?? 'var(--text-muted)',
         cursor: 'pointer',
         padding: '6px',
         transition: 'color 150ms ease',
@@ -99,8 +99,8 @@ export function CopyButton({ value, label, variant = 'icon' }: CopyButtonProps) 
         minHeight: '32px',
         flexShrink: 0,
       }}
-      onMouseEnter={e => { if (state === 'idle') e.currentTarget.style.color = 'var(--text-muted)'; }}
-      onMouseLeave={e => { if (state === 'idle') e.currentTarget.style.color = 'var(--text-ghost)'; }}
+      onMouseEnter={e => { if (state === 'idle') e.currentTarget.style.color = 'var(--text-tertiary)'; }}
+      onMouseLeave={e => { if (state === 'idle') e.currentTarget.style.color = 'var(--text-muted)'; }}
     >
       {state === 'idle' ? ICON_CLIPBOARD : state === 'copied' ? ICON_CHECK : ICON_X}
     </button>
