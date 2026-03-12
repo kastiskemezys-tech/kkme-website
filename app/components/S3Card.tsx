@@ -6,6 +6,7 @@ import {
   MetricTile, StatusChip, SourceFooter, DetailsDrawer,
 } from '@/app/components/primitives';
 import { Sparkline } from './Sparkline';
+import { CopyButton } from './CopyButton';
 import { safeNum } from '@/lib/safeNum';
 import type { Sentiment } from '@/app/lib/types';
 
@@ -85,7 +86,10 @@ export function S3Card() {
       {installedCost != null && (
         <div style={{ marginBottom: '4px' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-            <MetricTile label="Installed BESS cost reference" value={`€${installedCost}`} unit="/kWh" size="hero" dataClass="reference" />
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '4px' }}>
+              <MetricTile label="Installed BESS cost reference" value={`€${installedCost}`} unit="/kWh" size="hero" dataClass="reference" />
+              <CopyButton value={`€${installedCost}/kWh`} label="Copy installed BESS cost" />
+            </div>
             <StatusChip status={costLabel(data.signal)} sentiment={costSentiment(data.signal)} />
           </div>
           <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '4px' }}>

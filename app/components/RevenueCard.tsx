@@ -4,6 +4,8 @@ import React, { useEffect, useState, useCallback } from 'react';
 import {
   MetricTile, StatusChip, SourceFooter, DetailsDrawer, ImpactLine,
 } from '@/app/components/primitives';
+import { CopyButton } from './CopyButton';
+import { copyToClipboard, formatTable } from '@/app/lib/copyUtils';
 import type { ImpactState } from '@/app/lib/types';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
@@ -126,6 +128,45 @@ function Pill({ label, active, onClick }: { label: string; active: boolean; onCl
         borderRadius: '2px',
       }}
     >{label}</button>
+  );
+}
+
+// ── share view button ────────────────────────────────────────────────────
+
+function ShareViewButton() {
+  const [label, setLabel] = useState<'idle' | 'copied' | 'failed'>('idle');
+
+  const handleShare = async () => {
+    const ok = await copyToClipboard(window.location.href);
+    setLabel(ok ? 'copied' : 'failed');
+    setTimeout(() => setLabel('idle'), 1500);
+  };
+
+  const text = label === 'copied' ? 'Link copied' : label === 'failed' ? 'Copy failed' : 'Share this view';
+  const color = label === 'copied' ? 'var(--teal)' : label === 'failed' ? 'var(--rose)' : undefined;
+
+  return (
+    <button
+      type="button"
+      onClick={handleShare}
+      style={{
+        all: 'unset',
+        display: 'inline-flex',
+        alignItems: 'flex-end',
+        fontFamily: 'var(--font-mono)',
+        fontSize: 'var(--font-xs)',
+        color: color ?? 'var(--text-ghost)',
+        cursor: 'pointer',
+        padding: '4px 0',
+        transition: 'color 150ms ease',
+        minHeight: '28px',
+        whiteSpace: 'nowrap',
+      }}
+      onMouseEnter={e => { if (label === 'idle') e.currentTarget.style.color = 'var(--text-muted)'; }}
+      onMouseLeave={e => { if (label === 'idle') e.currentTarget.style.color = 'var(--text-ghost)'; }}
+    >
+      {text}
+    </button>
   );
 }
 
@@ -435,6 +476,7 @@ export function RevenueCard() {
             ))}
           </div>
         </div>
+        <ShareViewButton />
       </div>
 
       {/* 4. "WHY IT MOVED" LINE */}
@@ -477,14 +519,20 @@ export function RevenueCard() {
             50MW / 2H (100 MWh)
           </p>
           <div style={{ marginBottom: '10px' }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-tertiary)' }}>Project IRR</span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-tertiary)' }}>Project IRR</span>
+              {duration === '2h' && irr2h != null && <CopyButton value={fmtPct(irr2h)} label="Copy Project IRR" />}
+            </div>
             <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1.25rem', fontWeight: 500, color: irrColor(irr2h), marginTop: '4px' }}>
               {fmtPct(irr2h)}
             </p>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px' }}>
             <div>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>EBITDA/MW/yr</span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>EBITDA/MW/yr</span>
+                {duration === '2h' && data2h.ebitda_y1 != null && <CopyButton value={fmtEuro(Math.round(data2h.ebitda_y1 / 50))} label="Copy EBITDA/MW/yr" />}
+              </div>
               <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1rem', color: 'var(--text-primary)', marginTop: '2px' }}>
                 {data2h.ebitda_y1 != null ? fmtEuro(Math.round(data2h.ebitda_y1 / 50)) : '—'}
               </p>
@@ -519,14 +567,20 @@ export function RevenueCard() {
             50MW / 4H (200 MWh)
           </p>
           <div style={{ marginBottom: '10px' }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-tertiary)' }}>Project IRR</span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-tertiary)' }}>Project IRR</span>
+              {duration === '4h' && irr4h != null && <CopyButton value={fmtPct(irr4h)} label="Copy Project IRR" />}
+            </div>
             <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1.25rem', fontWeight: 500, color: irrColor(irr4h), marginTop: '4px' }}>
               {fmtPct(irr4h)}
             </p>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px' }}>
             <div>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>EBITDA/MW/yr</span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>EBITDA/MW/yr</span>
+                {duration === '4h' && data4h?.ebitda_y1 != null && <CopyButton value={fmtEuro(Math.round(data4h.ebitda_y1 / 50))} label="Copy EBITDA/MW/yr" />}
+              </div>
               <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1rem', color: 'var(--text-primary)', marginTop: '2px' }}>
                 {data4h?.ebitda_y1 != null ? fmtEuro(Math.round(data4h.ebitda_y1 / 50)) : '—'}
               </p>
@@ -565,8 +619,29 @@ export function RevenueCard() {
       </p>
 
       {/* 6. REVENUE BREAKDOWN — selected duration */}
-      {selected && (
+      {selected && (() => {
+        const waterfallRows = [
+          { label: 'Capacity', value: fmtKPerMw(selected.capacity_y1) },
+          { label: 'Activation', value: fmtKPerMw(selected.activation_y1) },
+          { label: 'Arbitrage', value: fmtKPerMw(selected.arbitrage_y1) },
+          { label: 'RTM fees', value: selected.rtm_fees_y1 != null ? `−${fmtKPerMw(selected.rtm_fees_y1)}` : '—' },
+          { label: 'Gross revenue', value: fmtKPerMw(selected.gross_revenue_y1) },
+          { label: 'OPEX', value: selected.opex_y1 != null ? `−${fmtKPerMw(selected.opex_y1)}` : '—' },
+          { label: 'EBITDA', value: fmtKPerMw(selected.ebitda_y1) },
+          { label: 'Net / MW', value: selected.net_mw_yr != null ? fmtEuro(selected.net_mw_yr) : '—' },
+        ];
+        return (
         <div style={{ marginBottom: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '4px' }}>
+            <CopyButton
+              variant="text"
+              label="Copy revenue breakdown"
+              value={formatTable(
+                ['Revenue breakdown', `${duration === '4h' ? '4H' : '2H'} · ${capexCase === 'high' ? 'High CAPEX' : 'Base'} · COD ${cod}`],
+                waterfallRows.map(r => [r.label, r.value]),
+              )}
+            />
+          </div>
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'auto 1fr',
@@ -610,7 +685,8 @@ export function RevenueCard() {
             Per MW · Year 1 · {duration === '4h' ? '50 MW / 200 MWh' : '50 MW / 100 MWh'} · 20-year model
           </p>
         </div>
-      )}
+        );
+      })()}
 
       {/* 6B. IRR SENSITIVITY MATRIX */}
       {matrixStatus === 'error' ? (
@@ -619,9 +695,25 @@ export function RevenueCard() {
         </p>
       ) : (
         <div style={{ marginBottom: '20px' }}>
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-tertiary)', letterSpacing: '0.04em', marginBottom: '4px' }}>
-            IRR sensitivity
-          </p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-tertiary)', letterSpacing: '0.04em' }}>
+              IRR sensitivity
+            </p>
+            {matrixStatus === 'success' && (
+              <CopyButton
+                variant="text"
+                label="Copy IRR sensitivity matrix"
+                value={formatTable(
+                  ['COD', 'Base', 'High CAPEX'],
+                  (['2027', '2028', '2029'] as const).map(yr => [
+                    yr,
+                    fmtPct(matrixData[`${yr}_mid`] ?? null),
+                    fmtPct(matrixData[`${yr}_high`] ?? null),
+                  ]),
+                )}
+              />
+            )}
+          </div>
           <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '12px' }}>
             Selected duration · Project IRR across COD and installed cost
           </p>
