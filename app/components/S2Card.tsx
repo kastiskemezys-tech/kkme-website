@@ -374,6 +374,61 @@ export function S2Card() {
       {/* DETAILS DRAWER */}
       <div style={{ marginTop: '16px' }}>
         <DetailsDrawer key={drawerKey} label="View signal breakdown" defaultOpen={drawerKey > 0}>
+          {/* Balancing depth */}
+          <p style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-xs)',
+            color: 'var(--text-tertiary)',
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            marginBottom: '6px',
+          }}>
+            Balancing depth · editorial assessment · Q1 2026
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', marginBottom: '8px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: 'var(--text-muted)' }}>aFRR</span>
+              <span style={{ color: 'var(--amber)', opacity: 0.75 }}>Thin · small marginal clears can distort signals</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: 'var(--text-muted)' }}>mFRR</span>
+              <span style={{ color: 'var(--amber)', opacity: 0.75 }}>Thin · growing participation, still shallow</span>
+            </div>
+          </div>
+          <p style={{
+            fontFamily: 'var(--font-serif)',
+            fontSize: 'var(--font-xs)',
+            color: 'var(--text-secondary)',
+            lineHeight: 1.6,
+            marginBottom: '8px',
+          }}>
+            Posted prices ≠ usable revenue. Visible price spikes on small marginal clears overstate repeatable opportunity for 50MW-scale assets.
+          </p>
+          <p style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-xs)',
+            color: 'var(--text-muted)',
+            marginBottom: '20px',
+            opacity: 0.7,
+          }}>
+            Awaiting BTD volume integration for observed depth metrics
+          </p>
+
+          {/* Market structure */}
+          <p style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-xs)',
+            color: 'var(--text-tertiary)',
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+            marginBottom: '6px',
+          }}>
+            Market structure
+          </p>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: '20px' }}>
+            Settlement: 15-minute ISP (since Oct 2025) · Balancing: aFRR + mFRR active, FCR via BBCM · Post-synchronization regime still normalizing — historical patterns may not be repeatable.
+          </div>
+
           {/* Market references */}
           <p style={{
             fontFamily: 'var(--font-mono)',

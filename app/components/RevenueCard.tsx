@@ -933,6 +933,57 @@ export function RevenueCard() {
             Proxy flag applies until BTD measured data uploaded.
           </p>
 
+          {/* REVENUE STREAM CONFIDENCE */}
+          <p style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-sm)',
+            color: 'var(--text-tertiary)',
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+            marginBottom: '10px',
+            fontWeight: 500,
+          }}>
+            Revenue stream confidence
+          </p>
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '3px',
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-xs)',
+            marginBottom: '8px',
+          }}>
+            {[
+              { stream: 'Arbitrage', confidence: 'High', color: 'var(--teal)', reason: 'observable day-ahead spreads' },
+              { stream: 'aFRR capacity', confidence: 'Medium', color: 'var(--amber)', reason: 'proxy prices, thin clearing depth' },
+              { stream: 'mFRR capacity', confidence: 'Medium', color: 'var(--amber)', reason: 'proxy prices, growing but shallow' },
+              { stream: 'FCR', confidence: 'Low', color: 'var(--rose)', reason: 'BBCM transition, no Baltic track record' },
+            ].map(({ stream, confidence, color, reason }) => (
+              <div key={stream} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)' }}>{stream}</span>
+                <span style={{ color, opacity: 0.75 }}>{confidence} · {reason}</span>
+              </div>
+            ))}
+          </div>
+          <p style={{
+            fontFamily: 'var(--font-serif)',
+            fontSize: 'var(--font-xs)',
+            color: 'var(--text-secondary)',
+            lineHeight: 1.6,
+            marginBottom: '8px',
+          }}>
+            Arbitrage is the most observable revenue stream — day-ahead prices are public and liquid. Balancing capacity prices remain proxy-based with thin clearing depth. FCR via BBCM has no Baltic operational track record yet.
+          </p>
+          <p style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-xs)',
+            color: 'var(--text-muted)',
+            lineHeight: 1.5,
+            marginBottom: '20px',
+          }}>
+            Conservative and stress scenarios adjust for confidence gaps in each stream.
+          </p>
+
           {/* DATA CONFIDENCE */}
           <p style={{
             fontFamily: 'var(--font-mono)',
