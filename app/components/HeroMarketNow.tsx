@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { MetricTile, StatusChip, DetailsDrawer } from '@/app/components/primitives';
 import { ThemeToggle } from './ThemeToggle';
-import { CopyButton } from './CopyButton';
 import type { Sentiment } from '@/app/lib/types';
 
 const BASE = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
@@ -205,16 +204,13 @@ export function HeroMarketNow() {
 
         {/* S/D Ratio hero metric */}
         <div style={{ marginBottom: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '4px' }}>
-            <MetricTile
-              label="Supply / demand balance"
-              value={sd != null ? sd.toFixed(2) : '—'}
-              unit="×"
-              size="hero"
-              dataClass="derived"
-            />
-            {sd != null && <CopyButton value={`${sd.toFixed(2)}×`} label="Copy S/D ratio" />}
-          </div>
+          <MetricTile
+            label="Supply / demand balance"
+            value={sd != null ? sd.toFixed(2) : '—'}
+            unit="×"
+            size="hero"
+            dataClass="derived"
+          />
           <span style={{
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-xs)',
@@ -244,7 +240,7 @@ export function HeroMarketNow() {
           gap: '12px',
           marginBottom: '12px',
         }}>
-          <button type="button" onClick={() => document.getElementById('revenue-drivers')?.scrollIntoView({ behavior: 'smooth' })} style={{ all: 'unset', cursor: 'pointer', position: 'relative' }}>
+          <button type="button" onClick={() => document.getElementById('revenue-drivers')?.scrollIntoView({ behavior: 'smooth' })} style={{ all: 'unset', cursor: 'pointer' }}>
             <MetricTile
               label="Day-ahead arbitrage capture"
               value={bess != null ? bess.toFixed(0) : '—'}
@@ -252,11 +248,6 @@ export function HeroMarketNow() {
               size="standard"
               dataClass="derived"
             />
-            {bess != null && (
-              <span onClick={e => e.stopPropagation()} style={{ position: 'absolute', top: '0', right: '0' }}>
-                <CopyButton value={`${bess.toFixed(0)} €/MWh`} label="Copy arbitrage capture" />
-              </span>
-            )}
           </button>
           <button type="button" onClick={() => document.getElementById('revenue-drivers')?.scrollIntoView({ behavior: 'smooth' })} style={{ all: 'unset', cursor: 'pointer' }}>
             <MetricTile

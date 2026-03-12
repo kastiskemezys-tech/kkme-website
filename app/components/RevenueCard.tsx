@@ -400,11 +400,11 @@ export function RevenueCard() {
           onClick={openDrawer}
           style={{
             fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-sm)',
+            fontSize: '0.9375rem',
             color: 'var(--text-tertiary)',
             letterSpacing: '0.06em',
             textTransform: 'uppercase',
-            fontWeight: 500,
+            fontWeight: 600,
             marginBottom: '6px',
             cursor: 'pointer',
             transition: 'color 150ms ease',
@@ -519,20 +519,14 @@ export function RevenueCard() {
             50MW / 2H (100 MWh)
           </p>
           <div style={{ marginBottom: '10px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-tertiary)' }}>Project IRR</span>
-              {duration === '2h' && irr2h != null && <CopyButton value={fmtPct(irr2h)} label="Copy Project IRR" />}
-            </div>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-tertiary)' }}>Project IRR</span>
             <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1.25rem', fontWeight: 500, color: irrColor(irr2h), marginTop: '4px' }}>
               {fmtPct(irr2h)}
             </p>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px' }}>
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>EBITDA/MW/yr</span>
-                {duration === '2h' && data2h.ebitda_y1 != null && <CopyButton value={fmtEuro(Math.round(data2h.ebitda_y1 / 50))} label="Copy EBITDA/MW/yr" />}
-              </div>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>EBITDA/MW/yr</span>
               <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1rem', color: 'var(--text-primary)', marginTop: '2px' }}>
                 {data2h.ebitda_y1 != null ? fmtEuro(Math.round(data2h.ebitda_y1 / 50)) : '—'}
               </p>
@@ -567,20 +561,14 @@ export function RevenueCard() {
             50MW / 4H (200 MWh)
           </p>
           <div style={{ marginBottom: '10px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-tertiary)' }}>Project IRR</span>
-              {duration === '4h' && irr4h != null && <CopyButton value={fmtPct(irr4h)} label="Copy Project IRR" />}
-            </div>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-tertiary)' }}>Project IRR</span>
             <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1.25rem', fontWeight: 500, color: irrColor(irr4h), marginTop: '4px' }}>
               {fmtPct(irr4h)}
             </p>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px' }}>
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>EBITDA/MW/yr</span>
-                {duration === '4h' && data4h?.ebitda_y1 != null && <CopyButton value={fmtEuro(Math.round(data4h.ebitda_y1 / 50))} label="Copy EBITDA/MW/yr" />}
-              </div>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>EBITDA/MW/yr</span>
               <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1rem', color: 'var(--text-primary)', marginTop: '2px' }}>
                 {data4h?.ebitda_y1 != null ? fmtEuro(Math.round(data4h.ebitda_y1 / 50)) : '—'}
               </p>

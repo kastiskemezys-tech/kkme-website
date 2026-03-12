@@ -170,11 +170,11 @@ export function S2Card() {
           onClick={openDrawer}
           style={{
             fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-sm)',
+            fontSize: '0.9375rem',
             color: 'var(--text-tertiary)',
             letterSpacing: '0.06em',
             textTransform: 'uppercase',
-            fontWeight: 500,
+            fontWeight: 600,
             marginBottom: '6px',
             cursor: 'pointer',
             transition: 'color 150ms ease',

@@ -59,7 +59,7 @@ export function S5Card() {
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
         <SignalIcon type="dc-power" size={20} />
-        <h3 style={{ ...MONO, fontSize: '0.82rem', letterSpacing: '0.06em', color: 'var(--text-secondary)', fontWeight: 500, textTransform: 'uppercase' }}>
+        <h3 style={{ ...MONO, fontSize: '0.9375rem', letterSpacing: '0.06em', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>
           DC Power Viability
         </h3>
       </div>

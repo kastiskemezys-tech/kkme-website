@@ -6,7 +6,6 @@ import {
   MetricTile, StatusChip, SourceFooter, DetailsDrawer,
 } from '@/app/components/primitives';
 import { Sparkline } from './Sparkline';
-import { CopyButton } from './CopyButton';
 import { safeNum } from '@/lib/safeNum';
 import type { Sentiment } from '@/app/lib/types';
 
@@ -78,7 +77,7 @@ export function S3Card() {
 
   return (
     <article style={{ width: '100%' }}>
-      <h3 style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-tertiary)', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 500, marginBottom: '6px' }}>
+      <h3 style={{ fontFamily: 'var(--font-mono)', fontSize: '0.9375rem', color: 'var(--text-tertiary)', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600, marginBottom: '6px' }}>
         Installed BESS cost
       </h3>
 
@@ -86,10 +85,7 @@ export function S3Card() {
       {installedCost != null && (
         <div style={{ marginBottom: '4px' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '4px' }}>
-              <MetricTile label="Installed BESS cost reference" value={`€${installedCost}`} unit="/kWh" size="hero" dataClass="reference" />
-              <CopyButton value={`€${installedCost}/kWh`} label="Copy installed BESS cost" />
-            </div>
+            <MetricTile label="Installed BESS cost reference" value={`€${installedCost}`} unit="/kWh" size="hero" dataClass="reference" />
             <StatusChip status={costLabel(data.signal)} sentiment={costSentiment(data.signal)} />
           </div>
           <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '4px' }}>
