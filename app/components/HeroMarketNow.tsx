@@ -133,7 +133,7 @@ export function HeroMarketNow() {
           What is the Baltic flexibility market doing right now — and what does a 50MW storage asset earn?
         </p>
 
-        <p style={{
+        <p className="hero-metadata" style={{
           fontFamily: 'var(--font-mono)',
           fontSize: 'var(--font-sm)',
           color: 'var(--text-muted)',
@@ -141,7 +141,7 @@ export function HeroMarketNow() {
           Nine signals · four-hour updates · ENTSO-E, Litgrid, Baltic TSO data
         </p>
 
-        <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+        <div className="hero-cta" style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
           <a
             href="#revenue-drivers"
             onClick={(e) => { e.preventDefault(); document.querySelector('#revenue-drivers')?.scrollIntoView({ behavior: 'smooth' }); }}
@@ -181,18 +181,13 @@ export function HeroMarketNow() {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span
-              onClick={() => setDrawerKey(k => k + 1)}
               style={{
                 fontFamily: 'var(--font-mono)',
                 fontSize: 'var(--font-sm)',
                 color: 'var(--text-tertiary)',
                 letterSpacing: '0.08em',
                 textTransform: 'uppercase',
-                cursor: 'pointer',
-                transition: 'color 150ms ease',
               }}
-              onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-secondary)')}
-              onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-tertiary)')}
             >Market Now</span>
             <span style={{
               display: 'inline-block',
@@ -305,14 +300,12 @@ export function HeroMarketNow() {
           {impactDescription(sd)}
         </div>
 
-        {/* Freshness footer — clickable to open drawer */}
+        {/* Freshness footer — static label */}
         <span
-          onClick={() => setDrawerKey(k => k + 1)}
           style={{
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-xs)',
             color: 'var(--text-muted)',
-            cursor: 'pointer',
             display: 'block',
           }}
         >

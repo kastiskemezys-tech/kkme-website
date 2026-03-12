@@ -505,6 +505,16 @@ body,
   .nav-desktop { display: none !important; }
   .nav-mobile-toggle { display: block !important; }
   .nav-mobile-menu { display: flex !important; }
+
+  /* ── Mobile hero compression ────────────────────────────────────────── */
+  .hero-grid {
+    padding-top: 24px !important;
+    padding-bottom: 16px !important;
+    gap: 20px !important;
+  }
+  .hero-metadata { display: none; }
+  .hero-cta { margin-top: -8px; }
+  .hero-cta a { padding: 8px 20px !important; }
 }
 
 /* ── Post-layout polish ──────────────────────────────────────────────────── */
