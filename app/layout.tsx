@@ -23,16 +23,24 @@ const unbounded = Unbounded({
 });
 
 export const metadata: Metadata = {
-  title: 'KKME — Baltic BESS Market Signals & Revenue Analysis',
+  title: 'KKME — Baltic Flexibility Market Intelligence & Storage Economics',
   description:
-    'Live supply/demand ratio, capacity prices, grid data, and BESS revenue model for Lithuania and the Baltic energy storage market. Updated every 4 hours.',
+    'Live supply/demand ratio, structural drivers, competition pressure, and reference-asset economics for Baltic energy storage. Updated every 4 hours.',
+  icons: {
+    icon: '/favicon.svg',
+  },
   openGraph: {
-    title: 'KKME — Baltic BESS Market Signals & Revenue Analysis',
+    title: 'KKME — Baltic Flexibility Market Intelligence',
     description:
       'Live S/D ratio, aFRR/mFRR prices, grid capacity, and BESS IRR model for Baltic energy storage investment.',
     url: 'https://kkme.eu',
     siteName: 'KKME',
     type: 'website',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'KKME — Baltic Flexibility Market Intelligence',
+    description: 'Live supply/demand ratio and reference-asset economics for Baltic energy storage.',
   },
   alternates: {
     canonical: 'https://kkme.eu',
@@ -81,6 +89,12 @@ export default function RootLayout({
             }),
           }}
         />
+        <a href="#revenue-drivers" className="skip-to-content" style={{
+          position: 'absolute', left: '-9999px', top: '8px', zIndex: 100,
+          fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)',
+          color: 'var(--text-primary)', background: 'var(--bg-card)',
+          padding: '8px 16px', border: '1px solid var(--border-highlight)',
+        }}>Skip to content</a>
         <SmoothScroll />
         {children}
         <ClarityScript />

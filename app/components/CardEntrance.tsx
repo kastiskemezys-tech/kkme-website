@@ -1,11 +1,7 @@
 'use client';
 
-import { useEffect } from 'react';
-import { animateCards } from '@/lib/animations';
-
+// Card entrance now uses CSS @keyframes (see globals.css .card-entrance)
+// This component is kept for backward compatibility but does nothing
 export function CardEntrance() {
-  useEffect(() => {
-    animateCards('.signal-card');
-  }, []);
   return null;
 }

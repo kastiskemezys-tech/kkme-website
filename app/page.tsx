@@ -1,23 +1,26 @@
+import dynamic from 'next/dynamic';
 import { S1Card } from '@/app/components/S1Card';
 import { S2Card } from '@/app/components/S2Card';
-import { S3Card } from '@/app/components/S3Card';
-import { S4Card } from '@/app/components/S4Card';
-import { S7Card } from '@/app/components/S7Card';
-import { S8Card } from '@/app/components/S8Card';
-import { S9Card } from '@/app/components/S9Card';
-import { WindCard } from '@/app/components/WindCard';
-import { SolarCard } from '@/app/components/SolarCard';
-import { LoadCard } from '@/app/components/LoadCard';
-import { RevenueCard } from '@/app/components/RevenueCard';
-import { IntelFeed } from '@/app/components/IntelFeed';
-import { ContactForm } from '@/app/components/ContactForm';
 import { CardBoundary } from '@/app/components/CardBoundary';
 import { ErrorBoundary } from '@/app/components/ErrorBoundary';
-import { CardEntrance } from '@/app/components/CardEntrance';
-import { PageBackground } from '@/app/components/PageBackground';
 import { HeroMarketNow } from '@/app/components/HeroMarketNow';
 import StickyNav from '@/app/components/StickyNav';
 import { PageInteractions } from '@/app/components/PageInteractions';
+
+// Below-fold: lazy-loaded via dynamic import to reduce initial bundle
+const S3Card = dynamic(() => import('@/app/components/S3Card').then(m => m.S3Card));
+const S4Card = dynamic(() => import('@/app/components/S4Card').then(m => m.S4Card));
+const S7Card = dynamic(() => import('@/app/components/S7Card').then(m => m.S7Card));
+const S8Card = dynamic(() => import('@/app/components/S8Card').then(m => m.S8Card));
+const S9Card = dynamic(() => import('@/app/components/S9Card').then(m => m.S9Card));
+const WindCard = dynamic(() => import('@/app/components/WindCard').then(m => m.WindCard));
+const SolarCard = dynamic(() => import('@/app/components/SolarCard').then(m => m.SolarCard));
+const LoadCard = dynamic(() => import('@/app/components/LoadCard').then(m => m.LoadCard));
+const RevenueCard = dynamic(() => import('@/app/components/RevenueCard').then(m => m.RevenueCard));
+const IntelFeed = dynamic(() => import('@/app/components/IntelFeed').then(m => m.IntelFeed));
+const ContactForm = dynamic(() => import('@/app/components/ContactForm').then(m => m.ContactForm));
+const PageBackground = dynamic(() => import('@/app/components/PageBackground').then(m => m.PageBackground));
+const CardEntrance = dynamic(() => import('@/app/components/CardEntrance').then(m => m.CardEntrance));
 
 export default function Home() {
   return (

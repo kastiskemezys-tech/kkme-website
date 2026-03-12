@@ -43,34 +43,7 @@ export function PageInteractions() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  // Dynamic favicon — teal dot on dark background
-  useEffect(() => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 32;
-    canvas.height = 32;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    // Background
-    ctx.fillStyle = '#07070a';
-    ctx.fillRect(0, 0, 32, 32);
-    // Teal dot
-    ctx.fillStyle = 'rgba(45, 212, 168, 0.92)';
-    ctx.beginPath();
-    ctx.arc(16, 16, 9, 0, Math.PI * 2);
-    ctx.fill();
-    // Subtle inner highlight
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
-    ctx.beginPath();
-    ctx.arc(13, 13, 4, 0, Math.PI * 2);
-    ctx.fill();
-
-    const existing = document.querySelector<HTMLLinkElement>("link[rel*='icon']");
-    const link = existing || document.createElement('link');
-    link.type = 'image/x-icon';
-    link.rel = 'shortcut icon';
-    link.href = canvas.toDataURL();
-    if (!existing) document.head.appendChild(link);
-  }, []);
+  // Favicon is now static SVG at /favicon.svg (set in layout.tsx metadata)
 
   return (
     <div

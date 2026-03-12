@@ -1,8 +1,9 @@
 'use client';
 
 // Full-page ambient ShaderGradient — fixed, z-index -2
+// Skipped on mobile (<768px) and reduced-motion to save GPU/CPU
 import dynamic from 'next/dynamic';
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 const ShaderGradientCanvas = dynamic(
   () => import('@shadergradient/react').then(m => m.ShaderGradientCanvas as React.ComponentType<React.HTMLAttributes<HTMLDivElement> & { style?: React.CSSProperties }>),
@@ -15,6 +16,16 @@ const ShaderGradient = dynamic(
 );
 
 export function PageBackground() {
+  const [show, setShow] = useState(false);
+
+  useEffect(() => {
+    const isMobile = window.innerWidth < 768;
+    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!isMobile && !prefersReduced) setShow(true);
+  }, []);
+
+  if (!show) return null;
+
   return (
     <div
       style={{

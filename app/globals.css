@@ -416,6 +416,16 @@ body,
   border-radius: 4px;
   padding: 28px;
   overflow: hidden;
+  animation: cardFadeIn 0.4s ease-out both;
+}
+
+@keyframes cardFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card { animation: none; }
 }
 
 .card-tier1 {
@@ -429,6 +439,7 @@ body,
   border-radius: 4px;
   padding: 28px;
   overflow: hidden;
+  animation: cardFadeIn 0.4s ease-out both;
 }
 
 .card-tier3 {
@@ -436,6 +447,7 @@ body,
   border: 1px solid var(--border-card);
   border-radius: 4px;
   padding: 16px;
+  animation: cardFadeIn 0.4s ease-out both;
   overflow: hidden;
 }
 
@@ -545,6 +557,18 @@ body,
   .hero-metadata { display: none; }
   .hero-cta { margin-top: -8px; }
   .hero-cta a { padding: 8px 20px !important; }
+}
+
+/* ── CLS prevention — reserve space while cards load ───────────────────── */
+.card article,
+.card-tier1-feature article,
+.card-tier3 article {
+  min-height: 180px;
+}
+
+/* ── Skip to content — visible on focus ─────────────────────────────────── */
+.skip-to-content:focus {
+  left: 16px !important;
 }
 
 /* ── Post-layout polish ──────────────────────────────────────────────────── */

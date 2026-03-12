@@ -101,8 +101,9 @@ export function ContactForm() {
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
       {/* Type selector */}
       <div>
-        <label style={labelStyle}>What are you reaching out about?</label>
+        <label htmlFor="contact-type" style={labelStyle}>What are you reaching out about?</label>
         <select
+          id="contact-type"
           value={type}
           onChange={e => setType(e.target.value as ContactType)}
           required
@@ -126,8 +127,9 @@ export function ContactForm() {
       {/* Name + Email side by side */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
         <div>
-          <label style={labelStyle}>Name</label>
+          <label htmlFor="contact-name" style={labelStyle}>Name</label>
           <input
+            id="contact-name"
             type="text"
             value={name}
             onChange={e => setName(e.target.value)}
@@ -136,8 +138,9 @@ export function ContactForm() {
           />
         </div>
         <div>
-          <label style={labelStyle}>Email</label>
+          <label htmlFor="contact-email" style={labelStyle}>Email</label>
           <input
+            id="contact-email"
             type="email"
             value={email}
             onChange={e => setEmail(e.target.value)}
@@ -149,8 +152,9 @@ export function ContactForm() {
 
       {/* Company — optional */}
       <div>
-        <label style={labelStyle}>Company <span style={{ opacity: 0.5 }}>(optional)</span></label>
+        <label htmlFor="contact-company" style={labelStyle}>Company <span style={{ opacity: 0.5 }}>(optional)</span></label>
         <input
+          id="contact-company"
           type="text"
           value={company}
           onChange={e => setCompany(e.target.value)}
@@ -169,8 +173,9 @@ export function ContactForm() {
           borderRadius: '2px',
         }}>
           <div>
-            <label style={labelStyle}>Project name</label>
+            <label htmlFor="contact-project" style={labelStyle}>Project name</label>
             <input
+              id="contact-project"
               type="text"
               value={projectName}
               onChange={e => setProjectName(e.target.value)}
@@ -178,8 +183,9 @@ export function ContactForm() {
             />
           </div>
           <div>
-            <label style={labelStyle}>MW / MWh</label>
+            <label htmlFor="contact-mwmwh" style={labelStyle}>MW / MWh</label>
             <input
+              id="contact-mwmwh"
               type="text"
               value={mwMwh}
               onChange={e => setMwMwh(e.target.value)}
@@ -188,8 +194,9 @@ export function ContactForm() {
             />
           </div>
           <div>
-            <label style={labelStyle}>Country</label>
+            <label htmlFor="contact-country" style={labelStyle}>Country</label>
             <input
+              id="contact-country"
               type="text"
               value={country}
               onChange={e => setCountry(e.target.value)}
@@ -197,8 +204,9 @@ export function ContactForm() {
             />
           </div>
           <div>
-            <label style={labelStyle}>Target COD</label>
+            <label htmlFor="contact-cod" style={labelStyle}>Target COD</label>
             <input
+              id="contact-cod"
               type="text"
               value={targetCod}
               onChange={e => setTargetCod(e.target.value)}
@@ -211,8 +219,9 @@ export function ContactForm() {
 
       {/* Message */}
       <div>
-        <label style={labelStyle}>Message</label>
+        <label htmlFor="contact-message" style={labelStyle}>Message</label>
         <textarea
+          id="contact-message"
           value={message}
           onChange={e => setMessage(e.target.value)}
           required
