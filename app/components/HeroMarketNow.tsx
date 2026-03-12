@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { MetricTile, StatusChip, DetailsDrawer } from '@/app/components/primitives';
+import { ThemeToggle } from './ThemeToggle';
 import type { Sentiment } from '@/app/lib/types';
 
 const BASE = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
@@ -94,12 +95,23 @@ export function HeroMarketNow() {
 
   return (
     <header className="hero-grid" style={{
+      position: 'relative',
       display: 'grid',
       gridTemplateColumns: '1fr 1fr',
       gap: '48px',
       alignItems: 'start',
       padding: '48px 0 32px',
     }}>
+
+      {/* Theme toggle — top-right corner */}
+      <div style={{
+        position: 'absolute',
+        top: '16px',
+        right: '0',
+        zIndex: 10,
+      }}>
+        <ThemeToggle variant="hero" />
+      </div>
 
       {/* LEFT COLUMN — Value Prop */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
