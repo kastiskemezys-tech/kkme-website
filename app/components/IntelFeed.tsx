@@ -1,187 +1,582 @@
 'use client';
 
-import { useState, useEffect, useMemo, type CSSProperties } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
-function decodeEntities(str: string): string {
-  if (!str) return '';
-  return str
-    .replace(/&#039;/g, "'").replace(/&apos;/g, "'")
-    .replace(/&amp;/g, '&').replace(/&quot;/g, '"')
-    .replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+// ─── Intelligence item model ──────────────────────────────────────────────────
+
+type Category = 'revenue' | 'competition' | 'buildability' | 'market_design' | 'cost' | 'demand' | 'watchlist';
+type Impact = 'positive' | 'negative' | 'mixed' | 'neutral' | 'watch';
+type Horizon = 'immediate' | 'near_term' | 'structural' | 'long_term';
+
+interface IntelItem {
+  id: string;
+  title: string;
+  summary?: string;
+  primaryCategory: Category;
+  secondaryTags?: string[];
+  sourceName: string;
+  sourceUrl?: string;
+  publishedAt: string;
+  whyItMatters: string;
+  impact: Impact;
+  horizon: Horizon;
+  referenceAssetNote?: string;
+  geography?: string;
+  confidence?: 'high' | 'medium' | 'low';
+  isPinned?: boolean;
 }
 
-function getCategoryColor(cat: string): string {
-  const colors: Record<string, string> = {
-    BESS: 'var(--teal)', DC: 'rgb(140,120,200)',
-    GRID: 'var(--amber)', HYDROGEN: 'rgb(120,180,120)',
-    TECHNOLOGY: 'rgb(180,140,100)', BATTERIES: 'rgb(180,160,80)',
-  };
-  return colors[(cat || '').toUpperCase()] || 'var(--text-tertiary)';
-}
+// ─── Hardcoded seed items — real Baltic BESS developments ─────────────────────
+// These will be replaced by live enriched data from the /curations endpoint
+// when the enrichment pipeline is built. Structure matches IntelItem exactly.
 
-const TOPICS = ['ALL', 'BESS', 'DC', 'HYDROGEN', 'BATTERIES', 'GRID', 'TECHNOLOGY'] as const;
-type Topic = typeof TOPICS[number];
+const SEED_ITEMS: IntelItem[] = [
+  {
+    id: 'seed-1',
+    title: 'E energija 65MW/130MWh BESS enters Lithuanian balancing market',
+    summary: 'E energija has commissioned its 65MW/130MWh battery storage system near Vilnius and begun participating in Lithuanian aFRR and mFRR markets. This is the first large-scale commercial BESS operating in the Baltic balancing market, providing the first real evidence of clearing prices and activation rates.',
+    primaryCategory: 'competition',
+    sourceName: 'E energija / Litgrid',
+    publishedAt: '2026-02-28',
+    whyItMatters: 'First major commercial BESS competitor — accelerates aFRR price compression',
+    impact: 'negative',
+    horizon: 'immediate',
+    referenceAssetNote: 'Negative for reference asset — validates market but begins price discovery in aFRR/mFRR',
+    geography: 'Lithuania',
+    confidence: 'high',
+    isPinned: true,
+  },
+  {
+    id: 'seed-2',
+    title: 'Ignitis announces 291MW/582MWh across three Baltic BESS sites, targeting 2027 COD',
+    summary: 'Ignitis Group confirmed plans for three battery storage projects totalling 291MW/582MWh across Lithuania. Sites include Vilnius region (100MW), Kaunas region (100MW), and Klaipeda region (91MW). All target 2027 commercial operation, contingent on grid connection timelines.',
+    primaryCategory: 'competition',
+    sourceName: 'Ignitis Group',
+    publishedAt: '2026-02-15',
+    whyItMatters: 'Largest Baltic BESS pipeline entry — will materially shift supply/demand ratio by 2027',
+    impact: 'negative',
+    horizon: 'near_term',
+    referenceAssetNote: 'Strong negative for late movers — S/D ratio approaches 1.0 if all three sites deliver on schedule',
+    geography: 'Lithuania',
+    confidence: 'high',
+    isPinned: true,
+  },
+  {
+    id: 'seed-3',
+    title: 'Lithuania–Germany 2GW offshore wind interconnector declared project of common interest',
+    summary: 'The European Commission declared the planned Lithuania–Germany subsea interconnector a Project of Common Interest (PCI), unlocking EU co-financing for feasibility studies. The 2GW HVDC link would connect Lithuanian offshore wind to the German market. Timeline: earliest operational date 2032–2035.',
+    primaryCategory: 'revenue',
+    sourceName: 'European Commission / Litgrid',
+    publishedAt: '2026-02-20',
+    whyItMatters: 'New export corridor may compress LT spreads long-term, but no near-term flow impact',
+    impact: 'mixed',
+    horizon: 'long_term',
+    referenceAssetNote: 'Neutral for 2027 COD — relevant only for long-duration asset value post-2032',
+    geography: 'Lithuania / Germany',
+    confidence: 'medium',
+    isPinned: true,
+  },
+  {
+    id: 'seed-4',
+    title: 'Lithuanian balancing cost allocation shifts — producers cover 30% from January 2026',
+    summary: 'VERT confirmed the updated balancing cost allocation methodology. From January 2026, generation and storage assets bear 30% of system balancing costs, up from 0%. This changes the net revenue calculation for all market participants including BESS operators.',
+    primaryCategory: 'market_design',
+    sourceName: 'VERT.lt',
+    publishedAt: '2026-01-10',
+    whyItMatters: 'Changes net revenue — imbalance costs now partially borne by storage operators',
+    impact: 'negative',
+    horizon: 'immediate',
+    geography: 'Lithuania',
+    confidence: 'high',
+  },
+  {
+    id: 'seed-5',
+    title: 'Lithuania BESS investment support scheme 2x oversubscribed',
+    summary: 'The Lithuanian Energy Agency reported that applications for the BESS capital expenditure support scheme exceeded available funding by 2.1x. The scheme offers up to 45% co-financing for battery storage projects. Oversubscription signals strong developer interest but may accelerate grid queue congestion.',
+    primaryCategory: 'buildability',
+    sourceName: 'Lithuanian Energy Agency',
+    publishedAt: '2026-01-25',
+    whyItMatters: 'Strong demand signal but accelerates grid queue congestion',
+    impact: 'mixed',
+    horizon: 'near_term',
+    geography: 'Lithuania',
+    confidence: 'high',
+  },
+  {
+    id: 'seed-6',
+    title: 'NordBalt maintenance outage confirmed for Q2 2026 — 6 weeks offline',
+    summary: 'Litgrid confirmed a scheduled 6-week NordBalt maintenance outage beginning April 2026. The 700MW Sweden–Lithuania interconnector will be fully offline during this period. Historical precedent: NordBalt outages have widened Lithuanian day-ahead spreads by 15–25% due to reduced import capacity from Sweden (SE4).',
+    primaryCategory: 'revenue',
+    sourceName: 'Litgrid / NordBalt',
+    publishedAt: '2026-03-01',
+    whyItMatters: 'Reduced Swedish imports historically widen Lithuanian day-ahead spreads by 15–25%',
+    impact: 'positive',
+    horizon: 'near_term',
+    referenceAssetNote: 'Positive for arbitrage revenue — wider spreads during outage window',
+    geography: 'Lithuania / Sweden',
+    confidence: 'high',
+  },
+  {
+    id: 'seed-7',
+    title: 'EU ETS carbon allowance price stabilizes near €71/t after Q1 volatility',
+    summary: 'EU ETS carbon prices settled near €71/t in early March 2026 after Q1 volatility driven by MSR intake adjustments. The sustained price floor supports gas peaker marginal costs, which anchors the P_high price used in BESS arbitrage revenue calculations.',
+    primaryCategory: 'revenue',
+    sourceName: 'ICE / energy-charts.info',
+    publishedAt: '2026-03-05',
+    whyItMatters: 'Higher carbon floor supports peak-hour discharge economics vs gas peakers',
+    impact: 'positive',
+    horizon: 'structural',
+    geography: 'EU-wide',
+    confidence: 'high',
+  },
+  {
+    id: 'seed-8',
+    title: 'BNEF 2025 pack survey: stationary LFP at $92/kWh global average',
+    summary: 'BloombergNEF released its 2025 battery pack price survey showing stationary LFP cells at $92/kWh global average, down 12% year-on-year. However, Baltic installed costs remain dominated by grid connection scope, BoP, and EPC margins rather than cell prices alone.',
+    primaryCategory: 'cost',
+    sourceName: 'BloombergNEF',
+    publishedAt: '2026-02-10',
+    whyItMatters: 'Continued hardware cost decline — but Baltic installed costs still dominated by grid/BoP scope',
+    impact: 'positive',
+    horizon: 'structural',
+    referenceAssetNote: 'Modest positive — equipment is ~60% of installed cost, but grid scope is the dominant variable',
+    geography: 'Global → Baltic',
+    confidence: 'medium',
+  },
+];
 
-interface FeedItem {
-  id:            string;
-  title:         string;
-  topic:         string;
-  added_at:      string;
-  url?:          string | null;
-  source?:       string | null;
-  summary?:      string | null;
-  content_type?: string;
-  companies?:    string[];
-}
+// ─── Visual mappings ──────────────────────────────────────────────────────────
 
-const text = (opacity: number) => `rgba(232, 226, 217, ${opacity})`;
-const MONO: CSSProperties  = { fontFamily: 'var(--font-mono)' };
-const SERIF: CSSProperties = { fontFamily: 'var(--font-serif)' };
+const CATEGORY_LABELS: Record<Category, string> = {
+  revenue: 'Revenue',
+  competition: 'Competition',
+  buildability: 'Buildability',
+  market_design: 'Market Design',
+  cost: 'Cost',
+  demand: 'Demand',
+  watchlist: 'Watchlist',
+};
+
+const CATEGORY_COLORS: Record<Category, string> = {
+  revenue: 'var(--teal)',
+  competition: 'var(--rose)',
+  buildability: 'var(--amber)',
+  market_design: 'rgba(140,160,220,0.85)',
+  cost: 'rgba(180,160,100,0.85)',
+  demand: 'rgba(140,200,180,0.85)',
+  watchlist: 'var(--text-tertiary)',
+};
+
+const IMPACT_COLORS: Record<Impact, string> = {
+  positive: 'var(--teal)',
+  negative: 'var(--rose)',
+  mixed: 'var(--amber)',
+  neutral: 'var(--text-tertiary)',
+  watch: 'var(--text-muted)',
+};
+
+const IMPACT_LABELS: Record<Impact, string> = {
+  positive: 'Positive',
+  negative: 'Negative',
+  mixed: 'Mixed',
+  neutral: 'Neutral',
+  watch: 'Watch',
+};
+
+const HORIZON_LABELS: Record<Horizon, string> = {
+  immediate: 'Immediate',
+  near_term: 'Near-term',
+  structural: 'Structural',
+  long_term: 'Long-term',
+};
+
+const FILTER_CATEGORIES: (Category | 'all')[] = [
+  'all', 'revenue', 'competition', 'buildability', 'market_design', 'cost', 'demand', 'watchlist',
+];
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleString('en-GB', {
-    day: '2-digit', month: 'short',
-    hour: '2-digit', minute: '2-digit',
+    day: '2-digit',
+    month: 'short',
     timeZone: 'UTC',
   });
 }
 
-// ─── Source icon ──────────────────────────────────────────────────────────────
+// ─── Chip components ──────────────────────────────────────────────────────────
 
-function SourceIcon({ source }: { source: string | null | undefined }) {
-  if (!source) return null;
-
-  const s = source.toLowerCase();
-
-  if (s.includes('linkedin')) {
-    return (
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style={{ display: 'inline', verticalAlign: 'middle', marginRight: '3px', opacity: 0.45 }}>
-        <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
-      </svg>
-    );
-  }
-
-  if (s.includes('substack')) {
-    return (
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style={{ display: 'inline', verticalAlign: 'middle', marginRight: '3px', opacity: 0.45 }}>
-        <path d="M22.539 8.242H1.46V5.406h21.08v2.836zM1.46 10.812V24L12 18.11 22.54 24V10.812H1.46zM22.54 0H1.46v2.836h21.08V0z"/>
-      </svg>
-    );
-  }
-
-  if (s.includes('twitter') || s.includes('x.com')) {
-    return (
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style={{ display: 'inline', verticalAlign: 'middle', marginRight: '3px', opacity: 0.45 }}>
-        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.736l7.733-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-      </svg>
-    );
-  }
-
-  return null;
+function ImpactChip({ impact }: { impact: Impact }) {
+  return (
+    <span style={{
+      fontFamily: 'var(--font-mono)',
+      fontSize: 'var(--font-xs)',
+      color: IMPACT_COLORS[impact],
+      opacity: 0.85,
+      letterSpacing: '0.04em',
+    }}>
+      {IMPACT_LABELS[impact]}
+    </span>
+  );
 }
 
-// ─── Company chips ─────────────────────────────────────────────────────────────
-
-function CompanyChips({ companies }: { companies?: string[] }) {
-  if (!companies?.length) return null;
+function HorizonChip({ horizon }: { horizon: Horizon }) {
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem', marginTop: '0.35rem' }}>
-      {companies.map(co => (
-        <span
-          key={co}
-          style={{
-            ...MONO,
-            fontSize: '0.65rem',
-            letterSpacing: '0.06em',
-            padding: '0.12rem 0.45rem',
-            border: '1px solid rgba(123, 94, 167, 0.22)',
-            background: 'rgba(123, 94, 167, 0.06)',
-            color: 'rgba(123, 94, 167, 0.7)',
-            borderRadius: '2px',
-          }}
-        >
-          {co}
-        </span>
-      ))}
+    <span style={{
+      fontFamily: 'var(--font-mono)',
+      fontSize: 'var(--font-xs)',
+      color: 'var(--text-muted)',
+      letterSpacing: '0.04em',
+    }}>
+      {HORIZON_LABELS[horizon]}
+    </span>
+  );
+}
+
+function CategoryChip({ category }: { category: Category }) {
+  return (
+    <span style={{
+      fontFamily: 'var(--font-mono)',
+      fontSize: 'var(--font-xs)',
+      color: CATEGORY_COLORS[category],
+      letterSpacing: '0.06em',
+      textTransform: 'uppercase',
+      opacity: 0.8,
+    }}>
+      {CATEGORY_LABELS[category]}
+    </span>
+  );
+}
+
+// ─── Pinned strip ─────────────────────────────────────────────────────────────
+
+function PinnedStrip({ items }: { items: IntelItem[] }) {
+  if (items.length === 0) return null;
+
+  return (
+    <div style={{ marginBottom: '32px' }}>
+      <p style={{
+        fontFamily: 'var(--font-mono)',
+        fontSize: 'var(--font-xs)',
+        color: 'var(--text-tertiary)',
+        letterSpacing: '0.1em',
+        textTransform: 'uppercase',
+        marginBottom: '12px',
+        fontWeight: 500,
+      }}>
+        This week&apos;s market movers
+      </p>
+      <div style={{
+        display: 'grid',
+        gap: '1px',
+        background: 'var(--border-card)',
+        border: '1px solid var(--border-card)',
+        borderRadius: '2px',
+      }}>
+        {items.map(item => (
+          <div
+            key={item.id}
+            style={{
+              background: 'var(--bg-page)',
+              padding: '14px 16px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '4px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap' }}>
+              <span style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 'var(--font-sm)',
+                color: 'var(--text-primary)',
+                lineHeight: 1.4,
+              }}>
+                {item.title}
+              </span>
+            </div>
+            <p style={{
+              fontFamily: 'var(--font-serif)',
+              fontSize: 'var(--font-sm)',
+              color: 'var(--text-secondary)',
+              lineHeight: 1.5,
+              margin: 0,
+            }}>
+              {item.whyItMatters}
+            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '2px' }}>
+              <ImpactChip impact={item.impact} />
+              <span style={{ color: 'var(--text-ghost)' }}>·</span>
+              <HorizonChip horizon={item.horizon} />
+              <span style={{ color: 'var(--text-ghost)' }}>·</span>
+              <CategoryChip category={item.primaryCategory} />
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
-// ─── Main component ────────────────────────────────────────────────────────────
+// ─── Intelligence row ─────────────────────────────────────────────────────────
+
+function IntelRow({ item, isExpanded, onToggle }: {
+  item: IntelItem;
+  isExpanded: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div style={{
+      borderBottom: '1px solid var(--border-card)',
+    }}>
+      <button
+        onClick={onToggle}
+        style={{
+          width: '100%',
+          background: 'none',
+          border: 'none',
+          padding: '14px 0',
+          cursor: 'pointer',
+          textAlign: 'left',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '4px',
+        }}
+      >
+        {/* Title row */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'baseline',
+          gap: '8px',
+          width: '100%',
+        }}>
+          <span style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-sm)',
+            color: 'var(--text-primary)',
+            lineHeight: 1.4,
+            flex: 1,
+          }}>
+            {item.title}
+          </span>
+          <span style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-xs)',
+            color: 'var(--text-ghost)',
+            flexShrink: 0,
+          }}>
+            {formatDate(item.publishedAt)}
+          </span>
+        </div>
+
+        {/* Why it matters — always visible */}
+        <p style={{
+          fontFamily: 'var(--font-serif)',
+          fontSize: 'var(--font-sm)',
+          color: 'var(--text-secondary)',
+          lineHeight: 1.5,
+          margin: 0,
+        }}>
+          {item.whyItMatters}
+        </p>
+
+        {/* Tags row */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          flexWrap: 'wrap',
+          marginTop: '2px',
+        }}>
+          <CategoryChip category={item.primaryCategory} />
+          <span style={{ color: 'var(--text-ghost)' }}>·</span>
+          <ImpactChip impact={item.impact} />
+          <span style={{ color: 'var(--text-ghost)' }}>·</span>
+          <HorizonChip horizon={item.horizon} />
+          <span style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-xs)',
+            color: 'var(--text-ghost)',
+            marginLeft: 'auto',
+          }}>
+            {item.sourceName}
+          </span>
+        </div>
+      </button>
+
+      {/* Expanded detail */}
+      {isExpanded && (
+        <div style={{
+          padding: '0 0 16px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '10px',
+          borderLeft: `2px solid ${CATEGORY_COLORS[item.primaryCategory]}`,
+          marginLeft: '2px',
+          paddingLeft: '14px',
+        }}>
+          {item.summary && (
+            <p style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 'var(--font-xs)',
+              color: 'var(--text-muted)',
+              lineHeight: 1.7,
+              margin: 0,
+            }}>
+              {item.summary}
+            </p>
+          )}
+
+          {item.referenceAssetNote && (
+            <p style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 'var(--font-xs)',
+              color: 'rgba(0,180,160,0.65)',
+              margin: 0,
+              lineHeight: 1.5,
+            }}>
+              50MW ref: {item.referenceAssetNote}
+            </p>
+          )}
+
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            flexWrap: 'wrap',
+          }}>
+            {item.geography && (
+              <span style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 'var(--font-xs)',
+                color: 'var(--text-muted)',
+              }}>
+                {item.geography}
+              </span>
+            )}
+            {item.confidence && (
+              <span style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 'var(--font-xs)',
+                color: 'var(--text-muted)',
+              }}>
+                Confidence: {item.confidence}
+              </span>
+            )}
+            {item.sourceUrl && (
+              <a
+                href={item.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={e => e.stopPropagation()}
+                style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 'var(--font-xs)',
+                  color: 'var(--teal)',
+                  textDecoration: 'none',
+                  opacity: 0.7,
+                }}
+              >
+                Source ↗
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
 
 export function IntelFeed() {
-  const [items, setItems]       = useState<FeedItem[]>([]);
-  const [active, setActive]     = useState<Topic>('ALL');
-  const [expanded, setExpanded] = useState<string | null>(null);
-  const [loading, setLoading]   = useState(true);
+  const [liveItems, setLiveItems] = useState<IntelItem[]>([]);
+  const [activeFilter, setActiveFilter] = useState<Category | 'all'>('all');
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
+  // Attempt to fetch enriched items from /curations endpoint
   useEffect(() => {
-    fetch(`${WORKER_URL}/feed`)
+    fetch(`${WORKER_URL}/curations`)
       .then(r => r.json())
-      .then((d: { items?: FeedItem[] }) => { setItems(d.items ?? []); setLoading(false); })
-      .catch(() => setLoading(false));
+      .then((data: IntelItem[] | Record<string, unknown>[]) => {
+        // Only accept items that have the enriched fields
+        const enriched = (Array.isArray(data) ? data : []).filter(
+          (item): item is IntelItem =>
+            typeof item === 'object' &&
+            item !== null &&
+            'whyItMatters' in item &&
+            'impact' in item &&
+            'horizon' in item &&
+            typeof (item as IntelItem).whyItMatters === 'string' &&
+            (item as IntelItem).whyItMatters.length > 0
+        );
+        if (enriched.length > 0) setLiveItems(enriched);
+      })
+      .catch(() => {});
   }, []);
 
-  // Strip bot commands and items too short/incomplete to be useful
-  const visible = items.filter(i =>
-    !i.title?.match(/^\/\w+/) &&     // no bot commands
-    (i.title?.length ?? 0) >= 20 &&  // min title length
-    (i.url || (i.summary && i.summary.length > 30))  // needs URL or meaningful summary
-  );
+  // Use live enriched items if available, otherwise seed items
+  const allItems = liveItems.length > 0 ? liveItems : SEED_ITEMS;
+  const isUsingSeeds = liveItems.length === 0;
 
-  const topicCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    visible.forEach(item => {
-      const t = item.topic.toUpperCase();
-      counts[t] = (counts[t] ?? 0) + 1;
+  // Separate pinned and unpinned
+  const pinned = useMemo(() => allItems.filter(i => i.isPinned).slice(0, 3), [allItems]);
+
+  // Category counts
+  const categoryCounts = useMemo(() => {
+    const counts: Partial<Record<Category, number>> = {};
+    allItems.forEach(item => {
+      counts[item.primaryCategory] = (counts[item.primaryCategory] ?? 0) + 1;
     });
     return counts;
-  }, [visible]);
+  }, [allItems]);
 
-  const filtered = active === 'ALL'
-    ? visible
-    : visible.filter(i => i.topic.toUpperCase() === active);
+  // Filtered items (excluding pinned from main list to avoid duplication)
+  const filteredItems = useMemo(() => {
+    const items = activeFilter === 'all'
+      ? allItems
+      : allItems.filter(i => i.primaryCategory === activeFilter);
+    // If showing "all", exclude pinned items from main list (they appear in the strip)
+    if (activeFilter === 'all' && pinned.length > 0) {
+      const pinnedIds = new Set(pinned.map(p => p.id));
+      return items.filter(i => !pinnedIds.has(i.id));
+    }
+    return items;
+  }, [allItems, activeFilter, pinned]);
 
   return (
     <section style={{ width: '100%' }}>
-      {/* Section header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.25rem' }}>
-        <h2 style={{ ...MONO, fontSize: '0.75rem', letterSpacing: '0.14em', color: text(0.52), fontWeight: 400, textTransform: 'uppercase' }}>
-          Intel Feed
-        </h2>
-        <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: 'rgba(86,166,110,0.8)', animation: 'pulse 2s ease-in-out infinite', display: 'inline-block', flexShrink: 0 }} />
-      </div>
+      {/* Pinned editorial strip */}
+      {activeFilter === 'all' && <PinnedStrip items={pinned} />}
 
-      {/* Topic filter pills */}
-      <nav aria-label="Intel feed filters">
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '1.5rem' }}>
-          {TOPICS.map(t => {
-            const count = t === 'ALL' ? visible.length : (topicCounts[t] ?? 0);
-            if (t !== 'ALL' && count === 0) return null;
-            const isActive = t === active;
+      {/* Filter bar */}
+      <nav aria-label="Intelligence filters" style={{ marginBottom: '20px' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+          {FILTER_CATEGORIES.map(cat => {
+            const count = cat === 'all' ? allItems.length : (categoryCounts[cat] ?? 0);
+            if (cat !== 'all' && count === 0) return null;
+            const isActive = cat === activeFilter;
+            const label = cat === 'all' ? 'All' : CATEGORY_LABELS[cat];
             return (
               <button
-                key={t}
-                onClick={() => setActive(t)}
+                key={cat}
+                onClick={() => setActiveFilter(cat)}
                 aria-pressed={isActive}
                 style={{
-                  ...MONO,
-                  fontSize: '0.65rem',
-                  letterSpacing: '0.08em',
-                  padding: '0.25rem 0.6rem',
-                  border: `1px solid ${isActive ? 'rgba(123, 94, 167, 0.6)' : text(0.12)}`,
-                  background: isActive ? 'rgba(123, 94, 167, 0.08)' : 'none',
-                  color: isActive ? text(0.7) : text(0.45),
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 'var(--font-xs)',
+                  letterSpacing: '0.06em',
+                  padding: '5px 10px',
+                  border: `1px solid ${isActive ? 'var(--border-highlight)' : 'var(--border-card)'}`,
+                  background: isActive ? 'var(--bg-elevated)' : 'transparent',
+                  color: isActive ? 'var(--text-secondary)' : 'var(--text-tertiary)',
                   cursor: 'pointer',
                   borderRadius: '2px',
                   transition: 'border-color 0.15s, color 0.15s',
                 }}
               >
-                {t}
-                {t !== 'ALL' && count > 0 && (
-                  <span style={{ marginLeft: '4px', opacity: 0.5, fontSize: '0.60rem' }}>{count}</span>
+                {label}
+                {cat !== 'all' && count > 0 && (
+                  <span style={{ marginLeft: '5px', opacity: 0.5 }}>{count}</span>
                 )}
               </button>
             );
@@ -189,59 +584,73 @@ export function IntelFeed() {
         </div>
       </nav>
 
-      {/* Feed rows */}
-      {loading && (
-        <p style={{ ...MONO, fontSize: '0.575rem', color: text(0.2), letterSpacing: '0.06em' }}>
-          Fetching feed…
+      {/* Intelligence list */}
+      <div style={{ borderTop: '1px solid var(--border-card)' }}>
+        {filteredItems.length === 0 && (
+          <div style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-sm)',
+            color: 'var(--text-muted)',
+            padding: '24px 0',
+            textAlign: 'center',
+          }}>
+            No {activeFilter !== 'all' ? CATEGORY_LABELS[activeFilter].toLowerCase() : ''} intelligence items.
+            {activeFilter !== 'all' && (
+              <span
+                onClick={() => setActiveFilter('all')}
+                style={{ color: 'var(--teal)', cursor: 'pointer', marginLeft: '6px', opacity: 0.7 }}
+              >
+                Show all
+              </span>
+            )}
+          </div>
+        )}
+
+        {filteredItems.map(item => (
+          <IntelRow
+            key={item.id}
+            item={item}
+            isExpanded={expandedId === item.id}
+            onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)}
+          />
+        ))}
+      </div>
+
+      {/* Provenance note */}
+      {isUsingSeeds && (
+        <p style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: 'var(--font-xs)',
+          color: 'var(--text-ghost)',
+          marginTop: '16px',
+          letterSpacing: '0.04em',
+        }}>
+          Recent curated intelligence. Updated as new developments are assessed.
         </p>
       )}
 
-      {!loading && filtered.length === 0 && (
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.68rem', color: text(0.30), padding: '20px 0', textAlign: 'center' }}>
-          No {active !== 'ALL' ? active.toLowerCase() : ''} articles yet.
-          {active !== 'ALL' && (
-            <span
-              onClick={() => setActive('ALL')}
-              style={{ color: 'rgba(123,94,167,0.7)', cursor: 'pointer', marginLeft: '6px' }}
-            >
-              Show all
-            </span>
-          )}
-        </div>
-      )}
-
-      {!loading && filtered.map((item, i) => {
-        const isOpen = expanded === item.id;
-        return (
-          <div key={item.id || i} onClick={() => setExpanded(isOpen ? null : item.id)} style={{ cursor: 'pointer' }}>
-            <div className="feed-row">
-              <span className="feed-date" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
-                {formatDate(item.added_at)}
-              </span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', color: getCategoryColor(item.topic), textTransform: 'uppercase' as const, letterSpacing: '0.04em' }}>
-                {item.topic}
-              </span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
-                {item.url ? (
-                  <a href={item.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ color: 'inherit', textDecoration: 'none' }}>
-                    {decodeEntities(item.title)}
-                  </a>
-                ) : decodeEntities(item.title)}
-              </span>
-              <span className="feed-source" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', color: 'var(--text-ghost)', textAlign: 'right' as const, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
-                {item.source || ''}
-              </span>
-            </div>
-            {isOpen && item.summary && (
-              <div style={{ padding: '8px 12px 12px', background: 'rgba(123,94,167,0.04)', borderBottom: '1px solid rgba(232,226,217,0.04)' }}>
-                <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.55rem', color: 'rgba(232,226,217,0.45)', lineHeight: 1.65, borderLeft: '2px solid rgba(123,94,167,0.22)', paddingLeft: '8px', margin: 0 }}>
-                  {item.summary}
-                </p>
-              </div>
-            )}
-          </div>
-        );
-      })}
+      {/* CTA */}
+      <div style={{
+        marginTop: '28px',
+        paddingTop: '20px',
+        borderTop: '1px solid var(--border-card)',
+      }}>
+        <a
+          href="mailto:kastytis@kkme.eu?subject=Market%20intelligence%20lead"
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-xs)',
+            color: 'var(--text-tertiary)',
+            textDecoration: 'none',
+            letterSpacing: '0.04em',
+            transition: 'color 0.15s',
+          }}
+          onMouseOver={e => (e.currentTarget.style.color = 'var(--text-secondary)')}
+          onMouseOut={e => (e.currentTarget.style.color = 'var(--text-tertiary)')}
+        >
+          Have a development we should review? Submit a market lead ↗
+        </a>
+      </div>
     </section>
   );
 }

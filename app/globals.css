@@ -416,21 +416,6 @@ body::after {
 }
 
 /* ════════════════════════════════════════════
-   COMPACT INTEL FEED
-   ════════════════════════════════════════════ */
-
-.feed-row {
-  display: grid;
-  grid-template-columns: 85px 95px 1fr 130px;
-  gap: 12px;
-  align-items: center;
-  padding: 10px 0;
-  border-bottom: 1px solid rgba(232, 226, 217, 0.04);
-}
-
-.feed-row:last-child { border-bottom: none; }
-
-/* ════════════════════════════════════════════
    RESPONSIVE
    ════════════════════════════════════════════ */
 
@@ -445,11 +430,6 @@ body::after {
     margin-right: -16px;
     padding: 40px 16px;
   }
-  .feed-row {
-    grid-template-columns: auto 1fr;
-  }
-  .feed-row .feed-date,
-  .feed-row .feed-source { display: none; }
 }
 
 @media (max-width: 520px) {
@@ -462,8 +442,6 @@ body::after {
 .grid-2 > .card { min-height: 0; align-self: start; }
 .card-split svg,
 .card-split canvas { max-height: 200px; width: 100%; }
-.feed-row { min-width: 0; }
-.feed-row > * { min-width: 0; }
 
 /* ── Market Snapshot ─────────────────────────────────────────────────────── */
 .market-snapshot {

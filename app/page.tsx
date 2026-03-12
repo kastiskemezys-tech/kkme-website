@@ -123,23 +123,15 @@ export default function Home() {
           <a href="#deal-flow">Looking for Baltic battery deal flow? Get in touch ↗</a>
         </div>
 
-        {/* ═══ INTEL FEED ═══ */}
+        {/* ═══ MARKET INTELLIGENCE ═══ */}
         <div className="section" id="intel">
-          <div style={{ marginBottom: '16px' }}>
-            <h2 className="section-header" style={{ marginBottom: '6px' }}>Market Intel</h2>
-            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.8125rem', color: 'var(--text-muted)', paddingLeft: '16px' }}>Baltic energy storage news via @gattana_bot</p>
+          <div style={{ marginBottom: '24px' }}>
+            <h2 className="section-header" style={{ marginBottom: '6px' }}>Market intelligence</h2>
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>
+              Curated developments affecting Baltic BESS revenue, buildability, competition, market design, cost direction, and future flexibility demand.
+            </p>
           </div>
-          <p style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: '0.8125rem',
-            color: 'var(--text-muted)',
-            marginBottom: '16px',
-          }}>
-            Latest Baltic energy storage signals via Telegram
-          </p>
-          <div>
-            <IntelFeed />
-          </div>
+          <IntelFeed />
         </div>
 
         {/* ═══ DEAL FLOW ═══ */}
