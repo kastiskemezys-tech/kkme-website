@@ -15,12 +15,12 @@ export function SectionHeader({ title, subtitle, metadata }: SectionHeaderProps)
     <div style={{ marginBottom: '48px' }}>
       <h2 style={{
         fontFamily: 'var(--font-mono)',
-        fontSize: 'var(--font-xs)',
-        color: 'var(--text-tertiary)',
+        fontSize: 'var(--font-sm)',
+        color: 'var(--text-secondary)',
         letterSpacing: '0.12em',
         textTransform: 'uppercase',
         marginBottom: subtitle ? '12px' : '0',
-        fontWeight: 400,
+        fontWeight: 500,
       }}>
         {title}
       </h2>

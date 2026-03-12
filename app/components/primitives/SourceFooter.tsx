@@ -11,7 +11,7 @@ export function SourceFooter({ source, updatedAt, dataClass, methodologyLink }: 
   return (
     <div style={{
       fontFamily: 'var(--font-mono)',
-      fontSize: 'var(--font-xs)',
+      fontSize: 'var(--font-sm)',
       color: 'var(--text-muted)',
       display: 'flex',
       alignItems: 'center',
