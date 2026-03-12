@@ -39,6 +39,7 @@ const SEED_ITEMS: IntelItem[] = [
     summary: 'E energija has commissioned its 65MW/130MWh battery storage system near Vilnius and begun participating in Lithuanian aFRR and mFRR markets. This is the first large-scale commercial BESS operating in the Baltic balancing market, providing the first real evidence of clearing prices and activation rates.',
     primaryCategory: 'competition',
     sourceName: 'E energija / Litgrid',
+    sourceUrl: 'https://www.litgrid.eu',
     publishedAt: '2026-02-28',
     whyItMatters: 'First large-scale commercial BESS in Lithuania — marks the start of Baltic balancing market deepening',
     impact: 'mixed',
@@ -54,6 +55,7 @@ const SEED_ITEMS: IntelItem[] = [
     summary: 'Ignitis Group confirmed plans for three battery storage projects totalling 291MW/582MWh across Lithuania. Sites include Vilnius region (100MW), Kaunas region (100MW), and Klaipeda region (91MW). All target 2027 commercial operation, contingent on grid connection timelines.',
     primaryCategory: 'competition',
     sourceName: 'Ignitis Group',
+    sourceUrl: 'https://ignitisgrupe.lt',
     publishedAt: '2026-02-15',
     whyItMatters: 'Largest announced Baltic BESS programme — 582 MWh across three sites, targeting 2027 COD',
     impact: 'mixed',
@@ -69,6 +71,7 @@ const SEED_ITEMS: IntelItem[] = [
     summary: 'The European Commission declared the planned Lithuania–Germany subsea interconnector a Project of Common Interest (PCI), unlocking EU co-financing for feasibility studies. The 2GW HVDC link would connect Lithuanian offshore wind to the German market. Timeline: earliest operational date 2032–2035.',
     primaryCategory: 'revenue',
     sourceName: 'European Commission / Litgrid',
+    sourceUrl: 'https://www.litgrid.eu',
     publishedAt: '2026-02-20',
     whyItMatters: 'New 2GW export corridor — may reshape Lithuanian price spreads post-2032, no near-term flow impact',
     impact: 'mixed',
@@ -84,6 +87,7 @@ const SEED_ITEMS: IntelItem[] = [
     summary: 'VERT confirmed the updated balancing cost allocation methodology. From January 2026, generation and storage assets bear 30% of system balancing costs, up from 0%. This changes the net revenue calculation for all market participants including BESS operators.',
     primaryCategory: 'market_design',
     sourceName: 'VERT.lt',
+    sourceUrl: 'https://www.vert.lt',
     publishedAt: '2026-01-10',
     whyItMatters: 'Storage operators now bear 30% of system balancing costs — changes net revenue calculation',
     impact: 'negative',
@@ -98,6 +102,7 @@ const SEED_ITEMS: IntelItem[] = [
     summary: 'The Lithuanian Energy Agency reported that applications for the BESS capital expenditure support scheme exceeded available funding by 2.1x. The scheme offers up to 45% co-financing for battery storage projects. Oversubscription signals strong developer interest but may accelerate grid queue congestion.',
     primaryCategory: 'buildability',
     sourceName: 'Lithuanian Energy Agency',
+    sourceUrl: 'https://www.ena.lt',
     publishedAt: '2026-01-25',
     whyItMatters: '2.1x oversubscription signals strong developer interest — may accelerate grid queue congestion',
     impact: 'mixed',
@@ -111,6 +116,7 @@ const SEED_ITEMS: IntelItem[] = [
     summary: 'Litgrid confirmed a scheduled 6-week NordBalt maintenance outage beginning April 2026. The 700MW Sweden–Lithuania interconnector will be fully offline during this period. Historical precedent: NordBalt outages have widened Lithuanian day-ahead spreads by 15–25% due to reduced import capacity from Sweden (SE4).',
     primaryCategory: 'revenue',
     sourceName: 'Litgrid / NordBalt',
+    sourceUrl: 'https://www.litgrid.eu',
     publishedAt: '2026-03-01',
     whyItMatters: '700MW Sweden–Lithuania link offline for 6 weeks — historical precedent: 15–25% wider DA spreads',
     impact: 'positive',
@@ -125,6 +131,7 @@ const SEED_ITEMS: IntelItem[] = [
     summary: 'EU ETS carbon prices settled near €71/t in early March 2026 after Q1 volatility driven by MSR intake adjustments. The sustained price floor supports gas peaker marginal costs, which anchors the P_high price used in BESS arbitrage revenue calculations.',
     primaryCategory: 'revenue',
     sourceName: 'ICE / energy-charts.info',
+    sourceUrl: 'https://www.energy-charts.info',
     publishedAt: '2026-03-05',
     whyItMatters: '€71/t carbon floor sustains gas peaker marginal costs — anchors peak-hour discharge economics',
     impact: 'positive',
@@ -138,6 +145,7 @@ const SEED_ITEMS: IntelItem[] = [
     summary: 'BloombergNEF released its 2025 battery pack price survey showing stationary LFP cells at $92/kWh global average, down 12% year-on-year. However, Baltic installed costs remain dominated by grid connection scope, BoP, and EPC margins rather than cell prices alone.',
     primaryCategory: 'cost',
     sourceName: 'BloombergNEF',
+    sourceUrl: 'https://about.bnef.com',
     publishedAt: '2026-02-10',
     whyItMatters: 'LFP cells down 12% YoY to $92/kWh — but Baltic installed costs still dominated by grid/BoP scope',
     impact: 'positive',
@@ -352,14 +360,35 @@ function IntelRow({ item, isExpanded, onToggle }: {
           <CategoryChip category={item.primaryCategory} />
           <span style={{ color: 'var(--text-ghost)' }}>·</span>
           <HorizonChip horizon={item.horizon} />
-          <span style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-xs)',
-            color: 'var(--text-ghost)',
-            marginLeft: 'auto',
-          }}>
-            {item.sourceName}
-          </span>
+          {item.sourceUrl ? (
+            <a
+              href={item.sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={e => e.stopPropagation()}
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 'var(--font-xs)',
+                color: 'var(--text-ghost)',
+                marginLeft: 'auto',
+                textDecoration: 'none',
+                transition: 'color 0.15s',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-muted)')}
+              onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-ghost)')}
+            >
+              {item.sourceName} ↗
+            </a>
+          ) : (
+            <span style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 'var(--font-xs)',
+              color: 'var(--text-ghost)',
+              marginLeft: 'auto',
+            }}>
+              {item.sourceName}
+            </span>
+          )}
         </div>
       </button>
 
