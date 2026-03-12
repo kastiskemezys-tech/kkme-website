@@ -37,10 +37,10 @@ function regimeSentiment(r: string | null | undefined): Sentiment {
 }
 
 function gasInterpretation(regime: string | null | undefined): string {
-  if (regime === 'HIGH') return 'Expensive gas is raising the peaker marginal cost — strengthening the BESS arbitrage case.';
-  if (regime === 'ELEVATED') return 'Above-normal gas prices are supporting wider peak-hour spreads.';
-  if (regime === 'LOW') return 'Cheap gas is compressing peaker margins — reducing the BESS displacement premium.';
-  return 'Gas prices near mid-range — moderate effect on peak-hour pricing.';
+  if (regime === 'HIGH') return 'Expensive gas — strengthening BESS arbitrage case.';
+  if (regime === 'ELEVATED') return 'Above-normal gas — supporting wider peak spreads.';
+  if (regime === 'LOW') return 'Cheap gas — compressing peaker displacement value.';
+  return 'Mid-range gas — moderate effect on peak pricing.';
 }
 
 function gasImpact(regime: string | null | undefined): string {
@@ -85,17 +85,17 @@ export function S7Card() {
         </div>
       )}
 
-      <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', lineHeight: 1.6, margin: '8px 0 12px' }}>
+      <p className="tier3-interp" style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', lineHeight: 1.4, margin: '4px 0 8px' }}>
         {gasInterpretation(regime)}
       </p>
 
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'rgba(0,180,160,0.65)', marginBottom: '12px' }}>
+      <div className="tier3-impact" style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'rgba(0,180,160,0.65)', marginBottom: '8px' }}>
         {gasImpact(regime)}
       </div>
 
       <SourceFooter source="energy-charts.info" updatedAt={data.timestamp ? new Date(data.timestamp).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) : undefined} dataClass="observed" />
 
-      <div style={{ marginTop: '12px' }}>
+      <div style={{ marginTop: '8px' }}>
         <DetailsDrawer label="View gas detail">
           {history.length > 0 && (
             <div style={{ marginBottom: '16px' }}>

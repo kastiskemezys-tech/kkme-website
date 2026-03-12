@@ -35,10 +35,10 @@ function regimeSentiment(sig: string | null | undefined): Sentiment {
 }
 
 function carbonInterpretation(sig: string | null | undefined, price: number | null | undefined): string {
-  if (sig === 'HIGH') return 'High carbon cost is strengthening the case for displacing gas peakers with BESS.';
-  if (sig === 'ELEVATED') return 'Above-normal carbon pricing is adding to peaker marginal costs.';
-  if (sig === 'LOW') return 'Low carbon price is reducing the emissions premium on gas generation.';
-  return 'Carbon price near mid-range — moderate effect on peaker displacement economics.';
+  if (sig === 'HIGH') return 'High carbon — strengthening BESS displacement case.';
+  if (sig === 'ELEVATED') return 'Above-normal carbon — adding to peaker costs.';
+  if (sig === 'LOW') return 'Low carbon — reducing gas emissions premium.';
+  return 'Mid-range carbon — moderate peaker displacement effect.';
 }
 
 function carbonImpact(sig: string | null | undefined, price: number | null | undefined): string {
@@ -82,17 +82,17 @@ export function S9Card() {
         </div>
       )}
 
-      <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', lineHeight: 1.6, margin: '8px 0 12px' }}>
+      <p className="tier3-interp" style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', lineHeight: 1.4, margin: '4px 0 8px' }}>
         {carbonInterpretation(data.signal, data.eua_eur_t)}
       </p>
 
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'rgba(0,180,160,0.65)', marginBottom: '12px' }}>
+      <div className="tier3-impact" style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'rgba(0,180,160,0.65)', marginBottom: '8px' }}>
         {carbonImpact(data.signal, data.eua_eur_t)}
       </div>
 
       <SourceFooter source="energy-charts.info" updatedAt={data.timestamp ? new Date(data.timestamp).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) : undefined} dataClass="observed" />
 
-      <div style={{ marginTop: '12px' }}>
+      <div style={{ marginTop: '8px' }}>
         <DetailsDrawer label="View carbon detail">
           {history.length > 0 && (
             <div style={{ marginBottom: '16px' }}>

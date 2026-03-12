@@ -39,12 +39,12 @@ function flowInterpretation(
   lpSig: string | null | undefined,
 ): string {
   if (dominantSig === 'IMPORTING') {
-    return 'Import-supported conditions are limiting local Baltic dislocation — cross-border supply is smoothing prices.';
+    return 'Importing — cross-border supply smoothing Baltic prices.';
   }
   if (dominantSig === 'EXPORTING') {
-    return 'Cross-border support is weaker with Lithuania exporting — Baltic prices are more locally set.';
+    return 'Exporting — Baltic prices more locally set.';
   }
-  return 'Balanced flows are reducing directional pressure from neighboring markets.';
+  return 'Balanced flows — limited directional pressure.';
 }
 
 function flowImpact(dominantSig: string | null | undefined): string {
@@ -107,31 +107,30 @@ export function S8Card() {
         </div>
       </div>
 
-      {/* Compact corridor summary */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 12px', marginBottom: '12px', marginTop: '8px' }}>
-        {([
-          ['NordBalt → SE4', data.nordbalt_avg_mw, nbSig],
-          ['LitPol → PL', data.litpol_avg_mw, lpSig],
-        ] as [string, number | null | undefined, string | null | undefined][]).map(([label, mw, sig]) => (
-          <div key={label} style={{ fontFamily: 'var(--font-mono)' }}>
-            <div style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>{label}</div>
-            <div style={{ fontSize: 'var(--font-sm)', color: dirColor(sig) }}>{mwLabel(mw)}</div>
-          </div>
-        ))}
-      </div>
-
-      <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', lineHeight: 1.6, margin: '8px 0 12px' }}>
+      <p className="tier3-interp" style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', lineHeight: 1.4, margin: '4px 0 8px' }}>
         {flowInterpretation(dominantSig, nbSig, lpSig)}
       </p>
 
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'rgba(0,180,160,0.65)', marginBottom: '12px' }}>
+      <div className="tier3-impact" style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'rgba(0,180,160,0.65)', marginBottom: '8px' }}>
         {flowImpact(dominantSig)}
       </div>
 
       <SourceFooter source="ENTSO-E Transparency" updatedAt={data.timestamp ? new Date(data.timestamp).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) : undefined} dataClass="observed" />
 
-      <div style={{ marginTop: '12px' }}>
+      <div style={{ marginTop: '8px' }}>
         <DetailsDrawer label="View flow map and detail">
+          {/* Corridor summary — moved from default view */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 12px', marginBottom: '16px' }}>
+            {([
+              ['NordBalt → SE4', data.nordbalt_avg_mw, nbSig],
+              ['LitPol → PL', data.litpol_avg_mw, lpSig],
+            ] as [string, number | null | undefined, string | null | undefined][]).map(([label, mw, sig]) => (
+              <div key={label} style={{ fontFamily: 'var(--font-mono)' }}>
+                <div style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>{label}</div>
+                <div style={{ fontSize: 'var(--font-sm)', color: dirColor(sig) }}>{mwLabel(mw)}</div>
+              </div>
+            ))}
+          </div>
           <div style={{ maxHeight: '200px', overflow: 'hidden', marginBottom: '16px' }}>
             <BalticMap
               nordbalt_mw={data.nordbalt_avg_mw}

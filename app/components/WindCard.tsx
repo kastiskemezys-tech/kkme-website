@@ -39,9 +39,9 @@ function trendSentiment(t: string | null | undefined): Sentiment {
 }
 
 function windInterpretation(trend: string | null | undefined): string {
-  if (trend === 'above_baseline') return 'Elevated wind is widening low-price windows — supportive for low-cost charging.';
-  if (trend === 'below_baseline') return 'Below-average wind is reducing cheap-hour availability — narrowing charging windows.';
-  return 'Wind generation near recent baseline — typical charging conditions.';
+  if (trend === 'above_baseline') return 'Elevated wind — widening charging windows.';
+  if (trend === 'below_baseline') return 'Below-average wind — narrowing charging windows.';
+  return 'Near baseline — typical charging conditions.';
 }
 
 function windImpact(trend: string | null | undefined): string {
@@ -73,30 +73,29 @@ export function WindCard() {
       {mw != null && (
         <div style={{ marginBottom: '4px' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-            <MetricTile label="Current Baltic wind output" value={mw.toLocaleString()} unit="MW" size="hero" dataClass="observed" />
+            <MetricTile label="Baltic wind output" value={mw.toLocaleString()} unit="MW" size="hero" dataClass="observed" />
             <StatusChip status={trendLabel(trend)} sentiment={trendSentiment(trend)} />
           </div>
         </div>
       )}
 
-      {avg != null && (
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '12px' }}>
-          7D avg: {avg.toLocaleString()} MW
-        </p>
-      )}
-
-      <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', lineHeight: 1.6, margin: '8px 0 12px' }}>
+      <p className="tier3-interp" style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', lineHeight: 1.4, margin: '4px 0 8px' }}>
         {windInterpretation(trend)}
       </p>
 
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'rgba(0,180,160,0.65)', marginBottom: '12px' }}>
+      <div className="tier3-impact" style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'rgba(0,180,160,0.65)', marginBottom: '8px' }}>
         {windImpact(trend)}
       </div>
 
       <SourceFooter source="energy-charts.info" updatedAt={data.timestamp ? new Date(data.timestamp).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) : undefined} dataClass="observed" />
 
-      <div style={{ marginTop: '12px' }}>
+      <div style={{ marginTop: '8px' }}>
         <DetailsDrawer label="View country breakdown">
+          {avg != null && (
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '12px' }}>
+              7D avg: {avg.toLocaleString()} MW
+            </p>
+          )}
           <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>Per-country generation</p>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', marginBottom: '16px' }}>
             {(['LT', 'EE', 'LV'] as const).map(c => {

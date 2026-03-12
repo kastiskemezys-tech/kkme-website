@@ -42,7 +42,7 @@ export default function Home() {
             <div className="card card-tier1">
               <CardBoundary signal="S1"><S1Card /></CardBoundary>
             </div>
-            <div className="card card-tier1">
+            <div className="card-tier1-feature">
               <CardBoundary signal="S2"><S2Card /></CardBoundary>
             </div>
           </div>
@@ -66,34 +66,28 @@ export default function Home() {
 
         {/* ═══ STRUCTURAL MARKET DRIVERS ═══ */}
         <div className="section" id="structural">
-          <div style={{ marginBottom: '32px' }}>
+          <div style={{ marginBottom: '24px' }}>
             <h2 className="section-header" style={{ marginBottom: '6px' }}>Structural market drivers</h2>
-            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Wind, solar, demand, and interconnector conditions shaping price spreads</p>
+            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Wind, solar, demand, interconnectors, and commodity inputs shaping price spreads</p>
           </div>
 
-          {/* Primary row — 4 structural drivers */}
-          <div className="grid-2" style={{ marginBottom: '24px' }}>
-            <div className="card card-tier2">
+          <div className="tier3-grid">
+            <div className="card-tier3">
               <CardBoundary signal="wind"><WindCard /></CardBoundary>
             </div>
-            <div className="card card-tier2">
+            <div className="card-tier3">
               <CardBoundary signal="solar"><SolarCard /></CardBoundary>
             </div>
-            <div className="card card-tier2">
+            <div className="card-tier3">
               <CardBoundary signal="load"><LoadCard /></CardBoundary>
             </div>
-            <div className="card card-tier2">
+            <div className="card-tier3">
               <CardBoundary signal="S8"><S8Card /></CardBoundary>
             </div>
-          </div>
-
-          {/* Secondary row — commodity price drivers */}
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase' as const, marginBottom: '12px' }}>Commodity inputs</p>
-          <div className="grid-2" style={{ gap: '16px' }}>
-            <div className="card card-tier3">
+            <div className="card-tier3">
               <CardBoundary signal="S7"><S7Card /></CardBoundary>
             </div>
-            <div className="card card-tier3">
+            <div className="card-tier3">
               <CardBoundary signal="S9"><S9Card /></CardBoundary>
             </div>
           </div>
