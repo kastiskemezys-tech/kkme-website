@@ -124,7 +124,7 @@ export function S3Card() {
 
       {/* Impact tag */}
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'rgba(0,180,160,0.65)', marginBottom: '12px' }}>
-        50MW ref: CAPEX partially improving — grid scope remains the dominant variable
+        Reference asset: CAPEX partially improving — grid scope remains the dominant variable
       </div>
 
       <SourceFooter

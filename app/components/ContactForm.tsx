@@ -29,7 +29,7 @@ const fieldStyle = {
 const labelStyle = {
   display: 'block' as const,
   fontFamily: 'var(--font-mono)',
-  fontSize: 'var(--font-xs)',
+  fontSize: 'var(--font-sm)',
   color: 'var(--text-tertiary)',
   marginBottom: '5px',
   letterSpacing: '0.04em',

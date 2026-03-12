@@ -95,15 +95,15 @@ function hurdleStatus(irr: number | null, dscr: number | null): { label: string;
 function impactFromIrr(irr: number | null): { impact: ImpactState; desc: string } {
   if (irr != null && irr > 12) return {
     impact: 'slight_positive',
-    desc: '50MW reference asset: Returns above model hurdles at current assumptions',
+    desc: 'Reference asset: Returns above model hurdles at current assumptions',
   };
   if (irr != null && irr > 8) return {
     impact: 'mixed',
-    desc: '50MW reference asset: Near hurdle — COD timing and CAPEX level are the dominant variables',
+    desc: 'Reference asset: Near hurdle — COD timing and CAPEX level are the dominant variables',
   };
   return {
     impact: 'slight_negative',
-    desc: '50MW reference asset: Below hurdle — viability requires different timing or cost assumptions',
+    desc: 'Reference asset: Below hurdle — viability requires different timing or cost assumptions',
   };
 }
 

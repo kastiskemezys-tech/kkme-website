@@ -42,10 +42,10 @@ function spreadImpact(spread: number): ImpactState {
 }
 
 function spreadImpactDesc(spread: number): string {
-  if (spread < 0) return '50MW reference asset: Arbitrage drag on both 2H and 4H';
-  if (spread < 5) return '50MW reference asset: Minor arbitrage support for 2H and 4H';
-  if (spread < 15) return '50MW reference asset: Moderate arbitrage support, stronger for 4H';
-  return '50MW reference asset: Strong arbitrage upside, especially for 4H duration';
+  if (spread < 0) return 'Reference asset: Arbitrage drag on both 2H and 4H';
+  if (spread < 5) return 'Reference asset: Minor arbitrage support for 2H and 4H';
+  if (spread < 15) return 'Reference asset: Moderate arbitrage support, stronger for 4H';
+  return 'Reference asset: Strong arbitrage upside, especially for 4H duration';
 }
 
 export function S1Card() {
@@ -93,7 +93,9 @@ export function S1Card() {
     const sorted = [...history].sort((a, b) => a - b);
     const rank = sorted.filter(v => v <= spread).length;
     const pct = Math.round((rank / sorted.length) * 100);
-    percentileLabel = `${pct}th`;
+    const suffix = pct % 100 >= 11 && pct % 100 <= 13 ? 'th'
+      : pct % 10 === 1 ? 'st' : pct % 10 === 2 ? 'nd' : pct % 10 === 3 ? 'rd' : 'th';
+    percentileLabel = `${pct}${suffix}`;
   }
 
   return (

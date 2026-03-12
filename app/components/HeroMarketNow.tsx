@@ -30,14 +30,14 @@ function interpretationText(sd: number | null | undefined): string {
 
 function impactDescription(sd: number | null | undefined): string {
   if (sd == null) return 'Insufficient data for assessment';
-  if (sd < 0.5) return '50MW reference asset: Strong support across configurations';
-  if (sd < 0.7) return '50MW reference asset: Supportive, but COD timing increasingly critical';
-  if (sd < 0.9) return '50MW reference asset: Mixed — duration and market access determine viability';
-  return '50MW reference asset: Revenue compression risk for new entrants';
+  if (sd < 0.5) return 'Reference asset: Strong support across configurations';
+  if (sd < 0.7) return 'Reference asset: Supportive, but COD timing increasingly critical';
+  if (sd < 0.9) return 'Reference asset: Mixed — duration and market access determine viability';
+  return 'Reference asset: Revenue compression risk for new entrants';
 }
 
 function formatFreshnessFooter(updatedAt: string | null | undefined): string {
-  if (!updatedAt) return 'Public sources · observed + derived · awaiting refresh';
+  if (!updatedAt) return 'Public sources · observed + derived';
   try {
     const updated = new Date(updatedAt);
     const hoursAgo = Math.round((Date.now() - updated.getTime()) / 3600000);
@@ -93,7 +93,7 @@ export function HeroMarketNow() {
   }, [sd, bess]);
 
   return (
-    <header style={{
+    <header className="hero-grid" style={{
       display: 'grid',
       gridTemplateColumns: '1fr 1fr',
       gap: '48px',
@@ -113,43 +113,23 @@ export function HeroMarketNow() {
 
         <p style={{
           fontFamily: 'var(--font-serif)',
-          fontSize: '1.25rem',
+          fontSize: 'clamp(1.125rem, 2.4vw, 1.375rem)',
           color: 'var(--text-secondary)',
-          lineHeight: 1.5,
-          maxWidth: '420px',
+          lineHeight: 1.55,
+          maxWidth: '440px',
         }}>
-          Baltic storage market signals and reference-asset economics
+          What is the Baltic flexibility market doing right now — and what does a 50MW storage asset earn?
         </p>
 
-        <div>
-          <p style={{
-            fontFamily: 'var(--font-serif)',
-            fontSize: '1rem',
-            color: 'rgba(232,226,217,0.72)',
-            lineHeight: 1.7,
-            maxWidth: '400px',
-          }}>
-            Market signals, structural drivers, and reference-asset returns for Baltic energy storage.
-          </p>
-          <p style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-xs)',
-            color: 'var(--text-muted)',
-            marginTop: '8px',
-          }}>
-            Built from ENTSO-E, Litgrid, and Baltic TSO data. Updated every four hours.
-          </p>
-        </div>
+        <p style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: 'var(--font-sm)',
+          color: 'var(--text-muted)',
+        }}>
+          Nine signals · four-hour updates · ENTSO-E, Litgrid, Baltic TSO data
+        </p>
 
-        <div>
-          <p style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-sm)',
-            color: 'var(--text-muted)',
-            marginBottom: '12px',
-          }}>
-            Baltic blended view · LT-led signal depth
-          </p>
+        <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
           <a
             href="#revenue-drivers"
             onClick={(e) => { e.preventDefault(); document.querySelector('#revenue-drivers')?.scrollIntoView({ behavior: 'smooth' }); }}
@@ -163,8 +143,11 @@ export function HeroMarketNow() {
               border: '1px solid var(--border-card)',
               textDecoration: 'none',
               cursor: 'pointer',
+              transition: 'border-color 0.15s, color 0.15s',
             }}
-          >View Market Signals ↓</a>
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-highlight)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-card)'; e.currentTarget.style.color = 'var(--text-tertiary)'; }}
+          >See the signals ↓</a>
         </div>
       </div>
 

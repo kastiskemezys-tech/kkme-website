@@ -48,9 +48,9 @@ function flowInterpretation(
 }
 
 function flowImpact(dominantSig: string | null | undefined): string {
-  if (dominantSig === 'IMPORTING') return '50MW ref: limiting local price volatility';
-  if (dominantSig === 'EXPORTING') return '50MW ref: supportive for local spread capture';
-  return '50MW ref: neutral for spread direction';
+  if (dominantSig === 'IMPORTING') return 'Reference asset: limiting local price volatility';
+  if (dominantSig === 'EXPORTING') return 'Reference asset: supportive for local spread capture';
+  return 'Reference asset: neutral for spread direction';
 }
 
 function mwLabel(mw: number | null | undefined): string {

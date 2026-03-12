@@ -101,10 +101,10 @@ function sdImpact(sd: number): ImpactState {
 }
 
 function sdImpactDesc(sd: number): string {
-  if (sd < 0.5) return '50MW reference asset: Strong balancing revenue support for both 2H and 4H';
-  if (sd < 0.7) return '50MW reference asset: Revenue support holds but 2027+ COD timing increasingly matters';
-  if (sd < 0.9) return '50MW reference asset: Revenue mix and market access now determine viability';
-  return '50MW reference asset: Compression risk — earlier COD and shorter duration may be more resilient';
+  if (sd < 0.5) return 'Reference asset: Strong balancing revenue support for both 2H and 4H';
+  if (sd < 0.7) return 'Reference asset: Revenue support holds but 2027+ COD timing increasingly matters';
+  if (sd < 0.9) return 'Reference asset: Revenue mix and market access now determine viability';
+  return 'Reference asset: Compression risk — earlier COD and shorter duration may be more resilient';
 }
 
 function trajectoryBarColor(phase: string): string {

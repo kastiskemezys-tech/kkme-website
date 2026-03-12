@@ -32,28 +32,11 @@ export default function Home() {
         {/* ═══ HERO / MARKET NOW ═══ */}
         <HeroMarketNow />
 
-        {/* ═══ REVENUE ENGINE — elevated ═══ */}
-        <div className="section-elevated" id="revenue">
-          <div style={{ marginBottom: '32px' }}>
-            <h2 className="section-header" style={{ marginBottom: '6px' }}>Baltic Reference Asset Returns</h2>
-            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.8125rem', color: 'var(--text-muted)', paddingLeft: '16px' }}>How timing, duration, and installed cost shape storage economics</p>
-          </div>
-          <div>
-            <ErrorBoundary>
-              <RevenueCard />
-            </ErrorBoundary>
-          </div>
-          {/* ═══ MID-PAGE CTA ═══ */}
-          <div className="inline-cta">
-            <a href="#conversation">Looking at Baltic storage? Start the conversation ↗</a>
-          </div>
-        </div>
-
         {/* ═══ REVENUE OPPORTUNITY ═══ */}
         <div className="section" id="revenue-drivers">
           <div style={{ marginBottom: '32px' }}>
-            <h2 className="section-header" style={{ marginBottom: '6px' }}>Revenue Opportunity</h2>
-            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.8125rem', color: 'var(--text-muted)', paddingLeft: '16px' }}>Baltic price spreads and balancing market support — the two signals that drive 80% of storage economics</p>
+            <h2 className="section-header" style={{ marginBottom: '6px' }}>Revenue opportunity</h2>
+            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Price spreads and balancing market support — the two signals that drive 80% of storage revenue</p>
           </div>
           <div className="grid-2">
             <div className="card card-tier1">
@@ -69,7 +52,7 @@ export default function Home() {
         <div className="section" id="build">
           <div style={{ marginBottom: '32px' }}>
             <h2 className="section-header" style={{ marginBottom: '6px' }}>Build conditions</h2>
-            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.8125rem', color: 'var(--text-muted)', paddingLeft: '16px' }}>Project costs, financing, and grid access — the practical constraints on storage buildability.</p>
+            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Project costs, financing, and grid access — the practical constraints on buildability</p>
           </div>
           <div className="grid-2">
             <div className="card">
@@ -84,8 +67,8 @@ export default function Home() {
         {/* ═══ STRUCTURAL MARKET DRIVERS ═══ */}
         <div className="section" id="structural">
           <div style={{ marginBottom: '32px' }}>
-            <h2 className="section-header" style={{ marginBottom: '6px' }}>Structural Market Drivers</h2>
-            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.8125rem', color: 'var(--text-muted)', paddingLeft: '16px' }}>Wind, solar, demand, and interconnector conditions shaping Baltic price spreads and storage economics</p>
+            <h2 className="section-header" style={{ marginBottom: '6px' }}>Structural market drivers</h2>
+            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Wind, solar, demand, and interconnector conditions shaping price spreads</p>
           </div>
 
           {/* Primary row — 4 structural drivers */}
@@ -105,7 +88,8 @@ export default function Home() {
           </div>
 
           {/* Secondary row — commodity price drivers */}
-          <div className="grid-2">
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase' as const, marginBottom: '12px' }}>Commodity inputs</p>
+          <div className="grid-2" style={{ gap: '16px' }}>
             <div className="card card-tier3">
               <CardBoundary signal="S7"><S7Card /></CardBoundary>
             </div>
@@ -114,14 +98,22 @@ export default function Home() {
             </div>
           </div>
 
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', opacity: 0.7, marginTop: '16px', paddingLeft: '4px' }}>
-            Baltic-wide aggregates can mask corridor and country-level divergence.
-          </p>
         </div>
 
-        {/* ═══ MID-PAGE CTA ═══ */}
-        <div className="inline-cta">
-          <a href="#conversation">Interested in Baltic storage? Get in touch ↗</a>
+        {/* ═══ REVENUE ENGINE — elevated ═══ */}
+        <div className="section-elevated" id="revenue">
+          <div style={{ marginBottom: '32px' }}>
+            <h2 className="section-header" style={{ marginBottom: '6px' }}>Reference asset returns</h2>
+            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>How timing, duration, and installed cost shape storage economics</p>
+          </div>
+          <div>
+            <ErrorBoundary>
+              <RevenueCard />
+            </ErrorBoundary>
+          </div>
+          <div className="inline-cta">
+            <a href="#conversation">Looking at Baltic storage? Start the conversation ↗</a>
+          </div>
         </div>
 
         {/* ═══ MARKET INTELLIGENCE ═══ */}
@@ -129,7 +121,7 @@ export default function Home() {
           <div style={{ marginBottom: '24px' }}>
             <h2 className="section-header" style={{ marginBottom: '6px' }}>Market intelligence</h2>
             <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>
-              Curated developments affecting Baltic BESS revenue, buildability, and market structure.
+              Developments that affect Baltic BESS revenue, buildability, and market structure
             </p>
           </div>
           <IntelFeed />
@@ -142,28 +134,17 @@ export default function Home() {
           </div>
           <div className="grid-2" style={{ alignItems: 'start' }}>
             {/* LEFT: Copy + credit */}
-            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: '320px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+              <p style={{
+                fontFamily: 'var(--font-serif)',
+                fontSize: 'var(--font-base)',
+                color: 'var(--text-secondary)',
+                lineHeight: 1.7,
+                maxWidth: '480px',
+              }}>
+                Looking at Baltic storage? Working on a project, evaluating an investment, or comparing market notes — I&apos;d like to hear from you.
+              </p>
               <div>
-                <p style={{
-                  fontFamily: 'var(--font-serif)',
-                  fontSize: 'var(--font-base)',
-                  color: 'var(--text-secondary)',
-                  lineHeight: 1.7,
-                  marginBottom: '16px',
-                }}>
-                  KKME tracks Baltic storage through live market signals, project flow, and structural analysis.
-                  If you&apos;re looking at the region, working on a project, or want to compare notes — get in touch.
-                </p>
-                <p style={{
-                  fontFamily: 'var(--font-serif)',
-                  fontSize: 'var(--font-sm)',
-                  color: 'var(--text-tertiary)',
-                  lineHeight: 1.6,
-                }}>
-                  Investors, developers, project owners, and other serious market participants welcome.
-                </p>
-              </div>
-              <div style={{ marginTop: '32px' }}>
                 <p style={{
                   fontFamily: 'var(--font-mono)',
                   fontSize: 'var(--font-sm)',
@@ -174,16 +155,16 @@ export default function Home() {
                 </p>
                 <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
                   <a href="mailto:kastytis@kkme.eu" style={{
-                    fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+                    fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)',
                     color: 'var(--teal)', textDecoration: 'none',
                   }}>kastytis@kkme.eu</a>
                   <a href="tel:+37069822225" style={{
-                    fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+                    fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)',
                     color: 'var(--text-muted)', textDecoration: 'none',
                   }}>+370 698 22225</a>
                   <a href="https://www.linkedin.com/in/kastytis-kemezys/"
                     target="_blank" rel="noopener noreferrer" style={{
-                    fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+                    fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)',
                     color: 'var(--teal)', textDecoration: 'none',
                   }}>LinkedIn ↗</a>
                 </div>
@@ -230,15 +211,15 @@ export default function Home() {
           </div>
           <div style={{
             fontFamily: 'var(--font-mono)',
-            fontSize: '0.8125rem',
-            color: 'var(--text-ghost)',
+            fontSize: 'var(--font-sm)',
+            color: 'var(--text-muted)',
             marginTop: '16px',
           }}>
             Data: ENTSO-E · NVE · ECB · energy-charts.info · Litgrid · VERT.lt · Updated every 4h
           </div>
           <div style={{
             fontFamily: 'var(--font-mono)',
-            fontSize: '0.5625rem',
+            fontSize: 'var(--font-xs)',
             color: 'var(--text-ghost)',
             marginTop: '8px',
             letterSpacing: '0.06em',

@@ -43,9 +43,9 @@ function loadInterpretation(trend: string | null | undefined): string {
 }
 
 function loadImpact(trend: string | null | undefined): string {
-  if (trend === 'above_baseline') return '50MW ref: supportive for discharge revenue';
-  if (trend === 'below_baseline') return '50MW ref: softening peak-hour spreads';
-  return '50MW ref: neutral for discharge';
+  if (trend === 'above_baseline') return 'Reference asset: supportive for discharge revenue';
+  if (trend === 'below_baseline') return 'Reference asset: softening peak-hour spreads';
+  return 'Reference asset: neutral for discharge';
 }
 
 export function LoadCard() {

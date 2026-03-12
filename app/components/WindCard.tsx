@@ -45,9 +45,9 @@ function windInterpretation(trend: string | null | undefined): string {
 }
 
 function windImpact(trend: string | null | undefined): string {
-  if (trend === 'above_baseline') return '50MW ref: supportive for charging spreads';
-  if (trend === 'below_baseline') return '50MW ref: reducing charging opportunity';
-  return '50MW ref: neutral for spreads';
+  if (trend === 'above_baseline') return 'Reference asset: supportive for charging spreads';
+  if (trend === 'below_baseline') return 'Reference asset: reducing charging opportunity';
+  return 'Reference asset: neutral for spreads';
 }
 
 export function WindCard() {

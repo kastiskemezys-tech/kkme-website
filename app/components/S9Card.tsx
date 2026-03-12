@@ -42,11 +42,11 @@ function carbonInterpretation(sig: string | null | undefined, price: number | nu
 }
 
 function carbonImpact(sig: string | null | undefined, price: number | null | undefined): string {
-  if (price != null && price >= 55) return '50MW ref: above BESS displacement breakeven (~55 €/t)';
-  if (price != null && price < 55) return '50MW ref: below BESS displacement breakeven (~55 €/t)';
-  if (sig === 'HIGH') return '50MW ref: supportive for peaker displacement';
-  if (sig === 'LOW') return '50MW ref: reducing displacement premium';
-  return '50MW ref: neutral for carbon floor';
+  if (price != null && price >= 55) return 'Reference asset: above BESS displacement breakeven (~55 €/t)';
+  if (price != null && price < 55) return 'Reference asset: below BESS displacement breakeven (~55 €/t)';
+  if (sig === 'HIGH') return 'Reference asset: supportive for peaker displacement';
+  if (sig === 'LOW') return 'Reference asset: reducing displacement premium';
+  return 'Reference asset: neutral for carbon floor';
 }
 
 export function S9Card() {

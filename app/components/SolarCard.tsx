@@ -50,11 +50,11 @@ function solarInterpretation(trend: string | null | undefined, isNight: boolean 
 }
 
 function solarImpact(trend: string | null | undefined, isNight: boolean | null | undefined, mw: number | null | undefined): string {
-  if (isNight) return '50MW ref: no solar charging window';
-  if (mw != null && mw < 50) return '50MW ref: minimal solar price effect';
-  if (trend === 'above_baseline') return '50MW ref: supportive for midday charging';
-  if (trend === 'below_baseline') return '50MW ref: reducing midday charging window';
-  return '50MW ref: neutral for charging';
+  if (isNight) return 'Reference asset: no solar charging window';
+  if (mw != null && mw < 50) return 'Reference asset: minimal solar price effect';
+  if (trend === 'above_baseline') return 'Reference asset: supportive for midday charging';
+  if (trend === 'below_baseline') return 'Reference asset: reducing midday charging window';
+  return 'Reference asset: neutral for charging';
 }
 
 export function SolarCard() {

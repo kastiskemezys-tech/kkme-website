@@ -65,10 +65,10 @@ function freeImpact(pct: number): ImpactState {
 }
 
 function freeImpactDesc(pct: number): string {
-  if (pct > 40) return '50MW ref: node-specific access still matters despite headline headroom';
-  if (pct > 25) return '50MW ref: queue timing and substation choice matter more than headline capacity';
-  if (pct > 15) return '50MW ref: early queue position increasingly matters — later entrants face higher connection complexity';
-  return '50MW ref: elevated grid-access risk — connection scope and reinforcement costs rising for new entrants';
+  if (pct > 40) return 'Reference asset: node-specific access still matters despite headline headroom';
+  if (pct > 25) return 'Reference asset: queue timing and substation choice matter more than headline capacity';
+  if (pct > 15) return 'Reference asset: early queue position increasingly matters — later entrants face higher connection complexity';
+  return 'Reference asset: elevated grid-access risk — connection scope and reinforcement costs rising for new entrants';
 }
 
 function formatMW(n: number | null | undefined): string {

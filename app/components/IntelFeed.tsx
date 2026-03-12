@@ -88,6 +88,7 @@ const SEED_ITEMS: IntelItem[] = [
     whyItMatters: 'Storage operators now bear 30% of system balancing costs — changes net revenue calculation',
     impact: 'negative',
     horizon: 'immediate',
+    referenceAssetNote: 'Adds ~€3–5k/MW/yr to operating costs depending on balancing volume',
     geography: 'Lithuania',
     confidence: 'high',
   },
@@ -393,7 +394,7 @@ function IntelRow({ item, isExpanded, onToggle }: {
               margin: 0,
               lineHeight: 1.5,
             }}>
-              50MW ref: {item.referenceAssetNote}
+              Reference asset: {item.referenceAssetNote}
             </p>
           )}
 

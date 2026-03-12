@@ -44,10 +44,10 @@ function gasInterpretation(regime: string | null | undefined): string {
 }
 
 function gasImpact(regime: string | null | undefined): string {
-  if (regime === 'HIGH') return '50MW ref: supportive for arbitrage vs gas peakers';
-  if (regime === 'ELEVATED') return '50MW ref: supporting wider peak spreads';
-  if (regime === 'LOW') return '50MW ref: reducing peaker displacement value';
-  return '50MW ref: neutral for spread floor';
+  if (regime === 'HIGH') return 'Reference asset: supportive for arbitrage vs gas peakers';
+  if (regime === 'ELEVATED') return 'Reference asset: supporting wider peak spreads';
+  if (regime === 'LOW') return 'Reference asset: reducing peaker displacement value';
+  return 'Reference asset: neutral for spread floor';
 }
 
 export function S7Card() {
