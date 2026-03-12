@@ -2750,6 +2750,37 @@ export default {
       if (submissions.length > 500) submissions.length = 500;
       await env.KKME_SIGNALS.put('contact_submissions', JSON.stringify(submissions));
       await notifyTelegram(env, `📩 New inquiry (${type})\n${name} · ${email}${company ? ` · ${company}` : ''}\n${message.slice(0, 200)}`).catch(() => {});
+
+      // Send email via Resend (gracefully skips if key not configured)
+      if (env.RESEND_API_KEY) {
+        const typeLabel = { project: 'Project', investment: 'Investment / capital', market: 'Market discussion', other: 'Other' }[type] || type;
+        const subject = `KKME Contact: ${typeLabel} — ${name}${company ? ` (${company})` : ''}`;
+        let htmlBody = `<h2 style="margin:0 0 16px">${typeLabel} inquiry</h2>`;
+        htmlBody += `<p><strong>Name:</strong> ${name}</p>`;
+        htmlBody += `<p><strong>Email:</strong> <a href="mailto:${email}">${email}</a></p>`;
+        if (company) htmlBody += `<p><strong>Company:</strong> ${company}</p>`;
+        if (projectName) htmlBody += `<p><strong>Project:</strong> ${projectName}</p>`;
+        if (mwMwh) htmlBody += `<p><strong>MW/MWh:</strong> ${mwMwh}</p>`;
+        if (country) htmlBody += `<p><strong>Country:</strong> ${country}</p>`;
+        if (targetCod) htmlBody += `<p><strong>Target COD:</strong> ${targetCod}</p>`;
+        htmlBody += `<hr style="margin:16px 0;border:none;border-top:1px solid #ddd">`;
+        htmlBody += `<p style="white-space:pre-wrap">${message}</p>`;
+        htmlBody += `<hr style="margin:16px 0;border:none;border-top:1px solid #ddd">`;
+        htmlBody += `<p style="color:#888;font-size:12px">Sent via kkme.eu contact form · ${entry.timestamp}</p>`;
+
+        await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from: 'KKME Contact <contact@kkme.eu>',
+            to: ['kastytis@kkme.eu'],
+            reply_to: email,
+            subject,
+            html: htmlBody,
+          }),
+        }).catch(() => {});
+      }
+
       return jsonResp({ ok: true });
     }
 
