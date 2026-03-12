@@ -78,7 +78,7 @@ export function S3Card() {
   return (
     <article style={{ width: '100%' }}>
       <h3 style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-tertiary)', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 500, marginBottom: '6px' }}>
-        Project cost trend
+        Installed BESS cost
       </h3>
 
       {/* HERO — installed cost reference */}
@@ -125,46 +125,6 @@ export function S3Card() {
       {/* Impact tag */}
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'rgba(0,180,160,0.65)', marginBottom: '12px' }}>
         50MW ref: CAPEX partially improving — grid scope remains the dominant variable
-      </div>
-
-      {/* Finance context pills */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '12px' }}>
-        {nominal != null && (
-          <span style={{
-            fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
-            padding: '2px 8px',
-            border: '1px solid rgba(77,124,181,0.25)',
-            background: 'rgba(77,124,181,0.06)',
-            color: 'rgba(110,160,220,0.75)',
-            borderRadius: '2px',
-          }}>
-            Euribor 3M {safeNum(nominal, 2)}%
-          </span>
-        )}
-        {hicp != null && (
-          <span style={{
-            fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
-            padding: '2px 8px',
-            border: '1px solid rgba(204,160,72,0.20)',
-            background: 'rgba(204,160,72,0.05)',
-            color: 'rgba(220,175,80,0.75)',
-            borderRadius: '2px',
-          }}>
-            HICP {safeNum(hicp, 1)}%
-          </span>
-        )}
-        {real != null && (
-          <span style={{
-            fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
-            padding: '2px 8px',
-            border: '1px solid rgba(232,226,217,0.08)',
-            background: 'rgba(232,226,217,0.02)',
-            color: 'var(--text-muted)',
-            borderRadius: '2px',
-          }}>
-            Real {safeNum(real, 2)}%
-          </span>
-        )}
       </div>
 
       <SourceFooter
