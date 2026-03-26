@@ -104,9 +104,10 @@ export function S4Card() {
   if (status === 'loading') {
     return (
       <article style={{ padding: '24px' }}>
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>
-          Loading grid capacity data...
-        </p>
+        <div className="skeleton" style={{ height: '1rem', width: '50%', marginBottom: '10px' }} />
+        <div className="skeleton" style={{ height: '2rem', width: '30%', marginBottom: '8px' }} />
+        <div className="skeleton" style={{ height: '0.75rem', width: '55%', marginBottom: '16px' }} />
+        <div className="skeleton" style={{ height: '80px', width: '100%' }} />
       </article>
     );
   }

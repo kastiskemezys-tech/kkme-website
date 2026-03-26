@@ -338,9 +338,15 @@ export function RevenueCard() {
   if (status === 'loading') {
     return (
       <article style={{ width: '100%' }}>
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>
-          Computing reference asset returns...
-        </p>
+        <div className="skeleton" style={{ height: '1rem', width: '45%', marginBottom: '10px' }} />
+        <div className="skeleton" style={{ height: '2.5rem', width: '30%', marginBottom: '8px' }} />
+        <div className="skeleton" style={{ height: '0.75rem', width: '55%', marginBottom: '16px' }} />
+        <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+          <div className="skeleton" style={{ height: '3rem', width: '25%' }} />
+          <div className="skeleton" style={{ height: '3rem', width: '25%' }} />
+          <div className="skeleton" style={{ height: '3rem', width: '25%' }} />
+        </div>
+        <div className="skeleton" style={{ height: '120px', width: '100%' }} />
       </article>
     );
   }
@@ -706,8 +712,9 @@ export function RevenueCard() {
             Selected duration · Project IRR across COD and installed cost
           </p>
           {matrixStatus === 'loading' || matrixStatus === 'idle' ? (
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', padding: '16px 0' }}>
-              Loading sensitivity...
+            <div style={{ padding: '16px 0' }}>
+              <div className="skeleton" style={{ height: '1rem', width: '60%', marginBottom: '8px' }} />
+              <div className="skeleton" style={{ height: '4rem', width: '100%' }} />
             </div>
           ) : (() => {
             const mxHdr: React.CSSProperties = { fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-tertiary)', padding: '6px 8px', textAlign: 'center', letterSpacing: '0.06em', fontWeight: 500 };

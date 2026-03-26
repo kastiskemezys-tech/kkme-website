@@ -64,7 +64,14 @@ export function S3Card() {
   }, []);
 
   if (status === 'loading') {
-    return <article style={{ padding: '24px' }}><p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Loading cost data...</p></article>;
+    return (
+      <article style={{ padding: '24px' }}>
+        <div className="skeleton" style={{ height: '1rem', width: '45%', marginBottom: '10px' }} />
+        <div className="skeleton" style={{ height: '2rem', width: '35%', marginBottom: '8px' }} />
+        <div className="skeleton" style={{ height: '0.75rem', width: '60%', marginBottom: '16px' }} />
+        <div className="skeleton" style={{ height: '80px', width: '100%' }} />
+      </article>
+    );
   }
   if (status === 'error' || !data) {
     return <article style={{ padding: '24px' }}><p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Cost data unavailable</p></article>;

@@ -131,9 +131,10 @@ export function S2Card() {
   if (status === 'loading') {
     return (
       <article style={{ padding: '24px' }}>
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>
-          Loading balancing market data...
-        </p>
+        <div className="skeleton" style={{ height: '1rem', width: '55%', marginBottom: '10px' }} />
+        <div className="skeleton" style={{ height: '2rem', width: '30%', marginBottom: '8px' }} />
+        <div className="skeleton" style={{ height: '0.75rem', width: '65%', marginBottom: '16px' }} />
+        <div className="skeleton" style={{ height: '100px', width: '100%' }} />
       </article>
     );
   }

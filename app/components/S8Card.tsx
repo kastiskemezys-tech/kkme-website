@@ -75,7 +75,13 @@ export function S8Card() {
   const { status, data } = useSignal<S8Signal>(`${WORKER_URL}/s8`);
 
   if (status === 'loading') {
-    return <article style={{ padding: '24px' }}><p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Loading interconnector data...</p></article>;
+    return (
+      <article style={{ padding: '24px' }}>
+        <div className="skeleton" style={{ height: '0.875rem', width: '45%', marginBottom: '8px' }} />
+        <div className="skeleton" style={{ height: '1.5rem', width: '35%', marginBottom: '8px' }} />
+        <div className="skeleton" style={{ height: '0.625rem', width: '55%' }} />
+      </article>
+    );
   }
   if (status === 'error' || !data) {
     return <article style={{ padding: '24px' }}><p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Interconnector data unavailable</p></article>;

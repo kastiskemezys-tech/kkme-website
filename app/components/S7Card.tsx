@@ -62,7 +62,13 @@ export function S7Card() {
   }, []);
 
   if (status === 'loading') {
-    return <article style={{ padding: '24px' }}><p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Loading gas data...</p></article>;
+    return (
+      <article style={{ padding: '24px' }}>
+        <div className="skeleton" style={{ height: '0.875rem', width: '40%', marginBottom: '8px' }} />
+        <div className="skeleton" style={{ height: '1.5rem', width: '30%', marginBottom: '8px' }} />
+        <div className="skeleton" style={{ height: '0.625rem', width: '50%' }} />
+      </article>
+    );
   }
   if (status === 'error' || !data) {
     return <article style={{ padding: '24px' }}><p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Gas data unavailable</p></article>;
