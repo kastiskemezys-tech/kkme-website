@@ -8,6 +8,7 @@ const NAV_LINKS = [
   { label: 'Build',     href: '#build' },
   { label: 'Structure', href: '#structural' },
   { label: 'Returns',   href: '#revenue' },
+  { label: 'Trading',   href: '#trading' },
   { label: 'Intel',     href: '#intel' },
 ];
 
