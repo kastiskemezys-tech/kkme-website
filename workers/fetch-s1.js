@@ -3582,6 +3582,85 @@ export default {
       return jsonResp(summaries);
     }
 
+    // ── GET /api/trading/export ─────────────────────────────────────────────
+    if (request.method === 'GET' && url.pathname === '/api/trading/export') {
+      const format = url.searchParams.get('format') || 'json';
+      const days = Math.min(parseInt(url.searchParams.get('days') || '7', 10), 90);
+
+      const keys = await env.KKME_SIGNALS.list({ prefix: 'trading:202' });
+      const dates = keys.keys
+        .map(k => k.name)
+        .filter(k => !k.includes(':raw'))
+        .sort()
+        .reverse()
+        .slice(0, days);
+
+      const rows = [];
+      for (const key of dates) {
+        try {
+          const raw = await env.KKME_SIGNALS.get(key);
+          if (!raw) continue;
+          const d = JSON.parse(raw);
+          if (!d.totals) continue;
+          rows.push({
+            date: d._meta?.date || key.replace('trading:', ''),
+            gross_eur: d.totals.gross,
+            per_mw_eur: d.totals.per_mw,
+            capacity_eur: d.totals.capacity,
+            activation_eur: d.totals.activation,
+            arbitrage_eur: d.totals.arbitrage,
+            capacity_pct: d.totals.splits_pct?.capacity,
+            activation_pct: d.totals.splits_pct?.activation,
+            arbitrage_pct: d.totals.splits_pct?.arbitrage,
+            activation_rate: d.strategy?.activation_rate_pct,
+            peak_offpeak_ratio: d.strategy?.peak_offpeak_ratio,
+            soc_min: d.strategy?.soc_range?.[0],
+            soc_max: d.strategy?.soc_range?.[1],
+          });
+        } catch { /* skip corrupt entries */ }
+      }
+
+      if (format === 'csv') {
+        if (rows.length === 0) return new Response('No data', { status: 404, headers: { 'Access-Control-Allow-Origin': '*' } });
+        const headers = Object.keys(rows[0]);
+        const csv = [
+          '# KKME Baltic BESS Dispatch Analysis',
+          '# Source: kkme.eu | BTD + ENTSO-E A44',
+          '# Generated: ' + new Date().toISOString(),
+          '',
+          headers.join(','),
+          ...rows.map(r => headers.map(h => r[h] ?? '').join(','))
+        ].join('\n');
+        return new Response(csv, {
+          headers: {
+            'Content-Type': 'text/csv',
+            'Content-Disposition': `attachment; filename="kkme-dispatch-${days}d.csv"`,
+            'Access-Control-Allow-Origin': '*',
+          }
+        });
+      }
+
+      return jsonResp({
+        _meta: {
+          source: 'kkme.eu',
+          generated: new Date().toISOString(),
+          days_included: rows.length,
+          fields: {
+            gross_eur: 'Total daily revenue (EUR)',
+            per_mw_eur: 'Revenue per MW of grid connection (EUR)',
+            capacity_eur: 'Capacity payment revenue (EUR)',
+            activation_eur: 'Balancing activation revenue (EUR)',
+            arbitrage_eur: 'Day-ahead arbitrage revenue (EUR)',
+            capacity_pct: 'Capacity share of total (%)',
+            activation_rate: 'Percent of 15-min ISPs with activation',
+          },
+          confidence: 'DERIVED from BTD clearing prices + ENTSO-E DA prices',
+          distortion_note: 'FCR revenue = 0. Baltic FCR covered by TSO DRR at zero price.',
+        },
+        data: rows,
+      });
+    }
+
     // ── GET /health ──────────────────────────────────────────────────────────
     // Returns structured health of all signal KV keys. All fetches run on Workers cron.
     if (request.method === 'GET' && url.pathname === '/health') {
