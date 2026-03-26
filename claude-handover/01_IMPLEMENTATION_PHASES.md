@@ -1,370 +1,215 @@
-# KKME — Implementation Phases
+# KKME.eu — Implementation Phases
+**Updated: 2026-03-11**
 
+---
 
-## Phases + QA + Cross-cutting Rules
+## Phase summary
 
-Acceptance criteria for the full rebuild
-The rebuild is successful only if all of these are true:
-A first-time investor understands within 10 seconds what KKME is and what decision it helps make.
-The page reads as one coherent narrative, not disconnected upgrades.
-Signals are grouped into meaningful buckets with clear logic.
-Structural drivers, competition, market design, and cost are separated cleanly.
-The reference asset section becomes the translation layer instead of a promotional calculator.
-Europe context is directional and credible, not a bragging leaderboard.
-Market intelligence is curated and useful, not a raw feed.
-The closing section is investor-first and high-trust.
-Private intelligence improves interpretation without being dumped publicly.
-The whole site feels like a serious infrastructure intelligence product, not a startup dashboard or a sales page.
+| Phase | Name | Status | Key deliverable |
+|-------|------|--------|----------------|
+| 0 | Infrastructure | ✅ Complete | Worker, KV, deploy pipeline, all 9 fetch functions |
+| 1 | Signal cards | ✅ Complete | S1–S9 live with data, design tokens, hero, nav |
+| 2 | Fleet tracker | ✅ Complete | S2 fleet endpoints, S/D ratio, CPI, trajectory |
+| 3 | Revenue Engine v1 | ✅ Complete | computeRevenue(), /revenue endpoint, basic card |
+| 4 | Investor review fixes | ✅ Complete | S5 RSS removed, design cleanup, bug fixes |
+| 5A | Revenue Engine rebuild | ✅ Complete (c565ad5) | Full RevenueCard rebuild: comparison cards, neutral language, drivers, revenue table, drawer |
+| 5A+ | EBITDA label fix | ✅ Complete | Fixed EBITDA/MW/yr to show true EBITDA (ebitda_y1/mw), not net_mw_yr |
+| 5B | Sensitivity matrix | ✅ Complete | 3×2 IRR sensitivity grid (COD × CAPEX) with threshold coloring |
+| 6 | Market pressure | ✅ Complete (via S2 enhancement) | CPI trajectory annotation on S2 bars + COD-window interpretation line |
+| 6+ | S2 density cleanup | 🔨 In progress | Bug fixes (CPI 0.03 rendering) + visual density reduction |
+| 7 | Data truth layer | 📋 Next | Intelligence pipeline, outreach system, confidence scoring |
+| 8 | Data strengthening | 📋 Planned | ENTSO-E intraday, balancing cross-validation, VERT parser fix |
+| 9 | Deal Flow upgrade | 📋 Planned | Premium intake form, structured submission |
+| 10 | SEO / discoverability | 📋 Planned | SSR, JSON-LD, OG images, sitemap |
 
-One-line master instruction
-Rebuild KKME as a coherent Baltic flexibility market intelligence platform centered on a 50MW reference asset, with a clear narrative from market regime to structural drivers, competition pressure, market design reality, cost direction, and reference asset economics, ending in an investor-first conversation CTA; prioritize credibility, data honesty, and premium clarity over visual noise, generic dashboards, or promotional tone.
+---
 
-Use this as the implementation-order prompt for Claude.
+## Completed phases — detail
 
-Read the full master architecture brief for KKME and implement the rebuild in a controlled sequence. Do not try to redesign and rewrite the whole site at once. The goal is to avoid chaos, regressions, and another visually polished but logically broken result.
-Core implementation rule
-Work in layers:
-Information architecture first
-Data/view-model structure second
-Section skeletons third
-Section content and charts fourth
-Styling refinement fifth
-Micro-interactions and polish last
-Do not start with styling.
-Do not start by tweaking old cards in place.
-Do not preserve weak concepts just because components already exist.
+### Phase 0: Infrastructure (Feb 2026)
+- Cloudflare Worker with 8+ fetch functions, cron every 4h
+- KV namespace configured
+- Wrangler deploy pipeline
+- Mac cron for BTD, Nord Pool DA, VERT permits
+- Telegram bot for intel intake
+- GitHub repo (kastiskemezys-tech/kkme-website)
+- ENTSO-E API key configured
 
-Phase 0 — Audit and freeze
-Goal
-Understand what exists, what should be reused, and what must be rebuilt.
-Tasks
-Audit current page structure
-Audit current component tree
-Audit current data sources and current state flow
-Identify which sections are:
-reusable with refactor
-partially reusable
-should be deleted and rebuilt
-Identify all places where:
-business logic is mixed into presentation
-labels are too insider-coded
-stale/loading states are weak
-cards are overloaded
-Lithuania-only logic is falsely presented as Baltic-wide
-Deliverable
-Produce an internal build plan or code comments describing:
-keep
-refactor
-rebuild
-for every major section
-Important
-Do not make visual changes yet except if needed to inspect structure.
+### Phase 1: Signal cards (Feb 2026)
+- All 9 signal cards (S1–S9) live with real data
+- Design tokens, dark terminal aesthetic
+- Hero + StickyNav + StatusStrip
+- Three-tier card system (Tier 1/2/3 with distinct borders)
+- Signal card anatomy established (hero → sub-metrics → viz → explain → source → footer)
 
-Phase 1 — Rebuild page-level architecture
-Goal
-Establish the correct page flow before improving individual sections.
-Required page order
-Implement or reorder the page into this sequence:
-Hero / Market now
-Revenue opportunity
-Competition pressure
-Structural market drivers
-Market design & trading reality
-Cost / bankability direction
-Reference asset economics
-Europe market map
-Market intelligence
-Closing CTA / conversation
-Tasks
-Build section wrappers and anchors
-Establish a clean page grid and vertical rhythm
-Normalize section headings, support copy, and metadata treatment
-Remove or quarantine obsolete sections/cards that do not fit this architecture
-Deliverable
-A page with clean section placeholders/skeletons in the correct order, even before final content is wired
-Important
-This is where the site stops being “a pile of cards.”
+### Phase 2: Fleet tracker (Feb–Mar 2026)
+- processFleet() in worker
+- /s2/fleet GET and POST endpoints
+- /s2/fleet/entry for single-entry upsert
+- /s2/btd for BTD clearing price upload
+- S/D ratio computation (weighted supply / effective demand)
+- CPI piecewise function (SCARCITY / COMPRESS / MATURE)
+- 8-year trajectory projection
+- Fleet list in S2Card drawer
 
-Phase 2 — Build shared design and data primitives
-Goal
-Create reusable building blocks so the site stops reinventing logic in each section.
-Required shared UI primitives
-Build or normalize reusable components for:
-Section header
-Metric tile
-Status / impact chip
-Freshness / confidence badge
-Compact source line
-Expandable details block
-Card shell
-Pinned strip item
-Intelligence card
-Comparison card
-Empty / stale / degraded state
-Small thumbnail / source visual
-Axis labels / chart legends
-Tooltip or info disclosure
-Required shared logic primitives
-Build reusable handling for:
-impact states:
-strong positive
-slight positive
-mixed
-slight negative
-strong negative
-low confidence
-data classes:
-observed
-derived
-modeled
-proxy
-reference
-freshness classes:
-live
-recent
-stale
-reference
-geography classes:
-Baltic blended
-LT-led
-connected-market
-Europe reference
-Deliverable
-A small internal system of reusable UI/data primitives used by all later sections
-Important
-Do this before section-level rebuilds so the page gains consistency.
+### Phase 3: Revenue Engine v1 (Feb–Mar 2026)
+- computeRevenue() in worker (~200 lines)
+- 20-year cashflow model: capacity + activation + arbitrage - RTM fees - OPEX
+- Project IRR, Equity IRR, Min DSCR, EBITDA, Net/MW/yr
+- /revenue endpoint with query params (mw, mwh, capex, grant, cod)
+- /api/model-inputs endpoint for agent API
 
-Phase 3 — Hero / Market now
-Goal
-Get the first screen right before anything else.
-Why first
-If the first screen is still weak, the whole site still reads weak.
-Tasks
-Refactor hero into a decision-oriented investor-facing opening
-Remove poster-like centered layout
-Move to stronger asymmetric layout if appropriate
-Clarify value proposition, freshness, and current market state
-Reduce top metrics to 4–5 only
-Add immediate “what changed / what it means” layer
-Add clear methodology / freshness note
-Acceptance criteria
-a first-time investor understands what KKME is in under 10 seconds
-top screen is readable and credible
-no unexplained jargon in primary labels
+### Phase 4: Investor review fixes (Mar 2026)
+- S5 DC news feed removed (quality control failure)
+- Design cleanup across cards
+- Various bug fixes (S7 regime label, P90 overlap, etc.)
+- Content rules established (neutral language, proxy flags, source citations)
 
-Phase 4 — Rebuild the core signal sections
-Do these in this order.
+### Phase 5A: Revenue Engine rebuild (Mar 11, 2026 — c565ad5)
+- Full RevenueCard.tsx rewrite
+- 2H vs 4H dual-fetch comparison cards
+- Neutral status chips: "Above/Near/Below model hurdle"
+- Revenue breakdown table (Capacity/Activation/Arbitrage/RTM/OPEX/EBITDA/Net)
+- "Why it moved" delta line (client-side, 0.5pp threshold)
+- Interpretation block (explains mechanism, not just verdict)
+- Stacking disclosure (always visible)
+- Impact line (positional language only)
+- Details drawer (7 sections: model config, revenue detail, financing, asset life, revenue quality, data confidence, methodology)
+- URL parameter persistence for duration/case/COD
+- EBITDA label fix: displays true EBITDA/MW (ebitda_y1/mw), not net_mw_yr
 
-Phase 4A — Revenue opportunity
-Includes
-Baltic price separation
-Baltic balancing market
-immediate monetization signals
-Why this comes first
-This is closest to the investor’s immediate question:
-is the market monetizable now?
-Tasks
-Rebuild price separation card as single-story signal card
-Rebuild balancing market card as market pressure + revenue support card
-Ensure both cards show:
-what changed
-why it matters
-impact on reference asset
-clear freshness and confidence
-Important
-Do not overload with detailed breakdowns in primary view.
+### Phase 5B: Sensitivity matrix (Mar 11, 2026)
+- 3×2 IRR sensitivity grid added to RevenueCard
+- Rows: COD 2027/2028/2029, Columns: Base/High CAPEX
+- Threshold coloring: >12% teal, 8-12% amber, <8% rose
+- Selected scenario highlighted
+- Summary line: identifies whether COD or CAPEX drives more IRR variance (2pp threshold)
+- 6 parallel fetches, reuses cached active scenario
 
-Phase 4B — Competition pressure
-Includes
-fleet pressure
-pipeline pressure
-timing pressure / COD wave
-any future pipeline intelligence hooks
-Why here
-This is the natural counterweight to revenue opportunity.
-Tasks
-replace mystery bars and internal labels with clearer competition-pressure logic
-keep queue/pipeline intelligence separate from grid-access card
-use private dataset behind the scenes only for public-safe outputs
-Important
-This section should explain future revenue compression risk clearly.
+### Phase 6: Market pressure (Mar 11, 2026 — via S2 enhancement)
+Audit determined a separate MarketPressureCard would duplicate S2. Instead:
+- CPI values added to existing S2 trajectory bars (secondary annotation)
+- COD-window interpretation line added below trajectory: bridges S2 → Revenue Engine
+- "S/D TRAJECTORY · fleet projection" label added for data honesty
+- No new component created. S2Card.tsx modified only.
 
-Phase 4C — Structural market drivers
-Includes
-wind
-solar
-demand/load
-interconnectors & connected markets
-TTF
-ETS
-Why after competition
-Because this is the slower “why” layer.
-Tasks
-completely replace the old Baltic power market row
-remove DC power viability from this section
-demote/remove Nordic hydro
-make Sweden/Finland/Poland influence explicit in interconnectors card
-add impact-on-reference-asset layer to every card
-Important
-This is a section rebuild, not a card cleanup.
+---
 
-Phase 4D — Market design & trading reality
-Includes
-balancing market usability
-thinness / distortion
-rule regime
-confidence translation
-Why now
-Because after users see opportunity and drivers, they need to understand what is actually usable.
-Tasks
-build new standalone section
-do not merge into structural drivers or balancing card
-create the “posted price vs usable revenue” layer
-add confidence implications for the reference asset
-Important
-This is the credibility section. Keep it calm and serious.
+## In progress
 
-Phase 4E — Cost / bankability direction
-Includes
-project cost trend
-driver buckets
-public-data directional model
-reference CAPEX / IRR / DSCR sensitivity
-Why after market design
-Because this is the other major non-revenue constraint on bankability.
-Tasks
-remove lithium-led placeholder logic
-rebuild around full-project CAPEX direction
-create driver decomposition
-add tracked public signals
-add reference asset sensitivity panel
-Important
-Keep LFP as core model, alternatives as secondary watchlist only.
+### Phase 6+: S2 density cleanup (Mar 11, 2026)
+- Bug: CPI 0.03 on 2026 bar (should be ~0.93) — likely rendering issue
+- Bug check: RevenueCard takeaway decimal formatting verification
+- Visual: soften CPI labels to be secondary to S/D
+- Visual: reduce lower-half clutter (market references, fleet list default depth, methodology verbosity)
+- Preserve: S/D hero, trajectory bars, CPI visibility, COD-window line, drawer
 
-Phase 5 — Reference asset economics section
-Goal
-Now that the market and credibility layers are in place, rebuild the economics section properly.
-Why not earlier
-If you do this before the upstream logic is clear, you will just create another flashy calculator.
-Tasks
-rebuild as Baltic reference asset economics console
-fixed 50MW anchor
-2H vs 4H comparison
-base / conservative / stress
-visible revenue mix
-driver contribution waterfall
-what changed strip
-project IRR / EBITDA / DSCR primary
-equity IRR secondary
-confidence labels tied to upstream sections
-Acceptance criteria
-the section explains itself
-revenue mix is visible
-2H vs 4H is instantly comparable
-outputs feel credible, not salesy
+---
 
-Phase 6 — Europe context section
-Goal
-Add directional positioning without breaking trust.
-Tasks
-replace ranking with 2-axis market map
-add selected-market detail panel
-add freshness per market
-make Baltics highlighted subtly
-keep other markets as recent/reference if not truly live
-Important
-This comes after the economics section because it is context, not the core argument.
+## Next phases — planned
 
-Phase 7 — Market intelligence section
-Goal
-Turn the feed into a curated intelligence layer.
-Tasks
-rebuild as intelligence board
-add pinned “this week’s market movers”
-create card-based items
-add thumbnail/source visuals
-add why-it-matters, impact, horizon
-rebuild filter system to match site architecture
-support internal states: pinned, reviewed, watchlist, archived
-Important
-Do not leave this as a raw feed at any point after this phase.
+### Phase 7: Data truth layer
+**Priority: HIGH — this is the most important thing after the current cleanup**
 
-Phase 8 — Closing CTA / conversation
-Goal
-Convert the site into actual investor-first conversation flow.
-Tasks
-remove broker-like deal-flow framing
-rebuild as investor-first closing section
-keep project-owner path secondary
-use adaptive short form
-add confidentiality/trust note
-use premium CTA wording
-Important
-This should be implemented late because it depends on the overall tone of the rebuilt site.
+The intelligence pipeline design is complete (designed Mar 11, 2026). Components:
 
-Phase 9 — Cross-site polish and consistency
-Goal
-Only now refine visuals and interactions.
-Tasks
-tighten spacing
-unify typography hierarchy
-normalize chart sizing and padding
-improve contrast and scanability
-reduce dead space
-remove leftover glow / fintech noise
-add subtle motion only where it clarifies state change
-review mobile and tablet responsiveness
-fix footer / nav consistency
-ensure each section still makes sense in isolation
-Important
-Do not let polish obscure logic.
+1. **Google Sheets working model** — 10-tab structure for tracking ~145 Baltic BESS projects
+   - Projects_Master, Outreach_Tracker, Public_Sources, Contacts, Verification_Log, Stage_Changes, Website_Export, Field_Definitions, Source_Hierarchy, Confidence_Rules
 
-Phase 10 — Data honesty and QA pass
-Goal
-Make sure the rebuilt site is hard to attack.
-Required QA checks
-For every major section confirm:
-Is the main question of the section obvious?
-Is the geography honest?
-Is the data type honest?
-Is the freshness honest?
-Is the impact on the reference asset clear?
-Is the confidence level appropriate?
-Would a serious market participant call this sloppy or overclaimed?
-Does this section duplicate another section?
-Does this section fit the page narrative?
-Does it degrade gracefully when one feed fails?
-Specific attack-surface review
-Check for:
-overconfident point estimates
-hidden Lithuania-only assumptions presented as Baltic
-raw prices presented as monetizable revenue without caveat
-thin-market outputs overstated as repeatable
-market comparisons presented as rankings
-generic news items masquerading as intelligence
+2. **Manual outreach campaign** — contact all ~145 projects across LT/LV/EE
+   - Priority A: >50MW, COD 2026-2028, Lithuania
+   - Priority B: 10-50MW, COD 2028-2030, Latvia/Estonia
+   - Priority C: <10MW, COD >2030, dormant
+   - Batch pace: ~25-35 per batch, 2-3 weeks each
 
-What must not be missed
-These are mandatory and easy to forget:
-Mandatory concept layers
-impact on reference asset
-confidence / data-type labels
-freshness classes
-connected-market influence from Sweden / Finland / Poland
-distinction between structural drivers and market design
-distinction between public-safe outputs and private dataset intelligence
-posted price vs usable revenue
-investor-first final CTA
-intelligence board as curation, not ingestion
-Mandatory removals / separations
-no DC viability inside structural drivers
-no Nordic hydro as equal-weight main card
-no queue intelligence stuffed into buildability card
-no ranking table for Europe context
-no raw Telegram/news table
-no generic teaser form
+3. **Confidence system** — 5-level (confirmed/strong/medium/weak/unknown) per field dimension
+   - Separate confidence for: identity, technical, stage, COD, operational, commercial
+   - Source hierarchy: verified document > developer email > public registry > verbal > press > inferred
 
-Working method rule for Claude
-At the end of each phase:
-stop
-verify the section/page logic still holds
-do not immediately rush into the next phase if the previous one remains structurally weak
+4. **Website export** — Sheets → JSON → /s2/fleet/entry bulk POST
+   - Maps directly to fleet tracker format
+   - Confidence scores feed site data-class labels (observed/proxy/derived)
+
+### Phase 8: Data strengthening
+Scraper and API enhancements to improve signal quality:
+
+| Enhancement | Source | Impact | Effort |
+|-------------|--------|--------|--------|
+| ENTSO-E intraday prices (A62) | ENTSO-E API (existing key) | Replace arbitrage proxy with computed BESS capture | Medium |
+| ENTSO-E balancing data | ENTSO-E API | Cross-validate BTD capacity prices | Medium |
+| ENTSO-E installed storage (PSR B10) | ENTSO-E API | Cross-check fleet tracker operational MW | Low |
+| VERT.lt parser fix | VERT.lt ArcGIS | Restore S4 permit counts | Low |
+| ECB yield curve (5Y/10Y swap) | ECB SDMX API | Better financing cost input | Low |
+| ENTSO-E VRE generation | ENTSO-E API | VRE penetration trends → demand growth | Low |
+| GitHub Actions S2 fix | GitHub | Restore automated BTD workflow | Low |
+
+### Phase 9: Deal Flow upgrade
+- Replace placeholder form with structured intake
+- Stronger visual presence
+- Context-linked CTA (benchmark your project, stress-test a case)
+- Not urgent but the weakest section on the page
+
+### Phase 10: SEO / discoverability
+- SSR signal pages (each signal gets own route)
+- JSON-LD structured data
+- Dynamic OG images for LinkedIn sharing
+- sitemap.xml
+- Meta description optimization
+- Weekly market brief at /briefs/ (templated from signal deltas)
+
+---
+
+## Parked / deprioritized
+
+| Item | Reason |
+|------|--------|
+| For Investors section | Good idea but wait until fleet data quality improves |
+| Methodology section | Wait until Revenue Engine is stable for 2+ weeks |
+| Alert signup placeholder | Wait until there's something to alert about |
+| Mobile accordion (Tier 3) | UX improvement, not structural |
+| Branded metric name | Marketing, not product |
+| Individual fleet entry pages | Wait for Phase 7 data quality |
+| aFRR/mFRR price history chart on S2 | No history data accumulated yet |
+| Li carbonate feed | No free source available |
+| 3-scenario architecture (conservative/base/upside) | Deferred — current base/high structure is sufficient |
+
+---
+
+## Revenue math audit results (2026-03-11)
+
+Worker computeRevenue() is internally consistent. All 12 fields match manual reconstruction.
+
+Key findings:
+- No computation bugs
+- Frontend had one label mismatch: "EBITDA/MW/yr" was displaying net_mw_yr (fixed)
+- Live BTD prices differ from CLAUDE.md proxy defaults (aFRR €17.27 vs proxy €40)
+- CPI at 2028 COD = 0.48 (from fleet trajectory S/D = 0.95) — primary driver of lower numbers
+- Numbers are correct given current assumptions. Not a math bug, just market compression.
+
+---
+
+## Decision log
+
+| Date | Decision | Rationale |
+|------|----------|-----------|
+| 2026-03-11 | Phase 6 implemented as S2 enhancement, not separate card | S2 already had trajectory bars. Separate card would duplicate. CPI + COD-window line is the missing bridge. |
+| 2026-03-11 | StatusChip language: "Above/Near/Below" not "Passes/Fails/Clears" | Neutral positional language. The tool describes conditions, not makes judgments. |
+| 2026-03-11 | "Why it moved" has 0.5pp threshold | Small deltas don't warrant explanation. Showing one implies false precision. |
+| 2026-03-11 | Revenue math confirmed correct, not a bug | CPI compression and live BTD prices explain lower numbers vs historical outputs. |
+| 2026-03-11 | Product principles saved to repo | FREE_TOOL_PRODUCT_PRINCIPLES.md, referenced as CLAUDE.md rule 11. |
+| 2026-03-11 | Intel pipeline designed, not yet built | 13-section design document complete. Google Sheets implementation next. |
+
+---
+
+## Session workflow
+
+| Task type | Tool |
+|-----------|------|
+| Code edits, bug fixes, deploys | Claude Code |
+| New feature architecture, design decisions | Opus in claude.ai |
+| Explain panel copy, narrative text | Opus in claude.ai |
+| Quick component tweaks | Sonnet in claude.ai |
+
+**Rule:** Design decisions in Opus first → hand implementation prompt to Claude Code. Never design in Claude Code.
+
+**Deploy sequence:** `npx tsc --noEmit` → `npm run build` → `npx wrangler deploy` (worker, if changed) → `git add` → `git commit` → `git push`

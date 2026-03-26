@@ -118,6 +118,229 @@ function processFleet(entries, demand) {
   };
 }
 
+// ─── KKME Trading Engine ──────────────────────────────────────────────────────
+// Dispatch optimisation algorithm calibrated on Baltic market microstructure.
+// Computes optimal BESS dispatch from BTD balancing data + ENTSO-E DA prices.
+
+function t_r0(n) { return Math.round(n); }
+function t_r1(n) { return Math.round(n * 10) / 10; }
+function t_r2(n) { return Math.round(n * 100) / 100; }
+function t_r3(n) { return Math.round(n * 1000) / 1000; }
+
+// BESS MW share heuristics for Kruonis PSP disaggregation.
+// FCR: 100% BESS (PSP physically cannot respond sub-second).
+// aFRR: 90% BESS (PSP too slow for automatic activation <5min).
+// mFRR: split by grid-permitted MW ratio: bessMW / (bessMW + kruonisMW).
+const KRUONIS_MW = 205;
+function bessShareMFRR(bessMW) { return bessMW / (bessMW + KRUONIS_MW); }
+
+function computeDispatch(data, battery) {
+  const { mw, mwh, rte } = battery;
+  const duration = mwh / mw;
+  const mfrrShare = bessShareMFRR(mw);
+
+  const isps = [];
+  let soc = 0.5;
+  let totalCapRev = 0, totalActRev = 0, totalArbRev = 0;
+
+  // Determine arb charge/discharge thresholds from DA price distribution
+  const daHourly = data.da_hourly || [];
+  let chargeThreshold = 40, dischargeThreshold = 80;
+  if (daHourly.length >= 20) {
+    const sorted = [...daHourly].sort((a, b) => a - b);
+    chargeThreshold = sorted[Math.floor(sorted.length * 0.25)]; // p25
+    dischargeThreshold = sorted[Math.floor(sorted.length * 0.75)]; // p75
+  }
+
+  for (let i = 0; i < 96; i++) {
+    const h = Math.floor(i / 4);
+    const cap = data.capacity_prices?.[i] || {};
+    const procured = data.procured_mw?.[i] || {};
+    const actPrice = data.activation_prices?.[i] || {};
+    const dir = data.direction?.[i];
+    const imbPrice = data.imbalance_prices?.[i] || {};
+    const imbVol = data.imbalance_volumes?.[i];
+
+    // --- Capacity allocation (observed procured MW, BESS share estimated) ---
+    const fcrMW = Math.min((procured.fcr_sym || 0) * 1.0, mw * 0.25);
+    const afrrMW = Math.min((procured.afrr_up || 0) * 0.9, mw * 0.40);
+    const mfrrMW = Math.min((procured.mfrr_up || 0) * mfrrShare, mw * 0.50);
+    const reservedMW = fcrMW + afrrMW + mfrrMW;
+    const arbAvailMW = Math.max(0, mw - reservedMW);
+
+    // --- Capacity revenue (15-min pro rata) ---
+    const fcrCapRev = fcrMW * (cap.fcr_sym || 0) / 4;
+    const afrrCapRev = afrrMW * (cap.afrr_up || 0) / 4;
+    const mfrrCapRev = mfrrMW * (cap.mfrr_up || 0) / 4;
+    const ispCapRev = fcrCapRev + afrrCapRev + mfrrCapRev;
+
+    // --- Activation revenue (estimated from balancing energy prices + direction) ---
+    const upActPrice = actPrice.up || 0;
+    const downActPrice = actPrice.down || 0;
+    const isShort = (dir || 0) > 0;
+
+    // If activation price exists and system direction matches, estimate activation
+    const afrrActMW = upActPrice > 0 && isShort ? afrrMW * 0.30 : 0;
+    const mfrrActMW = upActPrice > 50 && isShort ? mfrrMW * 0.20 : 0;
+    const ispActRev = (afrrActMW * upActPrice / 4) + (mfrrActMW * upActPrice / 4);
+
+    // --- Arbitrage (DA price-driven charge/discharge) ---
+    const daPrice = daHourly[h] || 0;
+    let arbRev = 0;
+    let arbAction = 'hold';
+
+    if (arbAvailMW > 0 && daPrice > 0) {
+      if (daPrice <= chargeThreshold && soc < 0.85) {
+        const chargeMWh = Math.min(arbAvailMW / 4, (0.90 - soc) * mwh);
+        if (chargeMWh > 0) {
+          soc += chargeMWh / mwh;
+          arbRev = -chargeMWh * daPrice;
+          arbAction = 'charge';
+        }
+      } else if (daPrice >= dischargeThreshold && soc > 0.20) {
+        const dischargeMWh = Math.min(arbAvailMW * rte / 4, (soc - 0.15) * mwh);
+        if (dischargeMWh > 0) {
+          soc -= dischargeMWh / mwh;
+          arbRev = dischargeMWh * daPrice;
+          arbAction = 'discharge';
+        }
+      }
+    }
+
+    // SoC drain from activations (upward activation = discharge)
+    const actDrainMWh = (afrrActMW + mfrrActMW) / 4;
+    soc = Math.max(0.05, Math.min(0.95, soc - actDrainMWh / mwh));
+
+    totalCapRev += ispCapRev;
+    totalActRev += ispActRev;
+    totalArbRev += arbRev;
+
+    isps.push({
+      isp: i,
+      time: `${String(h).padStart(2, '0')}:${String((i % 4) * 15).padStart(2, '0')}`,
+      da_price: t_r2(daPrice),
+      capacity: {
+        fcr: { mw: t_r1(fcrMW), price: t_r2(cap.fcr_sym || 0) },
+        afrr: { mw: t_r1(afrrMW), price: t_r2(cap.afrr_up || 0) },
+        mfrr: { mw: t_r1(mfrrMW), price: t_r2(cap.mfrr_up || 0) },
+      },
+      activation: {
+        up_price: t_r2(upActPrice),
+        down_price: t_r2(downActPrice),
+        direction: isShort ? 'short' : 'long',
+        est_afrr_mw: t_r1(afrrActMW),
+        est_mfrr_mw: t_r1(mfrrActMW),
+      },
+      arb: { available_mw: t_r1(arbAvailMW), action: arbAction, revenue: t_r2(arbRev) },
+      soc: t_r3(soc),
+      imbalance: { price: t_r2(imbPrice.final || imbPrice.preliminary || 0), volume_mwh: t_r1(imbVol || 0) },
+      revenue: {
+        capacity: t_r2(ispCapRev),
+        activation: t_r2(ispActRev),
+        arbitrage: t_r2(arbRev),
+        total: t_r2(ispCapRev + ispActRev + arbRev),
+      },
+    });
+  }
+
+  const totalRev = totalCapRev + totalActRev + totalArbRev;
+
+  // Hourly aggregation
+  const hourly = [];
+  for (let h = 0; h < 24; h++) {
+    const slice = isps.filter(isp => Math.floor(isp.isp / 4) === h);
+    hourly.push({
+      hour: h,
+      da_price: slice[0]?.da_price || 0,
+      revenue: {
+        capacity: t_r2(slice.reduce((s, isp) => s + isp.revenue.capacity, 0)),
+        activation: t_r2(slice.reduce((s, isp) => s + isp.revenue.activation, 0)),
+        arbitrage: t_r2(slice.reduce((s, isp) => s + isp.revenue.arbitrage, 0)),
+        total: t_r2(slice.reduce((s, isp) => s + isp.revenue.total, 0)),
+      },
+      avg_soc: t_r3(slice.reduce((s, isp) => s + isp.soc, 0) / (slice.length || 1)),
+      activations: slice.filter(isp => isp.activation.est_afrr_mw > 0).length,
+    });
+  }
+
+  // Strategy fingerprint
+  const peakHours = hourly.filter(h => h.hour >= 17 && h.hour <= 20);
+  const offPeakHours = hourly.filter(h => h.hour >= 1 && h.hour <= 5);
+  const peakRevAvg = peakHours.reduce((s, h) => s + h.revenue.total, 0) / (peakHours.length || 1);
+  const offPeakRevAvg = offPeakHours.reduce((s, h) => s + h.revenue.total, 0) / (offPeakHours.length || 1);
+  const activatedISPs = isps.filter(isp => isp.activation.est_afrr_mw > 0 || isp.activation.est_mfrr_mw > 0);
+  const socValues = isps.map(isp => isp.soc);
+
+  // Trade signals — limit DA to 24 hours (extractPrices may return >24 from multi-TimeSeries XML)
+  const signals = computeTradeSignals(daHourly.slice(0, 24), isps);
+
+  return {
+    _meta: {
+      date: data.date,
+      computed: new Date().toISOString(),
+      battery: { mw, mwh, rte, duration },
+      data_sources: ['BTD:price_procured_reserves', 'BTD:procured_reserves', 'BTD:balancing_energy_prices', 'BTD:direction_of_balancing_v2', 'BTD:imbalance_prices', 'BTD:imbalance_volumes', 'ENTSOE:A44'],
+      note: 'KKME dispatch algorithm. DA prices hourly (ENTSO-E A44); balancing data 15-min (BTD). Market trades at 15-min MTU since Sep 2025.',
+      data_class: 'derived',
+      kruonis_disaggregation: { method: 'heuristic', fcr_bess_share: 1.0, afrr_bess_share: 0.9, mfrr_bess_share: t_r2(bessShareMFRR(mw)) },
+    },
+    dispatch: { isps, hourly },
+    totals: {
+      gross: t_r2(totalRev),
+      per_mw: t_r2(totalRev / mw),
+      capacity: t_r2(totalCapRev),
+      activation: t_r2(totalActRev),
+      arbitrage: t_r2(totalArbRev),
+      splits_pct: totalRev > 0 ? {
+        capacity: Math.round(totalCapRev / totalRev * 100),
+        activation: Math.round(totalActRev / totalRev * 100),
+        arbitrage: Math.round(totalArbRev / totalRev * 100),
+      } : { capacity: 0, activation: 0, arbitrage: 0 },
+      annualised: t_r0(totalRev * 365),
+      annualised_per_mw: t_r0(totalRev * 365 / mw),
+    },
+    strategy: {
+      peak_offpeak_ratio: t_r1(peakRevAvg / (offPeakRevAvg || 1)),
+      activation_rate_pct: t_r1(activatedISPs.length / 96 * 100),
+      soc_range: [t_r2(Math.min(...socValues)), t_r2(Math.max(...socValues))],
+      fcr_baseload_mw: t_r1(isps.reduce((s, isp) => s + isp.capacity.fcr.mw, 0) / 96),
+    },
+    signals,
+  };
+}
+
+function computeTradeSignals(daHourly, isps) {
+  // DA arbitrage windows
+  const sorted = daHourly.map((p, h) => ({ h, p })).sort((a, b) => a.p - b.p);
+  const chargeHours = sorted.slice(0, 2).map(x => x.h);
+  const dischargeHours = sorted.slice(-2).map(x => x.h);
+  const avgCharge = chargeHours.length ? chargeHours.reduce((s, h) => s + (daHourly[h] || 0), 0) / chargeHours.length : 0;
+  const avgDischarge = dischargeHours.length ? dischargeHours.reduce((s, h) => s + (daHourly[h] || 0), 0) / dischargeHours.length : 0;
+
+  const shortISPs = isps.filter(isp => isp.activation.direction === 'short').length;
+
+  return {
+    da_arb: {
+      charge_hours: chargeHours,
+      discharge_hours: dischargeHours,
+      avg_charge_price: t_r2(avgCharge),
+      avg_discharge_price: t_r2(avgDischarge),
+      net_capture: t_r2(avgDischarge - avgCharge / 0.875),
+      confidence: avgDischarge - avgCharge > 40 ? 'HIGH' : avgDischarge - avgCharge > 20 ? 'MEDIUM' : 'LOW',
+      data_class: 'derived',
+    },
+    imbalance_bias: shortISPs > 48 ? 'SHORT' : shortISPs < 40 ? 'LONG' : 'BALANCED',
+    activation_probability: t_r2(isps.filter(isp => isp.activation.up_price > 0).length / 96),
+    drr_distortion: {
+      note: 'Capacity prices reflect DRR-distorted market. TSO resources (Litgrid/Fluence 200MW Energy Cells) bid at zero price.',
+      derogation_expires: '2028-02',
+      extension_possible: '2030-02',
+      impact: 'Pre-DRR-exit prices likely 20-40% higher than current clearing',
+      data_class: 'reference',
+    },
+  };
+}
+
 // ─── Revenue Engine v4 ─────────────────────────────────────────────────────────
 
 function computeRevenue(systemKey, capexKey, grantKey, codYear, kv, mwParam, mwhParam) {
@@ -553,6 +776,9 @@ async function computeS1(env) {
     updated_at: new Date().toISOString(),
     lt_hours:  ltPrices.length,
     se4_hours: se4Prices.length,
+    // Hourly price arrays for trading engine consumption
+    hourly_lt:  ltPrices.map(p => Math.round(p * 100) / 100),
+    hourly_se4: se4Prices.map(p => Math.round(p * 100) / 100),
     da_tomorrow,
     ...historical,
   };
@@ -3253,6 +3479,107 @@ export default {
       const raw = await env.KKME_SIGNALS.get(histKey).catch(() => null);
       const arr = raw ? JSON.parse(raw) : [];
       return Response.json(arr, { headers: CORS });
+    }
+
+    // ── POST /trading/update ─────────────────────────────────────────────────
+    // Receives 15-min BTD balancing data from Mac cron. Computes dispatch analysis.
+    if (request.method === 'POST' && url.pathname === '/trading/update') {
+      const secret = request.headers.get('X-Update-Secret');
+      if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
+      let body;
+      try { body = await request.json(); } catch { return jsonResp({ error: 'Invalid JSON' }, 400); }
+      const { date } = body;
+      if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return jsonResp({ error: 'date (YYYY-MM-DD) required' }, 400);
+
+      // Fetch DA hourly prices for this specific date from ENTSO-E A44
+      let daHourly = [];
+      try {
+        const d = new Date(date + 'T00:00:00Z');
+        const next = new Date(d.getTime() + 86400000);
+        const fmt = dt => {
+          const y = dt.getUTCFullYear();
+          const mo = String(dt.getUTCMonth() + 1).padStart(2, '0');
+          const da = String(dt.getUTCDate()).padStart(2, '0');
+          return `${y}${mo}${da}0000`;
+        };
+        const daUrl = new URL(ENTSOE_API);
+        daUrl.searchParams.set('documentType', 'A44');
+        daUrl.searchParams.set('in_Domain', LT_BZN);
+        daUrl.searchParams.set('out_Domain', LT_BZN);
+        daUrl.searchParams.set('periodStart', fmt(d));
+        daUrl.searchParams.set('periodEnd', fmt(next));
+        daUrl.searchParams.set('securityToken', env.ENTSOE_API_KEY);
+        const daRes = await fetch(daUrl.toString());
+        if (daRes.ok) {
+          const xml = await daRes.text();
+          daHourly = extractPrices(xml);
+          console.log(`[Trading] ${date} DA prices: ${daHourly.length} hours, avg=€${daHourly.length ? (daHourly.reduce((a,b)=>a+b,0)/daHourly.length).toFixed(1) : '?'}`);
+        }
+      } catch (e) {
+        console.warn(`[Trading] ${date} DA fetch failed: ${e.message}`);
+      }
+      body.da_hourly = daHourly;
+
+      // Store raw BTD data (90 day TTL)
+      await env.KKME_SIGNALS.put(`trading:${date}:raw`, JSON.stringify(body), { expirationTtl: 86400 * 90 });
+
+      // Compute dispatch analysis for 60MW/130MWh reference battery
+      const analysis = computeDispatch(body, { mw: 60, mwh: 130, rte: 0.875 });
+      await env.KKME_SIGNALS.put(`trading:${date}`, JSON.stringify(analysis), { expirationTtl: 86400 * 90 });
+
+      console.log(`[Trading] ${date} gross=€${analysis.totals.gross} per_mw=€${analysis.totals.per_mw} cap=${analysis.totals.splits_pct.capacity}% act=${analysis.totals.splits_pct.activation}% arb=${analysis.totals.splits_pct.arbitrage}%`);
+      return jsonResp({ ok: true, date, totals: analysis.totals, signals: analysis.signals });
+    }
+
+    // ── GET /api/trading ──────────────────────────────────────────────────────
+    // Returns dispatch analysis for a specific date.
+    if (request.method === 'GET' && url.pathname === '/api/trading') {
+      const date = url.searchParams.get('date');
+      if (!date) return jsonResp({ error: 'date param required (YYYY-MM-DD)' }, 400);
+      const cached = await env.KKME_SIGNALS.get(`trading:${date}`).catch(() => null);
+      if (cached) return new Response(cached, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=900', ...CORS } });
+      return jsonResp({ error: 'No trading data for this date', date }, 404);
+    }
+
+    // ── GET /api/trading/latest ───────────────────────────────────────────────
+    // Returns most recent trading day analysis.
+    if (request.method === 'GET' && url.pathname === '/api/trading/latest') {
+      const keys = await env.KKME_SIGNALS.list({ prefix: 'trading:202' });
+      const dates = keys.keys.map(k => k.name).filter(k => !k.includes(':raw')).sort().reverse();
+      if (!dates.length) return jsonResp({ error: 'No trading data yet. Run fetch-btd.js with trading datasets.' }, 404);
+      const latest = await env.KKME_SIGNALS.get(dates[0]);
+      if (!latest) return jsonResp({ error: 'Trading data missing' }, 404);
+      return new Response(latest, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=900', ...CORS } });
+    }
+
+    // ── GET /api/trading/signals ──────────────────────────────────────────────
+    // Returns trade signals + summary from latest analysis.
+    if (request.method === 'GET' && url.pathname === '/api/trading/signals') {
+      const keys = await env.KKME_SIGNALS.list({ prefix: 'trading:202' });
+      const dates = keys.keys.map(k => k.name).filter(k => !k.includes(':raw')).sort().reverse();
+      if (!dates.length) return jsonResp({ error: 'No trading data yet' }, 404);
+      const raw = await env.KKME_SIGNALS.get(dates[0]);
+      if (!raw) return jsonResp({ error: 'Trading data missing' }, 404);
+      const d = JSON.parse(raw);
+      return jsonResp({ date: d._meta?.date, signals: d.signals, totals: d.totals, strategy: d.strategy });
+    }
+
+    // ── GET /api/trading/history ──────────────────────────────────────────────
+    // Returns daily summaries for the last N days.
+    if (request.method === 'GET' && url.pathname === '/api/trading/history') {
+      const days = Math.min(parseInt(url.searchParams.get('days') || '30', 10), 90);
+      const keys = await env.KKME_SIGNALS.list({ prefix: 'trading:202' });
+      const dates = keys.keys.map(k => k.name).filter(k => !k.includes(':raw')).sort().reverse().slice(0, days);
+      const summaries = [];
+      for (const key of dates) {
+        try {
+          const raw = await env.KKME_SIGNALS.get(key);
+          if (!raw) continue;
+          const d = JSON.parse(raw);
+          summaries.push({ date: d._meta?.date, totals: d.totals, strategy: d.strategy, signals: d.signals });
+        } catch { /* skip corrupt entries */ }
+      }
+      return jsonResp(summaries);
     }
 
     // ── GET /health ──────────────────────────────────────────────────────────
