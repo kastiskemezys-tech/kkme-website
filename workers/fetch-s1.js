@@ -1,19 +1,20 @@
 /**
  * KKME — Signal Worker
- * Cron: every 4h (0 every-4h) + daily watchdog at 09:00 UTC
+ * Cron: every 4h (S1-S9 + Euribor) + daily 09:30 (S2 extra) + daily 08:00 (digest)
+ * All data fetching runs on Cloudflare Workers cron — no local machine dependency.
  *
  * Endpoints:
  *   GET /               → fresh S1 fetch + KV write (manual trigger)
  *   GET /read           → cached S1 KV value (fetched by S1Card)
  *   GET /s2             → S2 KV (defaults if empty)
- *   POST /s2/update     → write S2 payload to KV (Mac cron, validated)
+ *   POST /s2/update     → write S2 payload to KV (external push, validated)
  *   GET /s3             → cached S3 KV value; computes fresh if empty
  *   GET /s4             → cached S4 KV value; computes fresh if empty
  *   POST /curate        → store CurationEntry in KV
  *   GET /curations      → raw curation entries (last 7 days)
  *   GET /digest         → Anthropic haiku digest; cached 1h
- *   GET /health         → structured health of all signals + Mac cron ping
- *   POST /heartbeat     → record Mac cron ping (requires X-Update-Secret)
+ *   GET /health         → structured health of all signals
+ *   POST /heartbeat     → record heartbeat ping (legacy, kept for compat)
  *
  * Secrets: ENTSOE_API_KEY · ANTHROPIC_API_KEY · UPDATE_SECRET
  *          TELEGRAM_BOT_TOKEN · TELEGRAM_CHAT_ID
@@ -880,7 +881,7 @@ async function computeS3() {
 
 // ─── Nord Pool DA ──────────────────────────────────────────────────────────────
 // Fetches latest published DA prices for LT and SE4 from Nord Pool.
-// Runs in cron (CF IP may be blocked) + Mac cron fallback via POST /da_tomorrow/update.
+// Runs in cron (CF IP may be blocked) + fallback via POST /da_tomorrow/update.
 
 function npShapeMetrics(ltPrices, se4Prices) {
   if (!ltPrices.length || !se4Prices.length) return null;
@@ -1019,9 +1020,8 @@ async function computeEuribor() {
 }
 
 // ─── S2 — Balancing Stack ───────────────────────────────────────────────────────
-// S2 data is pushed to POST /s2/update by the Mac cron.
-// Caller sends raw BTD JSON: { reserves, direction, imbalance }
-// Worker parses and shapes the payload before writing to KV.
+// S2 data fetched directly by Worker cron from BTD API + Litgrid ordered capacity.
+// Also accepts external POSTs to /s2/update for backward compatibility.
 //
 // Confirmed BTD structure (price_procured_reserves):
 //   d.data.timeseries = [{ from, to, values: [15 numbers] }, ...]
@@ -1032,6 +1032,106 @@ async function computeEuribor() {
 //     [13] mFRR Upward
 //     [14] mFRR Downward
 //   Data publishes with ~2 day lag — fetch window: 9 days ago → 2 days ago
+
+// ── BTD API fetch ─────────────────────────────────────────────────────────────
+async function fetchBTDDataset(id, start, end) {
+  const url = `https://api-baltic.transparency-dashboard.eu/api/v1/export?id=${id}&start_date=${start}T00:00&end_date=${end}T00:00&output_time_zone=UTC&output_format=json&json_header_groups=1`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`BTD ${id}: HTTP ${res.status}`);
+  return res.json();
+}
+
+// ── Litgrid ordered balancing capacity scrape ─────────────────────────────────
+async function fetchLitgridBalancing() {
+  const url = 'https://www.litgrid.eu/index.php/dashboard/balancing-capacites/31577';
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), 15000);
+  try {
+    const res = await fetch(url, {
+      signal: ac.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; KKME-Pipeline/1.0; +https://kkme.eu)',
+        'Accept': 'text/html,*/*',
+      },
+    });
+    clearTimeout(timer);
+    if (!res.ok) {
+      console.log('[Litgrid] HTTP', res.status, '— skipping ordered capacity');
+      return { ordered_price: null, ordered_mw: null };
+    }
+    const html = await res.text();
+
+    // Parse ordered price (€/MW/h)
+    let ordered_price = null;
+    const pricePatterns = [
+      /([\d]+[.,][\d]+)\s*(?:EUR\/MW\/h|€\/MW\/h|Eur\/MW\/h)/i,
+      /(?:price|kaina|clearing)[^<]{0,50}([\d]+[.,][\d]+)/i,
+    ];
+    for (const pat of pricePatterns) {
+      const m = html.match(pat);
+      if (m) {
+        const val = parseFloat(m[1].replace(',', '.'));
+        if (!isNaN(val) && val > 0 && val < 10000) {
+          ordered_price = Math.round(val * 100) / 100;
+          break;
+        }
+      }
+    }
+
+    // Parse ordered MW
+    let ordered_mw = null;
+    const mwPatterns = [
+      /(?:ordered|užsakyta|galingumas)[^<]{0,80}([\d\s]+)\s*MW/i,
+      /total[^<]{0,40}([\d\s]+)\s*MW/i,
+    ];
+    for (const pat of mwPatterns) {
+      const m = html.match(pat);
+      if (m) {
+        const val = parseFloat(m[1].replace(/\s/g, ''));
+        if (!isNaN(val) && val > 0 && val < 100000) {
+          ordered_mw = Math.round(val);
+          break;
+        }
+      }
+    }
+
+    return { ordered_price, ordered_mw };
+  } catch (e) {
+    clearTimeout(timer);
+    console.error('[Litgrid] fetch error:', e.message);
+    return { ordered_price: null, ordered_mw: null };
+  }
+}
+
+// ── Full S2 fetch: BTD + Litgrid → shaped payload ────────────────────────────
+async function computeS2() {
+  const nineAgo    = new Date(Date.now() - 9 * 86400000).toISOString().slice(0, 10);
+  const twoDaysAgo = new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10);
+
+  // UTC hour check: Litgrid ordered capacity publishes at 08:30 UTC.
+  // Skip ordered fetch before 09:00 UTC.
+  const utcHour = new Date().getUTCHours();
+  const skipOrdered = utcHour < 9;
+
+  const [btdResults, litgrid] = await Promise.all([
+    Promise.all([
+      fetchBTDDataset('price_procured_reserves',   nineAgo, twoDaysAgo),
+      fetchBTDDataset('direction_of_balancing_v2', nineAgo, twoDaysAgo),
+      fetchBTDDataset('imbalance_prices',          nineAgo, twoDaysAgo),
+    ]),
+    skipOrdered ? Promise.resolve({ ordered_price: null, ordered_mw: null }) : fetchLitgridBalancing(),
+  ]);
+
+  const [reserves, direction, imbalance] = btdResults;
+  const { ordered_price, ordered_mw } = litgrid;
+
+  const payload = s2ShapePayload(reserves, direction, imbalance);
+  if (ordered_price != null) payload.ordered_price = ordered_price;
+  if (ordered_mw    != null) payload.ordered_mw    = ordered_mw;
+
+  console.log(`[S2/compute] ordered_price=${ordered_price ?? '—'} ordered_mw=${ordered_mw ?? '—'}`);
+  return payload;
+}
 
 function s2Mean(arr)  { return arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null; }
 function s2P90(arr) {
@@ -1472,9 +1572,11 @@ async function sendDailyDigest(env) {
   const s4 = await env.KKME_SIGNALS.get('s4').then(r => r ? JSON.parse(r) : null).catch(() => null);
   if (s4?.parse_warning) lines.push('📋 S4 pipeline: needs BESS filter verify');
 
-  const ping = await env.KKME_SIGNALS.get('cron_heartbeat').then(r => r ? JSON.parse(r) : null).catch(() => null);
-  const pingAge = ping?.timestamp ? (Date.now() - new Date(ping.timestamp).getTime()) / 3600000 : null;
-  if (!pingAge || pingAge > 25) lines.push(`⚠️ Mac cron: ${pingAge?.toFixed(0) ?? 'never'}h since ping`);
+  // S4 pipeline (VERT.lt monthly — still local, flag if very stale)
+  const s4pipeline = await env.KKME_SIGNALS.get('s4_pipeline').then(r => r ? JSON.parse(r) : null).catch(() => null);
+  const pipeTs = s4pipeline?.timestamp;
+  const pipeAge = pipeTs ? (Date.now() - new Date(pipeTs).getTime()) / 3600000 : null;
+  if (!pipeAge || pipeAge > 840) lines.push(`⚠️ S4 pipeline: ${pipeAge?.toFixed(0) ?? 'never'}h old (monthly VERT.lt — run fetch-vert.js)`);
 
   const idx = await env.KKME_SIGNALS.get('feed_index').then(r => r ? JSON.parse(r) : []).catch(() => []);
   const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
@@ -2243,7 +2345,7 @@ async function fetchBalticGeneration() {
 // ─── Main export ───────────────────────────────────────────────────────────────
 
 export default {
-  /** Cron — every 4h (S1/S3/S4/Euribor) and daily 09:00 UTC (S2 watchdog). */
+  /** Cron — every 4h (S1/S2/S3/S4/S5-S9/Euribor), daily 09:30 (S2 extra), daily 08:00 (digest). */
   async scheduled(event, env, _ctx) {
     // 08:00 UTC: daily digest to Telegram
     if (event.cron === '0 8 * * *') {
@@ -2251,33 +2353,31 @@ export default {
       return;
     }
 
-    const isWatchdog = event.cron === '30 9 * * *';
-
-    if (isWatchdog) {
-      // 09:00 UTC daily: only run S2 watchdog + re-run S2 watchdog Telegram alert
+    // 09:30 UTC daily: extra S2 fetch (Litgrid ordered capacity published ~08:30 UTC)
+    if (event.cron === '30 9 * * *') {
       try {
-        const s2Raw = await env.KKME_SIGNALS.get('s2');
-        if (!s2Raw) {
-          await notifyTelegram(env, '🔴 S2: KV empty — BTD cron (fetch-btd.js) has never run or always failing');
+        const payload = await withTimeout(computeS2(), 45000);
+        const validation = await kvWrite(env.KKME_SIGNALS, 's2', payload, {
+          required: ['fcr_avg', 'afrr_up_avg', 'mfrr_up_avg'],
+          bounds_key: 's2',
+        });
+        if (!validation.success) {
+          await notifyTelegram(env, `⚠️ S2 (09:30 fetch): KV write rejected — ${validation.errors.join(' | ')}`);
         } else {
-          const s2   = JSON.parse(s2Raw);
-          const ts   = s2.timestamp ?? s2._meta?.written_at;
-          const ageH = ts ? (Date.now() - new Date(ts).getTime()) / 3600000 : Infinity;
-          if (ageH > 48) {
-            await notifyTelegram(env, `⚠️ S2: data is ${ageH.toFixed(0)}h old. Mac cron (fetch-btd.js) may have failed.`);
-          } else {
-            console.log(`[S2/watchdog] fresh: ${ageH.toFixed(1)}h old`);
-          }
+          console.log(`[S2/0930] ${payload.signal} fcr=${payload.fcr_avg} afrr_up=${payload.afrr_up_avg} ordered=${payload.ordered_price ?? '—'}`);
+          await appendSignalHistory(env, 's2', { afrr_up: payload.afrr_up_avg, mfrr_up: payload.mfrr_up_avg, fcr: payload.fcr_avg }).catch(e => console.error('[S2/history]', e));
         }
       } catch (e) {
-        console.error('[S2/watchdog]', String(e));
+        console.error('[S2/0930]', String(e));
+        await notifyTelegram(env, `⚠️ S2 fetch failed (09:30): ${String(e).slice(0, 200)}`).catch(() => {});
       }
       return;
     }
 
-    // Every 4h: fetch S1/S3/S4/Euribor in parallel
-    const [s1Result, s4Result, s3Result, eurResult] = await Promise.allSettled([
+    // Every 4h: fetch S1/S2/S3/S4/Euribor in parallel
+    const [s1Result, s2Result, s4Result, s3Result, eurResult] = await Promise.allSettled([
       withTimeout(computeS1(env),      30000),  // includes tomorrow fetch (+2 ENTSO-E calls)
+      withTimeout(computeS2(),         45000),  // BTD API + Litgrid scrape
       withTimeout(computeS4(),         25000),
       withTimeout(computeS3(),         25000),
       withTimeout(computeEuribor(),    20000),
@@ -2298,6 +2398,23 @@ export default {
       console.log(`[S1] ${d.state} spread=${d.spread_eur_mwh}€/MWh swing=${d.lt_daily_swing_eur_mwh}€/MWh sep=${d.separation_pct}% rsi_30d=${d.rsi_30d}`);
     } else {
       console.error('[S1] cron failed:', s1Result.reason);
+    }
+
+    if (s2Result.status === 'fulfilled') {
+      const payload = s2Result.value;
+      const validation = await kvWrite(env.KKME_SIGNALS, 's2', payload, {
+        required: ['fcr_avg', 'afrr_up_avg', 'mfrr_up_avg'],
+        bounds_key: 's2',
+      });
+      if (!validation.success) {
+        console.error(`[S2] KV write rejected: ${validation.errors.join(' | ')}`);
+        await notifyTelegram(env, `⚠️ S2: KV write rejected (BTD data invalid) — ${validation.errors.join(' | ')}`).catch(() => {});
+      } else {
+        console.log(`[S2] ${payload.signal} fcr=${payload.fcr_avg} afrr_up=${payload.afrr_up_avg} ordered=${payload.ordered_price ?? '—'}`);
+        await appendSignalHistory(env, 's2', { afrr_up: payload.afrr_up_avg, mfrr_up: payload.mfrr_up_avg, fcr: payload.fcr_avg }).catch(e => console.error('[S2/history]', e));
+      }
+    } else {
+      console.error('[S2] cron failed:', s2Result.reason);
     }
 
     if (s4Result.status === 'fulfilled') {
@@ -2428,20 +2545,30 @@ export default {
       // ── Commands ─────────────────────────────────────────────────────────
       if (lower === '/status' || lower === '/status@gattana_bot') {
         const keys = ['s1', 's2', 's3', 's4'];
-        const statLines = ['KKME Status:'];
+        const statLines = ['KKME Status (all Workers cron):'];
         for (const k of keys) {
           const raw = await env.KKME_SIGNALS.get(k).catch(() => null);
           if (!raw) { statLines.push(`${k.toUpperCase()}: no data`); continue; }
           try {
             const d = JSON.parse(raw);
             const ts = d.timestamp ?? d._meta?.written_at ?? d.updated_at;
-            const age = ts ? ((Date.now() - new Date(ts).getTime()) / 3600000).toFixed(1) : '?';
-            statLines.push(`${k.toUpperCase()}: ${age}h old`);
+            const ageH = ts ? (Date.now() - new Date(ts).getTime()) / 3600000 : null;
+            const threshold = STALE_THRESHOLDS_HOURS[k] ?? 48;
+            const stale = ageH !== null && ageH > threshold;
+            const age = ageH !== null ? ageH.toFixed(1) : '?';
+            statLines.push(`${k.toUpperCase()}: ${age}h old${stale ? ' ⚠️ STALE' : ''}`);
           } catch { statLines.push(`${k.toUpperCase()}: parse error`); }
         }
-        const ping = await env.KKME_SIGNALS.get('cron_heartbeat').then(r => r ? JSON.parse(r) : null).catch(() => null);
-        const pAge = ping?.timestamp ? ((Date.now() - new Date(ping.timestamp).getTime()) / 3600000).toFixed(1) : 'never';
-        statLines.push(`Mac cron: ${pAge}h ago`);
+        // s4_pipeline (VERT.lt monthly — still local, acceptable staleness)
+        const pipeRaw = await env.KKME_SIGNALS.get('s4_pipeline').catch(() => null);
+        if (pipeRaw) {
+          try {
+            const d = JSON.parse(pipeRaw);
+            const ts = d.timestamp ?? d.updated_at;
+            const age = ts ? ((Date.now() - new Date(ts).getTime()) / 3600000).toFixed(0) : '?';
+            statLines.push(`S4_PIPELINE: ${age}h old (monthly/local)`);
+          } catch { /* ignore */ }
+        }
         await sendTelegramReply(env, chatId, statLines.join('\n'));
         return new Response('ok', { headers: CORS });
       }
@@ -2950,7 +3077,7 @@ export default {
     }
 
     // ── POST /s4/pipeline ────────────────────────────────────────────────────
-    // Mac cron (fetch-vert.js, monthly): VERT.lt permit pipeline metrics.
+    // VERT.lt permit pipeline metrics (monthly, pushed by local fetch-vert.js).
     if (request.method === 'POST' && url.pathname === '/s4/pipeline') {
       const secret = request.headers.get('X-Update-Secret');
       if (!secret || secret !== env.UPDATE_SECRET) {
@@ -3019,7 +3146,7 @@ export default {
     }
 
     // ── POST /da_tomorrow/update ─────────────────────────────────────────────
-    // Mac cron fallback: accepts raw { lt_prices, se4_prices } OR pre-computed metrics.
+    // External push fallback: accepts raw { lt_prices, se4_prices } OR pre-computed metrics.
     if (request.method === 'POST' && url.pathname === '/da_tomorrow/update') {
       const secret = request.headers.get('X-Update-Secret');
       if (!secret || secret !== env.UPDATE_SECRET) {
@@ -3129,7 +3256,7 @@ export default {
     }
 
     // ── GET /health ──────────────────────────────────────────────────────────
-    // Returns structured health of all signal KV keys + Mac cron ping status.
+    // Returns structured health of all signal KV keys. All fetches run on Workers cron.
     if (request.method === 'GET' && url.pathname === '/health') {
       const keys = ['s1', 's2', 's3', 's4', 'euribor', 's4_pipeline'];
       const signals = {};
@@ -3157,27 +3284,19 @@ export default {
         }
       }));
 
-      // Mac cron heartbeat
-      let macCron = { status: 'never_run', last_ping: null, age_hours: null };
+      const allFresh = Object.values(signals).every(
+        r => r.status === 'present' && r.stale === false,
+      );
+
+      // Legacy: include mac_cron field for backward compat but mark as deprecated
+      let macCron = { status: 'deprecated', note: 'All fetches now run on Workers cron. Mac cron no longer required.' };
       try {
         const cronRaw = await env.KKME_SIGNALS.get('cron_heartbeat');
         if (cronRaw) {
           const cron = JSON.parse(cronRaw);
-          const ageH = cron.timestamp
-            ? (Date.now() - new Date(cron.timestamp).getTime()) / 3600000
-            : null;
-          macCron = {
-            status:    ageH !== null ? (ageH > 25 ? 'overdue' : 'ok') : 'unknown',
-            last_ping: cron.timestamp ?? null,
-            age_hours: ageH !== null ? parseFloat(ageH.toFixed(1)) : null,
-            script:    cron.script ?? null,
-          };
+          macCron.last_ping = cron.timestamp ?? null;
         }
       } catch { /* ignore */ }
-
-      const allFresh = Object.values(signals).every(
-        r => r.status === 'present' && r.stale === false,
-      );
 
       const health = {
         checked_at: new Date().toISOString(),
@@ -3192,7 +3311,7 @@ export default {
     }
 
     // ── POST /heartbeat ──────────────────────────────────────────────────────
-    // Mac cron scripts POST here after a successful run.
+    // Legacy endpoint — kept for backward compatibility. No longer required for monitoring.
     if (request.method === 'POST' && url.pathname === '/heartbeat') {
       const secret = request.headers.get('X-Update-Secret');
       if (!secret || secret !== env.UPDATE_SECRET) {
