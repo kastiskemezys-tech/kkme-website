@@ -9,17 +9,19 @@ const SECTION_MAP: Record<string, string> = {
   'aFRR': 'revenue-drivers',
   'GRID FREE': 'build',
   'FLEET OP': 'structural',
+  'DISPATCH': 'trading',
 };
 
 export default function SignalBar() {
-  const [data, setData] = useState<{ s1?: any; s2?: any; s4?: any }>({});
+  const [data, setData] = useState<{ s1?: any; s2?: any; s4?: any; trading?: any }>({});
 
   useEffect(() => {
     Promise.all([
       fetch(`${BASE}/read`).then(r => r.json()).catch(() => ({})),
       fetch(`${BASE}/s2`).then(r => r.json()).catch(() => ({})),
       fetch(`${BASE}/s4`).then(r => r.json()).catch(() => ({})),
-    ]).then(([s1, s2, s4]) => setData({ s1, s2, s4 }));
+      fetch(`${BASE}/api/trading/signals`).then(r => r.json()).catch(() => ({})),
+    ]).then(([s1, s2, s4, trading]) => setData({ s1, s2, s4, trading }));
   }, []);
 
   const signals = [
@@ -47,6 +49,11 @@ export default function SignalBar() {
       label: 'FLEET OP',
       value: data.s2?.baltic_operational_mw != null
         ? `${data.s2.baltic_operational_mw} MW` : '—',
+    },
+    {
+      label: 'DISPATCH',
+      value: data.trading?.totals?.per_mw != null
+        ? `€${Math.round(data.trading.totals.per_mw)}/MW` : '—',
     },
   ];
 
