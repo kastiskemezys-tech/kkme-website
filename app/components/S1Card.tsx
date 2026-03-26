@@ -10,6 +10,11 @@ import {
 } from '@/app/components/primitives';
 import type { ImpactState, Sentiment } from '@/app/lib/types';
 
+// Extend S1Signal with hourly data present in actual API response
+interface S1WithHourly extends S1Signal {
+  hourly_lt?: number[];
+}
+
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
 function spreadSentiment(spread: number): Sentiment {
@@ -50,7 +55,7 @@ function spreadImpactDesc(spread: number): string {
 
 export function S1Card() {
   const { status, data } =
-    useSignal<S1Signal>(`${WORKER_URL}/read`);
+    useSignal<S1WithHourly>(`${WORKER_URL}/read`);
   const [history, setHistory] = useState<number[]>([]);
   const [drawerKey, setDrawerKey] = useState(0);
   const openDrawer = () => setDrawerKey(k => k + 1);
@@ -173,6 +178,67 @@ export function S1Card() {
           </div>
         </div>
       )}
+
+      {/* BESS CAPTURE SCHEDULE STRIP */}
+      {(() => {
+        const hourlyRaw = data.hourly_lt;
+        if (!hourlyRaw || hourlyRaw.length < 24) return null;
+        // Take last 24 entries
+        const hourly24 = hourlyRaw.slice(-24);
+        // Find 2 cheapest and 2 most expensive hours
+        const indexed = hourly24.map((p, i) => ({ price: p, idx: i }));
+        const sorted = [...indexed].sort((a, b) => a.price - b.price);
+        const cheapest = new Set(sorted.slice(0, 2).map(e => e.idx));
+        const expensive = new Set(sorted.slice(-2).map(e => e.idx));
+        const avgCheap = sorted.slice(0, 2).reduce((s, e) => s + e.price, 0) / 2;
+        const avgExpensive = sorted.slice(-2).reduce((s, e) => s + e.price, 0) / 2;
+        const netCapture = (avgExpensive - avgCheap) / 0.875;
+
+        return (
+          <div style={{ margin: '12px 0' }}>
+            <p style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 'var(--font-xs)',
+              color: 'var(--text-tertiary)',
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              marginBottom: '6px',
+            }}>
+              Optimal dispatch
+            </p>
+            <div style={{ display: 'flex', gap: '1px' }}>
+              {hourly24.map((_, i) => (
+                <div
+                  key={i}
+                  style={{
+                    flex: 1,
+                    height: '12px',
+                    background: cheapest.has(i) ? 'var(--teal)' :
+                      expensive.has(i) ? 'var(--amber)' : 'var(--bg-elevated)',
+                    opacity: cheapest.has(i) || expensive.has(i) ? 0.8 : 1,
+                    borderRadius: '1px',
+                  }}
+                  title={`${String(i).padStart(2, '0')}:00 — €${hourly24[i].toFixed(1)}/MWh`}
+                />
+              ))}
+            </div>
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              marginTop: '4px',
+              fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+            }}>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <span style={{ color: 'var(--teal)' }}>■ Charge</span>
+                <span style={{ color: 'var(--amber)' }}>■ Discharge</span>
+                <span style={{ color: 'var(--text-muted)' }}>■ Hold</span>
+              </div>
+              <span style={{ color: 'var(--text-secondary)' }}>
+                Net capture: €{safeNum(netCapture, 1)}/MWh after RTE
+              </span>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* INTERPRETATION */}
       <p style={{
