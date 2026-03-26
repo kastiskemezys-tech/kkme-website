@@ -17,6 +17,7 @@ const WindCard = dynamic(() => import('@/app/components/WindCard').then(m => m.W
 const SolarCard = dynamic(() => import('@/app/components/SolarCard').then(m => m.SolarCard));
 const LoadCard = dynamic(() => import('@/app/components/LoadCard').then(m => m.LoadCard));
 const RevenueCard = dynamic(() => import('@/app/components/RevenueCard').then(m => m.RevenueCard));
+const TradingEngineCard = dynamic(() => import('@/app/components/TradingEngineCard').then(m => m.TradingEngineCard));
 const IntelFeed = dynamic(() => import('@/app/components/IntelFeed').then(m => m.IntelFeed));
 const ContactForm = dynamic(() => import('@/app/components/ContactForm').then(m => m.ContactForm));
 const PageBackground = dynamic(() => import('@/app/components/PageBackground').then(m => m.PageBackground));
@@ -110,6 +111,19 @@ export default function Home() {
           </div>
           <div className="inline-cta">
             <a href="#conversation">Looking at Baltic storage? Start the conversation ↗</a>
+          </div>
+        </div>
+
+        {/* ═══ DISPATCH INTELLIGENCE ═══ */}
+        <div className="section" id="trading">
+          <div style={{ marginBottom: '32px' }}>
+            <h2 className="section-header" style={{ marginBottom: '6px' }}>Dispatch intelligence</h2>
+            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>How the KKME dispatch algorithm allocates a reference BESS across Baltic balancing and arbitrage</p>
+          </div>
+          <div className="card card-tier1">
+            <ErrorBoundary>
+              <TradingEngineCard />
+            </ErrorBoundary>
           </div>
         </div>
 
