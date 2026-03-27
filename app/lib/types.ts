@@ -1,4 +1,4 @@
-export type DataClass = 'observed' | 'derived' | 'modeled' | 'proxy' | 'reference'
+export type DataClass = 'observed' | 'derived' | 'modeled' | 'proxy' | 'reference' | 'editorial'
 export type FreshnessClass = 'live' | 'recent' | 'stale' | 'reference'
 export type ImpactState = 'strong_positive' | 'slight_positive' | 'mixed' | 'slight_negative' | 'strong_negative' | 'low_confidence'
 export type Sentiment = 'positive' | 'caution' | 'negative' | 'neutral'

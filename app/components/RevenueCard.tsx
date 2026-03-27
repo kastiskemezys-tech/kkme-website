@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-  MetricTile, StatusChip, SourceFooter, DetailsDrawer, ImpactLine,
+  MetricTile, StatusChip, SourceFooter, DetailsDrawer, ImpactLine, DataClassBadge,
 } from '@/app/components/primitives';
 import { CopyButton } from './CopyButton';
 import { copyToClipboard, formatTable } from '@/app/lib/copyUtils';
@@ -438,7 +438,40 @@ export function RevenueCard() {
         </p>
       </div>
 
-      {/* 2. CENTRAL TAKEAWAY */}
+      {/* 2. GROSS REVENUE RANGE — primary metric */}
+      {selected?.gross_revenue_y1 != null && (
+        <div style={{ marginBottom: '16px' }}>
+          <div style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-xs)',
+            color: 'var(--text-tertiary)',
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+            marginBottom: '4px',
+          }}>
+            Gross revenue range (Year 1, per MW) <DataClassBadge dataClass="modeled" />
+          </div>
+          <div style={{ display: 'flex', gap: '16px', alignItems: 'baseline' }}>
+            <div>
+              <span style={{
+                fontFamily: 'var(--font-display)',
+                fontSize: '1.5rem',
+                color: 'var(--text-primary)',
+              }}>
+                {fmtKPerMw(selected.gross_revenue_y1)}
+              </span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginLeft: '4px' }}>/MW/yr</span>
+            </div>
+            {selected.capacity_y1 != null && selected.activation_y1 != null && selected.arbitrage_y1 != null && selected.gross_revenue_y1 > 0 && (
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>
+                Capacity {Math.round(selected.capacity_y1 / selected.gross_revenue_y1 * 100)}% · Activation {Math.round(selected.activation_y1 / selected.gross_revenue_y1 * 100)}% · Arbitrage {Math.round(selected.arbitrage_y1 / selected.gross_revenue_y1 * 100)}%
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* CENTRAL TAKEAWAY */}
       <div style={{
         fontFamily: 'var(--font-mono)',
         fontSize: 'var(--font-sm)',
@@ -498,7 +531,17 @@ export function RevenueCard() {
         </p>
       )}
 
-      {/* 5. 2H vs 4H COMPARISON — side by side */}
+      {/* 5. 2H vs 4H COMPARISON — scenario screen framing */}
+      <div style={{
+        fontFamily: 'var(--font-mono)',
+        fontSize: 'var(--font-xs)',
+        color: 'var(--text-muted)',
+        marginBottom: '6px',
+        letterSpacing: '0.08em',
+        textTransform: 'uppercase',
+      }}>
+        Scenario screen · not underwriting output <DataClassBadge dataClass="modeled" />
+      </div>
       <div style={{
         display: 'grid',
         gridTemplateColumns: '1fr 1fr',
@@ -612,7 +655,7 @@ export function RevenueCard() {
           color: 'var(--text-muted)',
           lineHeight: 1.5,
         }}>
-          Modeled using current market signals. Current conditions may not persist to COD. Scenario screen only — not a lender credit assessment or investment recommendation.
+          Scenario analysis only. All capacity prices are Baltic-calibrated proxies, not observed clearing results. Revenue assumes fixed capacity factor — not dispatch-optimized. Not a lender credit assessment or investment recommendation.
         </p>
       </div>
 

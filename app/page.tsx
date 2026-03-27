@@ -138,6 +138,71 @@ export default function Home() {
           <IntelFeed />
         </div>
 
+        {/* ═══ MODEL RISK REGISTER ═══ */}
+        <div className="section" id="model-risks">
+          <div style={{ maxWidth: '700px' }}>
+            <h2 style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 'var(--font-xs)',
+              color: 'var(--text-tertiary)',
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+              marginBottom: '16px',
+              fontWeight: 500,
+            }}>Model risk register</h2>
+
+            <div style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: '0.6875rem',
+              color: 'var(--text-tertiary)',
+            }}>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '54px 1fr 52px 52px',
+                gap: '8px',
+                padding: '6px 0',
+                borderBottom: '1px solid var(--border-card)',
+                fontWeight: 500,
+                color: 'var(--text-secondary)',
+              }}>
+                <span>ID</span><span>Risk</span><span>Impact</span><span>Residual</span>
+              </div>
+              {[
+                { id: 'MR-01', risk: 'Reserve clearing prices not observed — proxy only', impact: 'HIGH', residual: 'HIGH' },
+                { id: 'MR-02', risk: 'Pipeline timing uses static weights, not hazard model', impact: 'HIGH', residual: 'HIGH' },
+                { id: 'MR-03', risk: 'Dispatch stacking uses fixed factor, not LP optimizer', impact: 'HIGH', residual: 'HIGH' },
+                { id: 'MR-04', risk: 'Activation revenue assumed — no Baltic observed data', impact: 'HIGH', residual: 'HIGH' },
+                { id: 'MR-05', risk: 'DRR/TSO derogation exit timing unknown (~2028)', impact: 'MED', residual: 'MED' },
+                { id: 'MR-06', risk: 'BBCM/PICASSO/MARI design changes not modeled', impact: 'MED', residual: 'HIGH' },
+                { id: 'MR-07', risk: 'LV/EE grid data missing — LT only from VERT.lt', impact: 'MED', residual: 'MED' },
+              ].map(r => (
+                <div key={r.id} style={{
+                  display: 'grid',
+                  gridTemplateColumns: '54px 1fr 52px 52px',
+                  gap: '8px',
+                  padding: '6px 0',
+                  borderBottom: '1px solid rgba(232,226,217,0.04)',
+                }}>
+                  <span style={{ color: 'var(--text-muted)' }}>{r.id}</span>
+                  <span>{r.risk}</span>
+                  <span style={{ color: r.impact === 'HIGH' ? 'var(--rose)' : 'var(--amber)' }}>{r.impact}</span>
+                  <span style={{ color: r.residual === 'HIGH' ? 'var(--rose)' : 'var(--amber)' }}>{r.residual}</span>
+                </div>
+              ))}
+            </div>
+
+            <p style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: '0.625rem',
+              color: 'var(--text-muted)',
+              marginTop: '12px',
+              lineHeight: 1.6,
+            }}>
+              Model v5.1 · Outputs are directional intelligence, not investment advice.
+            </p>
+          </div>
+        </div>
+
         {/* ═══ DISCUSS BALTIC STORAGE ═══ */}
         <div className="section" id="conversation">
           <div style={{ marginBottom: '32px' }}>

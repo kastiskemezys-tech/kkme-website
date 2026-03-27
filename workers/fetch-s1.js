@@ -58,6 +58,75 @@ function jsonResp(data, status = 200) {
   });
 }
 
+// ─── Data validation ────────────────────────────────────────────────────────
+
+function validate(signalName, data) {
+  const issues = [];
+  if (!data) { issues.push({ severity: 'error', msg: `${signalName}: null data` }); return issues; }
+  if (!data.timestamp && !data.updated_at && !data.fetched_at)
+    issues.push({ severity: 'warning', msg: `${signalName}: no timestamp` });
+  if (signalName === 's1') {
+    if (data.spread_eur_mwh !== undefined && (data.spread_eur_mwh < -100 || data.spread_eur_mwh > 500))
+      issues.push({ severity: 'warning', msg: 's1: spread outside plausible range' });
+  }
+  if (signalName === 's2') {
+    if (data.sd_ratio !== undefined && (data.sd_ratio < 0 || data.sd_ratio > 5))
+      issues.push({ severity: 'warning', msg: 's2: S/D ratio outside plausible range' });
+  }
+  if (signalName === 's7') {
+    if (data.ttf_eur_mwh !== undefined && (data.ttf_eur_mwh < 0 || data.ttf_eur_mwh > 500))
+      issues.push({ severity: 'warning', msg: 's7: TTF outside plausible range' });
+  }
+  if (signalName === 's9') {
+    if (data.ets_eur_t !== undefined && (data.ets_eur_t < 0 || data.ets_eur_t > 300))
+      issues.push({ severity: 'warning', msg: 's9: ETS outside plausible range' });
+  }
+  return issues;
+}
+
+// ─── Market regime computation ──────────────────────────────────────────────
+
+function computeRegime(signals) {
+  const regimes = [];
+  const ssr = signals.sd_ratio || 1.0;
+  if (ssr < 0.7) regimes.push({ id: 'RESERVE_SCARCITY', confidence: 'derived', trigger: `net_ssr=${ssr}` });
+  else if (ssr < 1.2) regimes.push({ id: 'RESERVE_COMPRESSING', confidence: 'derived', trigger: `net_ssr=${ssr}` });
+  else regimes.push({ id: 'RESERVE_SATURATED', confidence: 'derived', trigger: `net_ssr=${ssr}` });
+  const ttf = signals.ttf_eur_mwh || 0;
+  if (ttf > 50) regimes.push({ id: 'HIGH_GAS_MARGIN', confidence: 'observed', trigger: `ttf=${ttf}` });
+  return {
+    active: regimes,
+    computed_at: new Date().toISOString(),
+    primary: regimes[0]?.id || 'NORMAL',
+  };
+}
+
+// ─── Fleet contradiction + freshness helpers ────────────────────────────────
+
+function detectContradictions(entry) {
+  const flags = [];
+  if (entry.status === 'operational' && entry.source && !entry.source.match(/TSO|Litgrid|Elering|AST|operational|energis|grid permit/i))
+    flags.push({ id: 'C-01', severity: 'HIGH', msg: 'Operational status without TSO/operational evidence' });
+  if (entry.mw && entry.mwh) {
+    const duration = entry.mwh / entry.mw;
+    if (duration < 0.5 || duration > 12)
+      flags.push({ id: 'C-07', severity: 'HIGH', msg: `Duration ${duration.toFixed(1)}h outside 0.5-12h range` });
+  }
+  if (entry.mw > 500)
+    flags.push({ id: 'C-11', severity: 'MEDIUM', msg: `MW=${entry.mw} unusually large for Baltic BESS` });
+  return flags;
+}
+
+function freshnessScore(entry) {
+  if (!entry.updated) return 0.5;
+  const daysSince = (Date.now() - new Date(entry.updated).getTime()) / 86400000;
+  if (daysSince < 30) return 1.0;
+  if (daysSince < 90) return 0.8;
+  if (daysSince < 180) return 0.6;
+  if (daysSince < 365) return 0.4;
+  return 0.2;
+}
+
 const STATUS_WEIGHT = {
   operational: 1.0, commissioned: 1.0,
   under_construction: 0.9, connection_agreement: 0.6,
@@ -104,6 +173,17 @@ function processFleet(entries, demand) {
     else tc = Math.max(0.40, 0.40 - (r - 1.0) * 0.05);
     trajectory.push({ year: yr, sd_ratio: Math.round(r * 100) / 100, phase: ph, cpi: Math.round(tc * 100) / 100 });
   }
+  // Quarantine + contradiction detection
+  const quarantined = [];
+  for (const e of entries) {
+    const flags = detectContradictions(e);
+    e._contradiction_flags = flags;
+    e._freshness = freshnessScore(e);
+    if (flags.some(f => f.severity === 'HIGH')) {
+      e._quarantine = true;
+      quarantined.push({ name: e.name, flags });
+    }
+  }
   return {
     countries,
     baltic_operational_mw: Math.round(baltic_operational),
@@ -114,6 +194,7 @@ function processFleet(entries, demand) {
     phase,
     cpi:                   Math.round(cpi * 100) / 100,
     trajectory,
+    quarantined,
     updated_at:            new Date().toISOString(),
   };
 }
@@ -2621,6 +2702,7 @@ export default {
         console.error('[S1/history] failed:', String(he));
       }
       await env.KKME_SIGNALS.put('s1', JSON.stringify(d));
+      await env.KKME_SIGNALS.put(`raw:s1:${new Date().toISOString().slice(0,10)}`, JSON.stringify({ fetched: new Date().toISOString(), data: d }), { expirationTtl: 604800 });
       console.log(`[S1] ${d.state} spread=${d.spread_eur_mwh}€/MWh swing=${d.lt_daily_swing_eur_mwh}€/MWh sep=${d.separation_pct}% rsi_30d=${d.rsi_30d}`);
     } else {
       console.error('[S1] cron failed:', s1Result.reason);
@@ -2656,6 +2738,7 @@ export default {
     if (s3Result.status === 'fulfilled') {
       const d = s3Result.value;
       await env.KKME_SIGNALS.put('s3', JSON.stringify(d));
+      await env.KKME_SIGNALS.put(`raw:s3:${new Date().toISOString().slice(0,10)}`, JSON.stringify({ fetched: new Date().toISOString(), data: d }), { expirationTtl: 604800 });
       if (d.unavailable) {
         console.error(`[S3] scrape failed: ${d._scrape_error}`);
       } else {
@@ -2707,6 +2790,7 @@ export default {
     if (s7Res.status === 'fulfilled') {
       const d = s7Res.value;
       await env.KKME_SIGNALS.put('s7', JSON.stringify(d));
+      await env.KKME_SIGNALS.put(`raw:s7:${new Date().toISOString().slice(0,10)}`, JSON.stringify({ fetched: new Date().toISOString(), data: d }), { expirationTtl: 604800 });
       console.log(`[S7] ${d.signal} ttf=${d.ttf_eur_mwh}€/MWh trend=${d.ttf_trend}`);
       await appendSignalHistory(env, 's7', { ttf_eur_mwh: d.ttf_eur_mwh }).catch(e => console.error('[S7/history]', e));
     } else {
@@ -3714,6 +3798,52 @@ export default {
       return new Response(JSON.stringify(health, null, 2), {
         headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...CORS },
       });
+    }
+
+    // ── GET /health-detail ─────────────────────────────────────────────────
+    // Extended health: per-signal validation, fleet quarantine, regime detection.
+    if (request.method === 'GET' && url.pathname === '/health-detail') {
+      try {
+        const keys = ['s1', 's2', 's2_fleet', 's3', 's4', 's7', 's8', 's9'];
+        const results = await Promise.all(keys.map(k => env.KKME_SIGNALS.get(k).catch(() => null)));
+        const sources = {};
+        const warnings = [];
+        const errors = [];
+        for (let i = 0; i < keys.length; i++) {
+          const k = keys[i];
+          const raw = results[i];
+          if (!raw) { errors.push(`${k}: no data in KV`); sources[k] = { status: 'failed', age_hours: null }; continue; }
+          let d;
+          try { d = JSON.parse(raw); } catch { errors.push(`${k}: invalid JSON`); sources[k] = { status: 'failed' }; continue; }
+          const ts = d.fetched_at || d.updated_at || d.timestamp || null;
+          const ageH = ts ? ((Date.now() - new Date(ts).getTime()) / 3600000) : null;
+          const stale = ageH !== null && ageH > 12;
+          if (stale) warnings.push(`${k}: stale (${Math.round(ageH)}h)`);
+          const issues = validate(k, d);
+          for (const iss of issues) { if (iss.severity === 'error') errors.push(iss.msg); else warnings.push(iss.msg); }
+          sources[k] = { status: stale ? 'stale' : 'healthy', last_fetch: ts, age_hours: ageH ? Math.round(ageH * 10) / 10 : null };
+        }
+        // Fleet quarantine
+        const fleetRaw = results[keys.indexOf('s2_fleet')];
+        let quarantine = { fleet_entries: 0, reasons: [] };
+        if (fleetRaw) {
+          try {
+            const fleet = JSON.parse(fleetRaw);
+            const qEntries = (fleet.raw_entries || []).filter(e => e._quarantine);
+            quarantine = { fleet_entries: qEntries.length, reasons: qEntries.map(e => ({ name: e.name, flags: e._contradiction_flags })) };
+          } catch { /* ignore parse errors */ }
+        }
+        // Regime
+        let s2fleet = {};
+        try { s2fleet = fleetRaw ? JSON.parse(fleetRaw) : {}; } catch { /* ignore */ }
+        const s7raw = results[keys.indexOf('s7')];
+        let s7d = {};
+        try { s7d = s7raw ? JSON.parse(s7raw) : {}; } catch { /* ignore */ }
+        const regime = computeRegime({ sd_ratio: s2fleet.sd_ratio, ttf_eur_mwh: s7d.ttf_eur_mwh });
+        return jsonResp({ sources, validation: { errors, warnings }, quarantine, regime, model_version: 'v5.1' });
+      } catch (e) {
+        return jsonResp({ error: e.message }, 500);
+      }
     }
 
     // ── POST /heartbeat ──────────────────────────────────────────────────────

@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react';
 import { useSignal } from '@/lib/useSignal';
 import { safeNum } from '@/lib/safeNum';
 import {
-  MetricTile, StatusChip, SourceFooter, DetailsDrawer,
+  MetricTile, StatusChip, SourceFooter, DetailsDrawer, DataClassBadge,
 } from '@/app/components/primitives';
 import type { ImpactState, Sentiment } from '@/app/lib/types';
 import {
@@ -499,24 +499,27 @@ export function S2Card() {
             display: 'grid',
             gridTemplateColumns: '1fr 1fr',
             gap: '14px',
-            marginBottom: '20px',
+            marginBottom: '12px',
           }}>
-            <div>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--font-base)', color: 'var(--text-secondary)' }}>
-                {data.afrr_up_avg != null ? safeNum(data.afrr_up_avg, 0) : '—'} <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>€/MW/h</span>
+            <div style={{ padding: '6px 10px', borderLeft: '1px solid var(--amber)', opacity: 0.85 }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>
+                {data.afrr_up_avg != null ? safeNum(data.afrr_up_avg, 0) : '—'} <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>€/MW/h</span>
               </div>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
-                aFRR capacity · Baltic proxy
+                aFRR capacity <DataClassBadge dataClass="proxy" />
               </div>
             </div>
-            <div>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--font-base)', color: 'var(--text-secondary)' }}>
-                {data.mfrr_up_avg != null ? safeNum(data.mfrr_up_avg, 0) : '—'} <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>€/MW/h</span>
+            <div style={{ padding: '6px 10px', borderLeft: '1px solid var(--amber)', opacity: 0.85 }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>
+                {data.mfrr_up_avg != null ? safeNum(data.mfrr_up_avg, 0) : '—'} <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>€/MW/h</span>
               </div>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
-                mFRR capacity · Baltic proxy
+                mFRR capacity <DataClassBadge dataClass="proxy" />
               </div>
             </div>
+          </div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '20px', opacity: 0.7 }}>
+            KKME estimates from BTD procurement data. No Baltic clearing prices observed.
           </div>
 
           {/* Fleet composition */}
@@ -576,19 +579,19 @@ export function S2Card() {
                 fontSize: 'var(--font-sm)',
                 marginBottom: '16px',
               }}>
-                <span style={{ color: 'var(--text-muted)' }}>aFRR up</span>
+                <span style={{ color: 'var(--text-muted)' }}>aFRR up <DataClassBadge dataClass="proxy" /></span>
                 <span style={{ color: 'var(--text-secondary)' }}>
                   {safeNum(data.afrr_up_avg, 1)} €/MW/h · CH 2027: €20 · CH 2028: €10
                 </span>
-                <span style={{ color: 'var(--text-muted)' }}>mFRR up</span>
+                <span style={{ color: 'var(--text-muted)' }}>mFRR up <DataClassBadge dataClass="proxy" /></span>
                 <span style={{ color: 'var(--text-secondary)' }}>
                   {safeNum(data.mfrr_up_avg, 1)} €/MW/h · CH 2027: €20 · CH 2030: €11
                 </span>
                 {data.fcr_avg != null && (
                   <>
-                    <span style={{ color: 'var(--text-muted)' }}>FCR</span>
+                    <span style={{ color: 'var(--text-muted)' }}>FCR <DataClassBadge dataClass="proxy" /></span>
                     <span style={{ color: 'var(--text-secondary)' }}>
-                      {safeNum(data.fcr_avg, 1)} €/MW/h · 25 MW total Baltic market
+                      {safeNum(data.fcr_avg, 1)} €/MW/h · ~28 MW Baltic total · DRR covers 100% at zero price
                     </span>
                   </>
                 )}

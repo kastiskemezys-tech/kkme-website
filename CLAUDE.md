@@ -458,6 +458,20 @@ Branded metric name ("KKME Baltic BESS Index")
 Individual fleet entry pages (/fleet/ignitis-kelme)
 aFRR/mFRR price history chart on S2
 
+## Governance docs (~/kkme/docs/)
+- VARIABLE_DICTIONARY.md — every metric, its source, data class, confidence, inference distance
+- SOURCE_REGISTRY.md — every data source, what it proves/doesn't
+- MODEL_RISK_REGISTER.md — structured risk table with IDs
+- PRODUCT_DEFINITIONS.md — Baltic reserve product structure (lock before coding)
+- ASSUMPTION_REGISTRY.md — every hardcoded value, auditable
+- MODEL_CHANGELOG.md — version history
+- REGIME_DEFINITIONS.md — market regime objects with triggers
+- PUBLICATION_GATES.md — confidence + inference distance → publish/withhold rules
+- ASSET_CAPABILITY_PROFILE.md — reference BESS physical constraints
+- CONTRADICTION_RULES.md — pipeline evidence conflict detection
+When adding new metrics or changing formulas, update the relevant doc.
+When a metric's publication gate is INTERNAL_ONLY, do not show it as a hero value.
+
 ## Session rules
 
 1. Read THIS file first. It is the single source of truth.
