@@ -106,7 +106,7 @@ export function S7Card() {
           {history.length > 0 && (
             <div style={{ marginBottom: '16px' }}>
               <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>Recent trend</p>
-              <Sparkline values={history} color="#f6a35a" width={200} height={40} />
+              <Sparkline values={history} color="var(--series-gas)" width={200} height={40} />
             </div>
           )}
           <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>Thresholds</p>

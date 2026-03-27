@@ -113,14 +113,14 @@ function FillBar({ fill, median }: { fill: number; median: number }) {
   const isLow  = fill < median - 5;
   const isHigh = fill > median + 5;
   const bg = isLow
-    ? 'rgba(204,160,72,0.25)'
+    ? 'var(--amber-bg)'
     : isHigh
-    ? 'rgba(86,166,110,0.25)'
+    ? 'var(--teal-bg)'
     : 'rgba(100,130,200,0.20)';
   const shimmerColor = isLow
-    ? 'rgba(204,160,72,0.15)'
+    ? 'var(--amber-bg)'
     : isHigh
-    ? 'rgba(86,166,110,0.15)'
+    ? 'var(--teal-bg)'
     : 'rgba(100,130,200,0.12)';
 
   return (
@@ -176,7 +176,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
             {data.signal ?? ''}
           </span>
         </p>
-        <Sparkline values={history} color="#6fa3ef" width={160} height={40} />
+        <Sparkline values={history} color="var(--series-hydro)" width={160} height={40} />
       </div>
 
       {/* Fill bar */}

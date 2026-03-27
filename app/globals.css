@@ -68,6 +68,11 @@
   --chart-tick:  rgba(232, 226, 217, 0.18);
   --chart-bar:   rgba(232, 226, 217, 0.62);
 
+  /* Chart series — data-semantic, consistent across themes */
+  --series-hydro:  #6fa3ef;
+  --series-gas:    #f6a35a;
+  --series-carbon: #c084fc;
+
   /* Map */
   --map-bg: rgba(7, 7, 10, 0.85);
 

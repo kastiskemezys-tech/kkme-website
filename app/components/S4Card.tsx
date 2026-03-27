@@ -198,13 +198,19 @@ export function S4Card() {
         <div style={{ margin: '16px 0 20px' }}>
           <div style={{ display: 'flex', height: '40px', gap: '1px', borderRadius: '2px', overflow: 'hidden' }}>
             {connPct > 0 && (
-              <div style={{ flex: connPct, background: 'var(--rose-strong)' }} />
+              <div style={{ flex: connPct, background: 'var(--rose-strong)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                {connPct > 12 && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-primary)', opacity: 0.8 }}>{connPct.toFixed(0)}%</span>}
+              </div>
             )}
             {resPct > 0 && (
-              <div style={{ flex: resPct, background: 'var(--amber-strong)' }} />
+              <div style={{ flex: resPct, background: 'var(--amber-strong)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                {resPct > 12 && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-primary)', opacity: 0.8 }}>{resPct.toFixed(0)}%</span>}
+              </div>
             )}
             {availPct > 0 && (
-              <div style={{ flex: availPct, background: 'var(--teal-medium)' }} />
+              <div style={{ flex: availPct, background: 'var(--teal-medium)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                {availPct > 12 && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-primary)', opacity: 0.8 }}>{availPct.toFixed(0)}%</span>}
+              </div>
             )}
           </div>
           <div style={{
@@ -216,9 +222,9 @@ export function S4Card() {
             flexWrap: 'wrap',
             gap: '4px 12px',
           }}>
-            <span>Connected: {formatMW(connected)} MW</span>
-            <span>Reserved: {formatMW(reserved)} MW</span>
-            <span>Available: {formatMW(free)} MW</span>
+            <span><span style={{ color: 'var(--rose-strong)' }}>■</span> Connected: {formatMW(connected)} MW</span>
+            <span><span style={{ color: 'var(--amber-strong)' }}>■</span> Reserved: {formatMW(reserved)} MW</span>
+            <span><span style={{ color: 'var(--teal-medium)' }}>■</span> Available: {formatMW(free)} MW</span>
           </div>
         </div>
       )}

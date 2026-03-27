@@ -10,11 +10,18 @@ interface SparklineProps {
   height?: number;
   color?:  string;
   p50?:    number;
+  /** Show min/max value markers on the left edge */
+  showRange?: boolean;
+  /** Unit suffix for min/max labels (e.g. "€/MWh") */
+  rangeUnit?: string;
+  /** Number of decimal places for min/max labels */
+  rangeDecimals?: number;
 }
 
 export function Sparkline({
   values, labels, width, height = 24,
-  color = '#4ade80', p50,
+  color = 'var(--teal)', p50,
+  showRange = false, rangeUnit = '', rangeDecimals = 1,
 }: SparklineProps) {
   const lineRef = useRef<SVGPolylineElement>(null);
 
@@ -57,11 +64,15 @@ export function Sparkline({
   const p50Y   = p50 !== undefined ? toY(p50) : null;
   const gradId = `sg-${W}-${height}`;
 
+  // For range markers, we need extra left margin in the viewBox
+  const marginL = showRange ? 48 : 0;
+  const totalW = W + marginL;
+
   return (
     <svg
       width={width ?? '100%'}
       height={height}
-      viewBox={`0 0 ${W} ${height}`}
+      viewBox={`${-marginL} -2 ${totalW} ${height + 4}`}
       preserveAspectRatio="none"
       style={{ display: 'block', overflow: 'visible' }}
     >
@@ -113,6 +124,32 @@ export function Sparkline({
           </rect>
         );
       })}
+
+      {/* Min/max range markers */}
+      {showRange && (
+        <>
+          <text
+            x={-4}
+            y={2}
+            textAnchor="end"
+            fontFamily="var(--font-mono)"
+            fontSize="9"
+            fill="var(--text-muted)"
+          >
+            {max.toFixed(rangeDecimals)}{rangeUnit ? ` ${rangeUnit}` : ''}
+          </text>
+          <text
+            x={-4}
+            y={height - 1}
+            textAnchor="end"
+            fontFamily="var(--font-mono)"
+            fontSize="9"
+            fill="var(--text-muted)"
+          >
+            {min.toFixed(rangeDecimals)}{rangeUnit ? ` ${rangeUnit}` : ''}
+          </text>
+        </>
+      )}
     </svg>
   );
 }

@@ -211,6 +211,41 @@ When building any new card:
 3. Verify the default card height — if taller than ~450px (excluding chart), move more into the drawer
 4. Test with drawer closed AND open before committing
 
+## Chart and visualization discipline (binding)
+
+### Axes and scale
+Every chart must communicate its scale. A reader should never have to guess what "high" or "low" means.
+- Sparklines: show min and max value markers at the Y-axis edges (left side, font-xs, text-muted). These are not axis labels — they are range indicators so the reader knows the scale.
+- Bar charts: include a reference line or threshold annotation if the data has a meaningful threshold (e.g., 1.0× on S/D ratio).
+- Stacked bars: show percentage labels when segment proportions matter for the decision.
+- Time axis: always indicate the time range (e.g., "30 days", "2025–2029"). Use left = oldest, right = newest.
+
+### Legends
+If color carries meaning, the meaning must be stated. No chart should require the reader to memorize a color scheme.
+- Use inline legends (colored square + label) below or beside the chart, not a separate key.
+- Map flow arcs: include a compact legend (export = green, import = amber) near the map.
+- Phase-colored bars: include phase names in the legend or directly label each bar.
+
+### Statistical honesty
+- Never truncate a Y-axis to exaggerate movement unless the truncation is explicitly marked (e.g., "axis starts at X").
+- Sparklines without Y-axis labels are permitted ONLY if min/max markers are present.
+- Do not show trend lines or moving averages unless the method is stated (e.g., "7-day rolling").
+- Do not imply precision beyond the data source. If the source updates daily, don't show hourly granularity.
+
+### Color rules for charts
+- Use CSS custom properties (var(--token)) for all chart colors. Never use hardcoded hex or rgba() in chart components.
+- Data-semantic colors (export green, import amber, LT purple) are exceptions — these stay consistent across themes but should still use named constants or variables where possible.
+- Sentiment colors: teal = positive, amber = caution, rose = negative. Do not deviate.
+
+### Chart sizing and responsiveness
+- Minimum chart height: 120px for sparklines intended as primary visualization, 24–40px for inline sparklines in detail areas.
+- Charts must not overflow their container horizontally on mobile (320px viewport).
+- SVG viewBox should use the coordinate system; width should be responsive (100% or constrained by container).
+
+### Freshness and provenance on charts
+- If a chart shows historical data, the time range must be visible (either as axis labels or a subtitle).
+- If the data is proxy, modeled, or derived, this must be stated near the chart — not only in the source footer.
+
 ## Content rules (binding)
 
 Reference asset section: Open with current Baltic reference asset economics, NOT "against Clean Horizon." CH benchmark is secondary context, not the framing device.

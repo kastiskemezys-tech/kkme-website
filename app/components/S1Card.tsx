@@ -165,6 +165,9 @@ export function S1Card() {
             p50={spreadP50 ?? undefined}
             color="var(--teal-strong)"
             height={200}
+            showRange
+            rangeUnit="€"
+            rangeDecimals={0}
           />
           <div style={{
             display: 'flex',
@@ -175,6 +178,11 @@ export function S1Card() {
             marginTop: '4px',
           }}>
             <span>{daysOfData > 0 ? `${daysOfData} days` : ''}</span>
+            {spreadP50 != null && (
+              <span style={{ color: 'var(--chart-grid)' }}>
+                ┄ median {spreadP50 >= 0 ? '+' : ''}{spreadP50.toFixed(0)}€
+              </span>
+            )}
             <span>today</span>
           </div>
         </div>
@@ -240,6 +248,19 @@ export function S1Card() {
           </div>
         );
       })()}
+
+      {/* CAPTURE CAVEAT */}
+      <p style={{
+        fontFamily: 'var(--font-mono)',
+        fontSize: 'var(--font-xs)',
+        color: 'var(--text-muted)',
+        lineHeight: 1.5,
+        marginBottom: '8px',
+        paddingLeft: '12px',
+        borderLeft: '1px solid var(--amber-subtle)',
+      }}>
+        Theoretical capture from price shape only. Realized BESS capture depends on reserve commitment, SoC, and activation timing.
+      </p>
 
       {/* INTERPRETATION */}
       <p style={{

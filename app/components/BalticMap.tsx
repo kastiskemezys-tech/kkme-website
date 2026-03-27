@@ -309,6 +309,19 @@ export function BalticMap({
           LitPol{litpol_mw ? ` ${Math.abs(litpol_mw).toFixed(0)} MW` : ''}
         </text>
       </svg>
+      {/* Flow direction legend */}
+      <div style={{
+        display: 'flex',
+        gap: '10px',
+        fontFamily: 'var(--font-mono)',
+        fontSize: '9px',
+        color: 'var(--text-muted)',
+        marginTop: '4px',
+        justifyContent: 'flex-end',
+      }}>
+        <span><span style={{ color: 'rgba(74,222,128,0.80)' }}>→</span> LT export</span>
+        <span><span style={{ color: 'rgba(245,158,11,0.80)' }}>→</span> LT import</span>
+      </div>
     </div>
   );
 }

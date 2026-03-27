@@ -643,6 +643,22 @@ export function TradingEngineCard() {
         </div>
       )}
 
+      {/* DISPATCH CAVEAT */}
+      <div style={{
+        padding: '8px 12px',
+        borderLeft: '1px solid var(--amber-subtle)',
+        marginBottom: '12px',
+      }}>
+        <p style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: 'var(--font-xs)',
+          color: 'var(--text-muted)',
+          lineHeight: 1.5,
+        }}>
+          Dispatch split is derived from public market data and assumptions, not unit-level observed battery dispatch.
+        </p>
+      </div>
+
       {/* IMPACT LINE */}
       <div style={{
         fontFamily: 'var(--font-mono)',
@@ -808,7 +824,7 @@ export function TradingEngineCard() {
             }}>
               <thead>
                 <tr>
-                  {['Hour', 'DA€', 'Cap€', 'Act€', 'Arb€', 'SoC%', 'Total€'].map(h => (
+                  {['Hour', 'DA price', 'Capacity', 'Activation', 'Arbitrage', 'SoC', 'Total'].map(h => (
                     <th key={h} style={{
                       textAlign: 'left',
                       padding: '4px 6px',

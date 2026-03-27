@@ -250,10 +250,35 @@ export function S2Card() {
         )}
       </div>
 
+      {/* PROXY CAVEAT */}
+      <p style={{
+        fontFamily: 'var(--font-mono)',
+        fontSize: 'var(--font-xs)',
+        color: 'var(--text-muted)',
+        lineHeight: 1.5,
+        marginBottom: '16px',
+        paddingLeft: '12px',
+        borderLeft: '1px solid var(--amber-subtle)',
+      }}>
+        Reserve prices use Baltic-calibrated proxies, not observed clearing. Treat as directional market signal, not realized merchant revenue.
+      </p>
+
       {/* TRAJECTORY CHART — S/D ratio by year */}
       {trajectory && trajectory.length > 0 && (
         <div style={{ marginBottom: '16px' }}>
-          <div style={{ position: 'relative', height: '160px', display: 'flex', alignItems: 'flex-end', gap: '4px' }}>
+          <div style={{ position: 'relative', height: '160px', display: 'flex', alignItems: 'flex-end', gap: '4px', paddingLeft: '24px' }}>
+            {/* Y-axis label */}
+            <span style={{
+              position: 'absolute',
+              left: 0,
+              top: '50%',
+              transform: 'rotate(-90deg) translateX(-50%)',
+              transformOrigin: '0 0',
+              fontFamily: 'var(--font-mono)',
+              fontSize: 'var(--font-xs)',
+              color: 'var(--text-muted)',
+              whiteSpace: 'nowrap',
+            }}>S/D ×</span>
             {/* 1.0× threshold line */}
             <div style={{
               position: 'absolute',
@@ -315,15 +340,22 @@ export function S2Card() {
               );
             })}
           </div>
+          {/* Phase color legend */}
           <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-xs)',
             color: 'var(--text-muted)',
-            textAlign: 'right',
-            marginTop: '1px',
-            opacity: 0.45,
+            marginTop: '4px',
           }}>
-            CPI (modeled)
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <span><span style={{ color: 'var(--teal-strong)' }}>■</span> Scarcity</span>
+              <span><span style={{ color: 'var(--amber-strong)' }}>■</span> Tightening</span>
+              <span><span style={{ color: 'var(--rose-strong)' }}>■</span> Saturated</span>
+            </div>
+            <span style={{ opacity: 0.6 }}>CPI = capacity price index (modeled)</span>
           </div>
         </div>
       )}

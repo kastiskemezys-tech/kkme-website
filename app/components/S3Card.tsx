@@ -130,7 +130,7 @@ export function S3Card() {
       </p>
 
       {/* Impact tag */}
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'rgba(0,180,160,0.65)', marginBottom: '12px' }}>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--teal-medium)', marginBottom: '12px' }}>
         Reference asset: CAPEX partially improving — grid scope remains the dominant variable
       </div>
 

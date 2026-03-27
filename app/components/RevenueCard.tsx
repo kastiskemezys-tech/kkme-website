@@ -600,17 +600,21 @@ export function RevenueCard() {
         Equity IRR: {fmtPct(eqIrr2h)} (2H) · {fmtPct(eqIrr4h)} (4H)
       </p>
 
-      {/* Disclaimer */}
-      <p style={{
-        fontFamily: 'var(--font-mono)',
-        fontSize: 'var(--font-xs)',
-        color: 'var(--text-muted)',
-        lineHeight: 1.5,
-        opacity: 0.7,
+      {/* Anti-overclaim + disclaimer */}
+      <div style={{
+        padding: '8px 12px',
+        borderLeft: '1px solid var(--amber-subtle)',
         marginBottom: '20px',
       }}>
-        Modeled scenario screen — not a lender credit assessment. Real bankability depends on revenue quality, downside coverage, covenant structure, and project-specific due diligence.
-      </p>
+        <p style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: 'var(--font-xs)',
+          color: 'var(--text-muted)',
+          lineHeight: 1.5,
+        }}>
+          Modeled using current market signals. Current conditions may not persist to COD. Scenario screen only — not a lender credit assessment or investment recommendation.
+        </p>
+      </div>
 
       {/* 6. REVENUE BREAKDOWN — selected duration */}
       {selected && (() => {
