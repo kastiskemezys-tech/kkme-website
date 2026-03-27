@@ -165,75 +165,74 @@ function LoadingSkeleton() {
 
 // ── 24-hour revenue bar chart ─────────────────────────────────────────────
 
-function HourlyBars({ hourly }: { hourly: HourlyEntry[] }) {
+function HourlyBars({ hourly, date }: { hourly: HourlyEntry[]; date?: string }) {
   if (!hourly || hourly.length === 0) return null;
 
   const maxTotal = Math.max(...hourly.map(h => Math.abs(h.revenue.total)), 1);
-  const barWidth = 100 / 24;
-  const chartH = 120;
-  const labelH = 16;
-  const svgH = chartH + labelH;
+  // Use a wider viewBox with left margin for Y-axis and bottom for labels
+  const leftM = 14;
+  const chartW = 96;
+  const chartH = 100;
+  const labelH = 10;
+  const vbW = leftM + chartW;
+  const vbH = chartH + labelH + 2;
+  const barW = chartW / 24;
+  const maxEur = Math.round(maxTotal);
+
+  // Format date for title
+  const dateLabel = date ? new Date(date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '';
 
   return (
-    <div style={{ margin: '16px 0', overflow: 'hidden' }}>
+    <div style={{ margin: '16px 0' }}>
       <svg
-        viewBox={`0 0 100 ${svgH}`}
-        preserveAspectRatio="none"
-        style={{ width: '100%', height: `${svgH * 1.5}px`, display: 'block' }}
+        viewBox={`0 0 ${vbW} ${vbH}`}
+        style={{ width: '100%', height: '200px', display: 'block' }}
       >
+        {/* Y-axis max label */}
+        <text x={leftM - 1} y={6} textAnchor="end" fill="var(--text-muted)"
+          style={{ fontSize: '3px', fontFamily: 'var(--font-mono)' }}>
+          €{maxEur > 999 ? `${(maxEur / 1000).toFixed(1)}k` : maxEur}
+        </text>
+        {/* Y-axis mid gridline */}
+        <line x1={leftM} y1={chartH / 2} x2={leftM + chartW} y2={chartH / 2}
+          stroke="var(--border-card)" strokeWidth={0.3} />
+        <text x={leftM - 1} y={chartH / 2 + 1.5} textAnchor="end" fill="var(--text-muted)"
+          style={{ fontSize: '2.5px', fontFamily: 'var(--font-mono)' }}>
+          €{Math.round(maxEur / 2)}
+        </text>
+        {/* Y-axis baseline */}
+        <line x1={leftM} y1={chartH} x2={leftM + chartW} y2={chartH}
+          stroke="var(--border-card)" strokeWidth={0.3} />
+
+        {/* Bars */}
         {hourly.map((h) => {
           const cap = Math.max(0, h.revenue.capacity);
           const act = Math.max(0, h.revenue.activation);
           const arb = h.revenue.arbitrage;
-          const posTotal = cap + act + Math.max(0, arb);
-          const barH = (posTotal / maxTotal) * chartH;
-          const x = h.hour * barWidth;
-
-          // Stacked: capacity bottom, activation middle, arbitrage top
-          const capH = (cap / maxTotal) * chartH;
-          const actH = (act / maxTotal) * chartH;
-          const arbH = (Math.abs(arb) / maxTotal) * chartH;
+          const x = leftM + h.hour * barW;
+          // Min bar height of 1.5 for nonzero values
+          const capH = cap > 0 ? Math.max(1.5, (cap / maxTotal) * chartH) : 0;
+          const actH = act > 0 ? Math.max(1.5, (act / maxTotal) * chartH) : 0;
+          const arbH = Math.abs(arb) > 0 ? Math.max(1.5, (Math.abs(arb) / maxTotal) * chartH) : 0;
 
           return (
             <g key={h.hour}>
-              {/* Capacity */}
-              <rect
-                x={x + 0.3}
-                y={chartH - capH}
-                width={barWidth - 0.6}
-                height={capH}
-                fill="var(--teal)"
-                opacity={0.5}
-              />
-              {/* Activation */}
-              <rect
-                x={x + 0.3}
-                y={chartH - capH - actH}
-                width={barWidth - 0.6}
-                height={actH}
-                fill="var(--teal)"
-                opacity={0.8}
-              />
+              {/* Capacity — base, dimmer */}
+              {capH > 0 && <rect x={x + 0.25} y={chartH - capH} width={barW - 0.5} height={capH}
+                fill="var(--teal)" opacity={0.4} />}
+              {/* Activation — brighter */}
+              {actH > 0 && <rect x={x + 0.25} y={chartH - capH - actH} width={barW - 0.5} height={actH}
+                fill="var(--teal)" opacity={1} />}
               {/* Arbitrage */}
-              {arb !== 0 && (
-                <rect
-                  x={x + 0.3}
-                  y={arb > 0 ? chartH - barH : chartH - capH - actH - arbH}
-                  width={barWidth - 0.6}
-                  height={arbH}
-                  fill={arb > 0 ? 'var(--amber)' : 'var(--rose)'}
-                  opacity={0.7}
-                />
-              )}
-              {/* Hour labels every 4h */}
-              {h.hour % 4 === 0 && (
-                <text
-                  x={x + barWidth / 2}
-                  y={chartH + labelH - 2}
-                  textAnchor="middle"
-                  fill="var(--text-muted)"
-                  style={{ fontSize: '3px', fontFamily: 'var(--font-mono)' }}
-                >
+              {arbH > 0 && <rect x={x + 0.25}
+                y={arb > 0 ? chartH - capH - actH - arbH : chartH - capH - actH - arbH}
+                width={barW - 0.5} height={arbH}
+                fill={arb > 0 ? 'var(--amber)' : 'var(--rose)'} opacity={1} />}
+              {/* Hour labels every 3 hours */}
+              {h.hour % 3 === 0 && (
+                <text x={x + barW / 2} y={chartH + labelH}
+                  textAnchor="middle" fill="var(--text-muted)"
+                  style={{ fontSize: '2.8px', fontFamily: 'var(--font-mono)' }}>
                   {String(h.hour).padStart(2, '0')}
                 </text>
               )}
@@ -243,13 +242,20 @@ function HourlyBars({ hourly }: { hourly: HourlyEntry[] }) {
       </svg>
       {/* Legend */}
       <div style={{
-        display: 'flex', gap: '12px', marginTop: '4px',
+        display: 'flex', gap: '14px', marginTop: '6px',
         fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
-        color: 'var(--text-muted)',
+        color: 'var(--text-muted)', alignItems: 'center',
       }}>
-        <span><span style={{ display: 'inline-block', width: '8px', height: '8px', background: 'var(--teal)', opacity: 0.5, marginRight: '4px', verticalAlign: 'middle' }} />Capacity</span>
-        <span><span style={{ display: 'inline-block', width: '8px', height: '8px', background: 'var(--teal)', opacity: 0.8, marginRight: '4px', verticalAlign: 'middle' }} />Activation</span>
-        <span><span style={{ display: 'inline-block', width: '8px', height: '8px', background: 'var(--amber)', opacity: 0.7, marginRight: '4px', verticalAlign: 'middle' }} />Arbitrage</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '1px', background: 'var(--teal)', opacity: 0.4 }} />Capacity
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '1px', background: 'var(--teal)', opacity: 1 }} />Activation
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '1px', background: 'var(--amber)' }} />Arbitrage
+        </span>
+        {dateLabel && <span style={{ marginLeft: 'auto', color: 'var(--text-tertiary)' }}>{dateLabel}</span>}
       </div>
     </div>
   );
@@ -272,66 +278,128 @@ function WeekSparkline({ history }: { history: HistoryEntry[] }) {
   }
 
   const values = history.map(h => h.totals.per_mw);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const range = max - min || 1;
-  const w = 100;
-  const h = 24;
-  const pad = 2;
+  const minVal = Math.min(...values);
+  const maxVal = Math.max(...values);
+  const range = maxVal - minVal || 1;
+  const minIdx = values.indexOf(minVal);
+  const maxIdx = values.indexOf(maxVal);
 
-  const points = values.map((v, i) => {
-    const x = (i / (values.length - 1)) * w;
-    const y = pad + (1 - (v - min) / range) * (h - 2 * pad);
-    return `${x},${y}`;
-  });
+  // Layout: left margin for Y labels, right margin, top for labels, bottom for dates
+  const leftM = 16;
+  const rightM = 2;
+  const topM = 8;
+  const bottomM = 10;
+  const chartW = 100 - leftM - rightM;
+  const chartH = 32;
+  const vbW = 100;
+  const vbH = topM + chartH + bottomM;
 
-  const areaPoints = [
-    `0,${h}`,
-    ...points,
-    `${w},${h}`,
-  ].join(' ');
-
-  // Check if weekend (Sat=6, Sun=0)
   const isWeekend = (dateStr: string) => {
-    const day = new Date(dateStr).getDay();
+    const day = new Date(dateStr + 'T00:00:00').getDay();
     return day === 0 || day === 6;
   };
 
+  const fmtDate = (dateStr: string) => {
+    const d = new Date(dateStr + 'T00:00:00');
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  };
+
+  const getXY = (i: number) => {
+    const x = leftM + (values.length > 1 ? (i / (values.length - 1)) * chartW : chartW / 2);
+    const y = topM + (1 - (values[i] - minVal) / range) * chartH;
+    return { x, y };
+  };
+
+  const linePoints = values.map((_, i) => {
+    const { x, y } = getXY(i);
+    return `${x},${y}`;
+  });
+  const areaPoints = [
+    `${leftM},${topM + chartH}`,
+    ...linePoints,
+    `${leftM + chartW},${topM + chartH}`,
+  ].join(' ');
+
   return (
     <div style={{ margin: '8px 0' }}>
-      <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', height: '40px', display: 'block' }}>
-        <polygon points={areaPoints} fill="var(--teal)" opacity={0.08} />
-        <polyline
-          points={points.join(' ')}
-          fill="none"
-          stroke="var(--teal)"
-          strokeWidth="0.8"
-          opacity={0.6}
-        />
-        {values.map((v, i) => {
-          const x = (i / (values.length - 1)) * w;
-          const y = pad + (1 - (v - min) / range) * (h - 2 * pad);
-          const weekend = isWeekend(history[i].date);
+      <svg viewBox={`0 0 ${vbW} ${vbH}`} style={{ width: '100%', height: '80px', display: 'block' }}>
+        {/* Weekend shading */}
+        {history.map((h, i) => {
+          if (!isWeekend(h.date)) return null;
+          const { x } = getXY(i);
+          const halfStep = values.length > 1 ? (chartW / (values.length - 1)) / 2 : chartW / 2;
           return (
-            <circle
-              key={i}
-              cx={x}
-              cy={y}
-              r={1}
-              fill="var(--teal)"
-              opacity={weekend ? 0.3 : 0.7}
-            />
+            <rect key={`we-${i}`} x={x - halfStep} y={topM} width={halfStep * 2} height={chartH}
+              fill="var(--text-muted)" opacity={0.04} />
+          );
+        })}
+
+        {/* Horizontal gridline at midpoint */}
+        <line x1={leftM} y1={topM + chartH / 2} x2={leftM + chartW} y2={topM + chartH / 2}
+          stroke="var(--border-card)" strokeWidth={0.3} />
+
+        {/* Y-axis labels */}
+        <text x={leftM - 1} y={topM + 2} textAnchor="end" fill="var(--text-muted)"
+          style={{ fontSize: '2.8px', fontFamily: 'var(--font-mono)' }}>
+          €{Math.round(maxVal)}
+        </text>
+        <text x={leftM - 1} y={topM + chartH + 1} textAnchor="end" fill="var(--text-muted)"
+          style={{ fontSize: '2.8px', fontFamily: 'var(--font-mono)' }}>
+          €{Math.round(minVal)}
+        </text>
+
+        {/* Area fill + line */}
+        <polygon points={areaPoints} fill="var(--teal)" opacity={0.08} />
+        <polyline points={linePoints.join(' ')} fill="none"
+          stroke="var(--teal)" strokeWidth="0.7" opacity={0.7} />
+
+        {/* Data point dots */}
+        {values.map((_, i) => {
+          const { x, y } = getXY(i);
+          const weekend = isWeekend(history[i].date);
+          const isExtreme = i === minIdx || i === maxIdx;
+          return (
+            <circle key={i} cx={x} cy={y} r={isExtreme ? 1.5 : 1}
+              fill={isExtreme ? (i === maxIdx ? 'var(--teal)' : 'var(--rose)') : 'var(--teal)'}
+              opacity={weekend ? 0.4 : 0.85} />
+          );
+        })}
+
+        {/* Max label */}
+        {(() => {
+          const { x, y } = getXY(maxIdx);
+          return (
+            <text x={x} y={y - 2.5} textAnchor="middle" fill="var(--teal)"
+              style={{ fontSize: '2.8px', fontFamily: 'var(--font-mono)', fontWeight: 500 }}>
+              ▲ €{Math.round(maxVal)}/MW
+            </text>
+          );
+        })()}
+        {/* Min label */}
+        {(() => {
+          const { x, y } = getXY(minIdx);
+          return (
+            <text x={x} y={y + 4.5} textAnchor="middle" fill="var(--rose)"
+              style={{ fontSize: '2.8px', fontFamily: 'var(--font-mono)', fontWeight: 500 }}>
+              ▼ €{Math.round(minVal)}/MW
+            </text>
+          );
+        })()}
+
+        {/* X-axis date labels */}
+        {history.map((h, i) => {
+          const { x } = getXY(i);
+          // Show all dates if <= 7, else every other
+          if (history.length > 7 && i % 2 !== 0 && i !== history.length - 1) return null;
+          return (
+            <text key={`d-${i}`} x={x} y={topM + chartH + bottomM - 1}
+              textAnchor="middle" fill={isWeekend(h.date) ? 'var(--text-muted)' : 'var(--text-tertiary)'}
+              style={{ fontSize: '2.5px', fontFamily: 'var(--font-mono)' }}>
+              {fmtDate(h.date)}
+            </text>
           );
         })}
       </svg>
-      <div style={{
-        display: 'flex', justifyContent: 'space-between',
-        fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
-        color: 'var(--text-muted)',
-      }}>
-        <span>{history[0]?.date?.slice(5)}</span>
-        <span>{history[history.length - 1]?.date?.slice(5)}</span>
-      </div>
     </div>
   );
 }
@@ -523,7 +591,7 @@ export function TradingEngineCard() {
       }}>
         24-hour dispatch profile
       </p>
-      <HourlyBars hourly={hourly} />
+      <HourlyBars hourly={hourly} date={data._meta?.date} />
 
       {/* 7-DAY SPARKLINE */}
       {history.length > 0 && (
