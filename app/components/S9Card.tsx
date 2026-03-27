@@ -52,6 +52,7 @@ function carbonImpact(sig: string | null | undefined, price: number | null | und
 export function S9Card() {
   const { status, data } = useSignal<S9Signal>(`${WORKER_URL}/s9`);
   const [history, setHistory] = useState<number[]>([]);
+  const [showTip, setShowTip] = useState(false);
 
   useEffect(() => {
     fetch(`${WORKER_URL}/s9/history`)
@@ -95,6 +96,55 @@ export function S9Card() {
       <div className="tier3-impact" style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'rgba(0,180,160,0.65)', marginBottom: '8px' }}>
         {carbonImpact(data.signal, data.eua_eur_t)}
       </div>
+
+      {/* Threshold bar with hover tooltip */}
+      {data.eua_eur_t != null && (
+        <div style={{ position: 'relative', marginBottom: '8px', cursor: 'default' }}
+          onMouseEnter={() => setShowTip(true)}
+          onMouseLeave={() => setShowTip(false)}>
+          <div style={{
+            display: 'flex', height: '6px', borderRadius: '3px', overflow: 'hidden',
+            background: 'var(--bg-elevated)',
+          }}>
+            <div style={{ flex: 30, background: 'var(--teal-subtle)' }} />
+            <div style={{ flex: 25, background: 'var(--amber-subtle)' }} />
+            <div style={{ flex: 25, background: 'var(--amber-strong)' }} />
+            <div style={{ flex: 20, background: 'var(--rose-strong)' }} />
+          </div>
+          <div style={{
+            position: 'absolute', top: 0, bottom: 0, width: '2px',
+            background: 'var(--text-primary)',
+            left: `${Math.min(100, Math.max(0, (data.eua_eur_t / 120) * 100))}%`,
+            borderRadius: '1px',
+          }} />
+          {showTip && (
+            <div style={{
+              position: 'absolute', bottom: '100%', left: '50%',
+              transform: 'translateX(-50%)', marginBottom: 6,
+              background: 'var(--bg-page)',
+              border: '1px solid var(--border-highlight)',
+              padding: '4px 10px', whiteSpace: 'nowrap',
+              fontFamily: 'var(--font-mono)',
+              fontSize: 'var(--font-xs)',
+              color: 'var(--text-primary)', pointerEvents: 'none',
+              zIndex: 10,
+            }}>
+              {data.eua_eur_t.toFixed(1)} €/t · {regimeLabel(data.signal)}
+              {data.eua_eur_t >= 55 ? ' · Above BESS breakeven' : ''}
+            </div>
+          )}
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2px' }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-ghost)' }}>0</span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-ghost)' }}>30</span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-ghost)', position: 'relative' }}>
+              55
+              <span style={{ position: 'absolute', top: '-10px', left: '50%', transform: 'translateX(-50)', fontSize: '0.5rem', color: 'var(--text-ghost)' }}>▲</span>
+            </span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-ghost)' }}>80</span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-ghost)' }}>120</span>
+          </div>
+        </div>
+      )}
 
       <SourceFooter source="energy-charts.info" updatedAt={data.timestamp ? new Date(data.timestamp).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) : undefined} dataClass="observed" />
 

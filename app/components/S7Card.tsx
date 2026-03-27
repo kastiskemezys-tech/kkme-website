@@ -53,6 +53,7 @@ function gasImpact(regime: string | null | undefined): string {
 export function S7Card() {
   const { status, data } = useSignal<S7Signal>(`${WORKER_URL}/s7`);
   const [history, setHistory] = useState<number[]>([]);
+  const [showTip, setShowTip] = useState(false);
 
   useEffect(() => {
     fetch(`${WORKER_URL}/s7/history`)
@@ -98,6 +99,51 @@ export function S7Card() {
       <div className="tier3-impact" style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'rgba(0,180,160,0.65)', marginBottom: '8px' }}>
         {gasImpact(regime)}
       </div>
+
+      {/* Threshold bar with hover tooltip */}
+      {data.ttf_eur_mwh != null && (
+        <div style={{ position: 'relative', marginBottom: '8px', cursor: 'default' }}
+          onMouseEnter={() => setShowTip(true)}
+          onMouseLeave={() => setShowTip(false)}>
+          <div style={{
+            display: 'flex', height: '6px', borderRadius: '3px', overflow: 'hidden',
+            background: 'var(--bg-elevated)',
+          }}>
+            <div style={{ flex: 15, background: 'var(--teal-subtle)' }} />
+            <div style={{ flex: 15, background: 'var(--amber-subtle)' }} />
+            <div style={{ flex: 20, background: 'var(--amber-strong)' }} />
+            <div style={{ flex: 50, background: 'var(--rose-strong)' }} />
+          </div>
+          <div style={{
+            position: 'absolute', top: 0, bottom: 0, width: '2px',
+            background: 'var(--text-primary)',
+            left: `${Math.min(100, Math.max(0, (data.ttf_eur_mwh / 80) * 100))}%`,
+            borderRadius: '1px',
+          }} />
+          {showTip && (
+            <div style={{
+              position: 'absolute', bottom: '100%', left: '50%',
+              transform: 'translateX(-50%)', marginBottom: 6,
+              background: 'var(--bg-page)',
+              border: '1px solid var(--border-highlight)',
+              padding: '4px 10px', whiteSpace: 'nowrap',
+              fontFamily: 'var(--font-mono)',
+              fontSize: 'var(--font-xs)',
+              color: 'var(--text-primary)', pointerEvents: 'none',
+              zIndex: 10,
+            }}>
+              {data.ttf_eur_mwh.toFixed(1)} €/MWh · {regimeLabel(regime)}
+            </div>
+          )}
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2px' }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-ghost)' }}>0</span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-ghost)' }}>15</span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-ghost)' }}>30</span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-ghost)' }}>50</span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-ghost)' }}>80+</span>
+          </div>
+        </div>
+      )}
 
       <SourceFooter source="energy-charts.info" updatedAt={data.timestamp ? new Date(data.timestamp).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) : undefined} dataClass="observed" />
 

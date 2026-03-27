@@ -295,7 +295,7 @@ function HourlyBars({ hourly, date }: { hourly: HourlyEntry[]; date?: string }) 
 
 // ── 7-day revenue trend (Chart.js) ────────────────────────────────────────
 
-function WeekTrend({ history }: { history: HistoryEntry[] }) {
+function WeekTrend({ history, onDateClick }: { history: HistoryEntry[]; onDateClick?: (date: string) => void }) {
   const chartData = useMemo(() => {
     if (history.length < 3) return null;
     const labels = history.map(h => {
@@ -355,6 +355,12 @@ function WeekTrend({ history }: { history: HistoryEntry[] }) {
             responsive: true,
             maintainAspectRatio: false,
             interaction: { mode: 'index', intersect: false },
+            onClick: (_evt, elements) => {
+              if (onDateClick && elements.length > 0) {
+                const idx = elements[0].index;
+                onDateClick(history[idx].date);
+              }
+            },
             plugins: {
               legend: { display: false },
               tooltip: {
@@ -370,7 +376,7 @@ function WeekTrend({ history }: { history: HistoryEntry[] }) {
                     const idx = items[0].dataIndex;
                     const perMw = history[idx].totals.per_mw;
                     const delta = perMw - avg;
-                    return `────────────\n€${Math.round(perMw)}/MW  ${delta >= 0 ? '+' : ''}${Math.round(delta)} vs avg`;
+                    return `────────────\n€${Math.round(perMw)}/MW  ${delta >= 0 ? '+' : ''}${Math.round(delta)} vs avg\n${onDateClick ? '⤴ Click for hourly detail' : ''}`;
                   },
                 },
               },
@@ -412,6 +418,8 @@ export function TradingEngineCard() {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [drawerKey, setDrawerKey] = useState(0);
   const openDrawer = () => setDrawerKey(k => k + 1);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [drillHourly, setDrillHourly] = useState<HourlyEntry[] | null>(null);
 
   useEffect(() => {
     fetch(`${WORKER_URL}/api/trading/history?days=7`)
@@ -462,6 +470,23 @@ export function TradingEngineCard() {
   const avgAct = hourly.length > 0
     ? hourly.reduce((s, h) => s + h.revenue.activation, 0) / hourly.length
     : 0;
+
+  const displayHourly = drillHourly ?? hourly;
+
+  const handleDateClick = (date: string) => {
+    setSelectedDate(date);
+    fetch(`${WORKER_URL}/api/trading?date=${date}`)
+      .then(r => r.json())
+      .then((d: TradingData) => {
+        if (d.dispatch?.hourly) setDrillHourly(d.dispatch.hourly);
+      })
+      .catch(() => {});
+  };
+
+  const clearDrill = () => {
+    setSelectedDate(null);
+    setDrillHourly(null);
+  };
 
   return (
     <article style={{ width: '100%' }}>
@@ -582,17 +607,27 @@ export function TradingEngineCard() {
       </div>
 
       {/* 24-HOUR REVENUE BARS */}
-      <p style={{
-        fontFamily: 'var(--font-mono)',
-        fontSize: 'var(--font-xs)',
-        color: 'var(--text-tertiary)',
-        letterSpacing: '0.08em',
-        textTransform: 'uppercase',
-        marginBottom: '4px',
-      }}>
-        24-hour dispatch profile
-      </p>
-      <HourlyBars hourly={hourly} date={data._meta?.date} />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '4px' }}>
+        <span style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: 'var(--font-xs)',
+          color: 'var(--text-tertiary)',
+          letterSpacing: '0.08em',
+          textTransform: 'uppercase',
+        }}>
+          {selectedDate ? `24-hour dispatch · ${selectedDate}` : '24-hour dispatch profile'}
+        </span>
+        {selectedDate && (
+          <button onClick={clearDrill} style={{
+            color: 'var(--teal)', fontSize: 'var(--font-xs)',
+            background: 'none', border: 'none', cursor: 'pointer',
+            fontFamily: 'var(--font-mono)',
+          }}>
+            ← Latest
+          </button>
+        )}
+      </div>
+      <HourlyBars hourly={displayHourly} date={selectedDate ?? data._meta?.date} />
 
       {/* 7-DAY SPARKLINE */}
       {history.length > 0 && (
@@ -608,7 +643,7 @@ export function TradingEngineCard() {
           }}>
             7-day revenue trend (€/MW/day)
           </p>
-          <WeekTrend history={history} />
+          <WeekTrend history={history} onDateClick={handleDateClick} />
         </>
       )}
 

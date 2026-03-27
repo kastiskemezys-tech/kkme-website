@@ -1,9 +1,11 @@
 name: Fetch BTD — Balancing Stack (S2)
 
 on:
-  schedule:
-    - cron: '30 5 * * *'  # 05:30 UTC — 30 min before S1/S4 cron at 06:00 UTC
-  workflow_dispatch:
+  # schedule disabled — BTD blocks GitHub Actions IPs.
+  # Mac cron (~/kkme-cron/fetch-btd.js) is the active S2 pipeline.
+  # schedule:
+  #   - cron: '30 5 * * *'
+  workflow_dispatch:  # manual trigger only
 
 # Required GitHub secrets:
 # UPDATE_SECRET — must match `wrangler secret put UPDATE_SECRET`
