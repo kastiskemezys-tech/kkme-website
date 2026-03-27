@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSignal } from '@/lib/useSignal';
 import { safeNum } from '@/lib/safeNum';
 import {
@@ -8,6 +8,20 @@ import {
   DataClassBadge, ConfidenceBadge,
 } from '@/app/components/primitives';
 import type { Sentiment } from '@/app/lib/types';
+import {
+  Chart as ChartJS,
+  CategoryScale, LinearScale,
+  BarElement, PointElement, LineElement,
+  Tooltip, Legend, Filler,
+} from 'chart.js';
+import { Bar } from 'react-chartjs-2';
+import { CHART_COLORS, CHART_FONT, tooltipStyle, euroTick } from '@/app/lib/chartTheme';
+
+ChartJS.register(
+  CategoryScale, LinearScale,
+  BarElement, PointElement, LineElement,
+  Tooltip, Legend, Filler
+);
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
@@ -163,84 +177,101 @@ function LoadingSkeleton() {
   );
 }
 
-// ── 24-hour revenue bar chart ─────────────────────────────────────────────
+// ── 24-hour revenue bar chart (Chart.js) ──────────────────────────────────
 
 function HourlyBars({ hourly, date }: { hourly: HourlyEntry[]; date?: string }) {
-  if (!hourly || hourly.length === 0) return null;
+  const chartData = useMemo(() => {
+    if (!hourly || hourly.length === 0) return null;
+    const labels = hourly.map(h => String(h.hour).padStart(2, '0'));
+    return {
+      labels,
+      datasets: [
+        {
+          label: 'Capacity',
+          data: hourly.map(h => Math.max(0, h.revenue.capacity)),
+          backgroundColor: CHART_COLORS.tealLight,
+          borderWidth: 0,
+          borderSkipped: false as const,
+        },
+        {
+          label: 'Activation',
+          data: hourly.map(h => Math.max(0, h.revenue.activation)),
+          backgroundColor: CHART_COLORS.tealMid,
+          borderWidth: 0,
+          borderSkipped: false as const,
+        },
+        {
+          label: 'Arbitrage',
+          data: hourly.map(h => h.revenue.arbitrage),
+          backgroundColor: hourly.map(h =>
+            h.revenue.arbitrage >= 0 ? CHART_COLORS.amberLight : CHART_COLORS.roseLight
+          ),
+          borderWidth: 0,
+          borderSkipped: false as const,
+        },
+      ],
+    };
+  }, [hourly]);
 
-  const maxTotal = Math.max(...hourly.map(h => Math.abs(h.revenue.total)), 1);
-  // Use a wider viewBox with left margin for Y-axis and bottom for labels
-  const leftM = 14;
-  const chartW = 96;
-  const chartH = 100;
-  const labelH = 10;
-  const vbW = leftM + chartW;
-  const vbH = chartH + labelH + 2;
-  const barW = chartW / 24;
-  const maxEur = Math.round(maxTotal);
+  if (!chartData) return null;
 
-  // Format date for title
   const dateLabel = date ? new Date(date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '';
 
   return (
     <div style={{ margin: '16px 0' }}>
-      <svg
-        viewBox={`0 0 ${vbW} ${vbH}`}
-        preserveAspectRatio="none"
-        style={{ width: '100%', height: '200px', display: 'block' }}
-      >
-        {/* Y-axis max label */}
-        <text x={leftM - 1} y={6} textAnchor="end" fill="var(--text-muted)"
-          style={{ fontSize: '3px', fontFamily: 'var(--font-mono)' }}>
-          €{maxEur > 999 ? `${(maxEur / 1000).toFixed(1)}k` : maxEur}
-        </text>
-        {/* Y-axis mid gridline */}
-        <line x1={leftM} y1={chartH / 2} x2={leftM + chartW} y2={chartH / 2}
-          stroke="var(--border-card)" strokeWidth={0.3} />
-        <text x={leftM - 1} y={chartH / 2 + 1.5} textAnchor="end" fill="var(--text-muted)"
-          style={{ fontSize: '2.5px', fontFamily: 'var(--font-mono)' }}>
-          €{Math.round(maxEur / 2)}
-        </text>
-        {/* Y-axis baseline */}
-        <line x1={leftM} y1={chartH} x2={leftM + chartW} y2={chartH}
-          stroke="var(--border-card)" strokeWidth={0.3} />
-
-        {/* Bars */}
-        {hourly.map((h) => {
-          const cap = Math.max(0, h.revenue.capacity);
-          const act = Math.max(0, h.revenue.activation);
-          const arb = h.revenue.arbitrage;
-          const x = leftM + h.hour * barW;
-          // Min bar height of 1.5 for nonzero values
-          const capH = cap > 0 ? Math.max(1.5, (cap / maxTotal) * chartH) : 0;
-          const actH = act > 0 ? Math.max(1.5, (act / maxTotal) * chartH) : 0;
-          const arbH = Math.abs(arb) > 0 ? Math.max(1.5, (Math.abs(arb) / maxTotal) * chartH) : 0;
-
-          return (
-            <g key={h.hour}>
-              {/* Capacity — base, dimmer */}
-              {capH > 0 && <rect x={x + 0.25} y={chartH - capH} width={barW - 0.5} height={capH}
-                fill="var(--teal)" opacity={0.4} />}
-              {/* Activation — brighter */}
-              {actH > 0 && <rect x={x + 0.25} y={chartH - capH - actH} width={barW - 0.5} height={actH}
-                fill="var(--teal)" opacity={1} />}
-              {/* Arbitrage */}
-              {arbH > 0 && <rect x={x + 0.25}
-                y={arb > 0 ? chartH - capH - actH - arbH : chartH - capH - actH - arbH}
-                width={barW - 0.5} height={arbH}
-                fill={arb > 0 ? 'var(--amber)' : 'var(--rose)'} opacity={1} />}
-              {/* Hour labels every 3 hours */}
-              {h.hour % 3 === 0 && (
-                <text x={x + barW / 2} y={chartH + labelH}
-                  textAnchor="middle" fill="var(--text-muted)"
-                  style={{ fontSize: '2.8px', fontFamily: 'var(--font-mono)' }}>
-                  {String(h.hour).padStart(2, '0')}
-                </text>
-              )}
-            </g>
-          );
-        })}
-      </svg>
+      <div style={{ position: 'relative', height: '220px' }}>
+        <Bar
+          data={chartData}
+          options={{
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                ...tooltipStyle,
+                callbacks: {
+                  title: (items) => `HOUR ${items[0].label}`,
+                  label: (item) => {
+                    const v = item.raw as number;
+                    if (Math.abs(v) < 0.5) return '';
+                    return `${item.dataset.label}     €${Math.round(v).toLocaleString()}`;
+                  },
+                  footer: (items) => {
+                    const idx = items[0].dataIndex;
+                    const h = hourly[idx];
+                    return `────────────\nTotal        €${Math.round(h.revenue.total).toLocaleString()}\nSoC          ${Math.round(h.avg_soc * 100)}%`;
+                  },
+                },
+              },
+            },
+            scales: {
+              x: {
+                stacked: true,
+                grid: { display: false },
+                border: { color: 'rgba(232,226,217,0.08)' },
+                ticks: {
+                  color: CHART_COLORS.textMuted,
+                  font: { family: CHART_FONT.family, size: 10 },
+                  callback: (_, i) => i % 3 === 0 ? String(i).padStart(2, '0') : '',
+                  maxRotation: 0,
+                },
+              },
+              y: {
+                stacked: true,
+                grid: { color: CHART_COLORS.grid, lineWidth: 0.5 },
+                border: { display: false },
+                ticks: {
+                  color: CHART_COLORS.textMuted,
+                  font: { family: CHART_FONT.family, size: 10 },
+                  maxTicksLimit: 4,
+                  callback: (v) => euroTick(v as number),
+                },
+              },
+            },
+          }}
+        />
+      </div>
       {/* Legend */}
       <div style={{
         display: 'flex', gap: '14px', marginTop: '6px',
@@ -248,13 +279,13 @@ function HourlyBars({ hourly, date }: { hourly: HourlyEntry[]; date?: string }) 
         color: 'var(--text-muted)', alignItems: 'center',
       }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '1px', background: 'var(--teal)', opacity: 0.4 }} />Capacity
+          <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '1px', background: CHART_COLORS.tealLight }} />Capacity
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '1px', background: 'var(--teal)', opacity: 1 }} />Activation
+          <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '1px', background: CHART_COLORS.tealMid }} />Activation
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '1px', background: 'var(--amber)' }} />Arbitrage
+          <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '1px', background: CHART_COLORS.amberLight }} />Arbitrage
         </span>
         {dateLabel && <span style={{ marginLeft: 'auto', color: 'var(--text-tertiary)' }}>{dateLabel}</span>}
       </div>
@@ -262,10 +293,45 @@ function HourlyBars({ hourly, date }: { hourly: HourlyEntry[]; date?: string }) 
   );
 }
 
-// ── 7-day sparkline ───────────────────────────────────────────────────────
+// ── 7-day revenue trend (Chart.js) ────────────────────────────────────────
 
-function WeekSparkline({ history }: { history: HistoryEntry[] }) {
-  if (history.length < 3) {
+function WeekTrend({ history }: { history: HistoryEntry[] }) {
+  const chartData = useMemo(() => {
+    if (history.length < 3) return null;
+    const labels = history.map(h => {
+      const d = new Date(h.date + 'T00:00:00');
+      return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    });
+    const avg = history.reduce((s, h) => s + h.totals.per_mw, 0) / history.length;
+    return {
+      labels,
+      datasets: [
+        {
+          label: 'Capacity',
+          data: history.map(h => h.totals.capacity / 60),
+          backgroundColor: CHART_COLORS.tealLight,
+          borderWidth: 0,
+        },
+        {
+          label: 'Activation',
+          data: history.map(h => h.totals.activation / 60),
+          backgroundColor: CHART_COLORS.tealMid,
+          borderWidth: 0,
+        },
+        {
+          label: 'Arbitrage',
+          data: history.map(h => h.totals.arbitrage / 60),
+          backgroundColor: history.map(h =>
+            h.totals.arbitrage >= 0 ? CHART_COLORS.amberLight : CHART_COLORS.roseLight
+          ),
+          borderWidth: 0,
+        },
+      ],
+      _avg: avg,
+    };
+  }, [history]);
+
+  if (!chartData) {
     return (
       <p style={{
         fontFamily: 'var(--font-mono)',
@@ -278,129 +344,63 @@ function WeekSparkline({ history }: { history: HistoryEntry[] }) {
     );
   }
 
-  const values = history.map(h => h.totals.per_mw);
-  const minVal = Math.min(...values);
-  const maxVal = Math.max(...values);
-  const range = maxVal - minVal || 1;
-  const minIdx = values.indexOf(minVal);
-  const maxIdx = values.indexOf(maxVal);
-
-  // Layout: left margin for Y labels, right margin, top for labels, bottom for dates
-  const leftM = 16;
-  const rightM = 2;
-  const topM = 8;
-  const bottomM = 10;
-  const chartW = 100 - leftM - rightM;
-  const chartH = 32;
-  const vbW = 100;
-  const vbH = topM + chartH + bottomM;
-
-  const isWeekend = (dateStr: string) => {
-    const day = new Date(dateStr + 'T00:00:00').getDay();
-    return day === 0 || day === 6;
-  };
-
-  const fmtDate = (dateStr: string) => {
-    const d = new Date(dateStr + 'T00:00:00');
-    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-  };
-
-  const getXY = (i: number) => {
-    const x = leftM + (values.length > 1 ? (i / (values.length - 1)) * chartW : chartW / 2);
-    const y = topM + (1 - (values[i] - minVal) / range) * chartH;
-    return { x, y };
-  };
-
-  const linePoints = values.map((_, i) => {
-    const { x, y } = getXY(i);
-    return `${x},${y}`;
-  });
-  const areaPoints = [
-    `${leftM},${topM + chartH}`,
-    ...linePoints,
-    `${leftM + chartW},${topM + chartH}`,
-  ].join(' ');
+  const avg = (chartData as typeof chartData & { _avg: number })._avg;
 
   return (
     <div style={{ margin: '8px 0' }}>
-      <svg viewBox={`0 0 ${vbW} ${vbH}`} preserveAspectRatio="none" style={{ width: '100%', height: '120px', display: 'block' }}>
-        {/* Weekend shading */}
-        {history.map((h, i) => {
-          if (!isWeekend(h.date)) return null;
-          const { x } = getXY(i);
-          const halfStep = values.length > 1 ? (chartW / (values.length - 1)) / 2 : chartW / 2;
-          return (
-            <rect key={`we-${i}`} x={x - halfStep} y={topM} width={halfStep * 2} height={chartH}
-              fill="var(--text-muted)" opacity={0.04} />
-          );
-        })}
-
-        {/* Horizontal gridline at midpoint */}
-        <line x1={leftM} y1={topM + chartH / 2} x2={leftM + chartW} y2={topM + chartH / 2}
-          stroke="var(--border-card)" strokeWidth={0.3} />
-
-        {/* Y-axis labels */}
-        <text x={leftM - 1} y={topM + 2} textAnchor="end" fill="var(--text-muted)"
-          style={{ fontSize: '2.8px', fontFamily: 'var(--font-mono)' }}>
-          €{Math.round(maxVal)}
-        </text>
-        <text x={leftM - 1} y={topM + chartH + 1} textAnchor="end" fill="var(--text-muted)"
-          style={{ fontSize: '2.8px', fontFamily: 'var(--font-mono)' }}>
-          €{Math.round(minVal)}
-        </text>
-
-        {/* Area fill + line */}
-        <polygon points={areaPoints} fill="var(--teal)" opacity={0.08} />
-        <polyline points={linePoints.join(' ')} fill="none"
-          stroke="var(--teal)" strokeWidth="0.7" opacity={0.7} />
-
-        {/* Data point dots */}
-        {values.map((_, i) => {
-          const { x, y } = getXY(i);
-          const weekend = isWeekend(history[i].date);
-          const isExtreme = i === minIdx || i === maxIdx;
-          return (
-            <circle key={i} cx={x} cy={y} r={isExtreme ? 1.5 : 1}
-              fill={isExtreme ? (i === maxIdx ? 'var(--teal)' : 'var(--rose)') : 'var(--teal)'}
-              opacity={weekend ? 0.4 : 0.85} />
-          );
-        })}
-
-        {/* Max label */}
-        {(() => {
-          const { x, y } = getXY(maxIdx);
-          return (
-            <text x={x} y={y - 2.5} textAnchor="middle" fill="var(--teal)"
-              style={{ fontSize: '2.8px', fontFamily: 'var(--font-mono)', fontWeight: 500 }}>
-              ▲ €{Math.round(maxVal)}/MW
-            </text>
-          );
-        })()}
-        {/* Min label */}
-        {(() => {
-          const { x, y } = getXY(minIdx);
-          return (
-            <text x={x} y={y + 4.5} textAnchor="middle" fill="var(--rose)"
-              style={{ fontSize: '2.8px', fontFamily: 'var(--font-mono)', fontWeight: 500 }}>
-              ▼ €{Math.round(minVal)}/MW
-            </text>
-          );
-        })()}
-
-        {/* X-axis date labels */}
-        {history.map((h, i) => {
-          const { x } = getXY(i);
-          // Show all dates if <= 7, else every other
-          if (history.length > 7 && i % 2 !== 0 && i !== history.length - 1) return null;
-          return (
-            <text key={`d-${i}`} x={x} y={topM + chartH + bottomM - 1}
-              textAnchor="middle" fill={isWeekend(h.date) ? 'var(--text-muted)' : 'var(--text-tertiary)'}
-              style={{ fontSize: '2.5px', fontFamily: 'var(--font-mono)' }}>
-              {fmtDate(h.date)}
-            </text>
-          );
-        })}
-      </svg>
+      <div style={{ position: 'relative', height: '140px' }}>
+        <Bar
+          data={chartData}
+          options={{
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                ...tooltipStyle,
+                callbacks: {
+                  title: (items) => items[0].label,
+                  label: (item) => {
+                    const v = item.raw as number;
+                    if (Math.abs(v) < 0.5) return '';
+                    return `${item.dataset.label}     €${Math.round(v).toLocaleString()}`;
+                  },
+                  footer: (items) => {
+                    const idx = items[0].dataIndex;
+                    const perMw = history[idx].totals.per_mw;
+                    const delta = perMw - avg;
+                    return `────────────\n€${Math.round(perMw)}/MW  ${delta >= 0 ? '+' : ''}${Math.round(delta)} vs avg`;
+                  },
+                },
+              },
+            },
+            scales: {
+              x: {
+                stacked: true,
+                grid: { display: false },
+                border: { color: 'rgba(232,226,217,0.08)' },
+                ticks: {
+                  color: CHART_COLORS.textMuted,
+                  font: { family: CHART_FONT.family, size: 10 },
+                  maxRotation: 0,
+                },
+              },
+              y: {
+                stacked: true,
+                grid: { color: CHART_COLORS.grid, lineWidth: 0.5 },
+                border: { display: false },
+                ticks: {
+                  color: CHART_COLORS.textMuted,
+                  font: { family: CHART_FONT.family, size: 10 },
+                  maxTicksLimit: 4,
+                  callback: (v) => euroTick(v as number),
+                },
+              },
+            },
+          }}
+        />
+      </div>
     </div>
   );
 }
@@ -608,7 +608,7 @@ export function TradingEngineCard() {
           }}>
             7-day revenue trend (€/MW/day)
           </p>
-          <WeekSparkline history={history} />
+          <WeekTrend history={history} />
         </>
       )}
 

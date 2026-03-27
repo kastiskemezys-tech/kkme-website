@@ -1,12 +1,21 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useSignal } from '@/lib/useSignal';
 import { safeNum } from '@/lib/safeNum';
 import {
   MetricTile, StatusChip, SourceFooter, DetailsDrawer,
 } from '@/app/components/primitives';
 import type { ImpactState, Sentiment } from '@/app/lib/types';
+import {
+  Chart as ChartJS,
+  CategoryScale, LinearScale,
+  BarElement, Tooltip, Legend,
+} from 'chart.js';
+import { Bar } from 'react-chartjs-2';
+import { CHART_COLORS, CHART_FONT, tooltipStyle } from '@/app/lib/chartTheme';
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
@@ -263,102 +272,115 @@ export function S2Card() {
         Reserve prices use Baltic-calibrated proxies, not observed clearing. Treat as directional market signal, not realized merchant revenue.
       </p>
 
-      {/* TRAJECTORY CHART — S/D ratio by year */}
-      {trajectory && trajectory.length > 0 && (
-        <div style={{ marginBottom: '16px' }}>
-          <div style={{ position: 'relative', height: '200px', display: 'flex', alignItems: 'flex-end', gap: '6px', paddingLeft: '24px' }}>
-            {/* Y-axis label */}
-            <span style={{
-              position: 'absolute',
-              left: 0,
-              top: '50%',
-              transform: 'rotate(-90deg) translateX(-50%)',
-              transformOrigin: '0 0',
+      {/* TRAJECTORY CHART — S/D ratio by year (Chart.js) */}
+      {trajectory && trajectory.length > 0 && (() => {
+        const phaseColorMap: Record<string, string> = {
+          SCARCITY: CHART_COLORS.teal,
+          COMPRESS: CHART_COLORS.amber,
+          SATURATE: CHART_COLORS.rose,
+          MATURE: CHART_COLORS.rose,
+        };
+        const barBg = trajectory.map(pt => phaseColorMap[pt.phase] ?? CHART_COLORS.textMuted);
+        const maxSd = Math.max(...trajectory.map(p => p.sd_ratio), 1.5);
+        const trajData = {
+          labels: trajectory.map(pt => String(pt.year)),
+          datasets: [{
+            label: 'S/D ratio',
+            data: trajectory.map(pt => pt.sd_ratio),
+            backgroundColor: barBg,
+            borderWidth: 0,
+            borderRadius: 2,
+            barPercentage: 0.7,
+          }],
+        };
+        return (
+          <div style={{ marginBottom: '16px' }}>
+            <div style={{ position: 'relative', height: '200px' }}>
+              <Bar
+                data={trajData}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                      ...tooltipStyle,
+                      callbacks: {
+                        title: (items) => items[0].label,
+                        label: (item) => {
+                          const idx = item.dataIndex;
+                          const pt = trajectory[idx];
+                          return [
+                            `S/D ratio  ${pt.sd_ratio.toFixed(2)}×`,
+                            `Phase      ${pt.phase}`,
+                            ...(pt.cpi != null ? [`CPI        ${pt.cpi.toFixed(2)}`] : []),
+                          ];
+                        },
+                      },
+                    },
+                  },
+                  scales: {
+                    x: {
+                      grid: { display: false },
+                      border: { color: 'rgba(232,226,217,0.08)' },
+                      ticks: {
+                        color: CHART_COLORS.textMuted,
+                        font: { family: CHART_FONT.family, size: 11 },
+                      },
+                    },
+                    y: {
+                      max: maxSd + 0.2,
+                      min: 0,
+                      grid: { color: CHART_COLORS.grid, lineWidth: 0.5 },
+                      border: { display: false },
+                      ticks: {
+                        color: CHART_COLORS.textMuted,
+                        font: { family: CHART_FONT.family, size: 10 },
+                        maxTicksLimit: 5,
+                        callback: (v) => `${v}×`,
+                      },
+                    },
+                  },
+                }}
+              />
+            </div>
+            {/* CPI row below chart */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-around',
               fontFamily: 'var(--font-mono)',
               fontSize: 'var(--font-xs)',
               color: 'var(--text-muted)',
-              whiteSpace: 'nowrap',
-            }}>S/D ×</span>
-            {/* 1.0× threshold line */}
-            <div style={{
-              position: 'absolute',
-              left: 0,
-              right: 0,
-              bottom: `${Math.min((1.0 / Math.max(...trajectory.map(pt => pt.sd_ratio), 1.5)) * 100, 100)}%`,
-              borderTop: '1px dashed var(--border-highlight)',
-              zIndex: 1,
+              opacity: 0.6,
+              marginTop: '2px',
+              paddingLeft: '30px',
             }}>
-              <span style={{
-                position: 'absolute',
-                right: 0,
-                top: '-14px',
-                fontFamily: 'var(--font-mono)',
-                fontSize: 'var(--font-xs)',
-                color: 'var(--text-muted)',
-              }}>1.0×</span>
+              {trajectory.map(pt => (
+                <span key={pt.year} style={{ textAlign: 'center', flex: 1 }}>
+                  {pt.cpi != null ? pt.cpi.toFixed(2) : ''}
+                </span>
+              ))}
             </div>
-            {trajectory.map(pt => {
-              const maxSd = Math.max(...trajectory.map(p => p.sd_ratio), 1.5);
-              const heightPct = (pt.sd_ratio / maxSd) * 100;
-              return (
-                <div key={pt.year} title={`${pt.year}: S/D ${pt.sd_ratio.toFixed(2)}× · CPI ${(pt.cpi ?? 0).toFixed(2)} · ${pt.phase}`} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end' }}>
-                  <span style={{
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: 'var(--font-xs)',
-                    color: 'var(--text-muted)',
-                    marginBottom: '4px',
-                  }}>
-                    {pt.sd_ratio.toFixed(1)}
-                  </span>
-                  <div style={{
-                    width: '100%',
-                    height: `${heightPct}%`,
-                    background: trajectoryBarColor(pt.phase),
-                    borderRadius: '2px 2px 0 0',
-                    minHeight: '4px',
-                  }} />
-                  <span style={{
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: 'var(--font-xs)',
-                    color: 'var(--text-muted)',
-                    marginTop: '4px',
-                  }}>
-                    {pt.year}
-                  </span>
-                  {pt.cpi != null && (
-                    <span style={{
-                      fontFamily: 'var(--font-mono)',
-                      fontSize: 'var(--font-xs)',
-                      color: 'var(--text-muted)',
-                      opacity: 0.5,
-                      marginTop: '1px',
-                    }}>
-                      {pt.cpi.toFixed(2)}
-                    </span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-          {/* Phase color legend */}
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-xs)',
-            color: 'var(--text-muted)',
-            marginTop: '4px',
-          }}>
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <span><span style={{ color: 'var(--teal-strong)' }}>■</span> Scarcity</span>
-              <span><span style={{ color: 'var(--amber-strong)' }}>■</span> Tightening</span>
-              <span><span style={{ color: 'var(--rose-strong)' }}>■</span> Saturated</span>
+            {/* Phase color legend */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              fontFamily: 'var(--font-mono)',
+              fontSize: 'var(--font-xs)',
+              color: 'var(--text-muted)',
+              marginTop: '4px',
+            }}>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <span><span style={{ color: CHART_COLORS.teal }}>■</span> Scarcity</span>
+                <span><span style={{ color: CHART_COLORS.amber }}>■</span> Tightening</span>
+                <span><span style={{ color: CHART_COLORS.rose }}>■</span> Saturated</span>
+              </div>
+              <span style={{ opacity: 0.6 }}>CPI = capacity price index (modeled)</span>
             </div>
-            <span style={{ opacity: 0.6 }}>CPI = capacity price index (modeled)</span>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* COD WINDOW INTERPRETATION */}
       {trajectory && trajectory.length >= 2 && (() => {

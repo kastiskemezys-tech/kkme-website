@@ -1,14 +1,34 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import type { S1Signal } from '@/lib/signals/s1';
 import { useSignal } from '@/lib/useSignal';
 import { safeNum } from '@/lib/safeNum';
-import { Sparkline } from './Sparkline';
 import {
   MetricTile, StatusChip, SourceFooter, DetailsDrawer,
 } from '@/app/components/primitives';
 import type { ImpactState, Sentiment } from '@/app/lib/types';
+import {
+  Chart as ChartJS,
+  CategoryScale, LinearScale,
+  BarElement, PointElement, LineElement,
+  Tooltip, Legend, Filler,
+} from 'chart.js';
+import { Bar } from 'react-chartjs-2';
+import { CHART_COLORS, CHART_FONT, tooltipStyle } from '@/app/lib/chartTheme';
+
+ChartJS.register(
+  CategoryScale, LinearScale,
+  BarElement, PointElement, LineElement,
+  Tooltip, Legend, Filler
+);
+
+interface SpreadHistory {
+  date: string;
+  spread_eur: number;
+  spread_pct?: number;
+  lt_swing?: number;
+}
 
 // Extend S1Signal with hourly data present in actual API response
 interface S1WithHourly extends S1Signal {
@@ -56,16 +76,18 @@ function spreadImpactDesc(spread: number): string {
 export function S1Card() {
   const { status, data } =
     useSignal<S1WithHourly>(`${WORKER_URL}/read`);
-  const [history, setHistory] = useState<number[]>([]);
+  const [historyRaw, setHistoryRaw] = useState<SpreadHistory[]>([]);
   const [drawerKey, setDrawerKey] = useState(0);
   const openDrawer = () => setDrawerKey(k => k + 1);
 
   useEffect(() => {
     fetch(`${WORKER_URL}/s1/history`)
       .then(r => r.json())
-      .then((h: Array<{ spread_eur: number }>) => setHistory(h.map(e => e.spread_eur)))
+      .then((h: SpreadHistory[]) => setHistoryRaw(Array.isArray(h) ? h : []))
       .catch(() => {});
   }, []);
+
+  const history = historyRaw.map(e => e.spread_eur);
 
   if (status === 'loading') {
     return (
@@ -157,36 +179,98 @@ export function S1Card() {
         <StatusChip status={spreadStatus(spread)} sentiment={spreadSentiment(spread)} />
       </div>
 
-      {/* HERO CHART — 30-day spread history */}
-      {history.length > 1 && (
-        <div style={{ margin: '16px 0', overflow: 'hidden' }}>
-          <Sparkline
-            values={history}
-            p50={spreadP50 ?? undefined}
-            color="var(--teal-strong)"
-            height={200}
-            showRange
-            rangeUnit="€"
-            rangeDecimals={0}
-          />
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-xs)',
-            color: 'var(--text-muted)',
-            marginTop: '4px',
-          }}>
-            <span>{daysOfData > 0 ? `${daysOfData} days` : ''}</span>
-            {spreadP50 != null && (
-              <span style={{ color: 'var(--chart-grid)' }}>
-                ┄ median {spreadP50 >= 0 ? '+' : ''}{spreadP50.toFixed(0)}€
-              </span>
-            )}
-            <span>today</span>
+      {/* HERO CHART — spread history (Chart.js) */}
+      {historyRaw.length > 1 && (() => {
+        const labels = historyRaw.map(h => {
+          const d = new Date(h.date + 'T00:00:00');
+          return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+        });
+        const barColors = historyRaw.map(h =>
+          h.spread_eur >= 0 ? CHART_COLORS.tealLight : CHART_COLORS.roseLight
+        );
+        const chartDataS1 = {
+          labels,
+          datasets: [{
+            label: 'Spread',
+            data: historyRaw.map(h => h.spread_eur),
+            backgroundColor: barColors,
+            borderWidth: 0,
+            borderSkipped: false as const,
+          }],
+        };
+        return (
+          <div style={{ margin: '16px 0' }}>
+            <div style={{ position: 'relative', height: '200px' }}>
+              <Bar
+                data={chartDataS1}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  interaction: { mode: 'index', intersect: false },
+                  plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                      ...tooltipStyle,
+                      callbacks: {
+                        title: (items) => items[0].label.toUpperCase(),
+                        label: (item) => {
+                          const v = item.raw as number;
+                          return `Spread    ${v >= 0 ? '+' : ''}${v.toFixed(1)} €/MWh`;
+                        },
+                        footer: (items) => {
+                          const idx = items[0].dataIndex;
+                          const h = historyRaw[idx];
+                          const lines = [];
+                          if (h.lt_swing != null) lines.push(`LT swing  ${Math.round(h.lt_swing)} €/MWh`);
+                          return lines.join('\n');
+                        },
+                      },
+                    },
+                  },
+                  scales: {
+                    x: {
+                      grid: { display: false },
+                      border: { color: 'rgba(232,226,217,0.08)' },
+                      ticks: {
+                        color: CHART_COLORS.textMuted,
+                        font: { family: CHART_FONT.family, size: 10 },
+                        maxRotation: 0,
+                        callback: (_, i) => i % 15 === 0 ? labels[i] : '',
+                      },
+                    },
+                    y: {
+                      grid: { color: CHART_COLORS.grid, lineWidth: 0.5 },
+                      border: { display: false },
+                      ticks: {
+                        color: CHART_COLORS.textMuted,
+                        font: { family: CHART_FONT.family, size: 10 },
+                        maxTicksLimit: 5,
+                        callback: (v) => `${v}€`,
+                      },
+                    },
+                  },
+                }}
+              />
+            </div>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              fontFamily: 'var(--font-mono)',
+              fontSize: 'var(--font-xs)',
+              color: 'var(--text-muted)',
+              marginTop: '4px',
+            }}>
+              <span>{daysOfData > 0 ? `${daysOfData} days` : ''}</span>
+              {spreadP50 != null && (
+                <span style={{ color: CHART_COLORS.textMuted }}>
+                  median {spreadP50 >= 0 ? '+' : ''}{spreadP50.toFixed(0)}€
+                </span>
+              )}
+              <span>today</span>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* BESS CAPTURE SCHEDULE STRIP */}
       {(() => {
