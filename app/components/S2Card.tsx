@@ -266,7 +266,7 @@ export function S2Card() {
       {/* TRAJECTORY CHART — S/D ratio by year */}
       {trajectory && trajectory.length > 0 && (
         <div style={{ marginBottom: '16px' }}>
-          <div style={{ position: 'relative', height: '160px', display: 'flex', alignItems: 'flex-end', gap: '4px', paddingLeft: '24px' }}>
+          <div style={{ position: 'relative', height: '200px', display: 'flex', alignItems: 'flex-end', gap: '6px', paddingLeft: '24px' }}>
             {/* Y-axis label */}
             <span style={{
               position: 'absolute',

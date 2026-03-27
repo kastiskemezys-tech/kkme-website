@@ -186,6 +186,7 @@ function HourlyBars({ hourly, date }: { hourly: HourlyEntry[]; date?: string }) 
     <div style={{ margin: '16px 0' }}>
       <svg
         viewBox={`0 0 ${vbW} ${vbH}`}
+        preserveAspectRatio="none"
         style={{ width: '100%', height: '200px', display: 'block' }}
       >
         {/* Y-axis max label */}
@@ -322,7 +323,7 @@ function WeekSparkline({ history }: { history: HistoryEntry[] }) {
 
   return (
     <div style={{ margin: '8px 0' }}>
-      <svg viewBox={`0 0 ${vbW} ${vbH}`} style={{ width: '100%', height: '80px', display: 'block' }}>
+      <svg viewBox={`0 0 ${vbW} ${vbH}`} preserveAspectRatio="none" style={{ width: '100%', height: '120px', display: 'block' }}>
         {/* Weekend shading */}
         {history.map((h, i) => {
           if (!isWeekend(h.date)) return null;
