@@ -606,6 +606,21 @@ export function TradingEngineCard() {
         )}
       </div>
 
+      {/* Cross-signal: explain 0% arbitrage */}
+      {totals.splits_pct.arbitrage <= 0 && (
+        <p style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: 'var(--font-xs)',
+          color: 'var(--text-muted)',
+          lineHeight: 1.5,
+          marginBottom: '12px',
+        }}>
+          All 50 MW allocated to reserves (FCR {strategy.fcr_baseload_mw} + aFRR + mFRR = 50 MW).
+          No MW headroom for DA arbitrage in dispatch model.
+          Actual operators co-optimise reserves + arbitrage intraday.
+        </p>
+      )}
+
       {/* 24-HOUR REVENUE BARS */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '4px' }}>
         <span style={{

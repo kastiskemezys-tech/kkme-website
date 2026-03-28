@@ -18,57 +18,52 @@ interface S4Pipeline {
   updated_at:         string | null;
 }
 
+interface StorageReference {
+  source:           string;
+  source_url:       string;
+  installed_mw:     number;
+  installed_gen_mw: number;
+  installed_mwh:    number;
+  note:             string;
+}
+
+interface StoragePipeline {
+  tso_reserved_mw:       number;
+  tso_reserved_mwh:      number;
+  source:                string;
+  source_url:            string;
+  intention_protocols_mw:  number;
+  intention_protocols_mwh: number;
+  apva_applied_mw:       number;
+  apva_applied_mwh:      number;
+  apva_budget_eur:       number;
+  apva_source_url:       string;
+}
+
+interface SourceUrls {
+  vert_arcgis:  string;
+  litgrid:      string;
+  vert_permits: string;
+  apva:         string;
+  eso_maps:     string;
+  litgrid_aei:  string;
+}
+
 interface S4Signal {
-  timestamp?:      string | null;
-  free_mw?:        number | null;
-  connected_mw?:   number | null;
-  reserved_mw?:    number | null;
-  utilisation_pct?: number | null;
-  signal?:         string | null;
-  interpretation?: string | null;
-  pipeline?:       S4Pipeline;
-  _stale?:         boolean;
-  _age_hours?:     number | null;
-}
-
-function computeFreePct(free: number, connected: number, reserved: number): number {
-  const total = connected + reserved + free;
-  if (total <= 0) return 0;
-  return (free / total) * 100;
-}
-
-function freeSentiment(pct: number): Sentiment {
-  if (pct > 40) return 'positive';
-  if (pct > 15) return 'caution';
-  return 'negative';
-}
-
-function freeStatus(pct: number): string {
-  if (pct > 40) return 'Headroom visible';
-  if (pct > 25) return 'Access tightening';
-  if (pct > 15) return 'Tightening';
-  return 'Constrained';
-}
-
-function freeInterpretation(pct: number): string {
-  if (pct > 40) return 'Public headroom remains visible at national level, though connection scope, substation requirements, and equipment lead times still determine real buildability at each node.';
-  if (pct > 25) return 'Headline capacity remains, but reservation pressure is reducing practical access. Queue position and connection complexity increasingly matter — not just available MW.';
-  if (pct > 15) return 'Available headroom is narrowing. Queue position, connection scope, and substation requirements increasingly determine real buildability — not just headline MW.';
-  return 'Grid access is becoming a material constraint. Later entrants face higher connection complexity, longer timelines, and elevated substation reinforcement scope.';
-}
-
-function freeImpact(pct: number): ImpactState {
-  if (pct > 40) return 'slight_positive';
-  if (pct > 25) return 'mixed';
-  if (pct > 15) return 'slight_negative';
-  return 'strong_negative';
-}
-
-function freeImpactDesc(pct: number): string {
-  if (pct > 40) return 'Reference asset: node-specific access still matters despite headline headroom';
-  if (pct > 25) return 'Reference asset: queue timing and substation choice matter more than headline capacity';
-  if (pct > 15) return 'Reference asset: early queue position increasingly matters — later entrants face higher connection complexity';
-  return 'Reference asset: elevated grid-access risk — connection scope and reinforcement costs rising for new entrants';
+  timestamp?:         string | null;
+  free_mw?:           number | null;
+  connected_mw?:      number | null;
+  reserved_mw?:       number | null;
+  utilisation_pct?:   number | null;
+  signal?:            string | null;
+  interpretation?:    string | null;
+  pipeline?:          S4Pipeline;
+  storage_reference?: StorageReference;
+  storage_pipeline?:  StoragePipeline;
+  grid_caveat?:       string;
+  source_urls?:       SourceUrls;
+  _stale?:            boolean;
+  _age_hours?:        number | null;
 }
 
 function formatMW(n: number | null | undefined): string {
@@ -76,23 +71,43 @@ function formatMW(n: number | null | undefined): string {
   return n.toLocaleString('en-GB');
 }
 
-function formatHeroMW(n: number | null | undefined): string {
-  if (n == null) return '—';
-  if (n >= 1000) return (n / 1000).toFixed(1);
-  return n.toString();
+function pipelineSentiment(installedMw: number, tsoReservedMw: number): Sentiment {
+  // Pipeline is large relative to installed — buildability still open but tightening
+  if (tsoReservedMw > installedMw * 3) return 'caution';
+  return 'positive';
 }
 
-function heroUnit(n: number | null | undefined): string {
-  if (n == null) return '';
-  return n >= 1000 ? 'GW' : 'MW';
+function pipelineStatus(installedMw: number, tsoReservedMw: number): string {
+  if (tsoReservedMw > installedMw * 5) return 'High pipeline pressure';
+  if (tsoReservedMw > installedMw * 3) return 'Pipeline building';
+  return 'Early stage';
 }
 
-function reservedPressure(reserved: number, total: number): string {
-  if (total <= 0) return 'Unknown';
-  const pct = (reserved / total) * 100;
-  if (pct > 50) return 'High';
-  if (pct > 30) return 'Moderate';
-  return 'Low';
+function pipelineImpactDesc(installedMw: number, tsoReservedMw: number): string {
+  const ratio = tsoReservedMw / Math.max(installedMw, 1);
+  if (ratio > 5) return 'Reference asset: high pipeline-to-installed ratio suggests grid queue pressure will intensify — early queue position critical';
+  if (ratio > 3) return 'Reference asset: pipeline exceeds installed base by ' + ratio.toFixed(0) + '× — connection timing increasingly matters';
+  return 'Reference asset: pipeline manageable relative to installed base — grid access currently favourable';
+}
+
+function SourceLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{
+        color: 'inherit',
+        textDecoration: 'none',
+        borderBottom: '1px dotted var(--text-muted)',
+        transition: 'color 150ms',
+      }}
+      onMouseEnter={e => (e.currentTarget.style.color = 'var(--teal)')}
+      onMouseLeave={e => (e.currentTarget.style.color = 'inherit')}
+    >
+      {children} ↗
+    </a>
+  );
 }
 
 export function S4Card() {
@@ -122,17 +137,25 @@ export function S4Card() {
     );
   }
 
+  const ref = data.storage_reference;
+  const pipe = data.storage_pipeline;
+  const urls = data.source_urls;
+  const installedMw = ref?.installed_mw ?? 484;
+  const tsoReservedMw = pipe?.tso_reserved_mw ?? 1395;
+  const intentionMw = pipe?.intention_protocols_mw ?? 3700;
+
+  // Grid headroom (all-tech, for drawer)
   const free = data.free_mw ?? null;
   const connected = data.connected_mw ?? 0;
   const reserved = data.reserved_mw ?? 0;
   const freeVal = free ?? 0;
   const total = connected + reserved + freeVal;
-  const freePct = computeFreePct(freeVal, connected, reserved);
 
-  // Bar segment widths
-  const connPct = total > 0 ? (connected / total) * 100 : 0;
-  const resPct = total > 0 ? (reserved / total) * 100 : 0;
-  const availPct = total > 0 ? (freeVal / total) * 100 : 0;
+  // Pipeline bar proportions (log scale for visibility)
+  const pipeMax = intentionMw;
+  const installedPct = Math.max((installedMw / pipeMax) * 100, 5);
+  const reservedPct = Math.max((tsoReservedMw / pipeMax) * 100, 8);
+  const intentionPct = 100 - installedPct - reservedPct;
 
   return (
     <article style={{ width: '100%' }}>
@@ -162,7 +185,7 @@ export function S4Card() {
           color: 'var(--text-secondary)',
           lineHeight: 1.6,
         }}>
-          Whether new Lithuanian storage projects can still connect. Public capacity, reservation pressure, and policy signals.
+          Lithuanian storage installed base, TSO pipeline, and grid connection pressure.
         </p>
         <p style={{
           fontFamily: 'var(--font-mono)',
@@ -170,77 +193,111 @@ export function S4Card() {
           color: 'var(--text-tertiary)',
           marginTop: '4px',
         }}>
-          Lithuania public grid snapshot
+          BESS pipeline · Lithuania
         </p>
       </div>
 
-      {/* HERO METRIC */}
-      {free != null && (
-        <div style={{ marginBottom: '4px' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-            <MetricTile
-              label="Indicative available capacity"
-              value={formatHeroMW(free)}
-              unit={heroUnit(free)}
-              size="hero"
-              dataClass="observed"
-            />
-            <StatusChip status={freeStatus(freePct)} sentiment={freeSentiment(freePct)} />
-          </div>
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '4px' }}>
-            Litgrid public grid snapshot · does not reflect connection scope, substation requirements, or queue position
-          </p>
+      {/* HERO — installed storage */}
+      <div style={{ marginBottom: '4px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+          <MetricTile
+            label="Installed storage"
+            value={formatMW(installedMw)}
+            unit="MW"
+            size="hero"
+            dataClass="observed"
+          />
+          <StatusChip
+            status={pipelineStatus(installedMw, tsoReservedMw)}
+            sentiment={pipelineSentiment(installedMw, tsoReservedMw)}
+          />
         </div>
-      )}
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '4px' }}>
+          {ref?.installed_gen_mw ?? 420} MW allowed generation · {ref?.installed_mwh ?? 719} MWh · {ref ? (
+            <SourceLink href={ref.source_url}>{ref.source}</SourceLink>
+          ) : 'Litgrid 2026-03-23'}
+        </p>
+      </div>
 
-      {/* STACKED HORIZONTAL BAR */}
-      {total > 0 && (
-        <div style={{ margin: '16px 0 20px' }}>
-          <div style={{ display: 'flex', height: '40px', gap: '1px', borderRadius: '2px', overflow: 'hidden' }}>
-            {connPct > 0 && (
-              <div style={{ flex: connPct, background: 'var(--rose-strong)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                {connPct > 12 && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-primary)', opacity: 0.8 }}>{connPct.toFixed(0)}%</span>}
-              </div>
-            )}
-            {resPct > 0 && (
-              <div style={{ flex: resPct, background: 'var(--amber-strong)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                {resPct > 12 && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-primary)', opacity: 0.8 }}>{resPct.toFixed(0)}%</span>}
-              </div>
-            )}
-            {availPct > 0 && (
-              <div style={{ flex: availPct, background: 'var(--teal-medium)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                {availPct > 12 && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-primary)', opacity: 0.8 }}>{availPct.toFixed(0)}%</span>}
-              </div>
-            )}
+      {/* BESS PIPELINE BAR */}
+      <div style={{ margin: '16px 0 20px' }}>
+        <div style={{ display: 'flex', height: '40px', gap: '1px', borderRadius: '2px', overflow: 'hidden' }}>
+          <div style={{
+            flex: installedPct,
+            background: 'var(--teal-strong)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+          }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-primary)', opacity: 0.9 }}>
+              {formatMW(installedMw)}
+            </span>
           </div>
           <div style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-xs)',
-            color: 'var(--text-muted)',
-            marginTop: '6px',
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: '4px 12px',
+            flex: reservedPct,
+            background: 'var(--amber-strong)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
           }}>
-            <span><span style={{ color: 'var(--rose-strong)' }}>■</span> Connected: {formatMW(connected)} MW</span>
-            <span><span style={{ color: 'var(--amber-strong)' }}>■</span> Reserved: {formatMW(reserved)} MW</span>
-            <span><span style={{ color: 'var(--teal-medium)' }}>■</span> Available: {formatMW(free)} MW</span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-primary)', opacity: 0.9 }}>
+              {(tsoReservedMw / 1000).toFixed(1)} GW
+            </span>
+          </div>
+          <div style={{
+            flex: intentionPct,
+            background: 'var(--amber-subtle)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+          }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', opacity: 0.8 }}>
+              {(intentionMw / 1000).toFixed(1)} GW
+            </span>
           </div>
         </div>
-      )}
+        <div style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: 'var(--font-xs)',
+          color: 'var(--text-muted)',
+          marginTop: '6px',
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '4px 12px',
+        }}>
+          <span><span style={{ color: 'var(--teal-strong)' }}>■</span> Installed: {formatMW(installedMw)} MW</span>
+          <span><span style={{ color: 'var(--amber-strong)' }}>■</span> TSO reserved: {(tsoReservedMw / 1000).toFixed(1)} GW</span>
+          <span><span style={{ color: 'var(--amber-subtle)' }}>■</span> Intention protocols: {(intentionMw / 1000).toFixed(1)} GW</span>
+        </div>
+      </div>
+
+      {/* PIPELINE METRICS */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: '8px',
+        marginBottom: '16px',
+      }}>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+          TSO reserved: {formatMW(tsoReservedMw)} MW / {formatMW(pipe?.tso_reserved_mwh ?? 3204)} MWh
+          {pipe?.source_url && (
+            <> · <SourceLink href={pipe.source_url}>Litgrid</SourceLink></>
+          )}
+        </div>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+          APVA grant call: {formatMW(pipe?.apva_applied_mw ?? 1545)} MW applied
+          {pipe?.apva_source_url && (
+            <> · <SourceLink href={pipe.apva_source_url}>APVA</SourceLink></>
+          )}
+        </div>
+      </div>
 
       {/* INTERPRETATION */}
-      {free != null && (
-        <p style={{
-          fontFamily: 'var(--font-serif)',
-          fontSize: 'var(--font-sm)',
-          color: 'var(--text-secondary)',
-          lineHeight: 1.7,
-          margin: '0 0 16px',
-        }}>
-          {freeInterpretation(freePct)}
-        </p>
-      )}
+      <p style={{
+        fontFamily: 'var(--font-serif)',
+        fontSize: 'var(--font-sm)',
+        color: 'var(--text-secondary)',
+        lineHeight: 1.7,
+        margin: '0 0 16px',
+      }}>
+        {installedMw} MW installed against {(tsoReservedMw / 1000).toFixed(1)} GW in TSO reservations and {(intentionMw / 1000).toFixed(1)} GW in intention protocols.
+        Pipeline-to-installed ratio of {(tsoReservedMw / installedMw).toFixed(0)}× signals strong developer interest but growing queue pressure.
+        Connection timing and substation choice increasingly determine real buildability.
+      </p>
 
       {/* SCHEDULE RISK */}
       <p style={{
@@ -253,7 +310,7 @@ export function S4Card() {
         Connection timeline: typically 18–36 months from application to energisation. Transformer and protection equipment lead times can extend this.
       </p>
 
-      {/* POLICY WATCH — secondary context */}
+      {/* POLICY WATCH */}
       <div style={{
         padding: '10px 12px',
         borderLeft: '1px solid var(--amber-subtle)',
@@ -265,26 +322,25 @@ export function S4Card() {
           color: 'var(--text-muted)',
           lineHeight: 1.6,
         }}>
-          Policy watch · Connection guarantee currently €50/kW (VERT). Proposed reduction to €25/kW under discussion. If enacted, may lower entry barriers but accelerate queue depletion.
+          Policy watch · Connection guarantee currently €50/kW (<SourceLink href={urls?.vert_arcgis ?? 'https://atviri-litgrid.hub.arcgis.com/'}>VERT</SourceLink>).
+          Proposed reduction to €25/kW under discussion. If enacted, may lower entry barriers but accelerate queue depletion.
         </p>
       </div>
 
       {/* IMPACT LINE */}
-      {free != null && (
-        <div style={{
-          fontFamily: 'var(--font-mono)',
-          fontSize: 'var(--font-xs)',
-          color: 'var(--teal-medium)',
-          marginBottom: '16px',
-        }}>
-          {freeImpactDesc(freePct)}
-        </div>
-      )}
+      <div style={{
+        fontFamily: 'var(--font-mono)',
+        fontSize: 'var(--font-xs)',
+        color: 'var(--teal-medium)',
+        marginBottom: '16px',
+      }}>
+        {pipelineImpactDesc(installedMw, tsoReservedMw)}
+      </div>
 
-      {/* SOURCE FOOTER — clickable to open drawer */}
+      {/* SOURCE FOOTER */}
       <button type="button" onClick={openDrawer} style={{ all: 'unset', display: 'block', width: '100%', cursor: 'pointer' }}>
         <SourceFooter
-          source="VERT.lt ArcGIS · Litgrid"
+          source="Litgrid · APVA · VERT.lt ArcGIS"
           updatedAt={data.timestamp ? new Date(data.timestamp).toLocaleString('en-GB', {
             day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC',
           }) : undefined}
@@ -294,8 +350,8 @@ export function S4Card() {
 
       {/* DETAILS DRAWER */}
       <div style={{ marginTop: '16px' }}>
-        <DetailsDrawer key={drawerKey} label="View grid detail" defaultOpen={drawerKey > 0}>
-          {/* Capacity breakdown */}
+        <DetailsDrawer key={drawerKey} label="View signal breakdown" defaultOpen={drawerKey > 0}>
+          {/* BESS pipeline detail */}
           <p style={{
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-xs)',
@@ -304,7 +360,7 @@ export function S4Card() {
             textTransform: 'uppercase',
             marginBottom: '8px',
           }}>
-            Capacity breakdown
+            BESS pipeline detail
           </p>
           <div style={{
             display: 'grid',
@@ -314,19 +370,21 @@ export function S4Card() {
             fontSize: 'var(--font-sm)',
             marginBottom: '20px',
           }}>
-            <span style={{ color: 'var(--text-muted)' }}>Connected</span>
-            <span style={{ color: 'var(--text-secondary)' }}>{formatMW(connected)} MW</span>
-            <span style={{ color: 'var(--text-muted)' }}>Reserved</span>
-            <span style={{ color: 'var(--text-secondary)' }}>{formatMW(reserved)} MW</span>
-            <span style={{ color: 'var(--text-muted)' }}>Available</span>
-            <span style={{ color: 'var(--text-secondary)' }}>{formatMW(free)} MW</span>
-            <span style={{ color: 'var(--text-muted)' }}>Utilisation</span>
-            <span style={{ color: 'var(--text-secondary)' }}>{data.utilisation_pct != null ? `${safeNum(data.utilisation_pct, 1)}%` : '—'}</span>
-            <span style={{ color: 'var(--text-muted)' }}>Free share</span>
-            <span style={{ color: 'var(--text-secondary)' }}>{free != null ? `${safeNum(freePct, 1)}%` : '—'}</span>
+            <span style={{ color: 'var(--text-muted)' }}>Installed (national)</span>
+            <span style={{ color: 'var(--text-secondary)' }}>{formatMW(installedMw)} MW / {ref?.installed_mwh ?? 719} MWh</span>
+            <span style={{ color: 'var(--text-muted)' }}>Allowed generation</span>
+            <span style={{ color: 'var(--text-secondary)' }}>{ref?.installed_gen_mw ?? 420} MW</span>
+            <span style={{ color: 'var(--text-muted)' }}>TSO reserved (storage)</span>
+            <span style={{ color: 'var(--text-secondary)' }}>{formatMW(tsoReservedMw)} MW / {formatMW(pipe?.tso_reserved_mwh ?? 3204)} MWh</span>
+            <span style={{ color: 'var(--text-muted)' }}>Intention protocols</span>
+            <span style={{ color: 'var(--text-secondary)' }}>{(intentionMw / 1000).toFixed(1)} GW / {((pipe?.intention_protocols_mwh ?? 9000) / 1000).toFixed(0)} GWh</span>
+            <span style={{ color: 'var(--text-muted)' }}>APVA applications</span>
+            <span style={{ color: 'var(--text-secondary)' }}>{formatMW(pipe?.apva_applied_mw ?? 1545)} MW / {formatMW(pipe?.apva_applied_mwh ?? 3232)} MWh (against €{((pipe?.apva_budget_eur ?? 45000000) / 1000000).toFixed(0)}M budget)</span>
+            <span style={{ color: 'var(--text-muted)' }}>Pipeline-to-installed</span>
+            <span style={{ color: 'var(--text-secondary)' }}>{(tsoReservedMw / installedMw).toFixed(1)}× (TSO reserved / installed)</span>
           </div>
 
-          {/* Permits */}
+          {/* Grid headroom — all technologies */}
           <p style={{
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-xs)',
@@ -335,74 +393,78 @@ export function S4Card() {
             textTransform: 'uppercase',
             marginBottom: '8px',
           }}>
-            Permits
+            Grid headroom (all technologies, indicative)
           </p>
-          {data.pipeline && !data.pipeline.parse_warning && data.pipeline.dev_total_mw != null ? (
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'auto 1fr',
-              gap: '5px 16px',
-              fontFamily: 'var(--font-mono)',
-              fontSize: 'var(--font-sm)',
-              marginBottom: '20px',
-            }}>
-              <span style={{ color: 'var(--text-muted)' }}>Development permits</span>
-              <span style={{ color: 'var(--text-secondary)' }}>{(data.pipeline.dev_total_mw / 1000).toFixed(1)} GW</span>
-              {data.pipeline.gen_total_mw != null && (
-                <>
-                  <span style={{ color: 'var(--text-muted)' }}>Generation permits</span>
-                  <span style={{ color: 'var(--text-secondary)' }}>{(data.pipeline.gen_total_mw / 1000).toFixed(1)} GW</span>
-                </>
-              )}
-              <span style={{ color: 'var(--text-muted)' }}>Source</span>
-              <span style={{ color: 'var(--text-muted)' }}>VERT.lt storage permits, BESS filtered</span>
-            </div>
-          ) : (
+          <div style={{
+            padding: '10px 12px',
+            borderLeft: '2px solid var(--amber-subtle)',
+            marginBottom: '12px',
+          }}>
             <p style={{
               fontFamily: 'var(--font-mono)',
               fontSize: 'var(--font-xs)',
               color: 'var(--text-muted)',
-              marginBottom: '20px',
+              lineHeight: 1.6,
+              marginBottom: '8px',
             }}>
-              Permit data temporarily unavailable
+              {data.grid_caveat || 'These figures cover ALL technologies (wind, solar, thermal, storage). Zonal values are non-additive per Litgrid methodology — real connection potential cannot be computed by summing zones.'}
             </p>
-          )}
-
-          {/* Buildability assessment */}
-          <p style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-xs)',
-            color: 'var(--text-tertiary)',
-            letterSpacing: '0.1em',
-            textTransform: 'uppercase',
-            marginBottom: '8px',
-          }}>
-            Buildability assessment
-          </p>
+          </div>
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'auto 1fr',
             gap: '5px 16px',
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-sm)',
-            marginBottom: '8px',
+            marginBottom: '20px',
           }}>
-            <span style={{ color: 'var(--text-muted)' }}>Reserved pressure</span>
-            <span style={{ color: 'var(--text-secondary)' }}>{reservedPressure(reserved, total)}</span>
-            <span style={{ color: 'var(--text-muted)' }}>Buildability outlook</span>
-            <span style={{ color: 'var(--text-secondary)' }}>{freeStatus(freePct)}</span>
+            <span style={{ color: 'var(--text-muted)' }}>Connected (all tech)</span>
+            <span style={{ color: 'var(--text-secondary)' }}>{formatMW(connected)} MW</span>
+            <span style={{ color: 'var(--text-muted)' }}>Reserved (all tech)</span>
+            <span style={{ color: 'var(--text-secondary)' }}>{formatMW(reserved)} MW</span>
+            <span style={{ color: 'var(--text-muted)' }}>Available (all tech)</span>
+            <span style={{ color: 'var(--text-secondary)' }}>{formatMW(free)} MW</span>
+            <span style={{ color: 'var(--text-muted)' }}>Utilisation</span>
+            <span style={{ color: 'var(--text-secondary)' }}>{data.utilisation_pct != null ? `${safeNum(data.utilisation_pct, 1)}%` : '—'}</span>
           </div>
           <p style={{
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-xs)',
             color: 'var(--text-muted)',
-            lineHeight: 1.5,
+            lineHeight: 1.6,
             marginBottom: '20px',
           }}>
-            Current buildability view based on public capacity snapshot. Node-specific access, queue position, and reinforcement scope are not captured in this aggregate view.
+            Permit queue: {data.pipeline?.dev_total_mw ? `${(data.pipeline.dev_total_mw / 1000).toFixed(1)} GW` : '—'} development permits (all technologies) against {free != null ? `${(freeVal / 1000).toFixed(1)} GW` : '—'} indicative headroom.
+            {data.pipeline?.dev_total_mw && free != null && freeVal > 0 ? ` Oversubscription: ${(data.pipeline.dev_total_mw / freeVal).toFixed(1)}×.` : ''}
           </p>
 
-          {/* Methodology — footer-level */}
+          {/* Sources */}
+          <p style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-xs)',
+            color: 'var(--text-tertiary)',
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+            marginBottom: '8px',
+          }}>
+            Sources
+          </p>
+          <div style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-xs)',
+            color: 'var(--text-muted)',
+            lineHeight: 1.8,
+            marginBottom: '20px',
+          }}>
+            <div><SourceLink href={urls?.litgrid ?? 'https://www.litgrid.eu/'}>Litgrid</SourceLink> — installed storage, reservation cycles, intention protocols</div>
+            <div><SourceLink href={urls?.vert_arcgis ?? 'https://atviri-litgrid.hub.arcgis.com/'}>VERT.lt ArcGIS</SourceLink> — grid capacity maps (all technologies)</div>
+            <div><SourceLink href={urls?.vert_permits ?? '#'}>VERT storage permits</SourceLink> — development permit register</div>
+            <div><SourceLink href={urls?.apva ?? 'https://apva.lrv.lt/'}>APVA</SourceLink> — grant call results and applications</div>
+            <div><SourceLink href={urls?.eso_maps ?? '#'}>ESO capacity maps</SourceLink> — distribution grid free capacity</div>
+            <div><SourceLink href={urls?.litgrid_aei ?? '#'}>Litgrid AEI map</SourceLink> — RES connection map and methodology</div>
+          </div>
+
+          {/* Methodology */}
           <p style={{
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-xs)',
@@ -421,7 +483,7 @@ export function S4Card() {
             lineHeight: 1.5,
             opacity: 0.6,
           }}>
-            Public grid capacity from VERT.lt ArcGIS (Litgrid data). Reservation data is a point-in-time snapshot — not all reserved capacity converts to built projects. This is a national pressure indicator, not a node-level buildability assessment.
+            Installed storage from Litgrid press releases (observed). TSO reservation and intention protocol totals from Litgrid quarterly reporting (observed). Grid headroom from VERT.lt ArcGIS (observed, all technologies, non-additive). APVA from published grant call summaries (observed). Pipeline-to-installed ratio is derived.
           </p>
         </DetailsDrawer>
       </div>

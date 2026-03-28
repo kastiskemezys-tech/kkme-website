@@ -97,6 +97,19 @@ export function S9Card() {
         {carbonImpact(data.signal, data.eua_eur_t)}
       </div>
 
+      {/* Cross-signal: carbon premium on gas generation */}
+      {data.eua_eur_t != null && (
+        <p style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: 'var(--font-xs)',
+          color: 'var(--text-muted)',
+          lineHeight: 1.5,
+          marginBottom: '8px',
+        }}>
+          Carbon premium on gas gen: ~€{Math.round(data.eua_eur_t * 0.45)}/MWh (0.45 tCO₂/MWh) · Supports P_high floor for BESS arbitrage
+        </p>
+      )}
+
       {/* Threshold bar with hover tooltip */}
       {data.eua_eur_t != null && (
         <div style={{ position: 'relative', marginBottom: '8px', cursor: 'default' }}

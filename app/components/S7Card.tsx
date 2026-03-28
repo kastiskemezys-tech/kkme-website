@@ -100,6 +100,19 @@ export function S7Card() {
         {gasImpact(regime)}
       </div>
 
+      {/* Cross-signal: P_high floor math */}
+      {data.ttf_eur_mwh != null && (
+        <p style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: 'var(--font-xs)',
+          color: 'var(--text-muted)',
+          lineHeight: 1.5,
+          marginBottom: '8px',
+        }}>
+          Gas marginal cost: ~€{Math.round(data.ttf_eur_mwh * 1.667)}/MWh (at ~60% CCGT efficiency) · Sets P_high floor for arbitrage
+        </p>
+      )}
+
       {/* Threshold bar with hover tooltip */}
       {data.ttf_eur_mwh != null && (
         <div style={{ position: 'relative', marginBottom: '8px', cursor: 'default' }}

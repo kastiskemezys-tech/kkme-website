@@ -3072,6 +3072,23 @@ export default {
       return jsonResp({ cleaned, remaining: kept.length });
     }
 
+    // ── GET /feed/by-signal?signal=S2 — filter feed by affected module ─────
+    if (request.method === 'GET' && url.pathname === '/feed/by-signal') {
+      const signal = url.searchParams.get('signal');
+      if (!signal) return jsonResp({ error: 'signal parameter required' }, 400);
+      const rawIdx = await env.KKME_SIGNALS.get('feed_index').catch(() => null);
+      let idx = rawIdx ? JSON.parse(rawIdx) : [];
+      const now = new Date().toISOString();
+      idx = idx.filter(i => !i.expires_at || i.expires_at > now);
+      const sigUpper = signal.toUpperCase();
+      const matched = idx.filter(i =>
+        Array.isArray(i.affected_modules) &&
+        i.affected_modules.some(m => m.toUpperCase() === sigUpper)
+      );
+      matched.sort((a, b) => (b.feed_score ?? 0) - (a.feed_score ?? 0));
+      return Response.json({ items: matched.slice(0, 10), total: matched.length, signal }, { headers: { ...CORS, 'Cache-Control': 'no-store' } });
+    }
+
     // ── GET /feed/:id ────────────────────────────────────────────────────────
     if (request.method === 'GET' && url.pathname.startsWith('/feed/')) {
       const id  = url.pathname.slice(6);
@@ -3509,6 +3526,36 @@ export default {
               updated_at:         p.timestamp          ?? null,
             };
           }
+          // Authoritative storage reference data (Litgrid, APVA — 2026-03)
+          d.storage_reference = {
+            source: 'Litgrid, 2026-03-23',
+            source_url: 'https://www.litgrid.eu/index.php/naujienos/naujienos/prie-elektros-perdavimo-tinklo-prijungta-trecioji-komercine-30-mw-galios-bateriju-kaupimo-sistema-/36502',
+            installed_mw: 484,
+            installed_gen_mw: 420,
+            installed_mwh: 719,
+            note: 'Distribution + transmission combined, national total',
+          };
+          d.storage_pipeline = {
+            tso_reserved_mw: 1395,
+            tso_reserved_mwh: 3204,
+            source: 'Litgrid reservation cycle',
+            source_url: 'https://www.litgrid.eu/index.php/naujienos/naujienos/litgrid-per-3-menesius-preliminariai-rezervavo-17-gw-galios-saules-ir-vejo-elektrinems-bei-kaupimo-irenginiams/36506',
+            intention_protocols_mw: 3700,
+            intention_protocols_mwh: 9000,
+            apva_applied_mw: 1545,
+            apva_applied_mwh: 3232,
+            apva_budget_eur: 45000000,
+            apva_source_url: 'https://apva.lrv.lt/lt/naujienos-24316/uzbaigtas-45-mln-euru-kvietimas-elektros-kaupimo-irenginiams-rinkos-poreikis-virsijo-skirta-suma-k2R',
+          };
+          d.grid_caveat = 'Grid capacity figures from VERT.lt ArcGIS represent ALL technologies (wind, solar, thermal, storage, consumption). They are non-additive across zones per Litgrid methodology. Do not interpret as storage-specific capacity.';
+          d.source_urls = {
+            vert_arcgis: 'https://atviri-litgrid.hub.arcgis.com/',
+            litgrid: 'https://www.litgrid.eu/',
+            vert_permits: 'https://vert.lt/atsinaujinantys-istekliai/SiteAssets/2026-02/Leidimai%20pl%C4%97toti%20kaupimo%20paj%C4%97gumus%20%202026-02-28.pdf',
+            apva: 'https://apva.lrv.lt/',
+            eso_maps: 'https://www.eso.lt/verslui/elektra/elektros-liniju-zemelapiai/transformatoriu-pastociu-laisvu-galiu-zemelapis-vartotojams/3931',
+            litgrid_aei: 'https://www.litgrid.eu/index.php/aei-centras/aei-elektriniu-prijungimo-zemelapis/32331',
+          };
           return new Response(JSON.stringify(d), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600', ...CORS } });
         } catch { /* fall through */ }
       }

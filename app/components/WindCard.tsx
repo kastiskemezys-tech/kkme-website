@@ -93,6 +93,18 @@ export function WindCard() {
         {windImpact(trend)}
       </div>
 
+      {/* Cross-signal: causal hint for BESS */}
+      {trend === 'below_baseline' && (
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: '8px' }}>
+          Low wind → narrower charging windows, higher peak prices
+        </p>
+      )}
+      {trend === 'above_baseline' && (
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: '8px' }}>
+          High wind → wider low-price charging windows, potential curtailment value
+        </p>
+      )}
+
       <SourceFooter source="energy-charts.info" updatedAt={data.timestamp ? new Date(data.timestamp).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) : undefined} dataClass="observed" />
 
       <div style={{ marginTop: '8px' }}>
