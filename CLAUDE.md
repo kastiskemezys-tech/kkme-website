@@ -487,6 +487,10 @@ When a metric's publication gate is INTERNAL_ONLY, do not show it as a hero valu
 11. Before rebuilding any section: audit current component, state flow, data dependencies. Decide: refactor or clean rebuild.
 12. Build data-first, not JSX-first. Every section needs a clean view-model layer. Do not hardcode business logic into presentational components.
 13. Product principles: read claude-handover/FREE_TOOL_PRODUCT_PRINCIPLES.md before proposing new features. Every addition must pass the 7-question checklist in §8.
+14. Pre-deploy validation: after `npx wrangler deploy`, run `bash scripts/validate-deploy.sh` BEFORE `npm run build`. If validation fails, fix the worker before deploying frontend.
+15. Data bounds: S/D ratio [0.1, 10], CPI [0.25, 2.0], aFRR capacity [0, 500 EUR/MW/h], activation P50 [10, 2000 EUR/MWh]. Outside these = bug.
+16. CPI invariant: MATURE-phase CPI values in trajectory must NOT be identical for consecutive years.
+17. Activation merge invariant: /s2 response activation.lt.afrr_p50 must be a number when s2_activation KV exists.
 
 ## Rebuild handover
 

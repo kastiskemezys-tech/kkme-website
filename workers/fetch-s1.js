@@ -173,7 +173,7 @@ function processFleet(entries, demand) {
   } else if (sd_ratio < 1.0) {
     phase = 'COMPRESS'; cpi = Math.max(0.30, 1.0 - (sd_ratio - 0.6) * 1.5);
   } else {
-    phase = 'MATURE';   cpi = Math.max(0.30, 0.30 - (sd_ratio - 1.0) * 0.08);
+    phase = 'MATURE';   cpi = Math.max(0.30, 0.40 - (sd_ratio - 1.0) * 0.08);
   }
   // 5-year trajectory (0.15 sd_ratio growth/yr — conservative new entrant assumption)
   const trajectory = [];
@@ -185,7 +185,7 @@ function processFleet(entries, demand) {
     let tc;
     if (r < 0.6) tc = Math.min(1.0 + (0.6 - r) * 2.5, 2.0);
     else if (r < 1.0) tc = Math.max(0.30, 1.0 - (r - 0.6) * 1.5);
-    else tc = Math.max(0.30, 0.30 - (r - 1.0) * 0.08);
+    else tc = Math.max(0.30, 0.40 - (r - 1.0) * 0.08);
     trajectory.push({ year: yr, sd_ratio: Math.round(r * 100) / 100, phase: ph, cpi: Math.round(tc * 100) / 100 });
   }
   // Quarantine + contradiction detection
@@ -3564,6 +3564,57 @@ export default {
       return new Response(raw, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600', ...CORS } });
     }
 
+    // ── GET /health/validate ── Full data integrity check
+    if (request.method === 'GET' && url.pathname === '/health/validate') {
+      const errors = [];
+      const warnings = [];
+      const checks = [];
+      const [s1Raw, s2Raw, fleetRaw, actRaw, capRaw] = await Promise.all([
+        env.KKME_SIGNALS.get('s1').catch(() => null),
+        env.KKME_SIGNALS.get('s2').catch(() => null),
+        env.KKME_SIGNALS.get('s2_fleet').catch(() => null),
+        env.KKME_SIGNALS.get('s2_activation').catch(() => null),
+        env.KKME_SIGNALS.get('s1_capture').catch(() => null),
+      ]);
+      const s1 = s1Raw ? JSON.parse(s1Raw) : null;
+      const s2 = s2Raw ? JSON.parse(s2Raw) : null;
+      const fleet = fleetRaw ? JSON.parse(fleetRaw) : null;
+      const act = actRaw ? JSON.parse(actRaw) : null;
+      const cap = capRaw ? JSON.parse(capRaw) : null;
+      if (!s1) { errors.push('S1: no data'); } else {
+        const age = (Date.now() - new Date(s1.updated_at).getTime()) / 3600000;
+        if (age > 8) warnings.push('S1: ' + Math.round(age) + 'h old');
+        checks.push({ check: 'S1', pass: true, age_h: Math.round(age) });
+      }
+      if (!s2) { errors.push('S2: no data'); } else {
+        checks.push({ check: 'S2', pass: true });
+      }
+      if (!fleet) { errors.push('Fleet: no data'); } else {
+        const traj = fleet.trajectory || [];
+        const matureCpis = traj.filter(t => t.phase === 'MATURE').map(t => t.cpi);
+        const allSame = matureCpis.length > 1 && matureCpis.every(c => c === matureCpis[0]);
+        if (allSame) errors.push('Fleet: ALL mature CPI identical (' + matureCpis[0] + ')');
+        checks.push({ check: 'CPI differentiation', pass: !allSame, values: matureCpis });
+        const psd = fleet.product_sd;
+        if (psd) {
+          for (const p of ['fcr', 'afrr', 'mfrr']) {
+            if (psd[p]?.ratio == null) errors.push('Fleet: product_sd.' + p + '.ratio is null');
+          }
+          checks.push({ check: 'Product S/D', pass: psd.fcr?.ratio != null });
+        }
+      }
+      if (!act) { warnings.push('Activation: no data'); } else {
+        const p50 = act.countries?.Lithuania?.afrr_recent_3m?.avg_p50;
+        if (p50 == null) errors.push('Activation: LT aFRR P50 null');
+        checks.push({ check: 'Activation', pass: p50 != null, value: p50 });
+      }
+      if (!cap) { warnings.push('S1 capture: no data'); } else {
+        const mean2h = cap.rolling_30d?.stats_2h?.mean;
+        checks.push({ check: 'S1 capture', pass: mean2h != null && mean2h > 0, value: mean2h });
+      }
+      return jsonResp({ status: errors.length === 0 ? 'PASS' : 'FAIL', errors, warnings, checks, timestamp: new Date().toISOString() });
+    }
+
     // ── GET /s2 ──────────────────────────────────────────────────────────────
     // Merges BTD capacity data + fleet S/D ratio data + activation clearing prices.
     if (request.method === 'GET' && url.pathname === '/s2') {
@@ -3589,7 +3640,37 @@ export default {
           base.product_sd            = fleet.product_sd            ?? null;
         }
         if (activationRaw) {
-          base.activation = JSON.parse(activationRaw);
+          try {
+            const act = JSON.parse(activationRaw);
+            const lt = act.countries?.Lithuania;
+            const lv = act.countries?.Latvia;
+            const ee = act.countries?.Estonia;
+            base.activation = {
+              lt: {
+                afrr_p50: lt?.afrr_recent_3m?.avg_p50 ?? null,
+                afrr_rate: lt?.afrr_recent_3m?.avg_activation_rate ?? null,
+                mfrr_p50: lt?.mfrr_recent_3m?.avg_p50 ?? null,
+                mfrr_rate: lt?.mfrr_recent_3m?.avg_activation_rate ?? null,
+              },
+              lv: {
+                afrr_p50: lv?.afrr_recent_3m?.avg_p50 ?? null,
+                afrr_rate: lv?.afrr_recent_3m?.avg_activation_rate ?? null,
+              },
+              ee: {
+                afrr_p50: ee?.afrr_recent_3m?.avg_p50 ?? null,
+                afrr_rate: ee?.afrr_recent_3m?.avg_activation_rate ?? null,
+              },
+              compression: act.compression_trajectory ?? null,
+              lt_monthly_afrr: lt?.afrr_up ?? null,
+              lt_monthly_mfrr: lt?.mfrr_up ?? null,
+              data_class: 'observed',
+              period: act.period,
+              source: act.source,
+              stored_at: act.stored_at,
+            };
+          } catch (e) {
+            console.error('[S2/activation merge]', String(e));
+          }
         }
         return new Response(JSON.stringify(base), {
           headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600', ...CORS },
