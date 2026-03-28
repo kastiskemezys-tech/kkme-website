@@ -5,9 +5,9 @@ import type { S1Signal, S1CaptureData, DailyCaptureEntry } from '@/lib/signals/s
 import { useSignal } from '@/lib/useSignal';
 import { safeNum } from '@/lib/safeNum';
 import {
-  MetricTile, StatusChip, SourceFooter, DetailsDrawer, DataClassBadge,
+  MetricTile, SourceFooter, DetailsDrawer, DataClassBadge,
 } from '@/app/components/primitives';
-import type { Sentiment } from '@/app/lib/types';
+// Sentiment type removed — no editorial labels on this card
 import {
   Chart as ChartJS,
   CategoryScale, LinearScale,
@@ -32,46 +32,7 @@ const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
 // ── Capture-driven sentiment ──────────────────────────────────────────────
 
-function captureSentiment(grossCapture: number): Sentiment {
-  if (grossCapture < 10) return 'negative';
-  if (grossCapture < 30) return 'neutral';
-  if (grossCapture < 60) return 'caution';
-  return 'positive';
-}
-
-function captureStatus(grossCapture: number): string {
-  if (grossCapture < 10) return 'Flat';
-  if (grossCapture < 30) return 'Narrow';
-  if (grossCapture < 60) return 'Supportive';
-  if (grossCapture < 100) return 'Strong';
-  return 'Very strong';
-}
-
-function captureInterpretation(gross2h: number | null, gross4h: number | null, swing: number | null): string {
-  const g = gross4h ?? gross2h;
-  if (g == null) return 'Capture data not yet available. Awaiting first computation from LT day-ahead prices.';
-  if (g < 10) return 'Today\'s DA price shape offers little arbitrage opportunity. Flat profiles limit the DA capture component of storage revenue.';
-  if (g < 30) return 'Modest DA price separation. Day-ahead capture contributes but is not the primary revenue driver at these levels.';
-  if (g < 60) return 'Clear DA price separation. The day-ahead capture component is meaningful — though realized revenue depends on reserve commitments and dispatch.';
-  if (g < 100) return 'Wide DA price separation. The theoretical day-ahead capture is strong — actual revenue will be lower after reserve drag and partial cycling.';
-  return 'Exceptional DA price volatility. Gross capture is well above seasonal norms — likely driven by weather or outage events. Not representative of sustained revenue.';
-}
-
-function captureImpact2H(gross2h: number | null): string {
-  const g = gross2h ?? 0;
-  if (g < 10) return `2H: Weak DA capture (€${safeNum(g, 0)}/MWh gross)`;
-  if (g < 30) return `2H: Modest DA capture (€${safeNum(g, 0)}/MWh gross)`;
-  if (g < 60) return `2H: Supportive DA capture (€${safeNum(g, 0)}/MWh gross)`;
-  return `2H: Strong DA capture (€${safeNum(g, 0)}/MWh gross)`;
-}
-
-function captureImpact4H(gross4h: number | null): string {
-  const g = gross4h ?? 0;
-  if (g < 10) return `4H: Weak DA capture (€${safeNum(g, 0)}/MWh gross)`;
-  if (g < 30) return `4H: Modest DA capture (€${safeNum(g, 0)}/MWh gross)`;
-  if (g < 60) return `4H: Supportive DA capture (€${safeNum(g, 0)}/MWh gross)`;
-  return `4H: Strong DA capture (€${safeNum(g, 0)}/MWh gross)`;
-}
+// No editorial labels or sentiment mappings — data speaks for itself
 
 // ── Component ─────────────────────────────────────────────────────────────
 
@@ -154,10 +115,10 @@ export function S1Card() {
           Day-ahead arbitrage capture
         </h3>
         <p style={{
-          fontFamily: 'var(--font-serif)',
-          fontSize: 'var(--font-sm)',
+          fontFamily: 'var(--font-mono)',
+          fontSize: 'var(--font-xs)',
           color: 'var(--text-secondary)',
-          lineHeight: 1.6,
+          lineHeight: 1.5,
         }}>
           What a storage asset could capture from today&apos;s LT day-ahead price shape using perfect-foresight dispatch.
         </p>
@@ -204,7 +165,7 @@ export function S1Card() {
       </div>
 
       {/* HERO METRIC — gross capture */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '4px' }}>
+      <div style={{ marginBottom: '4px' }}>
         <MetricTile
           label={`Gross DA capture (${duration})`}
           value={grossToday != null ? `€${safeNum(grossToday, 1)}` : '—'}
@@ -213,11 +174,42 @@ export function S1Card() {
           dataClass="derived"
           sublabel="From observed DA prices · perfect-foresight dispatch"
         />
-        <StatusChip
-          status={grossToday != null ? captureStatus(grossToday) : 'Pending'}
-          sentiment={grossToday != null ? captureSentiment(grossToday) : 'neutral'}
-        />
+        {/* €/MW/day — revenue intensity for reference asset */}
+        {grossToday != null && (
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
+            €{Math.round(grossToday * (duration === '2h' ? 2 : 4)).toLocaleString()}/MW/day gross · {duration === '2h' ? '50MW/100MWh' : '50MW/200MWh'} reference
+          </div>
+        )}
       </div>
+
+      {/* TRAILING 12-MONTH RANGE — percentile bar replaces StatusChip */}
+      {(() => {
+        const monthlyAvgs = monthly.map(m =>
+          duration === '4h' ? m.avg_gross_4h : m.avg_gross_2h
+        ).filter((v): v is number => v != null);
+        if (monthlyAvgs.length < 3 || grossToday == null) return null;
+        const sorted = [...monthlyAvgs].sort((a, b) => a - b);
+        const p5 = sorted[Math.floor(sorted.length * 0.05)] ?? sorted[0];
+        const p95 = sorted[Math.floor(sorted.length * 0.95)] ?? sorted[sorted.length - 1];
+        const range = p95 - p5;
+        const todayPct = range > 0 ? Math.min(100, Math.max(0, ((grossToday - p5) / range) * 100)) : 50;
+        return (
+          <div style={{ margin: '8px 0 12px', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)', marginBottom: '2px' }}>
+              <span>€{Math.round(p5)}</span>
+              <span>12-month range</span>
+              <span>€{Math.round(p95)}</span>
+            </div>
+            <div style={{ position: 'relative', height: '4px', background: 'var(--bg-elevated)', borderRadius: '2px' }}>
+              <div style={{
+                position: 'absolute', left: `${todayPct}%`, top: '-2px',
+                width: '8px', height: '8px', borderRadius: '50%',
+                background: 'var(--text-primary)', transform: 'translateX(-50%)',
+              }} />
+            </div>
+          </div>
+        );
+      })()}
 
       {/* 30-DAY CAPTURE CHART */}
       {history.length > 1 && (() => {
@@ -404,40 +396,18 @@ export function S1Card() {
         Gross DA capture only. Excludes: reserve drag, partial cycles, RTE losses, intraday re-optimization, grid fees, imbalance risk.
       </div>
 
-      {/* INTERPRETATION */}
-      <p style={{
-        fontFamily: 'var(--font-serif)',
-        fontSize: 'var(--font-sm)',
-        color: 'var(--text-secondary)',
-        lineHeight: 1.6,
-        marginBottom: '8px',
-      }}>
-        {captureInterpretation(cap?.gross_2h ?? null, cap?.gross_4h ?? null, swing)}
-      </p>
-
-      {/* IMPACT LINE — split 2H / 4H */}
+      {/* TIMESTAMP + DATA CLASS */}
       <div style={{
         fontFamily: 'var(--font-mono)',
-        fontSize: 'var(--font-sm)',
-        color: 'var(--teal-strong)',
-        marginBottom: '16px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '2px',
+        fontSize: 'var(--font-xs)',
+        color: 'var(--text-muted)',
+        marginBottom: '8px',
       }}>
-        <span>Reference asset: {captureImpact2H(cap?.gross_2h ?? null)}</span>
-        <span>Reference asset: {captureImpact4H(cap?.gross_4h ?? null)}</span>
+        {data.updated_at && <>Updated {new Date(data.updated_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })} · </>}derived from observed DA prices
       </div>
 
-      {/* SOURCE FOOTER */}
-      <button type="button" onClick={openDrawer} style={{ all: 'unset', display: 'block', width: '100%', cursor: 'pointer' }}>
-        <SourceFooter
-          source="energy-charts.info · ENTSO-E A44"
-          updatedAt={data.updated_at ? new Date(data.updated_at).toLocaleString('en-GB', {
-            day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC',
-          }) : undefined}
-          dataClass="derived from observed DA prices"
-        />
+      <button type="button" onClick={openDrawer} style={{ all: 'unset', display: 'block', width: '100%', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-ghost)', letterSpacing: '0.06em' }}>
+        MODEL INPUT → DA arbitrage reference
       </button>
 
       {/* DETAILS DRAWER */}
@@ -497,52 +467,63 @@ export function S1Card() {
           </div>
 
           {/* ── Gross-to-net bridge ── */}
-          {captureData?.gross_to_net && captureData.gross_to_net.length > 0 && (
-            <>
-              <p style={{
-                fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
-                color: 'var(--text-tertiary)', letterSpacing: '0.1em',
-                textTransform: 'uppercase', marginBottom: '8px',
-              }}>
-                Gross-to-net bridge (indicative)
-              </p>
-              <div style={{
-                fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)',
-                marginBottom: '20px',
-              }}>
-                {captureData.gross_to_net.map((line, i) => {
-                  const classLabel = line.type === 'base' ? 'observed'
-                    : line.type === 'deduction' ? 'assumed'
-                    : 'modeled';
-                  return (
+          {captureData?.gross_to_net && captureData.gross_to_net.length > 0 && (() => {
+            // net_eur_mwh = avg_discharge - avg_charge / RTE
+            // "per MWh discharged" convention (Modo/Clean Horizon standard)
+            const rte = duration === '2h' ? 0.875 : 0.87;
+            const sellPrice = captureData.gross_to_net.find(l => l.type === 'base' && l.label.includes('sell'))?.value
+              ?? captureData.gross_to_net.find(l => l.type === 'base')?.value;
+            const buyPrice = captureData.gross_to_net.find(l => l.label.toLowerCase().includes('buy') || l.label.toLowerCase().includes('charge'))?.value;
+
+            return (
+              <>
+                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>
+                  Gross-to-net bridge ({duration}, per MWh discharged)
+                </p>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', marginBottom: '8px' }}>
+                  {captureData.gross_to_net.map((line, i) => (
                     <div key={i} style={{
-                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                      padding: '4px 0',
-                      color: line.type === 'result' ? 'var(--text-secondary)' :
-                        line.type === 'deduction' ? 'var(--rose)' : 'var(--text-secondary)',
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0',
+                      color: line.type === 'result' ? 'var(--text-secondary)' : line.type === 'deduction' ? 'var(--rose)' : 'var(--text-secondary)',
                       borderTop: line.type === 'result' ? '1px solid var(--border-card)' : 'none',
                       fontWeight: line.type === 'result' ? 500 : 400,
                     }}>
                       <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         {line.label}
-                        <span style={{
-                          fontSize: 'var(--font-xs)', color: 'var(--text-muted)',
-                          opacity: 0.7,
-                        }}>{classLabel}</span>
+                        <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', opacity: 0.7 }}>
+                          {line.type === 'base' ? 'observed' : line.type === 'deduction' ? '1/RTE × charge cost' : 'derived'}
+                        </span>
                       </span>
                       <span>{line.value >= 0 ? '' : '−'}€{safeNum(Math.abs(line.value), 2)}/MWh</span>
                     </div>
-                  );
-                })}
-                <p style={{
-                  fontSize: 'var(--font-xs)', color: 'var(--text-muted)',
-                  marginTop: '6px', lineHeight: 1.4,
-                }}>
-                  Net is modeled, not measured. Excludes reserve drag, partial cycles, grid fees, imbalance. Realized capture is typically 40–65% of gross.
+                  ))}
+                </div>
+
+                {/* Friction estimates — not included in net capture above */}
+                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '6px' }}>
+                  Not included in net capture
                 </p>
-              </div>
-            </>
-          )}
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', marginBottom: '8px' }}>
+                  {[
+                    { label: 'Cycle degradation', range: '€8–15/MWh', status: 'estimated' },
+                    { label: 'Grid fees + PSO', range: '€3–5/MWh', status: 'estimated' },
+                    { label: 'Optimizer / RTM fees', range: '5–10% of gross', status: 'estimated' },
+                    { label: 'Auxiliary consumption', range: '2–3% of throughput', status: 'estimated' },
+                    { label: 'Imbalance admin (Litgrid)', range: '€0.58/MWh', status: 'confirmed' },
+                    { label: 'Availability haircut', range: '3–5% annual hours', status: 'estimated' },
+                  ].map((item, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', color: 'var(--text-muted)' }}>
+                      <span>{item.label} <span style={{ opacity: 0.5, fontStyle: 'italic' }}>{item.status}</span></span>
+                      <span>{item.range}</span>
+                    </div>
+                  ))}
+                </div>
+                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.4, marginBottom: '20px' }}>
+                  Realized capture is typically 40–65% of gross. Show ranges — do not compute a single net number from estimates.
+                </p>
+              </>
+            );
+          })()}
 
           {/* ── Cross-border spread (demoted) ── */}
           <p style={{
@@ -579,23 +560,39 @@ export function S1Card() {
               </>
             )}
           </div>
-          <div style={{ display: 'flex', gap: '4px', alignItems: 'center', marginBottom: '20px' }}>
-            <DataClassBadge dataClass="observed" />
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>
-              ENTSO-E A44 day-ahead prices
-            </span>
-          </div>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '20px', lineHeight: 1.5 }}>
+            LT-SE4 spread reflects interconnector price coupling. Wider spread = more DA arbitrage opportunity for LT-connected BESS. Spread narrows when NordBalt flows freely.
+          </p>
 
           {/* ── Monthly seasonal view ── */}
           {monthly.length > 1 && (
             <>
-              <p style={{
-                fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
-                color: 'var(--text-tertiary)', letterSpacing: '0.1em',
-                textTransform: 'uppercase', marginBottom: '8px',
-              }}>
-                Monthly capture ({duration})
-              </p>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <p style={{
+                  fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+                  color: 'var(--text-tertiary)', letterSpacing: '0.1em',
+                  textTransform: 'uppercase', margin: 0,
+                }}>
+                  Monthly capture ({duration})
+                </p>
+                <button
+                  onClick={() => {
+                    const header = 'Month\tGross\tNet\tDays';
+                    const rows = monthly.map(m => {
+                      const g = duration === '2h' ? m.avg_gross_2h : m.avg_gross_4h;
+                      const n = duration === '2h' ? m.avg_net_2h : m.avg_net_4h;
+                      return `${m.month}\t${g?.toFixed(1) ?? ''}\t${n?.toFixed(1) ?? ''}\t${m.days}`;
+                    });
+                    navigator.clipboard.writeText([header, ...rows].join('\n'));
+                  }}
+                  title="Copy as TSV table"
+                  style={{ all: 'unset', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', opacity: 0.5, transition: 'opacity 0.15s' }}
+                  onMouseEnter={e => (e.currentTarget.style.opacity = '0.8')}
+                  onMouseLeave={e => (e.currentTarget.style.opacity = '0.5')}
+                >
+                  📋 copy
+                </button>
+              </div>
               <div style={{
                 display: 'grid', gridTemplateColumns: 'auto 1fr 1fr auto',
                 gap: '4px 12px',
@@ -643,7 +640,7 @@ export function S1Card() {
             color: 'var(--text-tertiary)', letterSpacing: '0.1em',
             textTransform: 'uppercase', marginBottom: '6px',
           }}>
-            Market context
+            Market context · Q1 2026
           </p>
           <div style={{
             fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
@@ -672,9 +669,35 @@ export function S1Card() {
           </p>
           <p style={{
             fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
-            color: 'var(--text-muted)', lineHeight: 1.5, opacity: 0.6,
+            color: 'var(--text-muted)', lineHeight: 1.5, opacity: 0.6, marginBottom: '12px',
           }}>
             Perfect-foresight sort-and-dispatch on LT DA prices ({captureData?.resolution ?? '15min'} resolution where available, hourly for data before mid-2025). Picks cheapest {duration === '2h' ? '2' : '4'} hours to charge, most expensive {duration === '2h' ? '2' : '4'} to discharge. Single cycle per day. RTE {duration === '2h' ? '87.5' : '87.0'}% (assumed). This is gross market opportunity from observed prices — not realized asset revenue. Does not model reserve commitment, partial cycles, or intraday re-optimization.
+          </p>
+          <p style={{
+            fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+            color: 'var(--text-muted)', letterSpacing: '0.1em',
+            textTransform: 'uppercase', marginBottom: '4px', opacity: 0.7,
+          }}>
+            Sources
+          </p>
+          <p style={{
+            fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+            color: 'var(--text-muted)', lineHeight: 1.5, opacity: 0.6, marginBottom: '12px',
+          }}>
+            energy-charts.info · ENTSO-E A44 day-ahead prices · Nord Pool
+          </p>
+          <p style={{
+            fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+            color: 'var(--text-muted)', letterSpacing: '0.1em',
+            textTransform: 'uppercase', marginBottom: '4px', opacity: 0.7,
+          }}>
+            Use this data
+          </p>
+          <p style={{
+            fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+            color: 'var(--text-muted)', lineHeight: 1.5, opacity: 0.6,
+          }}>
+            API: curl kkme-fetch-s1.kastis-kemezys.workers.dev/s1/capture
           </p>
         </DetailsDrawer>
       </div>
