@@ -472,18 +472,39 @@ function IntelRow({ item, isExpanded, onToggle }: {
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>
                 Affects:
               </span>
-              {item.affected_modules.map((m: string) => (
-                <span key={m} style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: 'var(--font-xs)',
-                  padding: '1px 5px',
-                  background: 'var(--bg-elevated)',
-                  borderRadius: '2px',
-                  color: 'var(--text-tertiary)',
-                }}>
-                  {m}
-                </span>
-              ))}
+              {item.affected_modules.map((m: string) => {
+                const SIGNAL_SECTION: Record<string, string> = {
+                  S1: 'signals', S2: 'signals',
+                  S3: 'build', S4: 'build',
+                  S5: 'context', S6: 'context', S7: 'context', S8: 'context', S9: 'context',
+                  Revenue: 'revenue', Fleet: 'signals', Buildability: 'build',
+                };
+                const sectionId = SIGNAL_SECTION[m];
+                return (
+                  <button
+                    key={m}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (sectionId) document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    style={{
+                      all: 'unset',
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: 'var(--font-xs)',
+                      padding: '1px 5px',
+                      background: 'var(--bg-elevated)',
+                      borderRadius: '2px',
+                      color: 'var(--text-tertiary)',
+                      cursor: sectionId ? 'pointer' : 'default',
+                      transition: 'color 150ms',
+                    }}
+                    onMouseEnter={e => { if (sectionId) e.currentTarget.style.color = 'var(--teal)'; }}
+                    onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-tertiary)')}
+                  >
+                    {m}
+                  </button>
+                );
+              })}
             </div>
           )}
 
@@ -537,9 +558,12 @@ function IntelRow({ item, isExpanded, onToggle }: {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
+type CountryFilter = 'all' | 'LT' | 'LV' | 'EE';
+
 export function IntelFeed() {
   const [liveItems, setLiveItems] = useState<IntelItem[]>([]);
   const [activeFilter, setActiveFilter] = useState<Category | 'all'>('all');
+  const [countryFilter, setCountryFilter] = useState<CountryFilter>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // Fetch event items from /feed endpoint
@@ -597,21 +621,60 @@ export function IntelFeed() {
 
   // Filtered items (excluding pinned from main list to avoid duplication)
   const filteredItems = useMemo(() => {
-    const items = activeFilter === 'all'
+    let items = activeFilter === 'all'
       ? allItems
       : allItems.filter(i => i.primaryCategory === activeFilter);
+    // Country filter
+    if (countryFilter !== 'all') {
+      items = items.filter(i => i.geography === countryFilter || i.geography === 'Baltic');
+    }
     // If showing "all", exclude pinned items from main list (they appear in the strip)
     if (activeFilter === 'all' && pinned.length > 0) {
       const pinnedIds = new Set(pinned.map(p => p.id));
-      return items.filter(i => !pinnedIds.has(i.id));
+      items = items.filter(i => !pinnedIds.has(i.id));
     }
     return items;
-  }, [allItems, activeFilter, pinned]);
+  }, [allItems, activeFilter, countryFilter, pinned]);
 
   return (
     <section style={{ width: '100%' }}>
       {/* Pinned editorial strip */}
       {activeFilter === 'all' && <PinnedStrip items={pinned} />}
+
+      {/* Country tabs */}
+      <div style={{ display: 'flex', gap: '2px', marginBottom: '12px' }}>
+        {(['all', 'LT', 'LV', 'EE'] as CountryFilter[]).map(c => {
+          const isActive = c === countryFilter;
+          return (
+            <button
+              key={c}
+              onClick={() => setCountryFilter(c)}
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 'var(--font-xs)',
+                padding: '4px 10px',
+                border: 'none',
+                borderBottom: isActive ? '2px solid var(--teal)' : '2px solid transparent',
+                background: 'transparent',
+                color: isActive ? 'var(--teal)' : 'var(--text-muted)',
+                cursor: 'pointer',
+                transition: 'color 150ms, border-color 150ms',
+              }}
+            >
+              {c === 'all' ? 'All' : c}
+            </button>
+          );
+        })}
+        <span style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: 'var(--font-xs)',
+          color: 'var(--text-ghost)',
+          alignSelf: 'center',
+          marginLeft: 'auto',
+        }}>
+          {countryFilter !== 'all' ? `${filteredItems.length} of ${allItems.length}` : `${allItems.length}`} items
+        </span>
+      </div>
 
       {/* Filter bar */}
       <nav aria-label="Intelligence filters" style={{ marginBottom: '24px' }}>

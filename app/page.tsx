@@ -13,6 +13,7 @@ const S4Card = dynamic(() => import('@/app/components/S4Card').then(m => m.S4Car
 const S7Card = dynamic(() => import('@/app/components/S7Card').then(m => m.S7Card));
 const S8Card = dynamic(() => import('@/app/components/S8Card').then(m => m.S8Card));
 const S9Card = dynamic(() => import('@/app/components/S9Card').then(m => m.S9Card));
+const ConfidencePanel = dynamic(() => import('@/app/components/ConfidencePanel').then(m => m.ConfidencePanel));
 const WindCard = dynamic(() => import('@/app/components/WindCard').then(m => m.WindCard));
 const SolarCard = dynamic(() => import('@/app/components/SolarCard').then(m => m.SolarCard));
 const LoadCard = dynamic(() => import('@/app/components/LoadCard').then(m => m.LoadCard));
@@ -201,6 +202,11 @@ export default function Home() {
               Model v5.1 · Outputs are directional intelligence, not investment advice.
             </p>
           </div>
+        </div>
+
+        {/* ═══ DATA CONFIDENCE ═══ */}
+        <div className="section" style={{ paddingTop: '24px', paddingBottom: '24px' }}>
+          <ConfidencePanel />
         </div>
 
         {/* ═══ DISCUSS BALTIC STORAGE ═══ */}

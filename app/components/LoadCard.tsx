@@ -91,6 +91,22 @@ export function LoadCard() {
         {loadImpact(trend)}
       </div>
 
+      {/* Cross-signal: demand causal hint */}
+      {mw != null && avg != null && avg > 0 && (() => {
+        const ratio = mw / avg;
+        if (ratio > 1.1) return (
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '8px' }}>
+            High demand → wider spreads, supportive for discharge revenue
+          </p>
+        );
+        if (ratio < 0.9) return (
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '8px' }}>
+            Low demand → narrower spreads, reduced discharge opportunity
+          </p>
+        );
+        return null;
+      })()}
+
       <SourceFooter source="energy-charts.info" updatedAt={data.timestamp ? new Date(data.timestamp).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) : undefined} dataClass="observed" />
 
       <div style={{ marginTop: '8px' }}>
