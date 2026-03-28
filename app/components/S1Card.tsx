@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import type { S1Signal } from '@/lib/signals/s1';
+import { useState, useEffect } from 'react';
+import type { S1Signal, S1CaptureData, DailyCaptureEntry } from '@/lib/signals/s1';
 import { useSignal } from '@/lib/useSignal';
 import { safeNum } from '@/lib/safeNum';
 import {
-  MetricTile, StatusChip, SourceFooter, DetailsDrawer,
+  MetricTile, StatusChip, SourceFooter, DetailsDrawer, DataClassBadge,
 } from '@/app/components/primitives';
-import type { ImpactState, Sentiment } from '@/app/lib/types';
+import type { Sentiment } from '@/app/lib/types';
 import {
   Chart as ChartJS,
   CategoryScale, LinearScale,
@@ -23,71 +23,65 @@ ChartJS.register(
   Tooltip, Legend, Filler
 );
 
-interface SpreadHistory {
-  date: string;
-  spread_eur: number;
-  spread_pct?: number;
-  lt_swing?: number;
-}
-
 // Extend S1Signal with hourly data present in actual API response
-interface S1WithHourly extends S1Signal {
+interface S1WithCapture extends S1Signal {
   hourly_lt?: number[];
 }
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
-function spreadSentiment(spread: number): Sentiment {
-  if (spread < -5) return 'negative';
-  if (spread < 2) return 'neutral';
-  if (spread < 10) return 'caution';
+// ── Capture-driven sentiment ──────────────────────────────────────────────
+
+function captureSentiment(grossCapture: number): Sentiment {
+  if (grossCapture < 10) return 'negative';
+  if (grossCapture < 30) return 'neutral';
+  if (grossCapture < 60) return 'caution';
   return 'positive';
 }
 
-function spreadStatus(spread: number): string {
-  if (spread < -5) return 'Inverted';
-  if (spread < 2) return 'Weak';
-  if (spread < 10) return 'Slightly supportive';
-  if (spread < 25) return 'Supportive';
-  return 'Strong';
+function captureStatus(grossCapture: number): string {
+  if (grossCapture < 10) return 'Flat';
+  if (grossCapture < 30) return 'Narrow';
+  if (grossCapture < 60) return 'Supportive';
+  if (grossCapture < 100) return 'Strong';
+  return 'Very strong';
 }
 
-function spreadInterpretation(spread: number): string {
-  if (spread < 0) return 'Baltic prices are below neighboring markets. Arbitrage is not supportive at current levels.';
-  if (spread < 5) return 'Narrow spreads. Arbitrage contributes modestly to storage economics.';
-  if (spread < 15) return 'Moderate price separation. Day-ahead arbitrage provides meaningful revenue support.';
-  return 'Wide Baltic price separation. Arbitrage is a significant contributor to storage revenues.';
+function captureInterpretation(gross2h: number | null, gross4h: number | null, swing: number | null): string {
+  const g = gross4h ?? gross2h;
+  if (g == null) return 'Capture data not yet available. Awaiting first computation from LT day-ahead prices.';
+  if (g < 10) return 'Today\'s price shape offers little arbitrage opportunity. Flat profiles reduce storage value.';
+  if (g < 30) return 'Modest price separation. DA arbitrage contributes but is not the primary revenue driver at these levels.';
+  if (g < 60) return 'Clear intraday price separation supports arbitrage. Storage capture is meaningful at current price levels.';
+  if (g < 100) return 'Wide price separation drives strong arbitrage capture. This price shape is highly supportive for storage economics.';
+  return 'Exceptional price volatility. Capture levels are well above seasonal norms — likely driven by weather or outage events.';
 }
 
-function spreadImpact(spread: number): ImpactState {
-  if (spread < 0) return 'slight_negative';
-  if (spread < 5) return 'mixed';
-  if (spread < 15) return 'slight_positive';
-  return 'strong_positive';
+function captureImpactDesc(gross2h: number | null, gross4h: number | null): string {
+  const g2 = gross2h ?? 0;
+  const g4 = gross4h ?? 0;
+  if (g4 < 10) return 'Reference asset: Weak arbitrage contribution for both 2H and 4H';
+  if (g4 < 30) return 'Reference asset: Modest arbitrage, 4H captures more spread than 2H';
+  if (g4 < 60) return `Reference asset: Supportive arbitrage — 2H €${safeNum(g2, 0)}, 4H €${safeNum(g4, 0)}/MWh gross`;
+  return `Reference asset: Strong arbitrage upside — 2H €${safeNum(g2, 0)}, 4H €${safeNum(g4, 0)}/MWh gross`;
 }
 
-function spreadImpactDesc(spread: number): string {
-  if (spread < 0) return 'Reference asset: Arbitrage drag on both 2H and 4H';
-  if (spread < 5) return 'Reference asset: Minor arbitrage support for 2H and 4H';
-  if (spread < 15) return 'Reference asset: Moderate arbitrage support, stronger for 4H';
-  return 'Reference asset: Strong arbitrage upside, especially for 4H duration';
-}
+// ── Component ─────────────────────────────────────────────────────────────
 
 export function S1Card() {
-  const { status, data } =
-    useSignal<S1WithHourly>(`${WORKER_URL}/read`);
-  const [historyRaw, setHistoryRaw] = useState<SpreadHistory[]>([]);
+  const { status, data } = useSignal<S1WithCapture>(`${WORKER_URL}/read`);
+  const [captureData, setCaptureData] = useState<S1CaptureData | null>(null);
+  const [duration, setDuration] = useState<'2h' | '4h'>('4h');
   const [drawerKey, setDrawerKey] = useState(0);
   const openDrawer = () => setDrawerKey(k => k + 1);
 
+  // Fetch full capture data
   useEffect(() => {
-    fetch(`${WORKER_URL}/s1/history`)
-      .then(r => r.json())
-      .then((h: SpreadHistory[]) => setHistoryRaw(Array.isArray(h) ? h : []))
+    fetch(`${WORKER_URL}/s1/capture`)
+      .then(r => r.ok ? r.json() : null)
+      .then((d: S1CaptureData | null) => { if (d) setCaptureData(d); })
       .catch(() => {});
   }, []);
-
-  const history = historyRaw.map(e => e.spread_eur);
 
   if (status === 'loading') {
     return (
@@ -104,27 +98,31 @@ export function S1Card() {
     return (
       <article style={{ padding: '24px' }}>
         <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>
-          Price separation data unavailable
+          Price data unavailable
         </p>
       </article>
     );
   }
 
-  const spread = data.spread_eur_mwh;
-  const spreadP50 = data.spread_stats_90d?.p50 ?? null;
-  const daysOfData = data.spread_stats_90d?.days_of_data ?? 0;
-  const impact = spreadImpact(spread);
+  // Capture values — from embedded capture or full capture endpoint
+  const cap = data.capture;
+  const grossToday = duration === '2h' ? (cap?.gross_2h ?? null) : (cap?.gross_4h ?? null);
+  const netToday = duration === '2h' ? (cap?.net_2h ?? null) : (cap?.net_4h ?? null);
+  const rolling = duration === '2h' ? cap?.rolling_30d?.stats_2h : cap?.rolling_30d?.stats_4h;
+  const swing = cap?.shape_swing ?? data.lt_daily_swing_eur_mwh ?? null;
 
-  // Compute spread percentile vs 30D history
-  let percentileLabel = '';
-  if (history.length > 7) {
-    const sorted = [...history].sort((a, b) => a - b);
-    const rank = sorted.filter(v => v <= spread).length;
-    const pct = Math.round((rank / sorted.length) * 100);
-    const suffix = pct % 100 >= 11 && pct % 100 <= 13 ? 'th'
-      : pct % 10 === 1 ? 'st' : pct % 10 === 2 ? 'nd' : pct % 10 === 3 ? 'rd' : 'th';
-    percentileLabel = `${pct}${suffix}`;
-  }
+  // History for chart — from capture endpoint
+  const history = captureData?.history ?? [];
+  const historyField = duration === '2h' ? 'gross_2h' : 'gross_4h';
+
+  // Price shape — from capture endpoint
+  const shape = captureData?.shape ?? null;
+
+  // Monthly — from capture endpoint
+  const monthly = captureData?.monthly ?? [];
+
+  // Spread (demoted to drawer)
+  const spread = data.spread_eur_mwh;
 
   return (
     <article style={{ width: '100%' }}>
@@ -146,7 +144,7 @@ export function S1Card() {
           onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-secondary)')}
           onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-tertiary)')}
         >
-          Baltic price separation
+          Day-ahead arbitrage capture
         </h3>
         <p style={{
           fontFamily: 'var(--font-serif)',
@@ -154,7 +152,7 @@ export function S1Card() {
           color: 'var(--text-secondary)',
           lineHeight: 1.6,
         }}>
-          How far Baltic day-ahead prices diverge from neighbors. Wider spreads support storage arbitrage.
+          What a storage asset could capture from today&apos;s LT day-ahead price shape using perfect-foresight dispatch.
         </p>
         <p style={{
           fontFamily: 'var(--font-mono)',
@@ -162,47 +160,92 @@ export function S1Card() {
           color: 'var(--text-tertiary)',
           marginTop: '4px',
         }}>
-          Lithuania-led · ENTSO-E day-ahead data
+          Lithuania · energy-charts.info day-ahead prices
         </p>
       </div>
 
-      {/* HERO METRIC */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '4px' }}>
-        <MetricTile
-          label="Day-ahead price spread"
-          value={`${spread >= 0 ? '+' : ''}${safeNum(spread, 1)}`}
-          unit="€/MWh"
-          size="hero"
-          dataClass="observed"
-          sublabel="LT minus SE4 average"
-        />
-        <StatusChip status={spreadStatus(spread)} sentiment={spreadSentiment(spread)} />
+      {/* DURATION TOGGLE */}
+      <div style={{
+        display: 'flex',
+        gap: '2px',
+        marginBottom: '12px',
+        background: 'var(--bg-elevated)',
+        borderRadius: '4px',
+        padding: '2px',
+        width: 'fit-content',
+      }}>
+        {(['2h', '4h'] as const).map(d => (
+          <button
+            key={d}
+            onClick={() => setDuration(d)}
+            style={{
+              all: 'unset',
+              fontFamily: 'var(--font-mono)',
+              fontSize: 'var(--font-xs)',
+              padding: '4px 12px',
+              borderRadius: '3px',
+              cursor: 'pointer',
+              color: duration === d ? 'var(--text-primary)' : 'var(--text-muted)',
+              background: duration === d ? 'var(--border-card)' : 'transparent',
+              transition: 'all 150ms ease',
+              letterSpacing: '0.04em',
+            }}
+          >
+            {d}
+          </button>
+        ))}
       </div>
 
-      {/* HERO CHART — spread history (Chart.js) */}
-      {historyRaw.length > 1 && (() => {
-        const labels = historyRaw.map(h => {
+      {/* HERO METRIC — gross capture */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '4px' }}>
+        <MetricTile
+          label={`Gross DA capture (${duration})`}
+          value={grossToday != null ? `€${safeNum(grossToday, 1)}` : '—'}
+          unit="/MWh"
+          size="hero"
+          dataClass="derived"
+          sublabel="Perfect-foresight sort-and-dispatch"
+        />
+        <StatusChip
+          status={grossToday != null ? captureStatus(grossToday) : 'Pending'}
+          sentiment={grossToday != null ? captureSentiment(grossToday) : 'neutral'}
+        />
+      </div>
+
+      {/* 30-DAY CAPTURE CHART */}
+      {history.length > 1 && (() => {
+        const chartEntries = history.filter((h: DailyCaptureEntry) => h[historyField as keyof DailyCaptureEntry] != null);
+        if (chartEntries.length < 2) return null;
+
+        const labels = chartEntries.map((h: DailyCaptureEntry) => {
           const d = new Date(h.date + 'T00:00:00');
           return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
         });
-        const barColors = historyRaw.map(h =>
-          h.spread_eur >= 0 ? CHART_COLORS.tealLight : CHART_COLORS.roseLight
+
+        const values = chartEntries.map((h: DailyCaptureEntry) => h[historyField as keyof DailyCaptureEntry] as number);
+        const median = rolling?.p50 ?? null;
+
+        const barColors = values.map(v =>
+          v >= 60 ? CHART_COLORS.teal :
+          v >= 30 ? CHART_COLORS.tealLight :
+          v >= 10 ? CHART_COLORS.amberLight :
+          CHART_COLORS.roseLight
         );
-        const chartDataS1 = {
-          labels,
-          datasets: [{
-            label: 'Spread',
-            data: historyRaw.map(h => h.spread_eur),
-            backgroundColor: barColors,
-            borderWidth: 0,
-            borderSkipped: false as const,
-          }],
-        };
+
         return (
           <div style={{ margin: '16px 0' }}>
             <div style={{ position: 'relative', height: '200px' }}>
               <Bar
-                data={chartDataS1}
+                data={{
+                  labels,
+                  datasets: [{
+                    label: `Gross ${duration}`,
+                    data: values,
+                    backgroundColor: barColors,
+                    borderWidth: 0,
+                    borderSkipped: false as const,
+                  }],
+                }}
                 options={{
                   responsive: true,
                   maintainAspectRatio: false,
@@ -215,13 +258,13 @@ export function S1Card() {
                         title: (items) => items[0].label.toUpperCase(),
                         label: (item) => {
                           const v = item.raw as number;
-                          return `Spread    ${v >= 0 ? '+' : ''}${v.toFixed(1)} €/MWh`;
+                          return `Gross ${duration}  €${v.toFixed(1)}/MWh`;
                         },
                         footer: (items) => {
                           const idx = items[0].dataIndex;
-                          const h = historyRaw[idx];
+                          const entry = chartEntries[idx];
                           const lines = [];
-                          if (h.lt_swing != null) lines.push(`LT swing  ${Math.round(h.lt_swing)} €/MWh`);
+                          if (entry.swing != null) lines.push(`Swing     €${Math.round(entry.swing)}/MWh`);
                           return lines.join('\n');
                         },
                       },
@@ -235,7 +278,10 @@ export function S1Card() {
                         color: CHART_COLORS.textMuted,
                         font: { family: CHART_FONT.family, size: 10 },
                         maxRotation: 0,
-                        callback: (_, i) => i % 15 === 0 ? labels[i] : '',
+                        callback: (_, i) => {
+                          const step = Math.max(1, Math.floor(chartEntries.length / 5));
+                          return i % step === 0 ? labels[i] : '';
+                        },
                       },
                     },
                     y: {
@@ -245,7 +291,7 @@ export function S1Card() {
                         color: CHART_COLORS.textMuted,
                         font: { family: CHART_FONT.family, size: 10 },
                         maxTicksLimit: 5,
-                        callback: (v) => `${v}€`,
+                        callback: (v) => `€${v}`,
                       },
                     },
                   },
@@ -260,11 +306,9 @@ export function S1Card() {
               color: 'var(--text-muted)',
               marginTop: '4px',
             }}>
-              <span>{daysOfData > 0 ? `${daysOfData} days` : ''}</span>
-              {spreadP50 != null && (
-                <span style={{ color: CHART_COLORS.textMuted }}>
-                  median {spreadP50 >= 0 ? '+' : ''}{spreadP50.toFixed(0)}€
-                </span>
+              <span>{chartEntries.length} days</span>
+              {median != null && (
+                <span>30d median €{safeNum(median, 0)}/MWh</span>
               )}
               <span>today</span>
             </div>
@@ -272,20 +316,12 @@ export function S1Card() {
         );
       })()}
 
-      {/* BESS CAPTURE SCHEDULE STRIP */}
-      {(() => {
-        const hourlyRaw = data.hourly_lt;
-        if (!hourlyRaw || hourlyRaw.length < 24) return null;
-        // Take last 24 entries
-        const hourly24 = hourlyRaw.slice(-24);
-        // Find 2 cheapest and 2 most expensive hours
-        const indexed = hourly24.map((p, i) => ({ price: p, idx: i }));
-        const sorted = [...indexed].sort((a, b) => a.price - b.price);
-        const cheapest = new Set(sorted.slice(0, 2).map(e => e.idx));
-        const expensive = new Set(sorted.slice(-2).map(e => e.idx));
-        const avgCheap = sorted.slice(0, 2).reduce((s, e) => s + e.price, 0) / 2;
-        const avgExpensive = sorted.slice(-2).reduce((s, e) => s + e.price, 0) / 2;
-        const netCapture = (avgExpensive - avgCheap) / 0.875;
+      {/* PRICE SHAPE STRIP — today's hourly profile */}
+      {shape && shape.hourly_profile && shape.hourly_profile.length >= 12 && (() => {
+        const profile = shape.hourly_profile;
+        const maxP = Math.max(...profile);
+        const minP = Math.min(...profile);
+        const range = maxP - minP || 1;
 
         return (
           <div style={{ margin: '12px 0' }}>
@@ -297,23 +333,28 @@ export function S1Card() {
               textTransform: 'uppercase',
               marginBottom: '6px',
             }}>
-              Optimal dispatch
+              Today&apos;s price shape
             </p>
-            <div style={{ display: 'flex', gap: '1px' }}>
-              {hourly24.map((_, i) => (
-                <div
-                  key={i}
-                  style={{
-                    flex: 1,
-                    height: '12px',
-                    background: cheapest.has(i) ? 'var(--teal)' :
-                      expensive.has(i) ? 'var(--amber)' : 'var(--bg-elevated)',
-                    opacity: cheapest.has(i) || expensive.has(i) ? 0.8 : 1,
-                    borderRadius: '1px',
-                  }}
-                  title={`${String(i).padStart(2, '0')}:00 — €${hourly24[i].toFixed(1)}/MWh`}
-                />
-              ))}
+            <div style={{ display: 'flex', gap: '1px', alignItems: 'flex-end', height: '32px' }}>
+              {profile.map((p: number, i: number) => {
+                const h = Math.max(4, ((p - minP) / range) * 28);
+                const isCharge = p <= minP + range * 0.15;
+                const isDischarge = p >= maxP - range * 0.15;
+                return (
+                  <div
+                    key={i}
+                    style={{
+                      flex: 1,
+                      height: `${h}px`,
+                      background: isCharge ? 'var(--teal)' :
+                        isDischarge ? 'var(--amber)' : 'var(--bg-elevated)',
+                      opacity: isCharge || isDischarge ? 0.8 : 1,
+                      borderRadius: '1px',
+                    }}
+                    title={`${String(i).padStart(2, '0')}:00 — €${p}/MWh`}
+                  />
+                );
+              })}
             </div>
             <div style={{
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -323,18 +364,17 @@ export function S1Card() {
               <div style={{ display: 'flex', gap: '10px' }}>
                 <span style={{ color: 'var(--teal)' }}>■ Charge</span>
                 <span style={{ color: 'var(--amber)' }}>■ Discharge</span>
-                <span style={{ color: 'var(--text-muted)' }}>■ Hold</span>
               </div>
-              <span style={{ color: 'var(--text-secondary)' }}>
-                Net capture: €{safeNum(netCapture, 1)}/MWh after RTE
+              <span style={{ color: 'var(--text-muted)' }}>
+                Swing €{safeNum(shape.swing, 0)}/MWh
               </span>
             </div>
           </div>
         );
       })()}
 
-      {/* CAPTURE CAVEAT */}
-      <p style={{
+      {/* EXCLUDED ITEMS BOX */}
+      <div style={{
         fontFamily: 'var(--font-mono)',
         fontSize: 'var(--font-xs)',
         color: 'var(--text-muted)',
@@ -343,8 +383,8 @@ export function S1Card() {
         paddingLeft: '12px',
         borderLeft: '1px solid var(--amber-subtle)',
       }}>
-        Theoretical capture from price shape only. Realized BESS capture depends on reserve commitment, SoC, and activation timing.
-      </p>
+        Gross DA capture only. Excludes: reserve drag, partial cycles, RTE losses, intraday re-optimization, grid fees, imbalance risk.
+      </div>
 
       {/* INTERPRETATION */}
       <p style={{
@@ -354,7 +394,7 @@ export function S1Card() {
         lineHeight: 1.6,
         marginBottom: '8px',
       }}>
-        {spreadInterpretation(spread)}
+        {captureInterpretation(cap?.gross_2h ?? null, cap?.gross_4h ?? null, swing)}
       </p>
 
       {/* IMPACT LINE */}
@@ -364,95 +404,125 @@ export function S1Card() {
         color: 'var(--teal-strong)',
         marginBottom: '16px',
       }}>
-        {spreadImpactDesc(spread)}
+        {captureImpactDesc(cap?.gross_2h ?? null, cap?.gross_4h ?? null)}
       </div>
 
-      {/* SOURCE FOOTER — clickable to open drawer */}
+      {/* SOURCE FOOTER */}
       <button type="button" onClick={openDrawer} style={{ all: 'unset', display: 'block', width: '100%', cursor: 'pointer' }}>
         <SourceFooter
-          source="ENTSO-E A44"
+          source="energy-charts.info · ENTSO-E A44"
           updatedAt={data.updated_at ? new Date(data.updated_at).toLocaleString('en-GB', {
             day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC',
           }) : undefined}
-          dataClass="observed data"
+          dataClass="derived from observed DA prices"
         />
       </button>
 
       {/* DETAILS DRAWER */}
       <div style={{ marginTop: '16px' }}>
         <DetailsDrawer key={drawerKey} label="View signal breakdown" defaultOpen={drawerKey > 0}>
-          {/* Supporting metrics */}
+
+          {/* ── Capture detail ── */}
           <p style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-xs)',
-            color: 'var(--text-tertiary)',
-            letterSpacing: '0.1em',
-            textTransform: 'uppercase',
-            marginBottom: '8px',
+            fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+            color: 'var(--text-tertiary)', letterSpacing: '0.1em',
+            textTransform: 'uppercase', marginBottom: '8px',
           }}>
-            Supporting metrics
+            Capture detail
           </p>
           <div style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: '14px',
-            marginBottom: '20px',
+            display: 'grid', gridTemplateColumns: '1fr 1fr',
+            gap: '14px', marginBottom: '20px',
           }}>
             <div>
               <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>
-                {data.bess_net_capture != null ? safeNum(data.bess_net_capture, 1) : '—'} <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>€/MWh</span>
+                {netToday != null ? `€${safeNum(netToday, 1)}` : '—'} <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>/MWh</span>
               </div>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
-                Battery arbitrage capture · net of RTE
+                Net capture ({duration}) after RTE
               </div>
             </div>
-            <div>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>
-                {spreadP50 != null ? `${spreadP50 >= 0 ? '+' : ''}${safeNum(spreadP50, 1)}` : '—'} <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>€/MWh</span>
-              </div>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
-                {daysOfData >= 90 ? '90-day' : daysOfData > 0 ? `${daysOfData}-day` : ''} median spread
-              </div>
-            </div>
-            {percentileLabel && (
+            {rolling && (
               <div>
                 <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>
-                  {percentileLabel}
+                  €{safeNum(rolling.p50, 0)} <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>/MWh</span>
                 </div>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  Spread percentile vs 30 days
+                  30-day median gross ({duration})
                 </div>
               </div>
             )}
-            {!percentileLabel && data.pct_hours_above_20 != null && (
+            {swing != null && (
               <div>
                 <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>
-                  {safeNum(data.pct_hours_above_20, 1)}%
+                  €{safeNum(swing, 0)} <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>/MWh</span>
                 </div>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  Hours above 20% spread
+                  Intraday price swing
+                </div>
+              </div>
+            )}
+            {shape && (
+              <div>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>
+                  {String(shape.peak_hour).padStart(2, '0')}:00 / {String(shape.trough_hour).padStart(2, '0')}:00
+                </div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  Peak / trough hour
                 </div>
               </div>
             )}
           </div>
 
-          {/* Price breakdown */}
+          {/* ── Gross-to-net bridge ── */}
+          {captureData?.gross_to_net && captureData.gross_to_net.length > 0 && (
+            <>
+              <p style={{
+                fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+                color: 'var(--text-tertiary)', letterSpacing: '0.1em',
+                textTransform: 'uppercase', marginBottom: '8px',
+              }}>
+                Gross-to-net bridge
+              </p>
+              <div style={{
+                fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)',
+                marginBottom: '20px',
+              }}>
+                {captureData.gross_to_net.map((line, i) => (
+                  <div key={i} style={{
+                    display: 'flex', justifyContent: 'space-between',
+                    padding: '4px 0',
+                    color: line.type === 'result' ? 'var(--text-primary)' :
+                      line.type === 'deduction' ? 'var(--rose)' : 'var(--text-secondary)',
+                    borderTop: line.type === 'result' ? '1px solid var(--border-card)' : 'none',
+                    fontWeight: line.type === 'result' ? 600 : 400,
+                  }}>
+                    <span>{line.label}</span>
+                    <span>{line.value >= 0 ? '' : '−'}€{safeNum(Math.abs(line.value), 2)}/MWh</span>
+                  </div>
+                ))}
+                <p style={{
+                  fontSize: 'var(--font-xs)', color: 'var(--text-muted)',
+                  marginTop: '6px', lineHeight: 1.4,
+                }}>
+                  Excludes: reserve commitment drag, partial SoC cycles, grid fees, imbalance settlement. Realized capture is typically 40–65% of gross.
+                </p>
+              </div>
+            </>
+          )}
+
+          {/* ── Cross-border spread (demoted) ── */}
           <p style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-xs)',
-            color: 'var(--text-tertiary)',
-            letterSpacing: '0.1em',
-            textTransform: 'uppercase',
-            marginBottom: '8px',
+            fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+            color: 'var(--text-tertiary)', letterSpacing: '0.1em',
+            textTransform: 'uppercase', marginBottom: '8px',
           }}>
-            Price breakdown
+            Cross-border price spread
           </p>
           <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'auto 1fr',
+            display: 'grid', gridTemplateColumns: 'auto 1fr',
             gap: '5px 16px',
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-sm)',
+            fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)',
             marginBottom: '20px',
           }}>
             <span style={{ color: 'var(--text-muted)' }}>LT average</span>
@@ -463,12 +533,6 @@ export function S1Card() {
             <span style={{ color: 'var(--text-secondary)' }}>{spread >= 0 ? '+' : ''}{safeNum(spread, 2)} €/MWh</span>
             <span style={{ color: 'var(--text-muted)' }}>Separation</span>
             <span style={{ color: 'var(--text-secondary)' }}>{safeNum(data.separation_pct, 1)}% vs SE4</span>
-            {data.lt_daily_swing_eur_mwh != null && (
-              <>
-                <span style={{ color: 'var(--text-muted)' }}>LT daily swing</span>
-                <span style={{ color: 'var(--text-secondary)' }}>{safeNum(data.lt_daily_swing_eur_mwh, 0)} €/MWh</span>
-              </>
-            )}
             {data.p_high_avg != null && (
               <>
                 <span style={{ color: 'var(--text-muted)' }}>P_high (top-4h)</span>
@@ -482,39 +546,77 @@ export function S1Card() {
               </>
             )}
           </div>
+          <div style={{ display: 'flex', gap: '4px', alignItems: 'center', marginBottom: '20px' }}>
+            <DataClassBadge dataClass="observed" />
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>
+              ENTSO-E A44 day-ahead prices
+            </span>
+          </div>
 
+          {/* ── Monthly seasonal view ── */}
+          {monthly.length > 1 && (
+            <>
+              <p style={{
+                fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+                color: 'var(--text-tertiary)', letterSpacing: '0.1em',
+                textTransform: 'uppercase', marginBottom: '8px',
+              }}>
+                Monthly capture ({duration})
+              </p>
+              <div style={{
+                display: 'grid', gridTemplateColumns: 'auto 1fr 1fr auto',
+                gap: '4px 12px',
+                fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)',
+                marginBottom: '20px',
+              }}>
+                <span style={{ color: 'var(--text-tertiary)', fontWeight: 500 }}>Month</span>
+                <span style={{ color: 'var(--text-tertiary)', fontWeight: 500 }}>Gross</span>
+                <span style={{ color: 'var(--text-tertiary)', fontWeight: 500 }}>Net</span>
+                <span style={{ color: 'var(--text-tertiary)', fontWeight: 500 }}>Days</span>
+                {monthly.slice(-6).map(m => {
+                  const gVal = duration === '2h' ? m.avg_gross_2h : m.avg_gross_4h;
+                  const nVal = duration === '2h' ? m.avg_net_2h : m.avg_net_4h;
+                  return (
+                    <div key={m.month} style={{ display: 'contents' }}>
+                      <span style={{ color: 'var(--text-muted)' }}>{m.month}</span>
+                      <span style={{ color: 'var(--text-secondary)' }}>
+                        {gVal != null ? `€${safeNum(gVal, 1)}` : '—'}
+                      </span>
+                      <span style={{ color: 'var(--text-secondary)' }}>
+                        {nVal != null ? `€${safeNum(nVal, 1)}` : '—'}
+                      </span>
+                      <span style={{ color: 'var(--text-muted)' }}>{m.days}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          {/* ── DA tomorrow ── */}
           {data.da_tomorrow?.lt_peak != null && (
             <div style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: 'var(--font-xs)',
-              color: 'var(--text-muted)',
-              marginBottom: '20px',
+              fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+              color: 'var(--text-muted)', marginBottom: '20px',
             }}>
               Tomorrow DA: {safeNum(data.da_tomorrow.lt_peak, 0)} peak · {safeNum(data.da_tomorrow.lt_avg, 0)} avg €/MWh
               {data.da_tomorrow.delivery_date && ` · ${data.da_tomorrow.delivery_date}`}
             </div>
           )}
 
-          {/* Methodology — footer-level */}
+          {/* ── Methodology ── */}
           <p style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-xs)',
-            color: 'var(--text-muted)',
-            letterSpacing: '0.1em',
-            textTransform: 'uppercase',
-            marginBottom: '4px',
-            opacity: 0.7,
+            fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+            color: 'var(--text-muted)', letterSpacing: '0.1em',
+            textTransform: 'uppercase', marginBottom: '4px', opacity: 0.7,
           }}>
             Methodology
           </p>
           <p style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-xs)',
-            color: 'var(--text-muted)',
-            lineHeight: 1.5,
-            opacity: 0.6,
+            fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+            color: 'var(--text-muted)', lineHeight: 1.5, opacity: 0.6,
           }}>
-            Day-ahead directional estimate. Realised arbitrage depends on intraday conditions, efficiency, and market access.
+            Perfect-foresight sort-and-dispatch on LT DA prices. Picks cheapest {duration === '2h' ? '2' : '4'} hours to charge, most expensive {duration === '2h' ? '2' : '4'} to discharge. Single cycle per day. RTE {duration === '2h' ? '87.5' : '87.0'}%. Does not model reserve commitment, partial cycles, or intraday re-optimization. Realized capture is typically 40–65% of this theoretical gross.
           </p>
         </DetailsDrawer>
       </div>

@@ -749,6 +749,272 @@ async function computeHistorical(apiKey) {
   }
 }
 
+// ─── S1 Capture — DA gross capture via energy-charts.info ───────────────────
+
+const ENERGY_CHARTS_API = 'https://api.energy-charts.info/price';
+
+/**
+ * Fetch LT DA prices from energy-charts.info for a date range.
+ * Returns parallel arrays of unix_seconds and prices.
+ * Handles both 15-min (recent) and hourly (historical) resolution.
+ */
+async function fetchEnergyCharts(startDate, endDate) {
+  const end = endDate || startDate;
+  const url = `${ENERGY_CHARTS_API}?bzn=LT&start=${startDate}T00:00Z&end=${end}T23:59Z`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`energy-charts HTTP ${res.status}`);
+  const json = await res.json();
+  if (!json.price || !json.unix_seconds || !json.price.length) {
+    throw new Error('energy-charts: empty price data');
+  }
+
+  // Detect resolution from timestamp gaps
+  const gap = json.unix_seconds.length > 1
+    ? json.unix_seconds[1] - json.unix_seconds[0]
+    : 3600;
+  const resolutionMin = Math.round(gap / 60);
+
+  return {
+    prices: json.price,
+    timestamps: json.unix_seconds,
+    resolution: resolutionMin, // 15 or 60
+  };
+}
+
+/**
+ * Split multi-day price arrays into per-day arrays.
+ * Returns Map<dateStr, { prices: number[], timestamps: number[], resolution: number }>
+ */
+function splitByDay(prices, timestamps, resolution) {
+  const days = new Map();
+  for (let i = 0; i < prices.length; i++) {
+    const d = new Date(timestamps[i] * 1000);
+    const key = d.toISOString().slice(0, 10);
+    if (!days.has(key)) days.set(key, { prices: [], timestamps: [], resolution });
+    days.get(key).prices.push(prices[i]);
+    days.get(key).timestamps.push(timestamps[i]);
+  }
+  return days;
+}
+
+/**
+ * Perfect-foresight sort-and-dispatch capture for a single day.
+ * durationHours: 2 or 4 (storage duration).
+ * resolutionMin: 15 or 60 (data granularity).
+ * Returns gross/net capture in €/MWh and supporting metrics.
+ */
+function computeDayCapture(prices, durationHours, resolutionMin = 60) {
+  const intervalsPerHour = 60 / resolutionMin;
+  const n = Math.round(durationHours * intervalsPerHour);
+
+  // Need at least 2×n intervals (charge + discharge windows must not overlap)
+  if (prices.length < n * 2) return null;
+
+  // Filter out negative/zero prices for discharge, but keep all for sort
+  const indexed = prices.map((p, i) => ({ price: p, idx: i }));
+  const sorted = [...indexed].sort((a, b) => a.price - b.price);
+
+  const chargeSlots = sorted.slice(0, n);
+  const dischargeSlots = sorted.slice(-n);
+
+  const avgCharge = chargeSlots.reduce((s, e) => s + e.price, 0) / n;
+  const avgDischarge = dischargeSlots.reduce((s, e) => s + e.price, 0) / n;
+
+  // RTE: 87.5% for 2h (lower aux losses), 87% for 4h
+  const rte = durationHours <= 2 ? 0.875 : 0.87;
+
+  const grossCapture = avgDischarge - avgCharge;
+  // Net: discharge revenue minus charge cost adjusted for RTE losses
+  const netCapture = avgDischarge - (avgCharge / rte);
+
+  return {
+    gross_eur_mwh: Math.round(grossCapture * 100) / 100,
+    net_eur_mwh: Math.round(netCapture * 100) / 100,
+    avg_charge: Math.round(avgCharge * 100) / 100,
+    avg_discharge: Math.round(avgDischarge * 100) / 100,
+    rte,
+    n_intervals: n,
+  };
+}
+
+/**
+ * Price shape metrics for a single day.
+ * Identifies peak/trough hours, solar trough, evening premium.
+ */
+function priceShapeMetrics(prices, timestamps, resolutionMin = 60) {
+  if (!prices.length) return null;
+
+  const intervalsPerHour = 60 / resolutionMin;
+
+  // Aggregate to hourly averages
+  const hourBuckets = {};
+  for (let i = 0; i < prices.length; i++) {
+    const h = Math.floor(i / intervalsPerHour);
+    if (!hourBuckets[h]) hourBuckets[h] = [];
+    hourBuckets[h].push(prices[i]);
+  }
+
+  const hourlyAvg = [];
+  const hours = Object.keys(hourBuckets).map(Number).sort((a, b) => a - b);
+  for (const h of hours) {
+    const arr = hourBuckets[h];
+    hourlyAvg.push(Math.round((arr.reduce((a, b) => a + b, 0) / arr.length) * 100) / 100);
+  }
+
+  const peakIdx = hourlyAvg.indexOf(Math.max(...hourlyAvg));
+  const troughIdx = hourlyAvg.indexOf(Math.min(...hourlyAvg));
+
+  const dailyAvg = Math.round((prices.reduce((a, b) => a + b, 0) / prices.length) * 100) / 100;
+  const swing = Math.round((Math.max(...prices) - Math.min(...prices)) * 100) / 100;
+
+  // Solar trough: avg hours 10-14 vs daily avg
+  const solarHours = hours.filter(h => h >= 10 && h <= 14);
+  let solarTroughDepth = null;
+  if (solarHours.length) {
+    const solarAvg = solarHours.reduce((s, h) => s + hourlyAvg[h], 0) / solarHours.length;
+    solarTroughDepth = Math.round((solarAvg - dailyAvg) * 100) / 100;
+  }
+
+  // Evening premium: avg(17-21) minus avg(10-14)
+  const eveningHours = hours.filter(h => h >= 17 && h <= 21);
+  let eveningPremium = null;
+  if (eveningHours.length && solarHours.length) {
+    const eAvg = eveningHours.reduce((s, h) => s + hourlyAvg[h], 0) / eveningHours.length;
+    const sAvg = solarHours.reduce((s, h) => s + hourlyAvg[h], 0) / solarHours.length;
+    eveningPremium = Math.round((eAvg - sAvg) * 100) / 100;
+  }
+
+  return {
+    peak_hour: hours[peakIdx],
+    trough_hour: hours[troughIdx],
+    peak_price: hourlyAvg[peakIdx],
+    trough_price: hourlyAvg[troughIdx],
+    daily_avg: dailyAvg,
+    swing,
+    solar_trough_depth: solarTroughDepth,
+    evening_premium: eveningPremium,
+    hourly_profile: hourlyAvg,
+  };
+}
+
+/**
+ * Rolling statistics over an array of daily capture values.
+ */
+function captureRollingStats(entries, field) {
+  const vals = entries.map(e => e[field]).filter(v => v != null).sort((a, b) => a - b);
+  if (!vals.length) return null;
+  const p = (pct) => vals[Math.min(Math.floor(vals.length * pct), vals.length - 1)];
+  const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+  return {
+    mean: Math.round(mean * 100) / 100,
+    p25: Math.round(p(0.25) * 100) / 100,
+    p50: Math.round(p(0.50) * 100) / 100,
+    p75: Math.round(p(0.75) * 100) / 100,
+    p90: Math.round(p(0.90) * 100) / 100,
+    days: vals.length,
+  };
+}
+
+/**
+ * Main capture orchestrator. Fetches today's LT DA prices from energy-charts.info,
+ * computes 2h and 4h capture, updates rolling history, stores to KV.
+ */
+async function computeCapture(env) {
+  const today = new Date().toISOString().slice(0, 10);
+
+  const { prices, timestamps, resolution } = await fetchEnergyCharts(today);
+
+  const capture_2h = computeDayCapture(prices, 2, resolution);
+  const capture_4h = computeDayCapture(prices, 4, resolution);
+  const shape = priceShapeMetrics(prices, timestamps, resolution);
+
+  // Load existing capture history
+  let history = [];
+  try {
+    const raw = await env.KKME_SIGNALS.get('s1_capture_history');
+    if (raw) history = JSON.parse(raw);
+  } catch { /* start fresh */ }
+
+  // Deduplicate today
+  history = history.filter(e => e.date !== today);
+  history.push({
+    date: today,
+    gross_2h: capture_2h?.gross_eur_mwh ?? null,
+    gross_4h: capture_4h?.gross_eur_mwh ?? null,
+    net_2h: capture_2h?.net_eur_mwh ?? null,
+    net_4h: capture_4h?.net_eur_mwh ?? null,
+    avg_charge_2h: capture_2h?.avg_charge ?? null,
+    avg_discharge_2h: capture_2h?.avg_discharge ?? null,
+    avg_charge_4h: capture_4h?.avg_charge ?? null,
+    avg_discharge_4h: capture_4h?.avg_discharge ?? null,
+    swing: shape?.swing ?? null,
+    daily_avg: shape?.daily_avg ?? null,
+    resolution,
+    n_prices: prices.length,
+  });
+
+  // Keep last 400 days (for monthly aggregation depth)
+  if (history.length > 400) history = history.slice(-400);
+
+  // Rolling stats — last 30 days
+  const recent30 = history.slice(-30);
+  const stats_2h = captureRollingStats(recent30, 'gross_2h');
+  const stats_4h = captureRollingStats(recent30, 'gross_4h');
+
+  // Monthly aggregation
+  const monthMap = {};
+  for (const entry of history) {
+    const ym = entry.date.slice(0, 7);
+    if (!monthMap[ym]) monthMap[ym] = { g2h: [], g4h: [], n2h: [], n4h: [] };
+    if (entry.gross_2h != null) monthMap[ym].g2h.push(entry.gross_2h);
+    if (entry.gross_4h != null) monthMap[ym].g4h.push(entry.gross_4h);
+    if (entry.net_2h != null) monthMap[ym].n2h.push(entry.net_2h);
+    if (entry.net_4h != null) monthMap[ym].n4h.push(entry.net_4h);
+  }
+  const monthly = Object.entries(monthMap)
+    .map(([month, d]) => ({
+      month,
+      avg_gross_2h: d.g2h.length ? Math.round(d.g2h.reduce((a, b) => a + b, 0) / d.g2h.length * 100) / 100 : null,
+      avg_gross_4h: d.g4h.length ? Math.round(d.g4h.reduce((a, b) => a + b, 0) / d.g4h.length * 100) / 100 : null,
+      avg_net_2h: d.n2h.length ? Math.round(d.n2h.reduce((a, b) => a + b, 0) / d.n2h.length * 100) / 100 : null,
+      avg_net_4h: d.n4h.length ? Math.round(d.n4h.reduce((a, b) => a + b, 0) / d.n4h.length * 100) / 100 : null,
+      days: Math.max(d.g2h.length, d.g4h.length),
+    }))
+    .sort((a, b) => a.month.localeCompare(b.month));
+
+  // Gross-to-net bridge lines
+  const grossToNet = [];
+  if (capture_2h) {
+    grossToNet.push(
+      { label: 'Gross spread (2h)', value: capture_2h.gross_eur_mwh, type: 'base' },
+      { label: 'RTE loss (12.5%)', value: -Math.round((capture_2h.avg_charge / capture_2h.rte - capture_2h.avg_charge) * 100) / 100, type: 'deduction' },
+      { label: 'Net capture (2h)', value: capture_2h.net_eur_mwh, type: 'result' },
+    );
+  }
+
+  const captureData = {
+    date: today,
+    capture_2h,
+    capture_4h,
+    shape,
+    rolling_30d: { stats_2h, stats_4h },
+    monthly,
+    gross_to_net: grossToNet,
+    history: history.slice(-30), // last 30 days for charts
+    source: 'energy-charts.info (Fraunhofer ISE)',
+    data_class: 'derived',
+    resolution: `${resolution}min`,
+    updated_at: new Date().toISOString(),
+  };
+
+  await env.KKME_SIGNALS.put('s1_capture', JSON.stringify(captureData));
+  await env.KKME_SIGNALS.put('s1_capture_history', JSON.stringify(history));
+
+  console.log(`[S1/capture] ${today} 2h=${capture_2h?.gross_eur_mwh ?? '—'}€ 4h=${capture_4h?.gross_eur_mwh ?? '—'}€ swing=${shape?.swing ?? '—'}€ resolution=${resolution}min n=${prices.length}`);
+
+  return captureData;
+}
+
 async function computeS1(env) {
   const apiKey = env.ENTSOE_API_KEY;
   if (!apiKey) throw new Error('ENTSOE_API_KEY secret not set');
@@ -882,6 +1148,9 @@ async function updateHistory(env, todayEntry) {
     spread_eur: todayEntry.spread_eur_mwh,
     spread_pct: todayEntry.separation_pct,
     lt_swing:   todayEntry.lt_daily_swing_eur_mwh,
+    // Capture fields — populated after computeCapture() merges into todayEntry
+    gross_2h:   todayEntry.capture?.gross_2h ?? null,
+    gross_4h:   todayEntry.capture?.gross_4h ?? null,
   });
 
   if (history.length > MAX_HISTORY) history = history.slice(-MAX_HISTORY);
@@ -2782,6 +3051,26 @@ export default {
       await env.KKME_SIGNALS.put('s1', JSON.stringify(d));
       await env.KKME_SIGNALS.put(`raw:s1:${new Date().toISOString().slice(0,10)}`, JSON.stringify({ fetched: new Date().toISOString(), data: d }), { expirationTtl: 604800 });
       console.log(`[S1] ${d.state} spread=${d.spread_eur_mwh}€/MWh swing=${d.lt_daily_swing_eur_mwh}€/MWh sep=${d.separation_pct}% rsi_30d=${d.rsi_30d}`);
+
+      // S1 capture: DA gross capture from energy-charts.info
+      try {
+        const cap = await withTimeout(computeCapture(env), 25000);
+        // Merge capture summary into s1 KV for frontend consumption
+        d.capture = {
+          gross_2h: cap.capture_2h?.gross_eur_mwh ?? null,
+          gross_4h: cap.capture_4h?.gross_eur_mwh ?? null,
+          net_2h: cap.capture_2h?.net_eur_mwh ?? null,
+          net_4h: cap.capture_4h?.net_eur_mwh ?? null,
+          rolling_30d: cap.rolling_30d,
+          shape_swing: cap.shape?.swing ?? null,
+          source: 'energy-charts.info',
+          data_class: 'derived',
+        };
+        await env.KKME_SIGNALS.put('s1', JSON.stringify(d));
+        console.log(`[S1/capture] merged into s1 KV: 2h=${cap.capture_2h?.gross_eur_mwh ?? '—'}€ 4h=${cap.capture_4h?.gross_eur_mwh ?? '—'}€`);
+      } catch (capErr) {
+        console.error('[S1/capture] cron failed:', String(capErr));
+      }
     } else {
       console.error('[S1] cron failed:', s1Result.reason);
     }
@@ -4379,12 +4668,135 @@ export default {
       });
     }
 
+    // ── GET /s1/capture — DA gross capture data ──────────────────────────────
+    if (request.method === 'GET' && url.pathname === '/s1/capture') {
+      const raw = await env.KKME_SIGNALS.get('s1_capture');
+      if (!raw) return jsonResp({ error: 'capture data not yet computed' }, 404);
+      return new Response(raw, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=300', ...CORS } });
+    }
+
+    // ── POST /s1/capture/backfill — backfill capture history ────────────────
+    if (request.method === 'POST' && url.pathname === '/s1/capture/backfill') {
+      const secret = request.headers.get('X-Update-Secret');
+      if (!secret || secret !== env.UPDATE_SECRET) {
+        return jsonResp({ error: 'Unauthorized' }, 401);
+      }
+
+      let body = {};
+      try { body = await request.json(); } catch { /* use defaults */ }
+
+      // Accept start/end dates or a days count
+      const endDate = body.end || new Date().toISOString().slice(0, 10);
+      let startDate = body.start;
+      if (!startDate) {
+        const days = Math.min(body.days || 30, 60); // max 60 per request to stay within Worker limits
+        const d = new Date(endDate);
+        d.setUTCDate(d.getUTCDate() - days);
+        startDate = d.toISOString().slice(0, 10);
+      }
+
+      console.log(`[S1/backfill] range: ${startDate} → ${endDate}`);
+
+      try {
+        // Fetch entire range in one API call
+        const { prices, timestamps, resolution } = await fetchEnergyCharts(startDate, endDate);
+        const days = splitByDay(prices, timestamps, resolution);
+
+        // Load existing history
+        let history = [];
+        try {
+          const raw = await env.KKME_SIGNALS.get('s1_capture_history');
+          if (raw) history = JSON.parse(raw);
+        } catch { /* start fresh */ }
+
+        const existingDates = new Set(history.map(e => e.date));
+        let added = 0;
+        let skipped = 0;
+
+        for (const [dateStr, dayData] of days) {
+          // Skip if already exists (unless force flag)
+          if (!body.force && existingDates.has(dateStr)) {
+            skipped++;
+            continue;
+          }
+
+          const c2h = computeDayCapture(dayData.prices, 2, dayData.resolution);
+          const c4h = computeDayCapture(dayData.prices, 4, dayData.resolution);
+          const shape = priceShapeMetrics(dayData.prices, dayData.timestamps, dayData.resolution);
+
+          // Remove existing entry for this date
+          history = history.filter(e => e.date !== dateStr);
+          history.push({
+            date: dateStr,
+            gross_2h: c2h?.gross_eur_mwh ?? null,
+            gross_4h: c4h?.gross_eur_mwh ?? null,
+            net_2h: c2h?.net_eur_mwh ?? null,
+            net_4h: c4h?.net_eur_mwh ?? null,
+            avg_charge_2h: c2h?.avg_charge ?? null,
+            avg_discharge_2h: c2h?.avg_discharge ?? null,
+            avg_charge_4h: c4h?.avg_charge ?? null,
+            avg_discharge_4h: c4h?.avg_discharge ?? null,
+            swing: shape?.swing ?? null,
+            daily_avg: shape?.daily_avg ?? null,
+            resolution: dayData.resolution,
+            n_prices: dayData.prices.length,
+          });
+          added++;
+        }
+
+        // Sort by date, keep last 730 days
+        history.sort((a, b) => a.date.localeCompare(b.date));
+        if (history.length > 730) history = history.slice(-730);
+
+        await env.KKME_SIGNALS.put('s1_capture_history', JSON.stringify(history));
+
+        // Recompute current capture snapshot
+        try {
+          await computeCapture(env);
+        } catch (e) {
+          console.error('[S1/backfill] recompute failed:', String(e));
+        }
+
+        return jsonResp({
+          ok: true,
+          range: { start: startDate, end: endDate },
+          days_in_range: days.size,
+          added,
+          skipped,
+          total_history: history.length,
+        });
+      } catch (e) {
+        console.error('[S1/backfill] error:', String(e));
+        return jsonResp({ error: String(e) }, 500);
+      }
+    }
+
     // ── GET /read ────────────────────────────────────────────────────────────
     // da_tomorrow is now embedded in computeS1() and stored in the s1 KV key directly
     if (request.method === 'GET' && url.pathname === '/read') {
-      const s1Raw = await env.KKME_SIGNALS.get('s1');
-      if (!s1Raw) return new Response(JSON.stringify({ error: 'not yet populated' }), { status: 404, headers: { 'Content-Type': 'application/json', ...CORS } });
-      return new Response(s1Raw, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=300', ...CORS } });
+      const [s1Raw, capRaw] = await Promise.all([
+        env.KKME_SIGNALS.get('s1'),
+        env.KKME_SIGNALS.get('s1_capture'),
+      ]);
+      if (!s1Raw) return jsonResp({ error: 'not yet populated' }, 404);
+      const s1 = JSON.parse(s1Raw);
+      // Merge capture data if available and not already embedded
+      if (capRaw && !s1.capture) {
+        try {
+          const cap = JSON.parse(capRaw);
+          s1.capture = {
+            gross_2h: cap.capture_2h?.gross_eur_mwh ?? null,
+            gross_4h: cap.capture_4h?.gross_eur_mwh ?? null,
+            net_2h: cap.capture_2h?.net_eur_mwh ?? null,
+            net_4h: cap.capture_4h?.net_eur_mwh ?? null,
+            rolling_30d: cap.rolling_30d,
+            shape_swing: cap.shape?.swing ?? null,
+            source: 'energy-charts.info',
+            data_class: 'derived',
+          };
+        } catch { /* ignore parse errors */ }
+      }
+      return new Response(JSON.stringify(s1), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=300', ...CORS } });
     }
 
     // ── GET / — fresh S1 + history update + write to KV ─────────────────────

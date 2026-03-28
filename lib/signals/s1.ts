@@ -45,6 +45,96 @@ export interface S1Signal {
     spread_pct:    number | null;
     delivery_date: string | null;
   } | null;
+  // DA gross capture — computed from energy-charts.info LT DA prices
+  capture?: {
+    gross_2h:     number | null;
+    gross_4h:     number | null;
+    net_2h:       number | null;
+    net_4h:       number | null;
+    rolling_30d?: {
+      stats_2h: CaptureRolling | null;
+      stats_4h: CaptureRolling | null;
+    } | null;
+    shape_swing?: number | null;
+    source:       string;
+    data_class:   string;
+  } | null;
+}
+
+export interface CaptureRolling {
+  mean: number;
+  p25: number;
+  p50: number;
+  p75: number;
+  p90: number;
+  days: number;
+}
+
+/** Full capture payload from GET /s1/capture */
+export interface S1CaptureData {
+  date: string;
+  capture_2h: CaptureDetail | null;
+  capture_4h: CaptureDetail | null;
+  shape: PriceShape | null;
+  rolling_30d: {
+    stats_2h: CaptureRolling | null;
+    stats_4h: CaptureRolling | null;
+  };
+  monthly: MonthlyCapture[];
+  gross_to_net: GrossToNetLine[];
+  history: DailyCaptureEntry[];
+  source: string;
+  data_class: string;
+  resolution: string;
+  updated_at: string;
+}
+
+export interface CaptureDetail {
+  gross_eur_mwh: number;
+  net_eur_mwh: number;
+  avg_charge: number;
+  avg_discharge: number;
+  rte: number;
+  n_intervals: number;
+}
+
+export interface PriceShape {
+  peak_hour: number;
+  trough_hour: number;
+  peak_price: number;
+  trough_price: number;
+  daily_avg: number;
+  swing: number;
+  solar_trough_depth: number | null;
+  evening_premium: number | null;
+  hourly_profile: number[];
+}
+
+export interface MonthlyCapture {
+  month: string;
+  avg_gross_2h: number | null;
+  avg_gross_4h: number | null;
+  avg_net_2h: number | null;
+  avg_net_4h: number | null;
+  days: number;
+}
+
+export interface GrossToNetLine {
+  label: string;
+  value: number;
+  type: 'base' | 'deduction' | 'result';
+}
+
+export interface DailyCaptureEntry {
+  date: string;
+  gross_2h: number | null;
+  gross_4h: number | null;
+  net_2h: number | null;
+  net_4h: number | null;
+  swing: number | null;
+  daily_avg: number | null;
+  resolution: number;
+  n_prices: number;
 }
 
 export interface FetchS1Options {
