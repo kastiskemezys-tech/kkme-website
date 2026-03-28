@@ -50,20 +50,20 @@ function captureStatus(grossCapture: number): string {
 function captureInterpretation(gross2h: number | null, gross4h: number | null, swing: number | null): string {
   const g = gross4h ?? gross2h;
   if (g == null) return 'Capture data not yet available. Awaiting first computation from LT day-ahead prices.';
-  if (g < 10) return 'Today\'s price shape offers little arbitrage opportunity. Flat profiles reduce storage value.';
-  if (g < 30) return 'Modest price separation. DA arbitrage contributes but is not the primary revenue driver at these levels.';
-  if (g < 60) return 'Clear intraday price separation supports arbitrage. Storage capture is meaningful at current price levels.';
-  if (g < 100) return 'Wide price separation drives strong arbitrage capture. This price shape is highly supportive for storage economics.';
-  return 'Exceptional price volatility. Capture levels are well above seasonal norms — likely driven by weather or outage events.';
+  if (g < 10) return 'Today\'s DA price shape offers little arbitrage opportunity. Flat profiles limit the DA capture component of storage revenue.';
+  if (g < 30) return 'Modest DA price separation. Day-ahead capture contributes but is not the primary revenue driver at these levels.';
+  if (g < 60) return 'Clear DA price separation. The day-ahead capture component is meaningful — though realized revenue depends on reserve commitments and dispatch.';
+  if (g < 100) return 'Wide DA price separation. The theoretical day-ahead capture is strong — actual revenue will be lower after reserve drag and partial cycling.';
+  return 'Exceptional DA price volatility. Gross capture is well above seasonal norms — likely driven by weather or outage events. Not representative of sustained revenue.';
 }
 
 function captureImpactDesc(gross2h: number | null, gross4h: number | null): string {
   const g2 = gross2h ?? 0;
   const g4 = gross4h ?? 0;
-  if (g4 < 10) return 'Reference asset: Weak arbitrage contribution for both 2H and 4H';
-  if (g4 < 30) return 'Reference asset: Modest arbitrage, 4H captures more spread than 2H';
-  if (g4 < 60) return `Reference asset: Supportive arbitrage — 2H €${safeNum(g2, 0)}, 4H €${safeNum(g4, 0)}/MWh gross`;
-  return `Reference asset: Strong arbitrage upside — 2H €${safeNum(g2, 0)}, 4H €${safeNum(g4, 0)}/MWh gross`;
+  if (g4 < 10) return 'Reference asset: Weak DA capture contribution for both 2H and 4H';
+  if (g4 < 30) return 'Reference asset: Modest DA capture — 4H picks up more spread than 2H';
+  if (g4 < 60) return `Reference asset: Supportive DA capture — 2H €${safeNum(g2, 0)}, 4H €${safeNum(g4, 0)}/MWh gross`;
+  return `Reference asset: Strong DA capture — 2H €${safeNum(g2, 0)}, 4H €${safeNum(g4, 0)}/MWh gross (theoretical)`;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────
@@ -204,7 +204,7 @@ export function S1Card() {
           unit="/MWh"
           size="hero"
           dataClass="derived"
-          sublabel="Perfect-foresight sort-and-dispatch"
+          sublabel="From observed DA prices · perfect-foresight dispatch"
         />
         <StatusChip
           status={grossToday != null ? captureStatus(grossToday) : 'Pending'}
@@ -482,30 +482,41 @@ export function S1Card() {
                 color: 'var(--text-tertiary)', letterSpacing: '0.1em',
                 textTransform: 'uppercase', marginBottom: '8px',
               }}>
-                Gross-to-net bridge
+                Gross-to-net bridge (indicative)
               </p>
               <div style={{
                 fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)',
                 marginBottom: '20px',
               }}>
-                {captureData.gross_to_net.map((line, i) => (
-                  <div key={i} style={{
-                    display: 'flex', justifyContent: 'space-between',
-                    padding: '4px 0',
-                    color: line.type === 'result' ? 'var(--text-primary)' :
-                      line.type === 'deduction' ? 'var(--rose)' : 'var(--text-secondary)',
-                    borderTop: line.type === 'result' ? '1px solid var(--border-card)' : 'none',
-                    fontWeight: line.type === 'result' ? 600 : 400,
-                  }}>
-                    <span>{line.label}</span>
-                    <span>{line.value >= 0 ? '' : '−'}€{safeNum(Math.abs(line.value), 2)}/MWh</span>
-                  </div>
-                ))}
+                {captureData.gross_to_net.map((line, i) => {
+                  const classLabel = line.type === 'base' ? 'observed'
+                    : line.type === 'deduction' ? 'assumed'
+                    : 'modeled';
+                  return (
+                    <div key={i} style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      padding: '4px 0',
+                      color: line.type === 'result' ? 'var(--text-secondary)' :
+                        line.type === 'deduction' ? 'var(--rose)' : 'var(--text-secondary)',
+                      borderTop: line.type === 'result' ? '1px solid var(--border-card)' : 'none',
+                      fontWeight: line.type === 'result' ? 500 : 400,
+                    }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        {line.label}
+                        <span style={{
+                          fontSize: 'var(--font-xs)', color: 'var(--text-muted)',
+                          opacity: 0.7,
+                        }}>{classLabel}</span>
+                      </span>
+                      <span>{line.value >= 0 ? '' : '−'}€{safeNum(Math.abs(line.value), 2)}/MWh</span>
+                    </div>
+                  );
+                })}
                 <p style={{
                   fontSize: 'var(--font-xs)', color: 'var(--text-muted)',
                   marginTop: '6px', lineHeight: 1.4,
                 }}>
-                  Excludes: reserve commitment drag, partial SoC cycles, grid fees, imbalance settlement. Realized capture is typically 40–65% of gross.
+                  Net is modeled, not measured. Excludes reserve drag, partial cycles, grid fees, imbalance. Realized capture is typically 40–65% of gross.
                 </p>
               </div>
             </>
@@ -604,6 +615,31 @@ export function S1Card() {
             </div>
           )}
 
+          {/* ── Market context ── */}
+          <p style={{
+            fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+            color: 'var(--text-tertiary)', letterSpacing: '0.1em',
+            textTransform: 'uppercase', marginBottom: '6px',
+          }}>
+            Market context
+          </p>
+          <div style={{
+            fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+            color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: '20px',
+          }}>
+            {[
+              { period: 'Feb 2025', note: 'Baltic synchronization with Continental Europe' },
+              { period: 'Oct 2025', note: 'NordBalt maintenance — reduced SE4 coupling, wider LT spreads' },
+              { period: 'Summer', note: 'Solar suppresses midday DA prices — deeper charge trough, higher gross capture' },
+              { period: 'Winter', note: 'Heating demand + low renewables — elevated peak prices widen spreads' },
+            ].map((e, i) => (
+              <div key={i} style={{ display: 'flex', gap: '8px', padding: '2px 0' }}>
+                <span style={{ color: 'var(--text-tertiary)', minWidth: '64px', flexShrink: 0 }}>{e.period}</span>
+                <span>{e.note}</span>
+              </div>
+            ))}
+          </div>
+
           {/* ── Methodology ── */}
           <p style={{
             fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
@@ -616,7 +652,7 @@ export function S1Card() {
             fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
             color: 'var(--text-muted)', lineHeight: 1.5, opacity: 0.6,
           }}>
-            Perfect-foresight sort-and-dispatch on LT DA prices. Picks cheapest {duration === '2h' ? '2' : '4'} hours to charge, most expensive {duration === '2h' ? '2' : '4'} to discharge. Single cycle per day. RTE {duration === '2h' ? '87.5' : '87.0'}%. Does not model reserve commitment, partial cycles, or intraday re-optimization. Realized capture is typically 40–65% of this theoretical gross.
+            Perfect-foresight sort-and-dispatch on LT DA prices ({captureData?.resolution ?? '15min'} resolution where available, hourly for data before mid-2025). Picks cheapest {duration === '2h' ? '2' : '4'} hours to charge, most expensive {duration === '2h' ? '2' : '4'} to discharge. Single cycle per day. RTE {duration === '2h' ? '87.5' : '87.0'}% (assumed). This is gross market opportunity from observed prices — not realized asset revenue. Does not model reserve commitment, partial cycles, or intraday re-optimization.
           </p>
         </DetailsDrawer>
       </div>
