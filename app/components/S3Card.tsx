@@ -94,6 +94,59 @@ function BreakdownBar({ label, rangeKwh, midKwh, scope, maxVal, isHV }: { label:
   );
 }
 
+// ─── Data integrity helpers ──────────────────────────────────────────────────
+
+const SOURCE_COMPONENT_MAP: Record<string, string> = {
+  ecb_euribor: 'lcos', ecb_hicp: 'lcos', lithium_proxy: 'dc_block', fx: 'dc_block',
+};
+
+function freshnessLabel(entry?: { last_update?: string; status?: string }): string {
+  if (!entry?.last_update) return 'not tracked';
+  if (entry.status === 'stale' || entry.status === 'unknown') return 'stale';
+  return new Date(entry.last_update).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+}
+
+function isSourceStale(freshness: S3Signal['data_freshness'], source: string): boolean {
+  const entry = freshness?.[source];
+  return !entry?.last_update || entry.status === 'stale' || entry.status === 'unknown';
+}
+
+function isComponentStale(component: string, freshness: S3Signal['data_freshness']): boolean {
+  if (!freshness) return false;
+  for (const [src, comp] of Object.entries(SOURCE_COMPONENT_MAP)) {
+    if (comp === component && isSourceStale(freshness, src)) return true;
+  }
+  return false;
+}
+
+function computeConfidenceLevel(freshness: S3Signal['data_freshness'], baseLevel: string): string {
+  if (!freshness) return baseLevel;
+  const staleCount = ['ecb_euribor', 'lithium_proxy', 'fx'].filter(k => isSourceStale(freshness, k)).length;
+  if (staleCount >= 2) return 'degraded';
+  if (staleCount === 1) return 'slightly degraded';
+  return baseLevel;
+}
+
+function deriveInterpretation(drivers: CostDriver[]): string | null {
+  if (!drivers.length) return null;
+  const dirs: Record<string, string> = {};
+  drivers.forEach(d => { dirs[d.component] = d.direction; });
+
+  if (dirs.hv_grid === 'constrained' && dirs.dc_block === 'easing')
+    return 'Cost compression limited by grid equipment — battery savings not fully passing through.';
+  if (dirs.dc_block === 'easing' && dirs.lcos === 'easing')
+    return 'Favourable cost environment — battery and financing both easing.';
+  if (dirs.hv_grid === 'constrained')
+    return 'Grid equipment remains the cost bottleneck.';
+  return null;
+}
+
+function dominantDriver(drivers: CostDriver[]): CostDriver | null {
+  if (!drivers.length) return null;
+  const weight: Record<string, number> = { strong: 3, moderate: 2, weak: 1 };
+  return drivers.reduce((best, d) => (weight[d.magnitude] || 0) > (weight[best.magnitude] || 0) ? d : best);
+}
+
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 export function S3Card() {
@@ -116,13 +169,19 @@ export function S3Card() {
   const H = duration === '2h' ? 2 : 4;
   const maxBarVal = 120;
 
-  // Compute displayed range
+  // Compute displayed range (round to clean values)
   const baseRange = profile?.capex_range_kwh || [160, 210];
-  const capexRange = gridScope === 'light' ? [baseRange[0] - 15, baseRange[1] - 20] : baseRange;
+  const capexRange = gridScope === 'light'
+    ? [Math.round((baseRange[0] - 15) / 5) * 5, Math.round((baseRange[1] - 20) / 5) * 5]
+    : [Math.round(baseRange[0] / 5) * 5, Math.round(baseRange[1] / 5) * 5];
   const baseKw = profile?.capex_range_kw || [640, 840];
-  const kwRange = gridScope === 'light' ? [baseKw[0] - 60, baseKw[1] - 80] : baseKw;
+  const kwRange = gridScope === 'light'
+    ? [Math.round((baseKw[0] - 60) / 10) * 10, Math.round((baseKw[1] - 80) / 10) * 10]
+    : [Math.round(baseKw[0] / 10) * 10, Math.round(baseKw[1] / 10) * 10];
 
-  const confLevel = d.confidence?.level || 'benchmark-heavy';
+  // Confidence auto-degradation from freshness
+  const confLevel = computeConfidenceLevel(d.data_freshness, d.confidence?.level || 'benchmark-heavy');
+
   const chipColor = (dir: string) => dir === 'easing' ? 'var(--teal)' : (dir === 'constrained' || dir === 'increasing') ? 'var(--amber)' : 'var(--text-secondary)';
   const magDots = (m: string) => m === 'weak' ? '●' : m === 'moderate' ? '●●' : '●●●';
 
@@ -133,8 +192,17 @@ export function S3Card() {
     setTimeout(() => setCopied(false), 1500);
   };
 
-  // PCS €/kWh equivalent for bar display
+  // PCS: only derive €/kWh from €/kW — never show two independent values
   const pcsKwhEquiv = bd.pcs?.mid_kw ? Math.round(bd.pcs.mid_kw / H) : undefined;
+
+  // Interpretation + dominant variance (dynamic, from live drivers)
+  const interpretation = deriveInterpretation(drivers);
+  const dominant = dominantDriver(drivers);
+
+  // Data integrity check
+  const hasStaleInputs = d.data_freshness && ['ecb_euribor', 'lithium_proxy', 'fx'].some(k => isSourceStale(d.data_freshness, k));
+  const hasEnrichment = !!d.enrichment_annotations;
+  const showIntegrityWarning = (!hasEnrichment && d.data_freshness) || (hasStaleInputs && confLevel === 'degraded');
 
   // Fallback: if no cost_profiles, show old flat number
   if (!profile) {
@@ -183,25 +251,54 @@ export function S3Card() {
         {d.trend && <span style={{ fontFamily: 'var(--font-mono)', fontSize: '1rem', color: d.trend.direction === 'easing' ? 'var(--teal)' : 'var(--amber)', marginLeft: '12px' }}>{d.trend.direction === 'easing' ? '↘' : d.trend.direction === 'rising' ? '↗' : '→'}</span>}
       </div>
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', marginBottom: '2px' }}>€{kwRange[0]}–{kwRange[1]} /kW @ POI</div>
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '12px' }}>installed · ex-VAT · {duration} LFP · EU turnkey · grid-{gridScope}</div>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '4px' }}>installed · ex-VAT · {duration} LFP · EU turnkey · grid-{gridScope}</div>
+
+      {/* RANGE EXPLANATION (always present with hero range) */}
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '4px' }}>
+        Range drivers: grid ±€15–30 · supplier ±10–15% · timing ±5–10%
+      </div>
+
+      {/* INTERPRETATION (dynamic from drivers) */}
+      {interpretation && (
+        <div style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '4px' }}>
+          {interpretation}
+        </div>
+      )}
+
+      {/* DOMINANT VARIANCE */}
+      {dominant && dominant.magnitude !== 'weak' && (
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '12px' }}>
+          Dominant variance: {dominant.driver} ({dominant.direction})
+          {dominant.component === 'hv_grid' && ' · likely constraint: HV equipment'}
+        </div>
+      )}
+
+      {/* DATA INTEGRITY WARNING */}
+      {showIntegrityWarning && (
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--amber)', marginBottom: '12px' }}>
+          ⚠ limited data quality — interpretation may be degraded
+        </div>
+      )}
 
       {/* 4. MARKET SEGMENTATION BAND */}
       {d.market_bands && (() => {
         const floor = d.market_bands.observed_floor, ceiling = d.market_bands.observed_ceiling, range = ceiling - floor;
         const pct = (v: number) => ((v - floor) / range) * 100;
+        // Snap EU turnkey band to hero range for consistency
+        const euLow = capexRange[0], euHigh = Math.max(capexRange[1], capexRange[0] + 30);
         return (
           <div style={{ margin: '0 0 12px', padding: '10px 0', borderTop: '1px solid var(--border-card)', borderBottom: '1px solid var(--border-card)' }}>
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Observed market spread</div>
             <div style={{ position: 'relative', height: '20px', marginBottom: '4px' }}>
               <div style={{ position: 'absolute', left: 0, right: 0, top: '7px', height: '6px', background: 'var(--bg-elevated)', borderRadius: '3px' }} />
-              <div style={{ position: 'absolute', left: `${pct(120)}%`, width: `${pct(160) - pct(120)}%`, top: '5px', height: '10px', background: 'rgba(0,180,160,0.2)', borderRadius: '2px' }} />
-              <div style={{ position: 'absolute', left: `${pct(160)}%`, width: `${pct(220) - pct(160)}%`, top: '3px', height: '14px', background: 'rgba(0,180,160,0.35)', border: '1px solid var(--teal)', borderRadius: '2px' }} />
-              <div style={{ position: 'absolute', left: `${pct(220)}%`, width: `${pct(500) - pct(220)}%`, top: '5px', height: '10px', background: 'rgba(212,160,60,0.12)', borderRadius: '2px' }} />
+              <div style={{ position: 'absolute', left: `${pct(120)}%`, width: `${pct(euLow) - pct(120)}%`, top: '5px', height: '10px', background: 'rgba(0,180,160,0.2)', borderRadius: '2px' }} />
+              <div style={{ position: 'absolute', left: `${pct(euLow)}%`, width: `${pct(euHigh) - pct(euLow)}%`, top: '3px', height: '14px', background: 'rgba(0,180,160,0.35)', border: '1px solid var(--teal)', borderRadius: '2px' }} />
+              <div style={{ position: 'absolute', left: `${pct(euHigh)}%`, width: `${pct(500) - pct(euHigh)}%`, top: '5px', height: '10px', background: 'rgba(212,160,60,0.12)', borderRadius: '2px' }} />
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', lineHeight: 1.3 }}>
-              <span style={{ color: 'var(--text-muted)' }}>€120–160<br/>developer</span>
-              <span style={{ color: 'var(--teal)', fontWeight: 500 }}>€160–220 ←<br/>EU turnkey</span>
-              <span style={{ color: 'var(--text-muted)' }}>€220–500+<br/>institutional</span>
+              <span style={{ color: 'var(--text-muted)' }}>€120–{euLow}<br/>developer</span>
+              <span style={{ color: 'var(--teal)', fontWeight: 500 }}>€{euLow}–{euHigh} ←<br/>EU turnkey</span>
+              <span style={{ color: 'var(--text-muted)' }}>€{euHigh}–500+<br/>institutional</span>
             </div>
           </div>
         );
@@ -221,7 +318,13 @@ export function S3Card() {
             ))}
           </div>
         )}
-        {d.lead_times && <div style={{ color: 'var(--text-muted)', marginBottom: '2px' }}>Lead time: ~{d.lead_times.total_rtb_to_cod_months[0]} mo RTB→COD · HV {d.lead_times.hv_equipment_months[0]}–{d.lead_times.hv_equipment_months[1]} mo · battery {d.lead_times.battery_plus_shipping_months[0]}–{d.lead_times.battery_plus_shipping_months[1]} mo</div>}
+        {d.lead_times && (() => {
+          const hvDriver = drivers.find(dv => dv.component === 'hv_grid');
+          const batteryDriver = drivers.find(dv => dv.component === 'dc_block');
+          const hvConstraint = hvDriver?.magnitude === 'strong' ? ' · likely constraint: HV equipment' : '';
+          const batteryNote = batteryDriver?.magnitude === 'weak' ? ' · battery supply not constraining' : '';
+          return <div style={{ color: 'var(--text-muted)', marginBottom: '2px' }}>Lead time: ~{d.lead_times.total_rtb_to_cod_months[0]} mo RTB→COD · HV {d.lead_times.hv_equipment_months[0]}–{d.lead_times.hv_equipment_months[1]} mo · battery {d.lead_times.battery_plus_shipping_months[0]}–{d.lead_times.battery_plus_shipping_months[1]} mo{hvConstraint}{batteryNote}</div>;
+        })()}
         {d.scale_effect && <div style={{ color: 'var(--text-muted)' }}>Scale: {d.scale_effect.large_over_80mw} above 80MW · {d.scale_effect.small_under_20mw} below 20MW</div>}
       </div>
 
@@ -229,12 +332,15 @@ export function S3Card() {
       {drivers.length > 0 && (
         <>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '4px' }}>
-            {drivers.map((drv, i) => (
-              <div key={i} onClick={() => setExpandedChip(expandedChip === i ? null : i)} style={{ background: 'var(--bg-elevated)', border: `1px solid ${expandedChip === i ? chipColor(drv.direction) : 'var(--border-card)'}`, borderRadius: '4px', padding: '4px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', transition: 'border-color 0.2s' }}>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: chipColor(drv.direction) }}>{drv.symbol} {drv.driver}</span>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-muted)', letterSpacing: '1px' }}>{magDots(drv.magnitude)}</span>
-              </div>
-            ))}
+            {drivers.map((drv, i) => {
+              const stale = isComponentStale(drv.component, d.data_freshness);
+              return (
+                <div key={i} onClick={() => setExpandedChip(expandedChip === i ? null : i)} style={{ background: 'var(--bg-elevated)', border: `1px solid ${expandedChip === i ? chipColor(drv.direction) : 'var(--border-card)'}`, borderRadius: '4px', padding: '4px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', transition: 'border-color 0.2s, opacity 0.2s', opacity: stale ? 0.35 : 1 }}>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: chipColor(drv.direction) }}>{drv.symbol} {drv.driver}</span>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-muted)', letterSpacing: '1px' }}>{magDots(drv.magnitude)}</span>
+                </div>
+              );
+            })}
           </div>
           {expandedChip !== null && drivers[expandedChip] ? (
             <div style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-xs)', fontStyle: 'italic', color: 'var(--text-muted)', marginBottom: '10px', lineHeight: 1.5, paddingLeft: '4px' }}>{drivers[expandedChip].detail}</div>
@@ -319,7 +425,8 @@ export function S3Card() {
               ))}</tbody>
             </table>
           </div>
-          <div style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '8px', lineHeight: 1.5 }}>Scope drives Baltic variance. Grid + substation can add 50–200% vs equipment-only. Do not average across transactions.</div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--amber)', marginTop: '8px', marginBottom: '6px' }}>⚠ do not average — scope varies widely</div>
+          <div style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.5 }}>Scope drives Baltic variance. Grid + substation can add 50–200% vs equipment-only.</div>
         </Drawer>
       )}
 
@@ -380,15 +487,15 @@ export function S3Card() {
       <Drawer id="raw" title="Raw inputs" open={openDrawers.has('raw')} onToggle={toggleDrawer}>
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)' }}>
           {[
-            ['Li carbonate', d.lithium_eur_t != null ? `€${safeNum(d.lithium_eur_t / 1000, 0)}k/t ${d.lithium_trend ?? '→ stable'}` : '—', 'var(--text-primary)'],
-            ['Euribor 3M', d.euribor_nominal_3m != null ? `${safeNum(d.euribor_nominal_3m, 2)}% nominal` : '—', 'var(--text-primary)'],
-            ['HICP YoY', d.hicp_yoy != null ? `${safeNum(d.hicp_yoy, 1)}%` : '—', 'var(--text-primary)'],
-            ['Real rate', d.euribor_real_3m != null ? `${safeNum(d.euribor_real_3m, 2)}%` : '—', 'var(--text-primary)'],
-            ['China system', `~€${d.china_system_eur_kwh ?? 68}/kWh (equipment-only, DDP)`, 'var(--text-secondary)'],
-            ['EU reference', `~€${d.europe_system_eur_kwh ?? 164}/kWh (installed, BNEF Dec 2025)`, 'var(--text-secondary)'],
-          ].map(([label, val, color]) => (
-            <div key={label as string} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', borderBottom: '1px solid var(--border-card)' }}>
-              <span style={{ color: 'var(--text-tertiary)' }}>{label}</span>
+            ['Li carbonate', d.lithium_eur_t != null ? `€${safeNum(d.lithium_eur_t / 1000, 0)}k/t ${d.lithium_trend ?? '→ stable'}` : '—', 'var(--text-primary)', 'proxy, weak pass-through', isSourceStale(d.data_freshness, 'lithium_proxy')],
+            ['Euribor 3M', d.euribor_nominal_3m != null ? `${safeNum(d.euribor_nominal_3m, 2)}% nominal` : '—', 'var(--text-primary)', '', isSourceStale(d.data_freshness, 'ecb_euribor')],
+            ['HICP YoY', d.hicp_yoy != null ? `${safeNum(d.hicp_yoy, 1)}%` : '—', 'var(--text-primary)', '', false],
+            ['Real rate', d.euribor_real_3m != null ? `${safeNum(d.euribor_real_3m, 2)}%` : '—', 'var(--text-primary)', '', false],
+            ['China system', `~€${d.china_system_eur_kwh ?? 68}/kWh`, 'var(--text-secondary)', 'equipment-only, non-comparable', false],
+            ['EU reference', `~€${d.europe_system_eur_kwh ?? 164}/kWh (BNEF Dec 2025)`, 'var(--text-secondary)', 'installed benchmark', false],
+          ].map(([label, val, color, note, stale]) => (
+            <div key={label as string} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', borderBottom: '1px solid var(--border-card)', opacity: stale ? 0.35 : 1, transition: 'opacity 0.2s' }}>
+              <span style={{ color: 'var(--text-tertiary)' }}>{label}{note ? <span style={{ fontSize: '0.5625rem', color: 'var(--text-ghost)', marginLeft: '4px' }}>({note as string})</span> : null}</span>
               <span style={{ color: color as string }}>{val}</span>
             </div>
           ))}
@@ -404,12 +511,16 @@ export function S3Card() {
           <>
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Data freshness</div>
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', marginBottom: '10px' }}>
-              {Object.entries(d.data_freshness).map(([key, f]) => (
-                <div key={key} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', borderBottom: '1px solid var(--border-card)' }}>
-                  <span style={{ color: 'var(--text-tertiary)' }}>{key.replace(/_/g, ' ')}</span>
-                  <span style={{ color: f.status === 'current' ? 'var(--teal)' : f.status === 'structural anchor' ? 'var(--text-muted)' : 'var(--amber)', fontSize: '0.5625rem' }}>{f.status} · {f.cadence}</span>
-                </div>
-              ))}
+              {Object.entries(d.data_freshness).map(([key, f]) => {
+                const label = freshnessLabel(f);
+                const statusColor = f.status === 'current' ? 'var(--teal)' : f.status === 'structural anchor' ? 'var(--text-muted)' : label === 'not tracked' ? 'var(--text-ghost)' : 'var(--amber)';
+                return (
+                  <div key={key} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', borderBottom: '1px solid var(--border-card)' }}>
+                    <span style={{ color: 'var(--text-tertiary)' }}>{key.replace(/_/g, ' ')}</span>
+                    <span style={{ color: statusColor, fontSize: '0.5625rem' }}>{label} · {f.cadence}</span>
+                  </div>
+                );
+              })}
             </div>
           </>
         )}
