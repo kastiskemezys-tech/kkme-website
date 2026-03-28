@@ -78,6 +78,26 @@ interface S3Signal {
   grid_scope_classes?: { id: string; label: string; description: string; adder_kwh: number[] }[];
   data_freshness?: Record<string, { last_update: string; cadence: string; status: string }>;
   confidence?: { level: string; observed_share: number; benchmark_share: number; modeled_share: number };
+  market_bands?: {
+    developer_optimized: { range_kwh: number[]; label: string; note: string };
+    eu_turnkey_typical: { range_kwh: number[]; label: string; note: string };
+    institutional_tso: { range_kwh: number[]; label: string; note: string };
+    observed_floor: number;
+    observed_ceiling: number;
+    note: string;
+  };
+  lead_times?: {
+    hv_equipment_months: number[];
+    battery_plus_shipping_months: number[];
+    total_rtb_to_cod_months: number[];
+    critical_path: string;
+    note: string;
+  };
+  scale_effect?: { small_under_20mw: string; medium_20_80mw: string; large_over_80mw: string; note: string };
+  price_lag?: { battery_cell_months: number[]; hv_equipment_months: number[]; note: string };
+  supplier_spread?: { premium_bankable: string; mainstream: string; aggressive_new_entrant: string; note: string };
+  contract_structure?: { turnkey_epc: string; multi_contract: string; note: string };
+  policy_flags?: Array<{ name: string; impact: string; status: string; detail: string }>;
 }
 
 type Duration = '2h' | '4h';
@@ -232,9 +252,35 @@ export function S3Card() {
           €{kwRange[0]}–{kwRange[1]} /kW @ POI
         </p>
         <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>
-          installed · ex-VAT · {duration} LFP · grid-{gridScope}
+          installed · ex-VAT · {duration} LFP · EU turnkey · grid-{gridScope}
         </p>
       </div>
+
+      {/* MARKET SEGMENTATION BAND */}
+      {data.market_bands && (() => {
+        const floor = data.market_bands.observed_floor;
+        const ceiling = data.market_bands.observed_ceiling;
+        const range = ceiling - floor;
+        const pct = (v: number) => ((v - floor) / range) * 100;
+        return (
+          <div style={{ margin: '12px 0 8px', padding: '8px 0', borderTop: '1px solid var(--border-card)', borderBottom: '1px solid var(--border-card)' }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>
+              Observed market spread
+            </div>
+            <div style={{ position: 'relative', height: '18px', marginBottom: '6px' }}>
+              <div style={{ position: 'absolute', left: 0, right: 0, top: '6px', height: '6px', background: 'rgba(232,226,217,0.06)', borderRadius: '3px' }} />
+              <div style={{ position: 'absolute', left: `${pct(120)}%`, width: `${pct(160) - pct(120)}%`, top: '4px', height: '10px', background: 'rgba(0,180,160,0.25)', borderRadius: '2px' }} />
+              <div style={{ position: 'absolute', left: `${pct(160)}%`, width: `${pct(220) - pct(160)}%`, top: '2px', height: '14px', background: 'rgba(0,180,160,0.5)', border: '1px solid var(--teal)', borderRadius: '2px' }} />
+              <div style={{ position: 'absolute', left: `${pct(220)}%`, width: `${pct(500) - pct(220)}%`, top: '4px', height: '10px', background: 'rgba(212,160,60,0.15)', borderRadius: '2px' }} />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-mono)', fontSize: '0.625rem', lineHeight: 1.3 }}>
+              <span style={{ color: 'var(--text-muted)' }}>€120–160<br/>developer</span>
+              <span style={{ color: 'var(--teal)' }}>€160–220<br/>EU turnkey ←</span>
+              <span style={{ color: 'var(--text-muted)' }}>€220–500+<br/>institutional</span>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* 4. UNCERTAINTY + TREND */}
       {uncertaintyData && trendData && (
@@ -245,6 +291,18 @@ export function S3Card() {
           <div style={{ color: 'var(--text-secondary)' }}>
             12M: {colorTrendLine(trendData.twelve_month)}
           </div>
+        </div>
+      )}
+
+      {/* LEAD TIMES + SCALE */}
+      {data.lead_times && (
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '4px' }}>
+          Lead time: ~{data.lead_times.total_rtb_to_cod_months[0]} mo RTB→COD · HV {data.lead_times.hv_equipment_months[0]}–{data.lead_times.hv_equipment_months[1]} mo · battery {data.lead_times.battery_plus_shipping_months[0]}–{data.lead_times.battery_plus_shipping_months[1]} mo incl. shipping
+        </div>
+      )}
+      {data.scale_effect && (
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '12px' }}>
+          Scale: {data.scale_effect.large_over_80mw} above 80MW · {data.scale_effect.small_under_20mw} below 20MW
         </div>
       )}
 
@@ -378,6 +436,12 @@ export function S3Card() {
         </div>
       )}
 
+      {/* CROSS-LINKS */}
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '12px', display: 'flex', gap: '16px' }}>
+        <span>Grid constraint → <a href="#build" onClick={e => { e.preventDefault(); document.getElementById('build')?.scrollIntoView({ behavior: 'smooth' }); }} style={{ color: 'var(--teal)', textDecoration: 'none' }}>S4</a></span>
+        <span>Revenue impact → <a href="#revenue" onClick={e => { e.preventDefault(); document.getElementById('revenue')?.scrollIntoView({ behavior: 'smooth' }); }} style={{ color: 'var(--teal)', textDecoration: 'none' }}>Revenue Engine</a></span>
+      </div>
+
       {/* 8. MODEL INPUT FOOTER */}
       <SourceFooter
         source={data.source ?? 'tradingeconomics.com + ECB'}
@@ -434,7 +498,7 @@ export function S3Card() {
                 ['Calendar life', `${(data.technology as Record<string, unknown>).calendar_life_years ? `${(data.technology.calendar_life_years as number[])[0]}–${(data.technology.calendar_life_years as number[])[1]} yr` : '—'}`],
                 ['Cycle life', `${(data.technology.cycle_life as number[])?.[0]?.toLocaleString()}–${(data.technology.cycle_life as number[])?.[1]?.toLocaleString()}`],
                 ['Round-trip eff.', `${(data.technology.rte_percent as number[])?.[0]}–${(data.technology.rte_percent as number[])?.[1]}%`],
-                ['Degradation', `${(data.technology.degradation_annual_pct as number[])?.[0]}–${(data.technology.degradation_annual_pct as number[])?.[1]}% /yr`],
+                ['Degradation', `${(data.technology.degradation_annual_pct as number[])?.[0]}–${(data.technology.degradation_annual_pct as number[])?.[1]}% /yr · non-linear (slow early, accelerates late)`],
                 ['End-of-life', `${data.technology.eol_capacity_pct}% SoH`],
                 ['Warranty', String(data.technology.warranty_typical)],
                 ['Augmentation', String(data.technology.augmentation)],
@@ -470,7 +534,45 @@ export function S3Card() {
           </DetailsDrawer>
         )}
 
-        {/* Drawer D: Raw inputs */}
+        {/* Drawer D: Project variables */}
+        <DetailsDrawer label="Project variables">
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)' }}>
+            {data.contract_structure && (
+              <>
+                <div style={{ color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Contract structure</div>
+                <div style={{ color: 'var(--text-secondary)', marginBottom: '4px' }}>Turnkey EPC: {data.contract_structure.turnkey_epc} vs multi-contract.</div>
+                <div style={{ color: 'var(--text-muted)', marginBottom: '12px' }}>{data.contract_structure.note}</div>
+              </>
+            )}
+            {data.supplier_spread && (
+              <>
+                <div style={{ color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Supplier spread</div>
+                <div style={{ color: 'var(--text-secondary)', marginBottom: '4px' }}>Premium bankable: {data.supplier_spread.premium_bankable}. {data.supplier_spread.note}</div>
+                <div style={{ color: 'var(--text-secondary)', marginBottom: '12px' }}>Aggressive / new entrant: {data.supplier_spread.aggressive_new_entrant}.</div>
+              </>
+            )}
+            {data.price_lag && (
+              <>
+                <div style={{ color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Price lag</div>
+                <div style={{ color: 'var(--text-secondary)', marginBottom: '4px' }}>Battery: upstream → turnkey in {data.price_lag.battery_cell_months[0]}–{data.price_lag.battery_cell_months[1]} months.</div>
+                <div style={{ color: 'var(--text-secondary)', marginBottom: '4px' }}>HV equipment: upstream → project cost in {data.price_lag.hv_equipment_months[0]}–{data.price_lag.hv_equipment_months[1]} months.</div>
+                <div style={{ color: 'var(--text-muted)', marginBottom: '12px' }}>Lithium ↓ today ≠ CAPEX ↓ today.</div>
+              </>
+            )}
+            {data.policy_flags && data.policy_flags.length > 0 && (
+              <>
+                <div style={{ color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Policy</div>
+                {data.policy_flags.map((flag, i) => (
+                  <div key={i} style={{ color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                    {flag.name}: {flag.impact}. <span style={{ color: 'var(--text-muted)' }}>{flag.status}.</span>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        </DetailsDrawer>
+
+        {/* Drawer E: Raw inputs */}
         <DetailsDrawer label="Raw inputs">
           <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 12px', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', marginBottom: '12px' }}>
             {data.lithium_eur_t != null && (

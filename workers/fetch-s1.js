@@ -3459,6 +3459,47 @@ export default {
           };
           d.confidence = { level: 'benchmark-heavy', observed_share: 0.2, benchmark_share: 0.5, modeled_share: 0.3 };
 
+          d.market_bands = {
+            developer_optimized: { range_kwh: [120, 160], label: 'Developer-optimized', note: 'Strong sourcing, competitive procurement, experienced execution.' },
+            eu_turnkey_typical: { range_kwh: [160, 220], label: 'EU turnkey typical', note: "Standard EPC, grid-heavy, mid-scale. This is the card's default range." },
+            institutional_tso: { range_kwh: [220, 500], label: 'Institutional / TSO', note: 'Risk-heavy procurement, small scale, regulated overhead.' },
+            observed_floor: 110, observed_ceiling: 500,
+            note: "No single 'true' CAPEX. Market is segmented by procurement capability, scale, and risk appetite.",
+          };
+          d.lead_times = {
+            hv_equipment_months: [10, 16], battery_plus_shipping_months: [5, 8],
+            epc_construction_months: [2, 3], commissioning_months: [1, 2],
+            total_rtb_to_cod_months: [12, 18], critical_path: 'HV equipment procurement',
+            note: 'RTB to COD achievable in ~12 months if HV equipment ordered early. HV is the long pole, not battery.',
+          };
+          d.scale_effect = {
+            small_under_20mw: '+15\u201330%', medium_20_80mw: 'baseline', large_over_80mw: '\u221210\u201320%',
+            note: 'Bulk procurement + shared grid scope drive savings at scale.',
+          };
+          d.price_lag = {
+            battery_cell_months: [3, 6], hv_equipment_months: [6, 16],
+            note: 'Lithium \u2193 today \u2192 turnkey battery \u2193 in 3\u20136mo. HV equipment pricing lags 6\u201316mo.',
+          };
+          d.supplier_spread = {
+            premium_bankable: '+10\u201325%', mainstream: 'baseline', aggressive_new_entrant: '\u221210\u201320%',
+            note: 'Premium buys bankability + warranty + delivery certainty.',
+          };
+          d.contract_structure = {
+            turnkey_epc: '+10\u201320%', multi_contract: 'baseline',
+            note: 'Most Baltic projects use turnkey EPC. Split supply needs experienced developer.',
+          };
+          d.policy_flags = [
+            { name: 'Grid-forming requirements', impact: 'PCS cost \u2191', status: 'emerging', detail: 'ENTSO-E Phase II Nov 2025. Grid-forming for new storage modules.' },
+            { name: 'EU Batteries Regulation', impact: 'Compliance cost', status: 'in force', detail: 'Sustainability, labelling, due diligence. Non-trivial documentation.' },
+            { name: 'Baltic balancing cost shift', impact: 'Net revenue \u2193', status: 'active 2026', detail: '30% of balancing costs now on producers. Affects revenue, not CAPEX.' },
+          ];
+
+          // Update technology with degradation shape
+          if (d.technology) {
+            d.technology.degradation_shape = 'non-linear';
+            d.technology.degradation_note = 'Slow early (Y1\u20135), linear mid-life (Y5\u201315), accelerates late. Calendar + cycling interact.';
+          }
+
           return new Response(JSON.stringify(d), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600', ...CORS } });
         } catch { /* fall through to fresh compute */ }
       }
