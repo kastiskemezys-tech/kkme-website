@@ -224,6 +224,16 @@ export function S2Card() {
     ? Object.values(ltMonthlyMfrr).slice(-3).reduce((s, m) => s + m.count, 0)
     : null;
 
+  // Month-over-month deltas for activation tiles
+  const afrrMonthVals = ltMonthlyAfrr ? Object.values(ltMonthlyAfrr) : [];
+  const afrrDelta = afrrMonthVals.length >= 2
+    ? afrrMonthVals[afrrMonthVals.length - 1].p50 - afrrMonthVals[afrrMonthVals.length - 2].p50
+    : null;
+  const mfrrMonthVals = ltMonthlyMfrr ? Object.values(ltMonthlyMfrr) : [];
+  const mfrrDelta = mfrrMonthVals.length >= 2
+    ? mfrrMonthVals[mfrrMonthVals.length - 1].p50 - mfrrMonthVals[mfrrMonthVals.length - 2].p50
+    : null;
+
   return (
     <article style={{ width: '100%' }}>
       {/* -- HEADER -- */}
@@ -356,6 +366,11 @@ export function S2Card() {
                     {recentAfrrCount.toLocaleString()} events in period
                   </div>
                 )}
+                {afrrDelta != null && Math.abs(afrrDelta) >= 1 && (
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: afrrDelta <= 0 ? 'var(--teal-strong)' : 'var(--rose)', marginTop: '2px' }}>
+                    {afrrDelta > 0 ? '+' : ''}{Math.round(afrrDelta)} vs prev month
+                  </div>
+                )}
               </div>
             )}
             {ltAct.mfrr_p50 != null && (
@@ -379,6 +394,11 @@ export function S2Card() {
                     {recentMfrrCount.toLocaleString()} events in period
                   </div>
                 )}
+                {mfrrDelta != null && Math.abs(mfrrDelta) >= 1 && (
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: mfrrDelta <= 0 ? 'var(--teal-strong)' : 'var(--rose)', marginTop: '2px' }}>
+                    {mfrrDelta > 0 ? '+' : ''}{Math.round(mfrrDelta)} vs prev month
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -397,8 +417,10 @@ export function S2Card() {
       {compressionTraj && compressionTraj.months.length > 0 && (() => {
         const months = compressionTraj.months;
         const p50 = compressionTraj.afrr_lt_p50;
+        const mfrrP50Vals = months.map(m => ltMonthlyMfrr?.[m]?.p50 ?? null);
         const fleetMw = months.map(m => FLEET_MW_TIMELINE[m] ?? 0);
-        const maxP50 = Math.max(...p50);
+        const validMfrr = mfrrP50Vals.filter((v): v is number => v != null);
+        const maxP50 = Math.max(...p50, ...(validMfrr.length > 0 ? validMfrr : [0]));
         const maxMw = Math.max(...fleetMw);
 
         return (
@@ -412,7 +434,7 @@ export function S2Card() {
               alignItems: 'center',
               gap: '8px',
             }}>
-              Observed aFRR clearing vs fleet growth · Lithuania
+              Observed clearing vs fleet growth · Lithuania
               <DataClassBadge dataClass="derived" />
             </div>
             <div style={{ position: 'relative', height: '200px' }}>
@@ -423,12 +445,25 @@ export function S2Card() {
                   datasets: [
                     {
                       type: 'bar' as const,
-                      label: 'aFRR P50 EUR/MWh',
+                      label: 'aFRR P50',
                       data: p50,
                       backgroundColor: CHART_COLORS.tealMid,
                       borderWidth: 0,
                       borderRadius: 2,
-                      barPercentage: 0.6,
+                      barPercentage: 0.7,
+                      categoryPercentage: 0.75,
+                      yAxisID: 'y',
+                      order: 2,
+                    },
+                    {
+                      type: 'bar' as const,
+                      label: 'mFRR P50',
+                      data: mfrrP50Vals,
+                      backgroundColor: CHART_COLORS.amberLight,
+                      borderWidth: 0,
+                      borderRadius: 2,
+                      barPercentage: 0.7,
+                      categoryPercentage: 0.75,
                       yAxisID: 'y',
                       order: 2,
                     },
@@ -436,11 +471,11 @@ export function S2Card() {
                       type: 'line' as const,
                       label: 'Fleet MW',
                       data: fleetMw,
-                      borderColor: CHART_COLORS.amber,
+                      borderColor: CHART_COLORS.textSecondary,
                       backgroundColor: 'transparent',
                       borderWidth: 2,
                       pointRadius: 3,
-                      pointBackgroundColor: CHART_COLORS.amber,
+                      pointBackgroundColor: CHART_COLORS.textSecondary,
                       tension: 0.3,
                       yAxisID: 'y1',
                       order: 1,
@@ -457,10 +492,9 @@ export function S2Card() {
                       callbacks: {
                         title: (items) => items[0].label,
                         label: (item) => {
-                          if (item.datasetIndex === 0) {
-                            return `aFRR P50  EUR${Math.round(item.raw as number)}/MWh`;
-                          }
-                          return `Fleet     ${item.raw} MW`;
+                          if (item.datasetIndex === 0) return `aFRR P50   €${Math.round(item.raw as number)}/MWh`;
+                          if (item.datasetIndex === 1) return item.raw != null ? `mFRR P50   €${Math.round(item.raw as number)}/MWh` : '';
+                          return `Fleet      ${item.raw} MW`;
                         },
                       },
                     },
@@ -494,7 +528,7 @@ export function S2Card() {
                       grid: { display: false },
                       border: { display: false },
                       ticks: {
-                        color: CHART_COLORS.amber,
+                        color: CHART_COLORS.textSecondary,
                         font: { family: CHART_FONT.family, size: 10 },
                         maxTicksLimit: 4,
                         callback: (v) => `${v} MW`,
@@ -516,7 +550,8 @@ export function S2Card() {
             }}>
               <div style={{ display: 'flex', gap: '12px' }}>
                 <span><span style={{ color: CHART_COLORS.teal }}>■</span> aFRR P50</span>
-                <span><span style={{ color: CHART_COLORS.amber }}>━</span> Fleet MW</span>
+                <span><span style={{ color: CHART_COLORS.amber }}>■</span> mFRR P50</span>
+                <span><span style={{ color: CHART_COLORS.textSecondary }}>━</span> Fleet MW</span>
               </div>
             </div>
             <p style={{
@@ -526,7 +561,7 @@ export function S2Card() {
               lineHeight: 1.5,
               marginTop: '4px',
             }}>
-              Fleet capacity grew as clearing prices compressed. Correlation is visible; causation is not established.
+              aFRR and mFRR clearing prices shown alongside fleet growth. Correlation visible; causation not established.
             </p>
           </div>
         );

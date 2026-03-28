@@ -115,10 +115,10 @@ export function S1Card() {
           Day-ahead arbitrage capture
         </h3>
         <p style={{
-          fontFamily: 'var(--font-mono)',
-          fontSize: 'var(--font-xs)',
+          fontFamily: 'var(--font-serif)',
+          fontSize: 'var(--font-sm)',
           color: 'var(--text-secondary)',
-          lineHeight: 1.5,
+          lineHeight: 1.6,
         }}>
           What a storage asset could capture from today&apos;s LT day-ahead price shape using perfect-foresight dispatch.
         </p>
@@ -396,18 +396,13 @@ export function S1Card() {
         Gross DA capture only. Excludes: reserve drag, partial cycles, RTE losses, intraday re-optimization, grid fees, imbalance risk.
       </div>
 
-      {/* TIMESTAMP + DATA CLASS */}
-      <div style={{
-        fontFamily: 'var(--font-mono)',
-        fontSize: 'var(--font-xs)',
-        color: 'var(--text-muted)',
-        marginBottom: '8px',
-      }}>
-        {data.updated_at && <>Updated {new Date(data.updated_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })} · </>}derived from observed DA prices
-      </div>
-
-      <button type="button" onClick={openDrawer} style={{ all: 'unset', display: 'block', width: '100%', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-ghost)', letterSpacing: '0.06em' }}>
-        MODEL INPUT → DA arbitrage reference
+      {/* SOURCE FOOTER */}
+      <button type="button" onClick={openDrawer} style={{ all: 'unset', display: 'block', width: '100%', cursor: 'pointer' }}>
+        <SourceFooter
+          source="energy-charts.info · ENTSO-E A44"
+          updatedAt={data.updated_at ? new Date(data.updated_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) : undefined}
+          dataClass="derived from observed DA prices"
+        />
       </button>
 
       {/* DETAILS DRAWER */}
