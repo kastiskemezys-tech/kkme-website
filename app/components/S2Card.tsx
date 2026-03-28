@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import { useSignal } from '@/lib/useSignal';
 import { safeNum } from '@/lib/safeNum';
 import { SignalIntel } from '@/app/components/SignalIntel';
+import { sdLabel as sdLabelShared } from '@/app/lib/sdRatio';
 import {
   MetricTile, StatusChip, SourceFooter, DetailsDrawer, DataClassBadge,
 } from '@/app/components/primitives';
@@ -90,10 +91,11 @@ function sdSentiment(sd: number): Sentiment {
 }
 
 function sdStatus(sd: number): string {
-  if (sd < 0.5) return 'Supportive';
+  if (sd < 0.5) return 'Undersupplied';
   if (sd < 0.7) return 'Tightening';
-  if (sd < 0.9) return 'Competitive';
-  return 'Compressed';
+  if (sd < 0.9) return 'Tightening';
+  if (sd < 1.1) return 'Approaching equilibrium';
+  return 'Supply exceeds demand';
 }
 
 function sdInterpretation(sd: number): string {
@@ -117,7 +119,13 @@ function sdImpactDesc(sd: number): string {
   return 'Reference asset: Compression risk — earlier COD and shorter duration may be more resilient';
 }
 
-function trajectoryBarColor(phase: string): string {
+function trajectoryBarColor(phase: string, sd?: number): string {
+  // Use S/D ratio if available, otherwise fall back to phase label
+  if (sd != null) {
+    if (sd < 0.7) return 'var(--teal-strong)';
+    if (sd < 1.0) return 'var(--amber-strong)';
+    return 'var(--rose-strong)';
+  }
   if (phase === 'SCARCITY') return 'var(--teal-strong)';
   if (phase === 'COMPRESS') return 'var(--amber-strong)';
   return 'var(--rose-strong)';
@@ -275,13 +283,13 @@ export function S2Card() {
 
       {/* TRAJECTORY CHART — S/D ratio by year (Chart.js) */}
       {trajectory && trajectory.length > 0 && (() => {
-        const phaseColorMap: Record<string, string> = {
-          SCARCITY: CHART_COLORS.teal,
-          COMPRESS: CHART_COLORS.amber,
-          SATURATE: CHART_COLORS.rose,
-          MATURE: CHART_COLORS.rose,
+        // Color bars by S/D ratio (continuous, not categorical)
+        const sdBarColor = (sd: number): string => {
+          if (sd < 0.7) return CHART_COLORS.teal;
+          if (sd < 1.0) return CHART_COLORS.amber;
+          return CHART_COLORS.rose;
         };
-        const barBg = trajectory.map(pt => phaseColorMap[pt.phase] ?? CHART_COLORS.textMuted);
+        const barBg = trajectory.map(pt => sdBarColor(pt.sd_ratio));
         const maxSd = Math.max(...trajectory.map(p => p.sd_ratio), 1.5);
         const trajData = {
           labels: trajectory.map(pt => String(pt.year)),
@@ -313,7 +321,7 @@ export function S2Card() {
                           const pt = trajectory[idx];
                           return [
                             `S/D ratio  ${pt.sd_ratio.toFixed(2)}×`,
-                            `Phase      ${pt.phase}`,
+                            `Status     ${sdStatus(pt.sd_ratio)}`,
                             ...(pt.cpi != null ? [`CPI        ${pt.cpi.toFixed(2)}`] : []),
                           ];
                         },
@@ -415,6 +423,18 @@ export function S2Card() {
           {sdImpactDesc(sd)}
         </div>
       )}
+
+      {/* S/D METHODOLOGY NOTE */}
+      <p style={{
+        fontFamily: 'var(--font-mono)',
+        fontSize: 'var(--font-xs)',
+        color: 'var(--text-muted)',
+        lineHeight: 1.5,
+        marginBottom: '8px',
+        opacity: 0.7,
+      }}>
+        S/D = weighted fleet supply ÷ effective demand (935 MW). Weights: operational 1.0, construction 0.9, agreement 0.6. Reserve compression is continuous and product-specific — this ratio is a summary indicator.
+      </p>
 
       {/* SIGNAL INTEL */}
       <SignalIntel signalId="S2" />

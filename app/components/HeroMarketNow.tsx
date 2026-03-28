@@ -3,23 +3,10 @@
 import { useState, useEffect } from 'react';
 import { MetricTile, StatusChip, DetailsDrawer } from '@/app/components/primitives';
 import { ThemeToggle } from './ThemeToggle';
+import { phaseToSdLabel, phaseToSdSentiment } from '@/app/lib/sdRatio';
 import type { Sentiment } from '@/app/lib/types';
 
 const BASE = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
-
-function phaseToSentiment(phase: string | null | undefined): Sentiment {
-  if (phase === 'SCARCITY') return 'positive';
-  if (phase === 'COMPRESS') return 'caution';
-  if (phase === 'MATURE') return 'negative';
-  return 'neutral';
-}
-
-function phaseToLabel(phase: string | null | undefined): string {
-  if (phase === 'SCARCITY') return 'Supportive';
-  if (phase === 'COMPRESS') return 'Tightening';
-  if (phase === 'MATURE') return 'Compressed';
-  return 'Loading';
-}
 
 function interpretationText(sd: number | null | undefined): string {
   if (sd == null) return 'Waiting for balancing market data.';
@@ -199,7 +186,7 @@ export function HeroMarketNow() {
               flexShrink: 0,
             }} />
           </div>
-          {phase && <StatusChip status={phaseToLabel(phase)} sentiment={phaseToSentiment(phase)} />}
+          {(sd != null || phase) && <StatusChip status={phaseToSdLabel(phase, sd)} sentiment={phaseToSdSentiment(phase, sd)} />}
         </div>
 
         {/* S/D Ratio hero metric */}

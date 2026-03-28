@@ -10,6 +10,8 @@ import type { Sentiment } from '@/app/lib/types';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
+interface S7Data { ttf_eur_mwh?: number | null; }
+
 interface S9Signal {
   timestamp?:     string | null;
   signal?:        string | null;
@@ -53,11 +55,17 @@ export function S9Card() {
   const { status, data } = useSignal<S9Signal>(`${WORKER_URL}/s9`);
   const [history, setHistory] = useState<number[]>([]);
   const [showTip, setShowTip] = useState(false);
+  const [ttfPrice, setTtfPrice] = useState<number | null>(null);
 
   useEffect(() => {
     fetch(`${WORKER_URL}/s9/history`)
       .then(r => r.json())
       .then((h: Array<{ eua_eur_t: number }>) => setHistory(h.map(e => e.eua_eur_t)))
+      .catch(() => {});
+    // Fetch S7 for combined P_high floor
+    fetch(`${WORKER_URL}/s7`)
+      .then(r => r.json())
+      .then((d: S7Data) => { if (d.ttf_eur_mwh) setTtfPrice(d.ttf_eur_mwh); })
       .catch(() => {});
   }, []);
 
@@ -106,7 +114,8 @@ export function S9Card() {
           lineHeight: 1.5,
           marginBottom: '8px',
         }}>
-          Carbon premium on gas gen: ~€{Math.round(data.eua_eur_t * 0.45)}/MWh (0.45 tCO₂/MWh) · Supports P_high floor for BESS arbitrage
+          Carbon premium on gas gen: ~€{Math.round(data.eua_eur_t * 0.45)}/MWh (0.45 tCO₂/MWh)
+          {ttfPrice != null && ` · Combined P_high floor: ~€${Math.round(ttfPrice * 1.667 + data.eua_eur_t * 0.45)}/MWh (gas + carbon)`}
         </p>
       )}
 

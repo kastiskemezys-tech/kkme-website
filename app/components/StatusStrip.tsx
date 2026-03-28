@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { signalColor, type SignalState } from '@/lib/signalColor';
+import { sdLabel, sdSentiment } from '@/app/lib/sdRatio';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
@@ -51,8 +52,8 @@ export function StatusStrip() {
         },
         {
           label: 'S/D Ratio',
-          value: sdRatio != null ? `${sdRatio.toFixed(2)}× ${phase ?? ''}`.trim() : '—',
-          state: phase === 'SCARCITY' ? 'positive' : phase === 'COMPRESS' ? 'warning' : 'neutral',
+          value: sdRatio != null ? `${sdRatio.toFixed(2)}×` : '—',
+          state: sdRatio != null ? (sdSentiment(sdRatio) === 'positive' ? 'positive' : sdSentiment(sdRatio) === 'caution' ? 'warning' : 'neutral') : 'neutral',
         },
         {
           label: 'Grid Free',

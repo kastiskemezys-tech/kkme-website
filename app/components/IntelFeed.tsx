@@ -353,7 +353,19 @@ function IntelRow({ item, isExpanded, onToggle }: {
             lineHeight: 1.45,
             flex: 1,
           }}>
-            {item.title}
+            {item.sourceUrl ? (
+              <a
+                href={item.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={e => e.stopPropagation()}
+                style={{ color: 'inherit', textDecoration: 'none', borderBottom: '1px dotted var(--text-muted)' }}
+                onMouseEnter={e => (e.currentTarget.style.color = 'var(--teal)')}
+                onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-primary)')}
+              >
+                {item.title} ↗
+              </a>
+            ) : item.title}
           </span>
           <span style={{
             fontFamily: 'var(--font-mono)',

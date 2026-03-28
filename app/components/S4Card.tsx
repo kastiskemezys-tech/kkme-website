@@ -7,6 +7,7 @@ import {
   MetricTile, StatusChip, SourceFooter, DetailsDrawer,
 } from '@/app/components/primitives';
 import { SignalIntel } from '@/app/components/SignalIntel';
+import { AssetDetailPanel, type Asset as DetailAsset } from '@/app/components/AssetDetailPanel';
 import type { ImpactState, Sentiment } from '@/app/lib/types';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
@@ -207,7 +208,23 @@ export function S4Card() {
     useSignal<S4Signal>(`${WORKER_URL}/s4`);
   const [drawerKey, setDrawerKey] = useState(0);
   const [activeTab, setActiveTab] = useState<CountryTab>('LT');
+  const [assetPanel, setAssetPanel] = useState<{ title: string; subtitle?: string; assets: DetailAsset[]; notes?: string[] } | null>(null);
   const openDrawer = () => setDrawerKey(k => k + 1);
+
+  const openCountryAssets = (country: CountryTab, filter?: string) => {
+    const cd = sbc[country];
+    if (!cd?.assets) return;
+    const assets = cd.assets
+      .filter((a: CountryAsset) => !filter || a.status === filter)
+      .map((a: CountryAsset): DetailAsset => ({
+        id: a.id, name: a.name, mw: a.mw, mwh: a.mwh,
+        status: a.status, tech: a.tech, cod: a.cod,
+        note: a.note, source_url: a.source_url,
+      }));
+    const label = TAB_LABELS[country];
+    const filterLabel = filter ? ` · ${filter.replace(/_/g, ' ')}` : '';
+    setAssetPanel({ title: `${label} BESS assets${filterLabel}`, assets });
+  };
 
   if (status === 'loading') {
     return (
@@ -439,9 +456,13 @@ export function S4Card() {
         {activeTab === 'EE' && (
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>
             <div style={{ marginBottom: '12px' }}>
-              <span style={{ color: 'var(--teal)', fontWeight: 600 }}>{formatMW(eeMw)} MW operational</span>
+              <button onClick={() => openCountryAssets('EE', 'operational')} style={{ all: 'unset', color: 'var(--teal)', fontWeight: 600, cursor: 'pointer', borderBottom: '1px dotted var(--teal)' }}>
+                {formatMW(eeMw)} MW operational ↗
+              </button>
               {' · '}
-              <span style={{ color: 'var(--amber)' }}>{formatMW(sbc.EE?.under_construction_mw ?? 255)} MW under construction</span>
+              <button onClick={() => openCountryAssets('EE', 'under_construction')} style={{ all: 'unset', color: 'var(--amber)', cursor: 'pointer', borderBottom: '1px dotted var(--amber)' }}>
+                {formatMW(sbc.EE?.under_construction_mw ?? 255)} MW under construction ↗
+              </button>
             </div>
             <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 0 12px' }}>
               {sbc.EE?.coverage_note || `${eeMw} MW operational since Feb 2026, ${sbc.EE?.under_construction_mw ?? 255} MW under construction. Estonia BESS market emerging fast.`}
@@ -677,6 +698,18 @@ export function S4Card() {
           </p>
         </DetailsDrawer>
       </div>
+
+      {/* ASSET DETAIL PANEL */}
+      {assetPanel && (
+        <AssetDetailPanel
+          isOpen={true}
+          onClose={() => setAssetPanel(null)}
+          title={assetPanel.title}
+          subtitle={assetPanel.subtitle}
+          assets={assetPanel.assets}
+          notes={assetPanel.notes}
+        />
+      )}
     </article>
   );
 }
