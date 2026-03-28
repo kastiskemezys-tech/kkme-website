@@ -57,13 +57,20 @@ function captureInterpretation(gross2h: number | null, gross4h: number | null, s
   return 'Exceptional DA price volatility. Gross capture is well above seasonal norms — likely driven by weather or outage events. Not representative of sustained revenue.';
 }
 
-function captureImpactDesc(gross2h: number | null, gross4h: number | null): string {
-  const g2 = gross2h ?? 0;
-  const g4 = gross4h ?? 0;
-  if (g4 < 10) return 'Reference asset: Weak DA capture contribution for both 2H and 4H';
-  if (g4 < 30) return 'Reference asset: Modest DA capture — 4H picks up more spread than 2H';
-  if (g4 < 60) return `Reference asset: Supportive DA capture — 2H €${safeNum(g2, 0)}, 4H €${safeNum(g4, 0)}/MWh gross`;
-  return `Reference asset: Strong DA capture — 2H €${safeNum(g2, 0)}, 4H €${safeNum(g4, 0)}/MWh gross (theoretical)`;
+function captureImpact2H(gross2h: number | null): string {
+  const g = gross2h ?? 0;
+  if (g < 10) return `2H: Weak DA capture (€${safeNum(g, 0)}/MWh gross)`;
+  if (g < 30) return `2H: Modest DA capture (€${safeNum(g, 0)}/MWh gross)`;
+  if (g < 60) return `2H: Supportive DA capture (€${safeNum(g, 0)}/MWh gross)`;
+  return `2H: Strong DA capture (€${safeNum(g, 0)}/MWh gross)`;
+}
+
+function captureImpact4H(gross4h: number | null): string {
+  const g = gross4h ?? 0;
+  if (g < 10) return `4H: Weak DA capture (€${safeNum(g, 0)}/MWh gross)`;
+  if (g < 30) return `4H: Modest DA capture (€${safeNum(g, 0)}/MWh gross)`;
+  if (g < 60) return `4H: Supportive DA capture (€${safeNum(g, 0)}/MWh gross)`;
+  return `4H: Strong DA capture (€${safeNum(g, 0)}/MWh gross)`;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────
@@ -234,6 +241,18 @@ export function S1Card() {
 
         return (
           <div style={{ margin: '16px 0' }}>
+            <div style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 'var(--font-xs)',
+              color: 'var(--text-tertiary)',
+              marginBottom: '6px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}>
+              DA gross capture by day
+              <DataClassBadge dataClass="derived" />
+            </div>
             <div style={{ position: 'relative', height: '200px' }}>
               <Bar
                 data={{
@@ -308,7 +327,7 @@ export function S1Card() {
             }}>
               <span>{chartEntries.length} days</span>
               {median != null && (
-                <span>30d median €{safeNum(median, 0)}/MWh</span>
+                <span>30-day median DA capture €{safeNum(median, 0)}/MWh</span>
               )}
               <span>today</span>
             </div>
@@ -329,11 +348,10 @@ export function S1Card() {
               fontFamily: 'var(--font-mono)',
               fontSize: 'var(--font-xs)',
               color: 'var(--text-tertiary)',
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
+              letterSpacing: '0.04em',
               marginBottom: '6px',
             }}>
-              Today&apos;s price shape
+              Today&apos;s DA price shape
             </p>
             <div style={{ display: 'flex', gap: '1px', alignItems: 'flex-end', height: '32px' }}>
               {profile.map((p: number, i: number) => {
@@ -366,7 +384,7 @@ export function S1Card() {
                 <span style={{ color: 'var(--amber)' }}>■ Discharge</span>
               </div>
               <span style={{ color: 'var(--text-muted)' }}>
-                Swing €{safeNum(shape.swing, 0)}/MWh
+                Peak-to-trough €{safeNum(shape.swing, 0)}/MWh
               </span>
             </div>
           </div>
@@ -397,14 +415,18 @@ export function S1Card() {
         {captureInterpretation(cap?.gross_2h ?? null, cap?.gross_4h ?? null, swing)}
       </p>
 
-      {/* IMPACT LINE */}
+      {/* IMPACT LINE — split 2H / 4H */}
       <div style={{
         fontFamily: 'var(--font-mono)',
         fontSize: 'var(--font-sm)',
         color: 'var(--teal-strong)',
         marginBottom: '16px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '2px',
       }}>
-        {captureImpactDesc(cap?.gross_2h ?? null, cap?.gross_4h ?? null)}
+        <span>Reference asset: {captureImpact2H(cap?.gross_2h ?? null)}</span>
+        <span>Reference asset: {captureImpact4H(cap?.gross_4h ?? null)}</span>
       </div>
 
       {/* SOURCE FOOTER */}
@@ -458,7 +480,7 @@ export function S1Card() {
                   €{safeNum(swing, 0)} <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>/MWh</span>
                 </div>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  Intraday price swing
+                  Peak-to-trough swing
                 </div>
               </div>
             )}

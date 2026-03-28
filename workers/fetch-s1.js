@@ -152,13 +152,28 @@ function processFleet(entries, demand) {
   const baltic_pipeline    = Object.values(countries).reduce((s, c) => s + c.pipeline_mw, 0);
   const eff_demand = demand?.eff_demand_mw || 1190;
   const sd_ratio   = baltic_weighted / eff_demand;
+
+  // Per-product S/D ratios — worst-case stress view (all fleet allocated to single product)
+  const PRODUCT_DEMAND = { fcr: 25, afrr: 170, mfrr: 700 };
+  const product_sd = {};
+  for (const [prod, dem] of Object.entries(PRODUCT_DEMAND)) {
+    const r = dem > 0 ? baltic_weighted / dem : null;
+    product_sd[prod] = {
+      demand_mw: dem,
+      supply_mw: Math.round(baltic_weighted),
+      ratio: r !== null ? Math.round(r * 100) / 100 : null,
+      phase: r === null ? null : r < 0.6 ? 'SCARCITY' : r < 1.0 ? 'COMPRESS' : 'MATURE',
+    };
+  }
+
+  // CPI: floor 0.30, slope 0.08
   let phase, cpi;
   if (sd_ratio < 0.6) {
     phase = 'SCARCITY'; cpi = Math.min(1.0 + (0.6 - sd_ratio) * 2.5, 2.0);
   } else if (sd_ratio < 1.0) {
-    phase = 'COMPRESS'; cpi = Math.max(0.40, 1.0 - (sd_ratio - 0.6) * 1.5);
+    phase = 'COMPRESS'; cpi = Math.max(0.30, 1.0 - (sd_ratio - 0.6) * 1.5);
   } else {
-    phase = 'MATURE';   cpi = Math.max(0.40, 0.40 - (sd_ratio - 1.0) * 0.05);
+    phase = 'MATURE';   cpi = Math.max(0.30, 0.30 - (sd_ratio - 1.0) * 0.08);
   }
   // 5-year trajectory (0.15 sd_ratio growth/yr — conservative new entrant assumption)
   const trajectory = [];
@@ -169,8 +184,8 @@ function processFleet(entries, demand) {
     const ph = r < 0.6 ? 'SCARCITY' : r < 1.0 ? 'COMPRESS' : 'MATURE';
     let tc;
     if (r < 0.6) tc = Math.min(1.0 + (0.6 - r) * 2.5, 2.0);
-    else if (r < 1.0) tc = Math.max(0.40, 1.0 - (r - 0.6) * 1.5);
-    else tc = Math.max(0.40, 0.40 - (r - 1.0) * 0.05);
+    else if (r < 1.0) tc = Math.max(0.30, 1.0 - (r - 0.6) * 1.5);
+    else tc = Math.max(0.30, 0.30 - (r - 1.0) * 0.08);
     trajectory.push({ year: yr, sd_ratio: Math.round(r * 100) / 100, phase: ph, cpi: Math.round(tc * 100) / 100 });
   }
   // Quarantine + contradiction detection
@@ -193,6 +208,7 @@ function processFleet(entries, demand) {
     sd_ratio:              Math.round(sd_ratio * 100) / 100,
     phase,
     cpi:                   Math.round(cpi * 100) / 100,
+    product_sd,
     trajectory,
     quarantined,
     updated_at:            new Date().toISOString(),
@@ -3526,13 +3542,36 @@ export default {
       return new Response(raw, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...CORS } });
     }
 
+    // ── POST /s2/activation ─────────────────────────────────────────────────
+    // Store Baltic activation clearing-price dataset (from BTD transparency dashboard).
+    if (request.method === 'POST' && url.pathname === '/s2/activation') {
+      const secret = request.headers.get('X-Update-Secret');
+      if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
+      let body;
+      try { body = await request.json(); } catch { return jsonResp({ error: 'Invalid JSON' }, 400); }
+      if (!body.countries) return jsonResp({ error: 'countries object required' }, 400);
+      body.stored_at = new Date().toISOString();
+      await env.KKME_SIGNALS.put('s2_activation', JSON.stringify(body));
+      const countryKeys = Object.keys(body.countries);
+      console.log(`[S2/activation] stored ${countryKeys.length} countries: ${countryKeys.join(', ')}`);
+      return jsonResp({ ok: true, countries: countryKeys, stored_at: body.stored_at });
+    }
+
+    // ── GET /s2/activation ──────────────────────────────────────────────────
+    if (request.method === 'GET' && url.pathname === '/s2/activation') {
+      const raw = await env.KKME_SIGNALS.get('s2_activation').catch(() => null);
+      if (!raw) return jsonResp({ error: 'no activation data yet' }, 404);
+      return new Response(raw, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600', ...CORS } });
+    }
+
     // ── GET /s2 ──────────────────────────────────────────────────────────────
-    // Merges BTD capacity data + fleet S/D ratio data.
+    // Merges BTD capacity data + fleet S/D ratio data + activation clearing prices.
     if (request.method === 'GET' && url.pathname === '/s2') {
       try {
-        const [cached, fleetRaw] = await Promise.all([
+        const [cached, fleetRaw, activationRaw] = await Promise.all([
           env.KKME_SIGNALS.get('s2'),
           env.KKME_SIGNALS.get('s2_fleet').catch(() => null),
+          env.KKME_SIGNALS.get('s2_activation').catch(() => null),
         ]);
         const base = cached
           ? JSON.parse(cached)
@@ -3547,6 +3586,10 @@ export default {
           base.baltic_operational_mw = fleet.baltic_operational_mw ?? null;
           base.baltic_pipeline_mw    = fleet.baltic_pipeline_mw    ?? null;
           base.eff_demand_mw         = fleet.eff_demand_mw         ?? null;
+          base.product_sd            = fleet.product_sd            ?? null;
+        }
+        if (activationRaw) {
+          base.activation = JSON.parse(activationRaw);
         }
         return new Response(JSON.stringify(base), {
           headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600', ...CORS },

@@ -1,10 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useSignal } from '@/lib/useSignal';
 import { safeNum } from '@/lib/safeNum';
 import { SignalIntel } from '@/app/components/SignalIntel';
-import { sdLabel as sdLabelShared } from '@/app/lib/sdRatio';
 import {
   MetricTile, StatusChip, SourceFooter, DetailsDrawer, DataClassBadge,
 } from '@/app/components/primitives';
@@ -12,14 +11,17 @@ import type { ImpactState, Sentiment } from '@/app/lib/types';
 import {
   Chart as ChartJS,
   CategoryScale, LinearScale,
-  BarElement, Tooltip, Legend,
+  BarElement, LineElement, PointElement,
+  Tooltip, Legend,
 } from 'chart.js';
-import { Bar } from 'react-chartjs-2';
+import { Bar, Chart } from 'react-chartjs-2';
 import { CHART_COLORS, CHART_FONT, tooltipStyle } from '@/app/lib/chartTheme';
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
+ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, Tooltip, Legend);
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
+
+// ── Interfaces ──────────────────────────────────────────────────────────────
 
 interface FleetEntry {
   id?: string;
@@ -44,6 +46,43 @@ interface TrajectoryPoint {
   sd_ratio: number;
   phase: string;
   cpi?: number;
+}
+
+interface ProductSd {
+  demand_mw: number;
+  supply_mw: number;
+  ratio: number | null;
+  phase: string | null;
+}
+
+interface ActivationMonth {
+  avg: number;
+  p50: number;
+  p90: number;
+  count: number;
+  total_periods: number;
+  activation_rate: number;
+}
+
+interface ActivationCountry {
+  afrr_up?: Record<string, ActivationMonth>;
+  afrr_recent_3m?: { avg_p50: number; avg_activation_rate: number };
+  mfrr_up?: Record<string, ActivationMonth>;
+  mfrr_recent_3m?: { avg_p50: number; avg_activation_rate: number };
+}
+
+interface ActivationData {
+  uploaded_at?: string;
+  period?: string;
+  source?: string;
+  data_class?: string;
+  stored_at?: string;
+  countries?: Record<string, ActivationCountry>;
+  compression_trajectory?: {
+    afrr_lt_p50: number[];
+    afrr_lt_avg: number[];
+    months: string[];
+  };
 }
 
 interface S2Signal {
@@ -81,7 +120,11 @@ interface S2Signal {
   baltic_operational_mw?: number | null;
   baltic_pipeline_mw?: number | null;
   eff_demand_mw?: number | null;
+  product_sd?: Record<string, ProductSd> | null;
+  activation?: ActivationData | null;
 }
+
+// ── Helper functions ────────────────────────────────────────────────────────
 
 function sdSentiment(sd: number): Sentiment {
   if (sd < 0.5) return 'positive';
@@ -105,30 +148,11 @@ function sdInterpretation(sd: number): string {
   return 'Fleet supply meets or exceeds demand. Balancing revenues are under compression pressure.';
 }
 
-function sdImpact(sd: number): ImpactState {
-  if (sd < 0.5) return 'strong_positive';
-  if (sd < 0.7) return 'slight_positive';
-  if (sd < 0.9) return 'mixed';
-  return 'slight_negative';
-}
-
 function sdImpactDesc(sd: number): string {
   if (sd < 0.5) return 'Reference asset: Strong balancing revenue support for both 2H and 4H';
   if (sd < 0.7) return 'Reference asset: Revenue support holds but 2027+ COD timing increasingly matters';
   if (sd < 0.9) return 'Reference asset: Revenue mix and market access now determine viability';
   return 'Reference asset: Compression risk — earlier COD and shorter duration may be more resilient';
-}
-
-function trajectoryBarColor(phase: string, sd?: number): string {
-  // Use S/D ratio if available, otherwise fall back to phase label
-  if (sd != null) {
-    if (sd < 0.7) return 'var(--teal-strong)';
-    if (sd < 1.0) return 'var(--amber-strong)';
-    return 'var(--rose-strong)';
-  }
-  if (phase === 'SCARCITY') return 'var(--teal-strong)';
-  if (phase === 'COMPRESS') return 'var(--amber-strong)';
-  return 'var(--rose-strong)';
 }
 
 function pressureTrend(trajectory: TrajectoryPoint[] | null | undefined, currentSd: number): string {
@@ -139,6 +163,34 @@ function pressureTrend(trajectory: TrajectoryPoint[] | null | undefined, current
   if (nextYear.sd_ratio < currentSd - 0.05) return 'Easing';
   return 'Stable';
 }
+
+// Fleet MW timeline — hardcoded from KKME fleet tracker
+const FLEET_MW_TIMELINE: Record<string, number> = {
+  '2025-10': 27, '2025-11': 27, '2025-12': 87,
+  '2026-01': 127, '2026-02': 227, '2026-03': 227,
+};
+
+function formatMonth(m: string): string {
+  const [y, mo] = m.split('-');
+  const names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${names[parseInt(mo) - 1]} ${y.slice(2)}`;
+}
+
+function productPhaseColor(phase: string | null): string {
+  if (phase === 'SCARCITY') return 'var(--teal)';
+  if (phase === 'COMPRESS') return 'var(--amber)';
+  if (phase === 'MATURE') return 'var(--rose)';
+  return 'var(--text-muted)';
+}
+
+function productPhaseLabel(phase: string | null): string {
+  if (phase === 'SCARCITY') return 'Scarcity';
+  if (phase === 'COMPRESS') return 'Tightening';
+  if (phase === 'MATURE') return 'Saturated';
+  return '—';
+}
+
+// ── Component ───────────────────────────────────────────────────────────────
 
 export function S2Card() {
   const { status, data } =
@@ -171,6 +223,10 @@ export function S2Card() {
   const opMw = data.baltic_operational_mw;
   const pipeMw = data.baltic_pipeline_mw;
   const trajectory = data.trajectory ?? null;
+  const activation = data.activation ?? null;
+  const productSd = data.product_sd ?? null;
+  const lt = activation?.countries?.Lithuania ?? null;
+  const compressionTraj = activation?.compression_trajectory ?? null;
 
   // Collect all fleet entries for the details drawer
   const STATUS_ORDER: Record<string, number> = {
@@ -181,9 +237,17 @@ export function S2Card() {
     .flatMap((c: unknown) => ((c as FleetCountry)?.entries || []))
     .sort((a, b) => (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9));
 
+  // Recent 3-month activation counts
+  const recentAfrrCount = lt?.afrr_up
+    ? Object.values(lt.afrr_up).slice(-3).reduce((s, m) => s + m.count, 0)
+    : null;
+  const recentMfrrCount = lt?.mfrr_up
+    ? Object.values(lt.mfrr_up).slice(-3).reduce((s, m) => s + m.count, 0)
+    : null;
+
   return (
     <article style={{ width: '100%' }}>
-      {/* HEADER */}
+      {/* ── HEADER ── */}
       <div style={{ marginBottom: '16px' }}>
         <h3
           onClick={openDrawer}
@@ -213,7 +277,7 @@ export function S2Card() {
         </p>
       </div>
 
-      {/* HERO METRIC */}
+      {/* ── HERO METRIC ── */}
       {sd != null && (
         <div style={{ marginBottom: '4px' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
@@ -230,7 +294,7 @@ export function S2Card() {
         </div>
       )}
 
-      {/* INTERPRETATION — right after hero */}
+      {/* ── INTERPRETATION ── */}
       {sd != null && (
         <p style={{
           fontFamily: 'var(--font-serif)',
@@ -243,7 +307,7 @@ export function S2Card() {
         </p>
       )}
 
-      {/* FLEET PRESSURE SUMMARY — compact */}
+      {/* ── FLEET PRESSURE SUMMARY ── */}
       <div style={{
         display: 'flex',
         gap: '16px',
@@ -268,45 +332,163 @@ export function S2Card() {
         )}
       </div>
 
-      {/* PROXY CAVEAT */}
-      <p style={{
+      {/* ── EXCLUDED ITEMS ── */}
+      <div style={{
         fontFamily: 'var(--font-mono)',
         fontSize: 'var(--font-xs)',
         color: 'var(--text-muted)',
-        lineHeight: 1.5,
+        lineHeight: 1.6,
         marginBottom: '16px',
-        paddingLeft: '12px',
-        borderLeft: '1px solid var(--amber-subtle)',
+        padding: '10px 14px',
+        border: '1px solid var(--border-card)',
+        borderRadius: '4px',
       }}>
-        Reserve prices use Baltic-calibrated proxies, not observed clearing. Treat as directional market signal, not realized merchant revenue.
-      </p>
+        <div style={{ marginBottom: '4px', color: 'var(--text-tertiary)', fontWeight: 500 }}>
+          What this card does not show
+        </div>
+        <ul style={{ margin: 0, paddingLeft: '16px' }}>
+          <li>Realized asset revenue — clearing prices are market-wide, not asset-level capture</li>
+          <li>Real-time dispatch optimization or multi-product revenue stacking</li>
+          <li>Forward capacity contract terms or bilateral arrangements</li>
+        </ul>
+      </div>
 
-      {/* TRAJECTORY CHART — S/D ratio by year (Chart.js) */}
-      {trajectory && trajectory.length > 0 && (() => {
-        // Color bars by S/D ratio (continuous, not categorical)
-        const sdBarColor = (sd: number): string => {
-          if (sd < 0.7) return CHART_COLORS.teal;
-          if (sd < 1.0) return CHART_COLORS.amber;
-          return CHART_COLORS.rose;
-        };
-        const barBg = trajectory.map(pt => sdBarColor(pt.sd_ratio));
-        const maxSd = Math.max(...trajectory.map(p => p.sd_ratio), 1.5);
-        const trajData = {
-          labels: trajectory.map(pt => String(pt.year)),
-          datasets: [{
-            label: 'S/D ratio',
-            data: trajectory.map(pt => pt.sd_ratio),
-            backgroundColor: barBg,
-            borderWidth: 0,
-            borderRadius: 2,
-            barPercentage: 0.7,
-          }],
-        };
+      {/* ── ACTIVATION CLEARING PRICES ── */}
+      {lt && (lt.afrr_recent_3m || lt.mfrr_recent_3m) && (
+        <div style={{ marginBottom: '20px' }}>
+          <div style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-xs)',
+            color: 'var(--text-tertiary)',
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            marginBottom: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          }}>
+            Activation clearing prices · Lithuania
+            <DataClassBadge dataClass="observed" />
+          </div>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: '12px',
+            marginBottom: '8px',
+          }}>
+            {lt.afrr_recent_3m && (
+              <div style={{
+                padding: '10px 12px',
+                borderLeft: '2px solid var(--teal)',
+                background: 'var(--bg-elevated)',
+                borderRadius: '0 4px 4px 0',
+              }}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', marginBottom: '2px' }}>
+                  <span style={{ fontFamily: 'Unbounded, sans-serif', fontSize: '1.25rem', color: 'var(--text-primary)' }}>
+                    €{Math.round(lt.afrr_recent_3m.avg_p50)}
+                  </span>
+                  <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginLeft: '4px' }}>/MWh</span>
+                </div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>
+                  aFRR median clearing · {Math.round(lt.afrr_recent_3m.avg_activation_rate * 100)}% activation rate
+                </div>
+                {recentAfrrCount != null && (
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', opacity: 0.7, marginTop: '2px' }}>
+                    {recentAfrrCount.toLocaleString()} events in period
+                  </div>
+                )}
+              </div>
+            )}
+            {lt.mfrr_recent_3m && (
+              <div style={{
+                padding: '10px 12px',
+                borderLeft: '2px solid var(--amber)',
+                background: 'var(--bg-elevated)',
+                borderRadius: '0 4px 4px 0',
+              }}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', marginBottom: '2px' }}>
+                  <span style={{ fontFamily: 'Unbounded, sans-serif', fontSize: '1.25rem', color: 'var(--text-primary)' }}>
+                    €{Math.round(lt.mfrr_recent_3m.avg_p50)}
+                  </span>
+                  <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginLeft: '4px' }}>/MWh</span>
+                </div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>
+                  mFRR median clearing · {Math.round(lt.mfrr_recent_3m.avg_activation_rate * 100)}% activation rate
+                </div>
+                {recentMfrrCount != null && (
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', opacity: 0.7, marginTop: '2px' }}>
+                    {recentMfrrCount.toLocaleString()} events in period
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          <p style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-xs)',
+            color: 'var(--text-muted)',
+            lineHeight: 1.5,
+            opacity: 0.7,
+          }}>
+            Recent 3-month average (Jan–Mar 2026) · Activation clearing ≠ capacity revenue — these are energy prices paid when reserves are called
+          </p>
+        </div>
+      )}
+
+      {/* ── COMPRESSION CHART — dual-axis: aFRR P50 bars + fleet MW line ── */}
+      {compressionTraj && compressionTraj.months.length > 0 && (() => {
+        const months = compressionTraj.months;
+        const p50 = compressionTraj.afrr_lt_p50;
+        const fleetMw = months.map(m => FLEET_MW_TIMELINE[m] ?? 0);
+        const maxP50 = Math.max(...p50);
+        const maxMw = Math.max(...fleetMw);
+
         return (
           <div style={{ marginBottom: '16px' }}>
+            <div style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 'var(--font-xs)',
+              color: 'var(--text-tertiary)',
+              marginBottom: '6px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}>
+              Observed aFRR clearing vs fleet growth · Lithuania
+              <DataClassBadge dataClass="derived" />
+            </div>
             <div style={{ position: 'relative', height: '200px' }}>
-              <Bar
-                data={trajData}
+              <Chart
+                type="bar"
+                data={{
+                  labels: months.map(formatMonth),
+                  datasets: [
+                    {
+                      type: 'bar' as const,
+                      label: 'aFRR P50 €/MWh',
+                      data: p50,
+                      backgroundColor: CHART_COLORS.tealMid,
+                      borderWidth: 0,
+                      borderRadius: 2,
+                      barPercentage: 0.6,
+                      yAxisID: 'y',
+                      order: 2,
+                    },
+                    {
+                      type: 'line' as const,
+                      label: 'Fleet MW',
+                      data: fleetMw,
+                      borderColor: CHART_COLORS.amber,
+                      backgroundColor: 'transparent',
+                      borderWidth: 2,
+                      pointRadius: 3,
+                      pointBackgroundColor: CHART_COLORS.amber,
+                      tension: 0.3,
+                      yAxisID: 'y1',
+                      order: 1,
+                    },
+                  ],
+                }}
                 options={{
                   responsive: true,
                   maintainAspectRatio: false,
@@ -317,13 +499,10 @@ export function S2Card() {
                       callbacks: {
                         title: (items) => items[0].label,
                         label: (item) => {
-                          const idx = item.dataIndex;
-                          const pt = trajectory[idx];
-                          return [
-                            `S/D ratio  ${pt.sd_ratio.toFixed(2)}×`,
-                            `Status     ${sdStatus(pt.sd_ratio)}`,
-                            ...(pt.cpi != null ? [`CPI        ${pt.cpi.toFixed(2)}`] : []),
-                          ];
+                          if (item.datasetIndex === 0) {
+                            return `aFRR P50  €${Math.round(item.raw as number)}/MWh`;
+                          }
+                          return `Fleet     ${item.raw} MW`;
                         },
                       },
                     },
@@ -338,39 +517,36 @@ export function S2Card() {
                       },
                     },
                     y: {
-                      max: maxSd + 0.2,
+                      position: 'left',
                       min: 0,
+                      max: maxP50 * 1.15,
                       grid: { color: CHART_COLORS.grid, lineWidth: 0.5 },
                       border: { display: false },
                       ticks: {
                         color: CHART_COLORS.textMuted,
                         font: { family: CHART_FONT.family, size: 10 },
                         maxTicksLimit: 5,
-                        callback: (v) => `${v}×`,
+                        callback: (v) => `€${v}`,
+                      },
+                    },
+                    y1: {
+                      position: 'right',
+                      min: 0,
+                      max: maxMw * 1.3,
+                      grid: { display: false },
+                      border: { display: false },
+                      ticks: {
+                        color: CHART_COLORS.amber,
+                        font: { family: CHART_FONT.family, size: 10 },
+                        maxTicksLimit: 4,
+                        callback: (v) => `${v} MW`,
                       },
                     },
                   },
                 }}
               />
             </div>
-            {/* CPI row below chart */}
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-around',
-              fontFamily: 'var(--font-mono)',
-              fontSize: 'var(--font-xs)',
-              color: 'var(--text-muted)',
-              opacity: 0.6,
-              marginTop: '2px',
-              paddingLeft: '30px',
-            }}>
-              {trajectory.map(pt => (
-                <span key={pt.year} style={{ textAlign: 'center', flex: 1 }}>
-                  {pt.cpi != null ? pt.cpi.toFixed(2) : ''}
-                </span>
-              ))}
-            </div>
-            {/* Phase color legend */}
+            {/* Legend + caption */}
             <div style={{
               display: 'flex',
               justifyContent: 'space-between',
@@ -380,18 +556,26 @@ export function S2Card() {
               color: 'var(--text-muted)',
               marginTop: '4px',
             }}>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <span><span style={{ color: CHART_COLORS.teal }}>■</span> Scarcity</span>
-                <span><span style={{ color: CHART_COLORS.amber }}>■</span> Tightening</span>
-                <span><span style={{ color: CHART_COLORS.rose }}>■</span> Saturated</span>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <span><span style={{ color: CHART_COLORS.teal }}>■</span> aFRR P50</span>
+                <span><span style={{ color: CHART_COLORS.amber }}>━</span> Fleet MW</span>
               </div>
-              <span style={{ opacity: 0.6 }}>CPI = capacity price index (modeled)</span>
             </div>
+            <p style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 'var(--font-xs)',
+              color: 'var(--text-muted)',
+              lineHeight: 1.5,
+              marginTop: '4px',
+              opacity: 0.7,
+            }}>
+              Fleet capacity grew as clearing prices compressed. Correlation is visible; causation is not established.
+            </p>
           </div>
         );
       })()}
 
-      {/* COD WINDOW INTERPRETATION */}
+      {/* ── COD WINDOW INTERPRETATION ── */}
       {trajectory && trajectory.length >= 2 && (() => {
         const pt27 = trajectory.find(p => p.year === 2027);
         const pt29 = trajectory.find(p => p.year === 2029);
@@ -412,7 +596,7 @@ export function S2Card() {
         );
       })()}
 
-      {/* IMPACT LINE */}
+      {/* ── IMPACT LINE ── */}
       {sd != null && (
         <div style={{
           fontFamily: 'var(--font-mono)',
@@ -424,8 +608,8 @@ export function S2Card() {
         </div>
       )}
 
-      {/* S/D METHODOLOGY NOTE */}
-      <p style={{
+      {/* ── S/D METHODOLOGY NOTE ── */}
+      <div style={{
         fontFamily: 'var(--font-mono)',
         fontSize: 'var(--font-xs)',
         color: 'var(--text-muted)',
@@ -433,27 +617,48 @@ export function S2Card() {
         marginBottom: '8px',
         opacity: 0.7,
       }}>
-        S/D = weighted fleet supply ÷ effective demand (935 MW). Weights: operational 1.0, construction 0.9, agreement 0.6. Reserve compression is continuous and product-specific — this ratio is a summary indicator.
-      </p>
+        <p style={{ margin: '0 0 4px' }}>
+          S/D = weighted fleet supply ÷ effective demand (1,190 MW). Weights: operational 1.0, construction 0.9, agreement 0.6.
+        </p>
+        <p style={{ margin: 0 }}>
+          Compression trajectory shows observed aFRR clearing-price decline as fleet MW grew. This is a historical pattern, not a forecast.
+        </p>
+      </div>
 
-      {/* SIGNAL INTEL */}
+      {/* ── SIGNAL INTEL ── */}
       <SignalIntel signalId="S2" />
 
-      {/* SOURCE FOOTER — clickable to open drawer */}
+      {/* ── SOURCE FOOTER ── */}
       <button type="button" onClick={openDrawer} style={{ all: 'unset', display: 'block', width: '100%', cursor: 'pointer' }}>
         <SourceFooter
-          source="Baltic balancing references + fleet tracker"
-          updatedAt={data.timestamp ? new Date(data.timestamp).toLocaleString('en-GB', {
-            day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC',
-          }) : undefined}
-          dataClass="reference estimates"
+          source="BTD + fleet tracker + BTD activation clearing"
+          updatedAt={(() => {
+            const ts = activation?.stored_at || data.timestamp;
+            if (!ts) return undefined;
+            return new Date(ts).toLocaleString('en-GB', {
+              day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC',
+            });
+          })()}
+          dataClass="mixed: observed + ref estimate + modeled"
         />
       </button>
+      <p style={{
+        fontFamily: 'var(--font-mono)',
+        fontSize: 'var(--font-xs)',
+        color: 'var(--text-muted)',
+        opacity: 0.5,
+        marginTop: '2px',
+      }}>
+        Capacity prices: ~2-day BTD lag · Activation data: manual refresh · Fleet: KKME tracker
+      </p>
 
-      {/* DETAILS DRAWER */}
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+      {/* ── DETAILS DRAWER ── */}
+      {/* ══════════════════════════════════════════════════════════════════════ */}
       <div style={{ marginTop: '16px' }}>
         <DetailsDrawer key={drawerKey} label="View signal breakdown" defaultOpen={drawerKey > 0}>
-          {/* Balancing depth */}
+
+          {/* ── Balancing depth ── */}
           <p style={{
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-xs)',
@@ -493,7 +698,7 @@ export function S2Card() {
             Awaiting BTD volume integration for observed depth metrics
           </p>
 
-          {/* Market structure */}
+          {/* ── Market structure ── */}
           <p style={{
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-xs)',
@@ -508,7 +713,355 @@ export function S2Card() {
             Settlement: 15-minute ISP (since Oct 2025) · Balancing: aFRR + mFRR active, FCR via BBCM · Post-synchronization regime still normalizing — historical patterns may not be repeatable.
           </div>
 
-          {/* Market references */}
+          {/* ── Per-product S/D ── */}
+          {productSd && (
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 'var(--font-xs)',
+                color: 'var(--text-tertiary)',
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+                marginBottom: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}>
+                Per-product supply/demand stress view
+                <DataClassBadge dataClass="derived" />
+              </div>
+              <p style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 'var(--font-xs)',
+                color: 'var(--text-muted)',
+                lineHeight: 1.5,
+                marginBottom: '8px',
+                paddingLeft: '12px',
+                borderLeft: '1px solid var(--amber-subtle)',
+              }}>
+                Worst-case view — assumes all fleet capacity competes in each product independently. Actual competition is lower because fleet is split across products.
+              </p>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '70px 1fr 70px 70px',
+                gap: '4px 12px',
+                fontFamily: 'var(--font-mono)',
+                fontSize: 'var(--font-xs)',
+              }}>
+                <span style={{ color: 'var(--text-tertiary)', fontWeight: 500 }}>Product</span>
+                <span style={{ color: 'var(--text-tertiary)', fontWeight: 500 }}>Demand</span>
+                <span style={{ color: 'var(--text-tertiary)', fontWeight: 500, textAlign: 'right' }}>S/D</span>
+                <span style={{ color: 'var(--text-tertiary)', fontWeight: 500, textAlign: 'right' }}>Phase</span>
+                {Object.entries(productSd).map(([prod, ps]) => (
+                  <div key={prod} style={{ display: 'contents' }}>
+                    <span style={{ color: 'var(--text-secondary)', textTransform: 'uppercase' }}>{prod}</span>
+                    <span style={{ color: 'var(--text-muted)' }}>{ps.demand_mw} MW</span>
+                    <span style={{ color: 'var(--text-secondary)', textAlign: 'right' }}>
+                      {ps.ratio != null ? `${ps.ratio.toFixed(1)}×` : '—'}
+                    </span>
+                    <span style={{ color: productPhaseColor(ps.phase), textAlign: 'right' }}>
+                      {productPhaseLabel(ps.phase)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <p style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 'var(--font-xs)',
+                color: 'var(--text-muted)',
+                marginTop: '6px',
+                opacity: 0.6,
+              }}>
+                Demand: FCR 25 MW (BBCM), aFRR 170 MW, mFRR 700 MW (Elering Oct 2025). Supply: {productSd.fcr?.supply_mw ?? '—'} MW weighted fleet.
+              </p>
+            </div>
+          )}
+
+          {/* ── Cross-border comparison ── */}
+          {activation?.countries && Object.keys(activation.countries).length > 1 && (
+            <div style={{ marginBottom: '20px' }}>
+              <p style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 'var(--font-xs)',
+                color: 'var(--text-tertiary)',
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+                marginBottom: '8px',
+              }}>
+                Cross-border comparison · aFRR recent 3 months
+              </p>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '90px 70px 60px',
+                gap: '4px 12px',
+                fontFamily: 'var(--font-mono)',
+                fontSize: 'var(--font-xs)',
+              }}>
+                <span style={{ color: 'var(--text-tertiary)', fontWeight: 500 }}>Country</span>
+                <span style={{ color: 'var(--text-tertiary)', fontWeight: 500, textAlign: 'right' }}>P50</span>
+                <span style={{ color: 'var(--text-tertiary)', fontWeight: 500, textAlign: 'right' }}>Rate</span>
+                {Object.entries(activation.countries)
+                  .filter(([, c]) => (c as ActivationCountry).afrr_recent_3m)
+                  .map(([name, c]) => {
+                    const ac = c as ActivationCountry;
+                    return (
+                      <div key={name} style={{ display: 'contents' }}>
+                        <span style={{ color: 'var(--text-secondary)' }}>{name}</span>
+                        <span style={{ color: 'var(--text-secondary)', textAlign: 'right' }}>
+                          €{Math.round(ac.afrr_recent_3m!.avg_p50)}
+                        </span>
+                        <span style={{ color: 'var(--text-muted)', textAlign: 'right' }}>
+                          {Math.round(ac.afrr_recent_3m!.avg_activation_rate * 100)}%
+                        </span>
+                      </div>
+                    );
+                  })}
+              </div>
+              <p style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 'var(--font-xs)',
+                color: 'var(--text-muted)',
+                marginTop: '6px',
+                opacity: 0.6,
+              }}>
+                Latvia has no mFRR data in this dataset. Estonia has both aFRR and mFRR.
+              </p>
+            </div>
+          )}
+
+          {/* ── Monthly activation table ── */}
+          {lt?.afrr_up && (
+            <div style={{ marginBottom: '20px' }}>
+              <p style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 'var(--font-xs)',
+                color: 'var(--text-tertiary)',
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+                marginBottom: '8px',
+              }}>
+                Activation detail · Lithuania · monthly
+              </p>
+              {/* aFRR */}
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                aFRR up
+              </p>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '60px 55px 45px 60px',
+                gap: '2px 10px',
+                fontFamily: 'var(--font-mono)',
+                fontSize: 'var(--font-xs)',
+                marginBottom: '12px',
+              }}>
+                <span style={{ color: 'var(--text-tertiary)', fontWeight: 500 }}>Month</span>
+                <span style={{ color: 'var(--text-tertiary)', fontWeight: 500, textAlign: 'right' }}>P50</span>
+                <span style={{ color: 'var(--text-tertiary)', fontWeight: 500, textAlign: 'right' }}>Rate</span>
+                <span style={{ color: 'var(--text-tertiary)', fontWeight: 500, textAlign: 'right' }}>Events</span>
+                {Object.entries(lt.afrr_up).map(([month, m]) => (
+                  <div key={month} style={{ display: 'contents' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>{formatMonth(month)}</span>
+                    <span style={{ color: 'var(--text-secondary)', textAlign: 'right' }}>€{Math.round(m.p50)}</span>
+                    <span style={{ color: 'var(--text-muted)', textAlign: 'right' }}>{Math.round(m.activation_rate * 100)}%</span>
+                    <span style={{ color: 'var(--text-muted)', textAlign: 'right' }}>{m.count.toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+              {/* mFRR */}
+              {lt.mfrr_up && (
+                <>
+                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                    mFRR up
+                  </p>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: '60px 55px 45px 60px',
+                    gap: '2px 10px',
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: 'var(--font-xs)',
+                    marginBottom: '8px',
+                  }}>
+                    <span style={{ color: 'var(--text-tertiary)', fontWeight: 500 }}>Month</span>
+                    <span style={{ color: 'var(--text-tertiary)', fontWeight: 500, textAlign: 'right' }}>P50</span>
+                    <span style={{ color: 'var(--text-tertiary)', fontWeight: 500, textAlign: 'right' }}>Rate</span>
+                    <span style={{ color: 'var(--text-tertiary)', fontWeight: 500, textAlign: 'right' }}>Events</span>
+                    {Object.entries(lt.mfrr_up).map(([month, m]) => (
+                      <div key={month} style={{ display: 'contents' }}>
+                        <span style={{ color: 'var(--text-muted)' }}>{formatMonth(month)}</span>
+                        <span style={{ color: 'var(--text-secondary)', textAlign: 'right' }}>€{Math.round(m.p50)}</span>
+                        <span style={{ color: 'var(--text-muted)', textAlign: 'right' }}>{Math.round(m.activation_rate * 100)}%</span>
+                        <span style={{ color: 'var(--text-muted)', textAlign: 'right' }}>{m.count.toLocaleString()}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', opacity: 0.6 }}>
+                Source: {activation?.source ?? 'BTD'} · Period: {activation?.period ?? '—'}
+              </p>
+            </div>
+          )}
+
+          {/* ── Regime markers ── */}
+          <div style={{ marginBottom: '20px' }}>
+            <p style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 'var(--font-xs)',
+              color: 'var(--text-tertiary)',
+              letterSpacing: '0.1em',
+              textTransform: 'uppercase',
+              marginBottom: '6px',
+            }}>
+              Market context
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)' }}>
+              {[
+                { label: 'Baltic sync', date: 'Feb 2025', note: 'Disconnection from BRELL, synchronization with Continental Europe' },
+                { label: '15-min ISP', date: 'Oct 2025', note: 'Settlement period halved — aFRR/mFRR market structure changed' },
+                { label: 'BESS fleet ramp', date: 'Q4 2025+', note: 'Operational fleet grew from ~27 MW to ~227 MW in 6 months' },
+                { label: 'MARI go-live', date: 'TBC 2027', note: 'mFRR platform integration — Baltic prices converge to EU range' },
+              ].map(r => (
+                <div key={r.label} style={{ display: 'flex', gap: '8px' }}>
+                  <span style={{ color: 'var(--text-muted)', minWidth: '90px' }}>{r.date}</span>
+                  <span style={{ color: 'var(--text-secondary)' }}>{r.label}</span>
+                  <span style={{ color: 'var(--text-muted)', opacity: 0.7 }}>— {r.note}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ── S/D trajectory (moved from face) ── */}
+          {trajectory && trajectory.length > 0 && (() => {
+            const sdBarColor = (sd: number): string => {
+              if (sd < 0.7) return CHART_COLORS.teal;
+              if (sd < 1.0) return CHART_COLORS.amber;
+              return CHART_COLORS.rose;
+            };
+            const barBg = trajectory.map(pt => sdBarColor(pt.sd_ratio));
+            const maxSd = Math.max(...trajectory.map(p => p.sd_ratio), 1.5);
+            const trajData = {
+              labels: trajectory.map(pt => String(pt.year)),
+              datasets: [{
+                label: 'S/D ratio',
+                data: trajectory.map(pt => pt.sd_ratio),
+                backgroundColor: barBg,
+                borderWidth: 0,
+                borderRadius: 2,
+                barPercentage: 0.7,
+              }],
+            };
+            return (
+              <div style={{ marginBottom: '20px' }}>
+                <p style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 'var(--font-xs)',
+                  color: 'var(--text-tertiary)',
+                  letterSpacing: '0.1em',
+                  textTransform: 'uppercase',
+                  marginBottom: '6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}>
+                  S/D ratio trajectory (projected)
+                  <DataClassBadge dataClass="modeled" />
+                </p>
+                <div style={{ position: 'relative', height: '160px' }}>
+                  <Bar
+                    data={trajData}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                          ...tooltipStyle,
+                          callbacks: {
+                            title: (items) => items[0].label,
+                            label: (item) => {
+                              const idx = item.dataIndex;
+                              const pt = trajectory[idx];
+                              return [
+                                `S/D ratio  ${pt.sd_ratio.toFixed(2)}×`,
+                                `Status     ${sdStatus(pt.sd_ratio)}`,
+                                ...(pt.cpi != null ? [`CPI        ${pt.cpi.toFixed(2)}`] : []),
+                              ];
+                            },
+                          },
+                        },
+                      },
+                      scales: {
+                        x: {
+                          grid: { display: false },
+                          border: { color: 'rgba(232,226,217,0.08)' },
+                          ticks: {
+                            color: CHART_COLORS.textMuted,
+                            font: { family: CHART_FONT.family, size: 11 },
+                          },
+                        },
+                        y: {
+                          max: maxSd + 0.2,
+                          min: 0,
+                          grid: { color: CHART_COLORS.grid, lineWidth: 0.5 },
+                          border: { display: false },
+                          ticks: {
+                            color: CHART_COLORS.textMuted,
+                            font: { family: CHART_FONT.family, size: 10 },
+                            maxTicksLimit: 5,
+                            callback: (v) => `${v}×`,
+                          },
+                        },
+                      },
+                    }}
+                  />
+                </div>
+                {/* CPI row */}
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-around',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 'var(--font-xs)',
+                  color: 'var(--text-muted)',
+                  opacity: 0.6,
+                  marginTop: '2px',
+                  paddingLeft: '30px',
+                }}>
+                  {trajectory.map(pt => (
+                    <span key={pt.year} style={{ textAlign: 'center', flex: 1 }}>
+                      {pt.cpi != null ? pt.cpi.toFixed(2) : ''}
+                    </span>
+                  ))}
+                </div>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 'var(--font-xs)',
+                  color: 'var(--text-muted)',
+                  marginTop: '4px',
+                }}>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <span><span style={{ color: CHART_COLORS.teal }}>■</span> Scarcity</span>
+                    <span><span style={{ color: CHART_COLORS.amber }}>■</span> Tightening</span>
+                    <span><span style={{ color: CHART_COLORS.rose }}>■</span> Saturated</span>
+                  </div>
+                  <span style={{ opacity: 0.6 }}>CPI = capacity price index <DataClassBadge dataClass="modeled" /></span>
+                </div>
+                <p style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 'var(--font-xs)',
+                  color: 'var(--text-muted)',
+                  opacity: 0.6,
+                  marginTop: '4px',
+                }}>
+                  Projection: 0.15 S/D growth per year from new fleet entrants. CPI floor 0.30 (Baltic structural reserve need).
+                </p>
+              </div>
+            );
+          })()}
+
+          {/* ── Market references (capacity reservation prices) ── */}
           <p style={{
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-xs)',
@@ -517,7 +1070,7 @@ export function S2Card() {
             textTransform: 'uppercase',
             marginBottom: '8px',
           }}>
-            Market references
+            Capacity reservation prices
           </p>
           <div style={{
             display: 'grid',
@@ -530,7 +1083,7 @@ export function S2Card() {
                 {data.afrr_up_avg != null ? safeNum(data.afrr_up_avg, 0) : '—'} <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>€/MW/h</span>
               </div>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
-                aFRR capacity <DataClassBadge dataClass="proxy" />
+                aFRR reservation <DataClassBadge dataClass="reference_estimate" />
               </div>
             </div>
             <div style={{ padding: '6px 10px', borderLeft: '1px solid var(--amber)', opacity: 0.85 }}>
@@ -538,15 +1091,15 @@ export function S2Card() {
                 {data.mfrr_up_avg != null ? safeNum(data.mfrr_up_avg, 0) : '—'} <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>€/MW/h</span>
               </div>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
-                mFRR capacity <DataClassBadge dataClass="proxy" />
+                mFRR reservation <DataClassBadge dataClass="reference_estimate" />
               </div>
             </div>
           </div>
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '20px', opacity: 0.7 }}>
-            KKME estimates from BTD procurement data. No Baltic clearing prices observed.
+            KKME estimates from BTD procurement bid averages. Not observed clearing prices.
           </div>
 
-          {/* Fleet composition */}
+          {/* ── Fleet composition ── */}
           {allEntries.length > 0 && (
             <div style={{ marginBottom: '20px' }}>
               <p style={{
@@ -592,7 +1145,7 @@ export function S2Card() {
             </div>
           )}
 
-          {/* Nested price detail drawer */}
+          {/* ── Nested price detail drawer ── */}
           <div style={{ marginBottom: '20px' }}>
             <DetailsDrawer label="View price detail and estimates">
               <div style={{
@@ -603,17 +1156,17 @@ export function S2Card() {
                 fontSize: 'var(--font-sm)',
                 marginBottom: '16px',
               }}>
-                <span style={{ color: 'var(--text-muted)' }}>aFRR up <DataClassBadge dataClass="proxy" /></span>
+                <span style={{ color: 'var(--text-muted)' }}>aFRR reservation <DataClassBadge dataClass="reference_estimate" /></span>
                 <span style={{ color: 'var(--text-secondary)' }}>
                   {safeNum(data.afrr_up_avg, 1)} €/MW/h · CH 2027: €20 · CH 2028: €10
                 </span>
-                <span style={{ color: 'var(--text-muted)' }}>mFRR up <DataClassBadge dataClass="proxy" /></span>
+                <span style={{ color: 'var(--text-muted)' }}>mFRR reservation <DataClassBadge dataClass="reference_estimate" /></span>
                 <span style={{ color: 'var(--text-secondary)' }}>
                   {safeNum(data.mfrr_up_avg, 1)} €/MW/h · CH 2027: €20 · CH 2030: €11
                 </span>
                 {data.fcr_avg != null && (
                   <>
-                    <span style={{ color: 'var(--text-muted)' }}>FCR <DataClassBadge dataClass="proxy" /></span>
+                    <span style={{ color: 'var(--text-muted)' }}>FCR <DataClassBadge dataClass="reference_estimate" /></span>
                     <span style={{ color: 'var(--text-secondary)' }}>
                       {safeNum(data.fcr_avg, 1)} €/MW/h · ~28 MW Baltic total · DRR covers 100% at zero price
                     </span>
@@ -646,27 +1199,41 @@ export function S2Card() {
             </DetailsDrawer>
           </div>
 
-          {/* Methodology — footer-level */}
+          {/* ── Methodology ── */}
           <p style={{
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-xs)',
             color: 'var(--text-muted)',
             letterSpacing: '0.1em',
             textTransform: 'uppercase',
-            marginBottom: '4px',
+            marginBottom: '6px',
             opacity: 0.7,
           }}>
-            Methodology
+            Methodology · data classes
           </p>
-          <p style={{
+          <div style={{
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-xs)',
             color: 'var(--text-muted)',
-            lineHeight: 1.5,
+            lineHeight: 1.6,
             opacity: 0.6,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '6px',
           }}>
-            Baltic-calibrated proxies from AST Latvia reference data. Not observed clearing prices. Proxy flag applies until BTD measured data. CPI is modeled from the piecewise S/D-to-CPI function — it reflects fleet trajectory assumptions, not observed market clearing.
-          </p>
+            <p style={{ margin: 0 }}>
+              <strong style={{ color: 'var(--text-tertiary)' }}>Observed:</strong> Activation clearing prices from BTD transparency dashboard — local-marginal-price per 15-min ISP. These are market-wide energy prices, not asset-level revenue.
+            </p>
+            <p style={{ margin: 0 }}>
+              <strong style={{ color: 'var(--text-tertiary)' }}>Reference estimate:</strong> Capacity reservation prices derived from BTD procurement bid averages (AST Latvia Sept 2025 reference). Not observed clearing.
+            </p>
+            <p style={{ margin: 0 }}>
+              <strong style={{ color: 'var(--text-tertiary)' }}>Modeled:</strong> CPI (capacity price index) computed from piecewise S/D-to-price function. Floor 0.30, slope 0.08. Reflects fleet trajectory assumptions, not market clearing.
+            </p>
+            <p style={{ margin: 0 }}>
+              <strong style={{ color: 'var(--text-tertiary)' }}>Derived:</strong> S/D ratio, per-product S/D, compression trajectory — KKME computations from observed inputs. Methodology: weighted fleet ÷ effective demand (1,190 MW = 1,700 MW × 0.70 stacking factor, Elering Oct 2025).
+            </p>
+          </div>
         </DetailsDrawer>
       </div>
     </article>

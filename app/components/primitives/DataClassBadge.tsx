@@ -11,8 +11,9 @@ const STYLES: Record<string, { color: string; border: string; label: string }> =
   derived:   { color: 'var(--text-tertiary)', border: 'var(--border-card)',  label: 'derived' },
   proxy:     { color: 'var(--amber)',         border: 'var(--amber)',        label: 'proxy \u26A0' },
   modeled:   { color: 'var(--text-tertiary)', border: 'var(--border-card)',  label: 'modeled' },
-  reference: { color: 'var(--text-muted)',    border: 'var(--border-card)',  label: 'reference' },
-  editorial: { color: 'var(--text-muted)',    border: 'var(--border-card)',  label: 'editorial' },
+  reference:          { color: 'var(--text-muted)',    border: 'var(--border-card)',  label: 'reference' },
+  reference_estimate: { color: 'var(--amber)',         border: 'var(--amber)',        label: 'ref estimate' },
+  editorial:          { color: 'var(--text-muted)',    border: 'var(--border-card)',  label: 'editorial' },
 };
 
 export function DataClassBadge({ dataClass }: DataClassBadgeProps) {
