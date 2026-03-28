@@ -3485,6 +3485,24 @@ export default {
       }
     }
 
+    // ── POST /s4/buildability ────────────────────────────────────────────────
+    // Assertion-backed buildability data pushed by daily_intel.py.
+    // Stores in KV so GET /s4 returns live values instead of static.
+    if (request.method === 'POST' && url.pathname === '/s4/buildability') {
+      const secret = request.headers.get('X-Update-Secret');
+      if (!secret || secret !== env.UPDATE_SECRET) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json', ...CORS } });
+      }
+      let body;
+      try { body = await request.json(); } catch {
+        return new Response(JSON.stringify({ error: 'Invalid JSON body' }), { status: 400, headers: { 'Content-Type': 'application/json', ...CORS } });
+      }
+      body.received_at = new Date().toISOString();
+      await env.KKME_SIGNALS.put('s4_buildability', JSON.stringify(body));
+      console.log(`[S4/buildability] ${Object.keys(body.assertions || {}).length} assertions pushed`);
+      return jsonResp({ ok: true, assertions: Object.keys(body.assertions || {}).length });
+    }
+
     // ── POST /s4/pipeline ────────────────────────────────────────────────────
     // VERT.lt permit pipeline metrics (monthly, pushed by local fetch-vert.js).
     if (request.method === 'POST' && url.pathname === '/s4/pipeline') {
@@ -3503,9 +3521,10 @@ export default {
 
     // ── GET /s4 ──────────────────────────────────────────────────────────────
     if (request.method === 'GET' && url.pathname === '/s4') {
-      const [s4Raw, pipelineRaw] = await Promise.all([
+      const [s4Raw, pipelineRaw, buildRaw] = await Promise.all([
         env.KKME_SIGNALS.get('s4'),
         env.KKME_SIGNALS.get('s4_pipeline'),
+        env.KKME_SIGNALS.get('s4_buildability'),
       ]);
       if (s4Raw) {
         try {
@@ -3526,26 +3545,34 @@ export default {
               updated_at:         p.timestamp          ?? null,
             };
           }
-          // Authoritative storage reference data (Litgrid, APVA — 2026-03)
+
+          // Use assertion-backed values from KV if available, otherwise static defaults
+          const build = buildRaw ? JSON.parse(buildRaw) : null;
+          const a = build?.assertions || {};
+          const getVal = (key, fallback) => a[key]?.value ?? fallback;
+          const getUrl = (key, fallback) => a[key]?.source_url ?? fallback;
+
           d.storage_reference = {
-            source: 'Litgrid, 2026-03-23',
-            source_url: 'https://www.litgrid.eu/index.php/naujienos/naujienos/prie-elektros-perdavimo-tinklo-prijungta-trecioji-komercine-30-mw-galios-bateriju-kaupimo-sistema-/36502',
-            installed_mw: 484,
-            installed_gen_mw: 420,
-            installed_mwh: 719,
+            source: `Litgrid, ${a.installed_storage_lt_mw?.as_of_date || '2026-03-23'}`,
+            source_url: getUrl('installed_storage_lt_mw', 'https://www.litgrid.eu/index.php/naujienos/naujienos/prie-elektros-perdavimo-tinklo-prijungta-trecioji-komercine-30-mw-galios-bateriju-kaupimo-sistema-/36502'),
+            installed_mw: getVal('installed_storage_lt_mw', 484),
+            installed_gen_mw: getVal('installed_storage_lt_gen_mw', 420),
+            installed_mwh: getVal('installed_storage_lt_mwh', 719),
             note: 'Distribution + transmission combined, national total',
+            from_assertions: !!build,
           };
           d.storage_pipeline = {
-            tso_reserved_mw: 1395,
-            tso_reserved_mwh: 3204,
+            tso_reserved_mw: getVal('reserved_storage_lt_mw', 1395),
+            tso_reserved_mwh: getVal('reserved_storage_lt_mwh', 3204),
             source: 'Litgrid reservation cycle',
-            source_url: 'https://www.litgrid.eu/index.php/naujienos/naujienos/litgrid-per-3-menesius-preliminariai-rezervavo-17-gw-galios-saules-ir-vejo-elektrinems-bei-kaupimo-irenginiams/36506',
-            intention_protocols_mw: 3700,
+            source_url: getUrl('reserved_storage_lt_mw', 'https://www.litgrid.eu/index.php/naujienos/naujienos/litgrid-per-3-menesius-preliminariai-rezervavo-17-gw-galios-saules-ir-vejo-elektrinems-bei-kaupimo-irenginiams/36506'),
+            intention_protocols_mw: getVal('intention_storage_lt_mw', 3700),
             intention_protocols_mwh: 9000,
-            apva_applied_mw: 1545,
+            apva_applied_mw: getVal('apva_applied_storage_lt_mw', 1545),
             apva_applied_mwh: 3232,
             apva_budget_eur: 45000000,
-            apva_source_url: 'https://apva.lrv.lt/lt/naujienos-24316/uzbaigtas-45-mln-euru-kvietimas-elektros-kaupimo-irenginiams-rinkos-poreikis-virsijo-skirta-suma-k2R',
+            apva_source_url: getUrl('apva_applied_storage_lt_mw', 'https://apva.lrv.lt/lt/naujienos-24316/uzbaigtas-45-mln-euru-kvietimas-elektros-kaupimo-irenginiams-rinkos-poreikis-virsijo-skirta-suma-k2R'),
+            from_assertions: !!build,
           };
           d.grid_caveat = 'Grid capacity figures from VERT.lt ArcGIS represent ALL technologies (wind, solar, thermal, storage, consumption). They are non-additive across zones per Litgrid methodology. Do not interpret as storage-specific capacity.';
           d.source_urls = {
