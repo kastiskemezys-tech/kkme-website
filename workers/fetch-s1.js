@@ -2979,15 +2979,97 @@ export default {
 
     // ── GET /feed ────────────────────────────────────────────────────────────
     if (request.method === 'GET' && url.pathname === '/feed') {
-      const topic  = url.searchParams.get('topic');
+      const category = url.searchParams.get('category');
       const rawIdx = await env.KKME_SIGNALS.get('feed_index').catch(() => null);
       let idx = rawIdx ? JSON.parse(rawIdx) : [];
       // Filter out bot commands, empty titles, and very short titles
       idx = idx.filter(i => i.title && !i.title.startsWith('/') && i.title.length >= 15);
-      if (topic && topic !== 'All') idx = idx.filter(i => i.topic === topic);
-      const items  = idx.slice(0, 50);
-      const topics = [...new Set(idx.map(i => i.topic))];
-      return Response.json({ items, total: idx.length, topics }, { headers: { ...CORS, 'Cache-Control': 'no-store' } });
+      // Auto-expire: remove items past expires_at
+      const now = new Date().toISOString();
+      idx = idx.filter(i => !i.expires_at || i.expires_at > now);
+      if (category && category !== 'all') idx = idx.filter(i => i.category === category);
+      // Sort by feed_score descending, then by date
+      idx.sort((a, b) => (b.feed_score ?? 0) - (a.feed_score ?? 0) || (b.published_at ?? '').localeCompare(a.published_at ?? ''));
+      const items = idx.slice(0, 50);
+      const categories = [...new Set(idx.map(i => i.category).filter(Boolean))];
+      return Response.json({ items, total: idx.length, categories }, { headers: { ...CORS, 'Cache-Control': 'no-store' } });
+    }
+
+    // ── POST /feed/events — accept typed event items ─────────────────────────
+    if (request.method === 'POST' && url.pathname === '/feed/events') {
+      let body;
+      try { body = await request.json(); } catch {
+        return jsonResp({ error: 'Invalid JSON body' }, 400);
+      }
+      const items = Array.isArray(body) ? body : body.items || [body];
+      if (!items.length) return jsonResp({ error: 'No items provided' }, 400);
+
+      const rawIdx = await env.KKME_SIGNALS.get('feed_index').catch(() => null);
+      let idx = rawIdx ? JSON.parse(rawIdx) : [];
+      const existingUrls = new Set(idx.map(i => i.source_url || i.url).filter(Boolean));
+      const existingTitles = new Set(idx.map(i => (i.title || '').toLowerCase().trim()));
+
+      let added = 0;
+      for (const item of items) {
+        if (!item.title || !item.consequence) continue;
+        // Deduplicate by URL or exact title match
+        if (item.source_url && existingUrls.has(item.source_url)) continue;
+        if (existingTitles.has((item.title || '').toLowerCase().trim())) continue;
+
+        const EXPIRY_DAYS = { commodity_cost: 30, project_stage: 90, market_design: 180 };
+        const pubDate = item.published_at || new Date().toISOString();
+        const expiryDays = EXPIRY_DAYS[item.category] || 60;
+        const expiresAt = item.expires_at || new Date(new Date(pubDate).getTime() + expiryDays * 86400000).toISOString();
+
+        idx.push({
+          id: item.event_id || makeId(),
+          title: item.title,
+          consequence: item.consequence,
+          event_type: item.event_type || null,
+          category: item.category || 'policy',
+          geography: item.geography || 'Baltic',
+          published_at: pubDate,
+          source: item.source || '',
+          source_url: item.source_url || null,
+          source_quality: item.source_quality || 'trade_press',
+          confidence: item.confidence || 'C',
+          horizon: item.horizon || 'near_term',
+          impact_direction: item.impact_direction || null,
+          affected_modules: item.affected_modules || [],
+          affected_cod_windows: item.affected_cod_windows || [],
+          feed_score: typeof item.feed_score === 'number' ? item.feed_score : 0.5,
+          expires_at: expiresAt,
+          status: item.status || 'published',
+        });
+        existingUrls.add(item.source_url);
+        existingTitles.add((item.title || '').toLowerCase().trim());
+        added++;
+      }
+
+      // Sort by feed_score descending
+      idx.sort((a, b) => (b.feed_score ?? 0) - (a.feed_score ?? 0));
+      // Cap at 100 items
+      if (idx.length > 100) idx = idx.slice(0, 100);
+
+      await env.KKME_SIGNALS.put('feed_index', JSON.stringify(idx));
+      return jsonResp({ ok: true, added, total: idx.length });
+    }
+
+    // ── POST /feed/clean — remove expired/old items ──────────────────────────
+    if (request.method === 'POST' && url.pathname === '/feed/clean') {
+      let body = {};
+      try { body = await request.json(); } catch { /* empty body ok */ }
+      const cutoffDate = body.before || new Date(Date.now() - 60 * 86400000).toISOString();
+      const rawIdx = await env.KKME_SIGNALS.get('feed_index').catch(() => null);
+      if (!rawIdx) return jsonResp({ cleaned: 0, remaining: 0 });
+      const idx = JSON.parse(rawIdx);
+      const kept = idx.filter(i => {
+        const d = i.published_at || i.date || i.added_at || '';
+        return d >= cutoffDate;
+      });
+      const cleaned = idx.length - kept.length;
+      await env.KKME_SIGNALS.put('feed_index', JSON.stringify(kept));
+      return jsonResp({ cleaned, remaining: kept.length });
     }
 
     // ── GET /feed/:id ────────────────────────────────────────────────────────

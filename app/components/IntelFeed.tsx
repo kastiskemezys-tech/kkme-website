@@ -6,9 +6,11 @@ const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
 // ─── Intelligence item model ──────────────────────────────────────────────────
 
-type Category = 'revenue' | 'competition' | 'buildability' | 'market_design' | 'cost' | 'demand' | 'watchlist';
+type Category = 'revenue' | 'competition' | 'buildability' | 'market_design' | 'cost' | 'demand' | 'watchlist'
+  | 'support_procurement' | 'project_stage' | 'grid_buildability' | 'route_to_market'
+  | 'commodity_cost' | 'interconnector' | 'policy' | 'financeability';
 type Impact = 'positive' | 'negative' | 'mixed' | 'neutral' | 'watch';
-type Horizon = 'immediate' | 'near_term' | 'structural' | 'long_term';
+type Horizon = 'immediate' | 'near_term' | 'structural' | 'long_term' | 'pre_cod';
 
 interface IntelItem {
   id: string;
@@ -24,8 +26,16 @@ interface IntelItem {
   horizon: Horizon;
   referenceAssetNote?: string;
   geography?: string;
-  confidence?: 'high' | 'medium' | 'low';
+  confidence?: 'high' | 'medium' | 'low' | string;
   isPinned?: boolean;
+  // Event engine fields
+  consequence?: string;
+  event_type?: string;
+  category?: string;
+  affected_modules?: string[];
+  affected_cod_windows?: string[];
+  source_quality?: string;
+  feed_score?: number;
 }
 
 // ─── Hardcoded seed items — real Baltic BESS developments ─────────────────────
@@ -158,7 +168,7 @@ const SEED_ITEMS: IntelItem[] = [
 
 // ─── Visual mappings ──────────────────────────────────────────────────────────
 
-const CATEGORY_LABELS: Record<Category, string> = {
+const CATEGORY_LABELS: Record<string, string> = {
   revenue: 'Revenue',
   competition: 'Competition',
   buildability: 'Buildability',
@@ -166,27 +176,45 @@ const CATEGORY_LABELS: Record<Category, string> = {
   cost: 'Cost',
   demand: 'Demand',
   watchlist: 'Watchlist',
+  support_procurement: 'Support',
+  project_stage: 'Project Stage',
+  grid_buildability: 'Grid',
+  route_to_market: 'Route to Market',
+  commodity_cost: 'Commodity',
+  interconnector: 'Interconnector',
+  policy: 'Policy',
+  financeability: 'Finance',
 };
 
-const CATEGORY_COLORS: Record<Category, string> = {
+const CATEGORY_COLORS: Record<string, string> = {
   revenue: 'var(--teal)',
   competition: 'var(--rose)',
   buildability: 'var(--amber)',
-  market_design: 'var(--cat-design)',
-  cost: 'var(--cat-cost)',
-  demand: 'var(--cat-demand)',
+  market_design: 'var(--cat-design, var(--amber))',
+  cost: 'var(--cat-cost, var(--text-tertiary))',
+  demand: 'var(--cat-demand, var(--teal))',
   watchlist: 'var(--text-tertiary)',
+  support_procurement: 'var(--teal)',
+  project_stage: 'var(--amber)',
+  grid_buildability: 'var(--amber)',
+  route_to_market: 'var(--teal)',
+  commodity_cost: 'var(--text-tertiary)',
+  interconnector: 'var(--rose)',
+  policy: 'var(--text-tertiary)',
+  financeability: 'var(--teal)',
 };
 
-const HORIZON_LABELS: Record<Horizon, string> = {
+const HORIZON_LABELS: Record<string, string> = {
   immediate: 'Immediate',
   near_term: 'Near-term',
   structural: 'Structural',
   long_term: 'Long-term',
+  pre_cod: 'Pre-COD',
 };
 
 const FILTER_CATEGORIES: (Category | 'all')[] = [
-  'all', 'revenue', 'competition', 'buildability', 'market_design', 'cost', 'demand', 'watchlist',
+  'all', 'revenue', 'competition', 'buildability', 'market_design', 'cost',
+  'project_stage', 'interconnector', 'policy', 'demand', 'watchlist',
 ];
 
 function formatDate(iso: string): string {
@@ -199,7 +227,7 @@ function formatDate(iso: string): string {
 
 // ─── Chip components ──────────────────────────────────────────────────────────
 
-function HorizonChip({ horizon }: { horizon: Horizon }) {
+function HorizonChip({ horizon }: { horizon: string }) {
   return (
     <span style={{
       fontFamily: 'var(--font-mono)',
@@ -207,21 +235,21 @@ function HorizonChip({ horizon }: { horizon: Horizon }) {
       color: 'var(--text-muted)',
       letterSpacing: '0.04em',
     }}>
-      {HORIZON_LABELS[horizon]}
+      {HORIZON_LABELS[horizon] || horizon.replace(/_/g, ' ')}
     </span>
   );
 }
 
-function CategoryChip({ category }: { category: Category }) {
+function CategoryChip({ category }: { category: string }) {
   return (
     <span style={{
       fontFamily: 'var(--font-mono)',
       fontSize: 'var(--font-xs)',
       letterSpacing: '0.06em',
       textTransform: 'uppercase',
-      color: CATEGORY_COLORS[category],
+      color: CATEGORY_COLORS[category] || 'var(--text-tertiary)',
     }}>
-      {CATEGORY_LABELS[category]}
+      {CATEGORY_LABELS[category] || category.replace(/_/g, ' ')}
     </span>
   );
 }
@@ -426,6 +454,27 @@ function IntelRow({ item, isExpanded, onToggle }: {
             </p>
           )}
 
+          {/* Affected modules chips */}
+          {item.affected_modules && item.affected_modules.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>
+                Affects:
+              </span>
+              {item.affected_modules.map((m: string) => (
+                <span key={m} style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 'var(--font-xs)',
+                  padding: '1px 5px',
+                  background: 'var(--bg-elevated)',
+                  borderRadius: '2px',
+                  color: 'var(--text-tertiary)',
+                }}>
+                  {m}
+                </span>
+              ))}
+            </div>
+          )}
+
           <div style={{
             display: 'flex',
             alignItems: 'center',
@@ -481,23 +530,38 @@ export function IntelFeed() {
   const [activeFilter, setActiveFilter] = useState<Category | 'all'>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  // Attempt to fetch enriched items from /curations endpoint
+  // Fetch event items from /feed endpoint
   useEffect(() => {
-    fetch(`${WORKER_URL}/curations`)
+    fetch(`${WORKER_URL}/feed`)
       .then(r => r.json())
-      .then((data: IntelItem[] | Record<string, unknown>[]) => {
-        // Only accept items that have the enriched fields
-        const enriched = (Array.isArray(data) ? data : []).filter(
-          (item): item is IntelItem =>
-            typeof item === 'object' &&
-            item !== null &&
-            'whyItMatters' in item &&
-            'impact' in item &&
-            'horizon' in item &&
-            typeof (item as IntelItem).whyItMatters === 'string' &&
-            (item as IntelItem).whyItMatters.length > 0
-        );
-        if (enriched.length > 0) setLiveItems(enriched);
+      .then((data: { items?: Record<string, unknown>[] }) => {
+        const raw = data?.items || [];
+        // Transform feed event items to IntelItem shape
+        const mapped: IntelItem[] = raw.filter(
+          (item): item is Record<string, unknown> =>
+            typeof item === 'object' && item !== null && typeof item.title === 'string'
+        ).map(item => ({
+          id: String(item.id || ''),
+          title: String(item.title || ''),
+          summary: String(item.consequence || ''),
+          primaryCategory: (item.category as Category) || 'policy',
+          sourceName: String(item.source || ''),
+          sourceUrl: item.source_url ? String(item.source_url) : undefined,
+          publishedAt: String(item.published_at || ''),
+          whyItMatters: String(item.consequence || item.title || ''),
+          impact: (item.impact_direction as Impact) || 'neutral',
+          horizon: (item.horizon as Horizon) || 'near_term',
+          geography: item.geography ? String(item.geography) : undefined,
+          confidence: item.confidence ? String(item.confidence) : undefined,
+          consequence: item.consequence ? String(item.consequence) : undefined,
+          event_type: item.event_type ? String(item.event_type) : undefined,
+          category: item.category ? String(item.category) : undefined,
+          affected_modules: Array.isArray(item.affected_modules) ? item.affected_modules as string[] : undefined,
+          affected_cod_windows: Array.isArray(item.affected_cod_windows) ? item.affected_cod_windows as string[] : undefined,
+          source_quality: item.source_quality ? String(item.source_quality) : undefined,
+          feed_score: typeof item.feed_score === 'number' ? item.feed_score : undefined,
+        }));
+        if (mapped.length > 0) setLiveItems(mapped);
       })
       .catch(() => {});
   }, []);
@@ -509,11 +573,12 @@ export function IntelFeed() {
   // Separate pinned and unpinned
   const pinned = useMemo(() => allItems.filter(i => i.isPinned).slice(0, 3), [allItems]);
 
-  // Category counts
+  // Category counts — use primaryCategory or category field
   const categoryCounts = useMemo(() => {
-    const counts: Partial<Record<Category, number>> = {};
+    const counts: Partial<Record<string, number>> = {};
     allItems.forEach(item => {
-      counts[item.primaryCategory] = (counts[item.primaryCategory] ?? 0) + 1;
+      const cat = item.primaryCategory || (item.category as Category) || 'policy';
+      counts[cat] = (counts[cat] ?? 0) + 1;
     });
     return counts;
   }, [allItems]);
