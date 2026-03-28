@@ -11,13 +11,14 @@ import type { Sentiment } from '@/app/lib/types';
 import {
   Chart as ChartJS,
   CategoryScale, LinearScale,
-  BarElement, LineController, LineElement, PointElement,
+  BarController, BarElement,
+  LineController, LineElement, PointElement,
   Tooltip, Legend,
 } from 'chart.js';
 import { Bar, Chart } from 'react-chartjs-2';
 import { CHART_COLORS, CHART_FONT, tooltipStyle } from '@/app/lib/chartTheme';
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, LineController, LineElement, PointElement, Tooltip, Legend);
+ChartJS.register(CategoryScale, LinearScale, BarController, BarElement, LineController, LineElement, PointElement, Tooltip, Legend);
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
