@@ -1083,6 +1083,84 @@ async function fetchFxRates() {
   }
 }
 
+// ── S3 freshness helpers ──────────────────────────────────────────────────────
+async function updateS3Freshness(kv, sourceKey, extra = {}) {
+  const raw = await kv.get('s3_freshness').catch(() => null);
+  const freshness = raw ? JSON.parse(raw) : {};
+  freshness[sourceKey] = { last_update: new Date().toISOString(), status: 'current', ...extra };
+  await kv.put('s3_freshness', JSON.stringify(freshness));
+}
+
+function checkS3Freshness(entry, maxAgeHours) {
+  if (!entry?.last_update) return 'unknown';
+  const ageHours = (Date.now() - new Date(entry.last_update).getTime()) / 3600000;
+  return ageHours > maxAgeHours ? 'stale' : 'current';
+}
+
+// ── S3 weekly enrichment (Claude + web search) ──────────────────────────────
+async function enrichS3(env) {
+  const prompt = `You are a BESS market analyst. Search for information from the last 2 weeks on:
+1. European utility-scale BESS installed cost trends
+2. LFP cell or pack pricing trends
+3. HV transformer and grid equipment lead times or pricing
+4. Baltic BESS project announcements (Lithuania, Latvia, Estonia)
+5. PCS / inverter pricing or grid-forming compliance updates
+
+Return ONLY valid JSON:
+{"search_date":"YYYY-MM-DD","findings":[{"topic":"battery_cost|grid_equipment|transaction|pcs|financing|policy","headline":"max 80 chars","source":"name","relevance":"high|medium|low","driver_key":"battery_hardware|electrical_pcs|hv_grid|financing","direction_signal":"easing|stable|constrained|increasing","magnitude_signal":"weak|moderate|strong"}],"driver_sentiment":{"battery_hardware":{"direction":"easing","magnitude":"moderate","evidence_count":0,"summary":"brief"},"electrical_pcs":{"direction":"stable","magnitude":"weak","evidence_count":0,"summary":""},"hv_grid":{"direction":"constrained","magnitude":"strong","evidence_count":0,"summary":""},"financing":{"direction":"easing","magnitude":"moderate","evidence_count":0,"summary":""}},"new_transactions":[],"range_drift_flag":false,"range_drift_reason":""}`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 4000, tools: [{ type: 'web_search_20250305', name: 'web_search' }], messages: [{ role: 'user', content: prompt }] }),
+    });
+    const data = await res.json();
+    const textContent = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
+    const cleaned = textContent.replace(/```json|```/g, '').trim();
+    let enrichment;
+    try { enrichment = JSON.parse(cleaned); } catch {
+      console.error('[S3/enrichment] JSON parse failed');
+      await notifyTelegram(env, '\u26a0\ufe0f S3 enrichment ran but JSON parse failed.');
+      return;
+    }
+    if (!enrichment.findings || !enrichment.driver_sentiment) {
+      console.error('[S3/enrichment] missing required fields');
+      return;
+    }
+    enrichment.enriched_at = new Date().toISOString();
+    enrichment.model = 'claude-sonnet-4-20250514';
+    await env.KKME_SIGNALS.put('s3_enrichment', JSON.stringify(enrichment));
+    await updateS3Freshness(env.KKME_SIGNALS, 'enrichment');
+
+    // Validation: check baseline drift
+    const baseline = JSON.parse(await env.KKME_SIGNALS.get('s3_baseline').catch(() => 'null') || 'null');
+    const s3 = JSON.parse(await env.KKME_SIGNALS.get('s3').catch(() => '{}') || '{}');
+    const alerts = [];
+    if (baseline?.lithium_reference_eur_t && s3.lithium_eur_t) {
+      const drift = (s3.lithium_eur_t - baseline.lithium_reference_eur_t) / baseline.lithium_reference_eur_t;
+      if (Math.abs(drift) > 0.25) alerts.push(`Lithium moved ${(drift*100).toFixed(0)}% since ranges were set.`);
+    }
+    if (baseline?.set_at) {
+      const age = (Date.now() - new Date(baseline.set_at).getTime()) / 86400000;
+      if (age > 90) alerts.push(`Editorial data last calibrated ${Math.floor(age)} days ago.`);
+    }
+
+    // Telegram digest
+    const parts = ['\ud83d\udd0b S3 Weekly Digest'];
+    const topH = (enrichment.findings || []).filter(f => f.relevance === 'high').slice(0, 3);
+    if (topH.length) { parts.push('\ud83d\udcf0 Key signals:'); topH.forEach(h => parts.push(`  \u2022 ${h.headline}`)); }
+    if (alerts.length) { parts.push('\n\u26a0\ufe0f Review:'); alerts.forEach(a => parts.push(`  \u2022 ${a}`)); }
+    parts.push(alerts.length ? '\n\ud83d\udd34 Action needed' : '\n\ud83d\udfe2 No action needed');
+    await notifyTelegram(env, parts.join('\n'));
+
+    console.log(`[S3/enrichment] ${enrichment.findings.length} findings, ${alerts.length} alerts`);
+  } catch (err) {
+    console.error('[S3/enrichment] failed:', err);
+    await notifyTelegram(env, `\u26a0\ufe0f S3 enrichment failed: ${String(err).slice(0, 200)}`);
+  }
+}
+
 async function computeS3() {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 20000);
@@ -2743,6 +2821,9 @@ export default {
         console.error(`[S3] scrape failed: ${d._scrape_error}`);
       } else {
         console.log(`[S3] ${d.signal} lithium=€${d.lithium_eur_t}/t trend=${d.lithium_trend} cell=${d.cell_eur_kwh ?? '—'} €/kWh`);
+        // Track S3 freshness
+        await updateS3Freshness(env.KKME_SIGNALS, 'lithium_proxy', { confidence: 'proxy' }).catch(() => {});
+        await updateS3Freshness(env.KKME_SIGNALS, 'fx').catch(() => {});
       }
     } else {
       console.error('[S3] cron failed:', s3Result.reason);
@@ -2752,6 +2833,9 @@ export default {
       const eur = eurResult.value;
       await env.KKME_SIGNALS.put('euribor', JSON.stringify(eur));
       console.log(`[Euribor] ${eur.euribor_3m}% trend=${eur.euribor_trend}`);
+      // Track euribor freshness
+      await updateS3Freshness(env.KKME_SIGNALS, 'ecb_euribor').catch(() => {});
+      if (eur.hicp_yoy != null) await updateS3Freshness(env.KKME_SIGNALS, 'ecb_hicp').catch(() => {});
       // Merge euribor into s3 KV if s3 also succeeded
       if (s3Result.status === 'fulfilled') {
         const merged = { ...s3Result.value, euribor_3m: eur.euribor_3m, euribor_trend: eur.euribor_trend };
@@ -2828,6 +2912,18 @@ export default {
     }
 
     // da_tomorrow is embedded in computeS1() and stored in the s1 KV key
+
+    // ── Weekly S3 enrichment (Sunday 06:00-10:00 UTC) ──
+    const nowUTC = new Date();
+    if (nowUTC.getUTCDay() === 0 && nowUTC.getUTCHours() >= 6 && nowUTC.getUTCHours() < 10) {
+      const freshness = JSON.parse(await env.KKME_SIGNALS.get('s3_freshness').catch(() => '{}') || '{}');
+      const lastEnrich = freshness.enrichment?.last_update;
+      const hoursSince = lastEnrich ? (Date.now() - new Date(lastEnrich).getTime()) / 3600000 : 999;
+      if (hoursSince > 160) { // ~6.7 days
+        console.log('[S3/enrichment] Running weekly enrichment...');
+        await enrichS3(env).catch(e => console.error('[S3/enrichment] failed:', e));
+      }
+    }
   },
 
   async fetch(request, env, ctx) {
@@ -3352,6 +3448,40 @@ export default {
       }
     }
 
+    // ── POST /s3/editorial — human-approved data overrides ──────────────────
+    if (request.method === 'POST' && url.pathname === '/s3/editorial') {
+      const secret = request.headers.get('X-Update-Secret');
+      if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'unauthorized' }, 401);
+      let body;
+      try { body = await request.json(); } catch { return jsonResp({ error: 'invalid JSON' }, 400); }
+      const existing = JSON.parse(await env.KKME_SIGNALS.get('s3_editorial').catch(() => '{}') || '{}');
+      const notes = body._notes; delete body._notes;
+      const updated = { ...existing, ...body, updated_at: new Date().toISOString() };
+      await env.KKME_SIGNALS.put('s3_editorial', JSON.stringify(updated));
+
+      // Snapshot baseline if cost ranges changed
+      if (body.cost_profiles || body.lcos_reference) {
+        const s3Live = JSON.parse(await env.KKME_SIGNALS.get('s3').catch(() => '{}') || '{}');
+        const baseline = {
+          set_at: new Date().toISOString(),
+          lithium_reference_eur_t: s3Live.lithium_eur_t || null,
+          euribor_reference_pct: s3Live.euribor_3m || null,
+          capex_4h_range: (body.cost_profiles?.['4h'] || existing.cost_profiles?.['4h'])?.capex_range_kwh || null,
+          notes: notes || 'Editorial update',
+        };
+        await env.KKME_SIGNALS.put('s3_baseline', JSON.stringify(baseline));
+      }
+
+      // Update freshness for changed fields
+      const freshness = JSON.parse(await env.KKME_SIGNALS.get('s3_freshness').catch(() => '{}') || '{}');
+      Object.keys(body).forEach(key => {
+        freshness[key] = { last_update: updated.updated_at, status: 'current', source: 'editorial' };
+      });
+      await env.KKME_SIGNALS.put('s3_freshness', JSON.stringify(freshness));
+
+      return jsonResp({ success: true, updated_fields: Object.keys(body) });
+    }
+
     // ── GET /s3 ──────────────────────────────────────────────────────────────
     if (request.method === 'GET' && url.pathname === '/s3') {
       const [s3Raw, eurRaw] = await Promise.all([
@@ -3449,14 +3579,7 @@ export default {
               { name: 'Siemens Energy', hq: 'DE', positioning: 'Blue GIS. European supply chain. Constrained.' },
             ],
           };
-          d.data_freshness = {
-            ecb_euribor:    { last_update: new Date().toISOString().slice(0, 10), cadence: 'daily', status: 'current' },
-            capex_reference: { last_update: '2025-12', cadence: 'quarterly editorial', status: 'current' },
-            lithium_proxy:   { last_update: new Date().toISOString().slice(0, 10), cadence: 'daily', status: 'current' },
-            transactions:    { last_update: '2026-03-15', cadence: 'event-driven', status: 'current' },
-            technology:      { last_update: '2026-03-01', cadence: 'quarterly editorial', status: 'current' },
-            nrel_anchor:     { last_update: '2025-06', cadence: 'annual', status: 'structural anchor' },
-          };
+          // Default confidence (may be overridden by editorial or auto-downgraded)
           d.confidence = { level: 'benchmark-heavy', observed_share: 0.2, benchmark_share: 0.5, modeled_share: 0.3 };
 
           d.market_bands = {
@@ -3498,6 +3621,55 @@ export default {
           if (d.technology) {
             d.technology.degradation_shape = 'non-linear';
             d.technology.degradation_note = 'Slow early (Y1\u20135), linear mid-life (Y5\u201315), accelerates late. Calendar + cycling interact.';
+          }
+
+          // ── LAYER 2: Apply editorial overrides (human-approved, highest priority) ──
+          const editorial = await env.KKME_SIGNALS.get('s3_editorial').catch(() => null);
+          if (editorial) {
+            try {
+              const ed = JSON.parse(editorial);
+              const overridable = ['cost_profiles','transactions','technology','key_players','lcos_reference','cost_drivers','confidence','market_bands','lead_times','scale_effect','price_lag','supplier_spread','contract_structure','policy_flags','grid_scope_classes','uncertainty','trend'];
+              for (const field of overridable) {
+                if (ed[field] !== undefined) d[field] = ed[field];
+              }
+            } catch { /* ignore bad editorial JSON */ }
+          }
+
+          // ── LAYER 3: Add enrichment annotations (read-only, never overrides) ──
+          const enrichRaw = await env.KKME_SIGNALS.get('s3_enrichment').catch(() => null);
+          if (enrichRaw) {
+            try {
+              const enrichment = JSON.parse(enrichRaw);
+              const enrichAge = (Date.now() - new Date(enrichment.enriched_at).getTime()) / 86400000;
+              if (enrichAge < 14) {
+                d.enrichment_annotations = { enriched_at: enrichment.enriched_at, driver_sentiment: {}, headlines: [], review_needed: false };
+                for (const [key, sentiment] of Object.entries(enrichment.driver_sentiment || {})) {
+                  if (sentiment && typeof sentiment === 'object' && (sentiment.evidence_count ?? 0) >= 2) {
+                    d.enrichment_annotations.driver_sentiment[key] = sentiment;
+                  }
+                }
+                d.enrichment_annotations.headlines = (enrichment.findings || []).filter(f => f.relevance !== 'low').slice(0, 3).map(f => ({ headline: f.headline, source: f.source }));
+                if (enrichment.range_drift_flag) d.enrichment_annotations.review_needed = true;
+              }
+            } catch { /* ignore bad enrichment JSON */ }
+          }
+
+          // ── LAYER 4: Real freshness from KV ──
+          const rawFreshness = JSON.parse(await env.KKME_SIGNALS.get('s3_freshness').catch(() => '{}') || '{}');
+          d.data_freshness = {
+            ecb_euribor:     { ...(rawFreshness.ecb_euribor || {}), cadence: 'daily', status: checkS3Freshness(rawFreshness.ecb_euribor, 48) },
+            lithium_proxy:   { ...(rawFreshness.lithium_proxy || {}), cadence: 'daily', confidence: 'proxy', status: checkS3Freshness(rawFreshness.lithium_proxy, 48) },
+            fx:              { ...(rawFreshness.fx || {}), cadence: 'daily', status: checkS3Freshness(rawFreshness.fx, 24) },
+            enrichment:      { ...(rawFreshness.enrichment || {}), cadence: 'weekly', status: checkS3Freshness(rawFreshness.enrichment, 336) },
+            capex_reference: { last_update: rawFreshness.capex_reference?.last_update || '2025-12-01', cadence: 'quarterly editorial', status: checkS3Freshness(rawFreshness.capex_reference, 2160) },
+            transactions:    { last_update: rawFreshness.transactions?.last_update || '2026-03-15', cadence: 'event-driven', status: checkS3Freshness(rawFreshness.transactions, 2160) },
+            nrel_anchor:     { last_update: '2025-06-01', cadence: 'annual', status: 'structural anchor' },
+          };
+
+          // ── Confidence auto-downgrade if inputs stale ──
+          const staleCount = ['ecb_euribor','lithium_proxy','fx'].filter(k => d.data_freshness[k]?.status === 'stale' || d.data_freshness[k]?.status === 'unknown').length;
+          if (staleCount >= 2) {
+            d.confidence = { ...d.confidence, level: 'degraded', degraded_reason: `${staleCount} input(s) stale` };
           }
 
           return new Response(JSON.stringify(d), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600', ...CORS } });

@@ -76,8 +76,14 @@ interface S3Signal {
   transactions?: Transaction[];
   key_players?: Record<string, Player[]>;
   grid_scope_classes?: { id: string; label: string; description: string; adder_kwh: number[] }[];
-  data_freshness?: Record<string, { last_update: string; cadence: string; status: string }>;
-  confidence?: { level: string; observed_share: number; benchmark_share: number; modeled_share: number };
+  data_freshness?: Record<string, { last_update?: string; cadence?: string; status?: string; confidence?: string; note?: string; source?: string }>;
+  confidence?: { level: string; observed_share: number; benchmark_share: number; modeled_share: number; degraded_reason?: string };
+  enrichment_annotations?: {
+    enriched_at: string;
+    driver_sentiment: Record<string, { direction: string; magnitude: string; evidence_count: number; summary: string }>;
+    headlines: Array<{ headline: string; source: string }>;
+    review_needed: boolean;
+  };
   market_bands?: {
     developer_optimized: { range_kwh: number[]; label: string; note: string };
     eu_turnkey_typical: { range_kwh: number[]; label: string; note: string };
@@ -140,6 +146,20 @@ function colorTrendLine(line: string): React.ReactElement {
   );
 }
 
+// ─── Staleness helpers ────────────────────────────────────────────────────────
+
+const SOURCE_TO_COMPONENT: Record<string, string> = {
+  ecb_euribor: 'lcos', lithium_proxy: 'dc_block', fx: 'dc_block',
+};
+
+function isChipStale(component: string, freshness: S3Signal['data_freshness']): boolean {
+  if (!freshness) return false;
+  for (const [source, comp] of Object.entries(SOURCE_TO_COMPONENT)) {
+    if (comp === component && freshness[source]?.status === 'stale') return true;
+  }
+  return false;
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function S3Card() {
@@ -197,7 +217,8 @@ export function S3Card() {
         </h3>
         <span style={{
           fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
-          color: 'var(--text-muted)', border: '1px solid var(--border-card)',
+          color: confLevel === 'degraded' ? 'var(--amber)' : 'var(--text-muted)',
+          border: `1px solid ${confLevel === 'degraded' ? 'var(--amber)' : 'var(--border-card)'}`,
           padding: '1px 6px', borderRadius: '2px',
         }}>
           {confLevel}
@@ -318,12 +339,21 @@ export function S3Card() {
                   all: 'unset', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
                   background: 'var(--bg-elevated)', border: '1px solid var(--border-card)',
                   borderRadius: '4px', padding: '4px 8px', cursor: 'pointer',
-                  transition: 'border-color 150ms',
+                  transition: 'border-color 150ms, opacity 150ms',
                   borderColor: expandedChip === i ? 'var(--border-highlight)' : undefined,
+                  opacity: isChipStale(d.component, data.data_freshness) ? 0.35 : 1,
                 }}
               >
                 <span style={{ color: dirColor(d.symbol) }}>{d.symbol} {d.driver}</span>
                 <span style={{ color: 'var(--text-muted)' }}> · {magDots(d.magnitude)}</span>
+                {/* Enrichment disagreement dot */}
+                {(() => {
+                  const driverKey = d.driver.toLowerCase().replace(/ \/ /g, '_').replace(/ /g, '_');
+                  const es = data.enrichment_annotations?.driver_sentiment?.[driverKey];
+                  return es && es.direction !== d.direction && es.evidence_count >= 2 ? (
+                    <span style={{ color: 'var(--amber)', marginLeft: '4px', fontSize: '8px' }}>●</span>
+                  ) : null;
+                })()}
               </button>
             ))}
           </div>
@@ -433,6 +463,25 @@ export function S3Card() {
               Revenue Engine
             </a>
           </p>
+        </div>
+      )}
+
+      {/* ENRICHMENT INTELLIGENCE STRIP */}
+      {data.enrichment_annotations && data.enrichment_annotations.headlines.length > 0 && (
+        <div style={{ marginTop: '16px', padding: '10px 0', borderTop: '1px solid var(--border-card)' }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
+            Recent intelligence · automated · {new Date(data.enrichment_annotations.enriched_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+          </div>
+          {data.enrichment_annotations.headlines.map((h, i) => (
+            <div key={i} style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '4px' }}>
+              • {h.headline} <span style={{ color: 'var(--text-ghost)' }}>— {h.source}</span>
+            </div>
+          ))}
+          {data.enrichment_annotations.review_needed && (
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--amber)', marginTop: '6px' }}>
+              ⚠ Range review recommended
+            </div>
+          )}
         </div>
       )}
 
