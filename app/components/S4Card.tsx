@@ -286,6 +286,23 @@ export function S4Card() {
         </div>
       </div>
 
+      {/* PIPELINE CREDIBILITY LADDER */}
+      <div style={{
+        fontFamily: 'var(--font-mono)',
+        fontSize: 'var(--font-xs)',
+        color: 'var(--text-muted)',
+        lineHeight: 1.8,
+        marginBottom: '16px',
+        paddingLeft: '2px',
+      }}>
+        <div><span style={{ color: 'var(--teal)' }}>●</span> Connected / operational: {formatMW(installedMw)} MW</div>
+        <div><span style={{ color: 'var(--amber)' }}>●</span> Under construction: ~291 MW</div>
+        <div style={{ opacity: 0.7 }}><span style={{ color: 'var(--text-tertiary)' }}>●</span> Grid agreement + tech project: ~700 MW</div>
+        <div style={{ opacity: 0.5 }}><span style={{ color: 'var(--text-tertiary)' }}>●</span> Development permit only: ~3,600 MW</div>
+        <div style={{ opacity: 0.4 }}><span style={{ color: 'var(--text-tertiary)' }}>●</span> TSO reservation / protocol: {formatMW(tsoReservedMw)} MW</div>
+        <div style={{ opacity: 0.35, fontStyle: 'italic' }}><span style={{ color: 'var(--text-tertiary)' }}>○</span> APVA applied: {formatMW(pipe?.apva_applied_mw ?? 1545)} MW</div>
+      </div>
+
       {/* INTERPRETATION */}
       <p style={{
         fontFamily: 'var(--font-serif)',
@@ -295,7 +312,7 @@ export function S4Card() {
         margin: '0 0 16px',
       }}>
         {installedMw} MW installed against {(tsoReservedMw / 1000).toFixed(1)} GW in TSO reservations and {(intentionMw / 1000).toFixed(1)} GW in intention protocols.
-        Pipeline-to-installed ratio of {(tsoReservedMw / installedMw).toFixed(0)}× signals strong developer interest but growing queue pressure.
+        Not all pipeline MW are equal — the credibility ladder shows how much is confirmed vs speculative.
         Connection timing and substation choice increasingly determine real buildability.
       </p>
 
