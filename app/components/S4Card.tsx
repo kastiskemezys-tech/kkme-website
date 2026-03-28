@@ -6,6 +6,7 @@ import { safeNum } from '@/lib/safeNum';
 import {
   MetricTile, StatusChip, SourceFooter, DetailsDrawer,
 } from '@/app/components/primitives';
+import { SignalIntel } from '@/app/components/SignalIntel';
 import type { ImpactState, Sentiment } from '@/app/lib/types';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
@@ -49,6 +50,37 @@ interface SourceUrls {
   litgrid_aei:  string;
 }
 
+interface CountryAsset {
+  id: string;
+  name: string;
+  mw: number;
+  mwh?: number;
+  status: string;
+  tech?: string;
+  cod?: string;
+  note?: string;
+  source_url?: string;
+}
+
+interface CountryData {
+  installed_mw?: number;
+  installed_gen_mw?: number;
+  installed_mwh?: number;
+  under_construction_mw?: number;
+  tso_reserved_mw?: number;
+  intention_mw?: number;
+  apva_applied_mw?: number;
+  source?: string;
+  source_url?: string;
+  coverage_note?: string;
+  assets?: CountryAsset[];
+}
+
+interface BalticTotal {
+  installed_mw?: number;
+  under_construction_mw?: number;
+}
+
 interface S4Signal {
   timestamp?:         string | null;
   free_mw?:           number | null;
@@ -60,6 +92,8 @@ interface S4Signal {
   pipeline?:          S4Pipeline;
   storage_reference?: StorageReference;
   storage_pipeline?:  StoragePipeline;
+  storage_by_country?: Record<string, CountryData>;
+  baltic_total?:      BalticTotal;
   grid_caveat?:       string;
   source_urls?:       SourceUrls;
   _stale?:            boolean;
@@ -110,10 +144,69 @@ function SourceLink({ href, children }: { href: string; children: React.ReactNod
   );
 }
 
+type CountryTab = 'LT' | 'LV' | 'EE';
+
+const TAB_LABELS: Record<CountryTab, string> = { LT: 'Lithuania', LV: 'Latvia', EE: 'Estonia' };
+
+function StatusBadge({ status }: { status: string }) {
+  const colors: Record<string, string> = {
+    operational: 'var(--teal)',
+    under_construction: 'var(--amber)',
+    announced: 'var(--text-muted)',
+  };
+  const labels: Record<string, string> = {
+    operational: 'Operational',
+    under_construction: 'Construction',
+    announced: 'Announced',
+    pumped_hydro: 'Hydro',
+  };
+  return (
+    <span style={{
+      fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+      color: colors[status] || 'var(--text-muted)',
+      border: `1px solid ${colors[status] || 'var(--border-card)'}`,
+      padding: '1px 5px', borderRadius: '2px',
+    }}>
+      {labels[status] || status}
+    </span>
+  );
+}
+
+function AssetRow({ asset }: { asset: CountryAsset }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: '8px',
+      padding: '6px 0', borderBottom: '1px solid var(--border-card)',
+      fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+    }}>
+      <span style={{ flex: 1, color: 'var(--text-secondary)' }}>
+        {asset.source_url ? (
+          <a href={asset.source_url} target="_blank" rel="noopener noreferrer"
+            style={{ color: 'inherit', textDecoration: 'none', borderBottom: '1px dotted var(--text-muted)' }}
+            onMouseEnter={e => (e.currentTarget.style.color = 'var(--teal)')}
+            onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-secondary)')}>
+            {asset.name} ↗
+          </a>
+        ) : asset.name}
+      </span>
+      <span style={{ color: 'var(--text-secondary)', minWidth: '50px', textAlign: 'right' }}>
+        {asset.mw} MW
+      </span>
+      {asset.mwh && (
+        <span style={{ color: 'var(--text-muted)', minWidth: '55px', textAlign: 'right' }}>
+          {asset.mwh} MWh
+        </span>
+      )}
+      <StatusBadge status={asset.tech === 'pumped_hydro' ? 'pumped_hydro' : asset.status} />
+    </div>
+  );
+}
+
 export function S4Card() {
   const { status, data } =
     useSignal<S4Signal>(`${WORKER_URL}/s4`);
   const [drawerKey, setDrawerKey] = useState(0);
+  const [activeTab, setActiveTab] = useState<CountryTab>('LT');
   const openDrawer = () => setDrawerKey(k => k + 1);
 
   if (status === 'loading') {
@@ -140,7 +233,14 @@ export function S4Card() {
   const ref = data.storage_reference;
   const pipe = data.storage_pipeline;
   const urls = data.source_urls;
-  const installedMw = ref?.installed_mw ?? 484;
+  const sbc = data.storage_by_country || {};
+  const bt = data.baltic_total;
+  const ltMw = sbc.LT?.installed_mw ?? ref?.installed_mw ?? 484;
+  const lvMw = sbc.LV?.installed_mw ?? 40;
+  const eeMw = sbc.EE?.installed_mw ?? 127;
+  const balticInstalledMw = bt?.installed_mw ?? (ltMw + lvMw + eeMw);
+  const balticUcMw = bt?.under_construction_mw ?? 705;
+  const installedMw = ltMw; // LT-specific for pipeline bar
   const tsoReservedMw = pipe?.tso_reserved_mw ?? 1395;
   const intentionMw = pipe?.intention_protocols_mw ?? 3700;
 
@@ -185,7 +285,7 @@ export function S4Card() {
           color: 'var(--text-secondary)',
           lineHeight: 1.6,
         }}>
-          Lithuanian storage installed base, TSO pipeline, and grid connection pressure.
+          Baltic storage installed base, pipeline pressure, and grid connection buildability.
         </p>
         <p style={{
           fontFamily: 'var(--font-mono)',
@@ -193,16 +293,16 @@ export function S4Card() {
           color: 'var(--text-tertiary)',
           marginTop: '4px',
         }}>
-          BESS pipeline · Lithuania
+          BESS buildability ledger · Lithuania · Latvia · Estonia
         </p>
       </div>
 
-      {/* HERO — installed storage */}
+      {/* HERO — Baltic installed storage */}
       <div style={{ marginBottom: '4px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
           <MetricTile
-            label="Installed storage"
-            value={formatMW(installedMw)}
+            label="Baltic installed storage"
+            value={formatMW(balticInstalledMw)}
             unit="MW"
             size="hero"
             dataClass="observed"
@@ -213,11 +313,42 @@ export function S4Card() {
           />
         </div>
         <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '4px' }}>
-          {ref?.installed_gen_mw ?? 420} MW allowed generation · {ref?.installed_mwh ?? 719} MWh · {ref ? (
-            <SourceLink href={ref.source_url}>{ref.source}</SourceLink>
-          ) : 'Litgrid 2026-03-23'}
+          LT {formatMW(ltMw)} · LV {formatMW(lvMw)} · EE {formatMW(eeMw)} + {formatMW(sbc.EE?.under_construction_mw ?? 255)} MW construction
         </p>
       </div>
+
+      {/* COUNTRY TABS */}
+      <div style={{ display: 'flex', gap: '2px', marginBottom: '16px' }}>
+        {(['LT', 'LV', 'EE'] as CountryTab[]).map(c => (
+          <button
+            key={c}
+            onClick={() => setActiveTab(c)}
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 'var(--font-xs)',
+              letterSpacing: '0.06em',
+              padding: '5px 12px',
+              border: `1px solid ${activeTab === c ? 'var(--border-highlight)' : 'var(--border-card)'}`,
+              background: activeTab === c ? 'var(--bg-elevated)' : 'transparent',
+              color: activeTab === c ? 'var(--text-secondary)' : 'var(--text-tertiary)',
+              cursor: 'pointer',
+              borderRadius: '2px',
+              transition: 'border-color 150ms, color 150ms',
+            }}
+          >
+            {TAB_LABELS[c]}
+            <span style={{ marginLeft: '5px', opacity: 0.5 }}>
+              {formatMW(sbc[c]?.installed_mw ?? (c === 'LT' ? ltMw : c === 'LV' ? lvMw : eeMw))}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {/* TAB CONTENT — min height to prevent layout shift */}
+      <div style={{ minHeight: '180px', marginBottom: '16px' }}>
+        {activeTab === 'LT' && (
+          <>
+            {/* LT — existing pipeline bar + credibility ladder */}
 
       {/* BESS PIPELINE BAR */}
       <div style={{ margin: '16px 0 20px' }}>
@@ -302,6 +433,45 @@ export function S4Card() {
         <div style={{ opacity: 0.4 }}><span style={{ color: 'var(--text-tertiary)' }}>●</span> TSO reservation / protocol: {formatMW(tsoReservedMw)} MW</div>
         <div style={{ opacity: 0.35, fontStyle: 'italic' }}><span style={{ color: 'var(--text-tertiary)' }}>○</span> APVA applied: {formatMW(pipe?.apva_applied_mw ?? 1545)} MW</div>
       </div>
+          </>
+        )}
+
+        {activeTab === 'EE' && (
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>
+            <div style={{ marginBottom: '12px' }}>
+              <span style={{ color: 'var(--teal)', fontWeight: 600 }}>{formatMW(eeMw)} MW operational</span>
+              {' · '}
+              <span style={{ color: 'var(--amber)' }}>{formatMW(sbc.EE?.under_construction_mw ?? 255)} MW under construction</span>
+            </div>
+            <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 0 12px' }}>
+              {sbc.EE?.coverage_note || `${eeMw} MW operational since Feb 2026, ${sbc.EE?.under_construction_mw ?? 255} MW under construction. Estonia BESS market emerging fast.`}
+            </p>
+            {sbc.EE?.assets?.map((a: CountryAsset) => <AssetRow key={a.id} asset={a} />) || (
+              <p style={{ color: 'var(--text-muted)' }}>No asset data available</p>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'LV' && (
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>
+            <div style={{ marginBottom: '12px' }}>
+              <span style={{ color: 'var(--teal)', fontWeight: 600 }}>{formatMW(lvMw)} MW operational</span>
+              {' · TSO-owned'}
+            </div>
+            {sbc.LV?.assets?.map((a: CountryAsset) => <AssetRow key={a.id} asset={a} />) || (
+              <p style={{ color: 'var(--text-muted)' }}>No asset data available</p>
+            )}
+            {sbc.LV?.coverage_note && (
+              <div style={{
+                padding: '8px 10px', borderLeft: '2px solid var(--amber-subtle)',
+                marginTop: '12px', lineHeight: 1.6,
+              }}>
+                {sbc.LV.coverage_note}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* INTERPRETATION */}
       <p style={{
@@ -354,10 +524,13 @@ export function S4Card() {
         {pipelineImpactDesc(installedMw, tsoReservedMw)}
       </div>
 
+      {/* SIGNAL INTEL */}
+      <SignalIntel signalId="S4" />
+
       {/* SOURCE FOOTER */}
       <button type="button" onClick={openDrawer} style={{ all: 'unset', display: 'block', width: '100%', cursor: 'pointer' }}>
         <SourceFooter
-          source="Litgrid · APVA · VERT.lt ArcGIS"
+          source="Litgrid · APVA · VERT.lt ArcGIS · Elering"
           updatedAt={data.timestamp ? new Date(data.timestamp).toLocaleString('en-GB', {
             day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC',
           }) : undefined}

@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import { useSignal } from '@/lib/useSignal';
 import { safeNum } from '@/lib/safeNum';
+import { SignalIntel } from '@/app/components/SignalIntel';
 import {
   MetricTile, StatusChip, SourceFooter, DetailsDrawer, DataClassBadge,
 } from '@/app/components/primitives';
@@ -414,6 +415,9 @@ export function S2Card() {
           {sdImpactDesc(sd)}
         </div>
       )}
+
+      {/* SIGNAL INTEL */}
+      <SignalIntel signalId="S2" />
 
       {/* SOURCE FOOTER — clickable to open drawer */}
       <button type="button" onClick={openDrawer} style={{ all: 'unset', display: 'block', width: '100%', cursor: 'pointer' }}>

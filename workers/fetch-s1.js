@@ -3583,6 +3583,59 @@ export default {
             eso_maps: 'https://www.eso.lt/verslui/elektra/elektros-liniju-zemelapiai/transformatoriu-pastociu-laisvu-galiu-zemelapis-vartotojams/3931',
             litgrid_aei: 'https://www.litgrid.eu/index.php/aei-centras/aei-elektriniu-prijungimo-zemelapis/32331',
           };
+
+          // Storage by country — Baltic country breakdown
+          const ltMw = getVal('installed_storage_lt_mw', 484);
+          const lvMw = getVal('installed_storage_lv_mw', 40);
+          const eeMw = getVal('installed_storage_ee_mw', 127);
+          const eeUcMw = getVal('under_construction_storage_ee_mw', 255);
+
+          d.storage_by_country = {
+            LT: {
+              installed_mw: ltMw,
+              installed_gen_mw: getVal('installed_storage_lt_gen_mw', 420),
+              installed_mwh: getVal('installed_storage_lt_mwh', 719),
+              tso_reserved_mw: getVal('reserved_storage_lt_mw', 1395),
+              intention_mw: getVal('intention_storage_lt_mw', 3700),
+              apva_applied_mw: getVal('apva_applied_storage_lt_mw', 1545),
+              source: 'Litgrid',
+              source_url: 'https://www.litgrid.eu/',
+              assets: [
+                { id: 'e-energija', name: 'E energija BESS', mw: 65, mwh: 130, status: 'operational', source_url: 'https://www.litgrid.eu/' },
+                { id: 'kruonis-psp', name: 'Kruonis PSP', mw: 205, status: 'operational', tech: 'pumped_hydro', note: 'DRR resource — FCR/aFRR suppression until ~2028-02' },
+                { id: 'litgrid-bess-3', name: 'Third commercial 30MW BESS', mw: 30, status: 'operational', source_url: d.storage_reference?.source_url },
+              ],
+            },
+            LV: {
+              installed_mw: lvMw,
+              source: 'AST',
+              source_url: 'https://www.ast.lv/',
+              coverage_note: 'AST does not publish storage-specific reservation data. Latvia commercial BESS pipeline not publicly visible.',
+              assets: [
+                { id: 'ast-bess-rezekne', name: 'AST BESS (Rēzekne)', mw: 20, status: 'operational', tech: 'li-ion', note: 'TSO-owned. Rolls-Royce Solutions. EU Recovery/CEF funded.' },
+                { id: 'ast-bess-tume', name: 'AST BESS (Tume)', mw: 20, status: 'operational', tech: 'li-ion', note: 'TSO-owned. AST estimates €20M/yr savings from 2026.' },
+              ],
+            },
+            EE: {
+              installed_mw: eeMw,
+              under_construction_mw: eeUcMw,
+              source: 'Evecon / Elering',
+              source_url: 'https://en.evecon.ee/',
+              coverage_note: `${eeMw} MW operational since Feb 2026, ${eeUcMw} MW under construction. Estonia BESS market emerging fast.`,
+              assets: [
+                { id: 'bsp-hertz-1', name: 'BSP Hertz 1 (Kiisa)', mw: 100, mwh: 200, status: 'operational', cod: '2026-02-05', source_url: 'https://en.evecon.ee/estonia-strengthens-energy-resilience-hertz-1-one-of-continental-europes-largest-battery-storage-parks-opens-in-kiisa/', note: 'Evecon+Corsica Sole+Mirova JV. EBRD+NIB €85.6M.' },
+                { id: 'eesti-energia', name: 'Eesti Energia BESS', mw: 26.5, mwh: 53.1, status: 'operational', cod: '2025-02-01', note: 'Estonia first grid-scale BESS. State utility.' },
+                { id: 'bsp-hertz-2', name: 'BSP Hertz 2 (Arukylä)', mw: 100, mwh: 200, status: 'under_construction', note: 'COD end-2026. Nidec integrator.' },
+                { id: 'evecon-kirikmaee', name: 'Evecon Kirikmäe BESS', mw: 55, mwh: 250, status: 'under_construction', note: 'Hybrid 77.5MWp PV. Huawei batteries. €85M Swedbank.' },
+                { id: 'zirgu-phase1', name: 'Zirgu BESS Phase 1', mw: 100, mwh: 200, status: 'under_construction', note: '€35M. Diotech+Transcom. Up to 200MW/800MWh planned.' },
+              ],
+            },
+          };
+          d.baltic_total = {
+            installed_mw: getVal('installed_storage_baltic_mw', ltMw + lvMw + eeMw),
+            under_construction_mw: eeUcMw + 361, // EE UC + LT UC (Ignitis 291 + Olana 70)
+          };
+
           return new Response(JSON.stringify(d), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600', ...CORS } });
         } catch { /* fall through */ }
       }
