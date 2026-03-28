@@ -41,7 +41,7 @@ export default function Home() {
         <div className="section" id="revenue-drivers">
           <div style={{ marginBottom: '32px' }}>
             <h2 className="section-header" style={{ marginBottom: '6px' }}>Revenue opportunity</h2>
-            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Price spreads and balancing market support — the two signals that drive 80% of storage revenue</p>
+            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Day-ahead price capture and balancing market revenue — capacity reservation, activation energy, and DA arbitrage.</p>
           </div>
           <div className="grid-2">
             <div className="card card-tier1">

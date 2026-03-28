@@ -5,9 +5,9 @@ import { useSignal } from '@/lib/useSignal';
 import { safeNum } from '@/lib/safeNum';
 import { SignalIntel } from '@/app/components/SignalIntel';
 import {
-  MetricTile, StatusChip, SourceFooter, DetailsDrawer, DataClassBadge,
+  MetricTile, SourceFooter, DetailsDrawer, DataClassBadge,
 } from '@/app/components/primitives';
-import type { Sentiment } from '@/app/lib/types';
+
 import {
   Chart as ChartJS,
   CategoryScale, LinearScale,
@@ -128,28 +128,15 @@ interface S2Signal {
 
 // -- Helpers ------------------------------------------------------------------
 
-function sdSentiment(sd?: number | null): Sentiment {
-  if (sd == null) return 'neutral';
-  if (sd < 0.7) return 'positive';
-  if (sd < 1.0) return 'caution';
-  return 'negative';
-}
 
-function sdStatus(sd: number): string {
-  if (sd < 0.5) return 'Undersupplied';
-  if (sd < 0.7) return 'Tightening';
-  if (sd < 0.9) return 'Tightening';
-  if (sd < 1.1) return 'Approaching equilibrium';
-  return 'Supply exceeds demand';
-}
 
 function pressureTrend(trajectory: TrajectoryPoint[] | null | undefined, currentSd: number): string {
-  if (!trajectory || trajectory.length < 2) return 'Unknown';
+  if (!trajectory || trajectory.length < 2) return '';
   const nextYear = trajectory.find(pt => pt.year > new Date().getFullYear());
-  if (!nextYear) return 'Stable';
-  if (nextYear.sd_ratio > currentSd + 0.05) return 'Rising';
-  if (nextYear.sd_ratio < currentSd - 0.05) return 'Easing';
-  return 'Stable';
+  if (!nextYear) return '';
+  const delta = nextYear.sd_ratio - currentSd;
+  if (Math.abs(delta) < 0.03) return '';
+  return `${delta > 0 ? '+' : ''}${delta.toFixed(2)}`;
 }
 
 // Fleet MW timeline -- hardcoded from KKME fleet tracker
@@ -172,10 +159,10 @@ function productPhaseColor(phase: string | null): string {
 }
 
 function productPhaseLabel(phase: string | null): string {
-  if (phase === 'SCARCITY') return 'Scarcity';
-  if (phase === 'COMPRESS') return 'Tightening';
-  if (phase === 'MATURE') return 'Saturated';
-  return '—';
+  if (phase === 'SCARCITY') return '< 0.6\u00D7';
+  if (phase === 'COMPRESS') return '0.6\u20131.0\u00D7';
+  if (phase === 'MATURE') return '> 1.0\u00D7';
+  return '\u2014';
 }
 
 // -- Component ----------------------------------------------------------------
@@ -257,7 +244,7 @@ export function S2Card() {
           onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-secondary)')}
           onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-tertiary)')}
         >
-          Baltic balancing market
+          Baltic BESS market
         </h3>
         <p style={{
           fontFamily: 'var(--font-serif)',
@@ -265,7 +252,7 @@ export function S2Card() {
           color: 'var(--text-secondary)',
           lineHeight: 1.6,
         }}>
-          Battery fleet competition vs balancing demand — the supply/demand ratio that drives capacity pricing.
+          Activation clearing, capacity reservation, and fleet competition in Baltic balancing markets.
         </p>
       </div>
 
@@ -274,14 +261,16 @@ export function S2Card() {
         <div style={{ marginBottom: '4px' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
             <MetricTile
-              label="Battery competition vs balancing demand"
+              label="Fleet capacity vs reserve procurement"
               value={sd.toFixed(2)}
               unit="×"
               size="hero"
               dataClass="derived"
-              sublabel="below 1.0x = demand exceeds fleet supply"
+              sublabel="below 1.0\u00D7 = TSO procurement exceeds fleet capacity"
             />
-            <StatusChip status={sdStatus(sd)} sentiment={sdSentiment(sd)} />
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', padding: '2px 8px', border: '1px solid var(--border-card)', borderRadius: '2px' }}>
+              {data.phase ?? '\u2014'}
+            </span>
           </div>
         </div>
       )}
@@ -289,7 +278,7 @@ export function S2Card() {
       {/* -- INTERPRETATION -- */}
       {sd != null && (
         <p style={{
-          fontFamily: 'var(--font-serif)',
+          fontFamily: 'var(--font-mono)',
           fontSize: 'var(--font-sm)',
           color: 'var(--text-secondary)',
           lineHeight: 1.6,
@@ -316,33 +305,11 @@ export function S2Card() {
             <span>{pipeMw} MW pipeline</span>
           </>
         )}
-        {sd != null && trajectory && (
-          <>
-            <span>·</span>
-            <span>{pressureTrend(trajectory, sd)} S/D next year</span>
-          </>
-        )}
-      </div>
-
-      {/* -- EXCLUDED ITEMS -- */}
-      <div style={{
-        fontFamily: 'var(--font-mono)',
-        fontSize: 'var(--font-xs)',
-        color: 'var(--text-muted)',
-        lineHeight: 1.6,
-        marginBottom: '20px',
-        padding: '10px 14px',
-        border: '1px solid var(--border-card)',
-        borderRadius: '4px',
-      }}>
-        <div style={{ marginBottom: '4px', color: 'var(--text-tertiary)', fontWeight: 500 }}>
-          What this card does not show
-        </div>
-        <ul style={{ margin: 0, paddingLeft: '16px' }}>
-          <li>Realized asset revenue — clearing prices are market-wide, not asset-level capture</li>
-          <li>Real-time dispatch optimization or multi-product revenue stacking</li>
-          <li>Forward capacity contract terms or bilateral arrangements</li>
-        </ul>
+        {sd != null && trajectory && (() => {
+          const trend = pressureTrend(trajectory, sd);
+          if (!trend) return null;
+          return <><span>·</span><span>{trend} S/D next year</span></>;
+        })()}
       </div>
 
       {/* -- ACTIVATION CLEARING PRICES (flat shape) -- */}
@@ -603,6 +570,27 @@ export function S2Card() {
       {/* -- SIGNAL INTEL -- */}
       <SignalIntel signalId="S2" />
 
+      {/* -- EXCLUDED ITEMS -- */}
+      <div style={{
+        fontFamily: 'var(--font-mono)',
+        fontSize: 'var(--font-xs)',
+        color: 'var(--text-muted)',
+        lineHeight: 1.6,
+        marginBottom: '20px',
+        padding: '10px 14px',
+        border: '1px solid var(--border-card)',
+        borderRadius: '4px',
+      }}>
+        <div style={{ marginBottom: '4px', color: 'var(--text-tertiary)', fontWeight: 500 }}>
+          What this card does not show
+        </div>
+        <ul style={{ margin: 0, paddingLeft: '16px' }}>
+          <li>Realized asset revenue — clearing prices are market-wide, not asset-level capture</li>
+          <li>Real-time dispatch optimization or multi-product revenue stacking</li>
+          <li>Forward capacity contract terms or bilateral arrangements</li>
+        </ul>
+      </div>
+
       {/* -- SOURCE FOOTER -- */}
       <button type="button" onClick={openDrawer} style={{ all: 'unset', display: 'block', width: '100%', cursor: 'pointer' }}>
         <SourceFooter
@@ -631,45 +619,6 @@ export function S2Card() {
       {/* ================================================================== */}
       <div style={{ marginTop: '20px' }}>
         <DetailsDrawer key={drawerKey} label="View signal breakdown" defaultOpen={drawerKey > 0}>
-
-          {/* -- Balancing depth -- */}
-          <p style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-xs)',
-            color: 'var(--text-tertiary)',
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
-            marginBottom: '6px',
-          }}>
-            Balancing depth · editorial assessment · Q1 2026
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', marginBottom: '8px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: 'var(--text-muted)' }}>aFRR</span>
-              <span style={{ color: 'var(--amber)' }}>Thin · small marginal clears can distort signals</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: 'var(--text-muted)' }}>mFRR</span>
-              <span style={{ color: 'var(--amber)' }}>Thin · growing participation, still shallow</span>
-            </div>
-          </div>
-          <p style={{
-            fontFamily: 'var(--font-serif)',
-            fontSize: 'var(--font-xs)',
-            color: 'var(--text-secondary)',
-            lineHeight: 1.6,
-            marginBottom: '8px',
-          }}>
-            Posted prices != usable revenue. Visible price spikes on small marginal clears overstate repeatable opportunity for 50MW-scale assets.
-          </p>
-          <p style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-xs)',
-            color: 'var(--text-muted)',
-            marginBottom: '24px',
-          }}>
-            Awaiting BTD volume integration for observed depth metrics
-          </p>
 
           {/* -- Market structure -- */}
           <p style={{
@@ -955,7 +904,7 @@ export function S2Card() {
                               const pt = trajectory[idx];
                               return [
                                 `S/D ratio  ${pt.sd_ratio.toFixed(2)}x`,
-                                `Status     ${sdStatus(pt.sd_ratio)}`,
+                                `Phase      ${pt.sd_ratio < 0.6 ? '< 0.6x' : pt.sd_ratio < 1.0 ? '0.6-1.0x' : '> 1.0x'}`,
                                 ...(pt.cpi != null ? [`CPI        ${pt.cpi.toFixed(2)}`] : []),
                               ];
                             },
@@ -1055,6 +1004,9 @@ export function S2Card() {
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
                 aFRR reservation <DataClassBadge dataClass="reference_estimate" />
               </div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
+                {'\u2248'} {'\u20AC'}{Math.round((data.afrr_up_avg ?? 0) * 8760 / 1000)}k /MW/yr
+              </div>
             </div>
             <div style={{ padding: '6px 10px', borderLeft: '1px solid var(--amber)' }}>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>
@@ -1062,6 +1014,9 @@ export function S2Card() {
               </div>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
                 mFRR reservation <DataClassBadge dataClass="reference_estimate" />
+              </div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
+                {'\u2248'} {'\u20AC'}{Math.round((data.mfrr_up_avg ?? 0) * 8760 / 1000)}k /MW/yr
               </div>
             </div>
           </div>
