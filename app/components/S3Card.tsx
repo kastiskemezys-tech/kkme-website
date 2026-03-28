@@ -81,7 +81,7 @@ function BreakdownBar({ label, rangeKwh, midKwh, scope, maxVal, isHV }: { label:
   return (
     <div style={{ display: 'flex', alignItems: 'center', marginBottom: '6px', gap: '8px' }}>
       <div style={{ width: '130px', flexShrink: 0, fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</div>
-      <div style={{ width: '85px', flexShrink: 0, fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-primary)', textAlign: 'right' }}>~€{low}–{high}</div>
+      <div style={{ width: '85px', flexShrink: 0, fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-primary)', textAlign: 'right' }}>€{low}–{high}</div>
       <div style={{ flex: 1, position: 'relative', height: '10px' }}>
         <div style={{ position: 'absolute', left: 0, right: 0, top: '3px', height: '4px', background: 'var(--bg-elevated)', borderRadius: '2px' }} />
         <div style={{ position: 'absolute', left: `${(low / maxVal) * 100}%`, width: `${((high - low) / maxVal) * 100}%`, top: '1px', height: '8px', background: isHV ? 'rgba(212,160,60,0.2)' : 'rgba(0,180,160,0.15)', borderRadius: '2px', transition: 'left 0.3s ease, width 0.3s ease' }} />
@@ -282,7 +282,7 @@ export function S3Card() {
         </button>
         {d.trend && <span style={{ fontFamily: 'var(--font-mono)', fontSize: '1rem', color: d.trend.direction === 'easing' ? 'var(--teal)' : 'var(--amber)', marginLeft: '12px' }}>{d.trend.direction === 'easing' ? '↘' : d.trend.direction === 'rising' ? '↗' : '→'}</span>}
       </div>
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', marginBottom: '2px' }}>€{kwRange[0]}–{kwRange[1]} /kW @ POI</div>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', marginBottom: '2px' }}>€{kwRange[0]}–{kwRange[1]}/kW @ POI</div>
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '2px' }}>installed · ex-VAT · {duration} LFP · EU turnkey · grid-{gridScope}</div>
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '2px' }}>Reference scale: 50–200MW class · Excludes: land · dev margin · financing during construction</div>
       {basis && <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '4px' }}>Basis: updated {basis}</div>}
@@ -339,7 +339,7 @@ export function S3Card() {
 
       {/* OBSERVED SPREAD ANCHOR */}
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '12px' }}>
-        Observed spread: ~€110–300+/kWh depending on scope, scale, and procurement
+        Observed spread: €110–300+/kWh depending on scope, scale, and procurement
       </div>
 
       {/* 5. UNCERTAINTY + TREND + LEAD TIMES + SCALE */}
@@ -409,7 +409,7 @@ export function S3Card() {
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '6px' }}>
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>LCOS (reference)</span>
             <span style={{ fontFamily: 'Unbounded, sans-serif', fontSize: '1.125rem', color: 'var(--text-primary)' }}>€{d.lcos_reference.range_eur_mwh[0]}–{d.lcos_reference.range_eur_mwh[1]}</span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)' }}>/MWh delivered</span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)' }}>/MWh</span>
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '6px' }}>
             {(() => { const a = d.lcos_reference.assumptions as Record<string, unknown>; return [
@@ -450,7 +450,7 @@ export function S3Card() {
                 <th style={{ padding: '4px 6px 4px 0', fontWeight: 400 }}>Project</th>
                 <th style={{ padding: '4px 6px', fontWeight: 400 }}>Ctry</th>
                 <th style={{ padding: '4px 6px', fontWeight: 400 }}>Size</th>
-                <th style={{ padding: '4px 6px', fontWeight: 400, textAlign: 'right' }}>~€/kWh</th>
+                <th style={{ padding: '4px 6px', fontWeight: 400, textAlign: 'right' }}>€/kWh</th>
                 <th style={{ padding: '4px 6px', fontWeight: 400 }}>Year</th>
                 <th style={{ padding: '4px 6px', fontWeight: 400 }}>Driver</th>
               </tr></thead>
@@ -532,8 +532,8 @@ export function S3Card() {
             ['Euribor 3M', d.euribor_nominal_3m != null ? `${safeNum(d.euribor_nominal_3m, 2)}% nominal` : '—', 'var(--text-primary)', '', isSourceStale(d.data_freshness, 'ecb_euribor')],
             ['HICP YoY', d.hicp_yoy != null ? `${safeNum(d.hicp_yoy, 1)}%` : '—', 'var(--text-primary)', '', false],
             ['Real rate', d.euribor_real_3m != null ? `${safeNum(d.euribor_real_3m, 2)}%` : '—', 'var(--text-primary)', '', false],
-            ['China system', `~€${d.china_system_eur_kwh ?? 68}/kWh`, 'var(--text-secondary)', 'equipment-only, non-comparable', false],
-            ['EU reference', `~€${d.europe_system_eur_kwh ?? 164}/kWh (BNEF Dec 2025)`, 'var(--text-secondary)', 'installed benchmark', false],
+            ['China system', `€${d.china_system_eur_kwh ?? 68}/kWh`, 'var(--text-secondary)', 'equipment-only, non-comparable', false],
+            ['EU reference', `€${d.europe_system_eur_kwh ?? 164}/kWh (BNEF Dec 2025)`, 'var(--text-secondary)', 'installed benchmark', false],
           ].map(([label, val, color, note, stale]) => (
             <div key={label as string} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', borderBottom: '1px solid var(--border-card)', opacity: stale ? 0.35 : 1, transition: 'opacity 0.2s' }}>
               <span style={{ color: 'var(--text-tertiary)' }}>{label}{note ? <span style={{ fontSize: '0.5625rem', color: 'var(--text-ghost)', marginLeft: '4px' }}>({note as string})</span> : null}</span>
