@@ -127,22 +127,28 @@ interface S2Signal {
 
 // -- Helpers ------------------------------------------------------------------
 
-function sdSentiment(): Sentiment {
-  return 'neutral';
+function sdSentiment(sd?: number | null): Sentiment {
+  if (sd == null) return 'neutral';
+  if (sd < 0.7) return 'positive';
+  if (sd < 1.0) return 'caution';
+  return 'negative';
 }
 
 function sdStatus(sd: number): string {
-  if (sd < 0.6) return 'S/D < 0.6';
-  if (sd < 1.0) return 'S/D < 1.0';
-  return 'S/D >= 1.0';
+  if (sd < 0.5) return 'Undersupplied';
+  if (sd < 0.7) return 'Tightening';
+  if (sd < 0.9) return 'Tightening';
+  if (sd < 1.1) return 'Approaching equilibrium';
+  return 'Supply exceeds demand';
 }
 
 function pressureTrend(trajectory: TrajectoryPoint[] | null | undefined, currentSd: number): string {
-  if (!trajectory || trajectory.length < 2) return '?';
+  if (!trajectory || trajectory.length < 2) return 'Unknown';
   const nextYear = trajectory.find(pt => pt.year > new Date().getFullYear());
-  if (!nextYear) return '+0.00';
-  const delta = nextYear.sd_ratio - currentSd;
-  return delta > 0 ? '+' + delta.toFixed(2) : delta.toFixed(2);
+  if (!nextYear) return 'Stable';
+  if (nextYear.sd_ratio > currentSd + 0.05) return 'Rising';
+  if (nextYear.sd_ratio < currentSd - 0.05) return 'Easing';
+  return 'Stable';
 }
 
 // Fleet MW timeline -- hardcoded from KKME fleet tracker
@@ -168,7 +174,7 @@ function productPhaseLabel(phase: string | null): string {
   if (phase === 'SCARCITY') return 'Scarcity';
   if (phase === 'COMPRESS') return 'Tightening';
   if (phase === 'MATURE') return 'Saturated';
-  return '--';
+  return '—';
 }
 
 // -- Component ----------------------------------------------------------------
@@ -269,12 +275,12 @@ export function S2Card() {
             <MetricTile
               label="Battery competition vs balancing demand"
               value={sd.toFixed(2)}
-              unit="x"
+              unit="×"
               size="hero"
               dataClass="derived"
               sublabel="below 1.0x = demand exceeds fleet supply"
             />
-            <StatusChip status={sdStatus(sd)} sentiment={sdSentiment()} />
+            <StatusChip status={sdStatus(sd)} sentiment={sdSentiment(sd)} />
           </div>
         </div>
       )}
@@ -775,10 +781,10 @@ export function S2Card() {
                     <div key={name} style={{ display: 'contents' }}>
                       <span style={{ color: 'var(--text-secondary)' }}>{name}</span>
                       <span style={{ color: 'var(--text-secondary)', textAlign: 'right' }}>
-                        {'\u20AC'}{Math.round(c!.afrr_p50!)}
+                        {'\u20AC'}{Math.round(c?.afrr_p50 ?? 0)}
                       </span>
                       <span style={{ color: 'var(--text-muted)', textAlign: 'right' }}>
-                        {c!.afrr_rate != null ? Math.round(c!.afrr_rate * 100) : '?'}%
+                        {c?.afrr_rate != null ? Math.round(c.afrr_rate * 100) : '?'}%
                       </span>
                     </div>
                   ))}

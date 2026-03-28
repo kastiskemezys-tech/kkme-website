@@ -1,0 +1,310 @@
+{
+  "uploaded_at": "2026-03-28",
+  "period": "2025-10 to 2026-03",
+  "source": "baltic.transparency-dashboard.eu",
+  "data_class": "observed",
+  "countries": {
+    "Estonia": {
+      "afrr_up": {
+        "2025-10": {
+          "avg": 189.1,
+          "p50": 102.4,
+          "p90": 568.7,
+          "count": 2155,
+          "total_periods": 2980,
+          "activation_rate": 0.723
+        },
+        "2025-11": {
+          "avg": 159.0,
+          "p50": 112.8,
+          "p90": 313.7,
+          "count": 2211,
+          "total_periods": 2880,
+          "activation_rate": 0.768
+        },
+        "2025-12": {
+          "avg": 95.8,
+          "p50": 83.2,
+          "p90": 157.1,
+          "count": 2290,
+          "total_periods": 2976,
+          "activation_rate": 0.769
+        },
+        "2026-01": {
+          "avg": 146.2,
+          "p50": 117.6,
+          "p90": 252.7,
+          "count": 2353,
+          "total_periods": 2976,
+          "activation_rate": 0.791
+        },
+        "2026-02": {
+          "avg": 150.8,
+          "p50": 123.0,
+          "p90": 256.3,
+          "count": 1959,
+          "total_periods": 2688,
+          "activation_rate": 0.729
+        },
+        "2026-03": {
+          "avg": 102.7,
+          "p50": 89.2,
+          "p90": 179.9,
+          "count": 1490,
+          "total_periods": 2592,
+          "activation_rate": 0.575
+        }
+      },
+      "afrr_recent_3m": {
+        "avg_p50": 109.9,
+        "avg_activation_rate": 0.698
+      },
+      "mfrr_up": {
+        "2025-10": {
+          "avg": 277.2,
+          "p50": 159.7,
+          "p90": 699.0,
+          "count": 725,
+          "total_periods": 2980,
+          "activation_rate": 0.243
+        },
+        "2025-11": {
+          "avg": 244.9,
+          "p50": 164.2,
+          "p90": 689.0,
+          "count": 878,
+          "total_periods": 2880,
+          "activation_rate": 0.305
+        },
+        "2025-12": {
+          "avg": 133.2,
+          "p50": 111.8,
+          "p90": 209.0,
+          "count": 797,
+          "total_periods": 2976,
+          "activation_rate": 0.268
+        },
+        "2026-01": {
+          "avg": 272.5,
+          "p50": 185.1,
+          "p90": 602.2,
+          "count": 1215,
+          "total_periods": 2976,
+          "activation_rate": 0.408
+        },
+        "2026-02": {
+          "avg": 218.0,
+          "p50": 158.9,
+          "p90": 474.1,
+          "count": 654,
+          "total_periods": 2688,
+          "activation_rate": 0.243
+        },
+        "2026-03": {
+          "avg": 119.7,
+          "p50": 123.4,
+          "p90": 195.0,
+          "count": 593,
+          "total_periods": 2592,
+          "activation_rate": 0.229
+        }
+      },
+      "mfrr_recent_3m": {
+        "avg_p50": 155.8,
+        "avg_activation_rate": 0.293
+      }
+    },
+    "Latvia": {
+      "afrr_up": {
+        "2025-10": {
+          "avg": 216.2,
+          "p50": 125.2,
+          "p90": 690.4,
+          "count": 2524,
+          "total_periods": 2980,
+          "activation_rate": 0.847
+        },
+        "2025-11": {
+          "avg": 162.2,
+          "p50": 130.2,
+          "p90": 328.5,
+          "count": 2562,
+          "total_periods": 2880,
+          "activation_rate": 0.89
+        },
+        "2025-12": {
+          "avg": 99.5,
+          "p50": 96.0,
+          "p90": 166.5,
+          "count": 2757,
+          "total_periods": 2976,
+          "activation_rate": 0.926
+        },
+        "2026-01": {
+          "avg": 153.4,
+          "p50": 136.0,
+          "p90": 278.3,
+          "count": 2880,
+          "total_periods": 2976,
+          "activation_rate": 0.968
+        },
+        "2026-02": {
+          "avg": 155.2,
+          "p50": 146.8,
+          "p90": 267.1,
+          "count": 2648,
+          "total_periods": 2688,
+          "activation_rate": 0.985
+        },
+        "2026-03": {
+          "avg": 98.2,
+          "p50": 91.5,
+          "p90": 172.3,
+          "count": 2387,
+          "total_periods": 2592,
+          "activation_rate": 0.921
+        }
+      },
+      "afrr_recent_3m": {
+        "avg_p50": 124.8,
+        "avg_activation_rate": 0.958
+      }
+    },
+    "Lithuania": {
+      "afrr_up": {
+        "2025-10": {
+          "avg": 552.5,
+          "p50": 738.0,
+          "p90": 806.7,
+          "count": 2558,
+          "total_periods": 2980,
+          "activation_rate": 0.858
+        },
+        "2025-11": {
+          "avg": 511.9,
+          "p50": 514.2,
+          "p90": 750.0,
+          "count": 2660,
+          "total_periods": 2880,
+          "activation_rate": 0.924
+        },
+        "2025-12": {
+          "avg": 337.8,
+          "p50": 305.5,
+          "p90": 683.6,
+          "count": 2800,
+          "total_periods": 2976,
+          "activation_rate": 0.941
+        },
+        "2026-01": {
+          "avg": 194.6,
+          "p50": 159.1,
+          "p90": 349.4,
+          "count": 2399,
+          "total_periods": 2976,
+          "activation_rate": 0.806
+        },
+        "2026-02": {
+          "avg": 207.5,
+          "p50": 173.6,
+          "p90": 310.0,
+          "count": 2397,
+          "total_periods": 2688,
+          "activation_rate": 0.892
+        },
+        "2026-03": {
+          "avg": 182.3,
+          "p50": 170.8,
+          "p90": 270.0,
+          "count": 2128,
+          "total_periods": 2592,
+          "activation_rate": 0.821
+        }
+      },
+      "afrr_recent_3m": {
+        "avg_p50": 167.8,
+        "avg_activation_rate": 0.84
+      },
+      "mfrr_up": {
+        "2025-10": {
+          "avg": 184.9,
+          "p50": 99.5,
+          "p90": 572.4,
+          "count": 1628,
+          "total_periods": 2980,
+          "activation_rate": 0.546
+        },
+        "2025-11": {
+          "avg": 173.9,
+          "p50": 130.0,
+          "p90": 437.8,
+          "count": 1926,
+          "total_periods": 2880,
+          "activation_rate": 0.669
+        },
+        "2025-12": {
+          "avg": 92.2,
+          "p50": 78.0,
+          "p90": 182.4,
+          "count": 1930,
+          "total_periods": 2976,
+          "activation_rate": 0.649
+        },
+        "2026-01": {
+          "avg": 200.9,
+          "p50": 135.4,
+          "p90": 422.6,
+          "count": 2526,
+          "total_periods": 2976,
+          "activation_rate": 0.849
+        },
+        "2026-02": {
+          "avg": 153.8,
+          "p50": 117.7,
+          "p90": 335.6,
+          "count": 2326,
+          "total_periods": 2688,
+          "activation_rate": 0.865
+        },
+        "2026-03": {
+          "avg": 91.4,
+          "p50": 81.0,
+          "p90": 177.9,
+          "count": 1592,
+          "total_periods": 2592,
+          "activation_rate": 0.614
+        }
+      },
+      "mfrr_recent_3m": {
+        "avg_p50": 111.4,
+        "avg_activation_rate": 0.776
+      }
+    }
+  },
+  "compression_trajectory": {
+    "afrr_lt_p50": [
+      738.0,
+      514.2,
+      305.5,
+      159.1,
+      173.6,
+      170.8
+    ],
+    "afrr_lt_avg": [
+      552.5,
+      511.9,
+      337.8,
+      194.6,
+      207.5,
+      182.3
+    ],
+    "months": [
+      "2025-10",
+      "2025-11",
+      "2025-12",
+      "2026-01",
+      "2026-02",
+      "2026-03"
+    ]
+  }
+}

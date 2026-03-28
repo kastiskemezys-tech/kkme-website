@@ -529,3 +529,152 @@ S2 update: 200 {"timestamp":"2026-03-27T02:00:02.104Z","fcr_avg":12.6,"afrr_up_a
 [Trading] 2026-03-23: 200 {"ok":true,"date":"2026-03-23","totals":{"gross":55248.62,"per_mw":920.81,"capacity":40970.61,"activation":14278.01,"arbitrage":0,"splits_pct":{"capacity":74,"activation":26,"arbitrage":0},"annualised
 [Trading] 2026-03-24: 200 {"ok":true,"date":"2026-03-24","totals":{"gross":37366.83,"per_mw":622.78,"capacity":24029.85,"activation":12100.4,"arbitrage":1236.59,"splits_pct":{"capacity":64,"activation":32,"arbitrage":3},"annua
 Heartbeat: 200
+=== BTD + Litgrid fetch === 2026-03-27T18:00:00.829Z
+Litgrid page: 25613 chars
+Litgrid preview: <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+	
+	<script id="Cookiebot" data-culture="EN" src=https://consent.cookiebot.com/uc.js data-cbid="abcf2dd9-df20-4b27-92dd-c5348c22a9bd" data-blockingmode="auto" type="text/javascript"></script>
+	
+	<title>Litgrid</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+	<meta name="description" content="Litgrid" />
+	<meta name="keywords" content="Litgrid" />
+	<meta name="co
+Litgrid: no price/MW parsed — check preview above for structure
+Litgrid ordered: price=null €/MW/h  mw=null MW
+S2 update: 200 {"timestamp":"2026-03-27T18:00:03.781Z","fcr_avg":12.6,"afrr_up_avg":10.46,"afrr_down_avg":7.18,"mfrr_up_avg":24.9,"mfrr_down_avg":18.52,"pct_up":37.2,"pct_down":62.8,"imbalance_mean":61.11,"imbalance_p90":152.68,"pct_above_100":28.57,"afrr_annual_per_mw_installed":44440,"mfrr_annual_per_mw_installed":105790,"cvi_afrr_eur_mw_yr":88881,"cvi_mfrr_eur_mw_yr":211580,"stress_index_p90":152.68,"fcr_note":"FCR: 25MW Baltic market, saturating 2026","signal":"COMPRESSING","interpretation":"Capacity prices thinning. New BESS penetration compressing clearing prices. Revenue mix shifting toward intraday trading.","source":"baltic.transparency-dashboard.eu"}
+[Trading] 2026-03-18: 200 {"ok":true,"date":"2026-03-18","totals":{"gross":42451.65,"per_mw":707.53,"capacity":19778.18,"activation":24606.08,"arbitrage":-1932.6,"splits_pct":{"capacity":47,"activation":58,"arbitrage":-5},"ann
+[Trading] 2026-03-19: 200 {"ok":true,"date":"2026-03-19","totals":{"gross":49574.62,"per_mw":826.24,"capacity":23911.14,"activation":25663.48,"arbitrage":0,"splits_pct":{"capacity":48,"activation":52,"arbitrage":0},"annualised
+[Trading] 2026-03-20: 200 {"ok":true,"date":"2026-03-20","totals":{"gross":42678.42,"per_mw":711.31,"capacity":26602.07,"activation":16076.36,"arbitrage":0,"splits_pct":{"capacity":62,"activation":38,"arbitrage":0},"annualised
+[Trading] 2026-03-21: 200 {"ok":true,"date":"2026-03-21","totals":{"gross":18608.33,"per_mw":310.14,"capacity":8916.06,"activation":9692.27,"arbitrage":0,"splits_pct":{"capacity":48,"activation":52,"arbitrage":0},"annualised":
+[Trading] 2026-03-22: 200 {"ok":true,"date":"2026-03-22","totals":{"gross":27630.6,"per_mw":460.51,"capacity":23469.63,"activation":4160.97,"arbitrage":0,"splits_pct":{"capacity":85,"activation":15,"arbitrage":0},"annualised":
+[Trading] 2026-03-23: 200 {"ok":true,"date":"2026-03-23","totals":{"gross":55248.62,"per_mw":920.81,"capacity":40970.61,"activation":14278.01,"arbitrage":0,"splits_pct":{"capacity":74,"activation":26,"arbitrage":0},"annualised
+[Trading] 2026-03-24: 200 {"ok":true,"date":"2026-03-24","totals":{"gross":36130.25,"per_mw":602.17,"capacity":24029.85,"activation":12100.4,"arbitrage":0,"splits_pct":{"capacity":67,"activation":33,"arbitrage":0},"annualised"
+Heartbeat: 200
+=== BTD + Litgrid fetch === 2026-03-27T22:00:00.249Z
+Litgrid page: 25613 chars
+Litgrid preview: <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+	
+	<script id="Cookiebot" data-culture="EN" src=https://consent.cookiebot.com/uc.js data-cbid="abcf2dd9-df20-4b27-92dd-c5348c22a9bd" data-blockingmode="auto" type="text/javascript"></script>
+	
+	<title>Litgrid</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+	<meta name="description" content="Litgrid" />
+	<meta name="keywords" content="Litgrid" />
+	<meta name="co
+Litgrid: no price/MW parsed — check preview above for structure
+Litgrid ordered: price=null €/MW/h  mw=null MW
+S2 update: 200 {"timestamp":"2026-03-27T22:00:03.477Z","fcr_avg":12.6,"afrr_up_avg":10.46,"afrr_down_avg":7.18,"mfrr_up_avg":24.9,"mfrr_down_avg":18.52,"pct_up":37.2,"pct_down":62.8,"imbalance_mean":61.11,"imbalance_p90":152.68,"pct_above_100":28.57,"afrr_annual_per_mw_installed":44440,"mfrr_annual_per_mw_installed":105790,"cvi_afrr_eur_mw_yr":88881,"cvi_mfrr_eur_mw_yr":211580,"stress_index_p90":152.68,"fcr_note":"FCR: 25MW Baltic market, saturating 2026","signal":"COMPRESSING","interpretation":"Capacity prices thinning. New BESS penetration compressing clearing prices. Revenue mix shifting toward intraday trading.","source":"baltic.transparency-dashboard.eu"}
+[Trading] 2026-03-18: 200 {"ok":true,"date":"2026-03-18","totals":{"gross":42451.65,"per_mw":707.53,"capacity":19778.18,"activation":24606.08,"arbitrage":-1932.6,"splits_pct":{"capacity":47,"activation":58,"arbitrage":-5},"ann
+[Trading] 2026-03-19: 200 {"ok":true,"date":"2026-03-19","totals":{"gross":45364.42,"per_mw":756.07,"capacity":23911.14,"activation":25663.48,"arbitrage":-4210.2,"splits_pct":{"capacity":53,"activation":57,"arbitrage":-9},"ann
+[Trading] 2026-03-20: 200 {"ok":true,"date":"2026-03-20","totals":{"gross":44232.37,"per_mw":737.21,"capacity":26602.07,"activation":16076.36,"arbitrage":1553.95,"splits_pct":{"capacity":60,"activation":36,"arbitrage":4},"annu
+[Trading] 2026-03-21: 200 {"ok":true,"date":"2026-03-21","totals":{"gross":18608.33,"per_mw":310.14,"capacity":8916.06,"activation":9692.27,"arbitrage":0,"splits_pct":{"capacity":48,"activation":52,"arbitrage":0},"annualised":
+[Trading] 2026-03-22: 200 {"ok":true,"date":"2026-03-22","totals":{"gross":27630.6,"per_mw":460.51,"capacity":23469.63,"activation":4160.97,"arbitrage":0,"splits_pct":{"capacity":85,"activation":15,"arbitrage":0},"annualised":
+[Trading] 2026-03-23: 200 {"ok":true,"date":"2026-03-23","totals":{"gross":54789.11,"per_mw":913.15,"capacity":40970.61,"activation":14278.01,"arbitrage":-459.51,"splits_pct":{"capacity":75,"activation":26,"arbitrage":-1},"ann
+[Trading] 2026-03-24: 200 {"ok":true,"date":"2026-03-24","totals":{"gross":37366.83,"per_mw":622.78,"capacity":24029.85,"activation":12100.4,"arbitrage":1236.59,"splits_pct":{"capacity":64,"activation":32,"arbitrage":3},"annua
+Heartbeat: 200
+=== BTD + Litgrid fetch === 2026-03-28T02:00:01.024Z
+[Guard] UTC hour=2 < 9 — skipping ordered_price/ordered_mw fetch (not yet published)
+Litgrid ordered: price=null €/MW/h  mw=null MW
+S2 update: 200 {"timestamp":"2026-03-28T02:00:03.088Z","fcr_avg":0.33,"afrr_up_avg":8.82,"afrr_down_avg":5.4,"mfrr_up_avg":23.55,"mfrr_down_avg":15.21,"pct_up":28.72,"pct_down":71.28,"imbalance_mean":49.49,"imbalance_p90":143.92,"pct_above_100":21.28,"afrr_annual_per_mw_installed":37473,"mfrr_annual_per_mw_installed":100055,"cvi_afrr_eur_mw_yr":74945,"cvi_mfrr_eur_mw_yr":200109,"stress_index_p90":143.92,"fcr_note":"FCR: 25MW Baltic market, saturating 2026","signal":"COMPRESSING","interpretation":"Capacity prices thinning. New BESS penetration compressing clearing prices. Revenue mix shifting toward intraday trading.","source":"baltic.transparency-dashboard.eu"}
+[Trading] 2026-03-19: 200 {"ok":true,"date":"2026-03-19","totals":{"gross":45364.42,"per_mw":756.07,"capacity":23911.14,"activation":25663.48,"arbitrage":-4210.2,"splits_pct":{"capacity":53,"activation":57,"arbitrage":-9},"ann
+[Trading] 2026-03-20: 200 {"ok":true,"date":"2026-03-20","totals":{"gross":42678.42,"per_mw":711.31,"capacity":26602.07,"activation":16076.36,"arbitrage":0,"splits_pct":{"capacity":62,"activation":38,"arbitrage":0},"annualised
+[Trading] 2026-03-21: 200 {"ok":true,"date":"2026-03-21","totals":{"gross":18608.33,"per_mw":310.14,"capacity":8916.06,"activation":9692.27,"arbitrage":0,"splits_pct":{"capacity":48,"activation":52,"arbitrage":0},"annualised":
+[Trading] 2026-03-22: 200 {"ok":true,"date":"2026-03-22","totals":{"gross":27630.6,"per_mw":460.51,"capacity":23469.63,"activation":4160.97,"arbitrage":0,"splits_pct":{"capacity":85,"activation":15,"arbitrage":0},"annualised":
+[Trading] 2026-03-23: 200 {"ok":true,"date":"2026-03-23","totals":{"gross":55248.62,"per_mw":920.81,"capacity":40970.61,"activation":14278.01,"arbitrage":0,"splits_pct":{"capacity":74,"activation":26,"arbitrage":0},"annualised
+[Trading] 2026-03-24: 200 {"ok":true,"date":"2026-03-24","totals":{"gross":36130.25,"per_mw":602.17,"capacity":24029.85,"activation":12100.4,"arbitrage":0,"splits_pct":{"capacity":67,"activation":33,"arbitrage":0},"annualised"
+[Trading] 2026-03-25: 200 {"ok":true,"date":"2026-03-25","totals":{"gross":20222.65,"per_mw":337.04,"capacity":6373.53,"activation":13849.12,"arbitrage":0,"splits_pct":{"capacity":32,"activation":68,"arbitrage":0},"annualised"
+Heartbeat: 200
+=== BTD + Litgrid fetch === 2026-03-28T06:00:01.240Z
+[Guard] UTC hour=6 < 9 — skipping ordered_price/ordered_mw fetch (not yet published)
+Litgrid ordered: price=null €/MW/h  mw=null MW
+S2 update: 200 {"timestamp":"2026-03-28T06:00:02.847Z","fcr_avg":0.33,"afrr_up_avg":8.82,"afrr_down_avg":5.4,"mfrr_up_avg":23.55,"mfrr_down_avg":15.21,"pct_up":28.72,"pct_down":71.28,"imbalance_mean":49.49,"imbalance_p90":143.92,"pct_above_100":21.28,"afrr_annual_per_mw_installed":37473,"mfrr_annual_per_mw_installed":100055,"cvi_afrr_eur_mw_yr":74945,"cvi_mfrr_eur_mw_yr":200109,"stress_index_p90":143.92,"fcr_note":"FCR: 25MW Baltic market, saturating 2026","signal":"COMPRESSING","interpretation":"Capacity prices thinning. New BESS penetration compressing clearing prices. Revenue mix shifting toward intraday trading.","source":"baltic.transparency-dashboard.eu"}
+[Trading] 2026-03-19: 200 {"ok":true,"date":"2026-03-19","totals":{"gross":45364.42,"per_mw":756.07,"capacity":23911.14,"activation":25663.48,"arbitrage":-4210.2,"splits_pct":{"capacity":53,"activation":57,"arbitrage":-9},"ann
+[Trading] 2026-03-20: 200 {"ok":true,"date":"2026-03-20","totals":{"gross":44232.37,"per_mw":737.21,"capacity":26602.07,"activation":16076.36,"arbitrage":1553.95,"splits_pct":{"capacity":60,"activation":36,"arbitrage":4},"annu
+[Trading] 2026-03-21: 200 {"ok":true,"date":"2026-03-21","totals":{"gross":18608.33,"per_mw":310.14,"capacity":8916.06,"activation":9692.27,"arbitrage":0,"splits_pct":{"capacity":48,"activation":52,"arbitrage":0},"annualised":
+[Trading] 2026-03-22: 200 {"ok":true,"date":"2026-03-22","totals":{"gross":27630.6,"per_mw":460.51,"capacity":23469.63,"activation":4160.97,"arbitrage":0,"splits_pct":{"capacity":85,"activation":15,"arbitrage":0},"annualised":
+[Trading] 2026-03-23: 200 {"ok":true,"date":"2026-03-23","totals":{"gross":54789.11,"per_mw":913.15,"capacity":40970.61,"activation":14278.01,"arbitrage":-459.51,"splits_pct":{"capacity":75,"activation":26,"arbitrage":-1},"ann
+[Trading] 2026-03-24: 200 {"ok":true,"date":"2026-03-24","totals":{"gross":37366.83,"per_mw":622.78,"capacity":24029.85,"activation":12100.4,"arbitrage":1236.59,"splits_pct":{"capacity":64,"activation":32,"arbitrage":3},"annua
+[Trading] 2026-03-25: 200 {"ok":true,"date":"2026-03-25","totals":{"gross":19783.57,"per_mw":329.73,"capacity":6373.53,"activation":13849.12,"arbitrage":-439.08,"splits_pct":{"capacity":32,"activation":70,"arbitrage":-2},"annu
+Heartbeat: 200
+=== BTD + Litgrid fetch === 2026-03-28T10:00:01.033Z
+Litgrid page: 25613 chars
+Litgrid preview: <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+	
+	<script id="Cookiebot" data-culture="EN" src=https://consent.cookiebot.com/uc.js data-cbid="abcf2dd9-df20-4b27-92dd-c5348c22a9bd" data-blockingmode="auto" type="text/javascript"></script>
+	
+	<title>Litgrid</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+	<meta name="description" content="Litgrid" />
+	<meta name="keywords" content="Litgrid" />
+	<meta name="co
+Litgrid: no price/MW parsed — check preview above for structure
+Litgrid ordered: price=null €/MW/h  mw=null MW
+S2 update: 200 {"timestamp":"2026-03-28T10:00:03.331Z","fcr_avg":0.33,"afrr_up_avg":8.82,"afrr_down_avg":5.4,"mfrr_up_avg":23.55,"mfrr_down_avg":15.21,"pct_up":28.72,"pct_down":71.28,"imbalance_mean":49.49,"imbalance_p90":143.92,"pct_above_100":21.28,"afrr_annual_per_mw_installed":37473,"mfrr_annual_per_mw_installed":100055,"cvi_afrr_eur_mw_yr":74945,"cvi_mfrr_eur_mw_yr":200109,"stress_index_p90":143.92,"fcr_note":"FCR: 25MW Baltic market, saturating 2026","signal":"COMPRESSING","interpretation":"Capacity prices thinning. New BESS penetration compressing clearing prices. Revenue mix shifting toward intraday trading.","source":"baltic.transparency-dashboard.eu"}
+[Trading] 2026-03-19: 200 {"ok":true,"date":"2026-03-19","totals":{"gross":45364.42,"per_mw":756.07,"capacity":23911.14,"activation":25663.48,"arbitrage":-4210.2,"splits_pct":{"capacity":53,"activation":57,"arbitrage":-9},"ann
+[Trading] 2026-03-20: 200 {"ok":true,"date":"2026-03-20","totals":{"gross":42678.42,"per_mw":711.31,"capacity":26602.07,"activation":16076.36,"arbitrage":0,"splits_pct":{"capacity":62,"activation":38,"arbitrage":0},"annualised
+[Trading] 2026-03-21: 200 {"ok":true,"date":"2026-03-21","totals":{"gross":18608.33,"per_mw":310.14,"capacity":8916.06,"activation":9692.27,"arbitrage":0,"splits_pct":{"capacity":48,"activation":52,"arbitrage":0},"annualised":
+[Trading] 2026-03-22: 200 {"ok":true,"date":"2026-03-22","totals":{"gross":27630.6,"per_mw":460.51,"capacity":23469.63,"activation":4160.97,"arbitrage":0,"splits_pct":{"capacity":85,"activation":15,"arbitrage":0},"annualised":
+[Trading] 2026-03-23: 200 {"ok":true,"date":"2026-03-23","totals":{"gross":55248.62,"per_mw":920.81,"capacity":40970.61,"activation":14278.01,"arbitrage":0,"splits_pct":{"capacity":74,"activation":26,"arbitrage":0},"annualised
+[Trading] 2026-03-24: 200 {"ok":true,"date":"2026-03-24","totals":{"gross":36130.25,"per_mw":602.17,"capacity":24029.85,"activation":12100.4,"arbitrage":0,"splits_pct":{"capacity":67,"activation":33,"arbitrage":0},"annualised"
+[Trading] 2026-03-25: 200 {"ok":true,"date":"2026-03-25","totals":{"gross":20222.65,"per_mw":337.04,"capacity":6373.53,"activation":13849.12,"arbitrage":0,"splits_pct":{"capacity":32,"activation":68,"arbitrage":0},"annualised"
+Heartbeat: 200
+=== BTD + Litgrid fetch === 2026-03-28T14:00:00.928Z
+Litgrid page: 25613 chars
+Litgrid preview: <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+	
+	<script id="Cookiebot" data-culture="EN" src=https://consent.cookiebot.com/uc.js data-cbid="abcf2dd9-df20-4b27-92dd-c5348c22a9bd" data-blockingmode="auto" type="text/javascript"></script>
+	
+	<title>Litgrid</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+	<meta name="description" content="Litgrid" />
+	<meta name="keywords" content="Litgrid" />
+	<meta name="co
+Litgrid: no price/MW parsed — check preview above for structure
+Litgrid ordered: price=null €/MW/h  mw=null MW
+S2 update: 200 {"timestamp":"2026-03-28T14:00:02.526Z","fcr_avg":0.33,"afrr_up_avg":8.82,"afrr_down_avg":5.4,"mfrr_up_avg":23.55,"mfrr_down_avg":15.21,"pct_up":28.72,"pct_down":71.28,"imbalance_mean":49.49,"imbalance_p90":143.92,"pct_above_100":21.28,"afrr_annual_per_mw_installed":37473,"mfrr_annual_per_mw_installed":100055,"cvi_afrr_eur_mw_yr":74945,"cvi_mfrr_eur_mw_yr":200109,"stress_index_p90":143.92,"fcr_note":"FCR: 25MW Baltic market, saturating 2026","signal":"COMPRESSING","interpretation":"Capacity prices thinning. New BESS penetration compressing clearing prices. Revenue mix shifting toward intraday trading.","source":"baltic.transparency-dashboard.eu"}
+[Trading] 2026-03-19: 200 {"ok":true,"date":"2026-03-19","totals":{"gross":45364.42,"per_mw":756.07,"capacity":23911.14,"activation":25663.48,"arbitrage":-4210.2,"splits_pct":{"capacity":53,"activation":57,"arbitrage":-9},"ann
+[Trading] 2026-03-20: 200 {"ok":true,"date":"2026-03-20","totals":{"gross":42678.42,"per_mw":711.31,"capacity":26602.07,"activation":16076.36,"arbitrage":0,"splits_pct":{"capacity":62,"activation":38,"arbitrage":0},"annualised
+[Trading] 2026-03-21: 200 {"ok":true,"date":"2026-03-21","totals":{"gross":18608.33,"per_mw":310.14,"capacity":8916.06,"activation":9692.27,"arbitrage":0,"splits_pct":{"capacity":48,"activation":52,"arbitrage":0},"annualised":
+[Trading] 2026-03-22: 200 {"ok":true,"date":"2026-03-22","totals":{"gross":27630.6,"per_mw":460.51,"capacity":23469.63,"activation":4160.97,"arbitrage":0,"splits_pct":{"capacity":85,"activation":15,"arbitrage":0},"annualised":
+[Trading] 2026-03-23: 200 {"ok":true,"date":"2026-03-23","totals":{"gross":55248.62,"per_mw":920.81,"capacity":40970.61,"activation":14278.01,"arbitrage":0,"splits_pct":{"capacity":74,"activation":26,"arbitrage":0},"annualised
+[Trading] 2026-03-24: 200 {"ok":true,"date":"2026-03-24","totals":{"gross":36130.25,"per_mw":602.17,"capacity":24029.85,"activation":12100.4,"arbitrage":0,"splits_pct":{"capacity":67,"activation":33,"arbitrage":0},"annualised"
+[Trading] 2026-03-25: 200 {"ok":true,"date":"2026-03-25","totals":{"gross":20222.65,"per_mw":337.04,"capacity":6373.53,"activation":13849.12,"arbitrage":0,"splits_pct":{"capacity":32,"activation":68,"arbitrage":0},"annualised"
+Heartbeat: 200
+=== BTD + Litgrid fetch === 2026-03-28T18:00:00.640Z
+Litgrid page: 25613 chars
+Litgrid preview: <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+	
+	<script id="Cookiebot" data-culture="EN" src=https://consent.cookiebot.com/uc.js data-cbid="abcf2dd9-df20-4b27-92dd-c5348c22a9bd" data-blockingmode="auto" type="text/javascript"></script>
+	
+	<title>Litgrid</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+	<meta name="description" content="Litgrid" />
+	<meta name="keywords" content="Litgrid" />
+	<meta name="co
+Litgrid: no price/MW parsed — check preview above for structure
+Litgrid ordered: price=null €/MW/h  mw=null MW
+S2 update: 200 {"timestamp":"2026-03-28T18:00:02.590Z","fcr_avg":0.33,"afrr_up_avg":8.82,"afrr_down_avg":5.4,"mfrr_up_avg":23.55,"mfrr_down_avg":15.21,"pct_up":28.72,"pct_down":71.28,"imbalance_mean":49.49,"imbalance_p90":143.92,"pct_above_100":21.28,"afrr_annual_per_mw_installed":37473,"mfrr_annual_per_mw_installed":100055,"cvi_afrr_eur_mw_yr":74945,"cvi_mfrr_eur_mw_yr":200109,"stress_index_p90":143.92,"fcr_note":"FCR: 25MW Baltic market, saturating 2026","signal":"COMPRESSING","interpretation":"Capacity prices thinning. New BESS penetration compressing clearing prices. Revenue mix shifting toward intraday trading.","source":"baltic.transparency-dashboard.eu"}
+[Trading] 2026-03-19: 200 {"ok":true,"date":"2026-03-19","totals":{"gross":45364.42,"per_mw":756.07,"capacity":23911.14,"activation":25663.48,"arbitrage":-4210.2,"splits_pct":{"capacity":53,"activation":57,"arbitrage":-9},"ann
+[Trading] 2026-03-20: 200 {"ok":true,"date":"2026-03-20","totals":{"gross":42678.42,"per_mw":711.31,"capacity":26602.07,"activation":16076.36,"arbitrage":0,"splits_pct":{"capacity":62,"activation":38,"arbitrage":0},"annualised
+[Trading] 2026-03-21: 200 {"ok":true,"date":"2026-03-21","totals":{"gross":18608.33,"per_mw":310.14,"capacity":8916.06,"activation":9692.27,"arbitrage":0,"splits_pct":{"capacity":48,"activation":52,"arbitrage":0},"annualised":
+[Trading] 2026-03-22: 200 {"ok":true,"date":"2026-03-22","totals":{"gross":27630.6,"per_mw":460.51,"capacity":23469.63,"activation":4160.97,"arbitrage":0,"splits_pct":{"capacity":85,"activation":15,"arbitrage":0},"annualised":
+[Trading] 2026-03-23: 200 {"ok":true,"date":"2026-03-23","totals":{"gross":55248.62,"per_mw":920.81,"capacity":40970.61,"activation":14278.01,"arbitrage":0,"splits_pct":{"capacity":74,"activation":26,"arbitrage":0},"annualised
+[Trading] 2026-03-24: 200 {"ok":true,"date":"2026-03-24","totals":{"gross":36130.25,"per_mw":602.17,"capacity":24029.85,"activation":12100.4,"arbitrage":0,"splits_pct":{"capacity":67,"activation":33,"arbitrage":0},"annualised"
+[Trading] 2026-03-25: 200 {"ok":true,"date":"2026-03-25","totals":{"gross":20222.65,"per_mw":337.04,"capacity":6373.53,"activation":13849.12,"arbitrage":0,"splits_pct":{"capacity":32,"activation":68,"arbitrage":0},"annualised"
+Heartbeat: 200
