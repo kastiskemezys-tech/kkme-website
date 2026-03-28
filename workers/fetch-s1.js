@@ -3369,6 +3369,96 @@ export default {
             d.hicp_yoy           = eur.hicp_yoy           ?? null;
             d.euribor_trend      = eur.euribor_trend      ?? null;
           }
+
+          // ── S3 expanded: cost profiles, drivers, technology, transactions ──
+          d.cost_profiles = {
+            '2h': {
+              capex_range_kwh: [230, 280], capex_range_kw: [460, 560],
+              breakdown: {
+                dc_block:    { range_kwh: [80, 110], mid_kwh: 95, label: 'DC block', scope: 'equipment-only' },
+                pcs:         { range_kw: [35, 55], mid_kw: 45, label: 'PCS / inverter', scope: 'equipment-only' },
+                bos_civil:   { range_kwh: [25, 45], mid_kwh: 35, label: 'BOS + civil', scope: 'installed excl. grid' },
+                hv_grid:     { range_kwh: [12, 50], label: 'HV grid connection', scope: 'grid-scope-dependent' },
+                soft_costs:  { range_kwh: [10, 22], mid_kwh: 15, label: 'EPC + perm. + contingency', scope: 'installed' },
+              },
+              reference_mid_kwh: 255,
+              notes: '2h: PCS share higher per kWh. Grid scope drives most variance.',
+            },
+            '4h': {
+              capex_range_kwh: [160, 210], capex_range_kw: [640, 840],
+              breakdown: {
+                dc_block:    { range_kwh: [70, 100], mid_kwh: 85, label: 'DC block', scope: 'equipment-only' },
+                pcs:         { range_kw: [35, 55], mid_kw: 45, label: 'PCS / inverter', scope: 'equipment-only' },
+                bos_civil:   { range_kwh: [22, 40], mid_kwh: 30, label: 'BOS + civil', scope: 'installed excl. grid' },
+                hv_grid:     { range_kwh: [12, 50], label: 'HV grid connection', scope: 'grid-scope-dependent' },
+                soft_costs:  { range_kwh: [8, 18], mid_kwh: 12, label: 'EPC + perm. + contingency', scope: 'installed' },
+              },
+              reference_mid_kwh: 192,
+              notes: '4h: cell scale effects dominate. Energy block largest share.',
+            },
+          };
+          d.grid_scope_classes = [
+            { id: 'light', label: 'Light', description: 'Existing HV bay. MV switchgear only.', adder_kwh: [12, 18] },
+            { id: 'heavy', label: 'Heavy', description: 'New substation bay + transformer + protection.', adder_kwh: [25, 40] },
+          ];
+          d.cost_drivers = [
+            { driver: 'Battery hardware', direction: 'easing', symbol: '\u2193', magnitude: 'moderate', component: 'dc_block', detail: 'LFP cell prices declining ~15% YoY. China overcapacity. Not fully passing through to EU turnkey.' },
+            { driver: 'Electrical / PCS', direction: 'constrained', symbol: '\u2192', magnitude: 'weak', component: 'pcs', detail: 'Grid-forming requirements adding compliance cost. Supply adequate.' },
+            { driver: 'HV grid equipment', direction: 'constrained', symbol: '\u2191', magnitude: 'strong', component: 'hv_grid', detail: 'HV equipment lead times 10\u201316mo. Still the critical path for most projects. Prices elevated since 2021.' },
+            { driver: 'Financing', direction: 'easing', symbol: '\u2193', magnitude: 'moderate', component: 'lcos', detail: 'Euribor falling from 2023 peak. Improves LCOS and project IRR.' },
+          ];
+          d.uncertainty = { range_pct: '\u00b115\u201330%', primary_driver: 'grid scope + project size', note: 'Grid scope is the single largest installed cost uncertainty in the Baltics.' };
+          d.trend = { direction: 'easing', twelve_month: '\u2193 equipment \u00b7 \u2191 grid \u00b7 \u2193 financing', note: 'Equipment declining since 2023 peak. Grid + HV elevated.' };
+          d.lcos_reference = {
+            range_eur_mwh: [80, 130],
+            assumptions: { cycles_per_year: [300, 365], rte_pct: [85, 88], wacc_pct: [6, 9], augmentation: 'Y8\u201312, 10\u201315% DC block cost' },
+            note: 'Reference range. Full computation in Revenue Engine.',
+          };
+          d.technology = {
+            chemistry: 'LFP', calendar_life_years: [15, 25], cycle_life: [6000, 10000],
+            rte_percent: [85, 88], degradation_annual_pct: [0.4, 0.8], eol_capacity_pct: 70,
+            augmentation: 'Y8\u201312. 10\u201315% of original DC block cost.',
+            warranty_typical: '15yr to 70% SoH, cycling limits apply.',
+            lifetime_throughput_gwh_per_mw: [12, 30],
+            throughput_note: '1 cycle/day \u00d7 20yr \u00d7 4h \u2248 29 GWh/MW. Revenue potential and LCOS derive from this.',
+            notes: 'LFP dominant for utility-scale stationary. Sodium-ion emerging, unproven at grid scale.',
+          };
+          d.transactions = [
+            { project: 'Ignitis 3-site', country: 'LT', mw: 291, mwh: 582, eur_kwh_approx: 224, scope: 'all-in incl. substation', year: 2025, integrator: 'Rolls-Royce / Nidec', cost_driver: 'Scale advantage + full substation' },
+            { project: 'AST Latvia', country: 'LV', mw: 80, mwh: 160, eur_kwh_approx: 490, scope: 'all-in incl. substation', year: 2025, integrator: null, cost_driver: 'TSO premium + smaller scale' },
+            { project: 'Utilitas', country: 'EE', mw: 10, mwh: 20, eur_kwh_approx: 350, scope: 'partial', year: 2024, integrator: null, cost_driver: 'Small scale / pilot' },
+          ];
+          d.key_players = {
+            cells_dc: [
+              { name: 'CATL', hq: 'CN', positioning: 'Premium pricing, highest bankability' },
+              { name: 'BYD', hq: 'CN', positioning: 'Vertically integrated, aggressive on price' },
+              { name: 'EVE Energy', hq: 'CN', positioning: 'Mid-tier pricing, fast EU market entry' },
+              { name: 'Hithium', hq: 'CN', positioning: 'Aggressive pricing, newer entrant' },
+            ],
+            pcs: [
+              { name: 'Sungrow', hq: 'CN', positioning: 'Dominant EU utility PCS, cost-efficient' },
+              { name: 'Huawei', hq: 'CN', positioning: 'Distributed string architecture' },
+              { name: 'Power Electronics', hq: 'ES', positioning: 'European PCS, grid-forming capable, premium' },
+            ],
+            integrators: [
+              { name: 'Rolls-Royce', hq: 'UK', positioning: 'Ignitis project. mtu EnergyPack. Premium reliability.' },
+              { name: 'Fluence', hq: 'US', positioning: 'Gridstack. Siemens/AES JV. Strong bankability.' },
+            ],
+            hv_equipment: [
+              { name: 'Hitachi Energy', hq: 'JP/CH', positioning: 'Major transformer supplier. Long lead times.' },
+              { name: 'Siemens Energy', hq: 'DE', positioning: 'Blue GIS. European supply chain. Constrained.' },
+            ],
+          };
+          d.data_freshness = {
+            ecb_euribor:    { last_update: new Date().toISOString().slice(0, 10), cadence: 'daily', status: 'current' },
+            capex_reference: { last_update: '2025-12', cadence: 'quarterly editorial', status: 'current' },
+            lithium_proxy:   { last_update: new Date().toISOString().slice(0, 10), cadence: 'daily', status: 'current' },
+            transactions:    { last_update: '2026-03-15', cadence: 'event-driven', status: 'current' },
+            technology:      { last_update: '2026-03-01', cadence: 'quarterly editorial', status: 'current' },
+            nrel_anchor:     { last_update: '2025-06', cadence: 'annual', status: 'structural anchor' },
+          };
+          d.confidence = { level: 'benchmark-heavy', observed_share: 0.2, benchmark_share: 0.5, modeled_share: 0.3 };
+
           return new Response(JSON.stringify(d), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600', ...CORS } });
         } catch { /* fall through to fresh compute */ }
       }
