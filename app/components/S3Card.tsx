@@ -119,32 +119,59 @@ function isComponentStale(component: string, freshness: S3Signal['data_freshness
   return false;
 }
 
-function computeConfidenceLevel(freshness: S3Signal['data_freshness'], baseLevel: string): string {
+function computeConfidenceLevel(freshness: S3Signal['data_freshness'], baseLevel: string, hasEnrichment: boolean): string {
   if (!freshness) return baseLevel;
-  const staleCount = ['ecb_euribor', 'lithium_proxy', 'fx'].filter(k => isSourceStale(freshness, k)).length;
-  if (staleCount >= 2) return 'degraded';
-  if (staleCount === 1) return 'slightly degraded';
+  const inputsStale = ['ecb_euribor', 'lithium_proxy', 'fx'].filter(k => isSourceStale(freshness, k)).length;
+  const enrichStale = isSourceStale(freshness, 'enrichment');
+  if (inputsStale >= 2) return 'degraded';
+  if (inputsStale >= 1 && enrichStale) return 'degraded';
+  if (enrichStale && !hasEnrichment) return 'drivers degraded';
+  if (inputsStale >= 1) return 'inputs degraded';
   return baseLevel;
 }
 
 function deriveInterpretation(drivers: CostDriver[]): string | null {
   if (!drivers.length) return null;
   const dirs: Record<string, string> = {};
-  drivers.forEach(d => { dirs[d.component] = d.direction; });
+  const mags: Record<string, string> = {};
+  drivers.forEach(d => { dirs[d.component] = d.direction; mags[d.component] = d.magnitude; });
 
+  if (dirs.hv_grid === 'constrained' && mags.hv_grid === 'strong' && dirs.dc_block === 'easing')
+    return 'Battery deflation visible, but HV package still dominates uncertainty.';
   if (dirs.hv_grid === 'constrained' && dirs.dc_block === 'easing')
-    return 'Cost compression limited by grid equipment — battery savings not fully passing through.';
+    return 'Cost pressure easing, but grid still limits full CAPEX decline.';
   if (dirs.dc_block === 'easing' && dirs.lcos === 'easing')
-    return 'Favourable cost environment — battery and financing both easing.';
+    return 'Favourable equipment trend — battery and financing both easing.';
   if (dirs.hv_grid === 'constrained')
-    return 'Grid equipment remains the cost bottleneck.';
+    return 'Limited near-term improvement expected under grid-heavy scope.';
+  if (dirs.dc_block === 'easing')
+    return 'Equipment costs declining, installed variance remains high.';
   return null;
 }
+
+const DOMINANT_CONTEXT: Record<string, string> = {
+  hv_grid: '(scope + substation design)',
+  dc_block: '(cell pricing + supply)',
+  pcs: '(grid-forming compliance)',
+  lcos: '(rate environment)',
+};
 
 function dominantDriver(drivers: CostDriver[]): CostDriver | null {
   if (!drivers.length) return null;
   const weight: Record<string, number> = { strong: 3, moderate: 2, weak: 1 };
   return drivers.reduce((best, d) => (weight[d.magnitude] || 0) > (weight[best.magnitude] || 0) ? d : best);
+}
+
+function basisTimestamp(d: S3Signal): string | null {
+  // Prefer editorial > enrichment > live timestamp
+  const candidates = [
+    d.data_freshness?.capex_reference?.last_update,
+    d.enrichment_annotations?.enriched_at,
+    d.timestamp,
+  ].filter(Boolean);
+  if (!candidates.length) return null;
+  const latest = candidates.sort((a, b) => new Date(b!).getTime() - new Date(a!).getTime())[0]!;
+  return new Date(latest).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 // ─── Main ────────────────────────────────────────────────────────────────────
@@ -180,7 +207,8 @@ export function S3Card() {
     : [Math.round(baseKw[0] / 10) * 10, Math.round(baseKw[1] / 10) * 10];
 
   // Confidence auto-degradation from freshness
-  const confLevel = computeConfidenceLevel(d.data_freshness, d.confidence?.level || 'benchmark-heavy');
+  const hasEnrichment = !!d.enrichment_annotations;
+  const confLevel = computeConfidenceLevel(d.data_freshness, d.confidence?.level || 'benchmark-heavy', hasEnrichment);
 
   const chipColor = (dir: string) => dir === 'easing' ? 'var(--teal)' : (dir === 'constrained' || dir === 'increasing') ? 'var(--amber)' : 'var(--text-secondary)';
   const magDots = (m: string) => m === 'weak' ? '●' : m === 'moderate' ? '●●' : '●●●';
@@ -199,10 +227,14 @@ export function S3Card() {
   const interpretation = deriveInterpretation(drivers);
   const dominant = dominantDriver(drivers);
 
-  // Data integrity check
-  const hasStaleInputs = d.data_freshness && ['ecb_euribor', 'lithium_proxy', 'fx'].some(k => isSourceStale(d.data_freshness, k));
-  const hasEnrichment = !!d.enrichment_annotations;
-  const showIntegrityWarning = (!hasEnrichment && d.data_freshness) || (hasStaleInputs && confLevel === 'degraded');
+  // Basis timestamp + data integrity
+  const basis = basisTimestamp(d);
+  const showIntegrityWarning = confLevel === 'degraded';
+
+  // Dynamic range explanation based on driver state
+  const hvMag = drivers.find(dv => dv.component === 'hv_grid')?.magnitude;
+  const gridSpread = hvMag === 'strong' ? '±€20–40' : '±€10–25';
+  const timingSpread = drivers.some(dv => dv.magnitude === 'strong') ? '±€10' : '±€5–10';
 
   // Fallback: if no cost_profiles, show old flat number
   if (!profile) {
@@ -221,7 +253,7 @@ export function S3Card() {
       {/* 1. HEADER */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 500 }}>BESS cost &amp; technology</div>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: confLevel === 'degraded' ? 'var(--amber)' : 'var(--text-muted)', border: `1px solid ${confLevel === 'degraded' ? 'var(--amber)' : 'var(--border-card)'}`, borderRadius: '3px', padding: '1px 6px' }}>{confLevel}</span>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: confLevel.includes('degraded') ? 'var(--amber)' : 'var(--text-muted)', border: `1px solid ${confLevel.includes('degraded') ? 'var(--amber)' : 'var(--border-card)'}`, borderRadius: '3px', padding: '1px 6px' }}>{confLevel}</span>
       </div>
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '16px' }}>Installed cost reference · scope-adjusted range</div>
 
@@ -251,31 +283,32 @@ export function S3Card() {
         {d.trend && <span style={{ fontFamily: 'var(--font-mono)', fontSize: '1rem', color: d.trend.direction === 'easing' ? 'var(--teal)' : 'var(--amber)', marginLeft: '12px' }}>{d.trend.direction === 'easing' ? '↘' : d.trend.direction === 'rising' ? '↗' : '→'}</span>}
       </div>
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', marginBottom: '2px' }}>€{kwRange[0]}–{kwRange[1]} /kW @ POI</div>
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '4px' }}>installed · ex-VAT · {duration} LFP · EU turnkey · grid-{gridScope}</div>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '2px' }}>installed · ex-VAT · {duration} LFP · EU turnkey · grid-{gridScope}</div>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '2px' }}>Reference scale: 50–200MW class · Excludes: land · dev margin · financing during construction</div>
+      {basis && <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '4px' }}>Basis: updated {basis}</div>}
 
-      {/* RANGE EXPLANATION (always present with hero range) */}
+      {/* RANGE EXPLANATION (dynamic from driver state) */}
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '4px' }}>
-        Range drivers: grid ±€15–30 · supplier ±10–15% · timing ±5–10%
+        Range drivers: grid {gridSpread} · supplier ±10–15% · timing {timingSpread}
       </div>
 
-      {/* INTERPRETATION (dynamic from drivers) */}
+      {/* INTERPRETATION (dynamic, decision-relevant) */}
       {interpretation && (
-        <div style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '4px' }}>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '4px' }}>
           {interpretation}
         </div>
       )}
 
-      {/* DOMINANT VARIANCE */}
+      {/* DOMINANT VARIANCE (with operational context) */}
       {dominant && dominant.magnitude !== 'weak' && (
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '12px' }}>
-          Dominant variance: {dominant.driver} ({dominant.direction})
-          {dominant.component === 'hv_grid' && ' · likely constraint: HV equipment'}
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '4px' }}>
+          Dominant variance: {dominant.driver} {DOMINANT_CONTEXT[dominant.component] || ''}
         </div>
       )}
 
       {/* DATA INTEGRITY WARNING */}
       {showIntegrityWarning && (
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--amber)', marginBottom: '12px' }}>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--amber)', marginBottom: '4px' }}>
           ⚠ limited data quality — interpretation may be degraded
         </div>
       )}
@@ -304,6 +337,11 @@ export function S3Card() {
         );
       })()}
 
+      {/* OBSERVED SPREAD ANCHOR */}
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '12px' }}>
+        Observed spread: ~€110–300+/kWh depending on scope, scale, and procurement
+      </div>
+
       {/* 5. UNCERTAINTY + TREND + LEAD TIMES + SCALE */}
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', marginBottom: '14px' }}>
         {d.uncertainty && <div style={{ color: 'var(--text-muted)', marginBottom: '3px' }}>{d.uncertainty.range_pct} · grid scope strongest · supplier ±10–15%</div>}
@@ -319,11 +357,13 @@ export function S3Card() {
           </div>
         )}
         {d.lead_times && (() => {
-          const hvDriver = drivers.find(dv => dv.component === 'hv_grid');
-          const batteryDriver = drivers.find(dv => dv.component === 'dc_block');
-          const hvConstraint = hvDriver?.magnitude === 'strong' ? ' · likely constraint: HV equipment' : '';
-          const batteryNote = batteryDriver?.magnitude === 'weak' ? ' · battery supply not constraining' : '';
-          return <div style={{ color: 'var(--text-muted)', marginBottom: '2px' }}>Lead time: ~{d.lead_times.total_rtb_to_cod_months[0]} mo RTB→COD · HV {d.lead_times.hv_equipment_months[0]}–{d.lead_times.hv_equipment_months[1]} mo · battery {d.lead_times.battery_plus_shipping_months[0]}–{d.lead_times.battery_plus_shipping_months[1]} mo{hvConstraint}{batteryNote}</div>;
+          const hvDrv = drivers.find(dv => dv.component === 'hv_grid');
+          const batDrv = drivers.find(dv => dv.component === 'dc_block');
+          let constraint = '';
+          if (hvDrv?.magnitude === 'strong') constraint = ' · constraint: HV equipment — early procurement critical';
+          else if (hvDrv?.magnitude === 'moderate') constraint = ' · constraint: grid package — transformer lead time';
+          if (batDrv?.magnitude === 'weak' && !constraint) constraint = ' · battery supply not constraining COD';
+          return <div style={{ color: 'var(--text-muted)', marginBottom: '2px' }}>Lead time: ~{d.lead_times.total_rtb_to_cod_months[0]} mo RTB→COD · HV {d.lead_times.hv_equipment_months[0]}–{d.lead_times.hv_equipment_months[1]} mo · battery {d.lead_times.battery_plus_shipping_months[0]}–{d.lead_times.battery_plus_shipping_months[1]} mo{constraint}</div>;
         })()}
         {d.scale_effect && <div style={{ color: 'var(--text-muted)' }}>Scale: {d.scale_effect.large_over_80mw} above 80MW · {d.scale_effect.small_under_20mw} below 20MW</div>}
       </div>
@@ -403,6 +443,7 @@ export function S3Card() {
       {/* A: Transactions */}
       {d.transactions && d.transactions.length > 0 && (
         <Drawer id="transactions" title="Baltic transaction evidence" open={openDrawers.has('transactions')} onToggle={toggleDrawer}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--teal)', marginBottom: '8px' }}>Observed references (highest reliability)</div>
           <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' as unknown as undefined }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', minWidth: '400px' }}>
               <thead><tr style={{ color: 'var(--text-tertiary)', textAlign: 'left' }}>
@@ -507,6 +548,22 @@ export function S3Card() {
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', marginBottom: '10px', lineHeight: 1.6 }}>
           Installed CAPEX ex-VAT. Includes BOS. Grid scope selectable (light/heavy). Excludes: land, developer margin, financing during construction. Normalisation: €/kWh_DC and €/kW_AC @ POI. Duration-specific.
         </div>
+        {/* Confidence by layer */}
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Confidence by layer</div>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', marginBottom: '10px' }}>
+          {[
+            ['CAPEX', d.confidence?.level === 'benchmark-heavy' ? 'benchmark-heavy' : confLevel],
+            ['Drivers', hasEnrichment ? 'enrichment-based' : 'editorial fallback'],
+            ['Inputs', ['ecb_euribor', 'lithium_proxy', 'fx'].some(k => isSourceStale(d.data_freshness, k)) ? 'partially stale' : 'live'],
+            ['Transactions', (d.transactions?.length ?? 0) <= 3 ? 'sparse observed' : 'observed'],
+          ].map(([label, val]) => (
+            <div key={label as string} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+              <span style={{ color: 'var(--text-tertiary)' }}>{label}</span>
+              <span style={{ color: 'var(--text-secondary)' }}>{val}</span>
+            </div>
+          ))}
+        </div>
+
         {d.data_freshness && (
           <>
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Data freshness</div>
