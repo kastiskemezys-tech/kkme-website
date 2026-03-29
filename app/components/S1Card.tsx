@@ -15,7 +15,7 @@ import {
   Tooltip, Legend, Filler,
 } from 'chart.js';
 import { Bar, Line } from 'react-chartjs-2';
-import { CHART_COLORS, CHART_FONT, tooltipStyle } from '@/app/lib/chartTheme';
+import { CHART_COLORS, CHART_FONT, useChartColors, useTooltipStyle } from '@/app/lib/chartTheme';
 
 ChartJS.register(
   CategoryScale, LinearScale,
@@ -42,6 +42,8 @@ export function S1Card() {
   const [duration, setDuration] = useState<'2h' | '4h'>('4h');
   const [drawerKey, setDrawerKey] = useState(0);
   const openDrawer = () => setDrawerKey(k => k + 1);
+  const CC = useChartColors();
+  const ttStyle = useTooltipStyle(CC);
 
   // Fetch full capture data
   useEffect(() => {
@@ -267,7 +269,7 @@ export function S1Card() {
                   plugins: {
                     legend: { display: false },
                     tooltip: {
-                      ...tooltipStyle,
+                      ...ttStyle,
                       callbacks: {
                         title: (items) => items[0].label.toUpperCase(),
                         label: (item) => {
@@ -287,9 +289,9 @@ export function S1Card() {
                   scales: {
                     x: {
                       grid: { display: false },
-                      border: { color: 'rgba(232,226,217,0.08)' },
+                      border: { color: CC.border },
                       ticks: {
-                        color: CHART_COLORS.textMuted,
+                        color: CC.textMuted,
                         font: { family: CHART_FONT.family, size: 10 },
                         maxRotation: 0,
                         callback: (_, i) => {
@@ -299,10 +301,10 @@ export function S1Card() {
                       },
                     },
                     y: {
-                      grid: { color: CHART_COLORS.grid, lineWidth: 0.5 },
+                      grid: { color: CC.grid, lineWidth: 0.5 },
                       border: { display: false },
                       ticks: {
-                        color: CHART_COLORS.textMuted,
+                        color: CC.textMuted,
                         font: { family: CHART_FONT.family, size: 10 },
                         maxTicksLimit: 5,
                         callback: (v) => `€${v}`,
@@ -383,7 +385,7 @@ export function S1Card() {
                   plugins: {
                     legend: { display: false },
                     tooltip: {
-                      ...tooltipStyle,
+                      ...ttStyle,
                       callbacks: {
                         title: (items) => labels[items[0].dataIndex],
                         label: (item) => {
@@ -401,7 +403,7 @@ export function S1Card() {
                       grid: { display: false },
                       border: { display: false },
                       ticks: {
-                        color: CHART_COLORS.textMuted,
+                        color: CC.textMuted,
                         font: { family: CHART_FONT.family, size: 9 },
                         maxRotation: 0,
                         callback: (_: unknown, i: number) => {
@@ -412,10 +414,10 @@ export function S1Card() {
                     },
                     y: {
                       display: true,
-                      grid: { color: CHART_COLORS.grid, lineWidth: 0.5 },
+                      grid: { color: CC.grid, lineWidth: 0.5 },
                       border: { display: false },
                       ticks: {
-                        color: CHART_COLORS.textMuted,
+                        color: CC.textMuted,
                         font: { family: CHART_FONT.family, size: 9 },
                         maxTicksLimit: 3,
                         callback: (v: unknown) => `€${v}`,

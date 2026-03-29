@@ -16,7 +16,7 @@ import {
   Tooltip, Legend,
 } from 'chart.js';
 import { Bar, Chart } from 'react-chartjs-2';
-import { CHART_COLORS, CHART_FONT, tooltipStyle } from '@/app/lib/chartTheme';
+import { CHART_COLORS, CHART_FONT, useChartColors, useTooltipStyle } from '@/app/lib/chartTheme';
 
 ChartJS.register(CategoryScale, LinearScale, BarController, BarElement, LineController, LineElement, PointElement, Tooltip, Legend);
 
@@ -182,6 +182,8 @@ export function S2Card() {
     useSignal<S2Signal>(`${WORKER_URL}/s2`);
   const [drawerKey, setDrawerKey] = useState(0);
   const openDrawer = () => setDrawerKey(k => k + 1);
+  const CC = useChartColors();
+  const ttStyle = useTooltipStyle(CC);
 
   if (status === 'loading') {
     return (
@@ -461,12 +463,12 @@ export function S2Card() {
                       type: 'line' as const,
                       label: 'Operational BESS',
                       data: fleetMw,
-                      borderColor: CHART_COLORS.textSecondary,
+                      borderColor: CC.textSecondary,
                       backgroundColor: 'transparent',
                       borderWidth: 1.5,
                       borderDash: [4, 4],
                       pointRadius: 4,
-                      pointBackgroundColor: CHART_COLORS.textSecondary,
+                      pointBackgroundColor: CC.textSecondary,
                       tension: 0,
                       yAxisID: 'y1',
                       order: 1,
@@ -479,7 +481,7 @@ export function S2Card() {
                   plugins: {
                     legend: { display: false },
                     tooltip: {
-                      ...tooltipStyle,
+                      ...ttStyle,
                       callbacks: {
                         title: (items) => items[0].label,
                         label: (item) => {
@@ -493,33 +495,35 @@ export function S2Card() {
                   scales: {
                     x: {
                       grid: { display: false },
-                      border: { color: 'rgba(232,226,217,0.08)' },
+                      border: { color: CC.border },
                       ticks: {
-                        color: CHART_COLORS.textMuted,
+                        color: CC.textMuted,
                         font: { family: CHART_FONT.family, size: 11 },
                       },
                     },
                     y: {
+                      display: true,
                       position: 'left',
                       min: 0,
                       max: maxP50 * 1.15,
-                      grid: { color: CHART_COLORS.grid, lineWidth: 0.5 },
+                      grid: { color: CC.grid, lineWidth: 0.5 },
                       border: { display: false },
                       ticks: {
-                        color: CHART_COLORS.textMuted,
+                        color: CC.textMuted,
                         font: { family: CHART_FONT.family, size: 10 },
                         maxTicksLimit: 5,
                         callback: (v) => `\u20AC${Math.round(Number(v))}`,
                       },
                     },
                     y1: {
+                      display: true,
                       position: 'right',
                       min: 0,
                       max: maxMw * 1.3,
                       grid: { display: false },
                       border: { display: false },
                       ticks: {
-                        color: CHART_COLORS.textSecondary,
+                        color: CC.textSecondary,
                         font: { family: CHART_FONT.family, size: 10 },
                         maxTicksLimit: 4,
                         callback: (v) => `${v} MW`,
@@ -1032,7 +1036,7 @@ export function S2Card() {
                         plugins: {
                           legend: { display: false },
                           tooltip: {
-                            ...tooltipStyle,
+                            ...ttStyle,
                             callbacks: {
                               title: (items) => items[0].label,
                               label: (item) => {
@@ -1051,20 +1055,21 @@ export function S2Card() {
                           x: {
                             display: true,
                             grid: { display: false },
-                            border: { color: 'rgba(232,226,217,0.08)' },
+                            border: { color: CC.border },
                             ticks: {
-                              color: CHART_COLORS.textMuted,
+                              color: CC.textPrimary,
                               font: { family: CHART_FONT.family, size: 11 },
                               autoSkip: false,
                             },
                           },
                           y: {
+                            display: true,
                             max: maxSd + 0.2,
                             min: 0,
-                            grid: { color: CHART_COLORS.grid, lineWidth: 0.5 },
+                            grid: { color: CC.grid, lineWidth: 0.5 },
                             border: { display: false },
                             ticks: {
-                              color: CHART_COLORS.textMuted,
+                              color: CC.textMuted,
                               font: { family: CHART_FONT.family, size: 10 },
                               maxTicksLimit: 5,
                               callback: (v) => `${v}x`,
