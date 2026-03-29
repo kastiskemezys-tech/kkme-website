@@ -457,18 +457,15 @@ body,
   animation: cardFadeIn 0.4s ease-out both;
 }
 
-.card-panel {
-  max-height: calc(100vh - 120px);
-  overflow-y: auto !important;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
+/* Subtle scrollbars — thin, matching theme */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--text-muted) transparent;
 }
-@media (max-width: 768px) {
-  .card-panel {
-    max-height: none;
-    overflow-y: visible !important;
-  }
-}
+*::-webkit-scrollbar { width: 6px; height: 6px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: var(--text-muted); border-radius: 3px; }
+*::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); }
 
 .card-tier3 {
   background: var(--bg-card);
