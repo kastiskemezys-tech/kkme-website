@@ -87,6 +87,14 @@ interface ActivationData {
   stored_at?: string;
 }
 
+interface CapacityMonth {
+  month: string;
+  afrr_avg: number | null;
+  mfrr_avg: number | null;
+  fcr_avg: number | null;
+  days: number;
+}
+
 interface S2Signal {
   timestamp?: string | null;
   fcr_avg?: number | null;
@@ -121,6 +129,7 @@ interface S2Signal {
   eff_demand_mw?: number | null;
   product_sd?: Record<string, ProductSd> | null;
   activation?: ActivationData | null;
+  capacity_monthly?: CapacityMonth[] | null;
 }
 
 // -- Helpers ------------------------------------------------------------------
@@ -1050,6 +1059,41 @@ export function S2Card() {
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '24px' }}>
             KKME estimates from BTD procurement bid averages. Not observed clearing prices.
           </div>
+
+          {/* -- Trailing capacity price history -- */}
+          {data.capacity_monthly && data.capacity_monthly.length > 0 && (
+            <div style={{ marginBottom: '24px' }}>
+              <p style={{
+                fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+                color: 'var(--text-tertiary)', letterSpacing: '0.1em',
+                textTransform: 'uppercase', marginBottom: '8px',
+              }}>
+                Capacity price history (monthly avg)
+              </p>
+              <div style={{
+                display: 'grid', gridTemplateColumns: '60px 55px 55px 55px auto',
+                gap: '2px 10px', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+              }}>
+                <span style={{ color: 'var(--text-tertiary)', fontWeight: 500 }}>Month</span>
+                <span style={{ color: 'var(--text-tertiary)', fontWeight: 500, textAlign: 'right' }}>aFRR</span>
+                <span style={{ color: 'var(--text-tertiary)', fontWeight: 500, textAlign: 'right' }}>mFRR</span>
+                <span style={{ color: 'var(--text-tertiary)', fontWeight: 500, textAlign: 'right' }}>FCR</span>
+                <span style={{ color: 'var(--text-tertiary)', fontWeight: 500, textAlign: 'right' }}>Days</span>
+                {data.capacity_monthly.map((m: CapacityMonth) => (
+                  <div key={m.month} style={{ display: 'contents' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>{m.month}</span>
+                    <span style={{ color: 'var(--text-secondary)', textAlign: 'right' }}>{m.afrr_avg != null ? `€${m.afrr_avg}` : '—'}</span>
+                    <span style={{ color: 'var(--text-secondary)', textAlign: 'right' }}>{m.mfrr_avg != null ? `€${m.mfrr_avg}` : '—'}</span>
+                    <span style={{ color: 'var(--text-secondary)', textAlign: 'right' }}>{m.fcr_avg != null ? `€${m.fcr_avg}` : '—'}</span>
+                    <span style={{ color: 'var(--text-muted)', textAlign: 'right' }}>{m.days}</span>
+                  </div>
+                ))}
+              </div>
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '4px' }}>
+                EUR/MW/h · BTD bid averages · accumulating daily
+              </p>
+            </div>
+          )}
 
           {/* -- Fleet composition -- */}
           {allEntries.length > 0 && (

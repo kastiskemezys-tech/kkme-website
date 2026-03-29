@@ -134,12 +134,42 @@ const STATUS_WEIGHT = {
 };
 
 function processFleet(entries, demand) {
+  // Deduplicate: if two entries share a name prefix + country and MW within 10%, keep the one with more specific COD
+  const deduped = [];
+  const seen = new Set();
+  const sorted = [...entries].sort((a, b) => {
+    // Prefer entries with specific COD dates over generic ones
+    const aSpecific = a.cod && String(a.cod).includes('-') ? 1 : 0;
+    const bSpecific = b.cod && String(b.cod).includes('-') ? 1 : 0;
+    return bSpecific - aSpecific;
+  });
+  for (const e of sorted) {
+    const key = `${(e.name || '').replace(/\s*\(.*\)/, '').trim().toLowerCase()}|${e.country || 'LT'}`;
+    const existing = deduped.find(d => {
+      const dKey = `${(d.name || '').replace(/\s*\(.*\)/, '').trim().toLowerCase()}|${d.country || 'LT'}`;
+      return dKey === key && Math.abs(d.mw - e.mw) / Math.max(d.mw, e.mw) < 0.10;
+    });
+    if (existing) {
+      console.log(`[Fleet/dedup] Skipping "${e.name}" (${e.mw} MW) — duplicate of "${existing.name}" (${existing.mw} MW)`);
+      continue;
+    }
+    deduped.push(e);
+  }
+
   const countries = {};
-  for (const e of entries) {
+  // Separate BESS from other storage types for S/D computation
+  const isPumpedHydro = (e) => e.type === 'pumped_hydro' || (e.name && (e.name.includes('Kruonis') || e.name.includes('PSP')));
+  let pumped_hydro_mw = 0;
+
+  for (const e of deduped) {
     const c = e.country || 'LT';
     if (!countries[c]) countries[c] = { operational_mw: 0, pipeline_mw: 0, weighted_mw: 0, entries: [] };
     const w = STATUS_WEIGHT[e.status] || 0.1;
-    countries[c].weighted_mw += e.mw * w;
+    if (!isPumpedHydro(e)) {
+      countries[c].weighted_mw += e.mw * w;
+    } else {
+      pumped_hydro_mw += e.mw;
+    }
     if (e.status === 'operational' || e.status === 'commissioned') {
       countries[c].operational_mw += e.mw;
     } else {
@@ -204,6 +234,7 @@ function processFleet(entries, demand) {
     baltic_operational_mw: Math.round(baltic_operational),
     baltic_pipeline_mw:    Math.round(baltic_pipeline),
     baltic_weighted_mw:    Math.round(baltic_weighted),
+    pumped_hydro_mw:       Math.round(pumped_hydro_mw),
     eff_demand_mw:         eff_demand,
     sd_ratio:              Math.round(sd_ratio * 100) / 100,
     phase,
@@ -1857,13 +1888,22 @@ function s2ExtractCol(raw, pattern) {
   } catch { return []; }
 }
 
-// Recalibrated signal thresholds based on confirmed BTD data.
-// Post-sync FCR avg currently ~90 €/MW/h (Feb 2026).
-const S2_INTERPRETATION = {
-  EARLY:       (fcr) => `FCR clearing at ~€${fcr}/MW/h — post-sync price discovery regime. Early BESS assets capturing outsized capacity prices before market deepens. aFRR stack also open.`,
-  ACTIVE:      () => 'Capacity market normalising. FCR/aFRR revenue intact. Monitor for compression trend as new BESS enters.',
-  COMPRESSING: () => 'Capacity prices thinning. New BESS penetration compressing clearing prices. Revenue mix shifting toward intraday trading.',
-};
+// S2_INTERPRETATION removed — no editorial in worker responses.
+
+function computeCapacityMonthly(history) {
+  const byMonth = {};
+  for (const d of history) {
+    const m = d.date.slice(0, 7);
+    if (!byMonth[m]) byMonth[m] = { afrr: [], mfrr: [], fcr: [] };
+    if (d.afrr_up != null) byMonth[m].afrr.push(d.afrr_up);
+    if (d.mfrr_up != null) byMonth[m].mfrr.push(d.mfrr_up);
+    if (d.fcr != null) byMonth[m].fcr.push(d.fcr);
+  }
+  const avg = arr => arr.length ? Math.round(arr.reduce((s, x) => s + x, 0) / arr.length * 100) / 100 : null;
+  return Object.entries(byMonth).sort(([a], [b]) => a.localeCompare(b)).map(([month, v]) => ({
+    month, afrr_avg: avg(v.afrr), mfrr_avg: avg(v.mfrr), fcr_avg: avg(v.fcr), days: v.afrr.length,
+  }));
+}
 
 // Parse raw BTD { reserves, direction, imbalance } into a shaped S2 KV payload.
 function s2ShapePayload(reserves, direction, imbalance) {
@@ -1905,15 +1945,7 @@ function s2ShapePayload(reserves, direction, imbalance) {
   const imbalance_p90  = s2r2(s2P90(imbVals));
   const pct_above_100  = imbVals.length ? s2r2(imbVals.filter(v => v > 100).length / imbVals.length * 100) : null;
 
-  // Recalibrated thresholds (post-sync, Feb 2026 baseline ~90 €/MW/h)
-  let signal;
-  if (fcr_avg !== null) {
-    if (fcr_avg > 50)      signal = 'EARLY';
-    else if (fcr_avg >= 15) signal = 'ACTIVE';
-    else                    signal = 'COMPRESSING';
-  } else {
-    signal = 'ACTIVE';
-  }
+  // Signal classification removed — phase comes from processFleet via fleet merge
 
   // CVI — Capacity Value Index (per MW of installed battery power, 0.5 MW service each)
   // Baltic prequalification: 2 MW power per 1 MW service → 0.5 MW per MW installed
@@ -1950,11 +1982,6 @@ function s2ShapePayload(reserves, direction, imbalance) {
     cvi_afrr_eur_mw_yr,
     cvi_mfrr_eur_mw_yr,
     stress_index_p90:           imbalance_p90,
-    fcr_note:                   'FCR: 25MW Baltic market, saturating 2026',
-    signal,
-    interpretation:  signal === 'EARLY'
-      ? S2_INTERPRETATION.EARLY(fcr_avg)
-      : S2_INTERPRETATION[signal](),
     source:          'baltic.transparency-dashboard.eu',
   };
 }
@@ -3034,7 +3061,7 @@ export default {
         if (!validation.success) {
           await notifyTelegram(env, `⚠️ S2 (09:30 fetch): KV write rejected — ${validation.errors.join(' | ')}`);
         } else {
-          console.log(`[S2/0930] ${payload.signal} fcr=${payload.fcr_avg} afrr_up=${payload.afrr_up_avg} ordered=${payload.ordered_price ?? '—'}`);
+          console.log(`[S2/0930] fcr=${payload.fcr_avg} afrr_up=${payload.afrr_up_avg} ordered=${payload.ordered_price ?? '—'}`);
           await appendSignalHistory(env, 's2', { afrr_up: payload.afrr_up_avg, mfrr_up: payload.mfrr_up_avg, fcr: payload.fcr_avg }).catch(e => console.error('[S2/history]', e));
         }
       } catch (e) {
@@ -3101,8 +3128,29 @@ export default {
         console.error(`[S2] KV write rejected: ${validation.errors.join(' | ')}`);
         await notifyTelegram(env, `⚠️ S2: KV write rejected (BTD data invalid) — ${validation.errors.join(' | ')}`).catch(() => {});
       } else {
-        console.log(`[S2] ${payload.signal} fcr=${payload.fcr_avg} afrr_up=${payload.afrr_up_avg} ordered=${payload.ordered_price ?? '—'}`);
+        console.log(`[S2] fcr=${payload.fcr_avg} afrr_up=${payload.afrr_up_avg} ordered=${payload.ordered_price ?? '—'}`);
         await appendSignalHistory(env, 's2', { afrr_up: payload.afrr_up_avg, mfrr_up: payload.mfrr_up_avg, fcr: payload.fcr_avg }).catch(e => console.error('[S2/history]', e));
+
+        // Accumulate daily BTD capacity prices for trailing 12-month analysis
+        try {
+          const histRaw = await env.KKME_SIGNALS.get('s2_btd_history').catch(() => null);
+          const hist = histRaw ? JSON.parse(histRaw) : [];
+          const today = new Date().toISOString().slice(0, 10);
+          if (!hist.some(h => h.date === today)) {
+            hist.push({
+              date: today,
+              fcr: payload.fcr_avg,
+              afrr_up: payload.afrr_up_avg,
+              mfrr_up: payload.mfrr_up_avg,
+            });
+          }
+          const cutoff = new Date(Date.now() - 365 * 86400000).toISOString().slice(0, 10);
+          const trimmed = hist.filter(h => h.date >= cutoff).sort((a, b) => a.date.localeCompare(b.date));
+          await env.KKME_SIGNALS.put('s2_btd_history', JSON.stringify(trimmed));
+          console.log(`[S2/btd-history] ${trimmed.length} days`);
+        } catch (e) {
+          console.error('[S2/btd-history]', String(e));
+        }
       }
     } else {
       console.error('[S2] cron failed:', s2Result.reason);
@@ -3619,10 +3667,11 @@ export default {
     // Merges BTD capacity data + fleet S/D ratio data + activation clearing prices.
     if (request.method === 'GET' && url.pathname === '/s2') {
       try {
-        const [cached, fleetRaw, activationRaw] = await Promise.all([
+        const [cached, fleetRaw, activationRaw, btdHistRaw] = await Promise.all([
           env.KKME_SIGNALS.get('s2'),
           env.KKME_SIGNALS.get('s2_fleet').catch(() => null),
           env.KKME_SIGNALS.get('s2_activation').catch(() => null),
+          env.KKME_SIGNALS.get('s2_btd_history').catch(() => null),
         ]);
         const base = cached
           ? JSON.parse(cached)
@@ -3670,6 +3719,13 @@ export default {
             };
           } catch (e) {
             console.error('[S2/activation merge]', String(e));
+          }
+        }
+        if (btdHistRaw) {
+          try {
+            base.capacity_monthly = computeCapacityMonthly(JSON.parse(btdHistRaw));
+          } catch (e) {
+            console.error('[S2/capacity_monthly]', String(e));
           }
         }
         return new Response(JSON.stringify(base), {
