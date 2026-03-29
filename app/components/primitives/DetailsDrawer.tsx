@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, type ReactNode } from 'react';
+import { useState, useEffect, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
 interface DetailsDrawerProps {
@@ -14,12 +14,34 @@ interface DetailsDrawerProps {
 export function DetailsDrawer({ label = 'Details', defaultOpen = false, children, portalId }: DetailsDrawerProps) {
   const [open, setOpen] = useState(defaultOpen);
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+  const prevOpen = useRef(defaultOpen);
 
+  // Find portal target — re-check periodically since SignalDrawerPanel renders lazily
   useEffect(() => {
-    if (portalId) {
-      setPortalTarget(document.getElementById(portalId));
-    }
-  }, [portalId]);
+    if (!portalId) return;
+    const find = () => {
+      const el = document.getElementById(portalId);
+      if (el) setPortalTarget(el);
+      return !!el;
+    };
+    if (find()) return;
+    // Poll briefly for lazy-rendered portal targets
+    const iv = setInterval(() => { if (find()) clearInterval(iv); }, 100);
+    return () => clearInterval(iv);
+  }, [portalId, open]);
+
+  // Dispatch signal-drawer events for the tabbed panel
+  useEffect(() => {
+    if (!portalId) return;
+    // Only dispatch on actual state changes, not initial mount
+    if (open === prevOpen.current) return;
+    prevOpen.current = open;
+
+    const signal = portalId.includes('s1') ? 's1' : 's2';
+    window.dispatchEvent(new CustomEvent('signal-drawer', {
+      detail: { signal, action: open ? 'open' : 'close' },
+    }));
+  }, [open, portalId]);
 
   const drawerContent = (
     <div style={{
@@ -29,8 +51,8 @@ export function DetailsDrawer({ label = 'Details', defaultOpen = false, children
     }}>
       <div style={{
         paddingTop: '16px',
-        borderTop: '1px solid var(--border-card)',
-        marginTop: '8px',
+        borderTop: portalId ? 'none' : '1px solid var(--border-card)',
+        marginTop: portalId ? '0' : '8px',
       }}>
         {children}
       </div>

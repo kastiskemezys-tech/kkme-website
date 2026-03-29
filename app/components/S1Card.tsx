@@ -95,7 +95,7 @@ export function S1Card() {
   const spread = data.spread_eur_mwh;
 
   return (
-    <article style={{ width: '100%', display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <article style={{ width: '100%', display: 'flex', flexDirection: 'column', flex: 1 }}>
       {/* HEADER */}
       <div style={{ marginBottom: '16px' }}>
         <h3
@@ -533,7 +533,7 @@ export function S1Card() {
 
       {/* DETAILS DRAWER */}
       <div style={{ marginTop: '16px' }}>
-        <DetailsDrawer key={drawerKey} label="View signal breakdown" defaultOpen={drawerKey > 0} portalId="signal-drawer-portal">
+        <DetailsDrawer key={drawerKey} label="View signal breakdown" defaultOpen={drawerKey > 0} portalId="signal-drawer-s1">
 
           {/* ── Capture detail ── */}
           <p style={{

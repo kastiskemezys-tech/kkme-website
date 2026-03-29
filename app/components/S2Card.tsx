@@ -272,7 +272,7 @@ export function S2Card() {
     : null;
 
   return (
-    <article style={{ width: '100%', display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <article style={{ width: '100%', display: 'flex', flexDirection: 'column', flex: 1 }}>
       {/* -- HEADER -- */}
       <div style={{ marginBottom: '16px' }}>
         <h3
@@ -654,7 +654,7 @@ export function S2Card() {
       {/* -- DETAILS DRAWER -- */}
       {/* ================================================================== */}
       <div style={{ marginTop: '20px' }}>
-        <DetailsDrawer key={drawerKey} label="View signal breakdown" defaultOpen={drawerKey > 0} portalId="signal-drawer-portal">
+        <DetailsDrawer key={drawerKey} label="View signal breakdown" defaultOpen={drawerKey > 0} portalId="signal-drawer-s2">
 
           {/* -- 1. Activation detail · Lithuania · monthly -- */}
           {ltMonthlyAfrr && (

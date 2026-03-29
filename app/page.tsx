@@ -6,6 +6,7 @@ import { ErrorBoundary } from '@/app/components/ErrorBoundary';
 import { HeroMarketNow } from '@/app/components/HeroMarketNow';
 import StickyNav from '@/app/components/StickyNav';
 import { PageInteractions } from '@/app/components/PageInteractions';
+import { SignalDrawerPanel } from '@/app/components/SignalDrawerPanel';
 
 // Below-fold: lazy-loaded via dynamic import to reduce initial bundle
 const S3Card = dynamic(() => import('@/app/components/S3Card').then(m => m.S3Card));
@@ -44,14 +45,14 @@ export default function Home() {
             <p style={{ fontFamily: 'DM Mono, monospace', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Day-ahead price capture and balancing market revenue — capacity reservation, activation energy, and DA arbitrage.</p>
           </div>
           <div className="grid-2">
-            <div className="card card-tier1" style={{ alignSelf: 'stretch' }}>
+            <div className="card card-tier1" style={{ alignSelf: 'stretch', display: 'flex', flexDirection: 'column' }}>
               <CardBoundary signal="S1"><S1Card /></CardBoundary>
             </div>
-            <div className="card-tier1-feature" style={{ alignSelf: 'stretch' }}>
+            <div className="card-tier1-feature" style={{ alignSelf: 'stretch', display: 'flex', flexDirection: 'column' }}>
               <CardBoundary signal="S2"><S2Card /></CardBoundary>
             </div>
           </div>
-          <div id="signal-drawer-portal" />
+          <SignalDrawerPanel />
         </div>
 
         {/* ═══ BUILD SIGNALS ═══ */}
