@@ -233,7 +233,7 @@ export function S2Card() {
     .filter(e => e.type === 'tso_bess')
     .reduce((s, e) => s + (e.mw ?? 0), 0);
   const pumpedMw = allEntries
-    .filter(e => e.type === 'pumped_hydro' || e.name?.includes('Kruonis PSP'))
+    .filter(e => e.type === 'pumped_hydro')
     .reduce((s, e) => s + (e.mw ?? 0), 0);
   const commercialMw = (opMw ?? 0) - tsoMw - pumpedMw;
 
@@ -297,7 +297,7 @@ export function S2Card() {
           color: 'var(--text-secondary)',
           lineHeight: 1.6,
         }}>
-          Activation clearing, capacity reservation, and fleet competition in Baltic balancing markets.
+          Activation clearing and capacity reservation in Baltic balancing markets.
         </p>
       </div>
 
@@ -852,8 +852,8 @@ export function S2Card() {
           {/* -- 4. Fleet tracker -- */}
           {allEntries.length > 0 && (() => {
             const tsoEntries = allEntries.filter(e => e.type === 'tso_bess');
-            const otherEntries = allEntries.filter(e => e.type === 'pumped_hydro' || e.name?.includes('Kruonis PSP'));
-            const commercialEntries = allEntries.filter(e => e.type !== 'tso_bess' && e.type !== 'pumped_hydro' && !e.name?.includes('Kruonis PSP'));
+            const otherEntries = allEntries.filter(e => e.type === 'pumped_hydro');
+            const commercialEntries = allEntries.filter(e => e.type !== 'tso_bess' && e.type !== 'pumped_hydro');
             const renderFleetRow = (e: FleetEntry, i: number) => (
               <div
                 key={e.id ?? `${e.name}-${i}`}

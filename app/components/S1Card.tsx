@@ -363,8 +363,8 @@ export function S1Card() {
                   labels,
                   datasets: [{
                     data: prices,
-                    borderColor: CHART_COLORS.textSecondary ?? 'rgba(232,226,217,0.5)',
-                    borderWidth: 1.5,
+                    borderColor: 'rgba(120,118,112,0.7)',
+                    borderWidth: 2,
                     pointRadius: prices.map((_: number, i: number) =>
                       chargeSet.has(i) || dischargeSet.has(i) ? 2.5 : 0
                     ),

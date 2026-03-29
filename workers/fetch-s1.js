@@ -158,7 +158,7 @@ function processFleet(entries, demand) {
 
   const countries = {};
   // Separate BESS from other storage types for S/D computation
-  const isNonCommercial = (e) => e.type === 'pumped_hydro' || e.type === 'tso_bess' || (e.name && (e.name.includes('Kruonis') || e.name.includes('PSP')));
+  const isNonCommercial = (e) => e.type === 'pumped_hydro' || e.type === 'tso_bess';
   let non_commercial_mw = 0;
 
   for (const e of deduped) {
@@ -4376,7 +4376,7 @@ export default {
               source_url: 'https://www.litgrid.eu/',
               assets: [
                 { id: 'e-energija', name: 'E energija BESS', mw: 65, mwh: 130, status: 'operational', source_url: 'https://www.litgrid.eu/' },
-                { id: 'kruonis-psp', name: 'Kruonis PSP', mw: 205, status: 'operational', tech: 'pumped_hydro', note: 'DRR resource — FCR/aFRR suppression until ~2028-02' },
+                { id: 'kruonis-psp', name: 'Kruonis PSP', mw: 205, status: 'operational', type: 'pumped_hydro', note: 'DRR resource — FCR/aFRR suppression until ~2028-02' },
                 { id: 'litgrid-bess-3', name: 'Third commercial 30MW BESS', mw: 30, status: 'operational', source_url: d.storage_reference?.source_url },
               ],
             },
