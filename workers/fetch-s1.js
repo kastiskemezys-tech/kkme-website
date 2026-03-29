@@ -188,10 +188,12 @@ function processFleet(entries, demand) {
   const product_sd = {};
   for (const [prod, dem] of Object.entries(PRODUCT_DEMAND)) {
     const r = dem > 0 ? baltic_weighted / dem : null;
+    const rounded = r !== null ? Math.round(r * 100) / 100 : null;
     product_sd[prod] = {
       demand_mw: dem,
       supply_mw: Math.round(baltic_weighted),
-      ratio: r !== null ? Math.round(r * 100) / 100 : null,
+      ratio: rounded,
+      sd_ratio: rounded,
       phase: r === null ? null : r < 0.6 ? 'SCARCITY' : r < 1.0 ? 'COMPRESS' : 'MATURE',
     };
   }

@@ -6,14 +6,14 @@ interface DataClassBadgeProps {
   dataClass: DataClass
 }
 
-const STYLES: Record<string, { color: string; border: string; label: string }> = {
-  observed:  { color: 'var(--teal)',          border: 'var(--teal)',         label: 'observed' },
-  derived:   { color: 'var(--text-tertiary)', border: 'var(--border-card)',  label: 'derived' },
-  proxy:     { color: 'var(--amber)',         border: 'var(--amber)',        label: 'proxy \u26A0' },
-  modeled:   { color: 'var(--text-tertiary)', border: 'var(--border-card)',  label: 'modeled' },
-  reference:          { color: 'var(--text-muted)',    border: 'var(--border-card)',  label: 'reference' },
-  reference_estimate: { color: 'var(--amber)',         border: 'var(--amber)',        label: 'ref estimate' },
-  editorial:          { color: 'var(--text-muted)',    border: 'var(--border-card)',  label: 'editorial' },
+const STYLES: Record<string, { color: string; border: string; label: string; bg?: string; borderStyle?: string }> = {
+  observed:           { color: '#fff',               border: 'var(--teal)',          label: 'observed',     bg: 'var(--teal)' },
+  derived:            { color: 'var(--teal)',         border: 'var(--teal)',          label: 'derived' },
+  proxy:              { color: 'var(--amber)',        border: 'var(--amber)',         label: 'proxy \u26A0', bg: 'var(--amber-bg)' },
+  modeled:            { color: 'var(--text-muted)',   border: 'var(--border-highlight)', label: 'modeled',  borderStyle: 'dashed' },
+  reference:          { color: 'var(--text-muted)',   border: 'var(--border-card)',   label: 'reference' },
+  reference_estimate: { color: 'var(--text-muted)',   border: 'var(--border-card)',   label: 'ref estimate', bg: 'var(--bg-elevated)' },
+  editorial:          { color: 'var(--text-muted)',   border: 'var(--border-card)',   label: 'editorial' },
 };
 
 export function DataClassBadge({ dataClass }: DataClassBadgeProps) {
@@ -23,11 +23,12 @@ export function DataClassBadge({ dataClass }: DataClassBadgeProps) {
       fontSize: '0.6rem',
       fontFamily: 'var(--font-mono)',
       color: s.color,
-      border: `1px solid ${s.border}`,
+      border: `1px ${s.borderStyle ?? 'solid'} ${s.border}`,
+      backgroundColor: s.bg ?? 'transparent',
       padding: '1px 6px',
       borderRadius: 2,
       whiteSpace: 'nowrap',
-      opacity: 0.8,
+      opacity: s.bg === 'var(--teal)' ? 1 : 0.8,
       marginLeft: 6,
     }}>
       {s.label}

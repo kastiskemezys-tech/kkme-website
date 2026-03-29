@@ -37,10 +37,10 @@ export default function Home() {
         {/* ═══ HERO / MARKET NOW ═══ */}
         <HeroMarketNow />
 
-        {/* ═══ REVENUE OPPORTUNITY ═══ */}
+        {/* ═══ REVENUE SIGNALS ═══ */}
         <div className="section" id="revenue-drivers">
           <div style={{ marginBottom: '32px' }}>
-            <h2 className="section-header" style={{ marginBottom: '6px' }}>Revenue opportunity</h2>
+            <h2 className="section-header" style={{ marginBottom: '6px' }}>Revenue signals</h2>
             <p style={{ fontFamily: 'DM Mono, monospace', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Day-ahead price capture and balancing market revenue — capacity reservation, activation energy, and DA arbitrage.</p>
           </div>
           <div className="grid-2">

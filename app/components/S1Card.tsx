@@ -11,15 +11,15 @@ import {
 import {
   Chart as ChartJS,
   CategoryScale, LinearScale,
-  BarElement, PointElement, LineElement,
+  BarElement, PointElement, LineElement, LineController,
   Tooltip, Legend, Filler,
 } from 'chart.js';
-import { Bar } from 'react-chartjs-2';
+import { Bar, Line } from 'react-chartjs-2';
 import { CHART_COLORS, CHART_FONT, tooltipStyle } from '@/app/lib/chartTheme';
 
 ChartJS.register(
   CategoryScale, LinearScale,
-  BarElement, PointElement, LineElement,
+  BarElement, PointElement, LineElement, LineController,
   Tooltip, Legend, Filler
 );
 
@@ -167,7 +167,7 @@ export function S1Card() {
       {/* HERO METRIC — gross capture */}
       <div style={{ marginBottom: '4px' }}>
         <MetricTile
-          label={`Gross DA capture (${duration})`}
+          label={`Gross DA capture (${duration}) · today`}
           value={grossToday != null ? `€${safeNum(grossToday, 1)}` : '—'}
           unit="/MWh"
           size="hero"
@@ -176,13 +176,16 @@ export function S1Card() {
         />
         {/* €/MW/day — revenue intensity for reference asset */}
         {grossToday != null && (
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
-            €{Math.round(grossToday * (duration === '2h' ? 2 : 4)).toLocaleString()}/MW/day gross · {duration === '2h' ? '50MW/100MWh' : '50MW/200MWh'} reference
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', marginTop: '4px' }}>
+            €{Math.round(grossToday * (duration === '2h' ? 2 : 4)).toLocaleString()}/MW/day gross
+            <span style={{ color: 'var(--text-muted)', marginLeft: '8px' }}>
+              {duration === '2h' ? '50MW/100MWh' : '50MW/200MWh'} reference
+            </span>
           </div>
         )}
       </div>
 
-      {/* TRAILING 12-MONTH RANGE — percentile bar replaces StatusChip */}
+      {/* TRAILING 12-MONTH RANGE */}
       {(() => {
         const monthlyAvgs = monthly.map(m =>
           duration === '4h' ? m.avg_gross_4h : m.avg_gross_2h
@@ -327,56 +330,109 @@ export function S1Card() {
         );
       })()}
 
-      {/* PRICE SHAPE STRIP — today's hourly profile */}
-      {shape && shape.hourly_profile && shape.hourly_profile.length >= 12 && (() => {
-        const profile = shape.hourly_profile;
-        const maxP = Math.max(...profile);
-        const minP = Math.min(...profile);
-        const range = maxP - minP || 1;
+      {/* TODAY'S PRICE SHAPE — sparkline */}
+      {(() => {
+        const prices: number[] | undefined = (data as unknown as Record<string, unknown>).today_prices_15min as number[] | undefined ?? data.hourly_lt;
+        if (!prices || prices.length < 12) return null;
+
+        const n = prices.length;
+        const intervalMin = Math.round(24 * 60 / n);
+        const sorted = [...prices].map((p, i) => ({ p, i })).sort((a, b) => a.p - b.p);
+        const k = Math.max(1, Math.round((duration === '4h' ? 4 : 2) * 60 / intervalMin));
+        const chargeSet = new Set(sorted.slice(0, k).map(e => e.i));
+        const dischargeSet = new Set(sorted.slice(-k).map(e => e.i));
+
+        const labels = prices.map((_: number, i: number) => {
+          const h = Math.floor(i * intervalMin / 60);
+          const m = (i * intervalMin) % 60;
+          return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+        });
 
         return (
           <div style={{ margin: '12px 0' }}>
-            <p style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: 'var(--font-xs)',
-              color: 'var(--text-tertiary)',
-              letterSpacing: '0.04em',
-              marginBottom: '6px',
+            <div style={{
+              fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+              color: 'var(--text-tertiary)', letterSpacing: '0.06em',
+              textTransform: 'uppercase', marginBottom: '6px',
             }}>
-              Today&apos;s DA price shape
-            </p>
-            <div style={{ display: 'flex', gap: '1px', alignItems: 'flex-end', height: '32px' }}>
-              {profile.map((p: number, i: number) => {
-                const h = Math.max(4, ((p - minP) / range) * 28);
-                const isCharge = p <= minP + range * 0.15;
-                const isDischarge = p >= maxP - range * 0.15;
-                return (
-                  <div
-                    key={i}
-                    style={{
-                      flex: 1,
-                      height: `${h}px`,
-                      background: isCharge ? 'var(--teal)' :
-                        isDischarge ? 'var(--amber)' : 'var(--bg-elevated)',
-                      opacity: isCharge || isDischarge ? 0.8 : 1,
-                      borderRadius: '1px',
-                    }}
-                    title={`${String(i).padStart(2, '0')}:00 — €${p}/MWh`}
-                  />
-                );
-              })}
+              Today&apos;s price shape · {n > 24 ? '15-min' : 'hourly'} · Lithuania
+            </div>
+            <div style={{ position: 'relative', height: '80px' }}>
+              <Line
+                data={{
+                  labels,
+                  datasets: [{
+                    data: prices,
+                    borderColor: CHART_COLORS.textSecondary ?? 'rgba(232,226,217,0.5)',
+                    borderWidth: 1,
+                    pointRadius: prices.map((_: number, i: number) =>
+                      chargeSet.has(i) || dischargeSet.has(i) ? 2.5 : 0
+                    ),
+                    pointBackgroundColor: prices.map((_: number, i: number) =>
+                      chargeSet.has(i) ? CHART_COLORS.teal :
+                      dischargeSet.has(i) ? CHART_COLORS.amber : 'transparent'
+                    ),
+                    pointBorderWidth: 0,
+                    fill: false,
+                    tension: 0.2,
+                  }],
+                }}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                      ...tooltipStyle,
+                      callbacks: {
+                        title: (items) => labels[items[0].dataIndex],
+                        label: (item) => {
+                          const i = item.dataIndex;
+                          const role = chargeSet.has(i) ? ' (charge)' :
+                            dischargeSet.has(i) ? ' (discharge)' : '';
+                          return `€${(item.raw as number).toFixed(1)}/MWh${role}`;
+                        },
+                      },
+                    },
+                  },
+                  scales: {
+                    x: {
+                      display: true,
+                      grid: { display: false },
+                      border: { display: false },
+                      ticks: {
+                        color: CHART_COLORS.textMuted,
+                        font: { family: CHART_FONT.family, size: 9 },
+                        maxRotation: 0,
+                        callback: (_: unknown, i: number) => {
+                          if (n > 48) return i % 16 === 0 ? labels[i] : '';
+                          return i % 4 === 0 ? labels[i] : '';
+                        },
+                      },
+                    },
+                    y: {
+                      display: true,
+                      grid: { color: CHART_COLORS.grid, lineWidth: 0.5 },
+                      border: { display: false },
+                      ticks: {
+                        color: CHART_COLORS.textMuted,
+                        font: { family: CHART_FONT.family, size: 9 },
+                        maxTicksLimit: 3,
+                        callback: (v: unknown) => `€${v}`,
+                      },
+                    },
+                  },
+                }}
+              />
             </div>
             <div style={{
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              marginTop: '4px',
+              display: 'flex', gap: '12px', marginTop: '4px',
               fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
             }}>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <span style={{ color: 'var(--teal)' }}>■ Charge</span>
-                <span style={{ color: 'var(--amber)' }}>■ Discharge</span>
-              </div>
-              <span style={{ color: 'var(--text-muted)' }}>
-                Peak-to-trough €{safeNum(shape.swing, 0)}/MWh
+              <span style={{ color: CHART_COLORS.teal }}>● Charge ({k} cheapest)</span>
+              <span style={{ color: CHART_COLORS.amber }}>● Discharge ({k} most expensive)</span>
+              <span style={{ color: 'var(--text-muted)', marginLeft: 'auto' }}>
+                Swing €{safeNum(swing, 0)}/MWh
               </span>
             </div>
           </div>
@@ -387,12 +443,17 @@ export function S1Card() {
       <div style={{
         fontFamily: 'var(--font-mono)',
         fontSize: 'var(--font-xs)',
-        color: 'var(--text-muted)',
+        color: 'var(--text-secondary)',
         lineHeight: 1.5,
-        marginBottom: '8px',
-        paddingLeft: '12px',
-        borderLeft: '1px solid var(--amber-subtle)',
+        marginBottom: '12px',
+        padding: '12px 16px',
+        borderLeft: '2px solid var(--amber)',
+        background: 'var(--bg-elevated)',
+        borderRadius: '0 4px 4px 0',
       }}>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px', fontWeight: 500 }}>
+          Not included
+        </div>
         Gross DA capture only. Excludes: reserve drag, partial cycles, RTE losses, intraday re-optimization, grid fees, imbalance risk.
       </div>
 
@@ -495,7 +556,7 @@ export function S1Card() {
                 </div>
 
                 {/* Friction estimates — not included in net capture above */}
-                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '6px' }}>
+                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.08em', marginBottom: '6px' }}>
                   Not included in net capture
                 </p>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', marginBottom: '8px' }}>
@@ -514,7 +575,7 @@ export function S1Card() {
                   ))}
                 </div>
                 <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.4, marginBottom: '20px' }}>
-                  Realized capture is typically 40–65% of gross. Show ranges — do not compute a single net number from estimates.
+                  Realized capture is typically 40–65% of gross, depending on asset-specific factors.
                 </p>
               </>
             );
@@ -555,7 +616,7 @@ export function S1Card() {
               </>
             )}
           </div>
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '20px', lineHeight: 1.5 }}>
+          <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', marginBottom: '20px', lineHeight: 1.5 }}>
             LT-SE4 spread reflects interconnector price coupling. Wider spread = more DA arbitrage opportunity for LT-connected BESS. Spread narrows when NordBalt flows freely.
           </p>
 
@@ -580,12 +641,22 @@ export function S1Card() {
                     });
                     navigator.clipboard.writeText([header, ...rows].join('\n'));
                   }}
-                  title="Copy as TSV table"
-                  style={{ all: 'unset', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', opacity: 0.5, transition: 'opacity 0.15s' }}
-                  onMouseEnter={e => (e.currentTarget.style.opacity = '0.8')}
-                  onMouseLeave={e => (e.currentTarget.style.opacity = '0.5')}
+                  title="Copy table as TSV"
+                  style={{
+                    all: 'unset',
+                    cursor: 'pointer',
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: 'var(--font-xs)',
+                    color: 'var(--text-muted)',
+                    padding: '2px 8px',
+                    border: '1px solid var(--border-card)',
+                    borderRadius: '2px',
+                    transition: 'all 0.15s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-highlight)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-card)'; e.currentTarget.style.color = 'var(--text-muted)'; }}
                 >
-                  📋 copy
+                  Copy
                 </button>
               </div>
               <div style={{
@@ -633,7 +704,7 @@ export function S1Card() {
           <p style={{
             fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
             color: 'var(--text-tertiary)', letterSpacing: '0.1em',
-            textTransform: 'uppercase', marginBottom: '6px',
+            marginBottom: '6px',
           }}>
             Market context · Q1 2026
           </p>
@@ -663,8 +734,8 @@ export function S1Card() {
             Methodology
           </p>
           <p style={{
-            fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
-            color: 'var(--text-muted)', lineHeight: 1.5, opacity: 0.6, marginBottom: '12px',
+            fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)',
+            color: 'var(--text-muted)', lineHeight: 1.5, opacity: 0.8, marginBottom: '12px',
           }}>
             Perfect-foresight sort-and-dispatch on LT DA prices ({captureData?.resolution ?? '15min'} resolution where available, hourly for data before mid-2025). Picks cheapest {duration === '2h' ? '2' : '4'} hours to charge, most expensive {duration === '2h' ? '2' : '4'} to discharge. Single cycle per day. RTE {duration === '2h' ? '87.5' : '87.0'}% (assumed). This is gross market opportunity from observed prices — not realized asset revenue. Does not model reserve commitment, partial cycles, or intraday re-optimization.
           </p>
@@ -681,19 +752,11 @@ export function S1Card() {
           }}>
             energy-charts.info · ENTSO-E A44 day-ahead prices · Nord Pool
           </p>
-          <p style={{
-            fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
-            color: 'var(--text-muted)', letterSpacing: '0.1em',
-            textTransform: 'uppercase', marginBottom: '4px', opacity: 0.7,
-          }}>
-            Use this data
-          </p>
-          <p style={{
-            fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
-            color: 'var(--text-muted)', lineHeight: 1.5, opacity: 0.6,
-          }}>
-            API: curl kkme-fetch-s1.kastis-kemezys.workers.dev/s1/capture
-          </p>
+          <DetailsDrawer label="Use this data">
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.5, opacity: 0.6 }}>
+              curl kkme-fetch-s1.kastis-kemezys.workers.dev/s1/capture
+            </p>
+          </DetailsDrawer>
         </DetailsDrawer>
       </div>
     </article>
