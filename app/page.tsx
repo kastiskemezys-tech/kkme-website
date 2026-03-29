@@ -46,14 +46,12 @@ export default function Home() {
           <div className="grid-2" style={{ alignItems: 'start' }}>
             <div className="card card-tier1">
               <CardBoundary signal="S1"><S1Card /></CardBoundary>
-              <div style={{ marginTop: '24px', padding: '16px', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', opacity: 0.4, borderTop: '1px solid var(--border-card)' }}>
-                <p style={{ margin: 0 }}>DA capture feeds into the revenue engine alongside balancing data →</p>
-              </div>
             </div>
             <div className="card-tier1-feature">
               <CardBoundary signal="S2"><S2Card /></CardBoundary>
             </div>
           </div>
+          <div id="signal-drawer-portal" />
         </div>
 
         {/* ═══ BUILD SIGNALS ═══ */}

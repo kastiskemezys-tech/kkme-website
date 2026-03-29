@@ -651,7 +651,7 @@ export function S2Card() {
       {/* -- DETAILS DRAWER -- */}
       {/* ================================================================== */}
       <div style={{ marginTop: '20px' }}>
-        <DetailsDrawer key={drawerKey} label="View signal breakdown" defaultOpen={drawerKey > 0}>
+        <DetailsDrawer key={drawerKey} label="View signal breakdown" defaultOpen={drawerKey > 0} portalId="signal-drawer-portal">
 
           {/* -- 1. Activation detail · Lithuania · monthly -- */}
           {ltMonthlyAfrr && (
