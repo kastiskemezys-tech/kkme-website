@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useIsDesktop } from '@/app/lib/useIsDesktop';
 
 interface SignalDrawerEvent {
   signal: 's1' | 's2';
@@ -9,6 +10,7 @@ interface SignalDrawerEvent {
 
 export function SignalDrawerPanel() {
   const [activeTab, setActiveTab] = useState<'s1' | 's2' | null>(null);
+  const isDesktop = useIsDesktop();
 
   const handleEvent = useCallback((e: Event) => {
     const { signal, action } = (e as CustomEvent<SignalDrawerEvent>).detail;
@@ -31,7 +33,7 @@ export function SignalDrawerPanel() {
     return () => window.removeEventListener('signal-drawer', handleEvent);
   }, [handleEvent]);
 
-  if (!activeTab) return null;
+  if (!activeTab || !isDesktop) return null;
 
   return (
     <div style={{

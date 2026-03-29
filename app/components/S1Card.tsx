@@ -16,6 +16,7 @@ import {
 } from 'chart.js';
 import { Bar, Line } from 'react-chartjs-2';
 import { CHART_COLORS, CHART_FONT, useChartColors, useTooltipStyle } from '@/app/lib/chartTheme';
+import { useIsDesktop } from '@/app/lib/useIsDesktop';
 
 ChartJS.register(
   CategoryScale, LinearScale,
@@ -44,6 +45,7 @@ export function S1Card() {
   const openDrawer = () => setDrawerKey(k => k + 1);
   const CC = useChartColors();
   const ttStyle = useTooltipStyle(CC);
+  const isDesktop = useIsDesktop();
 
   // Fetch full capture data
   useEffect(() => {
@@ -533,7 +535,7 @@ export function S1Card() {
 
       {/* DETAILS DRAWER */}
       <div style={{ marginTop: '16px' }}>
-        <DetailsDrawer key={drawerKey} label="View signal breakdown" defaultOpen={drawerKey > 0} portalId="signal-drawer-s1">
+        <DetailsDrawer key={drawerKey} label="View signal breakdown" defaultOpen={drawerKey > 0} portalId={isDesktop ? 'signal-drawer-s1' : undefined}>
 
           {/* ── Capture detail ── */}
           <p style={{

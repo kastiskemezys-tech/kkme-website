@@ -17,6 +17,7 @@ import {
 } from 'chart.js';
 import { Bar, Chart } from 'react-chartjs-2';
 import { CHART_COLORS, CHART_FONT, useChartColors, useTooltipStyle } from '@/app/lib/chartTheme';
+import { useIsDesktop } from '@/app/lib/useIsDesktop';
 
 ChartJS.register(CategoryScale, LinearScale, BarController, BarElement, LineController, LineElement, PointElement, Tooltip, Legend);
 
@@ -184,6 +185,7 @@ export function S2Card() {
   const openDrawer = () => setDrawerKey(k => k + 1);
   const CC = useChartColors();
   const ttStyle = useTooltipStyle(CC);
+  const isDesktop = useIsDesktop();
 
   if (status === 'loading') {
     return (
@@ -654,7 +656,7 @@ export function S2Card() {
       {/* -- DETAILS DRAWER -- */}
       {/* ================================================================== */}
       <div style={{ marginTop: '20px' }}>
-        <DetailsDrawer key={drawerKey} label="View signal breakdown" defaultOpen={drawerKey > 0} portalId="signal-drawer-s2">
+        <DetailsDrawer key={drawerKey} label="View signal breakdown" defaultOpen={drawerKey > 0} portalId={isDesktop ? 'signal-drawer-s2' : undefined}>
 
           {/* -- 1. Activation detail · Lithuania · monthly -- */}
           {ltMonthlyAfrr && (
