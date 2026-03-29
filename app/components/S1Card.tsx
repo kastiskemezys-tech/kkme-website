@@ -441,23 +441,83 @@ export function S1Card() {
         );
       })()}
 
-      {/* EXCLUDED ITEMS BOX */}
-      <div style={{
-        fontFamily: 'var(--font-mono)',
-        fontSize: 'var(--font-xs)',
-        color: 'var(--text-secondary)',
-        lineHeight: 1.5,
-        marginBottom: '12px',
-        padding: '12px 16px',
-        borderLeft: '2px solid var(--amber)',
-        background: 'var(--bg-elevated)',
-        borderRadius: '0 4px 4px 0',
-      }}>
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px', fontWeight: 500 }}>
-          Not included
+      {/* MONTHLY CAPTURE TABLE */}
+      {monthly.length > 0 && (
+        <div style={{ marginTop: '16px' }}>
+          <div style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-xs)',
+            color: 'var(--text-tertiary)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.06em',
+            marginBottom: '8px',
+          }}>
+            Monthly capture ({duration})
+          </div>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'auto 1fr 1fr',
+            gap: '2px 12px',
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-sm)',
+          }}>
+            {monthly.slice(-6).map(m => {
+              const gVal = duration === '4h' ? m.avg_gross_4h : m.avg_gross_2h;
+              return (
+                <div key={m.month} style={{ display: 'contents' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>
+                    {new Date(m.month + '-01').toLocaleDateString('en-GB', { month: 'short', year: '2-digit' })}
+                  </span>
+                  <span style={{ color: 'var(--text-secondary)', textAlign: 'right' }}>
+                    {gVal != null ? `€${Math.round(gVal)}` : '—'}
+                  </span>
+                  <span style={{ color: 'var(--text-muted)', textAlign: 'right' }}>
+                    {m.days}d
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </div>
-        Gross DA capture only. Excludes: reserve drag, partial cycles, RTE losses, intraday re-optimization, grid fees, imbalance risk.
-      </div>
+      )}
+
+      {/* CHARGE / DISCHARGE SUMMARY */}
+      {(() => {
+        const capDetail = duration === '2h' ? captureData?.capture_2h : captureData?.capture_4h;
+        if (!capDetail) return null;
+        return (
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: '8px',
+            marginTop: '16px',
+            padding: '12px',
+            background: 'var(--bg-elevated)',
+            borderRadius: '4px',
+          }}>
+            <div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--teal)', textTransform: 'uppercase', marginBottom: '4px' }}>Charge</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.125rem', color: 'var(--text-primary)' }}>
+                €{safeNum(capDetail.avg_charge, 1)}
+                <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginLeft: '2px' }}>/MWh</span>
+              </div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>
+                avg of {duration === '4h' ? 4 : 2}h cheapest · today
+              </div>
+            </div>
+            <div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--amber)', textTransform: 'uppercase', marginBottom: '4px' }}>Discharge</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.125rem', color: 'var(--text-primary)' }}>
+                €{safeNum(capDetail.avg_discharge, 1)}
+                <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginLeft: '2px' }}>/MWh</span>
+              </div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>
+                avg of {duration === '4h' ? 4 : 2}h most expensive · today
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Spacer pushes footer to bottom when card stretches */}
       <div style={{ flex: 1 }} />
