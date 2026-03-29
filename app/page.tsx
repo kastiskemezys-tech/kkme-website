@@ -43,11 +43,11 @@ export default function Home() {
             <h2 className="section-header" style={{ marginBottom: '6px' }}>Revenue signals</h2>
             <p style={{ fontFamily: 'DM Mono, monospace', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Day-ahead price capture and balancing market revenue — capacity reservation, activation energy, and DA arbitrage.</p>
           </div>
-          <div className="grid-2" style={{ alignItems: 'start' }}>
-            <div className="card card-tier1">
+          <div className="grid-2">
+            <div className="card card-tier1" style={{ alignSelf: 'stretch' }}>
               <CardBoundary signal="S1"><S1Card /></CardBoundary>
             </div>
-            <div className="card-tier1-feature">
+            <div className="card-tier1-feature" style={{ alignSelf: 'stretch' }}>
               <CardBoundary signal="S2"><S2Card /></CardBoundary>
             </div>
           </div>

@@ -95,7 +95,7 @@ export function S1Card() {
   const spread = data.spread_eur_mwh;
 
   return (
-    <article style={{ width: '100%' }}>
+    <article style={{ width: '100%', display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* HEADER */}
       <div style={{ marginBottom: '16px' }}>
         <h3
@@ -458,6 +458,9 @@ export function S1Card() {
         </div>
         Gross DA capture only. Excludes: reserve drag, partial cycles, RTE losses, intraday re-optimization, grid fees, imbalance risk.
       </div>
+
+      {/* Spacer pushes footer to bottom when card stretches */}
+      <div style={{ flex: 1 }} />
 
       {/* SOURCE FOOTER */}
       <button type="button" onClick={openDrawer} style={{ all: 'unset', display: 'block', width: '100%', cursor: 'pointer' }}>

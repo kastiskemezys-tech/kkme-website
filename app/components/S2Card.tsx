@@ -272,7 +272,7 @@ export function S2Card() {
     : null;
 
   return (
-    <article style={{ width: '100%' }}>
+    <article style={{ width: '100%', display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* -- HEADER -- */}
       <div style={{ marginBottom: '16px' }}>
         <h3
@@ -623,6 +623,9 @@ export function S2Card() {
 
       {/* -- SIGNAL INTEL -- */}
       <SignalIntel signalId="S2" />
+
+      {/* Spacer pushes footer to bottom when card stretches */}
+      <div style={{ flex: 1 }} />
 
       {/* -- SOURCE FOOTER -- */}
       <button type="button" onClick={openDrawer} style={{ all: 'unset', display: 'block', width: '100%', cursor: 'pointer' }}>
