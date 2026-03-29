@@ -33,6 +33,7 @@ interface FleetEntry {
   cod?: number | null;
   country?: string;
   tso?: string;
+  type?: string;
 }
 
 interface FleetCountry {
@@ -146,7 +147,9 @@ function pressureTrend(trajectory: TrajectoryPoint[] | null | undefined, current
   return `${delta > 0 ? '+' : ''}${delta.toFixed(2)}`;
 }
 
-// Fleet MW timeline -- hardcoded from KKME fleet tracker
+// Fleet MW by month (Oct 25 – Mar 26) derived from COD dates in fleet entries.
+// TODO: compute from fleet data rather than hardcoding — values will drift as fleet updates.
+// Source: KKME fleet tracker operational MW at month-end.
 const FLEET_MW_TIMELINE: Record<string, number> = {
   '2025-10': 27, '2025-11': 27, '2025-12': 87,
   '2026-01': 127, '2026-02': 227, '2026-03': 227,
@@ -225,11 +228,12 @@ export function S2Card() {
     .sort((a, b) => (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9));
 
   // Fleet category totals for face summary
+  // Type-based filtering: prevents misclassification (e.g. "Energy Cells (Kruonis)" is tso_bess, not pumped_hydro)
   const tsoMw = allEntries
-    .filter(e => e.name?.includes('Energy Cells') || e.name?.includes('AST BESS'))
+    .filter(e => e.type === 'tso_bess')
     .reduce((s, e) => s + (e.mw ?? 0), 0);
   const pumpedMw = allEntries
-    .filter(e => e.name?.includes('Kruonis') || e.name?.includes('PSP'))
+    .filter(e => e.type === 'pumped_hydro' || e.name?.includes('Kruonis PSP'))
     .reduce((s, e) => s + (e.mw ?? 0), 0);
   const commercialMw = (opMw ?? 0) - tsoMw - pumpedMw;
 
@@ -249,6 +253,20 @@ export function S2Card() {
   const mfrrMonthVals = ltMonthlyMfrr ? Object.values(ltMonthlyMfrr) : [];
   const mfrrDelta = mfrrMonthVals.length >= 2
     ? mfrrMonthVals[mfrrMonthVals.length - 1].p50 - mfrrMonthVals[mfrrMonthVals.length - 2].p50
+    : null;
+
+  // Latest month values (prefer over 6-month median for hero display)
+  const latestAfrrP50 = compressionTraj && compressionTraj.afrr_lt_p50.length > 0
+    ? compressionTraj.afrr_lt_p50[compressionTraj.afrr_lt_p50.length - 1]
+    : null;
+  const latestMfrrP50 = mfrrMonthVals.length > 0
+    ? mfrrMonthVals[mfrrMonthVals.length - 1].p50
+    : null;
+  const latestAfrrMonth = compressionTraj && compressionTraj.months.length > 0
+    ? formatMonth(compressionTraj.months[compressionTraj.months.length - 1])
+    : null;
+  const latestMfrrMonth = ltMonthlyMfrr
+    ? formatMonth(Object.keys(ltMonthlyMfrr).slice(-1)[0])
     : null;
 
   return (
@@ -306,7 +324,7 @@ export function S2Card() {
             gap: '12px',
             marginBottom: '8px',
           }}>
-            {ltAct.afrr_p50 != null && (
+            {(latestAfrrP50 != null || ltAct.afrr_p50 != null) && (
               <div style={{
                 padding: '14px 16px',
                 borderLeft: '3px solid var(--teal)',
@@ -315,12 +333,12 @@ export function S2Card() {
               }}>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', marginBottom: '2px' }}>
                   <span style={{ fontFamily: 'Unbounded, sans-serif', fontSize: '1.25rem', color: 'var(--text-primary)' }}>
-                    {'\u20AC'}{Math.round(ltAct.afrr_p50)}
+                    {'\u20AC'}{Math.round(latestAfrrP50 ?? ltAct.afrr_p50!)}
                   </span>
                   <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginLeft: '4px' }}>/MWh</span>
                 </div>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>
-                  aFRR median clearing {'\u00b7'} {ltAct.afrr_rate != null ? Math.round(ltAct.afrr_rate * 100) : '?'}% activation rate
+                  aFRR median clearing {'\u00b7'} {latestAfrrMonth ?? 'latest'} {'\u00b7'} {ltAct.afrr_rate != null ? Math.round(ltAct.afrr_rate * 100) : '?'}% activation rate
                 </div>
                 {recentAfrrCount != null && (
                   <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
@@ -329,15 +347,17 @@ export function S2Card() {
                 )}
                 {afrrDelta != null && Math.abs(afrrDelta) >= 1 && (
                   <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: afrrDelta <= 0 ? 'var(--teal-strong)' : 'var(--rose)', marginTop: '2px' }}>
-                    {afrrDelta > 0 ? '+' : ''}{Math.round(afrrDelta)} vs prev month
+                    {'\u20AC'}{afrrDelta > 0 ? '+' : ''}{Math.round(afrrDelta)}/MWh vs prev month
                   </div>
                 )}
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '4px' }}>
-                  6-month median {'\u00b7'} Oct 25 {'\u2013'} Mar 26
-                </div>
+                {ltAct.afrr_p50 != null && latestAfrrP50 != null && (
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '4px' }}>
+                    6-month median {'\u20AC'}{Math.round(ltAct.afrr_p50)} {'\u00b7'} Oct 25 {'\u2013'} Mar 26
+                  </div>
+                )}
               </div>
             )}
-            {ltAct.mfrr_p50 != null && (
+            {(latestMfrrP50 != null || ltAct.mfrr_p50 != null) && (
               <div style={{
                 padding: '14px 16px',
                 borderLeft: '3px solid var(--amber)',
@@ -346,12 +366,12 @@ export function S2Card() {
               }}>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', marginBottom: '2px' }}>
                   <span style={{ fontFamily: 'Unbounded, sans-serif', fontSize: '1.25rem', color: 'var(--text-primary)' }}>
-                    {'\u20AC'}{Math.round(ltAct.mfrr_p50)}
+                    {'\u20AC'}{Math.round(latestMfrrP50 ?? ltAct.mfrr_p50!)}
                   </span>
                   <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginLeft: '4px' }}>/MWh</span>
                 </div>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>
-                  mFRR median clearing {'\u00b7'} {ltAct.mfrr_rate != null ? Math.round(ltAct.mfrr_rate * 100) : '?'}% activation rate
+                  mFRR median clearing {'\u00b7'} {latestMfrrMonth ?? 'latest'} {'\u00b7'} {ltAct.mfrr_rate != null ? Math.round(ltAct.mfrr_rate * 100) : '?'}% activation rate
                 </div>
                 {recentMfrrCount != null && (
                   <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
@@ -360,12 +380,14 @@ export function S2Card() {
                 )}
                 {mfrrDelta != null && Math.abs(mfrrDelta) >= 1 && (
                   <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: mfrrDelta <= 0 ? 'var(--teal-strong)' : 'var(--rose)', marginTop: '2px' }}>
-                    {mfrrDelta > 0 ? '+' : ''}{Math.round(mfrrDelta)} vs prev month
+                    {'\u20AC'}{mfrrDelta > 0 ? '+' : ''}{Math.round(mfrrDelta)}/MWh vs prev month
                   </div>
                 )}
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '4px' }}>
-                  6-month median {'\u00b7'} Oct 25 {'\u2013'} Mar 26
-                </div>
+                {ltAct.mfrr_p50 != null && latestMfrrP50 != null && (
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '4px' }}>
+                    6-month median {'\u20AC'}{Math.round(ltAct.mfrr_p50)} {'\u00b7'} Oct 25 {'\u2013'} Mar 26
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -559,7 +581,7 @@ export function S2Card() {
         }}>
           <div style={{ padding: '6px 10px', borderLeft: '2px dashed rgba(239,159,39,0.3)' }}>
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>
-              {data.afrr_up_avg != null ? safeNum(data.afrr_up_avg, 0) : '--'} <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>EUR/MW/h</span>
+              {data.afrr_up_avg != null ? safeNum(data.afrr_up_avg, 1) : '--'} <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>EUR/MW/h</span>
             </div>
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
               aFRR reservation <DataClassBadge dataClass="reference_estimate" />
@@ -570,7 +592,7 @@ export function S2Card() {
           </div>
           <div style={{ padding: '6px 10px', borderLeft: '2px dashed rgba(239,159,39,0.3)' }}>
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>
-              {data.mfrr_up_avg != null ? safeNum(data.mfrr_up_avg, 0) : '--'} <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>EUR/MW/h</span>
+              {data.mfrr_up_avg != null ? safeNum(data.mfrr_up_avg, 1) : '--'} <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>EUR/MW/h</span>
             </div>
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
               mFRR reservation <DataClassBadge dataClass="reference_estimate" />
@@ -829,9 +851,9 @@ export function S2Card() {
 
           {/* -- 4. Fleet tracker -- */}
           {allEntries.length > 0 && (() => {
-            const commercialEntries = allEntries.filter(e => !e.name?.includes('Kruonis') && !e.name?.includes('PSP') && !e.name?.includes('Energy Cells') && !e.name?.includes('AST BESS'));
-            const tsoEntries = allEntries.filter(e => e.name?.includes('Energy Cells') || e.name?.includes('AST BESS'));
-            const otherEntries = allEntries.filter(e => e.name?.includes('Kruonis') || e.name?.includes('PSP'));
+            const tsoEntries = allEntries.filter(e => e.type === 'tso_bess');
+            const otherEntries = allEntries.filter(e => e.type === 'pumped_hydro' || e.name?.includes('Kruonis PSP'));
+            const commercialEntries = allEntries.filter(e => e.type !== 'tso_bess' && e.type !== 'pumped_hydro' && !e.name?.includes('Kruonis PSP'));
             const renderFleetRow = (e: FleetEntry, i: number) => (
               <div
                 key={e.id ?? `${e.name}-${i}`}
@@ -998,7 +1020,7 @@ export function S2Card() {
                     alignItems: 'center',
                     gap: '8px',
                   }}>
-                    S/D ratio trajectory (projected)
+                    S/D ratio trajectory (scenario)
                     <DataClassBadge dataClass="modeled" />
                   </p>
                   <div style={{ position: 'relative', height: '160px' }}>
@@ -1027,11 +1049,13 @@ export function S2Card() {
                         },
                         scales: {
                           x: {
+                            display: true,
                             grid: { display: false },
                             border: { color: 'rgba(232,226,217,0.08)' },
                             ticks: {
                               color: CHART_COLORS.textMuted,
                               font: { family: CHART_FONT.family, size: 11 },
+                              autoSkip: false,
                             },
                           },
                           y: {
@@ -1080,7 +1104,7 @@ export function S2Card() {
                       <span><span style={{ color: CHART_COLORS.amber }}>{'\u25A0'}</span> S/D 0.6-1.0</span>
                       <span><span style={{ color: CHART_COLORS.rose }}>{'\u25A0'}</span> S/D &gt; 1.0</span>
                     </div>
-                    <span>S/D ratio (projected) <DataClassBadge dataClass="modeled" /></span>
+                    <span>S/D ratio (scenario) <DataClassBadge dataClass="modeled" /></span>
                   </div>
                   <p style={{
                     fontFamily: 'var(--font-mono)',
@@ -1088,7 +1112,7 @@ export function S2Card() {
                     color: 'var(--text-muted)',
                     marginTop: '4px',
                   }}>
-                    Projection: +0.15 S/D per year from new fleet entrants. CPI modeled separately (floor 0.30, see methodology).
+                    Scenario assumes: +0.15 S/D per year from new fleet entrants. CPI modeled separately (floor 0.30, see methodology).
                   </p>
                 </div>
               );
@@ -1128,7 +1152,7 @@ export function S2Card() {
                     if (ps.ratio == null) return null;
                     const maxDisplay = 5;
                     const barPct = Math.min(100, (ps.ratio / maxDisplay) * 100);
-                    const color = ps.ratio < 1.0 ? 'var(--teal)' : ps.ratio < 2.0 ? 'var(--amber)' : 'var(--rose)';
+                    const color = ps.ratio < 1.0 ? 'var(--teal)' : ps.ratio < 2.0 ? 'var(--amber)' : ps.ratio > 5.0 ? 'var(--text-muted)' : 'var(--rose)';
                     return (
                       <div key={prod} style={{ marginBottom: '8px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', marginBottom: '2px' }}>

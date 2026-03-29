@@ -364,7 +364,7 @@ export function S1Card() {
                   datasets: [{
                     data: prices,
                     borderColor: CHART_COLORS.textSecondary ?? 'rgba(232,226,217,0.5)',
-                    borderWidth: 1,
+                    borderWidth: 1.5,
                     pointRadius: prices.map((_: number, i: number) =>
                       chargeSet.has(i) || dischargeSet.has(i) ? 2.5 : 0
                     ),
@@ -487,7 +487,7 @@ export function S1Card() {
                 {netToday != null ? `€${safeNum(netToday, 1)}` : '—'} <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>/MWh</span>
               </div>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
-                Net capture ({duration}) after RTE
+                Net capture ({duration}) after RTE · today
               </div>
             </div>
             {rolling && (
@@ -506,7 +506,7 @@ export function S1Card() {
                   €{safeNum(swing, 0)} <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>/MWh</span>
                 </div>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  Peak-to-trough swing
+                  Peak-to-trough swing · today
                 </div>
               </div>
             )}
@@ -516,20 +516,25 @@ export function S1Card() {
                   {String(shape.peak_hour).padStart(2, '0')}:00 / {String(shape.trough_hour).padStart(2, '0')}:00
                 </div>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  Peak / trough hour
+                  Peak / trough hour · today
                 </div>
               </div>
             )}
           </div>
 
           {/* ── Gross-to-net bridge ── */}
-          {captureData?.gross_to_net && captureData.gross_to_net.length > 0 && (() => {
-            // net_eur_mwh = avg_discharge - avg_charge / RTE
-            // "per MWh discharged" convention (Modo/Clean Horizon standard)
-            const rte = duration === '2h' ? 0.875 : 0.87;
-            const sellPrice = captureData.gross_to_net.find(l => l.type === 'base' && l.label.includes('sell'))?.value
-              ?? captureData.gross_to_net.find(l => l.type === 'base')?.value;
-            const buyPrice = captureData.gross_to_net.find(l => l.label.toLowerCase().includes('buy') || l.label.toLowerCase().includes('charge'))?.value;
+          {(() => {
+            // Build bridge from duration-specific capture data (worker gross_to_net is 2h-only)
+            const capDetail = duration === '2h' ? captureData?.capture_2h : captureData?.capture_4h;
+            if (!capDetail) return null;
+
+            const rte = capDetail.rte ?? (duration === '2h' ? 0.875 : 0.87);
+            const rteLoss = -Math.round((capDetail.avg_charge / rte - capDetail.avg_charge) * 100) / 100;
+            const bridgeLines: { label: string; value: number; type: 'base' | 'deduction' | 'result'; annotation: string }[] = [
+              { label: `Gross spread (${duration})`, value: capDetail.gross_eur_mwh, type: 'base', annotation: 'observed' },
+              { label: `RTE loss (${duration})`, value: rteLoss, type: 'deduction', annotation: `Round-trip efficiency ×${rte}` },
+              { label: `Net capture (${duration})`, value: capDetail.net_eur_mwh, type: 'result', annotation: 'derived' },
+            ];
 
             return (
               <>
@@ -537,7 +542,7 @@ export function S1Card() {
                   Gross-to-net bridge ({duration}, per MWh discharged)
                 </p>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', marginBottom: '8px' }}>
-                  {captureData.gross_to_net.map((line, i) => (
+                  {bridgeLines.map((line, i) => (
                     <div key={i} style={{
                       display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0',
                       color: line.type === 'result' ? 'var(--text-secondary)' : line.type === 'deduction' ? 'var(--rose)' : 'var(--text-secondary)',
@@ -547,7 +552,7 @@ export function S1Card() {
                       <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         {line.label}
                         <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', opacity: 0.7 }}>
-                          {line.type === 'base' ? 'observed' : line.type === 'deduction' ? '1/RTE × charge cost' : 'derived'}
+                          {line.annotation}
                         </span>
                       </span>
                       <span>{line.value >= 0 ? '' : '−'}€{safeNum(Math.abs(line.value), 2)}/MWh</span>
