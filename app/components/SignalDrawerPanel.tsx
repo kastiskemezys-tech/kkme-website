@@ -52,10 +52,17 @@ export function SignalDrawerPanel() {
           <button
             key={tab.id}
             onClick={() => {
-              setActiveTab(tab.id);
-              window.dispatchEvent(new CustomEvent('signal-drawer-request', {
-                detail: { signal: tab.id },
-              }));
+              if (activeTab === tab.id) {
+                setActiveTab(null);
+                window.dispatchEvent(new CustomEvent('signal-drawer-request', {
+                  detail: { signal: tab.id, action: 'close' },
+                }));
+              } else {
+                setActiveTab(tab.id);
+                window.dispatchEvent(new CustomEvent('signal-drawer-request', {
+                  detail: { signal: tab.id },
+                }));
+              }
             }}
             style={{
               flex: 1,

@@ -35,8 +35,13 @@ export function DetailsDrawer({ label = 'Details', defaultOpen = false, children
     if (!portalId) return;
     const signal = portalId.includes('s1') ? 's1' : 's2';
     const handler = (e: Event) => {
-      if ((e as CustomEvent).detail?.signal === signal && !open) {
-        setOpen(true);
+      const detail = (e as CustomEvent).detail;
+      if (detail?.signal === signal) {
+        if (detail.action === 'close') {
+          setOpen(false);
+        } else if (!open) {
+          setOpen(true);
+        }
       }
     };
     window.addEventListener('signal-drawer-request', handler);
