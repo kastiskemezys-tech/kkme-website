@@ -158,17 +158,17 @@ function processFleet(entries, demand) {
 
   const countries = {};
   // Separate BESS from other storage types for S/D computation
-  const isPumpedHydro = (e) => e.type === 'pumped_hydro' || (e.name && (e.name.includes('Kruonis') || e.name.includes('PSP')));
-  let pumped_hydro_mw = 0;
+  const isNonCommercial = (e) => e.type === 'pumped_hydro' || e.type === 'tso_bess' || (e.name && (e.name.includes('Kruonis') || e.name.includes('PSP')));
+  let non_commercial_mw = 0;
 
   for (const e of deduped) {
     const c = e.country || 'LT';
     if (!countries[c]) countries[c] = { operational_mw: 0, pipeline_mw: 0, weighted_mw: 0, entries: [] };
     const w = STATUS_WEIGHT[e.status] || 0.1;
-    if (!isPumpedHydro(e)) {
+    if (!isNonCommercial(e)) {
       countries[c].weighted_mw += e.mw * w;
     } else {
-      pumped_hydro_mw += e.mw;
+      non_commercial_mw += e.mw;
     }
     if (e.status === 'operational' || e.status === 'commissioned') {
       countries[c].operational_mw += e.mw;
@@ -180,11 +180,11 @@ function processFleet(entries, demand) {
   const baltic_operational = Object.values(countries).reduce((s, c) => s + c.operational_mw, 0);
   const baltic_weighted    = Object.values(countries).reduce((s, c) => s + c.weighted_mw, 0);
   const baltic_pipeline    = Object.values(countries).reduce((s, c) => s + c.pipeline_mw, 0);
-  const eff_demand = demand?.eff_demand_mw || 1190;
+  const eff_demand = demand?.eff_demand_mw || 752;
   const sd_ratio   = baltic_weighted / eff_demand;
 
   // Per-product S/D ratios — worst-case stress view (all fleet allocated to single product)
-  const PRODUCT_DEMAND = { fcr: 25, afrr: 170, mfrr: 700 };
+  const PRODUCT_DEMAND = { fcr: 28, afrr: 120, mfrr: 604 };
   const product_sd = {};
   for (const [prod, dem] of Object.entries(PRODUCT_DEMAND)) {
     const r = dem > 0 ? baltic_weighted / dem : null;
@@ -234,7 +234,7 @@ function processFleet(entries, demand) {
     baltic_operational_mw: Math.round(baltic_operational),
     baltic_pipeline_mw:    Math.round(baltic_pipeline),
     baltic_weighted_mw:    Math.round(baltic_weighted),
-    pumped_hydro_mw:       Math.round(pumped_hydro_mw),
+    non_commercial_mw:     Math.round(non_commercial_mw),
     eff_demand_mw:         eff_demand,
     sd_ratio:              Math.round(sd_ratio * 100) / 100,
     phase,

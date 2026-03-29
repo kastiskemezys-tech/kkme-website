@@ -165,9 +165,9 @@ function productPhaseColor(phase: string | null): string {
 }
 
 function productPhaseLabel(phase: string | null): string {
-  if (phase === 'SCARCITY') return '< 0.6\u00D7';
-  if (phase === 'COMPRESS') return '0.6\u20131.0\u00D7';
-  if (phase === 'MATURE') return '> 1.0\u00D7';
+  if (phase === 'SCARCITY') return '< 0.6×';
+  if (phase === 'COMPRESS') return '0.6–1.0×';
+  if (phase === 'MATURE') return '> 1.0×';
   return '\u2014';
 }
 
@@ -282,7 +282,7 @@ export function S2Card() {
               unit="×"
               size="hero"
               dataClass="derived"
-              sublabel="below 1.0\u00D7 = TSO procurement exceeds fleet capacity"
+              sublabel="below 1.0× = TSO procurement exceeds fleet capacity"
             />
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', padding: '2px 8px', border: '1px solid var(--border-card)', borderRadius: '2px' }}>
               {data.phase ?? '\u2014'}
@@ -524,7 +524,7 @@ export function S2Card() {
                         color: CHART_COLORS.textMuted,
                         font: { family: CHART_FONT.family, size: 10 },
                         maxTicksLimit: 5,
-                        callback: (v) => `EUR${v}`,
+                        callback: (v) => `€${Math.round(Number(v))}`,
                       },
                     },
                     y1: {
@@ -714,7 +714,7 @@ export function S2Card() {
                     <div key={prod} style={{ marginBottom: '8px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', marginBottom: '2px' }}>
                         <span style={{ color: 'var(--text-secondary)', textTransform: 'uppercase' }}>{prod}</span>
-                        <span style={{ color }}>{ps.ratio.toFixed(1)}{'\u00D7'} {'\u00B7'} {ps.demand_mw} MW procured</span>
+                        <span style={{ color }}>{ps.ratio.toFixed(1)}× · {ps.demand_mw} MW procured</span>
                       </div>
                       <div style={{ height: '6px', background: 'var(--bg-elevated)', borderRadius: '3px', overflow: 'hidden' }}>
                         <div style={{ height: '100%', width: `${barPct}%`, background: color, borderRadius: '3px', transition: 'width 300ms ease' }} />
@@ -729,7 +729,7 @@ export function S2Card() {
                 color: 'var(--text-muted)',
                 marginTop: '6px',
               }}>
-                Demand: FCR 25 MW (BBCM), aFRR 170 MW, mFRR 700 MW (Elering Oct 2025). Supply: {productSd.fcr?.supply_mw ?? '--'} MW weighted fleet.
+                Demand: FCR 28 MW, aFRR 120 MW, mFRR 604 MW (Elering 2026). Supply: {productSd.fcr?.supply_mw ?? '--'} MW weighted commercial fleet.
               </p>
             </div>
           )}
@@ -874,9 +874,11 @@ export function S2Card() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)' }}>
               {[
                 { label: 'Baltic sync', date: 'Feb 2025', note: 'Disconnection from BRELL, synchronization with Continental Europe' },
-                { label: '15-min ISP', date: 'Oct 2025', note: 'Settlement period halved — aFRR/mFRR market structure changed' },
-                { label: 'BESS fleet ramp', date: 'Q4 2025+', note: 'Operational fleet grew from ~27 MW to ~227 MW in 6 months' },
-                { label: 'MARI go-live', date: 'TBC 2027', note: 'mFRR platform integration — Baltic prices converge to EU range' },
+                { label: 'MARI go-live', date: 'Oct 2024', note: 'Baltic TSOs joined mFRR platform (ENTSO-E)' },
+                { label: '15-min intraday', date: 'Dec 2024', note: 'Baltic intraday trading on 15-min MTU (Nord Pool)' },
+                { label: '15-min DA', date: 'Oct 2025', note: 'Day-ahead across SDAC on 15-min trading periods' },
+                { label: 'BESS fleet ramp', date: 'Q4 2025+', note: 'Commercial fleet grew from ~27 MW to ~460+ MW in 6 months' },
+                { label: 'TSO phase-out', date: '2026-2028', note: 'Energy Cells + AST BESS to be replaced by commercial market' },
               ].map(r => (
                 <div key={r.label} style={{ display: 'flex', gap: '8px' }}>
                   <span style={{ color: 'var(--text-muted)', minWidth: '90px' }}>{r.date}</span>
@@ -984,7 +986,7 @@ export function S2Card() {
                 }}>
                   {trajectory.map(pt => (
                     <span key={pt.year} style={{ textAlign: 'center', flex: 1 }}>
-                      {pt.cpi != null ? pt.cpi.toFixed(2) : ''}
+                      {pt.sd_ratio.toFixed(2)}×
                     </span>
                   ))}
                 </div>
@@ -1002,7 +1004,7 @@ export function S2Card() {
                     <span><span style={{ color: CHART_COLORS.amber }}>■</span> S/D 0.6-1.0</span>
                     <span><span style={{ color: CHART_COLORS.rose }}>■</span> S/D &gt; 1.0</span>
                   </div>
-                  <span>CPI = capacity price index <DataClassBadge dataClass="modeled" /></span>
+                  <span>S/D ratio (projected) <DataClassBadge dataClass="modeled" /></span>
                 </div>
                 <p style={{
                   fontFamily: 'var(--font-mono)',
@@ -1010,7 +1012,7 @@ export function S2Card() {
                   color: 'var(--text-muted)',
                   marginTop: '4px',
                 }}>
-                  Projection: 0.15 S/D growth per year from new fleet entrants. CPI floor 0.40 (Baltic structural reserve need).
+                  Projection: +0.15 S/D per year from new fleet entrants. CPI modeled separately (floor 0.30, see methodology).
                 </p>
               </div>
             );
@@ -1061,7 +1063,7 @@ export function S2Card() {
           </div>
 
           {/* -- Trailing capacity price history -- */}
-          {data.capacity_monthly && data.capacity_monthly.length > 0 && (
+          {data.capacity_monthly && data.capacity_monthly.length >= 3 && (
             <div style={{ marginBottom: '24px' }}>
               <p style={{
                 fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
@@ -1096,7 +1098,44 @@ export function S2Card() {
           )}
 
           {/* -- Fleet composition -- */}
-          {allEntries.length > 0 && (
+          {allEntries.length > 0 && (() => {
+            const commercialEntries = allEntries.filter(e => !e.name?.includes('Kruonis') && !e.name?.includes('PSP') && !e.name?.includes('Energy Cells') && !e.name?.includes('AST BESS'));
+            const tsoEntries = allEntries.filter(e => e.name?.includes('Energy Cells') || e.name?.includes('AST BESS'));
+            const otherEntries = allEntries.filter(e => e.name?.includes('Kruonis') || e.name?.includes('PSP'));
+            const renderFleetRow = (e: FleetEntry, i: number) => (
+              <div
+                key={e.id ?? `${e.name}-${i}`}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr auto auto auto',
+                  gap: '0 8px',
+                  alignItems: 'baseline',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 'var(--font-xs)',
+                }}
+              >
+                <span style={{ color: 'var(--text-secondary)' }}>
+                  {e.name}
+                  {e.name.includes('Eesti Energia') && e.status === 'commissioned' && (
+                    <span style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)', marginLeft: '4px' }}>(likely duplicate)</span>
+                  )}
+                </span>
+                <span style={{ color: 'var(--text-muted)', textAlign: 'right' }}>{e.mw} MW</span>
+                <span style={{
+                  color: (e.status === 'operational' || e.status === 'commissioned') ? 'var(--teal-strong)' :
+                    e.status === 'under_construction' ? 'var(--amber)' : 'var(--text-muted)',
+                  textAlign: 'right',
+                  minWidth: '80px',
+                }}>
+                  {e.status.replace(/_/g, ' ')}
+                </span>
+                <span style={{ color: 'var(--text-muted)', textAlign: 'right' }}>
+                  {e.cod ? `COD ${e.cod}` : ''}
+                  {e.country ? ` · ${e.country}` : ''}
+                </span>
+              </div>
+            );
+            return (
             <div style={{ marginBottom: '24px' }}>
               <p style={{
                 fontFamily: 'var(--font-mono)',
@@ -1108,48 +1147,41 @@ export function S2Card() {
               }}>
                 Baltic BESS fleet ({allEntries.length})
               </p>
-              <div style={{ maxHeight: '320px', overflowY: 'auto' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  {allEntries.map((e, i) => (
-                    <div
-                      key={e.id ?? `${e.name}-${i}`}
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: '1fr auto auto auto',
-                        gap: '0 8px',
-                        alignItems: 'baseline',
-                        fontFamily: 'var(--font-mono)',
-                        fontSize: 'var(--font-xs)',
-                      }}
-                    >
-                      <span style={{ color: 'var(--text-secondary)' }}>
-                        {e.name}
-                        {(e.name.includes('Kruonis') || e.name.includes('PSP')) && (
-                          <span style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)', marginLeft: '4px' }}>(pumped hydro)</span>
-                        )}
-                        {e.name.includes('Eesti Energia') && e.status === 'commissioned' && (
-                          <span style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)', marginLeft: '4px' }}>(likely duplicate)</span>
-                        )}
-                      </span>
-                      <span style={{ color: 'var(--text-muted)', textAlign: 'right' }}>{e.mw} MW</span>
-                      <span style={{
-                        color: (e.status === 'operational' || e.status === 'commissioned') ? 'var(--teal-strong)' :
-                          e.status === 'under_construction' ? 'var(--amber)' : 'var(--text-muted)',
-                        textAlign: 'right',
-                        minWidth: '80px',
-                      }}>
-                        {e.status.replace(/_/g, ' ')}
-                      </span>
-                      <span style={{ color: 'var(--text-muted)', textAlign: 'right' }}>
-                        {e.cod ? `COD ${e.cod}` : ''}
-                        {e.country ? ` · ${e.country}` : ''}
-                      </span>
+              <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                {commercialEntries.length > 0 && (
+                  <div style={{ marginBottom: '12px' }}>
+                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                      Commercial ({commercialEntries.length})
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      {commercialEntries.map(renderFleetRow)}
                     </div>
-                  ))}
-                </div>
+                  </div>
+                )}
+                {tsoEntries.length > 0 && (
+                  <div style={{ marginBottom: '12px' }}>
+                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                      TSO-owned (excluded from S/D) ({tsoEntries.length})
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      {tsoEntries.map(renderFleetRow)}
+                    </div>
+                  </div>
+                )}
+                {otherEntries.length > 0 && (
+                  <div style={{ marginBottom: '12px' }}>
+                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                      Pumped hydro (excluded from S/D) ({otherEntries.length})
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      {otherEntries.map(renderFleetRow)}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
-          )}
+            );
+          })()}
 
           {/* -- Nested price detail drawer -- */}
           <div style={{ marginBottom: '24px' }}>
@@ -1235,7 +1267,7 @@ export function S2Card() {
               <strong style={{ color: 'var(--text-tertiary)' }}>Modeled:</strong> CPI (capacity price index) computed from piecewise S/D-to-price function. Floor 0.40, slope 0.08. Reflects fleet trajectory assumptions, not market clearing.
             </p>
             <p style={{ margin: 0 }}>
-              <strong style={{ color: 'var(--text-tertiary)' }}>Derived:</strong> S/D ratio, per-product S/D, compression trajectory — KKME computations from observed inputs. Methodology: weighted fleet / effective demand (1,190 MW = 1,700 MW x 0.70 stacking factor, Elering Oct 2025).
+              <strong style={{ color: 'var(--text-tertiary)' }}>Derived:</strong> S/D ratio, per-product S/D, compression trajectory — KKME computations from observed inputs. Methodology: weighted fleet / effective demand (752 MW effective demand: FCR 28 + aFRR 120 + mFRR 604 MW, Elering 2026).
             </p>
           </div>
         </DetailsDrawer>
