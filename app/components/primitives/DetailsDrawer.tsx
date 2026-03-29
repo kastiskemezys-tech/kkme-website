@@ -30,6 +30,19 @@ export function DetailsDrawer({ label = 'Details', defaultOpen = false, children
     return () => clearInterval(iv);
   }, [portalId, open]);
 
+  // Listen for tab-click requests to auto-open this drawer
+  useEffect(() => {
+    if (!portalId) return;
+    const signal = portalId.includes('s1') ? 's1' : 's2';
+    const handler = (e: Event) => {
+      if ((e as CustomEvent).detail?.signal === signal && !open) {
+        setOpen(true);
+      }
+    };
+    window.addEventListener('signal-drawer-request', handler);
+    return () => window.removeEventListener('signal-drawer-request', handler);
+  }, [portalId, open]);
+
   // Dispatch signal-drawer events for the tabbed panel
   useEffect(() => {
     if (!portalId) return;

@@ -51,7 +51,12 @@ export function SignalDrawerPanel() {
         ]).map(tab => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => {
+              setActiveTab(tab.id);
+              window.dispatchEvent(new CustomEvent('signal-drawer-request', {
+                detail: { signal: tab.id },
+              }));
+            }}
             style={{
               flex: 1,
               padding: '12px 16px',
