@@ -104,11 +104,8 @@ interface S2Signal {
   cvi_afrr_eur_mw_yr?: number | null;
   cvi_mfrr_eur_mw_yr?: number | null;
   stress_index_p90?: number | null;
-  fcr_note?: string | null;
   ordered_price?: number | null;
   ordered_mw?: number | null;
-  signal?: string | null;
-  interpretation?: string | null;
   source?: string | null;
   unavailable?: boolean;
   _stale?: boolean;
@@ -698,29 +695,24 @@ export function S2Card() {
               }}>
                 Worst-case view — assumes all fleet capacity competes in each product independently. Actual competition is lower because fleet is split across products.
               </p>
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: '70px 1fr 70px 70px',
-                gap: '4px 12px',
-                fontFamily: 'var(--font-mono)',
-                fontSize: 'var(--font-xs)',
-              }}>
-                <span style={{ color: 'var(--text-tertiary)', fontWeight: 500 }}>Product</span>
-                <span style={{ color: 'var(--text-tertiary)', fontWeight: 500 }}>Demand</span>
-                <span style={{ color: 'var(--text-tertiary)', fontWeight: 500, textAlign: 'right' }}>S/D</span>
-                <span style={{ color: 'var(--text-tertiary)', fontWeight: 500, textAlign: 'right' }}>Phase</span>
-                {Object.entries(productSd).map(([prod, ps]) => (
-                  <div key={prod} style={{ display: 'contents' }}>
-                    <span style={{ color: 'var(--text-secondary)', textTransform: 'uppercase' }}>{prod}</span>
-                    <span style={{ color: 'var(--text-muted)' }}>{ps.demand_mw} MW</span>
-                    <span style={{ color: 'var(--text-secondary)', textAlign: 'right' }}>
-                      {ps.ratio != null ? `${ps.ratio.toFixed(1)}x` : '--'}
-                    </span>
-                    <span style={{ color: productPhaseColor(ps.phase), textAlign: 'right' }}>
-                      {productPhaseLabel(ps.phase)}
-                    </span>
-                  </div>
-                ))}
+              <div>
+                {Object.entries(productSd).map(([prod, ps]) => {
+                  if (ps.ratio == null) return null;
+                  const maxDisplay = 50;
+                  const barPct = Math.min(100, (ps.ratio / maxDisplay) * 100);
+                  const color = ps.ratio < 1.0 ? 'var(--teal)' : ps.ratio < 2.0 ? 'var(--amber)' : 'var(--rose)';
+                  return (
+                    <div key={prod} style={{ marginBottom: '8px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', marginBottom: '2px' }}>
+                        <span style={{ color: 'var(--text-secondary)', textTransform: 'uppercase' }}>{prod}</span>
+                        <span style={{ color }}>{ps.ratio.toFixed(1)}{'\u00D7'} {'\u00B7'} {ps.demand_mw} MW procured</span>
+                      </div>
+                      <div style={{ height: '6px', background: 'var(--bg-elevated)', borderRadius: '3px', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${barPct}%`, background: color, borderRadius: '3px', transition: 'width 300ms ease' }} />
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
               <p style={{
                 fontFamily: 'var(--font-mono)',
@@ -1072,35 +1064,45 @@ export function S2Card() {
               }}>
                 Baltic BESS fleet ({allEntries.length})
               </p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                {allEntries.map((e, i) => (
-                  <div
-                    key={e.id ?? `${e.name}-${i}`}
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: '1fr auto auto auto',
-                      gap: '0 8px',
-                      alignItems: 'baseline',
-                      fontFamily: 'var(--font-mono)',
-                      fontSize: 'var(--font-xs)',
-                    }}
-                  >
-                    <span style={{ color: 'var(--text-secondary)' }}>{e.name}</span>
-                    <span style={{ color: 'var(--text-muted)', textAlign: 'right' }}>{e.mw} MW</span>
-                    <span style={{
-                      color: (e.status === 'operational' || e.status === 'commissioned') ? 'var(--teal-strong)' :
-                        e.status === 'under_construction' ? 'var(--amber)' : 'var(--text-muted)',
-                      textAlign: 'right',
-                      minWidth: '80px',
-                    }}>
-                      {e.status.replace(/_/g, ' ')}
-                    </span>
-                    <span style={{ color: 'var(--text-muted)', textAlign: 'right' }}>
-                      {e.cod ? `COD ${e.cod}` : ''}
-                      {e.country ? ` · ${e.country}` : ''}
-                    </span>
-                  </div>
-                ))}
+              <div style={{ maxHeight: '320px', overflowY: 'auto' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  {allEntries.map((e, i) => (
+                    <div
+                      key={e.id ?? `${e.name}-${i}`}
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: '1fr auto auto auto',
+                        gap: '0 8px',
+                        alignItems: 'baseline',
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: 'var(--font-xs)',
+                      }}
+                    >
+                      <span style={{ color: 'var(--text-secondary)' }}>
+                        {e.name}
+                        {(e.name.includes('Kruonis') || e.name.includes('PSP')) && (
+                          <span style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)', marginLeft: '4px' }}>(pumped hydro)</span>
+                        )}
+                        {e.name.includes('Eesti Energia') && e.status === 'commissioned' && (
+                          <span style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)', marginLeft: '4px' }}>(likely duplicate)</span>
+                        )}
+                      </span>
+                      <span style={{ color: 'var(--text-muted)', textAlign: 'right' }}>{e.mw} MW</span>
+                      <span style={{
+                        color: (e.status === 'operational' || e.status === 'commissioned') ? 'var(--teal-strong)' :
+                          e.status === 'under_construction' ? 'var(--amber)' : 'var(--text-muted)',
+                        textAlign: 'right',
+                        minWidth: '80px',
+                      }}>
+                        {e.status.replace(/_/g, ' ')}
+                      </span>
+                      <span style={{ color: 'var(--text-muted)', textAlign: 'right' }}>
+                        {e.cod ? `COD ${e.cod}` : ''}
+                        {e.country ? ` · ${e.country}` : ''}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}

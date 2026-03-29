@@ -38,6 +38,17 @@ else:
 " || FAIL=1
 
 echo ""
+echo "--- Editorial language ---"
+EDITORIAL=$(grep -rn "Approaching equilibrium\|Very strong\|Strongly supportive\|Revenue support holds\|Compression risk\|sdInterpretation\|sdImpactDesc" app/components/S1Card.tsx app/components/S2Card.tsx 2>/dev/null | grep -v "^.*:.*//")
+if [ -n "$EDITORIAL" ]; then
+  echo "FAIL: Editorial language found:"
+  echo "$EDITORIAL"
+  FAIL=1
+else
+  echo "PASS: No editorial language"
+fi
+
+echo ""
 if [ $FAIL -eq 0 ]; then
     echo "ALL CHECKS PASSED"
 else
