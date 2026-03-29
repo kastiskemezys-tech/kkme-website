@@ -457,6 +457,19 @@ body,
   animation: cardFadeIn 0.4s ease-out both;
 }
 
+.card-panel {
+  max-height: calc(100vh - 120px);
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+@media (max-width: 768px) {
+  .card-panel {
+    max-height: none;
+    overflow-y: visible !important;
+  }
+}
+
 .card-tier3 {
   background: var(--bg-card);
   border: 1px solid var(--border-card);

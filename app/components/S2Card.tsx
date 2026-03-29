@@ -1320,6 +1320,14 @@ export function S2Card() {
             </DetailsDrawer>
           </div>
 
+          <div style={{ marginTop: '24px' }}>
+            <DetailsDrawer label="Use this data">
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.5, opacity: 0.6, wordBreak: 'break-all' as const }}>
+                curl kkme-fetch-s1.kastis-kemezys.workers.dev/s2
+              </p>
+            </DetailsDrawer>
+          </div>
+
         </DetailsDrawer>
       </div>
     </article>
