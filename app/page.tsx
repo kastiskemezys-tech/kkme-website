@@ -44,7 +44,7 @@ export default function Home() {
             <p style={{ fontFamily: 'DM Mono, monospace', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Day-ahead price capture and balancing market revenue — capacity reservation, activation energy, and DA arbitrage.</p>
           </div>
           <div className="grid-2" style={{ alignItems: 'start' }}>
-            <div className="card card-tier1" style={{ position: 'sticky', top: '24px' }}>
+            <div className="card card-tier1" style={{ position: 'sticky', top: '24px', maxHeight: 'calc(100vh - 48px)', overflowY: 'auto' }}>
               <CardBoundary signal="S1"><S1Card /></CardBoundary>
             </div>
             <div className="card-tier1-feature">
