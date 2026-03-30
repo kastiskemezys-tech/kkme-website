@@ -375,6 +375,11 @@ function computeDispatch(data, battery) {
 
   const totalRev = totalCapRev + totalActRev + totalArbRev;
 
+  // Reserve availability: count ISPs with active procurement per product
+  const afrr_active_isps = isps.filter(isp => isp.capacity.afrr.mw > 0).length;
+  const mfrr_active_isps = isps.filter(isp => isp.capacity.mfrr.mw > 0).length;
+  const fcr_active_isps  = isps.filter(isp => isp.capacity.fcr.mw > 0).length;
+
   // Hourly aggregation
   const hourly = [];
   for (let h = 0; h < 24; h++) {
@@ -436,6 +441,15 @@ function computeDispatch(data, battery) {
       fcr_baseload_mw: t_r1(isps.reduce((s, isp) => s + isp.capacity.fcr.mw, 0) / 96),
     },
     signals,
+    reserve_availability: {
+      afrr_active_isps,
+      mfrr_active_isps,
+      fcr_active_isps,
+      total_isps: 96,
+      afrr_pct: Math.round(afrr_active_isps / 96 * 100) / 100,
+      mfrr_pct: Math.round(mfrr_active_isps / 96 * 100) / 100,
+      fcr_pct: Math.round(fcr_active_isps / 96 * 100) / 100,
+    },
   };
 }
 
@@ -620,6 +634,7 @@ function computeRevenueV7(params, kv) {
   let debt_bal = debt_initial;
   let min_dscr = Infinity;
   let crossover_year = null;
+  let revenue_crossover_year = null;
 
   for (let yr = 1; yr <= 20; yr++) {
     // C1. Degradation
@@ -656,12 +671,34 @@ function computeRevenueV7(params, kv) {
       products[name].eff = products[name].raw * scale_energy;
     }
 
-    // C4. Compression — v7 uses derived rate × scenario multiplier
+    // C4. Differential compression — balancing and trading compress at different rates
     // Base year reflects TODAY's revenue. COD delay means additional compression
     // before Y1 starts earning. E.g. if COD=2029 and today=2026, that's 3 extra years.
     const today_year = new Date().getFullYear();
     const cod_delay_years = Math.max(0, cod_year - today_year);
-    const compress_total = Math.pow(1 - effective_compression, yr - 1 + cod_delay_years);
+    const total_years = yr - 1 + cod_delay_years;
+
+    // Balancing compresses at full derived rate (from S2 trajectory × scenario mult)
+    const bal_compress = Math.pow(1 - effective_compression, total_years);
+
+    // Trading compresses at HALF the balancing rate:
+    // DA spread driven by RES intermittency, not BESS fleet. More RES = more volatility
+    // = partially offsets BESS fleet compression on the arb side.
+    const trd_compression_rate = effective_compression * 0.5;
+    const trd_compress = Math.pow(1 - trd_compression_rate, total_years);
+
+    // As balancing prices compress, more ISPs become unprofitable for reserves
+    // → reserve_hours_pct declines → more hours available for arb.
+    // Model as linear decline in reserve utilisation, floored at 0.30.
+    const reserve_shift = Math.max(0.30, 1.0 - total_years * effective_compression);
+
+    // Recompute effective_arb_pct for this year with shifted reserve hours
+    const yr_arb_pct = computeEffectiveArbPctForYear(kv, sc, reserve_shift);
+
+    // compress_total for reporting (weighted average of bal and trd compression)
+    const compress_total = (by_balancing_per_mw > 0 || by_trading_per_mw > 0)
+      ? (by_balancing_per_mw * bal_compress + by_trading_per_mw * trd_compress) / (by_balancing_per_mw + by_trading_per_mw)
+      : bal_compress;
 
     // C5. Degradation effect on trading
     // Trading revenue scales with usable energy (degradation reduces throughput)
@@ -670,10 +707,13 @@ function computeRevenueV7(params, kv) {
     // C6. Revenue computation — per MW then × mw
     // Balancing: MW-based, but energy constraint reduces eligible MW
     const bal_scale = scale_energy / Math.min(1.0, (dur_h * getDegradation(1, cycles)) / total_energy_req);
-    const rev_bal = by_balancing_per_mw * mw * compress_total * Math.min(1.0, bal_scale);
+    const rev_bal = by_balancing_per_mw * mw * bal_compress * Math.min(1.0, bal_scale);
 
-    // Trading: energy-based, scales with degradation
-    const rev_trd = by_trading_per_mw * mw * compress_total * deg_ratio_vs_y1;
+    // Trading: time-sliced, scales with yr_arb_pct (grows as reserves compress)
+    // and with degradation (reduces energy throughput), compresses slower than balancing
+    const base_arb_pct = base_year.time_model?.effective_arb_pct || computeEffectiveArbPct(kv, sc);
+    const arb_growth_ratio = base_arb_pct > 0 ? yr_arb_pct / base_arb_pct : 1.0;
+    const rev_trd = by_trading_per_mw * mw * trd_compress * deg_ratio_vs_y1 * arb_growth_ratio;
 
     // C7. Gross → Net
     const rev_gross = rev_bal + rev_trd;
@@ -722,6 +762,10 @@ function computeRevenueV7(params, kv) {
     // C14. Crossover
     if (!crossover_year && rev_net < opex) {
       crossover_year = cod_year + yr;
+    }
+    // Revenue crossover: when trading exceeds balancing
+    if (!revenue_crossover_year && rev_trd > rev_bal) {
+      revenue_crossover_year = cod_year + yr;
     }
 
     // C15. Cash flows
@@ -856,6 +900,10 @@ function computeRevenueV7(params, kv) {
     simple_payback_years: payback,
     payback_years: payback,
     crossover_year: crossover_year || (cod_year + 25),
+    revenue_crossover_year: revenue_crossover_year || null,
+    revenue_crossover_note: revenue_crossover_year
+      ? `Trading exceeds balancing in ${revenue_crossover_year}`
+      : 'Trading does not exceed balancing within 20-year horizon',
 
     // Y1 backward compat
     gross_revenue_y1: y1 ? y1.rev_gross : 0,
@@ -891,8 +939,8 @@ function computeRevenueV7(params, kv) {
     // Signal inputs used
     signal_inputs: {
       s1_capture: dur_h <= 2
-        ? (s1_cap.capture_2h?.gross_eur_mwh ?? by_trading_per_mw / (rte * dur_h * cycles * sc.stack_factor * 365))
-        : (s1_cap.capture_4h?.gross_eur_mwh ?? by_trading_per_mw / (rte * dur_h * cycles * sc.stack_factor * 365)),
+        ? (s1_cap.capture_2h?.gross_eur_mwh ?? (by_trading_per_mw > 0 ? by_trading_per_mw / (rte * dur_h * cycles * (base_year.time_model?.effective_arb_pct || 0.115) * sc.trd_real * 365) : 0))
+        : (s1_cap.capture_4h?.gross_eur_mwh ?? (by_trading_per_mw > 0 ? by_trading_per_mw / (rte * dur_h * cycles * (base_year.time_model?.effective_arb_pct || 0.115) * sc.trd_real * 365) : 0)),
       afrr_clearing: act_parsed?.lt?.afrr_p50 ?? s2.afrr_up_avg ?? 170,
       mfrr_clearing: act_parsed?.lt?.mfrr_p50 ?? s2.mfrr_up_avg ?? 110,
       afrr_cap: s2.afrr_cap_avg ?? s2.afrr_up_avg ?? 7.7,
@@ -1284,11 +1332,57 @@ function computeRevenueV6(params, kv) {
 // ─── Revenue Engine v7 — Observed base year + derived compression + live rate ──
 
 /**
+ * computeEffectiveArbPct: time-sliced arb availability as fraction of MW-hours.
+ * Uses dispatch metrics if available, otherwise default reserve utilisation.
+ * Also used by computeLiveRate when base_year.time_model is unavailable.
+ */
+function computeEffectiveArbPct(kv, sc) {
+  const dm = kv.dispatch_metrics?.rolling_30d;
+  const r_a = dm ? (dm.avg_afrr_active_pct || 0.80) : 0.80;
+  const r_m = dm ? (dm.avg_mfrr_active_pct || 0.90) : 0.90;
+  const p_avail = sc.avail;
+  const fcr_share  = RESERVE_PRODUCTS.fcr.share;
+  const afrr_share = RESERVE_PRODUCTS.afrr.share;
+  const mfrr_share = RESERVE_PRODUCTS.mfrr.share;
+  // FCR always-on. When both aFRR+mFRR active → arb gets 0.
+  // When aFRR drops → afrr_share freed. When mFRR drops → mfrr_share freed.
+  return (
+    Math.max(0, p_avail * (1 - fcr_share - afrr_share - mfrr_share)) * r_a * r_m +
+    (p_avail * afrr_share) * r_m * (1 - r_a) +
+    (p_avail * mfrr_share) * r_a * (1 - r_m) +
+    (p_avail * (afrr_share + mfrr_share)) * (1 - r_a) * (1 - r_m)
+  );
+}
+
+/**
+ * computeEffectiveArbPctForYear: time-sliced arb for a specific projection year.
+ * As balancing compresses, reserve utilisation declines → more MW-hours for arb.
+ */
+function computeEffectiveArbPctForYear(kv, sc, reserve_shift) {
+  const dm = kv.dispatch_metrics?.rolling_30d;
+  const r_a_base = dm ? (dm.avg_afrr_active_pct || 0.80) : 0.80;
+  const r_m_base = dm ? (dm.avg_mfrr_active_pct || 0.90) : 0.90;
+  const r_a = r_a_base * reserve_shift;
+  const r_m = r_m_base * reserve_shift;
+  const p_avail = sc.avail;
+  const fcr_share  = RESERVE_PRODUCTS.fcr.share;
+  const afrr_share = RESERVE_PRODUCTS.afrr.share;
+  const mfrr_share = RESERVE_PRODUCTS.mfrr.share;
+  return (
+    Math.max(0, p_avail * (1 - fcr_share - afrr_share - mfrr_share)) * r_a * r_m +
+    (p_avail * afrr_share) * r_m * (1 - r_a) +
+    (p_avail * mfrr_share) * r_a * (1 - r_m) +
+    (p_avail * (afrr_share + mfrr_share)) * (1 - r_a) * (1 - r_m)
+  );
+}
+
+/**
  * computeBaseYear: builds trailing 12-month observed revenue from S1 monthly
  * captures (KV: s1_capture) + S2 monthly activation data (KV: s2_activation).
  *
  * Returns per-MW monthly breakdown + annual totals.
  * All values are per MW installed.
+ * Time-sliced: arb only earns in ISPs where reserves aren't procured.
  */
 function computeBaseYear(kv, duration_h, sc) {
   const rte = duration_h <= 2 ? 0.855 : 0.852;
@@ -1310,8 +1404,58 @@ function computeBaseYear(kv, duration_h, sc) {
       months: [],
       annual_totals: { trading: 0, balancing: 0, gross: 0, net: 0 },
       data_coverage: { s1_months: t12.length, s2_months: 0, pct_observed: 0 },
+      time_model: null,
     };
   }
+
+  // ── Time-slicing: compute effective arb MW-hours from dispatch metrics ──
+  const dm = kv.dispatch_metrics?.rolling_30d;
+  const reserve_hours = dm
+    ? { afrr: dm.avg_afrr_active_pct || 0.80, mfrr: dm.avg_mfrr_active_pct || 0.90, source: 'dispatch_observed_30d' }
+    : { afrr: 0.80, mfrr: 0.90, source: 'assumed_default' };
+
+  const r_a = reserve_hours.afrr;
+  const r_m = reserve_hours.mfrr;
+  const both_pct      = r_a * r_m;
+  const only_mfrr_pct = r_m * (1 - r_a);
+  const only_afrr_pct = r_a * (1 - r_m);
+  const neither_pct   = (1 - r_a) * (1 - r_m);
+
+  const fcr_share  = RESERVE_PRODUCTS.fcr.share;  // 0.16 — always-on, always reserved
+  const afrr_share = RESERVE_PRODUCTS.afrr.share; // 0.34
+  const mfrr_share = RESERVE_PRODUCTS.mfrr.share; // 0.50
+  const p_avail = sc.avail; // 0.95
+
+  // Available fraction of MW for arb in each time slice
+  // FCR is always-on (symmetric, procured continuously), so always reserved.
+  // When both aFRR+mFRR active: FCR+aFRR+mFRR = 1.00 → arb gets 0
+  // When aFRR drops: FCR+mFRR = 0.66 → aFRR share (0.34) freed for arb
+  // When mFRR drops: FCR+aFRR = 0.50 → mFRR share (0.50) freed for arb
+  // When both drop: FCR only = 0.16 → aFRR+mFRR (0.84) freed for arb
+  const arb_mw_both      = Math.max(0, p_avail * (1 - fcr_share - afrr_share - mfrr_share));
+  const arb_mw_only_mfrr = p_avail * afrr_share;   // aFRR MW freed when aFRR not procured
+  const arb_mw_only_afrr = p_avail * mfrr_share;   // mFRR MW freed when mFRR not procured
+  const arb_mw_neither   = p_avail * (afrr_share + mfrr_share); // both freed, FCR stays
+
+  // Weighted effective arb as fraction of total MW-hours
+  const effective_arb_pct =
+    arb_mw_both * both_pct +
+    arb_mw_only_mfrr * only_mfrr_pct +
+    arb_mw_only_afrr * only_afrr_pct +
+    arb_mw_neither * neither_pct;
+  // With defaults (r_a=0.80, r_m=0.90): ~0 × 0.72 + 0.323 × 0.18 + 0.475 × 0.08 + 0.95 × 0.02 ≈ 0.115
+
+  const time_model = {
+    reserve_hours_afrr: Math.round(r_a * 100) / 100,
+    reserve_hours_mfrr: Math.round(r_m * 100) / 100,
+    both_reserves_pct: Math.round(both_pct * 1000) / 1000,
+    only_mfrr_pct: Math.round(only_mfrr_pct * 1000) / 1000,
+    only_afrr_pct: Math.round(only_afrr_pct * 1000) / 1000,
+    neither_pct: Math.round(neither_pct * 1000) / 1000,
+    effective_arb_pct: Math.round(effective_arb_pct * 1000) / 1000,
+    source: reserve_hours.source,
+    note: `${Math.round(effective_arb_pct * 100)}% of MW-hours available for trading`,
+  };
 
   // ── S2 activation monthly data ──
   const act = kv.s2_activation_parsed || {};
@@ -1338,16 +1482,18 @@ function computeBaseYear(kv, duration_h, sc) {
     const month = m.month;
     const days = m.days || 30;
 
-    // ── Trading revenue ──
+    // ── Trading revenue (time-sliced) ──
+    // capture = gross €/MWh discharged from S1 observed monthly data
     const capture = duration_h <= 2
       ? (m.avg_gross_2h || m.avg_net_2h || 140)
       : (m.avg_gross_4h || m.avg_net_4h || 125);
 
-    // energy_per_cycle = capture €/MWh (already gross per MWh discharged)
-    // daily trading = capture × RTE × MWh_per_cycle × cycles × stack_factor × trading_realisation
-    const energy_per_cycle = duration_h;  // MWh per MW
-    const trd_daily = capture * rte * energy_per_cycle * cycles * sc.stack_factor * sc.trd_real;
-    const trd_monthly = trd_daily * days;
+    // Time-sliced: arb revenue scales with effective_arb_pct (fraction of MW-hours
+    // where MW is actually free from reserves), not stack_factor (which assumed 70%).
+    // energy_per_mw_hour = MWh cycled per MW per hour = duration_h × cycles / 24
+    const energy_per_mw_hour = duration_h * cycles / 24;
+    const monthly_hours = days * 24;
+    const trd_monthly = effective_arb_pct * monthly_hours * energy_per_mw_hour * capture * rte * sc.trd_real;
 
     // ── Balancing revenue ──
     const afrr_act_m = lt_afrr_monthly[month];
@@ -1425,6 +1571,7 @@ function computeBaseYear(kv, duration_h, sc) {
     annual_totals: annual,
     trading_realisation: sc.trd_real,
     trading_realisation_source: 'assumed_industry_range_070_090',
+    time_model,
     data_coverage: {
       s1_months: t12.length,
       s2_months: s2_months_observed,
@@ -1527,7 +1674,10 @@ function computeLiveRate(kv, base_year, duration_h, sc) {
     : (s1_cap.capture_4h?.gross_eur_mwh || s1?.capture_4h_gross || s1?.gross_4h
        || (s1.spread_eur_mwh != null ? s1.spread_eur_mwh * 1.5 : 125));
 
-  const today_trading = capture * rte * duration_h * cycles * sc.stack_factor * sc.trd_real;
+  // Time-sliced: use effective_arb_pct from base_year (or compute from dispatch metrics)
+  const effective_arb_pct = base_year?.time_model?.effective_arb_pct ?? computeEffectiveArbPct(kv, sc);
+  const energy_per_mw_hour = duration_h * cycles / 24;
+  const today_trading = effective_arb_pct * 24 * energy_per_mw_hour * capture * rte * sc.trd_real;
 
   // Today's balancing from S2
   const afrr_cap = s2.afrr_cap_avg ?? s2.afrr_up_avg ?? 7.7;
@@ -5575,7 +5725,7 @@ export default {
       const capex_kwh = CAPEX_MAP[capexParam] || parseInt(capexParam) || 164;
 
       // ── Read KV data (v7: additional keys for observed base year) ──
-      const [s1Raw, s2Raw, s3Raw, fleetRaw, eurRaw, s1CaptureRaw, s2ActivationRaw, btdHistRaw] = await Promise.all([
+      const [s1Raw, s2Raw, s3Raw, fleetRaw, eurRaw, s1CaptureRaw, s2ActivationRaw, btdHistRaw, tradingMetricsRaw] = await Promise.all([
         env.KKME_SIGNALS.get('s1'),
         env.KKME_SIGNALS.get('s2'),
         env.KKME_SIGNALS.get('s3'),
@@ -5584,6 +5734,7 @@ export default {
         env.KKME_SIGNALS.get('s1_capture').catch(() => null),
         env.KKME_SIGNALS.get('s2_activation').catch(() => null),
         env.KKME_SIGNALS.get('s2_btd_history').catch(() => null),
+        env.KKME_SIGNALS.get('trading:metrics').catch(() => null),
       ]);
       const s1    = s1Raw    ? JSON.parse(s1Raw)    : null;
       const s2    = s2Raw    ? JSON.parse(s2Raw)    : null;
@@ -5618,7 +5769,13 @@ export default {
         try { capacity_monthly = computeCapacityMonthly(JSON.parse(btdHistRaw)); } catch { /* ignore */ }
       }
 
-      const kv = { fleet, s2, s1, s3, euribor: eur, s1_capture, s2_activation_parsed, capacity_monthly };
+      // Parse dispatch metrics for reserve availability
+      let dispatch_metrics = null;
+      if (tradingMetricsRaw) {
+        try { dispatch_metrics = JSON.parse(tradingMetricsRaw); } catch { /* ignore */ }
+      }
+
+      const kv = { fleet, s2, s1, s3, euribor: eur, s1_capture, s2_activation_parsed, capacity_monthly, dispatch_metrics };
 
       // ── Primary result (v7: observed base year) ──
       const computeEngine = computeRevenueV7;
@@ -5749,8 +5906,10 @@ export default {
         const capture = dur_h <= 2 ? avg_spread : avg_spread * 0.9;
         const cycles = dur_h <= 2 ? sc_cfg.cycles_2h : sc_cfg.cycles_4h;
 
-        // Trading revenue per MW per day
-        const trd_daily = capture * rte_val * cycles * dur_h * sc_cfg.trd_real * sc_cfg.stack_factor * (1 - sc_cfg.rtm_fee_pct);
+        // Trading revenue per MW per day (time-sliced)
+        const bt_arb_pct = result.base_year?.time_model?.effective_arb_pct ?? computeEffectiveArbPct(kv, sc_cfg);
+        const bt_energy_per_mw_hour = dur_h * cycles / 24;
+        const trd_daily = bt_arb_pct * 24 * bt_energy_per_mw_hour * capture * rte_val * sc_cfg.trd_real * (1 - sc_cfg.rtm_fee_pct);
 
         // Balancing revenue per MW per day (current capacity+activation prices)
         const bal_daily = (
@@ -5868,6 +6027,47 @@ export default {
       await env.KKME_SIGNALS.put(`trading:${date}`, JSON.stringify(analysis), { expirationTtl: 86400 * 90 });
 
       console.log(`[Trading] ${date} gross=€${analysis.totals.gross} per_mw=€${analysis.totals.per_mw} cap=${analysis.totals.splits_pct.capacity}% act=${analysis.totals.splits_pct.activation}% arb=${analysis.totals.splits_pct.arbitrage}%`);
+
+      // ── Update rolling dispatch metrics ──
+      try {
+        const metrics_raw = await env.KKME_SIGNALS.get('trading:metrics');
+        const metrics = metrics_raw ? JSON.parse(metrics_raw) : { days: [] };
+        const ra = analysis.reserve_availability || {};
+        metrics.days.push({
+          date,
+          revenue_per_mw: Math.round(analysis.totals.per_mw),
+          afrr_active_pct: ra.afrr_pct || 0,
+          mfrr_active_pct: ra.mfrr_pct || 0,
+          fcr_active_pct: ra.fcr_pct || 0,
+          capacity_pct: analysis.totals.splits_pct?.capacity || 0,
+          activation_pct: analysis.totals.splits_pct?.activation || 0,
+          arb_pct: analysis.totals.splits_pct?.arbitrage || 0,
+        });
+        // Deduplicate by date, keep last 90 days
+        const seen = new Set();
+        metrics.days = metrics.days.filter(d => {
+          if (seen.has(d.date)) return false;
+          seen.add(d.date);
+          return true;
+        }).slice(-90);
+        // Compute rolling 30-day averages
+        const recent = metrics.days.slice(-30);
+        if (recent.length >= 3) {
+          const avg = arr => arr.reduce((s, v) => s + v, 0) / arr.length;
+          metrics.rolling_30d = {
+            avg_revenue_per_mw: Math.round(avg(recent.map(d => d.revenue_per_mw))),
+            avg_afrr_active_pct: Math.round(avg(recent.map(d => d.afrr_active_pct)) * 100) / 100,
+            avg_mfrr_active_pct: Math.round(avg(recent.map(d => d.mfrr_active_pct)) * 100) / 100,
+            avg_fcr_active_pct: Math.round(avg(recent.map(d => d.fcr_active_pct)) * 100) / 100,
+            days_count: recent.length,
+            updated: new Date().toISOString(),
+          };
+        }
+        await env.KKME_SIGNALS.put('trading:metrics', JSON.stringify(metrics));
+      } catch (e) {
+        console.warn('[Trading] metrics update failed:', e.message);
+      }
+
       return jsonResp({ ok: true, date, totals: analysis.totals, signals: analysis.signals });
     }
 
