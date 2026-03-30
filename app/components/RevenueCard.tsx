@@ -1,63 +1,185 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import {
+  Chart as ChartJS,
+  CategoryScale, LinearScale,
+  BarElement, PointElement, LineElement,
+  Tooltip, Legend, Filler,
+} from 'chart.js';
+import { Line, Bar } from 'react-chartjs-2';
 import {
   MetricTile, StatusChip, SourceFooter, DetailsDrawer, ImpactLine, DataClassBadge,
 } from '@/app/components/primitives';
 import { CopyButton } from './CopyButton';
 import { copyToClipboard, formatTable } from '@/app/lib/copyUtils';
-import type { ImpactState } from '@/app/lib/types';
+import { useChartColors, useTooltipStyle, CHART_FONT } from '@/app/lib/chartTheme';
+import { useIsDesktop } from '@/app/lib/useIsDesktop';
+import type { ImpactState, Sentiment } from '@/app/lib/types';
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, Tooltip, Legend, Filler);
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
-// ── types ───────────────────────────────────────────────────────────────────
+// ── types ──────────────────────────────────────────────────────────────────
 
-interface TrajPoint { year: number; sd_ratio: number; phase: string; cpi: number; }
+interface YearRow {
+  yr: number; cal_year: number; retention: number;
+  rev_bal: number; rev_trd: number; rev_gross: number;
+  rtm_fee: number; brp_fee: number; rev_net: number;
+  opex: number; ebitda: number; dscr: number | null;
+  cfads: number; ds: number; debt_bal: number;
+  project_cf: number; equity_cf: number;
+  compress_total: number; usable_mwh_per_mw: number;
+  maint_capex: number; depr: number;
+  rev_cap: number; rev_act: number;
+}
 
-interface MarketRow {
-  country: string; flag: string;
-  irr_pct: number | null; net_annual_per_mw: number | null;
-  capex_per_mw: number | null; note: string; is_live: boolean;
+interface ScenarioSummary {
+  project_irr: number | null; equity_irr: number | null;
+  min_dscr: number | null; net_mw_yr: number | null;
+  bankability: string | null; ebitda_y1: number | null;
+}
+
+interface MatrixCell {
+  cod: number; capex: string; capex_kwh: number;
+  project_irr: number | null; equity_irr: number | null;
+  min_dscr: number | null; net_mw_yr: number | null;
+  bankability: string | null;
+}
+
+interface MonthlyDSCR {
+  month: string; seasonal_factor: number;
+  cfads: number; debt_service: number; dscr: number | null;
+}
+
+interface BaseYear {
+  annual_totals: { gross: number; balancing: number; trading: number };
+  months?: Array<{ month: string; trading: number; balancing: number; gross: number }>;
+  data_coverage: { s1_months: number; s2_months: number };
+  time_model?: { effective_arb_pct: number };
+}
+
+interface ForwardCompression {
+  compression_rate_observed: number;
+  compression_source: string;
+  compression_data_points: number;
+  scenario_multiplier: number;
+  effective_compression_rate: number;
+}
+
+interface LiveRate {
+  today_trading_daily: number; today_balancing_daily: number;
+  today_total_daily: number; base_daily: number;
+  delta_pct: number; annualised: number;
+  capture_used: number; as_of: string;
+  error?: string;
+}
+
+interface BacktestMonth {
+  month: string; trading_daily: number; balancing_daily: number;
+  total_daily: number; s1_capture: number; days: number;
+}
+
+interface SignalDelta { current: number; previous: number; delta: number; }
+interface Deltas {
+  irr_pp: number; net_rev: number;
+  signals: Record<string, SignalDelta>;
+  prev_date: string;
+}
+
+interface SignalInputs {
+  s1_capture: number; afrr_clearing: number; mfrr_clearing: number;
+  afrr_cap: number; mfrr_cap: number; euribor: number;
+  rate_allin_pct: number;
+}
+
+interface Assumptions {
+  trading_realisation: number;
+  trading_realisation_note: string;
+  compression_scenario_mult: number;
+  effective_compression: number;
+}
+
+interface DurationDetail {
+  capex_per_mw: number; irr_approx_pct: number;
+  simple_payback_years: number | null;
+  gross_annual_per_mw: number; opex_annual_per_mw: number;
+  net_annual_per_mw: number;
 }
 
 interface RevenueData {
-  project_irr:      number | null;
-  equity_irr:       number | null;
-  min_dscr:         number | null;
-  bankability:      string | null;
-  gross_revenue_y1: number | null;
-  net_revenue_y1:   number | null;
-  capacity_y1:      number | null;
-  activation_y1:    number | null;
-  arbitrage_y1:     number | null;
-  rtm_fees_y1:      number | null;
-  opex_y1:          number | null;
-  ebitda_y1:        number | null;
-  net_mw_yr:        number | null;
-  cod_year:         number | null;
-  sd_ratio:         number | null;
-  phase:            string | null;
-  cpi_at_cod:       number | null;
-  fleet_trajectory: TrajPoint[] | null;
-  prices_source:    string | null;
-  model_version:    string | null;
-  updated_at:       string | null;
-  eu_ranking:       MarketRow[];
-  irr_2h: number | null;
-  irr_4h: number | null;
+  // Config
+  system: string; duration: number; capex_scenario: string;
+  capex_kwh: number; capex_total: number; capex_net: number;
+  gross_capex: number; net_capex: number; cod_year: number;
+  scenario: string; model_version: string;
+
+  // Market context
+  sd_ratio: number | null; phase: string | null; cpi_at_cod: number | null;
+
+  // Headline
+  project_irr: number | null; equity_irr: number | null;
+  min_dscr: number | null; bankability: string | null;
+  simple_payback_years: number | null;
+  net_mw_yr: number | null;
+  crossover_year: number | null;
+  revenue_crossover_year: number | null;
+  revenue_crossover_note: string;
+
+  // Y1 compat
+  gross_revenue_y1: number; net_revenue_y1: number;
+  ebitda_y1: number; opex_y1: number; rtm_fees_y1: number;
+  capacity_y1: number; activation_y1: number; arbitrage_y1: number;
+
+  // Financing
+  debt_initial: number; equity_initial: number; rate_allin: number;
+  annual_debt_service: number;
+
+  // Timeseries
+  years: YearRow[];
+  fleet_trajectory: Array<{ year: number; sd_ratio: number; phase: string; cpi: number }> | null;
+
+  // Scenarios + Matrix
+  all_scenarios: Record<string, ScenarioSummary>;
+  matrix: MatrixCell[];
+
+  // Duration comparison
+  h2: DurationDetail; h4: DurationDetail;
+  irr_2h: number | null; irr_4h: number | null;
+
+  // Monthly DSCR
+  monthly_y1: MonthlyDSCR[];
+  worst_month_dscr: number;
+
+  // v7 fields
+  base_year: BaseYear;
+  forward: ForwardCompression;
+  live_rate: LiveRate;
+  backtest: BacktestMonth[];
+  deltas: Deltas | null;
+  signal_inputs: SignalInputs;
+  assumptions: Assumptions;
+
+  // Meta
+  prices_source: string | null;
+  updated_at: string | null;
+  timestamp: string;
+  eu_ranking: unknown[];
 }
 
-interface S2Data {
-  sd_ratio:   number | null;
-  phase:      string | null;
-  trajectory: TrajPoint[] | null;
-}
+// ── controls ───────────────────────────────────────────────────────────────
 
 type Duration = '2h' | '4h';
-type Case = 'base' | 'high';
+type CapexKey = 'low' | 'mid' | 'high';
 type CodYear = '2027' | '2028' | '2029';
+type Scenario = 'base' | 'conservative' | 'stress';
 
-// ── helpers ─────────────────────────────────────────────────────────────────
+const CAPEX_LABELS: Record<CapexKey, string> = { low: 'Competitive', mid: 'Market', high: 'EPC' };
+const CAPEX_VALUES: Record<CapexKey, number> = { low: 120, mid: 164, high: 262 };
+const SCENARIO_LABELS: Record<Scenario, string> = { base: 'Base', conservative: 'Conservative', stress: 'Stress' };
+
+// ── helpers ────────────────────────────────────────────────────────────────
 
 function irrPct(v: number | null | undefined): number | null {
   if (v == null || !isFinite(v)) return null;
@@ -69,6 +191,11 @@ function fmtPct(v: number | null, d = 1): string {
   return `${v.toFixed(d)}%`;
 }
 
+function fmtK(n: number | null | undefined): string {
+  if (n == null || !isFinite(n)) return '—';
+  return `€${Math.round(n / 1000)}k`;
+}
+
 function fmtKPerMw(n: number | null | undefined, mw = 50): string {
   if (n == null || !isFinite(n)) return '—';
   return `€${Math.round(n / mw / 1000)}k`;
@@ -76,17 +203,24 @@ function fmtKPerMw(n: number | null | undefined, mw = 50): string {
 
 function fmtEuro(n: number | null | undefined): string {
   if (n == null || !isFinite(n)) return '—';
-  return `€${n.toLocaleString('en-GB')}`;
+  return `€${Math.round(n).toLocaleString('en-GB')}`;
 }
 
 function irrColor(v: number | null): string {
   if (v == null) return 'var(--text-muted)';
   if (v > 12) return 'var(--teal)';
-  if (v > 8)  return 'var(--amber)';
+  if (v > 8) return 'var(--amber)';
   return 'var(--rose)';
 }
 
-function hurdleStatus(irr: number | null, dscr: number | null): { label: string; sentiment: 'positive' | 'caution' | 'negative' } {
+function dscrColor(v: number | null): string {
+  if (v == null) return 'var(--text-muted)';
+  if (v >= 1.20) return 'var(--teal)';
+  if (v >= 1.0) return 'var(--amber)';
+  return 'var(--rose)';
+}
+
+function hurdleStatus(irr: number | null, dscr: number | null): { label: string; sentiment: Sentiment } {
   if (irr != null && irr > 12 && dscr != null && dscr >= 1.20)
     return { label: 'Above model hurdle', sentiment: 'positive' };
   if (irr != null && irr > 8 && dscr != null && dscr >= 1.0)
@@ -109,7 +243,7 @@ function impactFromIrr(irr: number | null): { impact: ImpactState; desc: string 
   };
 }
 
-// ── pill selector ───────────────────────────────────────────────────────────
+// ── pill selector ──────────────────────────────────────────────────────────
 
 function Pill({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
@@ -131,209 +265,137 @@ function Pill({ label, active, onClick }: { label: string; active: boolean; onCl
   );
 }
 
-// ── share view button ────────────────────────────────────────────────────
+function PillGroup({ label, options, value, onChange }: {
+  label: string;
+  options: { key: string; label: string }[];
+  value: string;
+  onChange: (key: string) => void;
+}) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+      <span style={{
+        fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+        color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase',
+      }}>{label}</span>
+      <div style={{ display: 'flex', gap: '3px' }}>
+        {options.map(o => (
+          <Pill key={o.key} label={o.label} active={value === o.key} onClick={() => onChange(o.key)} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── share view button ──────────────────────────────────────────────────────
 
 function ShareViewButton() {
   const [label, setLabel] = useState<'idle' | 'copied' | 'failed'>('idle');
-
   const handleShare = async () => {
     const ok = await copyToClipboard(window.location.href);
     setLabel(ok ? 'copied' : 'failed');
     setTimeout(() => setLabel('idle'), 1500);
   };
-
   const text = label === 'copied' ? 'Link copied' : label === 'failed' ? 'Copy failed' : 'Share this view';
   const color = label === 'copied' ? 'var(--teal)' : label === 'failed' ? 'var(--rose)' : undefined;
-
   return (
     <button
-      type="button"
-      onClick={handleShare}
+      type="button" onClick={handleShare}
       style={{
-        all: 'unset',
-        display: 'inline-flex',
-        alignItems: 'flex-end',
-        fontFamily: 'var(--font-mono)',
-        fontSize: 'var(--font-xs)',
-        color: color ?? 'var(--text-muted)',
-        cursor: 'pointer',
-        padding: '4px 0',
-        transition: 'color 150ms ease',
-        minHeight: '28px',
-        whiteSpace: 'nowrap',
+        all: 'unset', display: 'inline-flex', alignItems: 'flex-end',
+        fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+        color: color ?? 'var(--text-muted)', cursor: 'pointer',
+        padding: '4px 0', transition: 'color 150ms ease',
+        minHeight: '28px', whiteSpace: 'nowrap',
       }}
       onMouseEnter={e => { if (label === 'idle') e.currentTarget.style.color = 'var(--text-tertiary)'; }}
       onMouseLeave={e => { if (label === 'idle') e.currentTarget.style.color = 'var(--text-muted)'; }}
-    >
-      {text}
-    </button>
+    >{text}</button>
   );
 }
 
-// ── main export ─────────────────────────────────────────────────────────────
+// ── main export ────────────────────────────────────────────────────────────
 
 export function RevenueCard() {
   const [duration, setDuration] = useState<Duration>('2h');
-  const [capexCase, setCapexCase] = useState<Case>('base');
+  const [capexKey, setCapexKey] = useState<CapexKey>('mid');
   const [cod, setCod] = useState<CodYear>('2028');
+  const [scenario, setScenario] = useState<Scenario>('base');
 
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [data2h, setData2h] = useState<RevenueData | null>(null);
   const [data4h, setData4h] = useState<RevenueData | null>(null);
-  const [s2, setS2] = useState<S2Data | null>(null);
   const [drawerKey, setDrawerKey] = useState(0);
 
-  // Sensitivity matrix state
-  const [matrixData, setMatrixData] = useState<Record<string, number | null>>({});
-  const [matrixStatus, setMatrixStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-
-  // "Why it moved" state
-  const [movedLine, setMovedLine] = useState<string | null>(null);
-  const [prevSnapshot, setPrevSnapshot] = useState<{ irr: number | null; dscr: number | null; ebitda: number | null } | null>(null);
-  const [lastChanged, setLastChanged] = useState<string | null>(null);
-
-  const capex = capexCase === 'high' ? 'high' : 'mid';
+  const CC = useChartColors();
+  const ttStyle = useTooltipStyle(CC);
+  const isDesktop = useIsDesktop();
 
   // URL param persistence — read on mount
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const params = new URLSearchParams(window.location.search);
-    const urlDur = params.get('dur');
-    const urlCase = params.get('case');
-    const urlCod = params.get('cod');
+    const p = new URLSearchParams(window.location.search);
+    const urlDur = p.get('dur');
+    const urlCapex = p.get('capex');
+    const urlCod = p.get('cod');
+    const urlScen = p.get('scenario');
     if (urlDur === '4h') setDuration('4h');
-    if (urlCase === 'high') setCapexCase('high');
+    if (urlCapex && ['low', 'mid', 'high'].includes(urlCapex)) setCapexKey(urlCapex as CapexKey);
     if (urlCod && ['2027', '2028', '2029'].includes(urlCod)) setCod(urlCod as CodYear);
+    if (urlScen && ['base', 'conservative', 'stress'].includes(urlScen)) setScenario(urlScen as Scenario);
   }, []);
 
   // URL param persistence — write on change
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const params = new URLSearchParams();
-    if (duration !== '2h') params.set('dur', duration);
-    if (capexCase !== 'base') params.set('case', capexCase);
-    if (cod !== '2028') params.set('cod', cod);
-    const search = params.toString();
+    const p = new URLSearchParams();
+    if (duration !== '2h') p.set('dur', duration);
+    if (capexKey !== 'mid') p.set('capex', capexKey);
+    if (cod !== '2028') p.set('cod', cod);
+    if (scenario !== 'base') p.set('scenario', scenario);
+    const search = p.toString();
     window.history.replaceState({}, '', search ? `?${search}` : window.location.pathname);
-  }, [duration, capexCase, cod]);
+  }, [duration, capexKey, cod, scenario]);
 
   const fetchData = useCallback(async () => {
     setStatus('loading');
     try {
-      const common = { capex, grant: 'none', cod };
-      const [rev2h, rev4h, s2r] = await Promise.all([
+      const common = { capex: capexKey, grant: 'none', cod, scenario };
+      const [rev2h, rev4h] = await Promise.all([
         fetch(`${WORKER_URL}/revenue?${new URLSearchParams({ mw: '50', mwh: '100', ...common })}`).then(r => r.json()),
         fetch(`${WORKER_URL}/revenue?${new URLSearchParams({ mw: '50', mwh: '200', ...common })}`).then(r => r.json()),
-        fetch(`${WORKER_URL}/s2`).then(r => r.json()).catch(() => null),
       ]);
       setData2h(rev2h as RevenueData);
       setData4h(rev4h as RevenueData);
-      setS2(s2r as S2Data);
       setStatus('success');
     } catch {
       setStatus('error');
     }
-  }, [capex, cod]);
+  }, [capexKey, cod, scenario]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // Sensitivity matrix — fetch all 6 scenarios for selected duration
-  useEffect(() => {
-    const mwh = duration === '4h' ? '200' : '100';
-    const scenarios = [
-      { cod: '2027', capex: 'mid', key: '2027_mid' },
-      { cod: '2027', capex: 'high', key: '2027_high' },
-      { cod: '2028', capex: 'mid', key: '2028_mid' },
-      { cod: '2028', capex: 'high', key: '2028_high' },
-      { cod: '2029', capex: 'mid', key: '2029_mid' },
-      { cod: '2029', capex: 'high', key: '2029_high' },
-    ];
-    setMatrixStatus('loading');
-    Promise.allSettled(
-      scenarios.map(s =>
-        fetch(`${WORKER_URL}/revenue?${new URLSearchParams({ mw: '50', mwh, capex: s.capex, grant: 'none', cod: s.cod })}`)
-          .then(r => r.json())
-          .then(d => ({ key: s.key, irr: irrPct((d as RevenueData).project_irr) }))
-      )
-    ).then(results => {
-      const md: Record<string, number | null> = {};
-      let anySuccess = false;
-      results.forEach((r, i) => {
-        if (r.status === 'fulfilled') {
-          md[r.value.key] = r.value.irr;
-          anySuccess = true;
-        } else {
-          md[scenarios[i].key] = null;
-        }
-      });
-      setMatrixData(md);
-      setMatrixStatus(anySuccess ? 'success' : 'error');
-    }).catch(() => setMatrixStatus('error'));
-  }, [duration]);
-
-  // "Why it moved" — compute after data arrives
-  useEffect(() => {
-    if (status !== 'success') return;
-    const selected = duration === '4h' ? data4h : data2h;
-    if (!selected || !prevSnapshot || !lastChanged) return;
-
-    const newIrr = irrPct(selected.project_irr);
-    const newDscr = selected.min_dscr;
-    const irrDelta = (newIrr != null && prevSnapshot.irr != null) ? newIrr - prevSnapshot.irr : null;
-
-    // Only show "why it moved" if delta is meaningful (>= 0.5pp IRR)
-    const absIrrDelta = irrDelta != null ? Math.abs(irrDelta) : 0;
-    let line: string | null = null;
-
-    if (absIrrDelta < 0.5 && lastChanged !== 'duration') {
-      // Small changes don't warrant explanation
-      setMovedLine(null);
-      return;
-    }
-
-    if (lastChanged === 'cod' && irrDelta != null && absIrrDelta >= 0.5) {
-      const sdStr = selected.sd_ratio != null ? ` (S/D ${selected.sd_ratio.toFixed(2)}×)` : '';
-      line = `COD ${cod}${sdStr}. IRR moved ${irrDelta >= 0 ? '+' : ''}${irrDelta.toFixed(1)}pp.`;
-    } else if (lastChanged === 'capex' && irrDelta != null && absIrrDelta >= 0.5) {
-      if (newDscr != null && prevSnapshot.dscr != null) {
-        line = `Higher installed cost compresses debt coverage. DSCR moved from ${prevSnapshot.dscr.toFixed(2)}× to ${newDscr.toFixed(2)}×.`;
-      }
-    } else if (lastChanged === 'duration' && irrDelta != null) {
-      if (absIrrDelta < 0.5) {
-        setMovedLine(null);
-        return;
-      }
-      if (irrDelta < 0) {
-        line = `4H increases capital intensity faster than it adds energy value at this cost level.`;
-      } else {
-        line = `4H captures enough additional energy value to offset the higher capital intensity at this cost level.`;
-      }
-    }
-    setMovedLine(line);
-  }, [status, data2h, data4h, duration, prevSnapshot, lastChanged, cod]);
-
-  // Capture snapshot before control changes
-  function captureAndChange(changed: string, fn: () => void) {
-    const selected = duration === '4h' ? data4h : data2h;
-    if (selected) {
-      setPrevSnapshot({
-        irr: irrPct(selected.project_irr),
-        dscr: selected.min_dscr,
-        ebitda: selected.ebitda_y1,
-      });
-    }
-    setLastChanged(changed);
-    fn();
-  }
-
   const openDrawer = () => setDrawerKey(k => k + 1);
 
-  // Selected data for single-duration displays
+  // Selected data
   const selected = duration === '4h' ? data4h : data2h;
-  const selIrr = selected ? irrPct(selected.project_irr) : null;
-  const selDscr = selected?.min_dscr ?? null;
+  const other = duration === '4h' ? data2h : data4h;
 
-  // ── loading / error states ──────────────────────────────────────────────
+  // Scenario data from selected
+  const scenData = useMemo(() => {
+    if (!selected?.all_scenarios) return null;
+    return selected.all_scenarios[scenario] ?? null;
+  }, [selected, scenario]);
+
+  const selIrr = scenData ? irrPct(scenData.project_irr) : (selected ? irrPct(selected.project_irr) : null);
+  const selDscr = scenData?.min_dscr ?? selected?.min_dscr ?? null;
+  const selEbitda = scenData?.ebitda_y1 ?? selected?.ebitda_y1 ?? null;
+  const selNetMw = scenData?.net_mw_yr ?? selected?.net_mw_yr ?? null;
+
+  const otherIrr = other ? irrPct(other.all_scenarios?.[scenario]?.project_irr ?? other.project_irr) : null;
+  const otherDscr = other?.all_scenarios?.[scenario]?.min_dscr ?? other?.min_dscr ?? null;
+  const otherEbitda = other?.all_scenarios?.[scenario]?.ebitda_y1 ?? other?.ebitda_y1 ?? null;
+
+  // ── loading / error ──────────────────────────────────────────────────────
 
   if (status === 'loading') {
     return (
@@ -346,7 +408,7 @@ export function RevenueCard() {
           <div className="skeleton" style={{ height: '3rem', width: '25%' }} />
           <div className="skeleton" style={{ height: '3rem', width: '25%' }} />
         </div>
-        <div className="skeleton" style={{ height: '120px', width: '100%' }} />
+        <div className="skeleton" style={{ height: '180px', width: '100%' }} />
       </article>
     );
   }
@@ -361,14 +423,14 @@ export function RevenueCard() {
     );
   }
 
-  // ── derived values ────────────────────────────────────────────────────
+  // ── derived values ───────────────────────────────────────────────────────
 
-  const irr2h = irrPct(data2h.project_irr);
-  const irr4h = data4h ? irrPct(data4h.project_irr) : null;
-  const eqIrr2h = irrPct(data2h.equity_irr);
-  const eqIrr4h = data4h ? irrPct(data4h.equity_irr) : null;
-  const dscr2h = data2h.min_dscr;
-  const dscr4h = data4h?.min_dscr ?? null;
+  const irr2h = irrPct(data2h.all_scenarios?.[scenario]?.project_irr ?? data2h.project_irr);
+  const irr4h = data4h ? irrPct(data4h.all_scenarios?.[scenario]?.project_irr ?? data4h.project_irr) : null;
+  const dscr2h = data2h.all_scenarios?.[scenario]?.min_dscr ?? data2h.min_dscr;
+  const dscr4h = data4h?.all_scenarios?.[scenario]?.min_dscr ?? data4h?.min_dscr ?? null;
+  const ebitda2h = data2h.all_scenarios?.[scenario]?.ebitda_y1 ?? data2h.ebitda_y1;
+  const ebitda4h = data4h?.all_scenarios?.[scenario]?.ebitda_y1 ?? data4h?.ebitda_y1 ?? null;
   const hurdle2h = hurdleStatus(irr2h, dscr2h);
   const hurdle4h = hurdleStatus(irr4h, dscr4h);
 
@@ -376,27 +438,35 @@ export function RevenueCard() {
   const takeawayBorder = selIrr != null && selIrr > 12
     ? 'var(--teal)' : selIrr != null && selIrr > 8
     ? 'var(--amber)' : 'var(--rose)';
-  const irrSpread = (irr2h != null && irr4h != null) ? irr2h - irr4h : null;
   const durationTag = duration === '4h' ? '4H' : '2H';
-
   const dscrStr = selDscr != null ? `${selDscr.toFixed(2)}×` : '—';
+  const scenarioNote = scenario !== 'base' ? ` (${SCENARIO_LABELS[scenario]} scenario)` : '';
+
   let takeawayText: string;
   if (selIrr != null && selIrr > 12) {
-    if (irrSpread != null && Math.abs(irrSpread) >= 1.5) {
-      const leader = irrSpread > 0 ? '2H' : '4H';
-      takeawayText = `${fmtPct(selIrr)} project IRR at ${durationTag}, ${dscrStr} DSCR. ${leader} leads by ${Math.abs(irrSpread).toFixed(1)}pp — ${irrSpread > 0 ? 'capital efficiency outweighs the energy uplift at this cost' : 'the energy uplift justifies the capital step-up'}.`;
-    } else {
-      takeawayText = `${fmtPct(selIrr)} project IRR at ${durationTag}, ${dscrStr} DSCR. Both durations above hurdle at COD ${cod}.`;
-    }
+    takeawayText = `${fmtPct(selIrr)} project IRR at ${durationTag}, ${dscrStr} DSCR, COD ${cod}${scenarioNote}. Above model hurdle — timing supports investment case.`;
   } else if (selIrr != null && selIrr > 8) {
-    takeawayText = `${fmtPct(selIrr)} project IRR at ${durationTag}. Near model hurdle — COD timing is the dominant variable.`;
+    takeawayText = `${fmtPct(selIrr)} project IRR at ${durationTag}, ${dscrStr} DSCR${scenarioNote}. Near model hurdle — COD timing is the dominant variable.`;
   } else {
-    takeawayText = `${fmtPct(selIrr)} project IRR at ${durationTag}, COD ${cod}. Below hurdle — earlier timing or lower cost changes the outcome.`;
+    takeawayText = `${fmtPct(selIrr)} project IRR at ${durationTag}, COD ${cod}${scenarioNote}. Below hurdle — earlier timing or lower cost changes the outcome.`;
   }
 
   const { impact, desc: impactDesc } = impactFromIrr(selIrr);
-
   const ts = selected?.updated_at ?? data2h.updated_at ?? null;
+
+  // Revenue balance for selected
+  const y1 = selected?.years?.[0];
+  const revBalPct = y1 && y1.rev_gross > 0 ? Math.round(y1.rev_bal / y1.rev_gross * 100) : null;
+  const revTrdPct = y1 && y1.rev_gross > 0 ? Math.round(y1.rev_trd / y1.rev_gross * 100) : null;
+
+  // Payback
+  const payback = selected?.simple_payback_years ?? null;
+
+  // Matrix
+  const matrix = selected?.matrix ?? [];
+
+  // Revenue crossover
+  const crossoverYear = selected?.revenue_crossover_year ?? null;
 
   return (
     <article style={{ width: '100%' }}>
@@ -405,15 +475,10 @@ export function RevenueCard() {
         <h3
           onClick={openDrawer}
           style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: '0.9375rem',
-            color: 'var(--text-tertiary)',
-            letterSpacing: '0.06em',
-            textTransform: 'uppercase',
-            fontWeight: 600,
-            marginBottom: '6px',
-            cursor: 'pointer',
-            transition: 'color 150ms ease',
+            fontFamily: 'var(--font-mono)', fontSize: '0.9375rem',
+            color: 'var(--text-tertiary)', letterSpacing: '0.06em',
+            textTransform: 'uppercase', fontWeight: 600,
+            marginBottom: '6px', cursor: 'pointer', transition: 'color 150ms ease',
           }}
           onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-secondary)')}
           onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-tertiary)')}
@@ -421,132 +486,52 @@ export function RevenueCard() {
           Baltic reference asset returns
         </h3>
         <p style={{
-          fontFamily: 'var(--font-serif)',
-          fontSize: 'var(--font-sm)',
-          color: 'var(--text-secondary)',
-          lineHeight: 1.6,
+          fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)',
+          color: 'var(--text-secondary)', lineHeight: 1.6,
         }}>
           How timing, duration, and installed cost shape storage economics under current Baltic market conditions.
         </p>
         <p style={{
-          fontFamily: 'var(--font-mono)',
-          fontSize: 'var(--font-xs)',
-          color: 'var(--text-tertiary)',
-          marginTop: '4px',
+          fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+          color: 'var(--text-tertiary)', marginTop: '4px',
         }}>
-          50MW modeled reference · observed + proxy + modeled inputs
+          50MW modeled reference · Lithuania-led Baltic
         </p>
       </div>
 
-      {/* 2. GROSS REVENUE RANGE — primary metric */}
-      {selected?.gross_revenue_y1 != null && (
-        <div style={{ marginBottom: '16px' }}>
-          <div style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-xs)',
-            color: 'var(--text-tertiary)',
-            letterSpacing: '0.1em',
-            textTransform: 'uppercase',
-            marginBottom: '4px',
-          }}>
-            Gross revenue range (Year 1, per MW) <DataClassBadge dataClass="modeled" />
-          </div>
-          <div style={{ display: 'flex', gap: '16px', alignItems: 'baseline' }}>
-            <div>
-              <span style={{
-                fontFamily: 'var(--font-display)',
-                fontSize: '1.5rem',
-                color: 'var(--text-primary)',
-              }}>
-                {fmtKPerMw(selected.gross_revenue_y1)}
-              </span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginLeft: '4px' }}>/MW/yr</span>
-            </div>
-            {selected.capacity_y1 != null && selected.activation_y1 != null && selected.arbitrage_y1 != null && selected.gross_revenue_y1 > 0 && (
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>
-                Capacity {Math.round(selected.capacity_y1 / selected.gross_revenue_y1 * 100)}% · Activation {Math.round(selected.activation_y1 / selected.gross_revenue_y1 * 100)}% · Arbitrage {Math.round(selected.arbitrage_y1 / selected.gross_revenue_y1 * 100)}%
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* CENTRAL TAKEAWAY */}
+      {/* 2. CONTROL STRIP */}
       <div style={{
-        fontFamily: 'var(--font-mono)',
-        fontSize: 'var(--font-sm)',
-        color: 'var(--text-secondary)',
-        background: 'var(--bg-elevated)',
-        padding: '12px',
-        borderLeft: `2px solid ${takeawayBorder}`,
-        marginBottom: '16px',
-        lineHeight: 1.6,
+        display: 'flex', flexWrap: 'wrap', gap: '12px 20px',
+        marginBottom: '16px', alignItems: 'flex-end',
       }}>
-        {takeawayText}
-      </div>
-
-      {/* 3. CONTROL STRIP */}
-      <div style={{
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: '12px 20px',
-        marginBottom: '16px',
-        alignItems: 'flex-end',
-      }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Duration</span>
-          <div style={{ display: 'flex', gap: '3px' }}>
-            <Pill label="2H" active={duration === '2h'} onClick={() => captureAndChange('duration', () => setDuration('2h'))} />
-            <Pill label="4H" active={duration === '4h'} onClick={() => captureAndChange('duration', () => setDuration('4h'))} />
-          </div>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Case</span>
-          <div style={{ display: 'flex', gap: '3px' }}>
-            <Pill label="Base" active={capexCase === 'base'} onClick={() => captureAndChange('capex', () => setCapexCase('base'))} />
-            <Pill label="High CAPEX" active={capexCase === 'high'} onClick={() => captureAndChange('capex', () => setCapexCase('high'))} />
-          </div>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>COD</span>
-          <div style={{ display: 'flex', gap: '3px' }}>
-            {(['2027', '2028', '2029'] as const).map(yr => (
-              <Pill key={yr} label={yr} active={cod === yr} onClick={() => captureAndChange('cod', () => setCod(yr))} />
-            ))}
-          </div>
-        </div>
+        <PillGroup label="Duration"
+          options={[{ key: '2h', label: '2H' }, { key: '4h', label: '4H' }]}
+          value={duration} onChange={k => setDuration(k as Duration)} />
+        <PillGroup label="CAPEX"
+          options={[
+            { key: 'low', label: `Competitive (€${CAPEX_VALUES.low})` },
+            { key: 'mid', label: `Market (€${CAPEX_VALUES.mid})` },
+            { key: 'high', label: `EPC (€${CAPEX_VALUES.high})` },
+          ]}
+          value={capexKey} onChange={k => setCapexKey(k as CapexKey)} />
+        <PillGroup label="COD"
+          options={(['2027', '2028', '2029'] as const).map(yr => ({ key: yr, label: yr }))}
+          value={cod} onChange={k => setCod(k as CodYear)} />
+        <PillGroup label="Scenario"
+          options={[
+            { key: 'base', label: 'Base' },
+            { key: 'conservative', label: 'Conservative' },
+            { key: 'stress', label: 'Stress' },
+          ]}
+          value={scenario} onChange={k => setScenario(k as Scenario)} />
         <ShareViewButton />
       </div>
 
-      {/* 4. "WHY IT MOVED" LINE */}
-      {movedLine && (
-        <p style={{
-          fontFamily: 'var(--font-mono)',
-          fontSize: 'var(--font-xs)',
-          color: 'var(--text-tertiary)',
-          marginBottom: '16px',
-          lineHeight: 1.5,
-        }}>
-          {movedLine}
-        </p>
-      )}
-
-      {/* 5. 2H vs 4H COMPARISON — scenario screen framing */}
-      <div style={{
-        fontFamily: 'var(--font-mono)',
-        fontSize: 'var(--font-xs)',
-        color: 'var(--text-muted)',
-        marginBottom: '6px',
-        letterSpacing: '0.08em',
-        textTransform: 'uppercase',
-      }}>
-        Scenario screen · not underwriting output <DataClassBadge dataClass="modeled" />
-      </div>
+      {/* 3. 2H vs 4H COMPARISON */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gap: '12px',
-        marginBottom: '12px',
+        gridTemplateColumns: isDesktop ? '1fr 1fr' : '1fr',
+        gap: '12px', marginBottom: '12px',
       }}>
         {/* 2H card */}
         <div style={{
@@ -556,17 +541,15 @@ export function RevenueCard() {
           background: duration === '2h' ? 'var(--bg-elevated)' : 'transparent',
           opacity: duration === '2h' ? 1 : 0.65,
           transition: 'opacity 150ms ease, border 150ms ease, background 150ms ease',
-        }}>
+          cursor: duration === '2h' ? 'default' : 'pointer',
+        }}
+        onClick={() => { if (duration !== '2h') setDuration('2h'); }}
+        >
           <p style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-xs)',
-            color: 'var(--text-tertiary)',
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
-            marginBottom: '12px',
-          }}>
-            50MW / 2H (100 MWh)
-          </p>
+            fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+            color: 'var(--text-tertiary)', letterSpacing: '0.08em',
+            textTransform: 'uppercase', marginBottom: '12px',
+          }}>50MW / 2H (100 MWh)</p>
           <div style={{ marginBottom: '10px' }}>
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-tertiary)' }}>Project IRR</span>
             <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1.25rem', fontWeight: 500, color: irrColor(irr2h), marginTop: '4px' }}>
@@ -577,12 +560,12 @@ export function RevenueCard() {
             <div>
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>EBITDA/MW/yr</span>
               <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1rem', color: 'var(--text-primary)', marginTop: '2px' }}>
-                {data2h.ebitda_y1 != null ? fmtEuro(Math.round(data2h.ebitda_y1 / 50)) : '—'}
+                {ebitda2h != null ? fmtEuro(Math.round(ebitda2h / 50)) : '—'}
               </p>
             </div>
             <div>
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>Min DSCR</span>
-              <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1rem', color: irrColor(dscr2h != null && dscr2h >= 1.20 ? 13 : dscr2h != null && dscr2h >= 1.0 ? 10 : 5), marginTop: '2px' }}>
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1rem', color: dscrColor(dscr2h), marginTop: '2px' }}>
                 {dscr2h != null ? `${dscr2h.toFixed(2)}×` : '—'}
               </p>
             </div>
@@ -598,17 +581,15 @@ export function RevenueCard() {
           background: duration === '4h' ? 'var(--bg-elevated)' : 'transparent',
           opacity: duration === '4h' ? 1 : 0.65,
           transition: 'opacity 150ms ease, border 150ms ease, background 150ms ease',
-        }}>
+          cursor: duration === '4h' ? 'default' : 'pointer',
+        }}
+        onClick={() => { if (duration !== '4h') setDuration('4h'); }}
+        >
           <p style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-xs)',
-            color: 'var(--text-tertiary)',
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
-            marginBottom: '12px',
-          }}>
-            50MW / 4H (200 MWh)
-          </p>
+            fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+            color: 'var(--text-tertiary)', letterSpacing: '0.08em',
+            textTransform: 'uppercase', marginBottom: '12px',
+          }}>50MW / 4H (200 MWh)</p>
           <div style={{ marginBottom: '10px' }}>
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-tertiary)' }}>Project IRR</span>
             <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1.25rem', fontWeight: 500, color: irrColor(irr4h), marginTop: '4px' }}>
@@ -619,12 +600,12 @@ export function RevenueCard() {
             <div>
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>EBITDA/MW/yr</span>
               <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1rem', color: 'var(--text-primary)', marginTop: '2px' }}>
-                {data4h?.ebitda_y1 != null ? fmtEuro(Math.round(data4h.ebitda_y1 / 50)) : '—'}
+                {ebitda4h != null ? fmtEuro(Math.round(ebitda4h / 50)) : '—'}
               </p>
             </div>
             <div>
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>Min DSCR</span>
-              <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1rem', color: irrColor(dscr4h != null && dscr4h >= 1.20 ? 13 : dscr4h != null && dscr4h >= 1.0 ? 10 : 5), marginTop: '2px' }}>
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1rem', color: dscrColor(dscr4h), marginTop: '2px' }}>
                 {dscr4h != null ? `${dscr4h.toFixed(2)}×` : '—'}
               </p>
             </div>
@@ -633,238 +614,97 @@ export function RevenueCard() {
         </div>
       </div>
 
-      {/* Equity IRR — demoted below both cards */}
-      <p style={{
-        fontFamily: 'var(--font-mono)',
-        fontSize: 'var(--font-xs)',
-        color: 'var(--text-muted)',
-        marginBottom: '8px',
-      }}>
-        Equity IRR: {fmtPct(eqIrr2h)} (2H) · {fmtPct(eqIrr4h)} (4H)
-      </p>
-
-      {/* Anti-overclaim + disclaimer */}
+      {/* 4. CENTRAL TAKEAWAY */}
       <div style={{
-        padding: '8px 12px',
-        borderLeft: '1px solid var(--amber-subtle)',
-        marginBottom: '20px',
+        fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)',
+        color: 'var(--text-secondary)', background: 'var(--bg-elevated)',
+        padding: '12px', borderLeft: `2px solid ${takeawayBorder}`,
+        marginBottom: '16px', lineHeight: 1.6,
       }}>
-        <p style={{
-          fontFamily: 'var(--font-mono)',
-          fontSize: 'var(--font-xs)',
-          color: 'var(--text-muted)',
-          lineHeight: 1.5,
-        }}>
-          Scenario analysis only. All capacity prices are Baltic-calibrated proxies, not observed clearing results. Revenue assumes fixed capacity factor — not dispatch-optimized. Not a lender credit assessment or investment recommendation.
-        </p>
+        {takeawayText}
       </div>
 
-      {/* 6. REVENUE BREAKDOWN — selected duration */}
-      {selected && (() => {
-        const waterfallRows = [
-          { label: 'Capacity', value: fmtKPerMw(selected.capacity_y1) },
-          { label: 'Activation', value: fmtKPerMw(selected.activation_y1) },
-          { label: 'Arbitrage', value: fmtKPerMw(selected.arbitrage_y1) },
-          { label: 'RTM fees', value: selected.rtm_fees_y1 != null ? `−${fmtKPerMw(selected.rtm_fees_y1)}` : '—' },
-          { label: 'Gross revenue', value: fmtKPerMw(selected.gross_revenue_y1) },
-          { label: 'OPEX', value: selected.opex_y1 != null ? `−${fmtKPerMw(selected.opex_y1)}` : '—' },
-          { label: 'EBITDA', value: fmtKPerMw(selected.ebitda_y1) },
-          { label: 'Net / MW', value: selected.net_mw_yr != null ? fmtEuro(selected.net_mw_yr) : '—' },
-        ];
-        return (
-        <div style={{ marginBottom: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '4px' }}>
-            <CopyButton
-              variant="text"
-              label="Copy revenue breakdown"
-              value={formatTable(
-                ['Revenue breakdown', `${duration === '4h' ? '4H' : '2H'} · ${capexCase === 'high' ? 'High CAPEX' : 'Base'} · COD ${cod}`],
-                waterfallRows.map(r => [r.label, r.value]),
-              )}
-            />
-          </div>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'auto 1fr',
-            gap: '6px 20px',
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-sm)',
-            marginBottom: '8px',
-          }}>
-            {([
-              { label: 'Capacity', value: fmtKPerMw(selected.capacity_y1), color: 'var(--text-secondary)' },
-              { label: 'Activation', value: fmtKPerMw(selected.activation_y1), color: 'var(--text-secondary)' },
-              { label: 'Arbitrage', value: fmtKPerMw(selected.arbitrage_y1), color: 'var(--text-secondary)' },
-              { label: 'RTM fees', value: selected.rtm_fees_y1 != null ? `−${fmtKPerMw(selected.rtm_fees_y1)}` : '—', color: 'var(--text-muted)' },
-              { label: 'Gross revenue', value: fmtKPerMw(selected.gross_revenue_y1), color: 'var(--text-primary)', bold: true, border: true },
-              { label: 'OPEX', value: selected.opex_y1 != null ? `−${fmtKPerMw(selected.opex_y1)}` : '—', color: 'var(--rose)' },
-              { label: 'EBITDA', value: fmtKPerMw(selected.ebitda_y1), color: 'var(--teal)', bold: true, border: true },
-              { label: 'Net / MW', value: selected.net_mw_yr != null ? fmtEuro(selected.net_mw_yr) : '—', color: 'var(--text-secondary)' },
-            ] as Array<{ label: string; value: string; color: string; bold?: boolean; border?: boolean }>).map(row => (
-              <React.Fragment key={row.label}>
-                <span style={{
-                  color: 'var(--text-tertiary)',
-                  letterSpacing: '0.04em',
-                  paddingTop: row.border ? '6px' : undefined,
-                  borderTop: row.border ? '1px solid var(--border-card)' : undefined,
-                }}>{row.label}</span>
-                <span style={{
-                  color: row.color,
-                  fontWeight: row.bold ? 500 : 400,
-                  textAlign: 'right',
-                  paddingTop: row.border ? '6px' : undefined,
-                  borderTop: row.border ? '1px solid var(--border-card)' : undefined,
-                }}>{row.value}</span>
-              </React.Fragment>
-            ))}
-          </div>
-          <p style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-xs)',
-            color: 'var(--text-muted)',
-          }}>
-            Per MW · Year 1 · {duration === '4h' ? '50 MW / 200 MWh' : '50 MW / 100 MWh'} · 20-year model
-          </p>
-        </div>
-        );
-      })()}
+      {/* 5. METRIC CARDS */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: isDesktop ? 'repeat(5, 1fr)' : 'repeat(3, 1fr)',
+        gap: '12px', marginBottom: '20px',
+      }}>
+        <MetricTile label="Project IRR" value={fmtPct(selIrr)} size="standard" />
+        <MetricTile label="EBITDA/MW/yr" value={selEbitda != null ? fmtEuro(Math.round(selEbitda / 50)) : '—'} size="standard" />
+        <MetricTile label="Min DSCR" value={selDscr != null ? `${selDscr.toFixed(2)}×` : '—'} size="standard" />
+        <MetricTile label="Simple payback" value={payback != null ? `${payback} yr` : '—'} size="standard" />
+        <MetricTile label="Revenue balance" value={revBalPct != null && revTrdPct != null ? `${revBalPct}% / ${revTrdPct}%` : '—'} size="standard" sublabel="Balancing / Trading" />
+      </div>
 
-      {/* 6B. IRR SENSITIVITY MATRIX */}
-      {matrixStatus === 'error' ? (
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '20px' }}>
-          Sensitivity view temporarily unavailable
-        </p>
-      ) : (
-        <div style={{ marginBottom: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
-            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-tertiary)', letterSpacing: '0.04em' }}>
-              IRR sensitivity
-            </p>
-            {matrixStatus === 'success' && (
-              <CopyButton
-                variant="text"
-                label="Copy IRR sensitivity matrix"
-                value={formatTable(
-                  ['COD', 'Base', 'High CAPEX'],
-                  (['2027', '2028', '2029'] as const).map(yr => [
-                    yr,
-                    fmtPct(matrixData[`${yr}_mid`] ?? null),
-                    fmtPct(matrixData[`${yr}_high`] ?? null),
-                  ]),
-                )}
-              />
-            )}
-          </div>
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '12px' }}>
-            Selected duration · Project IRR across COD and installed cost
-          </p>
-          {matrixStatus === 'loading' || matrixStatus === 'idle' ? (
-            <div style={{ padding: '16px 0' }}>
-              <div className="skeleton" style={{ height: '1rem', width: '60%', marginBottom: '8px' }} />
-              <div className="skeleton" style={{ height: '4rem', width: '100%' }} />
-            </div>
-          ) : (() => {
-            const mxHdr: React.CSSProperties = { fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-tertiary)', padding: '6px 8px', textAlign: 'center', letterSpacing: '0.06em', fontWeight: 500 };
-            const mxRow: React.CSSProperties = { fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-tertiary)', padding: '8px', display: 'flex', alignItems: 'center', fontWeight: 500 };
-            return (
-              <>
-                <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr 1fr', gap: '4px', marginBottom: '8px' }}>
-                  <span style={{ padding: '4px 8px' }} />
-                  <span style={mxHdr}>BASE</span>
-                  <span style={mxHdr}>HIGH CAPEX</span>
-                  {(['2027', '2028', '2029'] as const).map(yr => (
-                    <React.Fragment key={yr}>
-                      <span style={mxRow}>{yr}</span>
-                      {(['mid', 'high'] as const).map(cx => {
-                        const irr = matrixData[`${yr}_${cx}`] ?? null;
-                        const isSelected = yr === cod && cx === capex;
-                        const bg = irr != null && irr > 12 ? 'var(--teal-bg)'
-                          : irr != null && irr > 8 ? 'var(--amber-bg)'
-                          : irr != null ? 'var(--rose-bg)' : 'transparent';
-                        return (
-                          <div key={cx} style={{
-                            textAlign: 'center', padding: '8px', background: bg,
-                            border: isSelected ? '2px solid var(--border-highlight)' : '1px solid var(--border-card)',
-                          }}>
-                            <span style={{ fontFamily: "'Unbounded', sans-serif", fontSize: '1rem', color: irrColor(irr), fontWeight: 400 }}>
-                              {irr != null ? fmtPct(irr) : '—'}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </React.Fragment>
-                  ))}
-                </div>
-                {(() => {
-                  const codIrrs = (['2027', '2028', '2029'] as const).map(yr => matrixData[`${yr}_${capex}`]).filter((v): v is number => v != null);
-                  const codSpread = codIrrs.length >= 2 ? Math.max(...codIrrs) - Math.min(...codIrrs) : 0;
-                  const capexIrrs = (['mid', 'high'] as const).map(cx => matrixData[`${cod}_${cx}`]).filter((v): v is number => v != null);
-                  const capexSpread = capexIrrs.length >= 2 ? Math.max(...capexIrrs) - Math.min(...capexIrrs) : 0;
-                  const dur = duration === '4h' ? '4H' : '2H';
-                  const summary = codSpread > capexSpread + 2
-                    ? `For ${dur}, COD timing drives more IRR variance than installed cost at the current step.`
-                    : capexSpread > codSpread + 2
-                    ? `For ${dur}, installed cost drives more IRR variance than COD timing at the current step.`
-                    : `For ${dur}, COD timing and installed cost have comparable impact on Project IRR.`;
-                  return <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', lineHeight: 1.5, marginTop: '6px' }}>{summary}</p>;
-                })()}
-              </>
-            );
-          })()}
-        </div>
+      {/* 6. 20yr REVENUE STRUCTURE CHART */}
+      {selected && selected.years && selected.years.length > 0 && (
+        <RevenueStructureChart
+          years={selected.years}
+          crossoverYear={crossoverYear}
+          codYear={selected.cod_year}
+          CC={CC}
+          ttStyle={ttStyle}
+          isDesktop={isDesktop}
+        />
       )}
 
-      {/* 7. INTERPRETATION — explains WHY the numbers look like this */}
-      {selected && (() => {
-        // Revenue composition context
-        const capShare = (selected.capacity_y1 != null && selected.gross_revenue_y1 != null && selected.gross_revenue_y1 > 0)
-          ? Math.round((selected.capacity_y1 / selected.gross_revenue_y1) * 100) : null;
-        const arbShare = (selected.arbitrage_y1 != null && selected.gross_revenue_y1 != null && selected.gross_revenue_y1 > 0)
-          ? Math.round((selected.arbitrage_y1 / selected.gross_revenue_y1) * 100) : null;
+      {/* 7. REVENUE BRIDGE */}
+      {selected && (
+        <RevenueBridgeChart
+          data={selected}
+          CC={CC}
+          ttStyle={ttStyle}
+          isDesktop={isDesktop}
+        />
+      )}
 
+      {/* 8. 3×3 IRR SENSITIVITY MATRIX */}
+      {matrix.length > 0 && (
+        <SensitivityMatrix
+          matrix={matrix}
+          selectedCod={parseInt(cod)}
+          selectedCapex={capexKey}
+          duration={durationTag}
+        />
+      )}
+
+      {/* 9. MONTHLY DSCR HEATMAP */}
+      {selected && selected.monthly_y1 && selected.monthly_y1.length > 0 && (
+        <MonthlyDscrHeatmap months={selected.monthly_y1} />
+      )}
+
+      {/* 10. INTERPRETATION */}
+      {selected && (() => {
+        const capShare = y1 && y1.rev_gross > 0 ? Math.round(y1.rev_bal / y1.rev_gross * 100) : null;
         let interp = '';
         if (selIrr != null && selIrr > 15 && selDscr != null && selDscr > 1.5) {
-          interp = `Capacity and activation income make up ${capShare != null ? `~${capShare}%` : 'the majority'} of gross revenue. At COD ${cod}, fleet competition has not yet compressed these prices enough to narrow the margin.`;
+          interp = `Balancing income makes up ${capShare != null ? `~${capShare}%` : 'the majority'} of gross revenue. At COD ${cod}, fleet competition has not yet compressed these prices enough to narrow the margin.`;
         } else if (selIrr != null && selIrr > 12) {
-          interp = `Revenue is split between capacity income${capShare != null ? ` (~${capShare}%)` : ''} and arbitrage${arbShare != null ? ` (~${arbShare}%)` : ''}. At COD ${cod}, fleet growth has begun to tighten capacity clearing but has not eliminated the spread.`;
+          interp = `Revenue is split between balancing${capShare != null ? ` (~${capShare}%)` : ''} and trading${revTrdPct != null ? ` (~${revTrdPct}%)` : ''}. Fleet growth has begun to tighten balancing clearing but has not eliminated the spread.`;
         } else if (selIrr != null && selIrr > 8) {
-          interp = `Fleet additions by COD ${cod} compress capacity prices enough that small changes in timing or cost shift the outcome between viable and marginal. Arbitrage alone does not close the gap.`;
+          interp = `Fleet additions by COD ${cod} compress balancing prices enough that small changes in timing or cost shift the outcome between viable and marginal. Trading alone does not close the gap.`;
         } else {
-          interp = `By COD ${cod}, fleet growth drives supply past the compression threshold. Capacity clearing prices fall, and the remaining arbitrage and activation revenue cannot cover the cost structure at this CAPEX level.`;
+          interp = `By COD ${cod}, fleet growth drives supply past the compression threshold. Balancing clearing prices fall, and the remaining trading revenue cannot cover the cost structure at this CAPEX level.`;
         }
         return (
           <p style={{
-            fontFamily: 'var(--font-serif)',
-            fontSize: '0.9375rem',
-            color: 'var(--text-secondary)',
-            lineHeight: 1.7,
+            fontFamily: 'var(--font-serif)', fontSize: '0.9375rem',
+            color: 'var(--text-secondary)', lineHeight: 1.7,
             margin: '4px 0 16px',
-          }}>
-            {interp}
-          </p>
+          }}>{interp}</p>
         );
       })()}
 
-      {/* 8. STACKING DISCLOSURE */}
-      <p style={{
-        fontFamily: 'var(--font-mono)',
-        fontSize: 'var(--font-xs)',
-        color: 'var(--text-muted)',
-        lineHeight: 1.6,
-        marginBottom: '16px',
-      }}>
-        Revenue assumes hierarchical dispatch (FCR → aFRR → mFRR → arbitrage). Realised revenue is typically 65–80% of theoretical maximum. All capacity prices are Baltic-calibrated proxies. Interpret outputs as modeled directional economics.
-      </p>
-
-      {/* 9. IMPACT LINE */}
+      {/* 11. IMPACT LINE */}
       <div style={{ marginBottom: '16px' }}>
         <ImpactLine impact={impact} description={impactDesc} />
       </div>
 
-      {/* 10. SOURCE FOOTER */}
+      {/* 12. SOURCE FOOTER */}
       <button type="button" onClick={openDrawer} style={{ all: 'unset', display: 'block', width: '100%', cursor: 'pointer' }}>
         <SourceFooter
-          source={`Model v5 · observed + proxy + modeled`}
+          source={`Model ${selected?.model_version ?? 'v7'} · observed + proxy + modeled`}
           updatedAt={ts ? new Date(ts).toLocaleString('en-GB', {
             day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC',
           }) : undefined}
@@ -872,309 +712,721 @@ export function RevenueCard() {
         />
       </button>
 
-      {/* 11. DETAILS DRAWER */}
+      {/* 13. DETAILS DRAWER */}
       <div style={{ marginTop: '16px' }}>
         <DetailsDrawer key={drawerKey} label="View model detail and methodology" defaultOpen={drawerKey > 0}>
-          {/* MODEL CONFIGURATION */}
-          <p style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-sm)',
-            color: 'var(--text-tertiary)',
-            letterSpacing: '0.1em',
-            textTransform: 'uppercase',
-            marginBottom: '10px',
-            fontWeight: 500,
-          }}>
-            Model configuration
-          </p>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'auto 1fr',
-            gap: '6px 16px',
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-sm)',
-            marginBottom: '24px',
-          }}>
-            <span style={{ color: 'var(--text-muted)' }}>Duration</span>
-            <span style={{ color: 'var(--text-secondary)' }}>{duration === '4h' ? '4H (50 MW / 200 MWh)' : '2H (50 MW / 100 MWh)'}</span>
-            <span style={{ color: 'var(--text-muted)' }}>Case</span>
-            <span style={{ color: 'var(--text-secondary)' }}>{capexCase === 'high' ? 'High CAPEX (€262/kWh)' : 'Base (€164/kWh)'}</span>
-            <span style={{ color: 'var(--text-muted)' }}>COD</span>
-            <span style={{ color: 'var(--text-secondary)' }}>{cod}</span>
-            <span style={{ color: 'var(--text-muted)' }}>Grant</span>
-            <span style={{ color: 'var(--text-secondary)' }}>None</span>
-          </div>
-
-          {/* REVENUE DETAIL — both durations */}
-          <p style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-sm)',
-            color: 'var(--text-tertiary)',
-            letterSpacing: '0.1em',
-            textTransform: 'uppercase',
-            marginBottom: '10px',
-            fontWeight: 500,
-          }}>
-            Revenue detail
-          </p>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'auto 1fr 1fr',
-            gap: '6px 16px',
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-sm)',
-            marginBottom: '24px',
-          }}>
-            <span style={{ color: 'var(--text-muted)' }}></span>
-            <span style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-xs)' }}>2H</span>
-            <span style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-xs)' }}>4H</span>
-            {([
-              { label: 'Capacity', k2: fmtKPerMw(data2h.capacity_y1), k4: fmtKPerMw(data4h?.capacity_y1) },
-              { label: 'Activation', k2: fmtKPerMw(data2h.activation_y1), k4: fmtKPerMw(data4h?.activation_y1) },
-              { label: 'Arbitrage', k2: fmtKPerMw(data2h.arbitrage_y1), k4: fmtKPerMw(data4h?.arbitrage_y1) },
-              { label: 'RTM fees', k2: data2h.rtm_fees_y1 != null ? `−${fmtKPerMw(data2h.rtm_fees_y1)}` : '—', k4: data4h?.rtm_fees_y1 != null ? `−${fmtKPerMw(data4h.rtm_fees_y1)}` : '—' },
-              { label: 'Gross', k2: fmtKPerMw(data2h.gross_revenue_y1), k4: fmtKPerMw(data4h?.gross_revenue_y1) },
-              { label: 'OPEX', k2: data2h.opex_y1 != null ? `−${fmtKPerMw(data2h.opex_y1)}` : '—', k4: data4h?.opex_y1 != null ? `−${fmtKPerMw(data4h.opex_y1)}` : '—' },
-              { label: 'EBITDA', k2: fmtKPerMw(data2h.ebitda_y1), k4: fmtKPerMw(data4h?.ebitda_y1) },
-              { label: 'Net/MW/yr', k2: data2h.net_mw_yr != null ? fmtEuro(data2h.net_mw_yr) : '—', k4: data4h?.net_mw_yr != null ? fmtEuro(data4h.net_mw_yr) : '—' },
-            ] as Array<{ label: string; k2: string; k4: string }>).map(r => (
-              <React.Fragment key={r.label}>
-                <span style={{ color: 'var(--text-muted)' }}>{r.label}</span>
-                <span style={{ color: 'var(--text-secondary)' }}>{r.k2}</span>
-                <span style={{ color: 'var(--text-secondary)' }}>{r.k4}</span>
-              </React.Fragment>
-            ))}
-          </div>
-
-          {/* FINANCING ASSUMPTIONS */}
-          <p style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-sm)',
-            color: 'var(--text-tertiary)',
-            letterSpacing: '0.1em',
-            textTransform: 'uppercase',
-            marginBottom: '10px',
-            fontWeight: 500,
-          }}>
-            Financing assumptions
-          </p>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'auto 1fr',
-            gap: '6px 16px',
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-sm)',
-            marginBottom: '8px',
-          }}>
-            <span style={{ color: 'var(--text-muted)' }}>Debt share</span>
-            <span style={{ color: 'var(--text-secondary)' }}>55%</span>
-            <span style={{ color: 'var(--text-muted)' }}>Interest rate</span>
-            <span style={{ color: 'var(--text-secondary)' }}>4.5% all-in (ECB deposit 2.00% + modeled margin)</span>
-            <span style={{ color: 'var(--text-muted)' }}>Tenor</span>
-            <span style={{ color: 'var(--text-secondary)' }}>8 years</span>
-            <span style={{ color: 'var(--text-muted)' }}>Grace period</span>
-            <span style={{ color: 'var(--text-secondary)' }}>1 year</span>
-            <span style={{ color: 'var(--text-muted)' }}>DSCR basis</span>
-            <span style={{ color: 'var(--text-secondary)' }}>Minimum annual CFADS-based</span>
-          </div>
-          <p style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-xs)',
-            color: 'var(--text-muted)',
-            lineHeight: 1.5,
-            marginBottom: '20px',
-          }}>
-            DSCR appears stable across COD scenarios because debt is sized to maintain coverage — the debt quantum changes, not the ratio. Financing terms are modeled assumptions, not market quotes.
-          </p>
-
-          {/* ASSET LIFE AND AUGMENTATION */}
-          <p style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-sm)',
-            color: 'var(--text-tertiary)',
-            letterSpacing: '0.1em',
-            textTransform: 'uppercase',
-            marginBottom: '10px',
-            fontWeight: 500,
-          }}>
-            Asset life and augmentation
-          </p>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'auto 1fr',
-            gap: '6px 16px',
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-sm)',
-            marginBottom: '8px',
-          }}>
-            <span style={{ color: 'var(--text-muted)' }}>Degradation</span>
-            <span style={{ color: 'var(--text-secondary)' }}>2.5%/yr</span>
-            <span style={{ color: 'var(--text-muted)' }}>Augmentation</span>
-            <span style={{ color: 'var(--text-secondary)' }}>Year 10, €25/kWh</span>
-            <span style={{ color: 'var(--text-muted)' }}>Depreciation</span>
-            <span style={{ color: 'var(--text-secondary)' }}>10yr on gross CAPEX</span>
-            <span style={{ color: 'var(--text-muted)' }}>Tax</span>
-            <span style={{ color: 'var(--text-secondary)' }}>17% Lithuanian CIT</span>
-          </div>
-          <p style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-xs)',
-            color: 'var(--text-muted)',
-            lineHeight: 1.5,
-            marginBottom: '20px',
-          }}>
-            Physical asset assumptions affect long-term DSCR profile.
-          </p>
-
-          {/* REVENUE QUALITY */}
-          <p style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-sm)',
-            color: 'var(--text-tertiary)',
-            letterSpacing: '0.1em',
-            textTransform: 'uppercase',
-            marginBottom: '10px',
-            fontWeight: 500,
-          }}>
-            Revenue quality
-          </p>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'auto 1fr',
-            gap: '6px 16px',
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-sm)',
-            marginBottom: '8px',
-          }}>
-            <span style={{ color: 'var(--text-muted)' }}>Revenue basis</span>
-            <span style={{ color: 'var(--text-secondary)' }}>100% merchant-modeled</span>
-            <span style={{ color: 'var(--text-muted)' }}>Dispatch</span>
-            <span style={{ color: 'var(--text-secondary)' }}>Hierarchical (FCR → aFRR → mFRR → arb)</span>
-            <span style={{ color: 'var(--text-muted)' }}>Activation</span>
-            <span style={{ color: 'var(--text-secondary)' }}>Endogenous (aFRR 18%, mFRR 10%)</span>
-            <span style={{ color: 'var(--text-muted)' }}>Capacity prices</span>
-            <span style={{ color: 'var(--text-secondary)' }}>Proxy (AST Latvia calibrated)</span>
-            <span style={{ color: 'var(--text-muted)' }}>Curtailment</span>
-            <span style={{ color: 'var(--text-secondary)' }}>Not modeled</span>
-          </div>
-          <p style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-xs)',
-            color: 'var(--text-muted)',
-            lineHeight: 1.5,
-            marginBottom: '20px',
-          }}>
-            Proxy flag applies until BTD measured data uploaded.
-          </p>
-
-          {/* REVENUE STREAM CONFIDENCE */}
-          <p style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-sm)',
-            color: 'var(--text-tertiary)',
-            letterSpacing: '0.1em',
-            textTransform: 'uppercase',
-            marginBottom: '10px',
-            fontWeight: 500,
-          }}>
-            Revenue stream confidence
-          </p>
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '3px',
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-xs)',
-            marginBottom: '8px',
-          }}>
-            {[
-              { stream: 'Arbitrage', confidence: 'High', color: 'var(--teal)', reason: 'observable day-ahead spreads' },
-              { stream: 'aFRR capacity', confidence: 'Medium', color: 'var(--amber)', reason: 'proxy prices, thin clearing depth' },
-              { stream: 'mFRR capacity', confidence: 'Medium', color: 'var(--amber)', reason: 'proxy prices, growing but shallow' },
-              { stream: 'FCR', confidence: 'Low', color: 'var(--rose)', reason: 'BBCM transition, no Baltic track record' },
-            ].map(({ stream, confidence, color, reason }) => (
-              <div key={stream} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--text-muted)' }}>{stream}</span>
-                <span style={{ color, opacity: 0.75 }}>{confidence} · {reason}</span>
-              </div>
-            ))}
-          </div>
-          <p style={{
-            fontFamily: 'var(--font-serif)',
-            fontSize: 'var(--font-xs)',
-            color: 'var(--text-secondary)',
-            lineHeight: 1.6,
-            marginBottom: '8px',
-          }}>
-            Arbitrage is the most observable revenue stream — day-ahead prices are public and liquid. Balancing capacity prices remain proxy-based with thin clearing depth. FCR via BBCM has no Baltic operational track record yet.
-          </p>
-          <p style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-xs)',
-            color: 'var(--text-muted)',
-            lineHeight: 1.5,
-            marginBottom: '20px',
-          }}>
-            Conservative and stress scenarios adjust for confidence gaps in each stream.
-          </p>
-
-          {/* DATA CONFIDENCE */}
-          <p style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-sm)',
-            color: 'var(--text-tertiary)',
-            letterSpacing: '0.1em',
-            textTransform: 'uppercase',
-            marginBottom: '10px',
-            fontWeight: 500,
-          }}>
-            Data confidence
-          </p>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'auto 1fr',
-            gap: '6px 16px',
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-sm)',
-            marginBottom: '24px',
-          }}>
-            <span style={{ color: 'var(--text-muted)' }}>Arbitrage</span>
-            <span style={{ color: 'var(--text-secondary)' }}>Observed/Derived (ENTSO-E A44)</span>
-            <span style={{ color: 'var(--text-muted)' }}>Capacity prices</span>
-            <span style={{ color: 'var(--text-secondary)' }}>Proxy (Baltic-calibrated, not clearing)</span>
-            <span style={{ color: 'var(--text-muted)' }}>Fleet S/D</span>
-            <span style={{ color: 'var(--text-secondary)' }}>Derived (manual fleet tracker)</span>
-            <span style={{ color: 'var(--text-muted)' }}>CAPEX</span>
-            <span style={{ color: 'var(--text-secondary)' }}>Reference (CH S1 2025 benchmarks)</span>
-            <span style={{ color: 'var(--text-muted)' }}>Financing</span>
-            <span style={{ color: 'var(--text-secondary)' }}>Observed (Euribor) + Modeled (margin)</span>
-          </div>
-
-          {/* METHODOLOGY — lowest emphasis, separated by divider */}
-          <div style={{ borderTop: '1px solid var(--border-card)', paddingTop: '16px' }}>
-          <p style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-xs)',
-            color: 'var(--text-muted)',
-            letterSpacing: '0.1em',
-            textTransform: 'uppercase',
-            marginBottom: '4px',
-            opacity: 0.7,
-          }}>
-            Methodology
-          </p>
-          <p style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-xs)',
-            color: 'var(--text-muted)',
-            lineHeight: 1.5,
-            opacity: 0.6,
-          }}>
-            20-year DCF. Hierarchy dispatch. CPI from fleet S/D trajectory. 17% CIT, 10yr depreciation. CFADS-based DSCR. WACC 8%. Full model: BESS_Financial_Model_Visaginas_50MW v5.
-          </p>
-          </div>
+          <DrawerContent
+            data2h={data2h} data4h={data4h} selected={selected}
+            duration={duration} capexKey={capexKey} cod={cod} scenario={scenario}
+            CC={CC}
+          />
         </DetailsDrawer>
       </div>
     </article>
+  );
+}
+
+// ── 20yr Revenue Structure Chart ───────────────────────────────────────────
+
+function RevenueStructureChart({ years, crossoverYear, codYear, CC, ttStyle, isDesktop }: {
+  years: YearRow[];
+  crossoverYear: number | null;
+  codYear: number;
+  CC: ReturnType<typeof useChartColors>;
+  ttStyle: ReturnType<typeof useTooltipStyle>;
+  isDesktop: boolean;
+}) {
+  const labels = years.map(y => `Y${y.yr}`);
+  const mw = 50;
+  const balData = years.map(y => Math.round(y.rev_bal / mw / 1000 * 10) / 10);
+  const trdData = years.map(y => Math.round(y.rev_trd / mw / 1000 * 10) / 10);
+
+  const crossoverIdx = crossoverYear ? years.findIndex(y => y.cal_year === crossoverYear) : -1;
+
+  return (
+    <div style={{ marginBottom: '20px' }}>
+      <p style={{
+        fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)',
+        color: 'var(--text-tertiary)', letterSpacing: '0.04em', marginBottom: '8px',
+      }}>
+        20-year revenue structure (per MW)
+      </p>
+      <div style={{ height: isDesktop ? '200px' : '160px' }}>
+        <Line
+          data={{
+            labels,
+            datasets: [
+              {
+                label: 'Balancing',
+                data: balData,
+                fill: 'origin',
+                backgroundColor: 'rgba(0,180,160,0.25)',
+                borderColor: CC.teal,
+                borderWidth: 1.5,
+                pointRadius: 0,
+                tension: 0.3,
+              },
+              {
+                label: 'Trading',
+                data: trdData.map((t, i) => t + balData[i]),
+                fill: '-1',
+                backgroundColor: 'rgba(212,160,60,0.2)',
+                borderColor: CC.amber,
+                borderWidth: 1.5,
+                pointRadius: 0,
+                tension: 0.3,
+              },
+            ],
+          }}
+          options={{
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                ...ttStyle,
+                callbacks: {
+                  title: (items) => items[0]?.label ?? '',
+                  label: (ctx) => {
+                    const idx = ctx.dataIndex;
+                    return [
+                      `Balancing: €${balData[idx]}k/MW`,
+                      `Trading: €${trdData[idx]}k/MW`,
+                      `Total: €${(balData[idx] + trdData[idx]).toFixed(1)}k/MW`,
+                    ][0];
+                  },
+                  afterBody: (items) => {
+                    const idx = items[0]?.dataIndex ?? 0;
+                    return [
+                      `Balancing: €${balData[idx]}k/MW`,
+                      `Trading: €${trdData[idx]}k/MW`,
+                      `Total: €${(balData[idx] + trdData[idx]).toFixed(1)}k/MW`,
+                    ];
+                  },
+                },
+              },
+            },
+            scales: {
+              x: {
+                grid: { display: false },
+                border: { color: CC.border },
+                ticks: { color: CC.textMuted, font: { family: CHART_FONT.family, size: 10 }, maxTicksLimit: 10 },
+              },
+              y: {
+                grid: { color: CC.grid, lineWidth: 0.5 },
+                border: { display: false },
+                ticks: {
+                  color: CC.textMuted,
+                  font: { family: CHART_FONT.family, size: 10 },
+                  callback: (v) => `€${v}k`,
+                  maxTicksLimit: 5,
+                },
+                beginAtZero: true,
+              },
+            },
+          }}
+        />
+      </div>
+      {/* Inline legend + crossover annotation */}
+      <div style={{
+        display: 'flex', gap: '16px', alignItems: 'center',
+        fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+        color: 'var(--text-muted)', marginTop: '6px',
+      }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+          <span style={{ width: '8px', height: '8px', background: CC.teal, display: 'inline-block' }} />
+          Balancing
+        </span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+          <span style={{ width: '8px', height: '8px', background: CC.amber, display: 'inline-block' }} />
+          Trading
+        </span>
+        {crossoverYear && crossoverIdx >= 0 && (
+          <span style={{ color: 'var(--text-tertiary)' }}>
+            Trading exceeds balancing: Y{crossoverIdx + 1} ({crossoverYear})
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Revenue Bridge (Horizontal Waterfall) ──────────────────────────────────
+
+function RevenueBridgeChart({ data, CC, ttStyle, isDesktop }: {
+  data: RevenueData;
+  CC: ReturnType<typeof useChartColors>;
+  ttStyle: ReturnType<typeof useTooltipStyle>;
+  isDesktop: boolean;
+}) {
+  const mw = 50;
+  const bal = Math.round(data.capacity_y1 / mw / 1000 * 10) / 10 + Math.round(data.activation_y1 / mw / 1000 * 10) / 10;
+  const trd = Math.round(data.arbitrage_y1 / mw / 1000 * 10) / 10;
+  const rtm = Math.round(data.rtm_fees_y1 / mw / 1000 * 10) / 10;
+  const gross = Math.round((data.gross_revenue_y1) / mw / 1000 * 10) / 10;
+  const opex = Math.round(data.opex_y1 / mw / 1000 * 10) / 10;
+  const ebitda = Math.round(data.ebitda_y1 / mw / 1000 * 10) / 10;
+
+  const labels = ['Balancing', 'Trading', '−RTM fees', '=Gross', '−OPEX', '=EBITDA'];
+  const starts = [0, bal, gross, 0, gross - rtm, 0];
+  const ends = [bal, bal + trd, gross - rtm, gross, gross - rtm - opex, ebitda];
+
+  // Floating bar data: [start, end] for each segment
+  const barData = labels.map((_, i) => [Math.min(starts[i], ends[i]), Math.max(starts[i], ends[i])]);
+
+  const colors = [
+    CC.teal, CC.amber, CC.roseLight, CC.textMuted, CC.roseLight,
+    ebitda > 0 ? CC.teal : CC.rose,
+  ];
+
+  return (
+    <div style={{ marginBottom: '20px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+        <p style={{
+          fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)',
+          color: 'var(--text-tertiary)', letterSpacing: '0.04em',
+        }}>
+          Revenue bridge — Year 1 per MW (€k)
+        </p>
+        <CopyButton
+          variant="text"
+          label="Copy revenue bridge"
+          value={formatTable(
+            ['Stream', '€k/MW/yr'],
+            labels.map((l, i) => [l, `€${barData[i][1].toFixed(1)}k`]),
+          )}
+        />
+      </div>
+      <div style={{ height: isDesktop ? '180px' : '140px' }}>
+        <Bar
+          data={{
+            labels,
+            datasets: [{
+              data: barData,
+              backgroundColor: colors,
+              borderColor: colors,
+              borderWidth: 1,
+              borderSkipped: false,
+            }],
+          }}
+          options={{
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                ...ttStyle,
+                callbacks: {
+                  label: (ctx) => {
+                    const raw = ctx.raw as [number, number];
+                    const val = raw[1] - raw[0];
+                    return `€${val.toFixed(1)}k/MW/yr`;
+                  },
+                },
+              },
+            },
+            scales: {
+              x: {
+                grid: { color: CC.grid, lineWidth: 0.5 },
+                border: { display: false },
+                ticks: {
+                  color: CC.textMuted,
+                  font: { family: CHART_FONT.family, size: 10 },
+                  callback: (v) => `€${v}k`,
+                },
+              },
+              y: {
+                grid: { display: false },
+                border: { color: CC.border },
+                ticks: {
+                  color: CC.textSecondary,
+                  font: { family: CHART_FONT.family, size: 11 },
+                },
+              },
+            },
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ── 3×3 IRR Sensitivity Matrix ─────────────────────────────────────────────
+
+function SensitivityMatrix({ matrix, selectedCod, selectedCapex, duration }: {
+  matrix: MatrixCell[];
+  selectedCod: number;
+  selectedCapex: CapexKey;
+  duration: string;
+}) {
+  const codYears = [2027, 2028, 2029];
+  const capexKeys: CapexKey[] = ['low', 'mid', 'high'];
+  const capexLabels = ['Competitive', 'Market', 'EPC'];
+
+  const getCell = (cod: number, capex: string): MatrixCell | undefined =>
+    matrix.find(m => m.cod === cod && m.capex === capex);
+
+  // Determine dominant driver
+  const codIrrs = codYears.map(yr => {
+    const cell = getCell(yr, selectedCapex);
+    return cell ? irrPct(cell.project_irr) : null;
+  }).filter((v): v is number => v != null);
+  const capexIrrs = capexKeys.map(ck => {
+    const cell = getCell(selectedCod, ck);
+    return cell ? irrPct(cell.project_irr) : null;
+  }).filter((v): v is number => v != null);
+  const codSpread = codIrrs.length >= 2 ? Math.max(...codIrrs) - Math.min(...codIrrs) : 0;
+  const capexSpread = capexIrrs.length >= 2 ? Math.max(...capexIrrs) - Math.min(...capexIrrs) : 0;
+  const summary = codSpread > capexSpread + 2
+    ? `For ${duration}, COD timing drives more IRR variance than installed cost.`
+    : capexSpread > codSpread + 2
+    ? `For ${duration}, installed cost drives more IRR variance than COD timing.`
+    : `For ${duration}, COD timing and installed cost have comparable impact on Project IRR.`;
+
+  const copyRows = codYears.map(yr =>
+    [String(yr), ...capexKeys.map(ck => {
+      const cell = getCell(yr, ck);
+      return cell ? fmtPct(irrPct(cell.project_irr)) : '—';
+    })]
+  );
+
+  const hdr: React.CSSProperties = {
+    fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)',
+    color: 'var(--text-tertiary)', padding: '6px 8px', textAlign: 'center',
+    letterSpacing: '0.06em', fontWeight: 500,
+  };
+  const rowLabel: React.CSSProperties = {
+    fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)',
+    color: 'var(--text-tertiary)', padding: '8px', display: 'flex',
+    alignItems: 'center', fontWeight: 500,
+  };
+
+  return (
+    <div style={{ marginBottom: '20px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-tertiary)', letterSpacing: '0.04em' }}>
+          IRR sensitivity — {duration}
+        </p>
+        <CopyButton
+          variant="text"
+          label="Copy IRR sensitivity matrix"
+          value={formatTable(['COD', ...capexLabels], copyRows)}
+        />
+      </div>
+      <p style={{
+        fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+        color: 'var(--text-muted)', marginBottom: '12px',
+      }}>
+        Base scenario · Project IRR across COD and installed cost
+      </p>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr 1fr 1fr', gap: '4px', marginBottom: '8px' }}>
+        <span style={{ padding: '4px 8px' }} />
+        {capexLabels.map(l => <span key={l} style={hdr}>{l.toUpperCase()}</span>)}
+        {codYears.map(yr => (
+          <React.Fragment key={yr}>
+            <span style={rowLabel}>{yr}</span>
+            {capexKeys.map(ck => {
+              const cell = getCell(yr, ck);
+              const irr = cell ? irrPct(cell.project_irr) : null;
+              const isSelected = yr === selectedCod && ck === selectedCapex;
+              const bg = irr != null && irr > 12 ? 'var(--teal-bg)'
+                : irr != null && irr > 8 ? 'var(--amber-bg)'
+                : irr != null ? 'var(--rose-bg)' : 'transparent';
+              return (
+                <div key={ck} style={{
+                  textAlign: 'center', padding: '8px', background: bg,
+                  border: isSelected ? '2px solid var(--border-highlight)' : '1px solid var(--border-card)',
+                }}>
+                  <span style={{
+                    fontFamily: "'Unbounded', sans-serif", fontSize: '1rem',
+                    color: irrColor(irr), fontWeight: 400,
+                  }}>
+                    {irr != null ? fmtPct(irr) : '—'}
+                  </span>
+                </div>
+              );
+            })}
+          </React.Fragment>
+        ))}
+      </div>
+      <p style={{
+        fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+        color: 'var(--text-tertiary)', lineHeight: 1.5, marginTop: '6px',
+      }}>{summary}</p>
+    </div>
+  );
+}
+
+// ── Monthly DSCR Heatmap ───────────────────────────────────────────────────
+
+function MonthlyDscrHeatmap({ months }: { months: MonthlyDSCR[] }) {
+  return (
+    <div style={{ marginBottom: '20px' }}>
+      <p style={{
+        fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)',
+        color: 'var(--text-tertiary)', letterSpacing: '0.04em', marginBottom: '8px',
+      }}>
+        Monthly DSCR — Year 1 seasonal profile
+      </p>
+      <div style={{
+        display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)',
+        gap: '2px',
+      }}>
+        {months.map(m => {
+          const bg = m.dscr == null ? 'var(--bg-elevated)'
+            : m.dscr >= 1.50 ? 'var(--teal-bg)'
+            : m.dscr >= 1.20 ? 'var(--teal-subtle)'
+            : m.dscr >= 1.0 ? 'var(--amber-bg)'
+            : 'var(--rose-bg)';
+          const color = m.dscr == null ? 'var(--text-muted)'
+            : m.dscr >= 1.20 ? 'var(--teal)' : m.dscr >= 1.0 ? 'var(--amber)' : 'var(--rose)';
+          return (
+            <div key={m.month} style={{
+              background: bg, padding: '6px 2px', textAlign: 'center',
+              border: '1px solid var(--border-card)',
+            }}
+            title={`${m.month}: DSCR ${m.dscr?.toFixed(2) ?? '—'}×`}
+            >
+              <div style={{
+                fontFamily: 'var(--font-mono)', fontSize: '0.5625rem',
+                color: 'var(--text-muted)', letterSpacing: '0.04em', marginBottom: '2px',
+              }}>{m.month}</div>
+              <div style={{
+                fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+                color, fontWeight: 500,
+              }}>
+                {m.dscr != null ? m.dscr.toFixed(1) : '—'}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <p style={{
+        fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+        color: 'var(--text-muted)', marginTop: '4px',
+      }}>
+        Bankability floor: 1.20×. Summer months carry seasonal risk.
+      </p>
+    </div>
+  );
+}
+
+// ── Drawer Content ─────────────────────────────────────────────────────────
+
+function DrawerContent({ data2h, data4h, selected, duration, capexKey, cod, scenario, CC }: {
+  data2h: RevenueData;
+  data4h: RevenueData | null;
+  selected: RevenueData | null;
+  duration: Duration;
+  capexKey: CapexKey;
+  cod: CodYear;
+  scenario: Scenario;
+  CC: ReturnType<typeof useChartColors>;
+}) {
+  if (!selected) return null;
+
+  const subhead: React.CSSProperties = {
+    fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+    color: 'var(--text-tertiary)', letterSpacing: '0.1em',
+    textTransform: 'uppercase', marginBottom: '10px', fontWeight: 500,
+  };
+  const gridStyle: React.CSSProperties = {
+    display: 'grid', gridTemplateColumns: 'auto 1fr',
+    gap: '6px 16px', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)',
+    marginBottom: '24px',
+  };
+  const lbl: React.CSSProperties = { color: 'var(--text-muted)' };
+  const val: React.CSSProperties = { color: 'var(--text-secondary)' };
+  const note: React.CSSProperties = {
+    fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+    color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: '20px',
+  };
+
+  // All scenarios comparison
+  const allScen = selected.all_scenarios;
+  const scenKeys: Scenario[] = ['base', 'conservative', 'stress'];
+
+  return (
+    <>
+      {/* SCENARIO COMPARISON */}
+      <p style={subhead}>Scenario comparison</p>
+      <div style={{
+        display: 'grid', gridTemplateColumns: 'auto 1fr 1fr 1fr',
+        gap: '6px 16px', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)',
+        marginBottom: '24px',
+      }}>
+        <span style={lbl} />
+        {scenKeys.map(s => (
+          <span key={s} style={{
+            ...val, fontSize: 'var(--font-xs)',
+            fontWeight: s === scenario ? 600 : 400,
+            color: s === scenario ? 'var(--text-primary)' : 'var(--text-tertiary)',
+          }}>{SCENARIO_LABELS[s]}</span>
+        ))}
+        {[
+          { label: 'Project IRR', fn: (s: ScenarioSummary) => fmtPct(irrPct(s.project_irr)) },
+          { label: 'Equity IRR', fn: (s: ScenarioSummary) => fmtPct(irrPct(s.equity_irr)) },
+          { label: 'Min DSCR', fn: (s: ScenarioSummary) => s.min_dscr != null ? `${s.min_dscr.toFixed(2)}×` : '—' },
+          { label: 'EBITDA/MW', fn: (s: ScenarioSummary) => s.ebitda_y1 != null ? fmtEuro(Math.round(s.ebitda_y1 / 50)) : '—' },
+          { label: 'Net/MW/yr', fn: (s: ScenarioSummary) => s.net_mw_yr != null ? fmtEuro(s.net_mw_yr) : '—' },
+          { label: 'Bankability', fn: (s: ScenarioSummary) => s.bankability ?? '—' },
+        ].map(row => (
+          <React.Fragment key={row.label}>
+            <span style={lbl}>{row.label}</span>
+            {scenKeys.map(sk => {
+              const s = allScen?.[sk];
+              return <span key={sk} style={val}>{s ? row.fn(s) : '—'}</span>;
+            })}
+          </React.Fragment>
+        ))}
+      </div>
+
+      {/* DEGRADATION CURVE */}
+      {selected.years?.length > 0 && (
+        <>
+          <p style={subhead}>Degradation and retention</p>
+          <div style={{ height: '120px', marginBottom: '24px' }}>
+            <Line
+              data={{
+                labels: selected.years.map(y => `Y${y.yr}`),
+                datasets: [{
+                  label: 'Retention',
+                  data: selected.years.map(y => Math.round(y.retention * 100)),
+                  borderColor: CC.teal,
+                  borderWidth: 1.5,
+                  pointRadius: (ctx) => ctx.dataIndex === 9 ? 4 : 0,
+                  pointBackgroundColor: CC.amber,
+                  fill: false,
+                  tension: 0.2,
+                }],
+              }}
+              options={{
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false }, tooltip: {
+                  callbacks: { label: (ctx) => `${ctx.parsed.y}% capacity` },
+                }},
+                scales: {
+                  x: { grid: { display: false }, ticks: { color: CC.textMuted, font: { family: CHART_FONT.family, size: 9 }, maxTicksLimit: 10 } },
+                  y: { min: 60, max: 105, grid: { color: CC.grid, lineWidth: 0.5 }, ticks: { color: CC.textMuted, font: { family: CHART_FONT.family, size: 9 }, callback: (v) => `${v}%` } },
+                },
+              }}
+            />
+          </div>
+          <p style={note}>Augmentation at Year 10 (marked). 2.5%/yr degradation. Retention = usable capacity vs nameplate.</p>
+        </>
+      )}
+
+      {/* BASE YEAR MONTHLY */}
+      {selected.base_year?.months && selected.base_year.months.length > 0 && (
+        <>
+          <p style={subhead}>Base year monthly breakdown</p>
+          <div style={{
+            display: 'grid', gridTemplateColumns: 'auto 1fr 1fr 1fr',
+            gap: '4px 12px', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+            marginBottom: '24px',
+          }}>
+            <span style={lbl}>Month</span>
+            <span style={lbl}>Trading</span>
+            <span style={lbl}>Balancing</span>
+            <span style={lbl}>Gross</span>
+            {selected.base_year.months.map(m => (
+              <React.Fragment key={m.month}>
+                <span style={{ color: 'var(--text-tertiary)' }}>{m.month}</span>
+                <span style={val}>{fmtK(m.trading)}</span>
+                <span style={val}>{fmtK(m.balancing)}</span>
+                <span style={val}>{fmtK(m.gross)}</span>
+              </React.Fragment>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* REVENUE STREAM CONFIDENCE */}
+      <p style={subhead}>Revenue stream confidence</p>
+      <div style={{
+        display: 'flex', flexDirection: 'column', gap: '3px',
+        fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', marginBottom: '8px',
+      }}>
+        {[
+          { stream: 'Arbitrage', confidence: 'High', color: 'var(--teal)', reason: 'observable day-ahead spreads' },
+          { stream: 'aFRR capacity', confidence: 'Medium', color: 'var(--amber)', reason: 'proxy prices, thin clearing depth' },
+          { stream: 'mFRR capacity', confidence: 'Medium', color: 'var(--amber)', reason: 'proxy prices, growing but shallow' },
+          { stream: 'FCR', confidence: 'Low', color: 'var(--rose)', reason: 'BBCM transition, no Baltic track record' },
+        ].map(({ stream, confidence, color, reason }) => (
+          <div key={stream} style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={lbl}>{stream}</span>
+            <span style={{ color, opacity: 0.75 }}>{confidence} · {reason}</span>
+          </div>
+        ))}
+      </div>
+      <p style={note}>Conservative and stress scenarios adjust for confidence gaps in each stream.</p>
+
+      {/* FORWARD COMPRESSION */}
+      {selected.forward && (
+        <>
+          <p style={subhead}>Forward compression assumptions</p>
+          <div style={gridStyle}>
+            <span style={lbl}>Observed rate</span>
+            <span style={val}>{(selected.forward.compression_rate_observed * 100).toFixed(1)}%/yr</span>
+            <span style={lbl}>Source</span>
+            <span style={val}>{selected.forward.compression_source}</span>
+            <span style={lbl}>Data points</span>
+            <span style={val}>{selected.forward.compression_data_points}</span>
+            <span style={lbl}>Scenario multiplier</span>
+            <span style={val}>{selected.forward.scenario_multiplier}×</span>
+            <span style={lbl}>Effective rate</span>
+            <span style={val}>{(selected.forward.effective_compression_rate * 100).toFixed(1)}%/yr</span>
+          </div>
+        </>
+      )}
+
+      {/* LIVE RATE */}
+      {selected.live_rate && !selected.live_rate.error && (
+        <>
+          <p style={subhead}>Live rate check</p>
+          <div style={gridStyle}>
+            <span style={lbl}>Today&apos;s trading/MW/day</span>
+            <span style={val}>{fmtEuro(selected.live_rate.today_trading_daily)}</span>
+            <span style={lbl}>Today&apos;s balancing/MW/day</span>
+            <span style={val}>{fmtEuro(selected.live_rate.today_balancing_daily)}</span>
+            <span style={lbl}>Total daily/MW</span>
+            <span style={val}>{fmtEuro(selected.live_rate.today_total_daily)}</span>
+            <span style={lbl}>Base year daily avg</span>
+            <span style={val}>{fmtEuro(selected.live_rate.base_daily)}</span>
+            <span style={lbl}>Delta vs base</span>
+            <span style={{ color: selected.live_rate.delta_pct >= 0 ? 'var(--teal)' : 'var(--rose)' }}>
+              {selected.live_rate.delta_pct >= 0 ? '+' : ''}{selected.live_rate.delta_pct}%
+            </span>
+            <span style={lbl}>Annualised</span>
+            <span style={val}>{fmtEuro(selected.live_rate.annualised)}/MW/yr</span>
+          </div>
+        </>
+      )}
+
+      {/* DELTAS / WHAT CHANGED */}
+      {selected.deltas && (
+        <>
+          <p style={subhead}>What changed</p>
+          <div style={gridStyle}>
+            <span style={lbl}>IRR change</span>
+            <span style={{ color: selected.deltas.irr_pp >= 0 ? 'var(--teal)' : 'var(--rose)' }}>
+              {selected.deltas.irr_pp >= 0 ? '+' : ''}{selected.deltas.irr_pp.toFixed(2)}pp
+            </span>
+            <span style={lbl}>Net rev change</span>
+            <span style={{ color: selected.deltas.net_rev >= 0 ? 'var(--teal)' : 'var(--rose)' }}>
+              {selected.deltas.net_rev >= 0 ? '+' : ''}{fmtEuro(selected.deltas.net_rev)}/MW/yr
+            </span>
+            {Object.entries(selected.deltas.signals).map(([key, s]) => (
+              <React.Fragment key={key}>
+                <span style={lbl}>{key}</span>
+                <span style={val}>{s.previous} → {s.current} ({s.delta >= 0 ? '+' : ''}{s.delta.toFixed(2)})</span>
+              </React.Fragment>
+            ))}
+            <span style={lbl}>Previous snapshot</span>
+            <span style={val}>{selected.deltas.prev_date ? new Date(selected.deltas.prev_date).toLocaleDateString('en-GB') : '—'}</span>
+          </div>
+        </>
+      )}
+
+      {/* MODEL CONFIGURATION */}
+      <p style={subhead}>Model configuration</p>
+      <div style={gridStyle}>
+        <span style={lbl}>Duration</span>
+        <span style={val}>{duration === '4h' ? '4H (50 MW / 200 MWh)' : '2H (50 MW / 100 MWh)'}</span>
+        <span style={lbl}>CAPEX</span>
+        <span style={val}>{CAPEX_LABELS[capexKey]} (€{CAPEX_VALUES[capexKey]}/kWh)</span>
+        <span style={lbl}>COD</span>
+        <span style={val}>{cod}</span>
+        <span style={lbl}>Scenario</span>
+        <span style={val}>{SCENARIO_LABELS[scenario]}</span>
+        <span style={lbl}>Grant</span>
+        <span style={val}>None</span>
+      </div>
+
+      {/* FINANCING ASSUMPTIONS */}
+      <p style={subhead}>Financing assumptions</p>
+      <div style={gridStyle}>
+        <span style={lbl}>Debt share</span>
+        <span style={val}>55%</span>
+        <span style={lbl}>Interest rate</span>
+        <span style={val}>{selected.rate_allin ? `${(selected.rate_allin * 100).toFixed(2)}% all-in` : '4.5% all-in'}</span>
+        <span style={lbl}>Tenor</span>
+        <span style={val}>8 years</span>
+        <span style={lbl}>Grace period</span>
+        <span style={val}>1 year</span>
+        <span style={lbl}>DSCR basis</span>
+        <span style={val}>Minimum annual CFADS-based</span>
+      </div>
+      <p style={note}>DSCR appears stable across COD scenarios because debt is sized to maintain coverage — the debt quantum changes, not the ratio.</p>
+
+      {/* ASSET LIFE AND AUGMENTATION */}
+      <p style={subhead}>Asset life and augmentation</p>
+      <div style={gridStyle}>
+        <span style={lbl}>Degradation</span>
+        <span style={val}>2.5%/yr</span>
+        <span style={lbl}>Augmentation</span>
+        <span style={val}>Year 10, €25/kWh</span>
+        <span style={lbl}>Depreciation</span>
+        <span style={val}>10yr on gross CAPEX</span>
+        <span style={lbl}>Tax</span>
+        <span style={val}>17% Lithuanian CIT</span>
+      </div>
+
+      {/* DATA CONFIDENCE */}
+      <p style={subhead}>Data confidence</p>
+      <div style={gridStyle}>
+        <span style={lbl}>Arbitrage</span>
+        <span style={val}>Observed/Derived (ENTSO-E A44)</span>
+        <span style={lbl}>Capacity prices</span>
+        <span style={val}>Proxy (Baltic-calibrated, not clearing)</span>
+        <span style={lbl}>Fleet S/D</span>
+        <span style={val}>Derived (manual fleet tracker)</span>
+        <span style={lbl}>CAPEX</span>
+        <span style={val}>Reference (CH S1 2025 benchmarks)</span>
+        <span style={lbl}>Financing</span>
+        <span style={val}>Observed (Euribor) + Modeled (margin)</span>
+      </div>
+
+      {/* SIGNAL INPUTS */}
+      {selected.signal_inputs && (
+        <>
+          <p style={subhead}>Signal inputs used</p>
+          <div style={gridStyle}>
+            <span style={lbl}>S1 capture</span>
+            <span style={val}>€{selected.signal_inputs.s1_capture?.toFixed(1) ?? '—'}/MWh</span>
+            <span style={lbl}>aFRR clearing</span>
+            <span style={val}>€{selected.signal_inputs.afrr_clearing?.toFixed(0) ?? '—'}/MWh</span>
+            <span style={lbl}>mFRR clearing</span>
+            <span style={val}>€{selected.signal_inputs.mfrr_clearing?.toFixed(0) ?? '—'}/MWh</span>
+            <span style={lbl}>aFRR cap</span>
+            <span style={val}>€{selected.signal_inputs.afrr_cap?.toFixed(1) ?? '—'}/MW/h</span>
+            <span style={lbl}>mFRR cap</span>
+            <span style={val}>€{selected.signal_inputs.mfrr_cap?.toFixed(1) ?? '—'}/MW/h</span>
+            <span style={lbl}>Euribor 3M</span>
+            <span style={val}>{selected.signal_inputs.euribor?.toFixed(2) ?? '—'}%</span>
+            <span style={lbl}>Rate all-in</span>
+            <span style={val}>{selected.signal_inputs.rate_allin_pct?.toFixed(2) ?? '—'}%</span>
+          </div>
+        </>
+      )}
+
+      {/* METHODOLOGY */}
+      <div style={{ borderTop: '1px solid var(--border-card)', paddingTop: '16px' }}>
+        <p style={{
+          fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+          color: 'var(--text-muted)', letterSpacing: '0.1em',
+          textTransform: 'uppercase', marginBottom: '4px', opacity: 0.7,
+        }}>Methodology</p>
+        <p style={{
+          fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+          color: 'var(--text-muted)', lineHeight: 1.5, opacity: 0.6,
+        }}>
+          20-year DCF. Observed base year (S1 capture monthly data) as Year 1 foundation. Forward compression derived from S2 trajectory. Differential compression: balancing at full rate, trading at 0.5× (RES volatility offsets BESS fleet pressure). Hierarchy dispatch (FCR → aFRR → mFRR → arbitrage). 17% CIT, 10yr depreciation. CFADS-based DSCR. WACC 8%. Scenarios adjust compression multiplier (base 1×, conservative 2×, stress 3.5×). Trading realisation: {selected.assumptions?.trading_realisation ?? 0.85}×. Full model: BESS_Financial_Model_Visaginas_50MW v5.
+        </p>
+      </div>
+    </>
   );
 }

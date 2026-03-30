@@ -12,7 +12,13 @@
       "Bash(ssh -o ConnectTimeout=10 root@89.167.124.42 \"grep -n ''def.*search\\\\|google.*cse\\\\|google.*api\\\\|googleapis\\\\|GOOGLE_SEARCH\\\\|SERPER\\\\|PSE'' /opt/kkme/app/python/intelligence/web_enricher.py | head -10\")",
       "Bash(ssh -o ConnectTimeout=10 root@89.167.124.42 \"grep -n ''enricher\\\\|news\\\\|serper\\\\|JOB.*9\\\\|run_news\\\\|search_status\\\\|commissioning\\\\|check_commission'' /opt/kkme/app/sync/daily_intel.py 2>/dev/null | head -10\")",
       "Bash(ssh -o ConnectTimeout=10 root@89.167.124.42 \"sed -n ''737,750p'' /opt/kkme/app/sync/daily_intel.py\")",
-      "Bash(curl -s https://kkme-fetch-s1.kastis-kemezys.workers.dev/s2)"
+      "Bash(curl -s https://kkme-fetch-s1.kastis-kemezys.workers.dev/s2)",
+      "Bash(grep -rn \"ChartJS.register\\\\|from ''''chart.js''''\" app/components/*.tsx)",
+      "Bash(node -e \":*)",
+      "Bash(curl -s \"https://kkme-fetch-s1.kastis-kemezys.workers.dev/revenue?dur=4h&capex=mid&cod=2028&scenario=base\")",
+      "Bash(curl -s \"https://kkme-fetch-s1.kastis-kemezys.workers.dev/api/trading/history?days=30\")",
+      "Bash(node -c workers/fetch-s1.js)",
+      "Bash(curl -s \"https://kkme-fetch-s1.kastis-kemezys.workers.dev/revenue?dur=4h&capex=mid&cod=2028&scenario=conservative\")"
     ]
   }
 }

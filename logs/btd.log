@@ -678,3 +678,255 @@ S2 update: 200 {"timestamp":"2026-03-28T18:00:02.590Z","fcr_avg":0.33,"afrr_up_a
 [Trading] 2026-03-24: 200 {"ok":true,"date":"2026-03-24","totals":{"gross":36130.25,"per_mw":602.17,"capacity":24029.85,"activation":12100.4,"arbitrage":0,"splits_pct":{"capacity":67,"activation":33,"arbitrage":0},"annualised"
 [Trading] 2026-03-25: 200 {"ok":true,"date":"2026-03-25","totals":{"gross":20222.65,"per_mw":337.04,"capacity":6373.53,"activation":13849.12,"arbitrage":0,"splits_pct":{"capacity":32,"activation":68,"arbitrage":0},"annualised"
 Heartbeat: 200
+=== BTD + Litgrid fetch === 2026-03-28T22:00:00.233Z
+Litgrid page: 25613 chars
+Litgrid preview: <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+	
+	<script id="Cookiebot" data-culture="EN" src=https://consent.cookiebot.com/uc.js data-cbid="abcf2dd9-df20-4b27-92dd-c5348c22a9bd" data-blockingmode="auto" type="text/javascript"></script>
+	
+	<title>Litgrid</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+	<meta name="description" content="Litgrid" />
+	<meta name="keywords" content="Litgrid" />
+	<meta name="co
+Litgrid: no price/MW parsed — check preview above for structure
+Litgrid ordered: price=null €/MW/h  mw=null MW
+S2 update: 200 {"timestamp":"2026-03-28T22:00:02.395Z","fcr_avg":0.33,"afrr_up_avg":8.82,"afrr_down_avg":5.4,"mfrr_up_avg":23.55,"mfrr_down_avg":15.21,"pct_up":28.72,"pct_down":71.28,"imbalance_mean":49.49,"imbalance_p90":143.92,"pct_above_100":21.28,"afrr_annual_per_mw_installed":37473,"mfrr_annual_per_mw_installed":100055,"cvi_afrr_eur_mw_yr":74945,"cvi_mfrr_eur_mw_yr":200109,"stress_index_p90":143.92,"fcr_note":"FCR: 25MW Baltic market, saturating 2026","signal":"COMPRESSING","interpretation":"Capacity prices thinning. New BESS penetration compressing clearing prices. Revenue mix shifting toward intraday trading.","source":"baltic.transparency-dashboard.eu"}
+[Trading] 2026-03-19: 200 {"ok":true,"date":"2026-03-19","totals":{"gross":45364.42,"per_mw":756.07,"capacity":23911.14,"activation":25663.48,"arbitrage":-4210.2,"splits_pct":{"capacity":53,"activation":57,"arbitrage":-9},"ann
+[Trading] 2026-03-20: 200 {"ok":true,"date":"2026-03-20","totals":{"gross":44232.37,"per_mw":737.21,"capacity":26602.07,"activation":16076.36,"arbitrage":1553.95,"splits_pct":{"capacity":60,"activation":36,"arbitrage":4},"annu
+[Trading] 2026-03-21: 200 {"ok":true,"date":"2026-03-21","totals":{"gross":18608.33,"per_mw":310.14,"capacity":8916.06,"activation":9692.27,"arbitrage":0,"splits_pct":{"capacity":48,"activation":52,"arbitrage":0},"annualised":
+[Trading] 2026-03-22: 200 {"ok":true,"date":"2026-03-22","totals":{"gross":27630.6,"per_mw":460.51,"capacity":23469.63,"activation":4160.97,"arbitrage":0,"splits_pct":{"capacity":85,"activation":15,"arbitrage":0},"annualised":
+[Trading] 2026-03-23: 200 {"ok":true,"date":"2026-03-23","totals":{"gross":55248.62,"per_mw":920.81,"capacity":40970.61,"activation":14278.01,"arbitrage":0,"splits_pct":{"capacity":74,"activation":26,"arbitrage":0},"annualised
+[Trading] 2026-03-24: 200 {"ok":true,"date":"2026-03-24","totals":{"gross":37366.83,"per_mw":622.78,"capacity":24029.85,"activation":12100.4,"arbitrage":1236.59,"splits_pct":{"capacity":64,"activation":32,"arbitrage":3},"annua
+[Trading] 2026-03-25: 200 {"ok":true,"date":"2026-03-25","totals":{"gross":19783.57,"per_mw":329.73,"capacity":6373.53,"activation":13849.12,"arbitrage":-439.08,"splits_pct":{"capacity":32,"activation":70,"arbitrage":-2},"annu
+Heartbeat: 200
+=== BTD + Litgrid fetch === 2026-03-29T01:00:00.249Z
+[Guard] UTC hour=1 < 9 — skipping ordered_price/ordered_mw fetch (not yet published)
+Litgrid ordered: price=null €/MW/h  mw=null MW
+S2 update: 200 {"timestamp":"2026-03-29T01:00:02.221Z","fcr_avg":0.35,"afrr_up_avg":7.7,"afrr_down_avg":6.01,"mfrr_up_avg":21.54,"mfrr_down_avg":14.66,"pct_up":21.58,"pct_down":78.42,"imbalance_mean":36.96,"imbalance_p90":116.6,"pct_above_100":15.18,"afrr_annual_per_mw_installed":32714,"mfrr_annual_per_mw_installed":91515,"cvi_afrr_eur_mw_yr":65428,"cvi_mfrr_eur_mw_yr":183030,"stress_index_p90":116.6,"fcr_note":"FCR: 25MW Baltic market, saturating 2026","signal":"COMPRESSING","interpretation":"Capacity prices thinning. New BESS penetration compressing clearing prices. Revenue mix shifting toward intraday trading.","source":"baltic.transparency-dashboard.eu"}
+[Trading] 2026-03-20: 200 {"ok":true,"date":"2026-03-20","totals":{"gross":44232.37,"per_mw":737.21,"capacity":26602.07,"activation":16076.36,"arbitrage":1553.95,"splits_pct":{"capacity":60,"activation":36,"arbitrage":4},"annu
+[Trading] 2026-03-21: 200 {"ok":true,"date":"2026-03-21","totals":{"gross":18608.33,"per_mw":310.14,"capacity":8916.06,"activation":9692.27,"arbitrage":0,"splits_pct":{"capacity":48,"activation":52,"arbitrage":0},"annualised":
+[Trading] 2026-03-22: 200 {"ok":true,"date":"2026-03-22","totals":{"gross":27630.6,"per_mw":460.51,"capacity":23469.63,"activation":4160.97,"arbitrage":0,"splits_pct":{"capacity":85,"activation":15,"arbitrage":0},"annualised":
+[Trading] 2026-03-23: 200 {"ok":true,"date":"2026-03-23","totals":{"gross":55248.62,"per_mw":920.81,"capacity":40970.61,"activation":14278.01,"arbitrage":0,"splits_pct":{"capacity":74,"activation":26,"arbitrage":0},"annualised
+[Trading] 2026-03-24: 200 {"ok":true,"date":"2026-03-24","totals":{"gross":36130.25,"per_mw":602.17,"capacity":24029.85,"activation":12100.4,"arbitrage":0,"splits_pct":{"capacity":67,"activation":33,"arbitrage":0},"annualised"
+[Trading] 2026-03-25: 200 {"ok":true,"date":"2026-03-25","totals":{"gross":20222.65,"per_mw":337.04,"capacity":6373.53,"activation":13849.12,"arbitrage":0,"splits_pct":{"capacity":32,"activation":68,"arbitrage":0},"annualised"
+[Trading] 2026-03-26: 200 {"ok":true,"date":"2026-03-26","totals":{"gross":17756.71,"per_mw":295.95,"capacity":9237.96,"activation":8518.75,"arbitrage":0,"splits_pct":{"capacity":52,"activation":48,"arbitrage":0},"annualised":
+Heartbeat: 200
+=== BTD + Litgrid fetch === 2026-03-29T05:00:00.271Z
+[Guard] UTC hour=5 < 9 — skipping ordered_price/ordered_mw fetch (not yet published)
+Litgrid ordered: price=null €/MW/h  mw=null MW
+S2 update: 200 {"timestamp":"2026-03-29T05:00:02.117Z","fcr_avg":0.35,"afrr_up_avg":7.7,"afrr_down_avg":6.01,"mfrr_up_avg":21.54,"mfrr_down_avg":14.66,"pct_up":21.58,"pct_down":78.42,"imbalance_mean":36.96,"imbalance_p90":116.6,"pct_above_100":15.18,"afrr_annual_per_mw_installed":32714,"mfrr_annual_per_mw_installed":91515,"cvi_afrr_eur_mw_yr":65428,"cvi_mfrr_eur_mw_yr":183030,"stress_index_p90":116.6,"fcr_note":"FCR: 25MW Baltic market, saturating 2026","signal":"COMPRESSING","interpretation":"Capacity prices thinning. New BESS penetration compressing clearing prices. Revenue mix shifting toward intraday trading.","source":"baltic.transparency-dashboard.eu"}
+[Trading] 2026-03-20: 200 {"ok":true,"date":"2026-03-20","totals":{"gross":44232.37,"per_mw":737.21,"capacity":26602.07,"activation":16076.36,"arbitrage":1553.95,"splits_pct":{"capacity":60,"activation":36,"arbitrage":4},"annu
+[Trading] 2026-03-21: 200 {"ok":true,"date":"2026-03-21","totals":{"gross":18608.33,"per_mw":310.14,"capacity":8916.06,"activation":9692.27,"arbitrage":0,"splits_pct":{"capacity":48,"activation":52,"arbitrage":0},"annualised":
+[Trading] 2026-03-22: 200 {"ok":true,"date":"2026-03-22","totals":{"gross":27630.6,"per_mw":460.51,"capacity":23469.63,"activation":4160.97,"arbitrage":0,"splits_pct":{"capacity":85,"activation":15,"arbitrage":0},"annualised":
+[Trading] 2026-03-23: 200 {"ok":true,"date":"2026-03-23","totals":{"gross":55248.62,"per_mw":920.81,"capacity":40970.61,"activation":14278.01,"arbitrage":0,"splits_pct":{"capacity":74,"activation":26,"arbitrage":0},"annualised
+[Trading] 2026-03-24: 200 {"ok":true,"date":"2026-03-24","totals":{"gross":36130.25,"per_mw":602.17,"capacity":24029.85,"activation":12100.4,"arbitrage":0,"splits_pct":{"capacity":67,"activation":33,"arbitrage":0},"annualised"
+[Trading] 2026-03-25: 200 {"ok":true,"date":"2026-03-25","totals":{"gross":20222.65,"per_mw":337.04,"capacity":6373.53,"activation":13849.12,"arbitrage":0,"splits_pct":{"capacity":32,"activation":68,"arbitrage":0},"annualised"
+[Trading] 2026-03-26: 200 {"ok":true,"date":"2026-03-26","totals":{"gross":17756.71,"per_mw":295.95,"capacity":9237.96,"activation":8518.75,"arbitrage":0,"splits_pct":{"capacity":52,"activation":48,"arbitrage":0},"annualised":
+Heartbeat: 200
+=== BTD + Litgrid fetch === 2026-03-29T09:00:00.353Z
+Litgrid page: 25613 chars
+Litgrid preview: <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+	
+	<script id="Cookiebot" data-culture="EN" src=https://consent.cookiebot.com/uc.js data-cbid="abcf2dd9-df20-4b27-92dd-c5348c22a9bd" data-blockingmode="auto" type="text/javascript"></script>
+	
+	<title>Litgrid</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+	<meta name="description" content="Litgrid" />
+	<meta name="keywords" content="Litgrid" />
+	<meta name="co
+Litgrid: no price/MW parsed — check preview above for structure
+Litgrid ordered: price=null €/MW/h  mw=null MW
+S2 update: 200 {"timestamp":"2026-03-29T09:00:02.509Z","fcr_avg":0.35,"afrr_up_avg":7.7,"afrr_down_avg":6.01,"mfrr_up_avg":21.54,"mfrr_down_avg":14.66,"pct_up":21.58,"pct_down":78.42,"imbalance_mean":36.96,"imbalance_p90":116.6,"pct_above_100":15.18,"afrr_annual_per_mw_installed":32714,"mfrr_annual_per_mw_installed":91515,"cvi_afrr_eur_mw_yr":65428,"cvi_mfrr_eur_mw_yr":183030,"stress_index_p90":116.6,"source":"baltic.transparency-dashboard.eu"}
+[Trading] 2026-03-20: 200 {"ok":true,"date":"2026-03-20","totals":{"gross":44232.37,"per_mw":737.21,"capacity":26602.07,"activation":16076.36,"arbitrage":1553.95,"splits_pct":{"capacity":60,"activation":36,"arbitrage":4},"annu
+[Trading] 2026-03-21: 200 {"ok":true,"date":"2026-03-21","totals":{"gross":18608.33,"per_mw":310.14,"capacity":8916.06,"activation":9692.27,"arbitrage":0,"splits_pct":{"capacity":48,"activation":52,"arbitrage":0},"annualised":
+[Trading] 2026-03-22: 200 {"ok":true,"date":"2026-03-22","totals":{"gross":27630.6,"per_mw":460.51,"capacity":23469.63,"activation":4160.97,"arbitrage":0,"splits_pct":{"capacity":85,"activation":15,"arbitrage":0},"annualised":
+[Trading] 2026-03-23: 200 {"ok":true,"date":"2026-03-23","totals":{"gross":55248.62,"per_mw":920.81,"capacity":40970.61,"activation":14278.01,"arbitrage":0,"splits_pct":{"capacity":74,"activation":26,"arbitrage":0},"annualised
+[Trading] 2026-03-24: 200 {"ok":true,"date":"2026-03-24","totals":{"gross":36130.25,"per_mw":602.17,"capacity":24029.85,"activation":12100.4,"arbitrage":0,"splits_pct":{"capacity":67,"activation":33,"arbitrage":0},"annualised"
+[Trading] 2026-03-25: 200 {"ok":true,"date":"2026-03-25","totals":{"gross":20222.65,"per_mw":337.04,"capacity":6373.53,"activation":13849.12,"arbitrage":0,"splits_pct":{"capacity":32,"activation":68,"arbitrage":0},"annualised"
+[Trading] 2026-03-26: 200 {"ok":true,"date":"2026-03-26","totals":{"gross":17756.71,"per_mw":295.95,"capacity":9237.96,"activation":8518.75,"arbitrage":0,"splits_pct":{"capacity":52,"activation":48,"arbitrage":0},"annualised":
+Heartbeat: 200
+=== BTD + Litgrid fetch === 2026-03-29T13:00:00.967Z
+Litgrid page: 25613 chars
+Litgrid preview: <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+	
+	<script id="Cookiebot" data-culture="EN" src=https://consent.cookiebot.com/uc.js data-cbid="abcf2dd9-df20-4b27-92dd-c5348c22a9bd" data-blockingmode="auto" type="text/javascript"></script>
+	
+	<title>Litgrid</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+	<meta name="description" content="Litgrid" />
+	<meta name="keywords" content="Litgrid" />
+	<meta name="co
+Litgrid: no price/MW parsed — check preview above for structure
+Litgrid ordered: price=null €/MW/h  mw=null MW
+S2 update: 200 {"timestamp":"2026-03-29T13:00:03.079Z","fcr_avg":0.35,"afrr_up_avg":7.7,"afrr_down_avg":6.01,"mfrr_up_avg":21.54,"mfrr_down_avg":14.66,"pct_up":21.58,"pct_down":78.42,"imbalance_mean":36.96,"imbalance_p90":116.6,"pct_above_100":15.18,"afrr_annual_per_mw_installed":32714,"mfrr_annual_per_mw_installed":91515,"cvi_afrr_eur_mw_yr":65428,"cvi_mfrr_eur_mw_yr":183030,"stress_index_p90":116.6,"source":"baltic.transparency-dashboard.eu"}
+[Trading] 2026-03-20: 200 {"ok":true,"date":"2026-03-20","totals":{"gross":44232.37,"per_mw":737.21,"capacity":26602.07,"activation":16076.36,"arbitrage":1553.95,"splits_pct":{"capacity":60,"activation":36,"arbitrage":4},"annu
+[Trading] 2026-03-21: 200 {"ok":true,"date":"2026-03-21","totals":{"gross":18608.33,"per_mw":310.14,"capacity":8916.06,"activation":9692.27,"arbitrage":0,"splits_pct":{"capacity":48,"activation":52,"arbitrage":0},"annualised":
+[Trading] 2026-03-22: 200 {"ok":true,"date":"2026-03-22","totals":{"gross":27630.6,"per_mw":460.51,"capacity":23469.63,"activation":4160.97,"arbitrage":0,"splits_pct":{"capacity":85,"activation":15,"arbitrage":0},"annualised":
+[Trading] 2026-03-23: 200 {"ok":true,"date":"2026-03-23","totals":{"gross":55248.62,"per_mw":920.81,"capacity":40970.61,"activation":14278.01,"arbitrage":0,"splits_pct":{"capacity":74,"activation":26,"arbitrage":0},"annualised
+[Trading] 2026-03-24: 200 {"ok":true,"date":"2026-03-24","totals":{"gross":36130.25,"per_mw":602.17,"capacity":24029.85,"activation":12100.4,"arbitrage":0,"splits_pct":{"capacity":67,"activation":33,"arbitrage":0},"annualised"
+[Trading] 2026-03-25: 200 {"ok":true,"date":"2026-03-25","totals":{"gross":19783.57,"per_mw":329.73,"capacity":6373.53,"activation":13849.12,"arbitrage":-439.08,"splits_pct":{"capacity":32,"activation":70,"arbitrage":-2},"annu
+[Trading] 2026-03-26: 200 {"ok":true,"date":"2026-03-26","totals":{"gross":16333.63,"per_mw":272.23,"capacity":9237.96,"activation":8518.75,"arbitrage":-1423.08,"splits_pct":{"capacity":57,"activation":52,"arbitrage":-9},"annu
+Heartbeat: 200
+=== BTD + Litgrid fetch === 2026-03-29T17:00:00.412Z
+Litgrid page: 25613 chars
+Litgrid preview: <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+	
+	<script id="Cookiebot" data-culture="EN" src=https://consent.cookiebot.com/uc.js data-cbid="abcf2dd9-df20-4b27-92dd-c5348c22a9bd" data-blockingmode="auto" type="text/javascript"></script>
+	
+	<title>Litgrid</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+	<meta name="description" content="Litgrid" />
+	<meta name="keywords" content="Litgrid" />
+	<meta name="co
+Litgrid: no price/MW parsed — check preview above for structure
+Litgrid ordered: price=null €/MW/h  mw=null MW
+S2 update: 200 {"timestamp":"2026-03-29T17:00:02.419Z","fcr_avg":0.35,"afrr_up_avg":7.7,"afrr_down_avg":6.01,"mfrr_up_avg":21.54,"mfrr_down_avg":14.66,"pct_up":21.58,"pct_down":78.42,"imbalance_mean":36.96,"imbalance_p90":116.6,"pct_above_100":15.18,"afrr_annual_per_mw_installed":32714,"mfrr_annual_per_mw_installed":91515,"cvi_afrr_eur_mw_yr":65428,"cvi_mfrr_eur_mw_yr":183030,"stress_index_p90":116.6,"source":"baltic.transparency-dashboard.eu"}
+[Trading] 2026-03-20: 200 {"ok":true,"date":"2026-03-20","totals":{"gross":44232.37,"per_mw":737.21,"capacity":26602.07,"activation":16076.36,"arbitrage":1553.95,"splits_pct":{"capacity":60,"activation":36,"arbitrage":4},"annu
+[Trading] 2026-03-21: 200 {"ok":true,"date":"2026-03-21","totals":{"gross":18608.33,"per_mw":310.14,"capacity":8916.06,"activation":9692.27,"arbitrage":0,"splits_pct":{"capacity":48,"activation":52,"arbitrage":0},"annualised":
+[Trading] 2026-03-22: 200 {"ok":true,"date":"2026-03-22","totals":{"gross":27630.6,"per_mw":460.51,"capacity":23469.63,"activation":4160.97,"arbitrage":0,"splits_pct":{"capacity":85,"activation":15,"arbitrage":0},"annualised":
+[Trading] 2026-03-23: 200 {"ok":true,"date":"2026-03-23","totals":{"gross":54789.11,"per_mw":913.15,"capacity":40970.61,"activation":14278.01,"arbitrage":-459.51,"splits_pct":{"capacity":75,"activation":26,"arbitrage":-1},"ann
+[Trading] 2026-03-24: 200 {"ok":true,"date":"2026-03-24","totals":{"gross":37366.83,"per_mw":622.78,"capacity":24029.85,"activation":12100.4,"arbitrage":1236.59,"splits_pct":{"capacity":64,"activation":32,"arbitrage":3},"annua
+[Trading] 2026-03-25: 200 {"ok":true,"date":"2026-03-25","totals":{"gross":19783.57,"per_mw":329.73,"capacity":6373.53,"activation":13849.12,"arbitrage":-439.08,"splits_pct":{"capacity":32,"activation":70,"arbitrage":-2},"annu
+[Trading] 2026-03-26: 200 {"ok":true,"date":"2026-03-26","totals":{"gross":17756.71,"per_mw":295.95,"capacity":9237.96,"activation":8518.75,"arbitrage":0,"splits_pct":{"capacity":52,"activation":48,"arbitrage":0},"annualised":
+Heartbeat: 200
+=== BTD + Litgrid fetch === 2026-03-29T21:00:00.241Z
+Litgrid page: 25613 chars
+Litgrid preview: <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+	
+	<script id="Cookiebot" data-culture="EN" src=https://consent.cookiebot.com/uc.js data-cbid="abcf2dd9-df20-4b27-92dd-c5348c22a9bd" data-blockingmode="auto" type="text/javascript"></script>
+	
+	<title>Litgrid</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+	<meta name="description" content="Litgrid" />
+	<meta name="keywords" content="Litgrid" />
+	<meta name="co
+Litgrid: no price/MW parsed — check preview above for structure
+Litgrid ordered: price=null €/MW/h  mw=null MW
+S2 update: 200 {"timestamp":"2026-03-29T21:00:02.829Z","fcr_avg":0.35,"afrr_up_avg":7.7,"afrr_down_avg":6.01,"mfrr_up_avg":21.54,"mfrr_down_avg":14.66,"pct_up":21.58,"pct_down":78.42,"imbalance_mean":36.96,"imbalance_p90":116.6,"pct_above_100":15.18,"afrr_annual_per_mw_installed":32714,"mfrr_annual_per_mw_installed":91515,"cvi_afrr_eur_mw_yr":65428,"cvi_mfrr_eur_mw_yr":183030,"stress_index_p90":116.6,"source":"baltic.transparency-dashboard.eu"}
+[Trading] 2026-03-20: 200 {"ok":true,"date":"2026-03-20","totals":{"gross":44232.37,"per_mw":737.21,"capacity":26602.07,"activation":16076.36,"arbitrage":1553.95,"splits_pct":{"capacity":60,"activation":36,"arbitrage":4},"annu
+[Trading] 2026-03-21: 200 {"ok":true,"date":"2026-03-21","totals":{"gross":18608.33,"per_mw":310.14,"capacity":8916.06,"activation":9692.27,"arbitrage":0,"splits_pct":{"capacity":48,"activation":52,"arbitrage":0},"annualised":
+[Trading] 2026-03-22: 200 {"ok":true,"date":"2026-03-22","totals":{"gross":27630.6,"per_mw":460.51,"capacity":23469.63,"activation":4160.97,"arbitrage":0,"splits_pct":{"capacity":85,"activation":15,"arbitrage":0},"annualised":
+[Trading] 2026-03-23: 200 {"ok":true,"date":"2026-03-23","totals":{"gross":55248.62,"per_mw":920.81,"capacity":40970.61,"activation":14278.01,"arbitrage":0,"splits_pct":{"capacity":74,"activation":26,"arbitrage":0},"annualised
+[Trading] 2026-03-24: 200 {"ok":true,"date":"2026-03-24","totals":{"gross":36130.25,"per_mw":602.17,"capacity":24029.85,"activation":12100.4,"arbitrage":0,"splits_pct":{"capacity":67,"activation":33,"arbitrage":0},"annualised"
+[Trading] 2026-03-25: 200 {"ok":true,"date":"2026-03-25","totals":{"gross":20222.65,"per_mw":337.04,"capacity":6373.53,"activation":13849.12,"arbitrage":0,"splits_pct":{"capacity":32,"activation":68,"arbitrage":0},"annualised"
+[Trading] 2026-03-26: 200 {"ok":true,"date":"2026-03-26","totals":{"gross":17756.71,"per_mw":295.95,"capacity":9237.96,"activation":8518.75,"arbitrage":0,"splits_pct":{"capacity":52,"activation":48,"arbitrage":0},"annualised":
+Heartbeat: 200
+=== BTD + Litgrid fetch === 2026-03-30T01:00:01.144Z
+[Guard] UTC hour=1 < 9 — skipping ordered_price/ordered_mw fetch (not yet published)
+Litgrid ordered: price=null €/MW/h  mw=null MW
+S2 update: 200 {"timestamp":"2026-03-30T01:00:02.911Z","fcr_avg":0.36,"afrr_up_avg":7.06,"afrr_down_avg":6.51,"mfrr_up_avg":19.74,"mfrr_down_avg":13.05,"pct_up":22.62,"pct_down":77.38,"imbalance_mean":38.46,"imbalance_p90":120,"pct_above_100":15.63,"afrr_annual_per_mw_installed":29995,"mfrr_annual_per_mw_installed":83867,"cvi_afrr_eur_mw_yr":59990,"cvi_mfrr_eur_mw_yr":167735,"stress_index_p90":120,"source":"baltic.transparency-dashboard.eu"}
+[Trading] 2026-03-21: 200 {"ok":true,"date":"2026-03-21","totals":{"gross":18608.33,"per_mw":310.14,"capacity":8916.06,"activation":9692.27,"arbitrage":0,"splits_pct":{"capacity":48,"activation":52,"arbitrage":0},"annualised":
+[Trading] 2026-03-22: 200 {"ok":true,"date":"2026-03-22","totals":{"gross":27630.6,"per_mw":460.51,"capacity":23469.63,"activation":4160.97,"arbitrage":0,"splits_pct":{"capacity":85,"activation":15,"arbitrage":0},"annualised":
+[Trading] 2026-03-23: 200 {"ok":true,"date":"2026-03-23","totals":{"gross":55248.62,"per_mw":920.81,"capacity":40970.61,"activation":14278.01,"arbitrage":0,"splits_pct":{"capacity":74,"activation":26,"arbitrage":0},"annualised
+[Trading] 2026-03-24: 200 {"ok":true,"date":"2026-03-24","totals":{"gross":36130.25,"per_mw":602.17,"capacity":24029.85,"activation":12100.4,"arbitrage":0,"splits_pct":{"capacity":67,"activation":33,"arbitrage":0},"annualised"
+[Trading] 2026-03-25: 200 {"ok":true,"date":"2026-03-25","totals":{"gross":20222.65,"per_mw":337.04,"capacity":6373.53,"activation":13849.12,"arbitrage":0,"splits_pct":{"capacity":32,"activation":68,"arbitrage":0},"annualised"
+[Trading] 2026-03-26: 200 {"ok":true,"date":"2026-03-26","totals":{"gross":17756.71,"per_mw":295.95,"capacity":9237.96,"activation":8518.75,"arbitrage":0,"splits_pct":{"capacity":52,"activation":48,"arbitrage":0},"annualised":
+[Trading] 2026-03-27: 200 {"ok":true,"date":"2026-03-27","totals":{"gross":34760.32,"per_mw":579.34,"capacity":14938.8,"activation":19821.52,"arbitrage":0,"splits_pct":{"capacity":43,"activation":57,"arbitrage":0},"annualised"
+Heartbeat: 200
+=== BTD + Litgrid fetch === 2026-03-30T05:00:00.134Z
+[Guard] UTC hour=5 < 9 — skipping ordered_price/ordered_mw fetch (not yet published)
+Litgrid ordered: price=null €/MW/h  mw=null MW
+S2 update: 200 {"timestamp":"2026-03-30T05:00:02.271Z","fcr_avg":0.36,"afrr_up_avg":7.06,"afrr_down_avg":6.51,"mfrr_up_avg":19.74,"mfrr_down_avg":13.05,"pct_up":22.62,"pct_down":77.38,"imbalance_mean":38.46,"imbalance_p90":120,"pct_above_100":15.63,"afrr_annual_per_mw_installed":29995,"mfrr_annual_per_mw_installed":83867,"cvi_afrr_eur_mw_yr":59990,"cvi_mfrr_eur_mw_yr":167735,"stress_index_p90":120,"source":"baltic.transparency-dashboard.eu"}
+[Trading] 2026-03-21: 200 {"ok":true,"date":"2026-03-21","totals":{"gross":18608.33,"per_mw":310.14,"capacity":8916.06,"activation":9692.27,"arbitrage":0,"splits_pct":{"capacity":48,"activation":52,"arbitrage":0},"annualised":
+[Trading] 2026-03-22: 200 {"ok":true,"date":"2026-03-22","totals":{"gross":27630.6,"per_mw":460.51,"capacity":23469.63,"activation":4160.97,"arbitrage":0,"splits_pct":{"capacity":85,"activation":15,"arbitrage":0},"annualised":
+[Trading] 2026-03-23: 200 {"ok":true,"date":"2026-03-23","totals":{"gross":55248.62,"per_mw":920.81,"capacity":40970.61,"activation":14278.01,"arbitrage":0,"splits_pct":{"capacity":74,"activation":26,"arbitrage":0},"annualised
+[Trading] 2026-03-24: 200 {"ok":true,"date":"2026-03-24","totals":{"gross":36130.25,"per_mw":602.17,"capacity":24029.85,"activation":12100.4,"arbitrage":0,"splits_pct":{"capacity":67,"activation":33,"arbitrage":0},"annualised"
+[Trading] 2026-03-25: 200 {"ok":true,"date":"2026-03-25","totals":{"gross":20222.65,"per_mw":337.04,"capacity":6373.53,"activation":13849.12,"arbitrage":0,"splits_pct":{"capacity":32,"activation":68,"arbitrage":0},"annualised"
+[Trading] 2026-03-26: 200 {"ok":true,"date":"2026-03-26","totals":{"gross":17756.71,"per_mw":295.95,"capacity":9237.96,"activation":8518.75,"arbitrage":0,"splits_pct":{"capacity":52,"activation":48,"arbitrage":0},"annualised":
+[Trading] 2026-03-27: 200 {"ok":true,"date":"2026-03-27","totals":{"gross":34760.32,"per_mw":579.34,"capacity":14938.8,"activation":19821.52,"arbitrage":0,"splits_pct":{"capacity":43,"activation":57,"arbitrage":0},"annualised"
+Heartbeat: 200
+=== BTD + Litgrid fetch === 2026-03-30T09:00:01.006Z
+Litgrid page: 25613 chars
+Litgrid preview: <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+	
+	<script id="Cookiebot" data-culture="EN" src=https://consent.cookiebot.com/uc.js data-cbid="abcf2dd9-df20-4b27-92dd-c5348c22a9bd" data-blockingmode="auto" type="text/javascript"></script>
+	
+	<title>Litgrid</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+	<meta name="description" content="Litgrid" />
+	<meta name="keywords" content="Litgrid" />
+	<meta name="co
+Litgrid: no price/MW parsed — check preview above for structure
+Litgrid ordered: price=null €/MW/h  mw=null MW
+S2 update: 200 {"timestamp":"2026-03-30T09:00:03.447Z","fcr_avg":0.36,"afrr_up_avg":7.06,"afrr_down_avg":6.51,"mfrr_up_avg":19.74,"mfrr_down_avg":13.05,"pct_up":22.62,"pct_down":77.38,"imbalance_mean":38.46,"imbalance_p90":120,"pct_above_100":15.63,"afrr_annual_per_mw_installed":29995,"mfrr_annual_per_mw_installed":83867,"cvi_afrr_eur_mw_yr":59990,"cvi_mfrr_eur_mw_yr":167735,"stress_index_p90":120,"source":"baltic.transparency-dashboard.eu"}
+[Trading] 2026-03-21: 200 {"ok":true,"date":"2026-03-21","totals":{"gross":18608.33,"per_mw":310.14,"capacity":8916.06,"activation":9692.27,"arbitrage":0,"splits_pct":{"capacity":48,"activation":52,"arbitrage":0},"annualised":
+[Trading] 2026-03-22: 200 {"ok":true,"date":"2026-03-22","totals":{"gross":27630.6,"per_mw":460.51,"capacity":23469.63,"activation":4160.97,"arbitrage":0,"splits_pct":{"capacity":85,"activation":15,"arbitrage":0},"annualised":
+[Trading] 2026-03-23: 200 {"ok":true,"date":"2026-03-23","totals":{"gross":55248.62,"per_mw":920.81,"capacity":40970.61,"activation":14278.01,"arbitrage":0,"splits_pct":{"capacity":74,"activation":26,"arbitrage":0},"annualised
+[Trading] 2026-03-24: 200 {"ok":true,"date":"2026-03-24","totals":{"gross":36130.25,"per_mw":602.17,"capacity":24029.85,"activation":12100.4,"arbitrage":0,"splits_pct":{"capacity":67,"activation":33,"arbitrage":0},"annualised"
+[Trading] 2026-03-25: 200 {"ok":true,"date":"2026-03-25","totals":{"gross":19783.57,"per_mw":329.73,"capacity":6373.53,"activation":13849.12,"arbitrage":-439.08,"splits_pct":{"capacity":32,"activation":70,"arbitrage":-2},"annu
+[Trading] 2026-03-26: 200 {"ok":true,"date":"2026-03-26","totals":{"gross":16333.63,"per_mw":272.23,"capacity":9237.96,"activation":8518.75,"arbitrage":-1423.08,"splits_pct":{"capacity":57,"activation":52,"arbitrage":-9},"annu
+[Trading] 2026-03-27: 200 {"ok":true,"date":"2026-03-27","totals":{"gross":34760.32,"per_mw":579.34,"capacity":14938.8,"activation":19821.52,"arbitrage":0,"splits_pct":{"capacity":43,"activation":57,"arbitrage":0},"annualised"
+Heartbeat: 200
+=== BTD + Litgrid fetch === 2026-03-30T13:00:00.324Z
+(node:91998) Warning: Setting the NODE_TLS_REJECT_UNAUTHORIZED environment variable to '0' makes TLS connections and HTTPS requests insecure by disabling certificate verification.
+(Use `node --trace-warnings ...` to show where the warning was created)
+Litgrid page: 25613 chars
+Litgrid preview: <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+	
+	<script id="Cookiebot" data-culture="EN" src=https://consent.cookiebot.com/uc.js data-cbid="abcf2dd9-df20-4b27-92dd-c5348c22a9bd" data-blockingmode="auto" type="text/javascript"></script>
+	
+	<title>Litgrid</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+	<meta name="description" content="Litgrid" />
+	<meta name="keywords" content="Litgrid" />
+	<meta name="co
+Litgrid: no price/MW parsed — check preview above for structure
+Litgrid ordered: price=null €/MW/h  mw=null MW
+S2 update: 200 {"timestamp":"2026-03-30T13:00:02.140Z","fcr_avg":0.36,"afrr_up_avg":7.06,"afrr_down_avg":6.51,"mfrr_up_avg":19.74,"mfrr_down_avg":13.05,"pct_up":22.62,"pct_down":77.38,"imbalance_mean":38.46,"imbalance_p90":120,"pct_above_100":15.63,"afrr_annual_per_mw_installed":29995,"mfrr_annual_per_mw_installed":83867,"cvi_afrr_eur_mw_yr":59990,"cvi_mfrr_eur_mw_yr":167735,"stress_index_p90":120,"source":"baltic.transparency-dashboard.eu"}
+[Trading] 2026-03-21: 200 {"ok":true,"date":"2026-03-21","totals":{"gross":18608.33,"per_mw":310.14,"capacity":8916.06,"activation":9692.27,"arbitrage":0,"splits_pct":{"capacity":48,"activation":52,"arbitrage":0},"annualised":
+[Trading] 2026-03-22: 200 {"ok":true,"date":"2026-03-22","totals":{"gross":27630.6,"per_mw":460.51,"capacity":23469.63,"activation":4160.97,"arbitrage":0,"splits_pct":{"capacity":85,"activation":15,"arbitrage":0},"annualised":
+[Trading] 2026-03-23: 200 {"ok":true,"date":"2026-03-23","totals":{"gross":54789.11,"per_mw":913.15,"capacity":40970.61,"activation":14278.01,"arbitrage":-459.51,"splits_pct":{"capacity":75,"activation":26,"arbitrage":-1},"ann
+[Trading] 2026-03-24: 200 {"ok":true,"date":"2026-03-24","totals":{"gross":36130.25,"per_mw":602.17,"capacity":24029.85,"activation":12100.4,"arbitrage":0,"splits_pct":{"capacity":67,"activation":33,"arbitrage":0},"annualised"
+[Trading] 2026-03-25: 200 {"ok":true,"date":"2026-03-25","totals":{"gross":20222.65,"per_mw":337.04,"capacity":6373.53,"activation":13849.12,"arbitrage":0,"splits_pct":{"capacity":32,"activation":68,"arbitrage":0},"annualised"
+[Trading] 2026-03-26: 200 {"ok":true,"date":"2026-03-26","totals":{"gross":17756.71,"per_mw":295.95,"capacity":9237.96,"activation":8518.75,"arbitrage":0,"splits_pct":{"capacity":52,"activation":48,"arbitrage":0},"annualised":
+[Trading] 2026-03-27: 200 {"ok":true,"date":"2026-03-27","totals":{"gross":34760.32,"per_mw":579.34,"capacity":14938.8,"activation":19821.52,"arbitrage":0,"splits_pct":{"capacity":43,"activation":57,"arbitrage":0},"annualised"
+Heartbeat: 200
+=== BTD + Litgrid fetch === 2026-03-30T17:00:00.966Z
+(node:95284) Warning: Setting the NODE_TLS_REJECT_UNAUTHORIZED environment variable to '0' makes TLS connections and HTTPS requests insecure by disabling certificate verification.
+(Use `node --trace-warnings ...` to show where the warning was created)
+Litgrid page: 25613 chars
+Litgrid preview: <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+	
+	<script id="Cookiebot" data-culture="EN" src=https://consent.cookiebot.com/uc.js data-cbid="abcf2dd9-df20-4b27-92dd-c5348c22a9bd" data-blockingmode="auto" type="text/javascript"></script>
+	
+	<title>Litgrid</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+	<meta name="description" content="Litgrid" />
+	<meta name="keywords" content="Litgrid" />
+	<meta name="co
+Litgrid: no price/MW parsed — check preview above for structure
+Litgrid ordered: price=null €/MW/h  mw=null MW
+S2 update: 200 {"timestamp":"2026-03-30T17:00:03.420Z","fcr_avg":0.36,"afrr_up_avg":7.06,"afrr_down_avg":6.51,"mfrr_up_avg":19.74,"mfrr_down_avg":13.05,"pct_up":22.62,"pct_down":77.38,"imbalance_mean":38.46,"imbalance_p90":120,"pct_above_100":15.63,"afrr_annual_per_mw_installed":29995,"mfrr_annual_per_mw_installed":83867,"cvi_afrr_eur_mw_yr":59990,"cvi_mfrr_eur_mw_yr":167735,"stress_index_p90":120,"source":"baltic.transparency-dashboard.eu"}
+[Trading] 2026-03-21: 200 {"ok":true,"date":"2026-03-21","totals":{"gross":18608.33,"per_mw":310.14,"capacity":8916.06,"activation":9692.27,"arbitrage":0,"splits_pct":{"capacity":48,"activation":52,"arbitrage":0},"annualised":
+[Trading] 2026-03-22: 200 {"ok":true,"date":"2026-03-22","totals":{"gross":27630.6,"per_mw":460.51,"capacity":23469.63,"activation":4160.97,"arbitrage":0,"splits_pct":{"capacity":85,"activation":15,"arbitrage":0},"annualised":
+[Trading] 2026-03-23: 200 {"ok":true,"date":"2026-03-23","totals":{"gross":55248.62,"per_mw":920.81,"capacity":40970.61,"activation":14278.01,"arbitrage":0,"splits_pct":{"capacity":74,"activation":26,"arbitrage":0},"annualised
+[Trading] 2026-03-24: 200 {"ok":true,"date":"2026-03-24","totals":{"gross":37366.83,"per_mw":622.78,"capacity":24029.85,"activation":12100.4,"arbitrage":1236.59,"splits_pct":{"capacity":64,"activation":32,"arbitrage":3},"annua
+[Trading] 2026-03-25: 200 {"ok":true,"date":"2026-03-25","totals":{"gross":19783.57,"per_mw":329.73,"capacity":6373.53,"activation":13849.12,"arbitrage":-439.08,"splits_pct":{"capacity":32,"activation":70,"arbitrage":-2},"annu
+[Trading] 2026-03-26: 200 {"ok":true,"date":"2026-03-26","totals":{"gross":16333.63,"per_mw":272.23,"capacity":9237.96,"activation":8518.75,"arbitrage":-1423.08,"splits_pct":{"capacity":57,"activation":52,"arbitrage":-9},"annu
+[Trading] 2026-03-27: 200 {"ok":true,"date":"2026-03-27","totals":{"gross":34760.32,"per_mw":579.34,"capacity":14938.8,"activation":19821.52,"arbitrage":0,"splits_pct":{"capacity":43,"activation":57,"arbitrage":0},"annualised"
+Heartbeat: 200
