@@ -559,13 +559,17 @@ function computeRevenueV6(params, kv) {
   const s1 = kv?.s1;
 
   // Live signal inputs
+  // s1_capture: use capture_Xh_gross if available, else spread_eur_mwh (stable 30-day avg),
+  // NOT p_high - p_low which is skewed by extreme spikes
   const s1_capture = dur_h <= 2
-    ? (s1?.capture_2h_gross || (s1?.p_high_avg != null && s1?.p_low_avg != null ? s1.p_high_avg - s1.p_low_avg : 149))
-    : (s1?.capture_4h_gross || (s1?.p_high_avg != null && s1?.p_low_avg != null ? (s1.p_high_avg - s1.p_low_avg) * 0.9 : 134));
+    ? (s1?.capture_2h_gross || s1?.spread_eur_mwh || 149)
+    : (s1?.capture_4h_gross || (s1?.spread_eur_mwh != null ? s1.spread_eur_mwh * 0.9 : null) || 134);
   const afrr_clearing = s2?.afrr_up_avg || 171;
   const mfrr_clearing = s2?.mfrr_up_avg || 81;
-  const afrr_cap = s2?.afrr_cap_avg || RESERVE_PRODUCTS.afrr.cap_fallback;
-  const mfrr_cap = s2?.mfrr_cap_avg || RESERVE_PRODUCTS.mfrr.cap_fallback;
+  // Capacity prices: BTD bid averages (7.7 aFRR, 21.5 mFRR). RESERVE_PRODUCTS.cap_fallback
+  // (40, 22) are theoretical Baltic-calibrated assumptions — only for when S2 has zero data.
+  const afrr_cap = s2?.afrr_cap_avg || 7.7;
+  const mfrr_cap = s2?.mfrr_cap_avg || 21.5;
   const fcr_cap = RESERVE_PRODUCTS.fcr.cap_fallback;
   const euribor = ((kv?.euribor?.euribor_nominal_3m ?? kv?.s3?.euribor_nominal_3m) || 2.01) / 100;
   const rate_allin = euribor + sc.debt_margin_bp / 10000;
@@ -783,6 +787,30 @@ function computeRevenueV6(params, kv) {
 
   const y1 = years[0];
 
+  // G. Monthly seasonal DSCR overlay
+  const SEASONAL_FACTORS = [1.35, 1.25, 1.10, 0.85, 0.70, 0.55, 0.50, 0.60, 0.80, 1.05, 1.20, 1.40];
+  const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const sf_sum = SEASONAL_FACTORS.reduce((a, b) => a + b, 0);
+
+  const y1_cfads = years[0]?.cfads || 0;
+  const monthly_debt_svc = pmt / 12;
+
+  const monthly_y1 = MONTH_NAMES.map((name, i) => {
+    const cfads_m = y1_cfads * (SEASONAL_FACTORS[i] / sf_sum) * 12;
+    const dscr_m = monthly_debt_svc > 0 ? cfads_m / monthly_debt_svc : null;
+    return {
+      month: name,
+      seasonal_factor: SEASONAL_FACTORS[i],
+      cfads: Math.round(cfads_m),
+      debt_service: Math.round(monthly_debt_svc),
+      dscr: dscr_m ? Math.round(dscr_m * 100) / 100 : null,
+    };
+  });
+
+  const worst_month_dscr = Math.min(
+    ...monthly_y1.filter(m => m.dscr !== null).map(m => m.dscr)
+  );
+
   return {
     // Config
     system: `${mw} MW / ${mwh} MWh (${dur_h}H)`,
@@ -858,6 +886,10 @@ function computeRevenueV6(params, kv) {
 
     // Reconciliation
     reconciliation: recon,
+
+    // Monthly seasonal DSCR
+    monthly_y1,
+    worst_month_dscr,
   };
 }
 
@@ -4972,6 +5004,89 @@ export default {
 
       result.prices = { afrr_up_avg: s2?.afrr_up_avg ?? null, mfrr_up_avg: s2?.mfrr_up_avg ?? null, spread_eur_mwh: s1?.spread_eur_mwh ?? null, euribor_3m: eur?.euribor_3m ?? null };
       result.updated_at = result.timestamp;
+
+      // ── Backtest: aggregate daily S1 history into monthly averages ──
+      const s1HistRaw = await env.KKME_SIGNALS.get('s1_history').catch(() => null);
+      const s1Hist = s1HistRaw ? JSON.parse(s1HistRaw) : [];
+      const sc_cfg = REVENUE_SCENARIOS[scenParam] || REVENUE_SCENARIOS.base;
+      const rte_val = 0.855;
+
+      // Group daily entries by YYYY-MM
+      const byMonth = {};
+      for (const d of s1Hist) {
+        if (!d.date || !d.spread_eur) continue;
+        const key = d.date.slice(0, 7); // 'YYYY-MM'
+        if (!byMonth[key]) byMonth[key] = { spreads: [], days: 0 };
+        byMonth[key].spreads.push(d.spread_eur);
+        byMonth[key].days++;
+      }
+
+      const si = result.signal_inputs || {};
+      const backtest = Object.keys(byMonth).sort().map(month => {
+        const m = byMonth[month];
+        const avg_spread = m.spreads.reduce((a, b) => a + b, 0) / m.spreads.length;
+        const capture = dur_h <= 2 ? avg_spread : avg_spread * 0.9;
+        const cycles = dur_h <= 2 ? sc_cfg.cycles_2h : sc_cfg.cycles_4h;
+
+        // Trading revenue per MW per day
+        const trd_daily = capture * rte_val * cycles * dur_h * sc_cfg.real_factor * sc_cfg.stack_factor * (1 - sc_cfg.rtm_fee_pct);
+
+        // Balancing revenue per MW per day (current capacity+activation prices)
+        const bal_daily = (
+          0.16 * sc_cfg.avail * (si.fcr_cap || 45) +
+          0.34 * sc_cfg.avail * (si.afrr_cap || 7.7) +
+          0.50 * sc_cfg.avail * (si.mfrr_cap || 21.5) +
+          0.34 * sc_cfg.avail * sc_cfg.act_rate_afrr * (si.afrr_clearing || 171) * 0.55 +
+          0.50 * sc_cfg.avail * sc_cfg.act_rate_mfrr * (si.mfrr_clearing || 81) * 0.75
+        ) * 24 * sc_cfg.bal_mult * sc_cfg.real_factor * (1 - sc_cfg.rtm_fee_pct);
+
+        return {
+          month,
+          trading_daily: Math.round(trd_daily),
+          balancing_daily: Math.round(bal_daily),
+          total_daily: Math.round(trd_daily + bal_daily),
+          s1_capture: Math.round(capture * 10) / 10,
+          days: m.days,
+        };
+      });
+      result.backtest = backtest;
+
+      // ── What changed: compare to previous snapshot ──
+      const prevRaw = await env.KKME_SIGNALS.get('revenue_snapshot_prev').catch(() => null);
+      const prev = prevRaw ? JSON.parse(prevRaw) : null;
+
+      let deltas = null;
+      if (prev && prev.signal_inputs) {
+        const psi = prev.signal_inputs;
+        deltas = {
+          irr_pp: Math.round(((result.project_irr || 0) - (prev.project_irr || 0)) * 10000) / 100,
+          net_rev: Math.round((result.net_mw_yr || 0) - (prev.net_mw_yr || 0)),
+          signals: {},
+        };
+        for (const key of ['s1_capture', 'afrr_clearing', 'mfrr_clearing', 'afrr_cap', 'mfrr_cap', 'euribor']) {
+          if (si[key] !== undefined && psi[key] !== undefined) {
+            deltas.signals[key] = {
+              current: si[key],
+              previous: psi[key],
+              delta: Math.round((si[key] - psi[key]) * 100) / 100,
+            };
+          }
+        }
+        deltas.prev_date = prev.computed_at;
+      }
+      result.deltas = deltas;
+
+      // Store current snapshot (once per day)
+      const today = new Date().toISOString().slice(0, 10);
+      const prevDate = prev?.computed_at?.slice(0, 10);
+      if (today !== prevDate) {
+        await env.KKME_SIGNALS.put('revenue_snapshot_prev', JSON.stringify({
+          project_irr: result.project_irr,
+          net_mw_yr: result.net_mw_yr,
+          signal_inputs: si,
+          computed_at: new Date().toISOString(),
+        }));
+      }
 
       return jsonResp(result);
     }
