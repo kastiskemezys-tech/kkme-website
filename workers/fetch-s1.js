@@ -5883,32 +5883,21 @@ export default {
       result.prices = { afrr_up_avg: s2?.afrr_up_avg ?? null, mfrr_up_avg: s2?.mfrr_up_avg ?? null, spread_eur_mwh: s1?.spread_eur_mwh ?? null, euribor_3m: eur?.euribor_3m ?? null };
       result.updated_at = result.timestamp;
 
-      // ── Backtest: aggregate daily S1 history into monthly averages ──
-      const s1HistRaw = await env.KKME_SIGNALS.get('s1_history').catch(() => null);
-      const s1Hist = s1HistRaw ? JSON.parse(s1HistRaw) : [];
+      // ── Backtest: use s1_capture monthly data (same source as computeBaseYear) ──
       const sc_cfg = REVENUE_SCENARIOS[scenParam] || REVENUE_SCENARIOS.base;
       const rte_val = 0.855;
-
-      // Group daily entries by YYYY-MM
-      const byMonth = {};
-      for (const d of s1Hist) {
-        if (!d.date || !d.spread_eur) continue;
-        const key = d.date.slice(0, 7); // 'YYYY-MM'
-        if (!byMonth[key]) byMonth[key] = { spreads: [], days: 0 };
-        byMonth[key].spreads.push(d.spread_eur);
-        byMonth[key].days++;
-      }
-
       const si = result.signal_inputs || {};
-      const backtest = Object.keys(byMonth).sort().map(month => {
-        const m = byMonth[month];
-        const avg_spread = m.spreads.reduce((a, b) => a + b, 0) / m.spreads.length;
-        const capture = dur_h <= 2 ? avg_spread : avg_spread * 0.9;
-        const cycles = dur_h <= 2 ? sc_cfg.cycles_2h : sc_cfg.cycles_4h;
+      const bt_arb_pct = result.base_year?.time_model?.effective_arb_pct ?? computeEffectiveArbPct(kv, sc_cfg);
+      const bt_cycles = dur_h <= 2 ? sc_cfg.cycles_2h : sc_cfg.cycles_4h;
+
+      const capMonthly = (s1_capture?.monthly || []).filter(m => m.month && m.days >= 15);
+      const backtest = capMonthly.map(m => {
+        const capture = dur_h <= 2
+          ? (m.avg_gross_2h || m.avg_net_2h || 140)
+          : (m.avg_gross_4h || m.avg_net_4h || 125);
 
         // Trading revenue per MW per day (time-sliced)
-        const bt_arb_pct = result.base_year?.time_model?.effective_arb_pct ?? computeEffectiveArbPct(kv, sc_cfg);
-        const bt_energy_per_mw_hour = dur_h * cycles / 24;
+        const bt_energy_per_mw_hour = dur_h * bt_cycles / 24;
         const trd_daily = bt_arb_pct * 24 * bt_energy_per_mw_hour * capture * rte_val * sc_cfg.trd_real * (1 - sc_cfg.rtm_fee_pct);
 
         // Balancing revenue per MW per day (current capacity+activation prices)
@@ -5921,7 +5910,7 @@ export default {
         ) * 24 * sc_cfg.bal_mult * sc_cfg.real_factor * (1 - sc_cfg.rtm_fee_pct);
 
         return {
-          month,
+          month: m.month,
           trading_daily: Math.round(trd_daily),
           balancing_daily: Math.round(bal_daily),
           total_daily: Math.round(trd_daily + bal_daily),
