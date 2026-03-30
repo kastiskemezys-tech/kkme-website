@@ -504,7 +504,7 @@ const REVENUE_SCENARIOS = {
     rtm_fee_pct: 0.10, brp_fee_yr: 180000,
     opex_per_kw_yr: 39, opex_esc: 0.025,
     debt_margin_bp: 250, aug_cost_pct: 0.12, aug_restore: 0.90,
-    avail: 0.95, cycles_2h: 1.2, cycles_4h: 0.9, stack_factor: 0.60,
+    avail: 0.95, cycles_2h: 1.5, cycles_4h: 1.0, stack_factor: 0.70,
   },
   conservative: {
     real_factor: 0.78, bal_mult: 0.80, spread_mult: 0.85,
@@ -513,7 +513,7 @@ const REVENUE_SCENARIOS = {
     rtm_fee_pct: 0.12, brp_fee_yr: 200000,
     opex_per_kw_yr: 42, opex_esc: 0.025,
     debt_margin_bp: 300, aug_cost_pct: 0.12, aug_restore: 0.85,
-    avail: 0.93, cycles_2h: 1.1, cycles_4h: 0.85, stack_factor: 0.55,
+    avail: 0.93, cycles_2h: 1.2, cycles_4h: 0.9, stack_factor: 0.60,
   },
   stress: {
     real_factor: 0.60, bal_mult: 0.60, spread_mult: 0.65,
@@ -542,6 +542,370 @@ function calcIRR(cf) {
   return Math.round((lo + hi) / 2 * 10000) / 10000;
 }
 
+/**
+ * computeRevenueV7: observed base year as Year 1 foundation, derived compression.
+ *
+ * Uses the same DCF/financing/DSCR/IRR machinery as v6 but replaces the
+ * revenue computation: Y1 = observed trailing 12m annualised revenue,
+ * Years 2-20 = Y1 × compression × degradation.
+ *
+ * Falls back to v6 if base year data is insufficient.
+ */
+function computeRevenueV7(params, kv) {
+  const mw = params.mw || 50;
+  const dur_h = params.dur_h || 4;
+  const mwh = mw * dur_h;
+  const sc = REVENUE_SCENARIOS[params.scenario || 'base'] || REVENUE_SCENARIOS.base;
+  const capex_kwh = params.capex_kwh || 164;
+  const cod_year = params.cod_year || 2028;
+  const cycles = dur_h <= 2 ? sc.cycles_2h : sc.cycles_4h;
+  const rte = cycles <= 1.2 ? 0.855 : 0.852;
+
+  // ── Observed base year ──
+  const base_year = computeBaseYear(kv, dur_h, sc);
+  const compression = deriveCompression(kv);
+
+  // Gate: need at least 6 months of S1 data to use v7
+  if (base_year.data_coverage.s1_months < 6) {
+    const v6_result = computeRevenueV6(params, kv);
+    v6_result.model_version = 'v6_fallback';
+    v6_result.base_year = base_year;
+    v6_result.forward = { compression_rate: compression.rate, compression_source: compression.source };
+    return v6_result;
+  }
+
+  // ── Base year revenue per MW (annual, from observed data) ──
+  const by_trading_per_mw  = base_year.annual_totals.trading;   // €/MW/yr
+  const by_balancing_per_mw = base_year.annual_totals.balancing; // €/MW/yr
+
+  // ── Financing setup (same as v6) ──
+  const euribor = ((kv?.euribor?.euribor_nominal_3m ?? kv?.s3?.euribor_nominal_3m) || 2.01) / 100;
+  const rate_allin = euribor + sc.debt_margin_bp / 10000;
+  const grant_pct = params.grant_pct || 0;
+  const gross_capex_total = capex_kwh * mwh * 1000;
+  const capex_net_total = gross_capex_total * (1 - grant_pct);
+  const debt_pct = 0.55;
+  const debt_initial = Math.round(capex_net_total * debt_pct);
+  const equity_initial = capex_net_total - debt_initial;
+  const tenor = 8;
+  const grace = 1;
+  const tax_rate = 0.17;
+  const depr_years = 10;
+  const pmt = debt_initial * rate_allin / (1 - Math.pow(1 + rate_allin, -tenor));
+
+  // Scenario compression multiplier: conservative/stress scenarios apply
+  // their own bal_compress_yr on TOP of the observed compression
+  const scenario_compress_extra = sc === REVENUE_SCENARIOS.base ? 0
+    : sc === REVENUE_SCENARIOS.conservative ? 0.02
+    : 0.05; // stress
+
+  // ── 20-year timeseries ──
+  const years = [];
+  let debt_bal = debt_initial;
+  let min_dscr = Infinity;
+  let crossover_year = null;
+
+  for (let yr = 1; yr <= 20; yr++) {
+    // C1. Degradation
+    const retention = getDegradation(yr, cycles);
+    let usable_mwh_per_mw = dur_h * retention;
+
+    // C2. Augmentation at year 10
+    let aug_capex = 0;
+    if (yr === 10) {
+      const pre_aug = dur_h * retention;
+      const target = dur_h * sc.aug_restore;
+      const added = Math.max(0, target - pre_aug);
+      aug_capex = added * sc.aug_cost_pct * capex_kwh * 1000 * mw;
+      usable_mwh_per_mw = Math.min(target, pre_aug + added);
+    }
+    if (yr > 10) {
+      const ret_at_10 = getDegradation(10, cycles);
+      const target_10 = dur_h * sc.aug_restore;
+      const restored = Math.min(target_10, dur_h * ret_at_10 + Math.max(0, target_10 - dur_h * ret_at_10));
+      usable_mwh_per_mw = restored * (retention / ret_at_10);
+    }
+
+    // C3. Energy stacking constraint (same as v6)
+    const p_avail = sc.avail;
+    const products = {};
+    let total_energy_req = 0;
+    for (const [name, prod] of Object.entries(RESERVE_PRODUCTS)) {
+      const raw = p_avail * prod.share;
+      total_energy_req += raw * prod.dur_req_h;
+      products[name] = { raw };
+    }
+    const scale_energy = Math.min(1.0, usable_mwh_per_mw / total_energy_req);
+    for (const [name] of Object.entries(RESERVE_PRODUCTS)) {
+      products[name].eff = products[name].raw * scale_energy;
+    }
+
+    // C4. Compression — v7 uses derived rate + scenario extra
+    // Base year reflects TODAY's revenue. COD delay means additional compression
+    // before Y1 starts earning. E.g. if COD=2029 and today=2026, that's 3 extra years.
+    const today_year = new Date().getFullYear();
+    const cod_delay_years = Math.max(0, cod_year - today_year);
+    const compress_total = Math.pow(1 - (compression.rate + scenario_compress_extra), yr - 1 + cod_delay_years);
+
+    // C5. Degradation effect on trading
+    // Trading revenue scales with usable energy (degradation reduces throughput)
+    const deg_ratio_vs_y1 = retention / getDegradation(1, cycles);
+
+    // C6. Revenue computation — per MW then × mw
+    // Balancing: MW-based, but energy constraint reduces eligible MW
+    const bal_scale = scale_energy / Math.min(1.0, (dur_h * getDegradation(1, cycles)) / total_energy_req);
+    const rev_bal = by_balancing_per_mw * mw * compress_total * Math.min(1.0, bal_scale);
+
+    // Trading: energy-based, scales with degradation
+    const rev_trd = by_trading_per_mw * mw * compress_total * deg_ratio_vs_y1;
+
+    // C7. Gross → Net
+    const rev_gross = rev_bal + rev_trd;
+    const rtm_fee = rev_gross * sc.rtm_fee_pct;
+    const brp_fee = sc.brp_fee_yr * Math.pow(1 + sc.opex_esc, yr - 1);
+    const rev_net = rev_gross - rtm_fee - brp_fee;
+    const rev_cap = rev_bal * 0.65;  // approximate split for reporting
+    const rev_act = rev_bal * 0.35;
+
+    // C8. OPEX
+    const opex = sc.opex_per_kw_yr * mw * 1000 * Math.pow(1 + sc.opex_esc, yr - 1);
+
+    // C9. EBITDA
+    const ebitda = rev_net - opex;
+
+    // C10. Tax (with depreciation shield)
+    const depr_base = yr <= depr_years ? gross_capex_total / depr_years : 0;
+    const depr_aug = (yr >= 10 && yr < 10 + depr_years) ? aug_capex / depr_years : 0;
+    const depr = depr_base + depr_aug;
+    const interest_yr = debt_bal > 0 ? debt_bal * rate_allin : 0;
+    const taxable = Math.max(0, ebitda - depr - interest_yr);
+    const cash_tax = taxable * tax_rate;
+    const taxable_unlev = Math.max(0, ebitda - depr);
+    const cash_tax_unlev = taxable_unlev * tax_rate;
+
+    // C11. CFADS
+    const maint_capex = aug_capex;
+    const cfads = ebitda - cash_tax - maint_capex;
+
+    // C12. Debt service
+    let ds = 0, principal = 0;
+    if (yr <= grace && debt_bal > 0) {
+      ds = debt_bal * rate_allin;
+      principal = 0;
+    } else if (yr <= grace + tenor && debt_bal > 0) {
+      ds = pmt;
+      const int_exp = debt_bal * rate_allin;
+      principal = Math.min(pmt - int_exp, debt_bal);
+    }
+    debt_bal = Math.max(0, debt_bal - principal);
+
+    // C13. DSCR
+    const dscr = ds > 0 ? cfads / ds : null;
+    if (dscr !== null && dscr < min_dscr) min_dscr = dscr;
+
+    // C14. Crossover
+    if (!crossover_year && rev_net < opex) {
+      crossover_year = cod_year + yr;
+    }
+
+    // C15. Cash flows
+    const project_cf = ebitda - cash_tax_unlev - maint_capex;
+    const equity_cf = cfads - ds;
+
+    const cal_year = cod_year + yr;
+    years.push({
+      yr, cal_year,
+      retention: Math.round(retention * 1000) / 1000,
+      usable_mwh_per_mw: Math.round(usable_mwh_per_mw * 100) / 100,
+      scale_energy: Math.round(scale_energy * 1000) / 1000,
+      compress_total: Math.round(compress_total * 1000) / 1000,
+      rev_cap: Math.round(rev_cap), rev_act: Math.round(rev_act),
+      rev_bal: Math.round(rev_bal), rev_trd: Math.round(rev_trd),
+      rev_gross: Math.round(rev_gross),
+      rtm_fee: Math.round(rtm_fee), brp_fee: Math.round(brp_fee),
+      rev_net: Math.round(rev_net),
+      opex: Math.round(opex), ebitda: Math.round(ebitda),
+      depr: Math.round(depr),
+      cash_tax: Math.round(cash_tax), cash_tax_unlev: Math.round(cash_tax_unlev),
+      cfads: Math.round(cfads), maint_capex: Math.round(maint_capex),
+      ds: Math.round(ds), dscr: dscr != null ? Math.round(dscr * 100) / 100 : null,
+      debt_bal: Math.round(debt_bal),
+      project_cf: Math.round(project_cf), equity_cf: Math.round(equity_cf),
+    });
+  }
+
+  // ── IRR ──
+  const project_cfs = [-capex_net_total, ...years.map(y => y.project_cf)];
+  const project_irr = calcIRR(project_cfs);
+  const equity_cfs = [-equity_initial, ...years.map(y => y.equity_cf)];
+  const equity_irr = calcIRR(equity_cfs);
+
+  // NPV
+  const wacc = 0.08;
+  let npv_project = 0;
+  for (let t = 0; t < project_cfs.length; t++) {
+    npv_project += project_cfs[t] / Math.pow(1 + wacc, t);
+  }
+
+  // Payback
+  let cumul = 0, payback = null;
+  for (let t = 0; t < project_cfs.length; t++) {
+    cumul += project_cfs[t];
+    if (cumul >= 0 && payback === null) payback = t;
+  }
+
+  // Reconciliation
+  const recon = {
+    gross_equals_bal_plus_trd: years.every(y => Math.abs(y.rev_gross - y.rev_bal - y.rev_trd) < 2),
+    net_equals_gross_minus_fees: years.every(y => Math.abs(y.rev_net - (y.rev_gross - y.rtm_fee - y.brp_fee)) < 2),
+    ebitda_equals_net_minus_opex: years.every(y => Math.abs(y.ebitda - (y.rev_net - y.opex)) < 2),
+    cfads_equals_ebitda_minus_tax_minus_maint: years.every(y => Math.abs(y.cfads - (y.ebitda - y.cash_tax - y.maint_capex)) < 2),
+    debt_repaid: debt_bal < 100,
+  };
+
+  // Bankability
+  let cons_min_dscr = min_dscr;
+  if (params.scenario !== 'conservative' && !params._skip_cons) {
+    const cons_result = computeRevenueV7({ ...params, scenario: 'conservative', _skip_cons: true }, kv);
+    cons_min_dscr = cons_result.min_dscr;
+  }
+  const bankability = cons_min_dscr >= 1.20 ? 'Pass'
+    : cons_min_dscr >= 1.0 ? 'Marginal'
+    : 'Fail';
+
+  if (min_dscr === Infinity) min_dscr = null;
+
+  // Fleet trajectory for COD context
+  const fleet = kv?.fleet;
+  const cod_sd = fleet?.trajectory?.find?.(t => t.year === cod_year) ?? null;
+
+  const y1 = years[0];
+
+  // Monthly seasonal DSCR overlay
+  const SEASONAL_FACTORS = [1.35, 1.25, 1.10, 0.85, 0.70, 0.55, 0.50, 0.60, 0.80, 1.05, 1.20, 1.40];
+  const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const sf_sum = SEASONAL_FACTORS.reduce((a, b) => a + b, 0);
+  const y1_cfads = years[0]?.cfads || 0;
+  const monthly_debt_svc = pmt / 12;
+  const monthly_y1 = MONTH_NAMES.map((name, i) => {
+    const cfads_m = y1_cfads * SEASONAL_FACTORS[i] / sf_sum;
+    const dscr_m = monthly_debt_svc > 0 ? cfads_m / monthly_debt_svc : null;
+    return {
+      month: name, seasonal_factor: SEASONAL_FACTORS[i],
+      cfads: Math.round(cfads_m), debt_service: Math.round(monthly_debt_svc),
+      dscr: dscr_m ? Math.round(dscr_m * 100) / 100 : null,
+    };
+  });
+  const worst_month_dscr = Math.min(
+    ...monthly_y1.filter(m => m.dscr !== null).map(m => m.dscr)
+  );
+
+  // S2 data for signal_inputs
+  const s2 = kv?.s2 || {};
+  const s1 = kv?.s1 || {};
+  const act_parsed = kv?.s2_activation_parsed || {};
+  const s1_cap = kv?.s1_capture || {};
+  const prices_source = s2.afrr_cap_avg != null ? 'BTD measured' : (s2.afrr_up_avg != null ? 'BTD partial' : 'proxy');
+
+  return {
+    // Config
+    system: `${mw} MW / ${mwh} MWh (${dur_h}H)`,
+    duration: dur_h,
+    capex_scenario: `€${capex_kwh}/kWh`,
+    capex_eur_kwh: capex_kwh,
+    capex_kwh, capex_total: gross_capex_total, capex_net: capex_net_total,
+    gross_capex: gross_capex_total,
+    grant_amount: Math.round(gross_capex_total * grant_pct),
+    grant_label: grant_pct > 0 ? `${Math.round(grant_pct * 100)}% grant` : 'No grant',
+    net_capex: capex_net_total,
+    cod_year,
+    scenario: params.scenario || 'base',
+    model_version: 'v7',
+
+    // Market context
+    sd_ratio: cod_sd?.sd_ratio ?? null,
+    phase: cod_sd?.phase ?? null,
+    cpi_at_cod: cod_sd?.cpi ?? null,
+
+    // Headline metrics
+    project_irr,
+    equity_irr,
+    npv_at_wacc: Math.round(npv_project),
+    npv_project: Math.round(npv_project),
+    net_rev_per_mw_yr: y1 ? Math.round(y1.rev_net / mw) : 0,
+    net_mw_yr: y1 ? Math.round(y1.rev_net / mw) : 0,
+    min_dscr: min_dscr != null ? Math.round(min_dscr * 100) / 100 : null,
+    min_dscr_conservative: cons_min_dscr != null ? Math.round(cons_min_dscr * 100) / 100 : null,
+    bankability,
+    simple_payback_years: payback,
+    payback_years: payback,
+    crossover_year: crossover_year || (cod_year + 25),
+
+    // Y1 backward compat
+    gross_revenue_y1: y1 ? y1.rev_gross : 0,
+    net_revenue_y1: y1 ? y1.rev_net : 0,
+    ebitda_y1: y1 ? y1.ebitda : 0,
+    opex_y1: y1 ? y1.opex : 0,
+    rtm_fees_y1: y1 ? y1.rtm_fee + y1.brp_fee : 0,
+    capacity_y1: y1 ? y1.rev_cap : 0,
+    activation_y1: y1 ? y1.rev_act : 0,
+    arbitrage_y1: y1 ? y1.rev_trd : 0,
+    capacity_pct: y1 && y1.rev_gross > 0 ? Math.round(y1.rev_cap / y1.rev_gross * 100) / 100 : 0,
+    activation_pct: y1 && y1.rev_gross > 0 ? Math.round(y1.rev_act / y1.rev_gross * 100) / 100 : 0,
+    arbitrage_pct: y1 && y1.rev_gross > 0 ? Math.round(y1.rev_trd / y1.rev_gross * 100) / 100 : 0,
+
+    // Financing
+    total_debt: debt_initial, total_equity: equity_initial,
+    debt_initial, equity_initial, rate_allin,
+    annual_debt_service: Math.round(pmt),
+
+    // Timeseries
+    years,
+    trajectory: [1, 3, 5, 10, 15, 20].map(y => {
+      const yr = years[y - 1];
+      return yr ? { year: y, cal_year: yr.cal_year, net_rev: yr.rev_net, ebitda: yr.ebitda, dscr: yr.dscr } : null;
+    }).filter(Boolean),
+    fleet_trajectory: fleet?.trajectory ?? null,
+
+    // Benchmarks
+    ch_benchmark: { irr_2h: 0.166, range: '6–31%', target: 0.12, source: 'Clean Horizon S1 2025' },
+    prices_source,
+    timestamp: new Date().toISOString(),
+
+    // Signal inputs used
+    signal_inputs: {
+      s1_capture: dur_h <= 2
+        ? (s1_cap.capture_2h?.gross_eur_mwh ?? by_trading_per_mw / (rte * dur_h * cycles * sc.stack_factor * 365))
+        : (s1_cap.capture_4h?.gross_eur_mwh ?? by_trading_per_mw / (rte * dur_h * cycles * sc.stack_factor * 365)),
+      afrr_clearing: act_parsed?.lt?.afrr_p50 ?? s2.afrr_up_avg ?? 170,
+      mfrr_clearing: act_parsed?.lt?.mfrr_p50 ?? s2.mfrr_up_avg ?? 110,
+      afrr_cap: s2.afrr_cap_avg ?? s2.afrr_up_avg ?? 7.7,
+      mfrr_cap: s2.mfrr_cap_avg ?? s2.mfrr_up_avg ?? 21.5,
+      euribor: Math.round(euribor * 10000) / 100,
+      rate_allin_pct: Math.round(rate_allin * 10000) / 100,
+    },
+
+    // Reconciliation
+    reconciliation: recon,
+
+    // Monthly seasonal DSCR
+    monthly_y1,
+    worst_month_dscr,
+
+    // v7 new fields
+    base_year,
+    forward: {
+      compression_rate: compression.rate,
+      compression_source: compression.source,
+      compression_data_points: compression.data_points,
+      initial_p50: compression.initial_p50,
+      recent_avg_p50: compression.recent_avg_p50,
+      scenario_extra_compression: scenario_compress_extra,
+      rate_full_window: compression.rate_full_window,
+    },
+  };
+}
+
 function computeRevenueV6(params, kv) {
   // A. Input resolution
   const mw = params.mw || 50;
@@ -559,11 +923,12 @@ function computeRevenueV6(params, kv) {
   const s1 = kv?.s1;
 
   // Live signal inputs
-  // s1_capture: use capture_Xh_gross if available, else spread_eur_mwh (stable 30-day avg),
-  // NOT p_high - p_low which is skewed by extreme spikes
-  const s1_capture = dur_h <= 2
-    ? (s1?.capture_2h_gross || s1?.spread_eur_mwh || 149)
-    : (s1?.capture_4h_gross || (s1?.spread_eur_mwh != null ? s1.spread_eur_mwh * 0.9 : null) || 134);
+  // s1_capture: use computed capture fields, then spread × shape premium
+  const s1_capture_4h = s1?.capture_4h_gross || s1?.gross_4h
+    || (s1?.spread_eur_mwh != null ? s1.spread_eur_mwh * 1.5 : null) || 134;
+  const s1_capture_2h = s1?.capture_2h_gross || s1?.gross_2h
+    || (s1_capture_4h * 1.12) || 149;
+  const s1_capture = dur_h <= 2 ? s1_capture_2h : s1_capture_4h;
   const afrr_clearing = s2?.afrr_up_avg || 171;
   const mfrr_clearing = s2?.mfrr_up_avg || 81;
   // Capacity prices: BTD bid averages (7.7 aFRR, 21.5 mFRR). RESERVE_PRODUCTS.cap_fallback
@@ -660,9 +1025,9 @@ function computeRevenueV6(params, kv) {
 
     // C6. Trading revenue (DA spread capture)
     const e_out_cycle = Math.min(usable_mwh_per_mw, arb_power * dur_h);
-    const e_out = e_out_cycle * cycles * 300 * mw;
+    const e_out = e_out_cycle * cycles * 365 * mw;
     const capture = s1_capture * sc.spread_mult * spread_comp;
-    const rev_trd = e_out * capture * rte * sc.real_factor;
+    const rev_trd = e_out * capture * rte;
 
     // C7. Gross → Net reconciliation
     const rev_gross = rev_bal + rev_trd;
@@ -796,7 +1161,7 @@ function computeRevenueV6(params, kv) {
   const monthly_debt_svc = pmt / 12;
 
   const monthly_y1 = MONTH_NAMES.map((name, i) => {
-    const cfads_m = y1_cfads * (SEASONAL_FACTORS[i] / sf_sum) * 12;
+    const cfads_m = y1_cfads * SEASONAL_FACTORS[i] / sf_sum;
     const dscr_m = monthly_debt_svc > 0 ? cfads_m / monthly_debt_svc : null;
     return {
       month: name,
@@ -890,6 +1255,287 @@ function computeRevenueV6(params, kv) {
     // Monthly seasonal DSCR
     monthly_y1,
     worst_month_dscr,
+  };
+}
+
+// ─── Revenue Engine v7 — Observed base year + derived compression + live rate ──
+
+/**
+ * computeBaseYear: builds trailing 12-month observed revenue from S1 monthly
+ * captures (KV: s1_capture) + S2 monthly activation data (KV: s2_activation).
+ *
+ * Returns per-MW monthly breakdown + annual totals.
+ * All values are per MW installed.
+ */
+function computeBaseYear(kv, duration_h, sc) {
+  const rte = duration_h <= 2 ? 0.855 : 0.852;
+  const cycles = duration_h <= 2 ? sc.cycles_2h : sc.cycles_4h;
+
+  // ── S1 monthly captures (observed DA capture in €/MWh) ──
+  const s1_capture = kv.s1_capture || {};
+  const s1_monthly = s1_capture.monthly || [];
+
+  // Take trailing 12 full months (exclude current partial month)
+  const now = new Date();
+  const cur_month = now.toISOString().slice(0, 7);
+  const full_months = s1_monthly.filter(m => m.month < cur_month && m.days >= 15);
+  const t12 = full_months.slice(-12);
+
+  if (t12.length < 3) {
+    return {
+      period: 'insufficient data',
+      months: [],
+      annual_totals: { trading: 0, balancing: 0, gross: 0, net: 0 },
+      data_coverage: { s1_months: t12.length, s2_months: 0, pct_observed: 0 },
+    };
+  }
+
+  // ── S2 activation monthly data ──
+  const act = kv.s2_activation_parsed || {};
+  const lt_afrr_monthly = act.lt_monthly_afrr || {};  // { '2025-10': { avg, p50, ... }, ... }
+  const lt_mfrr_monthly = act.lt_monthly_mfrr || {};
+
+  // ── S2 capacity monthly ──
+  const cap_monthly_arr = kv.capacity_monthly || [];   // [{ month, afrr_avg, mfrr_avg, fcr_avg, days }]
+  const cap_by_month = {};
+  for (const c of cap_monthly_arr) cap_by_month[c.month] = c;
+
+  // Current S2 averages as fallback
+  const s2 = kv.s2 || {};
+  const fb_afrr_cap = s2.afrr_cap_avg ?? s2.afrr_up_avg ?? 7.7;
+  const fb_mfrr_cap = s2.mfrr_cap_avg ?? s2.mfrr_up_avg ?? 21.5;
+  const fb_fcr_cap  = s2.fcr_cap_avg  ?? s2.fcr_avg     ?? 0.36;
+  const fb_afrr_clearing = kv.s2_activation_parsed?.lt?.afrr_p50 ?? 170;
+  const fb_mfrr_clearing = kv.s2_activation_parsed?.lt?.mfrr_p50 ?? 110;
+
+  const months = [];
+  let s2_months_observed = 0;
+
+  for (const m of t12) {
+    const month = m.month;
+    const days = m.days || 30;
+
+    // ── Trading revenue ──
+    const capture = duration_h <= 2
+      ? (m.avg_gross_2h || m.avg_net_2h || 140)
+      : (m.avg_gross_4h || m.avg_net_4h || 125);
+
+    // energy_per_cycle = capture €/MWh (already gross per MWh discharged)
+    // daily trading = capture × RTE × MWh_per_cycle × cycles × stack_factor
+    const energy_per_cycle = duration_h;  // MWh per MW
+    const trd_daily = capture * rte * energy_per_cycle * cycles * sc.stack_factor;
+    const trd_monthly = trd_daily * days;
+
+    // ── Balancing revenue ──
+    const afrr_act_m = lt_afrr_monthly[month];
+    const mfrr_act_m = lt_mfrr_monthly[month];
+    const cap_m = cap_by_month[month];
+    const has_s2 = !!(afrr_act_m || mfrr_act_m || cap_m);
+    if (has_s2) s2_months_observed++;
+
+    // Capacity prices (€/MW/h)
+    const afrr_cap_h = cap_m?.afrr_avg ?? fb_afrr_cap;
+    const mfrr_cap_h = cap_m?.mfrr_avg ?? fb_mfrr_cap;
+    const fcr_cap_h  = cap_m?.fcr_avg  ?? fb_fcr_cap;
+
+    // Activation clearing (€/MWh) — use p50
+    const afrr_clearing = afrr_act_m?.p50 ?? fb_afrr_clearing;
+    const mfrr_clearing = mfrr_act_m?.p50 ?? fb_mfrr_clearing;
+
+    // Activation dispatch rates — use SCENARIO rates, not raw BTD activation rates.
+    // BTD activation_rate (0.85) = fraction of ISPs with TSO call — NOT BESS dispatch revenue rate.
+    // Scenario rates (0.18 aFRR, 0.10 mFRR) = modelled BESS energy dispatch fraction.
+    const afrr_rate = sc.act_rate_afrr;
+    const mfrr_rate = sc.act_rate_mfrr;
+
+    const hours = days * 24;
+
+    // Per MW installed: 0.5 MW allocated per product × share
+    // Same stacking logic as v6 RESERVE_PRODUCTS
+    const rev_cap = (
+      RESERVE_PRODUCTS.fcr.share  * sc.avail * fcr_cap_h +
+      RESERVE_PRODUCTS.afrr.share * sc.avail * afrr_cap_h +
+      RESERVE_PRODUCTS.mfrr.share * sc.avail * mfrr_cap_h
+    ) * hours;
+
+    const rev_act = (
+      RESERVE_PRODUCTS.afrr.share * sc.avail * afrr_rate * afrr_clearing * 0.55 +
+      RESERVE_PRODUCTS.mfrr.share * sc.avail * mfrr_rate * mfrr_clearing * 0.75
+    ) * hours;
+
+    const bal_monthly = (rev_cap + rev_act) * sc.bal_mult * sc.real_factor;
+
+    // ── Gross / Net ──
+    const gross = trd_monthly + bal_monthly;
+    const rtm_fee = gross * sc.rtm_fee_pct;
+    const brp_fee = sc.brp_fee_yr / 12;  // per MW per month (brp_fee_yr is for 50MW fleet, so /50 later)
+    const net = gross - rtm_fee - brp_fee / 50;  // brp_fee is fleet-level
+
+    months.push({
+      month,
+      trading: Math.round(trd_monthly),
+      balancing: Math.round(bal_monthly),
+      gross: Math.round(gross),
+      net: Math.round(net),
+      capture: Math.round(capture * 10) / 10,
+      days,
+      source: has_s2 ? 'observed+observed' : 'observed+proxy',
+    });
+  }
+
+  // ── Annualise: if <12 months, scale up proportionally ──
+  const total_days = months.reduce((s, m) => s + m.days, 0);
+  const scale = total_days > 0 ? 365 / total_days : 1;
+
+  const annual = {
+    trading:  Math.round(months.reduce((s, m) => s + m.trading, 0) * scale),
+    balancing: Math.round(months.reduce((s, m) => s + m.balancing, 0) * scale),
+    gross:    Math.round(months.reduce((s, m) => s + m.gross, 0) * scale),
+    net:      Math.round(months.reduce((s, m) => s + m.net, 0) * scale),
+  };
+
+  return {
+    period: t12.length >= 2
+      ? `${t12[0].month} to ${t12[t12.length - 1].month}`
+      : 'insufficient data',
+    months,
+    annual_totals: annual,
+    data_coverage: {
+      s1_months: t12.length,
+      s2_months: s2_months_observed,
+      total_days,
+      pct_observed: Math.round((s2_months_observed / Math.max(t12.length, 1)) * 100),
+    },
+  };
+}
+
+/**
+ * deriveCompression: extract annual compression rate from S2 observed
+ * activation price trajectory (aFRR p50 series).
+ *
+ * The series 738 → 514 → 306 → 159 → 174 → 171 covers 2025-10 to 2026-03.
+ * We use the full window to capture the structural compression,
+ * then use recent 3-month for current-pace estimate.
+ */
+function deriveCompression(kv) {
+  // Primary: S2 activation compression trajectory
+  const act = kv.s2_activation_parsed || {};
+  const compression = act.compression || {};
+  const p50_series = compression.afrr_lt_p50 || [];
+  const comp_months = compression.months || [];
+
+  if (p50_series.length >= 4) {
+    // Use first 4 months (rapid initial compression) vs last 3 (stabilisation)
+    const initial = p50_series[0];
+    const recent_3 = p50_series.slice(-3);
+    const recent_avg = recent_3.reduce((s, v) => s + v, 0) / recent_3.length;
+
+    // Total compression over the observation window
+    const months_span = p50_series.length - 1;
+    const total_compression = 1 - (recent_avg / initial);
+
+    // Annualised: compound monthly rate → annual
+    const monthly_rate = 1 - Math.pow(recent_avg / initial, 1 / months_span);
+    const annual_rate_raw = 1 - Math.pow(1 - monthly_rate, 12);
+
+    // But the initial spike (738→159) was post-sync anomaly normalisation,
+    // not steady-state compression. For forward projection, use the recent
+    // 3-month trend which shows stabilisation (159→174→171).
+    let forward_rate;
+    if (recent_3.length >= 3) {
+      const r_first = recent_3[0];
+      const r_last = recent_3[recent_3.length - 1];
+      const r_span = recent_3.length - 1;
+      if (r_first > 0 && r_last > 0) {
+        const r_monthly = 1 - Math.pow(r_last / r_first, 1 / r_span);
+        forward_rate = Math.max(0, 1 - Math.pow(1 - r_monthly, 12));
+      }
+    }
+    // If recent trend is flat/slightly negative, use minimum structural compression
+    if (forward_rate == null || forward_rate < 0.01) forward_rate = 0.03;
+
+    return {
+      rate: Math.max(0.01, Math.min(0.15, forward_rate)),
+      rate_full_window: Math.round(annual_rate_raw * 1000) / 1000,
+      source: 'derived_from_s2_activation',
+      data_points: p50_series.length,
+      window: comp_months.length >= 2 ? `${comp_months[0]} to ${comp_months[comp_months.length - 1]}` : null,
+      initial_p50: initial,
+      recent_avg_p50: Math.round(recent_avg * 10) / 10,
+      note: 'Forward rate from recent 3m trend; full-window rate includes post-sync normalisation',
+    };
+  }
+
+  // Fallback: fleet trajectory S/D growth → implied compression
+  const trajectory = kv.fleet?.trajectory || kv.s2?.trajectory || [];
+  if (trajectory.length >= 2) {
+    const sd_0 = trajectory[0]?.sd_ratio || 1.16;
+    const sd_n = trajectory[trajectory.length - 1]?.sd_ratio || 1.9;
+    const yrs = trajectory.length - 1;
+    const implied = Math.pow(sd_n / sd_0, 1 / yrs) - 1;
+    return {
+      rate: Math.max(0.02, Math.min(0.10, implied * 0.7)),
+      source: 'derived_from_fleet_trajectory',
+      data_points: trajectory.length,
+    };
+  }
+
+  return { rate: 0.05, source: 'assumed_default', data_points: 0 };
+}
+
+/**
+ * computeLiveRate: today's revenue run-rate vs base year average.
+ * Returns per-MW daily values.
+ */
+function computeLiveRate(kv, base_year, duration_h, sc) {
+  const s1 = kv.s1 || {};
+  const s2 = kv.s2 || {};
+  const act = kv.s2_activation_parsed || {};
+  const rte = duration_h <= 2 ? 0.855 : 0.852;
+  const cycles = duration_h <= 2 ? sc.cycles_2h : sc.cycles_4h;
+
+  // Today's capture from S1 (use the capture endpoint data first, then spread-based)
+  const s1_cap = kv.s1_capture || {};
+  const capture = duration_h <= 2
+    ? (s1_cap.capture_2h?.gross_eur_mwh || s1?.capture_2h_gross || s1?.gross_2h
+       || (s1.spread_eur_mwh != null ? s1.spread_eur_mwh * 1.5 * 1.12 : 140))
+    : (s1_cap.capture_4h?.gross_eur_mwh || s1?.capture_4h_gross || s1?.gross_4h
+       || (s1.spread_eur_mwh != null ? s1.spread_eur_mwh * 1.5 : 125));
+
+  const today_trading = capture * rte * duration_h * cycles * sc.stack_factor;
+
+  // Today's balancing from S2
+  const afrr_cap = s2.afrr_cap_avg ?? s2.afrr_up_avg ?? 7.7;
+  const mfrr_cap = s2.mfrr_cap_avg ?? s2.mfrr_up_avg ?? 21.5;
+  const fcr_cap  = s2.fcr_cap_avg  ?? s2.fcr_avg     ?? 0.36;
+  const afrr_clearing = act.lt?.afrr_p50 ?? 170;
+  const mfrr_clearing = act.lt?.mfrr_p50 ?? 110;
+
+  const today_balancing = (
+    RESERVE_PRODUCTS.fcr.share  * sc.avail * fcr_cap +
+    RESERVE_PRODUCTS.afrr.share * sc.avail * afrr_cap +
+    RESERVE_PRODUCTS.mfrr.share * sc.avail * mfrr_cap +
+    RESERVE_PRODUCTS.afrr.share * sc.avail * sc.act_rate_afrr * afrr_clearing * 0.55 +
+    RESERVE_PRODUCTS.mfrr.share * sc.avail * sc.act_rate_mfrr * mfrr_clearing * 0.75
+  ) * 24 * sc.bal_mult * sc.real_factor;
+
+  const today_total = today_trading + today_balancing;
+  const base_daily = base_year?.annual_totals?.gross > 0
+    ? base_year.annual_totals.gross / 365
+    : today_total;  // if no base year, delta = 0%
+  const delta_pct = base_daily > 0
+    ? Math.round(((today_total / base_daily) - 1) * 100)
+    : 0;
+
+  return {
+    today_trading_daily: Math.round(today_trading),
+    today_balancing_daily: Math.round(today_balancing),
+    today_total_daily: Math.round(today_total),
+    base_daily: Math.round(base_daily),
+    delta_pct,
+    annualised: Math.round(today_total * 365),
+    capture_used: Math.round(capture * 10) / 10,
+    as_of: s1.updated_at || new Date().toISOString(),
   };
 }
 
@@ -4903,13 +5549,16 @@ export default {
       const dur_h     = DUR_MAP[durParam] || parseFloat(durParam) || 2;
       const capex_kwh = CAPEX_MAP[capexParam] || parseInt(capexParam) || 164;
 
-      // ── Read KV data ──
-      const [s1Raw, s2Raw, s3Raw, fleetRaw, eurRaw] = await Promise.all([
+      // ── Read KV data (v7: additional keys for observed base year) ──
+      const [s1Raw, s2Raw, s3Raw, fleetRaw, eurRaw, s1CaptureRaw, s2ActivationRaw, btdHistRaw] = await Promise.all([
         env.KKME_SIGNALS.get('s1'),
         env.KKME_SIGNALS.get('s2'),
         env.KKME_SIGNALS.get('s3'),
         env.KKME_SIGNALS.get('s2_fleet').catch(() => null),
         env.KKME_SIGNALS.get('euribor'),
+        env.KKME_SIGNALS.get('s1_capture').catch(() => null),
+        env.KKME_SIGNALS.get('s2_activation').catch(() => null),
+        env.KKME_SIGNALS.get('s2_btd_history').catch(() => null),
       ]);
       const s1    = s1Raw    ? JSON.parse(s1Raw)    : null;
       const s2    = s2Raw    ? JSON.parse(s2Raw)    : null;
@@ -4917,13 +5566,61 @@ export default {
       const fleet = fleetRaw ? JSON.parse(fleetRaw) : null;
       const eur   = eurRaw   ? JSON.parse(eurRaw)   : null;
 
-      const kv = { fleet, s2, s1, s3, euribor: eur };
+      // Parse S1 capture (monthly capture data)
+      const s1_capture = s1CaptureRaw ? JSON.parse(s1CaptureRaw) : null;
 
-      // ── Primary result ──
-      const result = computeRevenueV6(
-        { mw: mwParam, dur_h, capex_kwh, cod_year: codParam, scenario: scenParam, grant_pct: grantPct },
-        kv
-      );
+      // Parse S2 activation into the shape v7 expects
+      let s2_activation_parsed = null;
+      if (s2ActivationRaw) {
+        try {
+          const actRaw = JSON.parse(s2ActivationRaw);
+          const lt = actRaw.countries?.Lithuania;
+          s2_activation_parsed = {
+            lt: {
+              afrr_p50: lt?.afrr_recent_3m?.avg_p50 ?? null,
+              mfrr_p50: lt?.mfrr_recent_3m?.avg_p50 ?? null,
+            },
+            lt_monthly_afrr: lt?.afrr_up ?? {},
+            lt_monthly_mfrr: lt?.mfrr_up ?? {},
+            compression: actRaw.compression_trajectory ?? null,
+          };
+        } catch { /* ignore */ }
+      }
+
+      // Parse BTD history for capacity monthly
+      let capacity_monthly = [];
+      if (btdHistRaw) {
+        try { capacity_monthly = computeCapacityMonthly(JSON.parse(btdHistRaw)); } catch { /* ignore */ }
+      }
+
+      const kv = { fleet, s2, s1, s3, euribor: eur, s1_capture, s2_activation_parsed, capacity_monthly };
+
+      // ── Primary result (v7: observed base year) ──
+      const computeEngine = computeRevenueV7;
+      let result;
+      try {
+        result = computeEngine(
+          { mw: mwParam, dur_h, capex_kwh, cod_year: codParam, scenario: scenParam, grant_pct: grantPct },
+          kv
+        );
+      } catch (e) {
+        console.error('[Revenue/v7] computeEngine failed, falling back to v6:', e.message, e.stack);
+        result = computeRevenueV6(
+          { mw: mwParam, dur_h, capex_kwh, cod_year: codParam, scenario: scenParam, grant_pct: grantPct },
+          kv
+        );
+        result.model_version = 'v6_error_fallback';
+        result._v7_error = e.message;
+      }
+
+      // ── Live rate (today vs base year) ──
+      try {
+        const sc_cfg_lr = REVENUE_SCENARIOS[scenParam] || REVENUE_SCENARIOS.base;
+        result.live_rate = computeLiveRate(kv, result.base_year, dur_h, sc_cfg_lr);
+      } catch (e) {
+        console.error('[Revenue/v7] computeLiveRate failed:', e.message);
+        result.live_rate = { error: e.message };
+      }
 
       // ── All 3 scenarios for primary config ──
       const all_scenarios = {};
@@ -4931,7 +5628,7 @@ export default {
         if (sc === scenParam) {
           all_scenarios[sc] = result;
         } else {
-          all_scenarios[sc] = computeRevenueV6(
+          all_scenarios[sc] = computeEngine(
             { mw: mwParam, dur_h, capex_kwh, cod_year: codParam, scenario: sc, grant_pct: grantPct },
             kv
           );
@@ -4950,11 +5647,10 @@ export default {
       for (const cy of COD_YEARS) {
         for (const ck of CAPEX_KEYS) {
           const ckv = CAPEX_MAP[ck];
-          // Reuse primary result if params match
           if (cy === codParam && ckv === capex_kwh && scenParam === 'base') {
             matrix.push({ cod: cy, capex: ck, capex_kwh: ckv, project_irr: all_scenarios.base.project_irr, equity_irr: all_scenarios.base.equity_irr, min_dscr: all_scenarios.base.min_dscr, net_mw_yr: all_scenarios.base.net_mw_yr, bankability: all_scenarios.base.bankability });
           } else {
-            const mr = computeRevenueV6(
+            const mr = computeEngine(
               { mw: mwParam, dur_h, capex_kwh: ckv, cod_year: cy, scenario: 'base', grant_pct: grantPct },
               kv
             );
@@ -4965,8 +5661,8 @@ export default {
       result.matrix = matrix;
 
       // ── h2/h4 backward compat ──
-      const r2h = dur_h === 2 ? result : computeRevenueV6({ mw: 50, dur_h: 2, capex_kwh, cod_year: codParam, scenario: scenParam, grant_pct: grantPct }, kv);
-      const r4h = dur_h === 4 ? result : computeRevenueV6({ mw: 50, dur_h: 4, capex_kwh, cod_year: codParam, scenario: scenParam, grant_pct: grantPct }, kv);
+      const r2h = dur_h === 2 ? result : computeEngine({ mw: 50, dur_h: 2, capex_kwh, cod_year: codParam, scenario: scenParam, grant_pct: grantPct }, kv);
+      const r4h = dur_h === 4 ? result : computeEngine({ mw: 50, dur_h: 4, capex_kwh, cod_year: codParam, scenario: scenParam, grant_pct: grantPct }, kv);
       result.irr_2h       = r2h.project_irr;
       result.net_mw_yr_2h = r2h.net_mw_yr;
       result.irr_4h       = r4h.project_irr;
