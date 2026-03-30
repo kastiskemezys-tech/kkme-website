@@ -496,9 +496,24 @@ function getDegradation(year, cyclesPerDay) {
   return w1 * curveVal(DEGRAD_1C, year) + w2 * curveVal(DEGRAD_2C, year);
 }
 
+// Trading realisation: perfect-foresight discount on S1 sort-and-dispatch capture.
+// No real operator achieves theoretical max. Industry range 0.70–0.90.
+const TRADING_REALISATION = {
+  base: 0.85,          // good optimizer (Capalo AI claims 85-90%)
+  conservative: 0.70,  // average operator
+  stress: 0.55         // poor execution or significant market impact
+};
+
+// Compression scenario multipliers: conservative/stress compress faster.
+const COMPRESSION_SCENARIO_MULT = {
+  base: 1.0,          // use observed derived rate as-is
+  conservative: 2.0,  // fleet growth doubles compression speed
+  stress: 3.5         // full pipeline realisation scenario
+};
+
 const REVENUE_SCENARIOS = {
   base: {
-    real_factor: 0.90, bal_mult: 1.0, spread_mult: 1.0,
+    real_factor: 0.90, trd_real: TRADING_REALISATION.base, bal_mult: 1.0, spread_mult: 1.0,
     act_rate_afrr: 0.18, act_rate_mfrr: 0.10,
     bal_compress_yr: 0.03, spread_compress_yr: 0.02,
     rtm_fee_pct: 0.10, brp_fee_yr: 180000,
@@ -507,7 +522,7 @@ const REVENUE_SCENARIOS = {
     avail: 0.95, cycles_2h: 1.5, cycles_4h: 1.0, stack_factor: 0.70,
   },
   conservative: {
-    real_factor: 0.78, bal_mult: 0.80, spread_mult: 0.85,
+    real_factor: 0.78, trd_real: TRADING_REALISATION.conservative, bal_mult: 0.80, spread_mult: 0.85,
     act_rate_afrr: 0.14, act_rate_mfrr: 0.07,
     bal_compress_yr: 0.05, spread_compress_yr: 0.04,
     rtm_fee_pct: 0.12, brp_fee_yr: 200000,
@@ -516,7 +531,7 @@ const REVENUE_SCENARIOS = {
     avail: 0.93, cycles_2h: 1.2, cycles_4h: 0.9, stack_factor: 0.60,
   },
   stress: {
-    real_factor: 0.60, bal_mult: 0.60, spread_mult: 0.65,
+    real_factor: 0.60, trd_real: TRADING_REALISATION.stress, bal_mult: 0.60, spread_mult: 0.65,
     act_rate_afrr: 0.09, act_rate_mfrr: 0.04,
     bal_compress_yr: 0.08, spread_compress_yr: 0.06,
     rtm_fee_pct: 0.15, brp_fee_yr: 220000,
@@ -533,7 +548,7 @@ const RESERVE_PRODUCTS = {
 };
 
 function calcIRR(cf) {
-  let lo = -0.5, hi = 2.0;
+  let lo = -0.99, hi = 2.0;
   for (let i = 0; i < 100; i++) {
     const mid = (lo + hi) / 2;
     const npv = cf.reduce((s, c, t) => s + c / Math.pow(1 + mid, t), 0);
@@ -593,11 +608,12 @@ function computeRevenueV7(params, kv) {
   const depr_years = 10;
   const pmt = debt_initial * rate_allin / (1 - Math.pow(1 + rate_allin, -tenor));
 
-  // Scenario compression multiplier: conservative/stress scenarios apply
-  // their own bal_compress_yr on TOP of the observed compression
-  const scenario_compress_extra = sc === REVENUE_SCENARIOS.base ? 0
-    : sc === REVENUE_SCENARIOS.conservative ? 0.02
-    : 0.05; // stress
+  // Scenario compression: multiplicative on observed rate.
+  // Base = 1× observed, conservative = 2× (fleet growth doubles compression),
+  // stress = 3.5× (full pipeline realisation).
+  const scenario_name = params.scenario || 'base';
+  const comp_mult = COMPRESSION_SCENARIO_MULT[scenario_name] || 1.0;
+  const effective_compression = Math.min(0.25, compression.rate * comp_mult);
 
   // ── 20-year timeseries ──
   const years = [];
@@ -640,12 +656,12 @@ function computeRevenueV7(params, kv) {
       products[name].eff = products[name].raw * scale_energy;
     }
 
-    // C4. Compression — v7 uses derived rate + scenario extra
+    // C4. Compression — v7 uses derived rate × scenario multiplier
     // Base year reflects TODAY's revenue. COD delay means additional compression
     // before Y1 starts earning. E.g. if COD=2029 and today=2026, that's 3 extra years.
     const today_year = new Date().getFullYear();
     const cod_delay_years = Math.max(0, cod_year - today_year);
-    const compress_total = Math.pow(1 - (compression.rate + scenario_compress_extra), yr - 1 + cod_delay_years);
+    const compress_total = Math.pow(1 - effective_compression, yr - 1 + cod_delay_years);
 
     // C5. Degradation effect on trading
     // Trading revenue scales with usable energy (degradation reduces throughput)
@@ -895,13 +911,20 @@ function computeRevenueV7(params, kv) {
     // v7 new fields
     base_year,
     forward: {
-      compression_rate: compression.rate,
+      compression_rate_observed: compression.rate,
       compression_source: compression.source,
       compression_data_points: compression.data_points,
       initial_p50: compression.initial_p50,
       recent_avg_p50: compression.recent_avg_p50,
-      scenario_extra_compression: scenario_compress_extra,
+      scenario_multiplier: comp_mult,
+      effective_compression_rate: effective_compression,
       rate_full_window: compression.rate_full_window,
+    },
+    assumptions: {
+      trading_realisation: sc.trd_real,
+      trading_realisation_note: 'Perfect-foresight discount. Industry range 0.70-0.90.',
+      compression_scenario_mult: comp_mult,
+      effective_compression: effective_compression,
     },
   };
 }
@@ -1321,9 +1344,9 @@ function computeBaseYear(kv, duration_h, sc) {
       : (m.avg_gross_4h || m.avg_net_4h || 125);
 
     // energy_per_cycle = capture €/MWh (already gross per MWh discharged)
-    // daily trading = capture × RTE × MWh_per_cycle × cycles × stack_factor
+    // daily trading = capture × RTE × MWh_per_cycle × cycles × stack_factor × trading_realisation
     const energy_per_cycle = duration_h;  // MWh per MW
-    const trd_daily = capture * rte * energy_per_cycle * cycles * sc.stack_factor;
+    const trd_daily = capture * rte * energy_per_cycle * cycles * sc.stack_factor * sc.trd_real;
     const trd_monthly = trd_daily * days;
 
     // ── Balancing revenue ──
@@ -1400,6 +1423,8 @@ function computeBaseYear(kv, duration_h, sc) {
       : 'insufficient data',
     months,
     annual_totals: annual,
+    trading_realisation: sc.trd_real,
+    trading_realisation_source: 'assumed_industry_range_070_090',
     data_coverage: {
       s1_months: t12.length,
       s2_months: s2_months_observed,
@@ -1502,7 +1527,7 @@ function computeLiveRate(kv, base_year, duration_h, sc) {
     : (s1_cap.capture_4h?.gross_eur_mwh || s1?.capture_4h_gross || s1?.gross_4h
        || (s1.spread_eur_mwh != null ? s1.spread_eur_mwh * 1.5 : 125));
 
-  const today_trading = capture * rte * duration_h * cycles * sc.stack_factor;
+  const today_trading = capture * rte * duration_h * cycles * sc.stack_factor * sc.trd_real;
 
   // Today's balancing from S2
   const afrr_cap = s2.afrr_cap_avg ?? s2.afrr_up_avg ?? 7.7;
@@ -5725,7 +5750,7 @@ export default {
         const cycles = dur_h <= 2 ? sc_cfg.cycles_2h : sc_cfg.cycles_4h;
 
         // Trading revenue per MW per day
-        const trd_daily = capture * rte_val * cycles * dur_h * sc_cfg.real_factor * sc_cfg.stack_factor * (1 - sc_cfg.rtm_fee_pct);
+        const trd_daily = capture * rte_val * cycles * dur_h * sc_cfg.trd_real * sc_cfg.stack_factor * (1 - sc_cfg.rtm_fee_pct);
 
         // Balancing revenue per MW per day (current capacity+activation prices)
         const bal_daily = (
