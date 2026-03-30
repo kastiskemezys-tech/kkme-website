@@ -471,9 +471,399 @@ function computeTradeSignals(daHourly, isps) {
   };
 }
 
-// ─── Revenue Engine v4 ─────────────────────────────────────────────────────────
+// ─── Revenue Engine v6 — OEM degradation, scenarios, CFADS ────────────────────
 
-function computeRevenue(systemKey, capexKey, grantKey, codYear, kv, mwParam, mwhParam) {
+// OEM degradation curves — PowerCombo LFP 300MWh system
+// Values: fraction of BOL usable energy at MV transformer (AC, incl aux)
+// Source: OEM datasheet, 1 cycle/day and 2 cycles/day at 0.5C
+const DEGRAD_1C = [1, .958, .936, .915, .896, .880, .865, .851, .838, .825, .813, .800, .788, .769, .660, .638];
+const DEGRAD_2C = [1, .929, .900, .872, .845, .819, .795, .773, .751, .731, .712, .692, .673, .653, .608, .582];
+
+function getDegradation(year, cyclesPerDay) {
+  const w2 = Math.min(1, Math.max(0, (cyclesPerDay - 1)));
+  const w1 = 1 - w2;
+  function curveVal(curve, yr) {
+    if (yr >= curve.length) {
+      const last = curve[curve.length - 1];
+      const prev = curve[curve.length - 2];
+      const rate = 1 - (last / prev);
+      return Math.max(0.40, last * Math.pow(1 - rate, yr - curve.length + 1));
+    }
+    if (Number.isInteger(yr)) return curve[yr];
+    const lo = Math.floor(yr), hi = Math.ceil(yr);
+    return curve[lo] + (curve[hi] - curve[lo]) * (yr - lo);
+  }
+  return w1 * curveVal(DEGRAD_1C, year) + w2 * curveVal(DEGRAD_2C, year);
+}
+
+const REVENUE_SCENARIOS = {
+  base: {
+    real_factor: 0.90, bal_mult: 1.0, spread_mult: 1.0,
+    act_rate_afrr: 0.18, act_rate_mfrr: 0.10,
+    bal_compress_yr: 0.03, spread_compress_yr: 0.02,
+    rtm_fee_pct: 0.10, brp_fee_yr: 180000,
+    opex_per_kw_yr: 39, opex_esc: 0.025,
+    debt_margin_bp: 250, aug_cost_pct: 0.12, aug_restore: 0.90,
+    avail: 0.95, cycles_2h: 1.2, cycles_4h: 0.9, stack_factor: 0.60,
+  },
+  conservative: {
+    real_factor: 0.78, bal_mult: 0.80, spread_mult: 0.85,
+    act_rate_afrr: 0.14, act_rate_mfrr: 0.07,
+    bal_compress_yr: 0.05, spread_compress_yr: 0.04,
+    rtm_fee_pct: 0.12, brp_fee_yr: 200000,
+    opex_per_kw_yr: 42, opex_esc: 0.025,
+    debt_margin_bp: 300, aug_cost_pct: 0.12, aug_restore: 0.85,
+    avail: 0.93, cycles_2h: 1.1, cycles_4h: 0.85, stack_factor: 0.55,
+  },
+  stress: {
+    real_factor: 0.60, bal_mult: 0.60, spread_mult: 0.65,
+    act_rate_afrr: 0.09, act_rate_mfrr: 0.04,
+    bal_compress_yr: 0.08, spread_compress_yr: 0.06,
+    rtm_fee_pct: 0.15, brp_fee_yr: 220000,
+    opex_per_kw_yr: 45, opex_esc: 0.03,
+    debt_margin_bp: 350, aug_cost_pct: 0.15, aug_restore: 0.80,
+    avail: 0.90, cycles_2h: 0.9, cycles_4h: 0.75, stack_factor: 0.50,
+  },
+};
+
+const RESERVE_PRODUCTS = {
+  fcr:  { share: 0.16, dur_req_h: 0.5, cap_fallback: 45 },
+  afrr: { share: 0.34, dur_req_h: 1.0, cap_fallback: 40 },
+  mfrr: { share: 0.50, dur_req_h: 0.25, cap_fallback: 22 },
+};
+
+function calcIRR(cf) {
+  let lo = -0.5, hi = 2.0;
+  for (let i = 0; i < 100; i++) {
+    const mid = (lo + hi) / 2;
+    const npv = cf.reduce((s, c, t) => s + c / Math.pow(1 + mid, t), 0);
+    if (npv > 0) lo = mid; else hi = mid;
+  }
+  return Math.round((lo + hi) / 2 * 10000) / 10000;
+}
+
+function computeRevenueV6(params, kv) {
+  // A. Input resolution
+  const mw = params.mw || 50;
+  const dur_h = params.dur_h || 4;
+  const mwh = mw * dur_h;
+  const sc = REVENUE_SCENARIOS[params.scenario || 'base'] || REVENUE_SCENARIOS.base;
+  const capex_kwh = params.capex_kwh || 164;
+  const capex_total = capex_kwh * dur_h * 1000; // per MW → total uses mw later
+  const cod_year = params.cod_year || 2028;
+  const cycles = dur_h <= 2 ? sc.cycles_2h : sc.cycles_4h;
+  const rte = cycles <= 1.2 ? 0.855 : 0.852;
+
+  const fleet = kv?.fleet;
+  const s2 = kv?.s2;
+  const s1 = kv?.s1;
+
+  // Live signal inputs
+  const s1_capture = dur_h <= 2
+    ? (s1?.capture_2h_gross || (s1?.p_high_avg != null && s1?.p_low_avg != null ? s1.p_high_avg - s1.p_low_avg : 149))
+    : (s1?.capture_4h_gross || (s1?.p_high_avg != null && s1?.p_low_avg != null ? (s1.p_high_avg - s1.p_low_avg) * 0.9 : 134));
+  const afrr_clearing = s2?.afrr_up_avg || 171;
+  const mfrr_clearing = s2?.mfrr_up_avg || 81;
+  const afrr_cap = s2?.afrr_cap_avg || RESERVE_PRODUCTS.afrr.cap_fallback;
+  const mfrr_cap = s2?.mfrr_cap_avg || RESERVE_PRODUCTS.mfrr.cap_fallback;
+  const fcr_cap = RESERVE_PRODUCTS.fcr.cap_fallback;
+  const euribor = ((kv?.euribor?.euribor_nominal_3m ?? kv?.s3?.euribor_nominal_3m) || 2.01) / 100;
+  const rate_allin = euribor + sc.debt_margin_bp / 10000;
+
+  // B. Financing setup
+  const grant_pct = params.grant_pct || 0;
+  const gross_capex_total = capex_kwh * mwh * 1000;
+  const capex_net_total = gross_capex_total * (1 - grant_pct);
+  const debt_pct = 0.55;
+  const debt_initial = Math.round(capex_net_total * debt_pct);
+  const equity_initial = capex_net_total - debt_initial;
+  const tenor = 8;
+  const grace = 1;
+  const tax_rate = 0.17;
+  const depr_years = 10;
+
+  // Annuity payment (post-grace)
+  const pmt = debt_initial * rate_allin / (1 - Math.pow(1 + rate_allin, -tenor));
+
+  // Prices source
+  const prices_source = s2?.afrr_cap_avg != null ? 'BTD measured' : (s2?.afrr_up_avg != null ? 'BTD partial' : 'proxy');
+
+  // C. 20-year timeseries
+  const years = [];
+  let debt_bal = debt_initial;
+  let min_dscr = Infinity;
+  let crossover_year = null;
+
+  for (let yr = 1; yr <= 20; yr++) {
+    // C1. Degradation
+    const retention = getDegradation(yr, cycles);
+    let usable_mwh_per_mw = dur_h * retention;
+
+    // C2. Augmentation at year 10
+    let aug_capex = 0;
+    if (yr === 10) {
+      const pre_aug = dur_h * retention;
+      const target = dur_h * sc.aug_restore;
+      const added = Math.max(0, target - pre_aug);
+      aug_capex = added * sc.aug_cost_pct * capex_kwh * 1000 * mw;
+      usable_mwh_per_mw = Math.min(target, pre_aug + added);
+    }
+    // Post-augmentation: use restored baseline
+    if (yr > 10) {
+      const ret_at_10 = getDegradation(10, cycles);
+      const target_10 = dur_h * sc.aug_restore;
+      const restored = Math.min(target_10, dur_h * ret_at_10 + Math.max(0, target_10 - dur_h * ret_at_10));
+      usable_mwh_per_mw = restored * (retention / ret_at_10);
+    }
+
+    // C3. Stacking constraint
+    const p_avail = sc.avail;
+    const products = {};
+    let total_energy_req = 0;
+    for (const [name, prod] of Object.entries(RESERVE_PRODUCTS)) {
+      const raw = p_avail * prod.share;
+      total_energy_req += raw * prod.dur_req_h;
+      products[name] = { raw };
+    }
+    const scale_energy = Math.min(1.0, usable_mwh_per_mw / total_energy_req);
+
+    let total_res_mw = 0;
+    for (const [name, prod] of Object.entries(RESERVE_PRODUCTS)) {
+      products[name].eff = products[name].raw * scale_energy;
+      total_res_mw += products[name].eff;
+    }
+    // Stack factor = fraction of MW available for arbitrage on top of reserves
+    // (reserves and trading are stacked, not exclusive power slices)
+    const arb_power = sc.stack_factor;
+
+    // C4. Compression — calendar-year based (2027 = first viable COD reference)
+    const cal_year = cod_year + yr;
+    const years_since_ref = Math.max(0, cal_year - 2027);
+    const bal_comp = Math.pow(1 - sc.bal_compress_yr, years_since_ref);
+    const spread_comp = Math.pow(1 - sc.spread_compress_yr, years_since_ref);
+
+    // C5. Balancing revenue (capacity + energy) — per MW, then * mw
+    const rev_cap_fcr  = products.fcr.eff  * fcr_cap   * 8760 * sc.bal_mult * bal_comp;
+    const rev_cap_afrr = products.afrr.eff * afrr_cap  * 8760 * sc.bal_mult * bal_comp;
+    const rev_cap_mfrr = products.mfrr.eff * mfrr_cap  * 8760 * sc.bal_mult * bal_comp;
+    const rev_cap = (rev_cap_fcr + rev_cap_afrr + rev_cap_mfrr) * mw;
+
+    const rev_act_afrr = products.afrr.eff * sc.act_rate_afrr * 8760 * afrr_clearing * 0.55 * sc.bal_mult * bal_comp;
+    const rev_act_mfrr = products.mfrr.eff * sc.act_rate_mfrr * 8760 * mfrr_clearing * 0.75 * sc.bal_mult * bal_comp;
+    const rev_act = (rev_act_afrr + rev_act_mfrr) * mw;
+
+    const rev_bal = (rev_cap + rev_act) * sc.real_factor;
+
+    // C6. Trading revenue (DA spread capture)
+    const e_out_cycle = Math.min(usable_mwh_per_mw, arb_power * dur_h);
+    const e_out = e_out_cycle * cycles * 300 * mw;
+    const capture = s1_capture * sc.spread_mult * spread_comp;
+    const rev_trd = e_out * capture * rte * sc.real_factor;
+
+    // C7. Gross → Net reconciliation
+    const rev_gross = rev_bal + rev_trd;
+    const rtm_fee = rev_gross * sc.rtm_fee_pct;
+    const brp_fee = sc.brp_fee_yr * Math.pow(1 + sc.opex_esc, yr - 1);
+    const rev_net = rev_gross - rtm_fee - brp_fee;
+
+    // C8. OPEX
+    const opex = sc.opex_per_kw_yr * mw * 1000 * Math.pow(1 + sc.opex_esc, yr - 1);
+
+    // C9. EBITDA
+    const ebitda = rev_net - opex;
+
+    // C10. Tax (with depreciation shield)
+    const depr_base = yr <= depr_years ? gross_capex_total / depr_years : 0;
+    const depr_aug = (yr >= 10 && yr < 10 + depr_years) ? aug_capex / depr_years : 0;
+    const depr = depr_base + depr_aug;
+    const interest_yr = debt_bal > 0 ? debt_bal * rate_allin : 0;
+    const taxable = Math.max(0, ebitda - depr - interest_yr);
+    const cash_tax = taxable * tax_rate;
+
+    // Unlevered tax (for project IRR)
+    const taxable_unlev = Math.max(0, ebitda - depr);
+    const cash_tax_unlev = taxable_unlev * tax_rate;
+
+    // C11. CFADS
+    const maint_capex = aug_capex;
+    const cfads = ebitda - cash_tax - maint_capex;
+
+    // C12. Debt service
+    let ds = 0, principal = 0;
+    if (yr <= grace && debt_bal > 0) {
+      ds = debt_bal * rate_allin;
+      principal = 0;
+    } else if (yr <= grace + tenor && debt_bal > 0) {
+      ds = pmt;
+      const int_exp = debt_bal * rate_allin;
+      principal = Math.min(pmt - int_exp, debt_bal);
+    }
+    debt_bal = Math.max(0, debt_bal - principal);
+
+    // C13. DSCR
+    const dscr = ds > 0 ? cfads / ds : null;
+    if (dscr !== null && dscr < min_dscr) min_dscr = dscr;
+
+    // C14. Crossover check
+    if (!crossover_year && rev_net < opex) {
+      crossover_year = cod_year + yr;
+    }
+
+    // C15. Project cash flow (unlevered)
+    const project_cf = ebitda - cash_tax_unlev - maint_capex;
+
+    // C16. Equity cash flow
+    const equity_cf = cfads - ds;
+
+    years.push({
+      yr, cal_year,
+      retention: Math.round(retention * 1000) / 1000,
+      usable_mwh_per_mw: Math.round(usable_mwh_per_mw * 100) / 100,
+      scale_energy: Math.round(scale_energy * 1000) / 1000,
+      rev_cap: Math.round(rev_cap), rev_act: Math.round(rev_act),
+      rev_bal: Math.round(rev_bal), rev_trd: Math.round(rev_trd),
+      rev_gross: Math.round(rev_gross),
+      rtm_fee: Math.round(rtm_fee), brp_fee: Math.round(brp_fee),
+      rev_net: Math.round(rev_net),
+      opex: Math.round(opex), ebitda: Math.round(ebitda),
+      depr: Math.round(depr),
+      cash_tax: Math.round(cash_tax), cash_tax_unlev: Math.round(cash_tax_unlev),
+      cfads: Math.round(cfads), maint_capex: Math.round(maint_capex),
+      ds: Math.round(ds), dscr: dscr != null ? Math.round(dscr * 100) / 100 : null,
+      debt_bal: Math.round(debt_bal),
+      project_cf: Math.round(project_cf), equity_cf: Math.round(equity_cf),
+    });
+  }
+
+  // D. IRR
+  const project_cfs = [-capex_net_total, ...years.map(y => y.project_cf)];
+  const project_irr = calcIRR(project_cfs);
+
+  const equity_cfs = [-equity_initial, ...years.map(y => y.equity_cf)];
+  const equity_irr = calcIRR(equity_cfs);
+
+  // NPV
+  const wacc = 0.08;
+  let npv_project = 0;
+  for (let t = 0; t < project_cfs.length; t++) {
+    npv_project += project_cfs[t] / Math.pow(1 + wacc, t);
+  }
+
+  // Payback
+  let cumul = 0, payback = null;
+  for (let t = 0; t < project_cfs.length; t++) {
+    cumul += project_cfs[t];
+    if (cumul >= 0 && payback === null) payback = t;
+  }
+
+  // E. Reconciliation checks
+  // Tolerance of 2 accounts for independent rounding of each field
+  const recon = {
+    gross_equals_bal_plus_trd: years.every(y => Math.abs(y.rev_gross - y.rev_bal - y.rev_trd) < 2),
+    net_equals_gross_minus_fees: years.every(y => Math.abs(y.rev_net - (y.rev_gross - y.rtm_fee - y.brp_fee)) < 2),
+    ebitda_equals_net_minus_opex: years.every(y => Math.abs(y.ebitda - (y.rev_net - y.opex)) < 2),
+    cfads_equals_ebitda_minus_tax_minus_maint: years.every(y => Math.abs(y.cfads - (y.ebitda - y.cash_tax - y.maint_capex)) < 2),
+    debt_repaid: debt_bal < 100,
+  };
+
+  // F. Bankability — check conservative DSCR
+  let cons_min_dscr = min_dscr;
+  if (params.scenario !== 'conservative' && !params._skip_cons) {
+    const cons_result = computeRevenueV6({ ...params, scenario: 'conservative', _skip_cons: true }, kv);
+    cons_min_dscr = cons_result.min_dscr;
+  }
+  const bankability = cons_min_dscr >= 1.20 ? 'Pass'
+    : cons_min_dscr >= 1.0 ? 'Marginal'
+    : 'Fail';
+
+  if (min_dscr === Infinity) min_dscr = null;
+
+  // Fleet trajectory for COD context
+  const cod_sd = fleet?.trajectory?.find?.(t => t.year === cod_year) ?? null;
+
+  const y1 = years[0];
+
+  return {
+    // Config
+    system: `${mw} MW / ${mwh} MWh (${dur_h}H)`,
+    duration: dur_h,
+    capex_scenario: `€${capex_kwh}/kWh`,
+    capex_eur_kwh: capex_kwh,
+    capex_kwh, capex_total: gross_capex_total, capex_net: capex_net_total,
+    gross_capex: gross_capex_total,
+    grant_amount: Math.round(gross_capex_total * grant_pct),
+    grant_label: grant_pct > 0 ? `${Math.round(grant_pct * 100)}% grant` : 'No grant',
+    net_capex: capex_net_total,
+    cod_year,
+    scenario: params.scenario || 'base',
+    model_version: 'v6',
+
+    // Market context
+    sd_ratio: cod_sd?.sd_ratio ?? null,
+    phase: cod_sd?.phase ?? null,
+    cpi_at_cod: cod_sd?.cpi ?? null,
+
+    // Headline metrics
+    project_irr,
+    equity_irr,
+    npv_at_wacc: Math.round(npv_project),
+    npv_project: Math.round(npv_project),
+    net_rev_per_mw_yr: y1 ? Math.round(y1.rev_net / mw) : 0,
+    net_mw_yr: y1 ? Math.round(y1.rev_net / mw) : 0,
+    min_dscr: min_dscr != null ? Math.round(min_dscr * 100) / 100 : null,
+    min_dscr_conservative: cons_min_dscr != null ? Math.round(cons_min_dscr * 100) / 100 : null,
+    bankability,
+    simple_payback_years: payback,
+    payback_years: payback,
+    crossover_year: crossover_year || (cod_year + 25),
+
+    // Y1 backward compat
+    gross_revenue_y1: y1 ? y1.rev_gross : 0,
+    net_revenue_y1: y1 ? y1.rev_net : 0,
+    ebitda_y1: y1 ? y1.ebitda : 0,
+    opex_y1: y1 ? y1.opex : 0,
+    rtm_fees_y1: y1 ? y1.rtm_fee + y1.brp_fee : 0,
+    capacity_y1: y1 ? y1.rev_cap : 0,
+    activation_y1: y1 ? y1.rev_act : 0,
+    arbitrage_y1: y1 ? y1.rev_trd : 0,
+    capacity_pct: y1 && y1.rev_gross > 0 ? Math.round(y1.rev_cap / y1.rev_gross * 100) / 100 : 0,
+    activation_pct: y1 && y1.rev_gross > 0 ? Math.round(y1.rev_act / y1.rev_gross * 100) / 100 : 0,
+    arbitrage_pct: y1 && y1.rev_gross > 0 ? Math.round(y1.rev_trd / y1.rev_gross * 100) / 100 : 0,
+
+    // Financing
+    total_debt: debt_initial, total_equity: equity_initial,
+    debt_initial, equity_initial, rate_allin,
+    annual_debt_service: Math.round(pmt),
+
+    // Timeseries
+    years,
+    trajectory: [1, 3, 5, 10, 15, 20].map(y => {
+      const yr = years[y - 1];
+      return yr ? { year: y, cal_year: yr.cal_year, net_rev: yr.rev_net, ebitda: yr.ebitda, dscr: yr.dscr } : null;
+    }).filter(Boolean),
+    fleet_trajectory: fleet?.trajectory ?? null,
+
+    // Benchmarks
+    ch_benchmark: { irr_2h: 0.166, range: '6–31%', target: 0.12, source: 'Clean Horizon S1 2025' },
+    prices_source,
+    timestamp: new Date().toISOString(),
+
+    // Signal inputs used
+    signal_inputs: {
+      s1_capture, afrr_clearing, mfrr_clearing,
+      afrr_cap, mfrr_cap, fcr_cap,
+      euribor: Math.round(euribor * 10000) / 100,
+      rate_allin_pct: Math.round(rate_allin * 10000) / 100,
+    },
+
+    // Reconciliation
+    reconciliation: recon,
+  };
+}
+
+// ─── Revenue Engine v4 (legacy — kept for reference) ──────────────────────────
+
+function computeRevenue_legacy(systemKey, capexKey, grantKey, codYear, kv, mwParam, mwhParam) {
   const SYSTEMS = {
     '2h':   { mw: 50, mwh: 100, duration: 2.0, label: '50 MW / 100 MWh (2H)' },
     '2.4h': { mw: 50, mwh: 120, duration: 2.4, label: '50 MW / 120 MWh (2.4H)' },
@@ -4467,39 +4857,88 @@ export default {
     // Query params: system=2h|2.4h|4h  capex=low|mid|high  grant=none|partial  cod=2027|2028|2029
     // NOT cached — params vary per request.
     if (request.method === 'GET' && url.pathname === '/revenue') {
-      const system = url.searchParams.get('system') || '2.4h';
-      const capex  = url.searchParams.get('capex')  || 'mid';
-      const grant  = url.searchParams.get('grant')  || 'none';
-      const cod    = url.searchParams.get('cod')    || '2028';
-      const mw     = parseInt(url.searchParams.get('mw'))  || 0;
-      const mwh    = parseInt(url.searchParams.get('mwh')) || 0;
+      // ── Parse query params (v6 names with backward compat) ──
+      const CAPEX_MAP = { low: 120, mid: 164, high: 262 };
+      const DUR_MAP   = { '2h': 2, '4h': 4 };
 
-      const [s1Raw, s2Raw, s3Raw, s4Raw, fleetRaw, eurRaw] = await Promise.all([
+      const durParam    = url.searchParams.get('dur') || url.searchParams.get('system') || '2h';
+      const capexParam  = url.searchParams.get('capex')    || 'mid';
+      const codParam    = parseInt(url.searchParams.get('cod')) || 2028;
+      const scenParam   = url.searchParams.get('scenario') || 'base';
+      const mwParam     = parseInt(url.searchParams.get('mw')) || 50;
+      const grantPct    = parseFloat(url.searchParams.get('grant_pct') || '0');
+
+      const dur_h     = DUR_MAP[durParam] || parseFloat(durParam) || 2;
+      const capex_kwh = CAPEX_MAP[capexParam] || parseInt(capexParam) || 164;
+
+      // ── Read KV data ──
+      const [s1Raw, s2Raw, s3Raw, fleetRaw, eurRaw] = await Promise.all([
         env.KKME_SIGNALS.get('s1'),
         env.KKME_SIGNALS.get('s2'),
         env.KKME_SIGNALS.get('s3'),
-        env.KKME_SIGNALS.get('s4'),
         env.KKME_SIGNALS.get('s2_fleet').catch(() => null),
         env.KKME_SIGNALS.get('euribor'),
       ]);
       const s1    = s1Raw    ? JSON.parse(s1Raw)    : null;
       const s2    = s2Raw    ? JSON.parse(s2Raw)    : null;
       const s3    = s3Raw    ? JSON.parse(s3Raw)    : null;
-      const s4    = s4Raw    ? JSON.parse(s4Raw)    : null;
       const fleet = fleetRaw ? JSON.parse(fleetRaw) : null;
       const eur   = eurRaw   ? JSON.parse(eurRaw)   : null;
 
-      const kv_data = { fleet, s2, s1 };
-      const result  = computeRevenue(system, capex, grant, cod, kv_data, mw, mwh);
+      const kv = { fleet, s2, s1, s3, euribor: eur };
 
-      // Always compute 2h + 4h for backward compat and EU ranking (use default system sizes)
-      const r2h = system === '2h' && !mw && !mwh ? result : computeRevenue('2h', capex, grant, cod, kv_data, 0, 0);
-      const r4h = system === '4h' && !mw && !mwh ? result : computeRevenue('4h', capex, grant, cod, kv_data, 0, 0);
+      // ── Primary result ──
+      const result = computeRevenueV6(
+        { mw: mwParam, dur_h, capex_kwh, cod_year: codParam, scenario: scenParam, grant_pct: grantPct },
+        kv
+      );
+
+      // ── All 3 scenarios for primary config ──
+      const all_scenarios = {};
+      for (const sc of ['base', 'conservative', 'stress']) {
+        if (sc === scenParam) {
+          all_scenarios[sc] = result;
+        } else {
+          all_scenarios[sc] = computeRevenueV6(
+            { mw: mwParam, dur_h, capex_kwh, cod_year: codParam, scenario: sc, grant_pct: grantPct },
+            kv
+          );
+        }
+      }
+      result.all_scenarios = {
+        base:         { project_irr: all_scenarios.base.project_irr, equity_irr: all_scenarios.base.equity_irr, min_dscr: all_scenarios.base.min_dscr, net_mw_yr: all_scenarios.base.net_mw_yr, bankability: all_scenarios.base.bankability, ebitda_y1: all_scenarios.base.ebitda_y1 },
+        conservative: { project_irr: all_scenarios.conservative.project_irr, equity_irr: all_scenarios.conservative.equity_irr, min_dscr: all_scenarios.conservative.min_dscr, net_mw_yr: all_scenarios.conservative.net_mw_yr, bankability: all_scenarios.conservative.bankability, ebitda_y1: all_scenarios.conservative.ebitda_y1 },
+        stress:       { project_irr: all_scenarios.stress.project_irr, equity_irr: all_scenarios.stress.equity_irr, min_dscr: all_scenarios.stress.min_dscr, net_mw_yr: all_scenarios.stress.net_mw_yr, bankability: all_scenarios.stress.bankability, ebitda_y1: all_scenarios.stress.ebitda_y1 },
+      };
+
+      // ── Sensitivity matrix: 3 COD × 3 CAPEX = 9 cells ──
+      const COD_YEARS  = [2027, 2028, 2029];
+      const CAPEX_KEYS = ['low', 'mid', 'high'];
+      const matrix = [];
+      for (const cy of COD_YEARS) {
+        for (const ck of CAPEX_KEYS) {
+          const ckv = CAPEX_MAP[ck];
+          // Reuse primary result if params match
+          if (cy === codParam && ckv === capex_kwh && scenParam === 'base') {
+            matrix.push({ cod: cy, capex: ck, capex_kwh: ckv, project_irr: all_scenarios.base.project_irr, equity_irr: all_scenarios.base.equity_irr, min_dscr: all_scenarios.base.min_dscr, net_mw_yr: all_scenarios.base.net_mw_yr, bankability: all_scenarios.base.bankability });
+          } else {
+            const mr = computeRevenueV6(
+              { mw: mwParam, dur_h, capex_kwh: ckv, cod_year: cy, scenario: 'base', grant_pct: grantPct },
+              kv
+            );
+            matrix.push({ cod: cy, capex: ck, capex_kwh: ckv, project_irr: mr.project_irr, equity_irr: mr.equity_irr, min_dscr: mr.min_dscr, net_mw_yr: mr.net_mw_yr, bankability: mr.bankability });
+          }
+        }
+      }
+      result.matrix = matrix;
+
+      // ── h2/h4 backward compat ──
+      const r2h = dur_h === 2 ? result : computeRevenueV6({ mw: 50, dur_h: 2, capex_kwh, cod_year: codParam, scenario: scenParam, grant_pct: grantPct }, kv);
+      const r4h = dur_h === 4 ? result : computeRevenueV6({ mw: 50, dur_h: 4, capex_kwh, cod_year: codParam, scenario: scenParam, grant_pct: grantPct }, kv);
       result.irr_2h       = r2h.project_irr;
       result.net_mw_yr_2h = r2h.net_mw_yr;
       result.irr_4h       = r4h.project_irr;
       result.net_mw_yr_4h = r4h.net_mw_yr;
-      // h2/h4 backward compat for old RevenueCard shape
       result.h2 = {
         capex_per_mw: r2h.gross_capex / 50, irr_approx_pct: Math.round(r2h.project_irr * 1000) / 10,
         simple_payback_years: r2h.simple_payback_years,
@@ -4517,7 +4956,7 @@ export default {
         ch_irr_central: 10.8, ch_irr_range: '6%–20%',
       };
 
-      // Keep EU market ranking using old helper for comparison
+      // ── EU market ranking ──
       const legacyPrices = {
         afrr_up_avg:            s2?.afrr_up_avg             ?? 20,
         mfrr_up_avg:            s2?.mfrr_up_avg             ?? 15,
@@ -4526,8 +4965,6 @@ export default {
         euribor_3m:             eur?.euribor_3m             ?? 2.6,
       };
       result.eu_ranking = computeMarketComparisonWorker(legacyPrices);
-
-      // Update Lithuania IRR in eu_ranking to live project IRR
       if (result.eu_ranking) {
         const lt = result.eu_ranking.find(m => m.country === 'Lithuania');
         if (lt) lt.irr_pct = Math.round(result.project_irr * 1000) / 10;
