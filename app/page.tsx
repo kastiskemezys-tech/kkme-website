@@ -62,10 +62,10 @@ export default function Home() {
             <p style={{ fontFamily: 'DM Mono, monospace', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Project costs, financing, and grid access — the practical constraints on buildability</p>
           </div>
           <div className="grid-2">
-            <div className="card">
+            <div className="card" style={{ alignSelf: 'stretch', display: 'flex', flexDirection: 'column' }}>
               <CardBoundary signal="S3"><S3Card /></CardBoundary>
             </div>
-            <div className="card">
+            <div className="card" style={{ alignSelf: 'stretch', display: 'flex', flexDirection: 'column' }}>
               <CardBoundary signal="S4"><S4Card /></CardBoundary>
             </div>
           </div>

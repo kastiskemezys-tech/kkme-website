@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useSignal } from '@/lib/useSignal';
 import { safeNum } from '@/lib/safeNum';
+import { SourceFooter, DetailsDrawer } from '@/app/components/primitives';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
@@ -136,8 +137,6 @@ function deriveInterpretation(drivers: CostDriver[]): string | null {
   const mags: Record<string, string> = {};
   drivers.forEach(d => { dirs[d.component] = d.direction; mags[d.component] = d.magnitude; });
 
-  if (dirs.hv_grid === 'constrained' && mags.hv_grid === 'strong' && dirs.dc_block === 'easing')
-    return 'Battery deflation visible, but HV package still dominates uncertainty.';
   if (dirs.hv_grid === 'constrained' && dirs.dc_block === 'easing')
     return 'Cost pressure easing, but grid still limits full CAPEX decline.';
   if (dirs.dc_block === 'easing' && dirs.lcos === 'easing')
@@ -183,6 +182,8 @@ export function S3Card() {
   const [expandedChip, setExpandedChip] = useState<number | null>(null);
   const [openDrawers, setOpenDrawers] = useState<Set<string>>(new Set());
   const [copied, setCopied] = useState(false);
+  const [drawerKey, setDrawerKey] = useState(0);
+  const openDrawer = () => setDrawerKey(k => k + 1);
 
   const toggleDrawer = (id: string) => setOpenDrawers(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
@@ -248,12 +249,14 @@ export function S3Card() {
   }
 
   return (
-    <article style={{ width: '100%' }}>
+    <article style={{ width: '100%', display: 'flex', flexDirection: 'column', flex: 1 }}>
 
       {/* 1. HEADER */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 500 }}>BESS cost &amp; technology</div>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: confLevel.includes('degraded') ? 'var(--amber)' : 'var(--text-muted)', border: `1px solid ${confLevel.includes('degraded') ? 'var(--amber)' : 'var(--border-card)'}`, borderRadius: '3px', padding: '1px 6px' }}>{confLevel}</span>
+        <div onClick={openDrawer} style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 500, cursor: 'pointer', transition: 'color 150ms' }} onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-secondary)')} onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-tertiary)')}>BESS cost &amp; technology</div>
+        {confLevel.includes('degraded') && (
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--amber)', border: '1px solid var(--amber)', borderRadius: '3px', padding: '1px 6px' }}>{confLevel}</span>
+        )}
       </div>
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '16px' }}>Installed cost reference · scope-adjusted range</div>
 
@@ -277,6 +280,7 @@ export function S3Card() {
       <div style={{ marginBottom: '2px' }}>
         <span style={{ fontFamily: 'Unbounded, sans-serif', fontSize: '1.75rem', color: 'var(--text-primary)', fontWeight: 400, letterSpacing: '-0.02em' }}>€{capexRange[0]}–{capexRange[1]}</span>
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', marginLeft: '4px' }}>/kWh</span>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', border: '1px dashed var(--border-highlight)', borderRadius: '3px', padding: '1px 6px', marginLeft: '8px', letterSpacing: '0.06em' }}>REFERENCE</span>
         <button onClick={handleCopy} title="Copy range" style={{ all: 'unset', cursor: 'pointer', marginLeft: '6px', opacity: copied ? 0.8 : 0.3, transition: 'opacity 0.15s', fontSize: '14px' }} onMouseEnter={e => (e.currentTarget.style.opacity = '0.8')} onMouseLeave={e => (e.currentTarget.style.opacity = copied ? '0.8' : '0.3')}>
           {copied ? '✓' : '📋'}
         </button>
@@ -285,7 +289,7 @@ export function S3Card() {
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', marginBottom: '2px' }}>€{kwRange[0]}–{kwRange[1]}/kW @ POI</div>
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '2px' }}>installed · ex-VAT · {duration} LFP · EU turnkey · grid-{gridScope}</div>
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '2px' }}>Reference scale: 50–200MW class · Excludes: land · dev margin · financing during construction</div>
-      {basis && <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '4px' }}>Basis: updated {basis}</div>}
+      {/* Basis timestamp removed — SourceFooter at bottom of card */}
 
       {/* RANGE EXPLANATION (dynamic from driver state) */}
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '4px' }}>
@@ -296,13 +300,6 @@ export function S3Card() {
       {interpretation && (
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '4px' }}>
           {interpretation}
-        </div>
-      )}
-
-      {/* DOMINANT VARIANCE (with operational context) */}
-      {dominant && dominant.magnitude !== 'weak' && (
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '4px' }}>
-          Dominant variance: {dominant.driver} {DOMINANT_CONTEXT[dominant.component] || ''}
         </div>
       )}
 
@@ -416,7 +413,7 @@ export function S3Card() {
               `${(a.cycles_per_year as number[])?.[0]}–${(a.cycles_per_year as number[])?.[1]} cycles/yr`,
               `${(a.rte_pct as number[])?.[0]}–${(a.rte_pct as number[])?.[1]}% RTE`,
               `${(a.wacc_pct as number[])?.[0]}–${(a.wacc_pct as number[])?.[1]}% WACC`,
-              `aug ${a.augmentation}`,
+              `Augmentation ${a.augmentation}`,
             ]; })().map(p => <Pill key={p}>{p}</Pill>)}
           </div>
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>Full computation → <a href="#revenue" onClick={e => { e.preventDefault(); document.getElementById('revenue')?.scrollIntoView({ behavior: 'smooth' }); }} style={{ color: 'var(--teal)', textDecoration: 'none' }}>Revenue Engine</a></div>
@@ -429,7 +426,19 @@ export function S3Card() {
         <span>Revenue impact → <a href="#revenue" onClick={e => { e.preventDefault(); document.getElementById('revenue')?.scrollIntoView({ behavior: 'smooth' }); }} style={{ color: 'var(--teal)', textDecoration: 'none' }}>Revenue Engine</a></span>
       </div>
 
-      {/* 10. ENRICHMENT STRIP */}
+      {/* SOURCE FOOTER */}
+      <div style={{ flexGrow: 1 }} />
+      <SourceFooter
+        source="BNEF · ECB · NREL ATB"
+        updatedAt={basis ?? undefined}
+        dataClass="reference"
+      />
+
+      {/* DETAILS DRAWER */}
+      <div style={{ marginTop: '16px' }}>
+        <DetailsDrawer key={drawerKey} label="View signal breakdown" defaultOpen={drawerKey > 0}>
+
+      {/* ENRICHMENT STRIP */}
       {d.enrichment_annotations && d.enrichment_annotations.headlines.length > 0 && (
         <div style={{ padding: '10px 0', borderTop: '1px solid var(--border-card)', marginBottom: '8px' }}>
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>Recent intelligence · automated · {new Date(d.enrichment_annotations.enriched_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</div>
@@ -438,7 +447,7 @@ export function S3Card() {
         </div>
       )}
 
-      {/* 11. DRAWERS */}
+      {/* DRAWERS */}
 
       {/* A: Transactions */}
       {d.transactions && d.transactions.length > 0 && (
@@ -585,7 +594,10 @@ export function S3Card() {
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-muted)' }}>BNEF Dec 2025 · NREL ATB 2025 · IEA Grid Supply Chain · ECB Data Portal · tradingeconomics.com · SMM</div>
       </Drawer>
 
-      {/* 12. MODEL INPUT FOOTER */}
+        </DetailsDrawer>
+      </div>
+
+      {/* MODEL INPUT FOOTER */}
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-ghost)', marginTop: '16px', paddingTop: '8px', borderTop: '1px solid var(--border-card)' }}>MODEL INPUT → CAPEX reference · Financing cost</div>
     </article>
   );

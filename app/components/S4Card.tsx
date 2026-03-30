@@ -113,16 +113,17 @@ function pipelineSentiment(installedMw: number, tsoReservedMw: number): Sentimen
 }
 
 function pipelineStatus(installedMw: number, tsoReservedMw: number): string {
-  if (tsoReservedMw > installedMw * 5) return 'High pipeline pressure';
-  if (tsoReservedMw > installedMw * 3) return 'Pipeline building';
-  return 'Early stage';
+  const ratio = tsoReservedMw / Math.max(installedMw, 1);
+  if (ratio > 5) return 'High pipeline pressure';
+  if (ratio > 3) return 'Pipeline building';
+  return `${ratio.toFixed(1)}× pipeline`;
 }
 
 function pipelineImpactDesc(installedMw: number, tsoReservedMw: number): string {
   const ratio = tsoReservedMw / Math.max(installedMw, 1);
   if (ratio > 5) return 'Reference asset: high pipeline-to-installed ratio suggests grid queue pressure will intensify — early queue position critical';
   if (ratio > 3) return 'Reference asset: pipeline exceeds installed base by ' + ratio.toFixed(0) + '× — connection timing increasingly matters';
-  return 'Reference asset: pipeline manageable relative to installed base — grid access currently favourable';
+  return `Reference asset: pipeline-to-installed ratio ${ratio.toFixed(1)}×`;
 }
 
 function SourceLink({ href, children }: { href: string; children: React.ReactNode }) {
@@ -275,7 +276,7 @@ export function S4Card() {
   const intentionPct = 100 - installedPct - reservedPct;
 
   return (
-    <article style={{ width: '100%' }}>
+    <article style={{ width: '100%', display: 'flex', flexDirection: 'column', flex: 1 }}>
       {/* HEADER */}
       <div style={{ marginBottom: '16px' }}>
         <h3
@@ -324,10 +325,27 @@ export function S4Card() {
             size="hero"
             dataClass="observed"
           />
-          <StatusChip
-            status={pipelineStatus(installedMw, tsoReservedMw)}
-            sentiment={pipelineSentiment(installedMw, tsoReservedMw)}
-          />
+          {(() => {
+            const ps = pipelineStatus(installedMw, tsoReservedMw);
+            const sent = pipelineSentiment(installedMw, tsoReservedMw);
+            const isDashed = ps.includes('×');
+            return isDashed ? (
+              <span style={{
+                display: 'inline-block',
+                fontFamily: 'var(--font-mono)',
+                fontSize: 'var(--font-xs)',
+                color: 'var(--text-secondary)',
+                border: '1px dashed var(--border-highlight)',
+                padding: '2px 8px',
+                letterSpacing: '0.04em',
+                lineHeight: 1.4,
+              }}>
+                {ps}
+              </span>
+            ) : (
+              <StatusChip status={ps} sentiment={sent} />
+            );
+          })()}
         </div>
         <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '4px' }}>
           LT {formatMW(ltMw)} · LV {formatMW(lvMw)} · EE {formatMW(eeMw)} + {formatMW(sbc.EE?.under_construction_mw ?? 255)} MW construction
@@ -547,6 +565,8 @@ export function S4Card() {
 
       {/* SIGNAL INTEL */}
       <SignalIntel signalId="S4" />
+
+      <div style={{ flexGrow: 1 }} />
 
       {/* SOURCE FOOTER */}
       <button type="button" onClick={openDrawer} style={{ all: 'unset', display: 'block', width: '100%', cursor: 'pointer' }}>
