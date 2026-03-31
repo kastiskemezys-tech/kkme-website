@@ -528,11 +528,26 @@ const TRADING_REALISATION = {
   stress: 0.55         // poor execution or significant market impact
 };
 
-// Compression scenario multipliers: conservative/stress compress faster.
+// Pipeline deployment speed (years to fully deploy TSO-reserved pipeline).
+// Replaces abstract compression multipliers — physical driver is build speed.
+const PIPELINE_SPEED = {
+  base: 4,          // 4 years to deploy TSO-reserved pipeline (as announced)
+  conservative: 3,  // accelerated deployment
+  stress: 2         // rush to market
+};
+
+// Spread compression rates: how fast DA trading spreads compress per year.
+// Base: 0% — German evidence shows spreads INCREASE with more renewables.
+// Conservative/stress: some BESS spread-smoothing effect.
+const SPREAD_COMPRESS = {
+  base: 0.00,
+  conservative: 0.01,
+  stress: 0.02
+};
+
+// LEGACY — kept for deriveCompression consumers that still read comp_mult
 const COMPRESSION_SCENARIO_MULT = {
-  base: 1.0,          // use observed derived rate as-is
-  conservative: 2.0,  // fleet growth doubles compression speed
-  stress: 3.5         // full pipeline realisation scenario
+  base: 1.0, conservative: 2.0, stress: 3.5
 };
 
 const REVENUE_SCENARIOS = {
@@ -681,27 +696,26 @@ function computeRevenueV7(params, kv) {
       products[name].eff = products[name].raw * scale_energy;
     }
 
-    // C4. Price-ratio mix model: trading fraction from S1/S2 observable ratio
-    // COD delay adds compression before Y1 starts earning.
-    const today_year = new Date().getFullYear();
-    const cod_delay_years = Math.max(0, cod_year - today_year);
-    const total_years = yr - 1 + cod_delay_years;
+    // C4. S/D elasticity mix model: R from reserve price curve, T flat/gentle
+    const cal_year = cod_year + yr;
+    const mix = computeTradingMix(kv, dur_h, cal_year, scenario_name, sc);
 
-    // Total gross revenue compresses (blended)
-    const bal_compress = Math.pow(1 - effective_compression, total_years);
-
-    // Price-ratio mix: R compresses at full rate, T at 30% — ratio shifts toward trading
-    const mix = computeTradingMix(kv, dur_h, total_years + 1, compression.rate, comp_mult, sc);
-    const compress_total = bal_compress;  // overall envelope compression
+    // Compress_total: R+T envelope decay relative to current (2026) R+T
+    const mix_now = computeTradingMix(kv, dur_h, 2026, scenario_name, sc);
+    const RT_now = mix_now.R + mix_now.T;
+    const RT_yr = mix.R + mix.T;
+    const compress_total = RT_now > 0 ? RT_yr / RT_now : 1.0;
 
     // C5. Degradation effect on trading
     const deg_ratio_vs_y1 = retention / getDegradation(1, cycles);
 
-    // C6. Revenue computation — price-ratio split of total gross
-    // Total gross envelope: base year gross × compression × energy scaling
+    // C6. Revenue from elasticity: R and T drive per-MW-hour value
+    // Calibrated: base_year observed gross ÷ current R+T = scaling factor
+    // Then each year: R_yr+T_yr × calibration × MW
     const bal_scale = scale_energy / Math.min(1.0, (dur_h * getDegradation(1, cycles)) / total_energy_req);
     const by_gross_per_mw = by_balancing_per_mw + by_trading_per_mw;
-    const gross_envelope = by_gross_per_mw * mw * bal_compress * Math.min(1.0, bal_scale);
+    const calibration = by_gross_per_mw > 0 && RT_now > 0 ? by_gross_per_mw / RT_now : 1;
+    const gross_envelope = RT_yr * calibration * mw * Math.min(1.0, bal_scale);
 
     // Split by price-ratio trading fraction
     // Trading also scales with degradation (less energy throughput)
@@ -765,7 +779,6 @@ function computeRevenueV7(params, kv) {
     const project_cf = ebitda - cash_tax_unlev - maint_capex;
     const equity_cf = cfads - ds;
 
-    const cal_year = cod_year + yr;
     years.push({
       yr, cal_year,
       retention: Math.round(retention * 1000) / 1000,
@@ -776,6 +789,7 @@ function computeRevenueV7(params, kv) {
       rev_bal: Math.round(rev_bal), rev_trd: Math.round(rev_trd),
       rev_gross: Math.round(rev_gross),
       trading_fraction: Math.round(mix.trading_fraction * 1000) / 1000,
+      sd_ratio: mix.sd_ratio,
       R: mix.R, T: mix.T, price_ratio: mix.price_ratio,
       rtm_fee: Math.round(rtm_fee), brp_fee: Math.round(brp_fee),
       rev_net: Math.round(rev_net),
@@ -1327,16 +1341,69 @@ function computeRevenueV6(params, kv) {
 // ─── Revenue Engine v7 — Observed base year + derived compression + live rate ──
 
 /**
- * computeTradingMix: price-ratio revenue mix model.
- * Trading fraction derived from the RATIO of two observable KKME signals:
- *   T = trading value per MW-hour (from S1 DA capture)
- *   R = reserve value per MW-hour (from S2 clearing prices)
- *   trading_fraction = (T / (T + R)) × switching_friction
- *
- * Forward: R compresses at full rate, T at 30% of rate (weather-driven).
- * One tunable: switching_friction (0.65).
+ * reservePrice: S/D elasticity curve for reserve price decay.
+ * Steeper sigmoid: knee at S/D=1.7, prices halve there, near-floor by S/D=2.5.
+ * floor_fraction = 0.12 (€3.25/MW/h on €27 base — empirical from UK/DE/Nordic).
  */
-function computeTradingMix(kv, dur_h, yr, compression_rate, comp_mult, sc) {
+function reservePrice(sd_ratio, base_price) {
+  const floor_fraction = 0.12;
+  const x = sd_ratio - 1.0;  // normalise: x=0 at S/D=1.0
+  const decay = 1 / (1 + Math.exp(5.0 * (x - 0.7)));
+  return base_price * (floor_fraction + (1 - floor_fraction) * decay);
+}
+
+/**
+ * projectFleet: fleet supply projection per calendar year.
+ * Separates commercial fleet, TSO pipeline, Kruonis PSP, and organic growth.
+ */
+function projectFleet(cal_year, kv, scenario) {
+  const fleet = kv.fleet || kv.s2 || {};
+  const base_commercial = fleet.baltic_operational_mw || 672;
+  const tso_pipeline = fleet.baltic_pipeline_mw || 866;
+
+  // Pipeline deployment over PIPELINE_SPEED years from 2026
+  const pipeline_speed = PIPELINE_SPEED[scenario] || 4;
+  const pipeline_start = 2026;
+  const pipeline_deployed = Math.min(1.0, Math.max(0, (cal_year - pipeline_start + 1) / pipeline_speed));
+  const pipeline_mw = tso_pipeline * pipeline_deployed;
+
+  // Kruonis PSP: always present, competes in mFRR
+  const kruonis = 205;
+
+  // Post-pipeline organic growth: 3%/yr, capped at 50% additional
+  let organic = 0;
+  const pipeline_end = pipeline_start + pipeline_speed;
+  if (cal_year > pipeline_end) {
+    const years_post = cal_year - pipeline_end;
+    organic = (base_commercial + tso_pipeline) * (Math.pow(1.03, years_post) - 1);
+    organic = Math.min(organic, (base_commercial + tso_pipeline) * 0.5);
+  }
+
+  return base_commercial + pipeline_mw + kruonis + organic;
+}
+
+/**
+ * projectDemand: reserve demand projection per calendar year.
+ * 2%/yr growth from growing renewable variability (ENTSO-E projections).
+ */
+function projectDemand(cal_year, kv) {
+  const fleet = kv.fleet || kv.s2 || {};
+  const base_demand = fleet.eff_demand_mw || 752;
+  const years_from_base = Math.max(0, cal_year - 2026);
+  return base_demand * Math.pow(1.02, years_from_base);
+}
+
+/**
+ * computeTradingMix: price-ratio revenue mix with S/D elasticity.
+ *
+ * R = reserve value per MW-hour, compressed via S/D elasticity curve.
+ *   Capacity follows elasticity directly; activation 15% steeper.
+ * T = trading value per MW-hour, flat (base) or gently compressing.
+ * trading_fraction = min(0.70, (T / (T + R)) × 0.65)
+ *
+ * One tunable: switching_friction (0.65). Everything else from signals.
+ */
+function computeTradingMix(kv, dur_h, cal_year, scenario, sc) {
   const rte = 0.855;
   const trading_real = sc.trd_real || 0.85;
   const switching_friction = 0.65;
@@ -1352,10 +1419,10 @@ function computeTradingMix(kv, dur_h, yr, compression_rate, comp_mult, sc) {
   const afrr_clearing = act.lt?.afrr_p50 ?? 171;
   const mfrr_clearing = act.lt?.mfrr_p50 ?? 81;
 
-  const R_cap = afrr_share * afrr_cap + mfrr_share * mfrr_cap;
-  const R_act = afrr_share * sc.act_rate_afrr * afrr_clearing * 0.55
-              + mfrr_share * sc.act_rate_mfrr * mfrr_clearing * 0.75;
-  const R_base = R_cap + R_act;
+  const R_cap_base = afrr_share * afrr_cap + mfrr_share * mfrr_cap;
+  const R_act_base = afrr_share * sc.act_rate_afrr * afrr_clearing * 0.55
+                   + mfrr_share * sc.act_rate_mfrr * mfrr_clearing * 0.75;
+  const R_base = R_cap_base + R_act_base;
 
   // T base: trading value per MW-hour
   const s1_capture = dur_h <= 2
@@ -1363,16 +1430,21 @@ function computeTradingMix(kv, dur_h, yr, compression_rate, comp_mult, sc) {
     : (s1_cap.capture_4h?.gross_eur_mwh ?? s1_cap.rolling_30d?.stats_4h?.mean ?? 125);
   const T_base = s1_capture * rte * trading_real / (2 * dur_h);
 
-  // Forward projection with floors
-  const ec = compression_rate * (comp_mult || 1.0);
-  const R_floor = 4.0;   // empirical bottom from mature markets
-  const T_floor = 5.0;   // irreducible weather-driven spread
+  // S/D ratio for this calendar year
+  const supply = projectFleet(cal_year, kv, scenario);
+  const demand = projectDemand(cal_year, kv);
+  const sd_yr = supply / demand;
 
-  const R_cap_yr = R_cap * Math.pow(1 - ec, yr - 1);
-  const R_act_yr = R_act * Math.pow(1 - ec * 1.2, yr - 1);  // activation compresses 1.2× faster
-  const R_yr = Math.max(R_floor, R_cap_yr + R_act_yr);
+  // R via elasticity: capacity follows S/D, activation 15% steeper
+  const R_cap_yr = reservePrice(sd_yr, R_cap_base);
+  const R_act_yr = reservePrice(sd_yr * 1.15, R_act_base);
+  const R_yr = R_cap_yr + R_act_yr;
 
-  const T_yr = Math.max(T_floor, T_base * Math.pow(1 - ec * 0.3, yr - 1));  // spreads compress at 30% rate
+  // T: flat in base, gently compressing in conservative/stress
+  const spread_compress = SPREAD_COMPRESS[scenario] || 0;
+  const years_from_now = Math.max(0, cal_year - 2026);
+  const T_floor = 5.0;
+  const T_yr = Math.max(T_floor, T_base * Math.pow(1 - spread_compress, years_from_now));
 
   const raw = T_yr / (T_yr + R_yr);
   const tf = Math.min(0.70, raw * switching_friction);
@@ -1382,9 +1454,12 @@ function computeTradingMix(kv, dur_h, yr, compression_rate, comp_mult, sc) {
     reserve_fraction: 1 - tf,
     R: Math.round(R_yr * 100) / 100,
     T: Math.round(T_yr * 100) / 100,
-    price_ratio: Math.round((T_yr / R_yr) * 1000) / 1000,
+    price_ratio: R_yr > 0 ? Math.round((T_yr / R_yr) * 1000) / 1000 : 99,
     R_base: Math.round(R_base * 100) / 100,
     T_base: Math.round(T_base * 100) / 100,
+    sd_ratio: Math.round(sd_yr * 100) / 100,
+    supply_mw: Math.round(supply),
+    demand_mw: Math.round(demand),
   };
 }
 
@@ -1534,8 +1609,8 @@ function computeBaseYear(kv, duration_h, sc) {
   };
 
   // ── Price-ratio mix for Y1 (used to split monthly trading/balancing) ──
-  // compression_rate=0 for base year (no forward compression in observed year)
-  const y1_mix = computeTradingMix(kv, duration_h, 1, 0, 1.0, sc);
+  // Base year uses current S/D (2026 calendar year) — no forward compression
+  const y1_mix = computeTradingMix(kv, duration_h, 2026, 'base', sc);
   time_model.trading_fraction = y1_mix.trading_fraction;
   time_model.R_base = y1_mix.R_base;
   time_model.T_base = y1_mix.T_base;
@@ -1775,7 +1850,7 @@ function computeLiveRate(kv, base_year, duration_h, sc) {
   // Trading from price-ratio Y1 mix
   const lr_mix = base_year?.time_model?.trading_fraction != null
     ? { trading_fraction: base_year.time_model.trading_fraction }
-    : computeTradingMix(kv, duration_h, 1, 0, 1.0, sc);
+    : computeTradingMix(kv, duration_h, 2026, 'base', sc);
   const today_trading = today_balancing * (lr_mix.trading_fraction / Math.max(0.01, 1 - lr_mix.trading_fraction));
 
   const today_total = today_trading + today_balancing;
@@ -5997,7 +6072,7 @@ export default {
       const si = result.signal_inputs || {};
       const bt_mix = result.base_year?.time_model?.trading_fraction != null
         ? { trading_fraction: result.base_year.time_model.trading_fraction }
-        : computeTradingMix(kv, dur_h, 1, 0, 1.0, sc_cfg);
+        : computeTradingMix(kv, dur_h, 2026, 'base', sc_cfg);
 
       const capMonthly = (s1_capture?.monthly || []).filter(m => m.month && m.days >= 15);
       const backtest = capMonthly.map(m => {
