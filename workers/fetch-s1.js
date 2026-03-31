@@ -681,49 +681,32 @@ function computeRevenueV7(params, kv) {
       products[name].eff = products[name].raw * scale_energy;
     }
 
-    // C4. Differential compression — balancing and trading compress at different rates
-    // Base year reflects TODAY's revenue. COD delay means additional compression
-    // before Y1 starts earning. E.g. if COD=2029 and today=2026, that's 3 extra years.
+    // C4. Price-ratio mix model: trading fraction from S1/S2 observable ratio
+    // COD delay adds compression before Y1 starts earning.
     const today_year = new Date().getFullYear();
     const cod_delay_years = Math.max(0, cod_year - today_year);
     const total_years = yr - 1 + cod_delay_years;
 
-    // Balancing compresses at full derived rate (from S2 trajectory × scenario mult)
+    // Total gross revenue compresses (blended)
     const bal_compress = Math.pow(1 - effective_compression, total_years);
 
-    // Trading compresses at HALF the balancing rate:
-    // DA spread driven by RES intermittency, not BESS fleet. More RES = more volatility
-    // = partially offsets BESS fleet compression on the arb side.
-    const trd_compression_rate = effective_compression * 0.5;
-    const trd_compress = Math.pow(1 - trd_compression_rate, total_years);
-
-    // As balancing prices compress, more ISPs become unprofitable for reserves
-    // → reserve_hours_pct declines → more hours available for arb.
-    // Model as linear decline in reserve utilisation, floored at 0.30.
-    const reserve_shift = Math.max(0.30, 1.0 - total_years * effective_compression);
-
-    // Recompute effective_arb_pct for this year with shifted reserve hours
-    const yr_arb_pct = computeEffectiveArbPctForYear(kv, sc, reserve_shift);
-
-    // compress_total for reporting (weighted average of bal and trd compression)
-    const compress_total = (by_balancing_per_mw > 0 || by_trading_per_mw > 0)
-      ? (by_balancing_per_mw * bal_compress + by_trading_per_mw * trd_compress) / (by_balancing_per_mw + by_trading_per_mw)
-      : bal_compress;
+    // Price-ratio mix: R compresses at full rate, T at 30% — ratio shifts toward trading
+    const mix = computeTradingMix(kv, dur_h, total_years + 1, compression.rate, comp_mult, sc);
+    const compress_total = bal_compress;  // overall envelope compression
 
     // C5. Degradation effect on trading
-    // Trading revenue scales with usable energy (degradation reduces throughput)
     const deg_ratio_vs_y1 = retention / getDegradation(1, cycles);
 
-    // C6. Revenue computation — per MW then × mw
-    // Balancing: MW-based, but energy constraint reduces eligible MW
+    // C6. Revenue computation — price-ratio split of total gross
+    // Total gross envelope: base year gross × compression × energy scaling
     const bal_scale = scale_energy / Math.min(1.0, (dur_h * getDegradation(1, cycles)) / total_energy_req);
-    const rev_bal = by_balancing_per_mw * mw * bal_compress * Math.min(1.0, bal_scale);
+    const by_gross_per_mw = by_balancing_per_mw + by_trading_per_mw;
+    const gross_envelope = by_gross_per_mw * mw * bal_compress * Math.min(1.0, bal_scale);
 
-    // Trading: time-sliced, scales with yr_arb_pct (grows as reserves compress)
-    // and with degradation (reduces energy throughput), compresses slower than balancing
-    const base_arb_pct = base_year.time_model?.effective_arb_pct || computeEffectiveArbPct(kv, sc);
-    const arb_growth_ratio = base_arb_pct > 0 ? yr_arb_pct / base_arb_pct : 1.0;
-    const rev_trd = by_trading_per_mw * mw * trd_compress * deg_ratio_vs_y1 * arb_growth_ratio;
+    // Split by price-ratio trading fraction
+    // Trading also scales with degradation (less energy throughput)
+    const rev_trd = gross_envelope * mix.trading_fraction * deg_ratio_vs_y1;
+    const rev_bal = gross_envelope * mix.reserve_fraction;
 
     // C7. Gross → Net
     const rev_gross = rev_bal + rev_trd;
@@ -792,6 +775,8 @@ function computeRevenueV7(params, kv) {
       rev_cap: Math.round(rev_cap), rev_act: Math.round(rev_act),
       rev_bal: Math.round(rev_bal), rev_trd: Math.round(rev_trd),
       rev_gross: Math.round(rev_gross),
+      trading_fraction: Math.round(mix.trading_fraction * 1000) / 1000,
+      R: mix.R, T: mix.T, price_ratio: mix.price_ratio,
       rtm_fee: Math.round(rtm_fee), brp_fee: Math.round(brp_fee),
       rev_net: Math.round(rev_net),
       opex: Math.round(opex), ebitda: Math.round(ebitda),
@@ -1342,9 +1327,70 @@ function computeRevenueV6(params, kv) {
 // ─── Revenue Engine v7 — Observed base year + derived compression + live rate ──
 
 /**
- * computeEffectiveArbPct: time-sliced arb availability as fraction of MW-hours.
- * Uses dispatch metrics if available, otherwise default reserve utilisation.
- * Also used by computeLiveRate when base_year.time_model is unavailable.
+ * computeTradingMix: price-ratio revenue mix model.
+ * Trading fraction derived from the RATIO of two observable KKME signals:
+ *   T = trading value per MW-hour (from S1 DA capture)
+ *   R = reserve value per MW-hour (from S2 clearing prices)
+ *   trading_fraction = (T / (T + R)) × switching_friction
+ *
+ * Forward: R compresses at full rate, T at 30% of rate (weather-driven).
+ * One tunable: switching_friction (0.65).
+ */
+function computeTradingMix(kv, dur_h, yr, compression_rate, comp_mult, sc) {
+  const rte = 0.855;
+  const trading_real = sc.trd_real || 0.85;
+  const switching_friction = 0.65;
+
+  const s2 = kv.s2 || {};
+  const act = kv.s2_activation_parsed || {};
+  const s1_cap = kv.s1_capture || {};
+
+  // R base: reserve value per MW-hour (weighted capacity + expected activation)
+  const afrr_share = 0.40, mfrr_share = 0.60;
+  const afrr_cap = s2.afrr_cap_avg ?? s2.afrr_up_avg ?? 7.06;
+  const mfrr_cap = s2.mfrr_cap_avg ?? s2.mfrr_up_avg ?? 19.74;
+  const afrr_clearing = act.lt?.afrr_p50 ?? 171;
+  const mfrr_clearing = act.lt?.mfrr_p50 ?? 81;
+
+  const R_cap = afrr_share * afrr_cap + mfrr_share * mfrr_cap;
+  const R_act = afrr_share * sc.act_rate_afrr * afrr_clearing * 0.55
+              + mfrr_share * sc.act_rate_mfrr * mfrr_clearing * 0.75;
+  const R_base = R_cap + R_act;
+
+  // T base: trading value per MW-hour
+  const s1_capture = dur_h <= 2
+    ? (s1_cap.capture_2h?.gross_eur_mwh ?? s1_cap.rolling_30d?.stats_2h?.mean ?? 140)
+    : (s1_cap.capture_4h?.gross_eur_mwh ?? s1_cap.rolling_30d?.stats_4h?.mean ?? 125);
+  const T_base = s1_capture * rte * trading_real / (2 * dur_h);
+
+  // Forward projection with floors
+  const ec = compression_rate * (comp_mult || 1.0);
+  const R_floor = 4.0;   // empirical bottom from mature markets
+  const T_floor = 5.0;   // irreducible weather-driven spread
+
+  const R_cap_yr = R_cap * Math.pow(1 - ec, yr - 1);
+  const R_act_yr = R_act * Math.pow(1 - ec * 1.2, yr - 1);  // activation compresses 1.2× faster
+  const R_yr = Math.max(R_floor, R_cap_yr + R_act_yr);
+
+  const T_yr = Math.max(T_floor, T_base * Math.pow(1 - ec * 0.3, yr - 1));  // spreads compress at 30% rate
+
+  const raw = T_yr / (T_yr + R_yr);
+  const tf = Math.min(0.70, raw * switching_friction);
+
+  return {
+    trading_fraction: tf,
+    reserve_fraction: 1 - tf,
+    R: Math.round(R_yr * 100) / 100,
+    T: Math.round(T_yr * 100) / 100,
+    price_ratio: Math.round((T_yr / R_yr) * 1000) / 1000,
+    R_base: Math.round(R_base * 100) / 100,
+    T_base: Math.round(T_base * 100) / 100,
+  };
+}
+
+/**
+ * computeEffectiveArbPct: LEGACY — kept for backtest backward compat.
+ * Replaced by computeTradingMix for main revenue engine.
  */
 function computeEffectiveArbPct(kv, sc) {
   const dm = kv.dispatch_metrics?.rolling_30d;
@@ -1487,6 +1533,14 @@ function computeBaseYear(kv, duration_h, sc) {
     note: `${Math.round(effective_arb_pct * 100)}% of MW-hours available for trading`,
   };
 
+  // ── Price-ratio mix for Y1 (used to split monthly trading/balancing) ──
+  // compression_rate=0 for base year (no forward compression in observed year)
+  const y1_mix = computeTradingMix(kv, duration_h, 1, 0, 1.0, sc);
+  time_model.trading_fraction = y1_mix.trading_fraction;
+  time_model.R_base = y1_mix.R_base;
+  time_model.T_base = y1_mix.T_base;
+  time_model.price_ratio = y1_mix.price_ratio;
+
   // ── S2 activation monthly data ──
   const act = kv.s2_activation_parsed || {};
   const lt_afrr_monthly = act.lt_monthly_afrr || {};  // { '2025-10': { avg, p50, ... }, ... }
@@ -1512,18 +1566,10 @@ function computeBaseYear(kv, duration_h, sc) {
     const month = m.month;
     const days = m.days || 30;
 
-    // ── Trading revenue (time-sliced) ──
-    // capture = gross €/MWh discharged from S1 observed monthly data
+    // ── Capture for this month (used for trading value calculation) ──
     const capture = duration_h <= 2
       ? (m.avg_gross_2h || m.avg_net_2h || 140)
       : (m.avg_gross_4h || m.avg_net_4h || 125);
-
-    // Time-sliced: arb revenue scales with effective_arb_pct (fraction of MW-hours
-    // where MW is actually free from reserves), not stack_factor (which assumed 70%).
-    // energy_per_mw_hour = MWh cycled per MW per hour = duration_h × cycles / 24
-    const energy_per_mw_hour = duration_h * cycles / 24;
-    const monthly_hours = days * 24;
-    const trd_monthly = effective_arb_pct * monthly_hours * energy_per_mw_hour * capture * rte * sc.trd_real;
 
     // ── Balancing revenue ──
     const afrr_act_m = lt_afrr_monthly[month];
@@ -1563,6 +1609,10 @@ function computeBaseYear(kv, duration_h, sc) {
     ) * hours;
 
     const bal_monthly = (rev_cap + rev_act) * sc.bal_mult * sc.real_factor;
+
+    // ── Trading via price-ratio: Y1 mix applied to reserve revenue ──
+    // trading = bal × (tf / (1 - tf)) so gross = bal + trading = bal / (1 - tf)
+    const trd_monthly = bal_monthly * (y1_mix.trading_fraction / Math.max(0.01, y1_mix.reserve_fraction));
 
     // ── Gross / Net ──
     const gross = trd_monthly + bal_monthly;
@@ -1704,10 +1754,8 @@ function computeLiveRate(kv, base_year, duration_h, sc) {
     : (s1_cap.capture_4h?.gross_eur_mwh || s1?.capture_4h_gross || s1?.gross_4h
        || (s1.spread_eur_mwh != null ? s1.spread_eur_mwh * 1.5 : 125));
 
-  // Time-sliced: use effective_arb_pct from base_year (or compute from dispatch metrics)
-  const effective_arb_pct = base_year?.time_model?.effective_arb_pct ?? computeEffectiveArbPct(kv, sc);
-  const energy_per_mw_hour = duration_h * cycles / 24;
-  const today_trading = effective_arb_pct * 24 * energy_per_mw_hour * capture * rte * sc.trd_real;
+  // Price-ratio mix: today's trading = balancing × (tf / (1 - tf))
+  // Compute balancing first, then derive trading from the Y1 price-ratio
 
   // Today's balancing from S2
   const afrr_cap = s2.afrr_cap_avg ?? s2.afrr_up_avg ?? 7.7;
@@ -1723,6 +1771,12 @@ function computeLiveRate(kv, base_year, duration_h, sc) {
     RESERVE_PRODUCTS.afrr.share * sc.avail * sc.act_rate_afrr * afrr_clearing * 0.55 +
     RESERVE_PRODUCTS.mfrr.share * sc.avail * sc.act_rate_mfrr * mfrr_clearing * 0.75
   ) * 24 * sc.bal_mult * sc.real_factor;
+
+  // Trading from price-ratio Y1 mix
+  const lr_mix = base_year?.time_model?.trading_fraction != null
+    ? { trading_fraction: base_year.time_model.trading_fraction }
+    : computeTradingMix(kv, duration_h, 1, 0, 1.0, sc);
+  const today_trading = today_balancing * (lr_mix.trading_fraction / Math.max(0.01, 1 - lr_mix.trading_fraction));
 
   const today_total = today_trading + today_balancing;
   const base_daily = base_year?.annual_totals?.gross > 0
@@ -5938,22 +5992,18 @@ export default {
       result.prices = { afrr_up_avg: s2?.afrr_up_avg ?? null, mfrr_up_avg: s2?.mfrr_up_avg ?? null, spread_eur_mwh: s1?.spread_eur_mwh ?? null, euribor_3m: eur?.euribor_3m ?? null };
       result.updated_at = result.timestamp;
 
-      // ── Backtest: use s1_capture monthly data (same source as computeBaseYear) ──
+      // ── Backtest: use price-ratio mix for trading/balancing split ──
       const sc_cfg = REVENUE_SCENARIOS[scenParam] || REVENUE_SCENARIOS.base;
-      const rte_val = 0.855;
       const si = result.signal_inputs || {};
-      const bt_arb_pct = result.base_year?.time_model?.effective_arb_pct ?? computeEffectiveArbPct(kv, sc_cfg);
-      const bt_cycles = dur_h <= 2 ? sc_cfg.cycles_2h : sc_cfg.cycles_4h;
+      const bt_mix = result.base_year?.time_model?.trading_fraction != null
+        ? { trading_fraction: result.base_year.time_model.trading_fraction }
+        : computeTradingMix(kv, dur_h, 1, 0, 1.0, sc_cfg);
 
       const capMonthly = (s1_capture?.monthly || []).filter(m => m.month && m.days >= 15);
       const backtest = capMonthly.map(m => {
         const capture = dur_h <= 2
           ? (m.avg_gross_2h || m.avg_net_2h || 140)
           : (m.avg_gross_4h || m.avg_net_4h || 125);
-
-        // Trading revenue per MW per day (time-sliced)
-        const bt_energy_per_mw_hour = dur_h * bt_cycles / 24;
-        const trd_daily = bt_arb_pct * 24 * bt_energy_per_mw_hour * capture * rte_val * sc_cfg.trd_real * (1 - sc_cfg.rtm_fee_pct);
 
         // Balancing revenue per MW per day (current capacity+activation prices)
         const bal_daily = (
@@ -5963,6 +6013,9 @@ export default {
           0.34 * sc_cfg.avail * sc_cfg.act_rate_afrr * (si.afrr_clearing || 171) * 0.55 +
           0.50 * sc_cfg.avail * sc_cfg.act_rate_mfrr * (si.mfrr_clearing || 81) * 0.75
         ) * 24 * sc_cfg.bal_mult * sc_cfg.real_factor * (1 - sc_cfg.rtm_fee_pct);
+
+        // Trading from price-ratio mix
+        const trd_daily = bal_daily * (bt_mix.trading_fraction / Math.max(0.01, 1 - bt_mix.trading_fraction));
 
         return {
           month: m.month,
