@@ -82,6 +82,23 @@ interface BalticTotal {
   under_construction_mw?: number;
 }
 
+interface FleetEntry {
+  name?: string;
+  mw?: number;
+  status?: string;
+  country?: string;
+}
+
+interface FleetData {
+  countries?:            Record<string, { entries?: FleetEntry[] }> | null;
+  sd_ratio?:             number | null;
+  phase?:                string | null;
+  baltic_operational_mw?: number | null;
+  baltic_pipeline_mw?:   number | null;
+  eff_demand_mw?:        number | null;
+  updated?:              string | null;
+}
+
 interface S4Signal {
   timestamp?:         string | null;
   free_mw?:           number | null;
@@ -97,6 +114,7 @@ interface S4Signal {
   baltic_total?:      BalticTotal;
   grid_caveat?:       string;
   source_urls?:       SourceUrls;
+  fleet?:             FleetData;
   _stale?:            boolean;
   _age_hours?:        number | null;
 }
@@ -565,6 +583,45 @@ export function S4Card() {
 
       {/* SIGNAL INTEL */}
       <SignalIntel signalId="S4" />
+
+      {/* FLEET SUMMARY */}
+      {data.fleet && data.fleet.sd_ratio != null && (() => {
+        const fl = data.fleet!;
+        const allEntries: FleetEntry[] = [];
+        if (fl.countries) {
+          for (const c of Object.values(fl.countries)) {
+            if (c.entries) allEntries.push(...c.entries);
+          }
+        }
+        return (
+          <div style={{ marginTop: '16px', borderTop: '1px solid var(--border-card)', paddingTop: '12px' }}>
+            <div style={{
+              fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+              color: 'var(--text-tertiary)', letterSpacing: '0.08em',
+              textTransform: 'uppercase', marginBottom: '8px',
+            }}>
+              Fleet tracker · {allEntries.length > 0 ? `${allEntries.length} projects` : ''} · {fl.sd_ratio?.toFixed(2)}× S/D
+            </div>
+            <div style={{
+              display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px',
+              fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+            }}>
+              <div>
+                <div style={{ color: 'var(--text-muted)' }}>Operational</div>
+                <div style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>{fl.baltic_operational_mw ?? '—'} MW</div>
+              </div>
+              <div>
+                <div style={{ color: 'var(--text-muted)' }}>Pipeline</div>
+                <div style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>{fl.baltic_pipeline_mw ?? '—'} MW</div>
+              </div>
+              <div>
+                <div style={{ color: 'var(--text-muted)' }}>Demand</div>
+                <div style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>{fl.eff_demand_mw ?? '—'} MW</div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       <div style={{ flexGrow: 1 }} />
 

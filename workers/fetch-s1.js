@@ -4970,9 +4970,9 @@ export default {
       return Response.json(JSON.parse(raw), { headers: CORS });
     }
 
-    // ── POST /s2/fleet ────────────────────────────────────────────────────────
+    // ── POST /s2/fleet OR /s4/fleet — fleet data (migrating from S2 to S4) ──
     // Replace the full fleet dataset. Body: { entries: [...], demand: { eff_demand_mw } }
-    if (request.method === 'POST' && url.pathname === '/s2/fleet') {
+    if (request.method === 'POST' && (url.pathname === '/s2/fleet' || url.pathname === '/s4/fleet')) {
       const secret = request.headers.get('X-Update-Secret');
       if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
       let body;
@@ -4982,20 +4982,24 @@ export default {
       const fleet = processFleet(entries, demand ?? null);
       fleet.raw_entries = entries;
       fleet.demand      = demand ?? { eff_demand_mw: 935 };
-      await env.KKME_SIGNALS.put('s2_fleet', JSON.stringify(fleet));
-      console.log(`[S2/fleet] seeded n=${entries.length} sd_ratio=${fleet.sd_ratio} phase=${fleet.phase}`);
+      const json = JSON.stringify(fleet);
+      await Promise.all([
+        env.KKME_SIGNALS.put('s4_fleet', json),
+        env.KKME_SIGNALS.put('s2_fleet', json),  // backward compat
+      ]);
+      console.log(`[S4/fleet] seeded n=${entries.length} sd_ratio=${fleet.sd_ratio} phase=${fleet.phase}`);
       return jsonResp({ ok: true, sd_ratio: fleet.sd_ratio, phase: fleet.phase, n: entries.length });
     }
 
-    // ── POST /s2/fleet/entry ──────────────────────────────────────────────────
-    // Add or update a single fleet entry by project name.
-    if (request.method === 'POST' && url.pathname === '/s2/fleet/entry') {
+    // ── POST /s2/fleet/entry OR /s4/fleet/entry — single entry upsert ──
+    if (request.method === 'POST' && (url.pathname === '/s2/fleet/entry' || url.pathname === '/s4/fleet/entry')) {
       const secret = request.headers.get('X-Update-Secret');
       if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
       let body;
       try { body = await request.json(); } catch { return jsonResp({ error: 'Invalid JSON' }, 400); }
       if (!body.name || !body.mw || !body.status) return jsonResp({ error: 'name, mw, status required' }, 400);
-      const raw     = await env.KKME_SIGNALS.get('s2_fleet').catch(() => null);
+      const raw     = (await env.KKME_SIGNALS.get('s4_fleet').catch(() => null))
+                   || (await env.KKME_SIGNALS.get('s2_fleet').catch(() => null));
       const current = raw ? JSON.parse(raw) : { raw_entries: [], demand: { eff_demand_mw: 935 } };
       const entries = current.raw_entries ?? [];
       const idx     = entries.findIndex(e => e.name === body.name);
@@ -5003,15 +5007,32 @@ export default {
       const fleet = processFleet(entries, current.demand);
       fleet.raw_entries = entries;
       fleet.demand      = current.demand;
-      await env.KKME_SIGNALS.put('s2_fleet', JSON.stringify(fleet));
+      const json = JSON.stringify(fleet);
+      await Promise.all([
+        env.KKME_SIGNALS.put('s4_fleet', json),
+        env.KKME_SIGNALS.put('s2_fleet', json),  // backward compat
+      ]);
       return jsonResp({ ok: true, sd_ratio: fleet.sd_ratio, phase: fleet.phase, n: entries.length });
     }
 
-    // ── GET /s2/fleet ─────────────────────────────────────────────────────────
-    if (request.method === 'GET' && url.pathname === '/s2/fleet') {
-      const raw = await env.KKME_SIGNALS.get('s2_fleet').catch(() => null);
+    // ── GET /s2/fleet OR /s4/fleet — fleet data ──
+    if (request.method === 'GET' && (url.pathname === '/s2/fleet' || url.pathname === '/s4/fleet')) {
+      const raw = (await env.KKME_SIGNALS.get('s4_fleet').catch(() => null))
+              || (await env.KKME_SIGNALS.get('s2_fleet').catch(() => null));
       if (!raw) return jsonResp({ error: 'no fleet data yet' }, 404);
       return new Response(raw, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...CORS } });
+    }
+
+    // ── POST /s4/migrate-fleet — one-time migration from s2_fleet → s4_fleet ──
+    if (request.method === 'POST' && url.pathname === '/s4/migrate-fleet') {
+      const secret = request.headers.get('X-Update-Secret');
+      if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
+      const s2f = await env.KKME_SIGNALS.get('s2_fleet').catch(() => null);
+      if (s2f) {
+        await env.KKME_SIGNALS.put('s4_fleet', s2f);
+        return jsonResp({ status: 'migrated', bytes: s2f.length });
+      }
+      return jsonResp({ status: 'no s2_fleet data to migrate' });
     }
 
     // ── POST /s2/activation ─────────────────────────────────────────────────
@@ -5044,7 +5065,8 @@ export default {
       const [s1Raw, s2Raw, fleetRaw, actRaw, capRaw] = await Promise.all([
         env.KKME_SIGNALS.get('s1').catch(() => null),
         env.KKME_SIGNALS.get('s2').catch(() => null),
-        env.KKME_SIGNALS.get('s2_fleet').catch(() => null),
+        (env.KKME_SIGNALS.get('s4_fleet').catch(() => null))
+          .then(r => r || env.KKME_SIGNALS.get('s2_fleet').catch(() => null)),
         env.KKME_SIGNALS.get('s2_activation').catch(() => null),
         env.KKME_SIGNALS.get('s1_capture').catch(() => null),
       ]);
@@ -5091,9 +5113,8 @@ export default {
     // Merges BTD capacity data + fleet S/D ratio data + activation clearing prices.
     if (request.method === 'GET' && url.pathname === '/s2') {
       try {
-        const [cached, fleetRaw, activationRaw, btdHistRaw, extremeRaw] = await Promise.all([
+        const [cached, activationRaw, btdHistRaw, extremeRaw] = await Promise.all([
           env.KKME_SIGNALS.get('s2'),
-          env.KKME_SIGNALS.get('s2_fleet').catch(() => null),
           env.KKME_SIGNALS.get('s2_activation').catch(() => null),
           env.KKME_SIGNALS.get('s2_btd_history').catch(() => null),
           env.KKME_SIGNALS.get('extreme:latest').catch(() => null),
@@ -5101,18 +5122,12 @@ export default {
         const base = cached
           ? JSON.parse(cached)
           : { ...DEFAULTS.s2, unavailable: true, _serving: 'static_defaults' };
-        if (fleetRaw) {
-          const fleet = JSON.parse(fleetRaw);
-          base.sd_ratio              = fleet.sd_ratio              ?? null;
-          base.phase                 = fleet.phase                 ?? null;
-          base.cpi                   = fleet.cpi                   ?? null;
-          base.trajectory            = fleet.trajectory            ?? null;
-          base.fleet                 = fleet.countries             ?? null;
-          base.baltic_operational_mw = fleet.baltic_operational_mw ?? null;
-          base.baltic_pipeline_mw    = fleet.baltic_pipeline_mw    ?? null;
-          base.eff_demand_mw         = fleet.eff_demand_mw         ?? null;
-          base.product_sd            = fleet.product_sd            ?? null;
-        }
+        // Fleet data stripped from /s2 — now served via /s4
+        // Balancing demand context (kept for S2 card):
+        base.demand_mw       = 752;
+        base.afrr_demand_mw  = 120;
+        base.mfrr_demand_mw  = 604;
+        base.fcr_demand_mw   = 28;
         if (activationRaw) {
           try {
             const act = JSON.parse(activationRaw);
@@ -5215,7 +5230,7 @@ export default {
         env.KKME_SIGNALS.get('s3'),
         env.KKME_SIGNALS.get('s4'),
         env.KKME_SIGNALS.get('euribor'),
-        env.KKME_SIGNALS.get('s2_fleet'),
+        env.KKME_SIGNALS.get('s4_fleet').catch(() => env.KKME_SIGNALS.get('s2_fleet')),
       ]);
       const parse = r => (r.status === 'fulfilled' && r.value) ? JSON.parse(r.value) : null;
       const s1 = parse(s1r), s2 = parse(s2r), s3 = parse(s3r), s4 = parse(s4r);
@@ -5722,10 +5737,12 @@ export default {
 
     // ── GET /s4 ──────────────────────────────────────────────────────────────
     if (request.method === 'GET' && url.pathname === '/s4') {
-      const [s4Raw, pipelineRaw, buildRaw] = await Promise.all([
+      const [s4Raw, pipelineRaw, buildRaw, fleetRaw] = await Promise.all([
         env.KKME_SIGNALS.get('s4'),
         env.KKME_SIGNALS.get('s4_pipeline'),
         env.KKME_SIGNALS.get('s4_buildability'),
+        (env.KKME_SIGNALS.get('s4_fleet').catch(() => null))
+          .then(r => r || env.KKME_SIGNALS.get('s2_fleet').catch(() => null)),
       ]);
       if (s4Raw) {
         try {
@@ -5837,6 +5854,25 @@ export default {
             under_construction_mw: eeUcMw + 361, // EE UC + LT UC (Ignitis 291 + Olana 70)
           };
 
+          // Merge fleet tracker data (migrated from S2)
+          if (fleetRaw) {
+            try {
+              const fl = JSON.parse(fleetRaw);
+              d.fleet = {
+                countries:            fl.countries             ?? null,
+                sd_ratio:             fl.sd_ratio              ?? null,
+                phase:                fl.phase                 ?? null,
+                cpi:                  fl.cpi                   ?? null,
+                trajectory:           fl.trajectory            ?? null,
+                baltic_operational_mw: fl.baltic_operational_mw ?? null,
+                baltic_pipeline_mw:   fl.baltic_pipeline_mw    ?? null,
+                eff_demand_mw:        fl.eff_demand_mw         ?? null,
+                product_sd:           fl.product_sd            ?? null,
+                updated:              fl.updated_at            ?? null,
+              };
+            } catch { /* ignore */ }
+          }
+
           return new Response(JSON.stringify(d), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600', ...CORS } });
         } catch { /* fall through */ }
       }
@@ -5913,7 +5949,8 @@ export default {
         env.KKME_SIGNALS.get('s1'),
         env.KKME_SIGNALS.get('s2'),
         env.KKME_SIGNALS.get('s3'),
-        env.KKME_SIGNALS.get('s2_fleet').catch(() => null),
+        (env.KKME_SIGNALS.get('s4_fleet').catch(() => null))
+          .then(r => r || env.KKME_SIGNALS.get('s2_fleet').catch(() => null)),
         env.KKME_SIGNALS.get('euribor'),
         env.KKME_SIGNALS.get('s1_capture').catch(() => null),
         env.KKME_SIGNALS.get('s2_activation').catch(() => null),
@@ -6483,7 +6520,7 @@ export default {
     // Extended health: per-signal validation, fleet quarantine, regime detection.
     if (request.method === 'GET' && url.pathname === '/health-detail') {
       try {
-        const keys = ['s1', 's2', 's2_fleet', 's3', 's4', 's7', 's8', 's9'];
+        const keys = ['s1', 's2', 's4_fleet', 's3', 's4', 's7', 's8', 's9'];
         const results = await Promise.all(keys.map(k => env.KKME_SIGNALS.get(k).catch(() => null)));
         const sources = {};
         const warnings = [];
@@ -6503,7 +6540,7 @@ export default {
           sources[k] = { status: stale ? 'stale' : 'healthy', last_fetch: ts, age_hours: ageH ? Math.round(ageH * 10) / 10 : null };
         }
         // Fleet quarantine
-        const fleetRaw = results[keys.indexOf('s2_fleet')];
+        const fleetRaw = results[keys.indexOf('s4_fleet')];
         let quarantine = { fleet_entries: 0, reasons: [] };
         if (fleetRaw) {
           try {
