@@ -380,6 +380,10 @@ function computeDispatch(data, battery) {
   const mfrr_active_isps = isps.filter(isp => isp.capacity.mfrr.mw > 0).length;
   const fcr_active_isps  = isps.filter(isp => isp.capacity.fcr.mw > 0).length;
 
+  // Activation rates: count ISPs with actual energy dispatch (not procurement)
+  const afrr_dispatched_isps = isps.filter(isp => isp.activation.est_afrr_mw > 0).length;
+  const mfrr_dispatched_isps = isps.filter(isp => isp.activation.est_mfrr_mw > 0).length;
+
   // Hourly aggregation
   const hourly = [];
   for (let h = 0; h < 24; h++) {
@@ -445,10 +449,16 @@ function computeDispatch(data, battery) {
       afrr_active_isps,
       mfrr_active_isps,
       fcr_active_isps,
+      afrr_dispatched_isps,
+      mfrr_dispatched_isps,
       total_isps: 96,
+      // Procurement rates (fraction of ISPs with capacity offered — typically ~1.0)
       afrr_pct: Math.round(afrr_active_isps / 96 * 100) / 100,
       mfrr_pct: Math.round(mfrr_active_isps / 96 * 100) / 100,
       fcr_pct: Math.round(fcr_active_isps / 96 * 100) / 100,
+      // Activation rates (fraction of ISPs with actual energy dispatch — typically 0.10-0.25)
+      afrr_activation_pct: Math.round(afrr_dispatched_isps / 96 * 100) / 100,
+      mfrr_activation_pct: Math.round(mfrr_dispatched_isps / 96 * 100) / 100,
     },
   };
 }
@@ -1338,8 +1348,15 @@ function computeRevenueV6(params, kv) {
  */
 function computeEffectiveArbPct(kv, sc) {
   const dm = kv.dispatch_metrics?.rolling_30d;
-  const r_a = dm ? (dm.avg_afrr_active_pct || 0.80) : 0.80;
-  const r_m = dm ? (dm.avg_mfrr_active_pct || 0.90) : 0.90;
+  // MW is blocked from trading during activation (energy dispatch) AND during idle-committed
+  // time when SoC must be maintained for potential activation. Headroom drag captures the
+  // partial block from SoC management: r = activation + 0.70 × (1 - activation).
+  // With activation rates ~0.18/0.10, this gives r ≈ 0.75/0.73 → arb_pct ≈ 0.20 → ~12-15% trading.
+  const HEADROOM_DRAG = 0.70;
+  const act_a = dm?.avg_afrr_activation_pct;
+  const act_m = dm?.avg_mfrr_activation_pct;
+  const r_a = act_a != null ? (act_a + HEADROOM_DRAG * (1 - act_a)) : 0.75;
+  const r_m = act_m != null ? (act_m + HEADROOM_DRAG * (1 - act_m)) : 0.80;
   const p_avail = sc.avail;
   const fcr_share  = RESERVE_PRODUCTS.fcr.share;
   const afrr_share = RESERVE_PRODUCTS.afrr.share;
@@ -1360,8 +1377,12 @@ function computeEffectiveArbPct(kv, sc) {
  */
 function computeEffectiveArbPctForYear(kv, sc, reserve_shift) {
   const dm = kv.dispatch_metrics?.rolling_30d;
-  const r_a_base = dm ? (dm.avg_afrr_active_pct || 0.80) : 0.80;
-  const r_m_base = dm ? (dm.avg_mfrr_active_pct || 0.90) : 0.90;
+  // Same headroom-drag model as computeEffectiveArbPct
+  const HEADROOM_DRAG = 0.70;
+  const act_a = dm?.avg_afrr_activation_pct;
+  const act_m = dm?.avg_mfrr_activation_pct;
+  const r_a_base = act_a != null ? (act_a + HEADROOM_DRAG * (1 - act_a)) : 0.75;
+  const r_m_base = act_m != null ? (act_m + HEADROOM_DRAG * (1 - act_m)) : 0.80;
   const r_a = r_a_base * reserve_shift;
   const r_m = r_m_base * reserve_shift;
   const p_avail = sc.avail;
@@ -1409,10 +1430,19 @@ function computeBaseYear(kv, duration_h, sc) {
   }
 
   // ── Time-slicing: compute effective arb MW-hours from dispatch metrics ──
+  // Headroom drag: committed-but-idle MW is partially blocked by SoC management.
+  // r = activation_rate + 0.70 × (1 - activation_rate)
+  const HEADROOM_DRAG = 0.70;
   const dm = kv.dispatch_metrics?.rolling_30d;
+  const act_a = dm?.avg_afrr_activation_pct;
+  const act_m = dm?.avg_mfrr_activation_pct;
   const reserve_hours = dm
-    ? { afrr: dm.avg_afrr_active_pct || 0.80, mfrr: dm.avg_mfrr_active_pct || 0.90, source: 'dispatch_observed_30d' }
-    : { afrr: 0.80, mfrr: 0.90, source: 'assumed_default' };
+    ? {
+        afrr: act_a != null ? (act_a + HEADROOM_DRAG * (1 - act_a)) : 0.75,
+        mfrr: act_m != null ? (act_m + HEADROOM_DRAG * (1 - act_m)) : 0.80,
+        source: 'dispatch_observed_30d',
+      }
+    : { afrr: 0.75, mfrr: 0.80, source: 'assumed_default' };
 
   const r_a = reserve_hours.afrr;
   const r_m = reserve_hours.mfrr;
@@ -6028,6 +6058,9 @@ export default {
           afrr_active_pct: ra.afrr_pct || 0,
           mfrr_active_pct: ra.mfrr_pct || 0,
           fcr_active_pct: ra.fcr_pct || 0,
+          // Activation rates: actual energy dispatch (for time-slice model)
+          afrr_activation_pct: ra.afrr_activation_pct || 0,
+          mfrr_activation_pct: ra.mfrr_activation_pct || 0,
           capacity_pct: analysis.totals.splits_pct?.capacity || 0,
           activation_pct: analysis.totals.splits_pct?.activation || 0,
           arb_pct: analysis.totals.splits_pct?.arbitrage || 0,
@@ -6045,9 +6078,14 @@ export default {
           const avg = arr => arr.reduce((s, v) => s + v, 0) / arr.length;
           metrics.rolling_30d = {
             avg_revenue_per_mw: Math.round(avg(recent.map(d => d.revenue_per_mw))),
+            // Procurement rates (typically ~1.0 — BESS offers reserves 24/7)
             avg_afrr_active_pct: Math.round(avg(recent.map(d => d.afrr_active_pct)) * 100) / 100,
             avg_mfrr_active_pct: Math.round(avg(recent.map(d => d.mfrr_active_pct)) * 100) / 100,
             avg_fcr_active_pct: Math.round(avg(recent.map(d => d.fcr_active_pct)) * 100) / 100,
+            // Activation rates (fraction of ISPs with actual energy dispatch — for time-slice model)
+            // Old days lack activation_pct fields: fall back to 0.18/0.10 defaults (not procurement rate)
+            avg_afrr_activation_pct: Math.round(avg(recent.map(d => d.afrr_activation_pct ?? 0.18)) * 100) / 100,
+            avg_mfrr_activation_pct: Math.round(avg(recent.map(d => d.mfrr_activation_pct ?? 0.10)) * 100) / 100,
             days_count: recent.length,
             updated: new Date().toISOString(),
           };

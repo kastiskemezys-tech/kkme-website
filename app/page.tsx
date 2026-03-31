@@ -104,7 +104,7 @@ export default function Home() {
         {/* ═══ REVENUE ENGINE — elevated ═══ */}
         <div className="section-elevated" id="revenue">
           <div style={{ marginBottom: '32px' }}>
-            <h2 className="section-header" style={{ marginBottom: '6px' }}>Reference asset returns</h2>
+            <h2 className="section-header" style={{ marginBottom: '6px' }}>50 MW reference asset</h2>
             <p style={{ fontFamily: 'DM Mono, monospace', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>How timing, duration, and installed cost shape storage economics</p>
           </div>
           <div>
