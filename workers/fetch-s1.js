@@ -530,20 +530,28 @@ const TRADING_REALISATION = {
 
 // Pipeline deployment speed (years to fully deploy TSO-reserved pipeline).
 // Replaces abstract compression multipliers — physical driver is build speed.
-const PIPELINE_SPEED = {
-  base: 4,          // 4 years to deploy TSO-reserved pipeline (as announced)
-  conservative: 3,  // accelerated deployment
-  stress: 2         // rush to market
+// Pipeline realisation rate: fraction of pipeline MW that actually gets built.
+// Applies to ADDITIONAL pipeline only (not current weighted supply).
+const PIPELINE_REALISATION = {
+  base: 0.50,          // 50% of pipeline built — typical dropout
+  conservative: 0.70,  // 70% — more competition
+  stress: 0.90         // 90% — nearly everything built
 };
 
-// Spread compression rates: how fast DA trading spreads compress per year.
-// Base: 0% — German evidence shows spreads INCREASE with more renewables.
-// Conservative/stress: some BESS spread-smoothing effect.
-const SPREAD_COMPRESS = {
-  base: 0.00,
-  conservative: 0.01,
-  stress: 0.02
+// Pipeline deployment speed (years from 2026).
+const PIPELINE_DEPLOY_YEARS = 4;
+
+// Spread growth rates: more renewables = more intermittency = wider spreads.
+// German evidence: DA spreads INCREASED despite 1.5 GW BESS deployment.
+const SPREAD_GROWTH = {
+  base: 0.02,          // spreads grow 2%/yr (more renewables)
+  conservative: 0.00,  // flat (BESS smoothing offsets renewable growth)
+  stress: -0.01        // slight compression (large BESS fleet smooths)
 };
+
+// Intraday uplift: real operators trade DA + intraday auction + continuous.
+// Modo Energy: 35% uplift from intraday vs DA-only. 1.25 = conservative.
+const INTRADAY_UPLIFT = 1.25;
 
 // LEGACY — kept for deriveCompression consumers that still read comp_mult
 const COMPRESSION_SCENARIO_MULT = {
@@ -939,6 +947,17 @@ function computeRevenueV7(params, kv) {
       return yr ? { year: y, cal_year: yr.cal_year, net_rev: yr.rev_net, ebitda: yr.ebitda, dscr: yr.dscr } : null;
     }).filter(Boolean),
     fleet_trajectory: fleet?.trajectory ?? null,
+    fleet_context: {
+      current_sd: fleet?.sd_ratio ?? null,
+      weighted_supply: fleet?.baltic_weighted_mw ?? fleet?.baltic_operational_mw ?? null,
+      pipeline_mw: fleet?.baltic_pipeline_mw ?? null,
+      demand_mw: fleet?.eff_demand_mw ?? 752,
+      pipeline_realisation: PIPELINE_REALISATION[scenario_name],
+      intraday_uplift: INTRADAY_UPLIFT,
+      switching_friction: 0.75,
+      spread_growth: SPREAD_GROWTH[scenario_name] ?? 0.02,
+      source: fleet ? 'live_s4_fleet' : 'fallback',
+    },
 
     // Benchmarks
     ch_benchmark: { irr_2h: 0.166, range: '6–31%', target: 0.12, source: 'Clean Horizon S1 2025' },
@@ -1354,32 +1373,41 @@ function reservePrice(sd_ratio, base_price) {
 
 /**
  * projectFleet: fleet supply projection per calendar year.
- * Separates commercial fleet, TSO pipeline, Kruonis PSP, and organic growth.
+ * Uses S4 weighted_supply (confidence-weighted current fleet), applies
+ * pipeline realisation rate to ADDITIONAL pipeline MW, then organic growth.
  */
 function projectFleet(cal_year, kv, scenario) {
   const fleet = kv.fleet || kv.s2 || {};
-  const base_commercial = fleet.baltic_operational_mw || 672;
-  const tso_pipeline = fleet.baltic_pipeline_mw || 866;
 
-  // Pipeline deployment over PIPELINE_SPEED years from 2026
-  const pipeline_speed = PIPELINE_SPEED[scenario] || 4;
-  const pipeline_start = 2026;
-  const pipeline_deployed = Math.min(1.0, Math.max(0, (cal_year - pipeline_start + 1) / pipeline_speed));
-  const pipeline_mw = tso_pipeline * pipeline_deployed;
+  // Current competitive supply from S4 (already confidence-weighted)
+  const current_weighted = fleet.baltic_weighted_mw || fleet.baltic_operational_mw || 672;
 
-  // Kruonis PSP: always present, competes in mFRR
+  // Additional pipeline MW (not yet built — raw, pre-realisation)
+  const pipeline_raw = fleet.baltic_pipeline_mw || 866;
+
+  // Apply pipeline realisation (dropout rate)
+  const realisation = PIPELINE_REALISATION[scenario] || 0.50;
+  const pipeline_effective = pipeline_raw * realisation;
+
+  // Pipeline deploys over 4 years from 2026
+  const deploy_start = 2026;
+  const years_into = Math.max(0, cal_year - deploy_start);
+  const deploy_fraction = Math.min(1.0, years_into / PIPELINE_DEPLOY_YEARS);
+  const pipeline_deployed = pipeline_effective * deploy_fraction;
+
+  // Kruonis PSP (fixed mFRR competitor)
   const kruonis = 205;
 
-  // Post-pipeline organic growth: 3%/yr, capped at 50% additional
+  // Post-pipeline organic growth: 3%/yr, capped at 50% of base
   let organic = 0;
-  const pipeline_end = pipeline_start + pipeline_speed;
-  if (cal_year > pipeline_end) {
-    const years_post = cal_year - pipeline_end;
-    organic = (base_commercial + tso_pipeline) * (Math.pow(1.03, years_post) - 1);
-    organic = Math.min(organic, (base_commercial + tso_pipeline) * 0.5);
+  if (years_into > PIPELINE_DEPLOY_YEARS) {
+    const yrs_post = years_into - PIPELINE_DEPLOY_YEARS;
+    const base_total = current_weighted + pipeline_effective;
+    organic = base_total * (Math.pow(1.03, yrs_post) - 1);
+    organic = Math.min(organic, base_total * 0.5);
   }
 
-  return base_commercial + pipeline_mw + kruonis + organic;
+  return current_weighted + pipeline_deployed + kruonis + organic;
 }
 
 /**
@@ -1398,15 +1426,15 @@ function projectDemand(cal_year, kv) {
  *
  * R = reserve value per MW-hour, compressed via S/D elasticity curve.
  *   Capacity follows elasticity directly; activation 15% steeper.
- * T = trading value per MW-hour, flat (base) or gently compressing.
- * trading_fraction = min(0.70, (T / (T + R)) × 0.65)
+ * T = trading value per MW-hour × intraday uplift, grows 2%/yr (base).
+ * trading_fraction = min(0.70, (T / (T + R)) × 0.75)
  *
- * One tunable: switching_friction (0.65). Everything else from signals.
+ * One tunable: switching_friction (0.75). Everything else from signals.
  */
 function computeTradingMix(kv, dur_h, cal_year, scenario, sc) {
   const rte = 0.855;
   const trading_real = sc.trd_real || 0.85;
-  const switching_friction = 0.65;
+  const switching_friction = 0.75;
 
   const s2 = kv.s2 || {};
   const act = kv.s2_activation_parsed || {};
@@ -1424,11 +1452,13 @@ function computeTradingMix(kv, dur_h, cal_year, scenario, sc) {
                    + mfrr_share * sc.act_rate_mfrr * mfrr_clearing * 0.75;
   const R_base = R_cap_base + R_act_base;
 
-  // T base: trading value per MW-hour
+  // T base: trading value per MW-hour × intraday uplift
+  // DA capture × RTE × realisation / (2×dur_h) = per MW-hour value from DA
+  // × INTRADAY_UPLIFT (1.25) = DA + intraday auction + continuous
   const s1_capture = dur_h <= 2
     ? (s1_cap.capture_2h?.gross_eur_mwh ?? s1_cap.rolling_30d?.stats_2h?.mean ?? 140)
     : (s1_cap.capture_4h?.gross_eur_mwh ?? s1_cap.rolling_30d?.stats_4h?.mean ?? 125);
-  const T_base = s1_capture * rte * trading_real / (2 * dur_h);
+  const T_base = s1_capture * rte * trading_real / (2 * dur_h) * INTRADAY_UPLIFT;
 
   // S/D ratio for this calendar year
   const supply = projectFleet(cal_year, kv, scenario);
@@ -1440,11 +1470,11 @@ function computeTradingMix(kv, dur_h, cal_year, scenario, sc) {
   const R_act_yr = reservePrice(sd_yr * 1.15, R_act_base);
   const R_yr = R_cap_yr + R_act_yr;
 
-  // T: flat in base, gently compressing in conservative/stress
-  const spread_compress = SPREAD_COMPRESS[scenario] || 0;
+  // T: grows in base (more renewables = wider spreads), flat/shrinks in cons/stress
+  const spread_rate = SPREAD_GROWTH[scenario] ?? 0.02;
   const years_from_now = Math.max(0, cal_year - 2026);
   const T_floor = 5.0;
-  const T_yr = Math.max(T_floor, T_base * Math.pow(1 - spread_compress, years_from_now));
+  const T_yr = Math.max(T_floor, T_base * Math.pow(1 + spread_rate, years_from_now));
 
   const raw = T_yr / (T_yr + R_yr);
   const tf = Math.min(0.70, raw * switching_friction);
