@@ -31,9 +31,13 @@ interface S1WithCapture extends S1Signal {
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
-// ── Capture-driven sentiment ──────────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────────────────────
 
-// No editorial labels or sentiment mappings — data speaks for itself
+function isRecent(timestamp: string, maxHours: number): boolean {
+  try {
+    return (Date.now() - new Date(timestamp).getTime()) / 3600000 < maxHours;
+  } catch { return false; }
+}
 
 // ── Component ─────────────────────────────────────────────────────────────
 
@@ -520,6 +524,26 @@ export function S1Card() {
           </div>
         );
       })()}
+
+      {/* EXTREME EVENT CALLOUT */}
+      {data.extreme_event && isRecent(data.extreme_event.timestamp, 48) && (
+        <div style={{
+          borderLeft: '2px solid var(--amber)',
+          background: 'var(--bg-elevated)',
+          padding: '6px 12px',
+          borderRadius: '0 4px 4px 0',
+          fontFamily: 'var(--font-mono)',
+          fontSize: 'var(--font-xs)',
+          color: 'var(--text-secondary)',
+          marginBottom: '12px',
+          lineHeight: 1.5,
+        }}>
+          <span style={{ color: 'var(--text-muted)', marginRight: '8px' }}>
+            {data.extreme_event.date}
+          </span>
+          {data.extreme_event.text}
+        </div>
+      )}
 
       {/* Spacer pushes footer to bottom when card stretches */}
       <div style={{ flex: 1 }} />

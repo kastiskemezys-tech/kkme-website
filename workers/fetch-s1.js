@@ -2332,6 +2332,26 @@ async function computeCapture(env) {
   await env.KKME_SIGNALS.put('s1_capture', JSON.stringify(captureData));
   await env.KKME_SIGNALS.put('s1_capture_history', JSON.stringify(history));
 
+  // Detect extreme DA price events
+  if (prices.length >= 12) {
+    const maxPrice = Math.max(...prices);
+    const minPrice = Math.min(...prices);
+    const priceSpread = maxPrice - minPrice;
+    if (priceSpread > 200 || maxPrice > 500 || minPrice < -50) {
+      const extremeEvent = {
+        type: 'da_spread',
+        date: today,
+        max_price: Math.round(maxPrice),
+        min_price: Math.round(minPrice),
+        spread: Math.round(priceSpread),
+        timestamp: new Date().toISOString(),
+        text: `DA spread €${Math.round(priceSpread)}/MWh (peak €${Math.round(maxPrice)}, low €${Math.round(minPrice)})`,
+      };
+      await env.KKME_SIGNALS.put('extreme:latest', JSON.stringify(extremeEvent), { expirationTtl: 7 * 86400 });
+      console.log(`[S1/extreme] ${extremeEvent.text}`);
+    }
+  }
+
   console.log(`[S1/capture] ${today} 2h=${capture_2h?.gross_eur_mwh ?? '—'}€ 4h=${capture_4h?.gross_eur_mwh ?? '—'}€ swing=${shape?.swing ?? '—'}€ resolution=${resolution}min n=${prices.length}`);
 
   return captureData;
@@ -4942,11 +4962,12 @@ export default {
     // Merges BTD capacity data + fleet S/D ratio data + activation clearing prices.
     if (request.method === 'GET' && url.pathname === '/s2') {
       try {
-        const [cached, fleetRaw, activationRaw, btdHistRaw] = await Promise.all([
+        const [cached, fleetRaw, activationRaw, btdHistRaw, extremeRaw] = await Promise.all([
           env.KKME_SIGNALS.get('s2'),
           env.KKME_SIGNALS.get('s2_fleet').catch(() => null),
           env.KKME_SIGNALS.get('s2_activation').catch(() => null),
           env.KKME_SIGNALS.get('s2_btd_history').catch(() => null),
+          env.KKME_SIGNALS.get('extreme:latest').catch(() => null),
         ]);
         const base = cached
           ? JSON.parse(cached)
@@ -5002,6 +5023,10 @@ export default {
           } catch (e) {
             console.error('[S2/capacity_monthly]', String(e));
           }
+        }
+        // Attach extreme event if recent
+        if (extremeRaw) {
+          try { base.extreme_event = JSON.parse(extremeRaw); } catch { /* ignore */ }
         }
         return new Response(JSON.stringify(base), {
           headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600', ...CORS },
@@ -6047,6 +6072,31 @@ export default {
 
       console.log(`[Trading] ${date} gross=€${analysis.totals.gross} per_mw=€${analysis.totals.per_mw} cap=${analysis.totals.splits_pct.capacity}% act=${analysis.totals.splits_pct.activation}% arb=${analysis.totals.splits_pct.arbitrage}%`);
 
+      // ── Detect extreme activation events ──
+      try {
+        const actPrices = (body.activation_prices || []).filter(p => p && (p.up || p.down));
+        if (actPrices.length > 0) {
+          const maxUp = Math.max(...actPrices.map(p => Math.abs(p.up || 0)));
+          const maxDown = Math.max(...actPrices.map(p => Math.abs(p.down || 0)));
+          const maxAct = Math.max(maxUp, maxDown);
+          if (maxAct > 500) {
+            const product = maxDown > maxUp ? 'mFRR down' : (maxUp > 200 ? 'aFRR up' : 'mFRR up');
+            const price = maxDown > maxUp ? -Math.round(maxDown) : Math.round(maxUp);
+            const extremeEvent = {
+              type: 'activation_extreme',
+              date,
+              price: Math.round(maxAct),
+              signed_price: price,
+              product,
+              timestamp: new Date().toISOString(),
+              text: `${product} activation cleared at €${price.toLocaleString()}/MWh`,
+            };
+            await env.KKME_SIGNALS.put('extreme:latest', JSON.stringify(extremeEvent), { expirationTtl: 7 * 86400 });
+            console.log(`[Trading/extreme] ${extremeEvent.text}`);
+          }
+        }
+      } catch (e) { console.warn('[Trading/extreme] detection failed:', e.message); }
+
       // ── Update rolling dispatch metrics ──
       try {
         const metrics_raw = await env.KKME_SIGNALS.get('trading:metrics');
@@ -6226,6 +6276,24 @@ export default {
         },
         data: rows,
       });
+    }
+
+    // ── GET /extreme/latest ─────────────────────────────────────────────────
+    // Returns the most recent extreme market event (DA spike or activation extreme).
+    if (request.method === 'GET' && url.pathname === '/extreme/latest') {
+      const raw = await env.KKME_SIGNALS.get('extreme:latest').catch(() => null);
+      return jsonResp(raw ? JSON.parse(raw) : null);
+    }
+
+    // ── POST /extreme/seed — seed an extreme event (requires update secret) ──
+    if (request.method === 'POST' && url.pathname === '/extreme/seed') {
+      const secret = request.headers.get('X-Update-Secret');
+      if (secret !== env.UPDATE_SECRET) return jsonResp({ error: 'unauthorized' }, 401);
+      const body = await request.json();
+      if (!body.type || !body.text) return jsonResp({ error: 'type and text required' }, 400);
+      body.timestamp = body.timestamp || new Date().toISOString();
+      await env.KKME_SIGNALS.put('extreme:latest', JSON.stringify(body), { expirationTtl: 7 * 86400 });
+      return jsonResp({ ok: true, event: body });
     }
 
     // ── GET /health ──────────────────────────────────────────────────────────
@@ -6456,9 +6524,10 @@ export default {
     // ── GET /read ────────────────────────────────────────────────────────────
     // da_tomorrow is now embedded in computeS1() and stored in the s1 KV key directly
     if (request.method === 'GET' && url.pathname === '/read') {
-      const [s1Raw, capRaw] = await Promise.all([
+      const [s1Raw, capRaw, extremeRaw] = await Promise.all([
         env.KKME_SIGNALS.get('s1'),
         env.KKME_SIGNALS.get('s1_capture'),
+        env.KKME_SIGNALS.get('extreme:latest').catch(() => null),
       ]);
       if (!s1Raw) return jsonResp({ error: 'not yet populated' }, 404);
       const s1 = JSON.parse(s1Raw);
@@ -6477,6 +6546,10 @@ export default {
             data_class: 'derived',
           };
         } catch { /* ignore parse errors */ }
+      }
+      // Attach extreme event if recent
+      if (extremeRaw) {
+        try { s1.extreme_event = JSON.parse(extremeRaw); } catch { /* ignore */ }
       }
       return new Response(JSON.stringify(s1), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=300', ...CORS } });
     }

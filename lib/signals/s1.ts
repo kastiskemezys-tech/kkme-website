@@ -59,6 +59,18 @@ export interface S1Signal {
     source:       string;
     data_class:   string;
   } | null;
+  // Extreme market event (DA spike or activation extreme) — 7-day TTL
+  extreme_event?: {
+    type: string;
+    date: string;
+    text: string;
+    timestamp: string;
+    max_price?: number;
+    min_price?: number;
+    spread?: number;
+    price?: number;
+    product?: string;
+  } | null;
 }
 
 export interface CaptureRolling {

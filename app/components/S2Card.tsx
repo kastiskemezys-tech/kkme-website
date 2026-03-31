@@ -133,9 +133,23 @@ interface S2Signal {
   product_sd?: Record<string, ProductSd> | null;
   activation?: ActivationData | null;
   capacity_monthly?: CapacityMonth[] | null;
+  extreme_event?: {
+    type: string;
+    date: string;
+    text: string;
+    timestamp: string;
+    price?: number;
+    product?: string;
+  } | null;
 }
 
 // -- Helpers ------------------------------------------------------------------
+
+function isRecent(timestamp: string, maxHours: number): boolean {
+  try {
+    return (Date.now() - new Date(timestamp).getTime()) / 3600000 < maxHours;
+  } catch { return false; }
+}
 
 
 
@@ -293,7 +307,7 @@ export function S2Card() {
           onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-secondary)')}
           onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-tertiary)')}
         >
-          Baltic BESS market
+          Baltic balancing market
         </h3>
         <p style={{
           fontFamily: 'var(--font-serif)',
@@ -301,7 +315,7 @@ export function S2Card() {
           color: 'var(--text-secondary)',
           lineHeight: 1.6,
         }}>
-          Activation clearing and capacity reservation in Baltic balancing markets.
+          Clearing prices and capacity reservation in Baltic balancing markets.
         </p>
       </div>
 
@@ -319,7 +333,7 @@ export function S2Card() {
             alignItems: 'center',
             gap: '8px',
           }}>
-            Activation clearing prices {'\u00b7'} Lithuania
+            Balancing clearing prices {'\u00b7'} Lithuania
             <DataClassBadge dataClass="observed" />
           </div>
           <div style={{
@@ -625,6 +639,26 @@ export function S2Card() {
 
       {/* -- SIGNAL INTEL -- */}
       <SignalIntel signalId="S2" />
+
+      {/* -- EXTREME EVENT CALLOUT -- */}
+      {data.extreme_event && isRecent(data.extreme_event.timestamp, 48) && (
+        <div style={{
+          borderLeft: '2px solid var(--amber)',
+          background: 'var(--bg-elevated)',
+          padding: '6px 12px',
+          borderRadius: '0 4px 4px 0',
+          fontFamily: 'var(--font-mono)',
+          fontSize: 'var(--font-xs)',
+          color: 'var(--text-secondary)',
+          marginBottom: '12px',
+          lineHeight: 1.5,
+        }}>
+          <span style={{ color: 'var(--text-muted)', marginRight: '8px' }}>
+            {data.extreme_event.date}
+          </span>
+          {data.extreme_event.text}
+        </div>
+      )}
 
       {/* Spacer pushes footer to bottom when card stretches */}
       <div style={{ flex: 1 }} />
