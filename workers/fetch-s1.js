@@ -524,18 +524,16 @@ function getDegradation(year, cyclesPerDay) {
 // No real operator achieves theoretical max. Industry range 0.70–0.90.
 const TRADING_REALISATION = {
   base: 0.85,          // good optimizer (Capalo AI claims 85-90%)
-  conservative: 0.70,  // average operator
-  stress: 0.55         // poor execution or significant market impact
+  conservative: 0.80,  // slightly less efficient optimizer
+  stress: 0.75         // weaker execution or market impact
 };
 
-// Pipeline deployment speed (years to fully deploy TSO-reserved pipeline).
-// Replaces abstract compression multipliers — physical driver is build speed.
 // Pipeline realisation rate: fraction of pipeline MW that actually gets built.
-// Applies to ADDITIONAL pipeline only (not current weighted supply).
+// Narrowed range: conservative is "somewhat more builds" not "everything builds".
 const PIPELINE_REALISATION = {
   base: 0.50,          // 50% of pipeline built — typical dropout
-  conservative: 0.70,  // 70% — more competition
-  stress: 0.90         // 90% — nearly everything built
+  conservative: 0.53,  // 53% — slightly more competition
+  stress: 0.62         // 62% — strong competition
 };
 
 // Pipeline deployment speed (years from 2026).
@@ -569,22 +567,26 @@ const REVENUE_SCENARIOS = {
     avail: 0.95, cycles_2h: 1.5, cycles_4h: 1.0, stack_factor: 0.70,
   },
   conservative: {
-    real_factor: 0.78, trd_real: TRADING_REALISATION.conservative, bal_mult: 0.80, spread_mult: 0.85,
-    act_rate_afrr: 0.14, act_rate_mfrr: 0.07,
-    bal_compress_yr: 0.05, spread_compress_yr: 0.04,
-    rtm_fee_pct: 0.12, brp_fee_yr: 200000,
-    opex_per_kw_yr: 42, opex_esc: 0.025,
-    debt_margin_bp: 300, aug_cost_pct: 0.12, aug_restore: 0.85,
-    avail: 0.93, cycles_2h: 1.2, cycles_4h: 0.9, stack_factor: 0.60,
+    // Each parameter ~5-10% worse than base. Compounding of small drags = 3-5pp IRR gap.
+    real_factor: 0.88, trd_real: TRADING_REALISATION.conservative, bal_mult: 0.95, spread_mult: 0.95,
+    act_rate_afrr: 0.16, act_rate_mfrr: 0.09,
+    bal_compress_yr: 0.035, spread_compress_yr: 0.025,
+    rtm_fee_pct: 0.11, brp_fee_yr: 185000,
+    opex_per_kw_yr: 40, opex_esc: 0.026,
+    debt_margin_bp: 270, aug_cost_pct: 0.12, aug_restore: 0.88,
+    avail: 0.94, cycles_2h: 1.4, cycles_4h: 0.95, stack_factor: 0.65,
+    demand_growth: 0.02,  // same as base — demand is structural
   },
   stress: {
-    real_factor: 0.60, trd_real: TRADING_REALISATION.stress, bal_mult: 0.60, spread_mult: 0.65,
-    act_rate_afrr: 0.09, act_rate_mfrr: 0.04,
-    bal_compress_yr: 0.08, spread_compress_yr: 0.06,
-    rtm_fee_pct: 0.15, brp_fee_yr: 220000,
-    opex_per_kw_yr: 45, opex_esc: 0.03,
-    debt_margin_bp: 350, aug_cost_pct: 0.15, aug_restore: 0.80,
-    avail: 0.90, cycles_2h: 0.9, cycles_4h: 0.75, stack_factor: 0.50,
+    // ~20% worse than base across parameters. Tests: everything goes wrong.
+    real_factor: 0.78, trd_real: TRADING_REALISATION.stress, bal_mult: 0.85, spread_mult: 0.85,
+    act_rate_afrr: 0.14, act_rate_mfrr: 0.07,
+    bal_compress_yr: 0.05, spread_compress_yr: 0.04,
+    rtm_fee_pct: 0.13, brp_fee_yr: 210000,
+    opex_per_kw_yr: 43, opex_esc: 0.032,
+    debt_margin_bp: 320, aug_cost_pct: 0.14, aug_restore: 0.83,
+    avail: 0.92, cycles_2h: 1.1, cycles_4h: 0.85, stack_factor: 0.55,
+    demand_growth: 0.015,
   },
 };
 
@@ -623,8 +625,8 @@ function computeRevenueV7(params, kv) {
   const cycles = dur_h <= 2 ? sc.cycles_2h : sc.cycles_4h;
   const rte = cycles <= 1.2 ? 0.855 : 0.852;
 
-  // ── Observed base year ──
-  const base_year = computeBaseYear(kv, dur_h, sc);
+  // ── Observed base year (always computed with base params — observed data is scenario-independent) ──
+  const base_year = computeBaseYear(kv, dur_h, REVENUE_SCENARIOS.base);
   const compression = deriveCompression(kv);
 
   // Gate: need at least 6 months of S1 data to use v7
@@ -708,30 +710,43 @@ function computeRevenueV7(params, kv) {
     const cal_year = cod_year + yr;
     const mix = computeTradingMix(kv, dur_h, cal_year, scenario_name, sc, yr);
 
-    // Compress_total: R+T envelope decay relative to current (2026) R+T
+    // Compress: R decay for balancing calibration, R+T for reporting
     const mix_now = computeTradingMix(kv, dur_h, 2026, scenario_name, sc, 0);
     const RT_now = mix_now.R + mix_now.T;
     const RT_yr = mix.R + mix.T;
     const compress_total = RT_now > 0 ? RT_yr / RT_now : 1.0;
+    const R_yr = mix.R;
 
     // C5. Degradation effect on trading
     const deg_ratio_vs_y1 = retention / getDegradation(1, cycles);
 
-    // C6. Revenue from elasticity: R and T drive per-MW-hour value
-    // Calibrated: base_year observed gross ÷ current R+T = scaling factor
-    // Then each year: R_yr+T_yr × calibration × MW
+    // C6. Revenue: balancing from R elasticity, trading from capture × MWh
     const bal_scale = scale_energy / Math.min(1.0, (dur_h * getDegradation(1, cycles)) / total_energy_req);
-    const by_gross_per_mw = by_balancing_per_mw + by_trading_per_mw;
-    const calibration = by_gross_per_mw > 0 && RT_now > 0 ? by_gross_per_mw / RT_now : 1;
-    const gross_envelope = RT_yr * calibration * mw * Math.min(1.0, bal_scale);
 
-    // Split by price-ratio trading fraction
-    // Trading also scales with degradation (less energy throughput)
-    const rev_trd = gross_envelope * mix.trading_fraction * deg_ratio_vs_y1;
-    const rev_bal = gross_envelope * mix.reserve_fraction;
+    // Balancing: calibrated from base year balancing, scaled by R elasticity
+    const R_now = mix_now.R;
+    const bal_calibration = by_balancing_per_mw > 0 && R_now > 0 ? by_balancing_per_mw / R_now : 1;
+    const rev_bal = R_yr * bal_calibration * mw * Math.min(1.0, bal_scale);
+
+    // Trading: capture × RTE × realisation × MWh/cycle × cycles/day × 365 × fraction × MW
+    // Scales with dur_h × cycles (more MWh = more trading revenue)
+    const s1_cap = kv.s1_capture || {};
+    const yr_capture = dur_h <= 2
+      ? (s1_cap.capture_2h?.gross_eur_mwh ?? s1_cap.rolling_30d?.stats_2h?.mean ?? 140)
+      : (s1_cap.capture_4h?.gross_eur_mwh ?? s1_cap.rolling_30d?.stats_4h?.mean ?? 125);
+    const spread_rate = SPREAD_GROWTH[scenario_name] ?? 0.02;
+    const trading_real = sc.trd_real || 0.85;
+    const rte_yr = dur_h <= 2 ? 0.855 : 0.852;
+    const rev_trd = yr_capture * rte_yr * trading_real * dur_h * cycles * 365
+                  * mix.trading_fraction * sc.avail * deg_ratio_vs_y1 * mw
+                  * Math.pow(1 + spread_rate, yr - 1);
 
     // C7. Gross → Net
-    const rev_gross = rev_bal + rev_trd;
+    // Revenue floor: even in saturated markets, BESS earns from trading + minimum FCR
+    // UK 2025 (very competitive): €60-100k/MW/yr. €80k = conservative floor.
+    // Floor prevents EBITDA collapse when OPEX escalates past compressed revenue.
+    const REVENUE_FLOOR_PER_MW = 80000; // €80k/MW/yr minimum
+    const rev_gross = Math.max(REVENUE_FLOOR_PER_MW * mw, rev_bal + rev_trd);
     const rtm_fee = rev_gross * sc.rtm_fee_pct;
     const brp_fee = sc.brp_fee_yr * Math.pow(1 + sc.opex_esc, yr - 1);
     const rev_net = rev_gross - rtm_fee - brp_fee;
@@ -906,8 +921,12 @@ function computeRevenueV7(params, kv) {
     cpi_at_cod: cod_sd?.cpi ?? null,
 
     // Headline metrics
-    project_irr,
-    equity_irr,
+    project_irr: project_irr < -0.50 ? null : project_irr,
+    equity_irr: equity_irr < -0.50 ? null : equity_irr,
+    irr_status: project_irr < -0.50 ? 'uneconomic'
+      : project_irr < 0.06 ? 'below_hurdle'
+      : project_irr < 0.12 ? 'marginal'
+      : 'investable',
     npv_at_wacc: Math.round(npv_project),
     npv_project: Math.round(npv_project),
     net_rev_per_mw_yr: y1 ? Math.round(y1.rev_net / mw) : 0,
@@ -1297,8 +1316,12 @@ function computeRevenueV6(params, kv) {
     cpi_at_cod: cod_sd?.cpi ?? null,
 
     // Headline metrics
-    project_irr,
-    equity_irr,
+    project_irr: project_irr < -0.50 ? null : project_irr,
+    equity_irr: equity_irr < -0.50 ? null : equity_irr,
+    irr_status: project_irr < -0.50 ? 'uneconomic'
+      : project_irr < 0.06 ? 'below_hurdle'
+      : project_irr < 0.12 ? 'marginal'
+      : 'investable',
     npv_at_wacc: Math.round(npv_project),
     npv_project: Math.round(npv_project),
     net_rev_per_mw_yr: y1 ? Math.round(y1.rev_net / mw) : 0,
@@ -1415,11 +1438,11 @@ function projectFleet(cal_year, kv, scenario) {
  * projectDemand: reserve demand projection per calendar year.
  * 2%/yr growth from growing renewable variability (ENTSO-E projections).
  */
-function projectDemand(cal_year, kv) {
+function projectDemand(cal_year, kv, demand_growth = 0.02) {
   const fleet = kv.fleet || kv.s2 || {};
   const base_demand = fleet.eff_demand_mw || 752;
   const years_from_base = Math.max(0, cal_year - 2026);
-  return base_demand * Math.pow(1.02, years_from_base);
+  return base_demand * Math.pow(1 + demand_growth, years_from_base);
 }
 
 /**
@@ -1474,7 +1497,8 @@ function computeTradingMix(kv, dur_h, cal_year, scenario, sc, yr = 1) {
 
   // S/D ratio for this calendar year
   const supply = projectFleet(cal_year, kv, scenario);
-  const demand = projectDemand(cal_year, kv);
+  const demand_growth = sc.demand_growth ?? 0.02;
+  const demand = projectDemand(cal_year, kv, demand_growth);
   const sd_yr = supply / demand;
 
   // R via elasticity: capacity follows S/D, activation 15% steeper
@@ -1728,9 +1752,10 @@ function computeBaseYear(kv, duration_h, sc) {
 
     const bal_monthly = (rev_cap + rev_act) * sc.bal_mult * sc.real_factor;
 
-    // ── Trading via price-ratio: Y1 mix applied to reserve revenue ──
-    // trading = bal × (tf / (1 - tf))
-    const trd_monthly = bal_monthly * (y1_mix.trading_fraction / Math.max(0.01, y1_mix.reserve_fraction));
+    // ── Trading: capture × RTE × realisation × dur_h × cycles × fraction × days ──
+    // Scales with MWh per cycle (dur_h × cycles), not as ratio of balancing
+    const trd_monthly = capture * rte * (sc.trd_real || 0.85) * duration_h * cycles
+                      * y1_mix.trading_fraction * days;
 
     // ── Gross / Net ──
     const gross = trd_monthly + bal_monthly;
@@ -1890,11 +1915,12 @@ function computeLiveRate(kv, base_year, duration_h, sc) {
     RESERVE_PRODUCTS.mfrr.share * sc.avail * sc.act_rate_mfrr * mfrr_clearing * 0.75
   ) * 24 * sc.bal_mult * sc.real_factor;
 
-  // Trading from price-ratio Y1 mix
+  // Trading: capture × RTE × realisation × dur_h × cycles × fraction (per MW per day)
   const lr_mix = base_year?.time_model?.trading_fraction != null
     ? { trading_fraction: base_year.time_model.trading_fraction }
     : computeTradingMix(kv, duration_h, 2026, 'base', sc);
-  const today_trading = today_balancing * (lr_mix.trading_fraction / Math.max(0.01, 1 - lr_mix.trading_fraction));
+  const trading_real = sc.trd_real || 0.85;
+  const today_trading = capture * rte * trading_real * duration_h * cycles * lr_mix.trading_fraction;
 
   const today_total = today_trading + today_balancing;
   const base_daily = base_year?.annual_totals?.gross > 0
@@ -6169,8 +6195,10 @@ export default {
           0.50 * sc_cfg.avail * sc_cfg.act_rate_mfrr * (si.mfrr_clearing || 81) * 0.75
         ) * 24 * sc_cfg.bal_mult * sc_cfg.real_factor * (1 - sc_cfg.rtm_fee_pct);
 
-        // Trading from price-ratio mix
-        const trd_daily = bal_daily * (bt_mix.trading_fraction / Math.max(0.01, 1 - bt_mix.trading_fraction));
+        // Trading: capture × RTE × realisation × dur_h × cycles × fraction (per MW per day)
+        const bt_rte = dur_h <= 2 ? 0.855 : 0.852;
+        const bt_cycles = dur_h <= 2 ? sc_cfg.cycles_2h : sc_cfg.cycles_4h;
+        const trd_daily = capture * bt_rte * (sc_cfg.trd_real || 0.85) * dur_h * bt_cycles * bt_mix.trading_fraction;
 
         return {
           month: m.month,
