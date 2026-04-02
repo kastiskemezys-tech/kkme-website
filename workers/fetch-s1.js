@@ -551,7 +551,7 @@ const SPREAD_GROWTH = {
 
 // Intraday uplift: real operators trade DA + intraday auction + continuous.
 // Modo Energy: 35% uplift from intraday vs DA-only. 1.25 = conservative.
-const INTRADAY_UPLIFT = 1.25;
+const INTRADAY_UPLIFT = 1.0; // disabled — S1 capture already at 15-min ISP resolution
 
 // LEGACY — kept for deriveCompression consumers that still read comp_mult
 const COMPRESSION_SCENARIO_MULT = {
@@ -706,10 +706,10 @@ function computeRevenueV7(params, kv) {
 
     // C4. S/D elasticity mix model: R from reserve price curve, T flat/gentle
     const cal_year = cod_year + yr;
-    const mix = computeTradingMix(kv, dur_h, cal_year, scenario_name, sc);
+    const mix = computeTradingMix(kv, dur_h, cal_year, scenario_name, sc, yr);
 
     // Compress_total: R+T envelope decay relative to current (2026) R+T
-    const mix_now = computeTradingMix(kv, dur_h, 2026, scenario_name, sc);
+    const mix_now = computeTradingMix(kv, dur_h, 2026, scenario_name, sc, 0);
     const RT_now = mix_now.R + mix_now.T;
     const RT_yr = mix.R + mix.T;
     const compress_total = RT_now > 0 ? RT_yr / RT_now : 1.0;
@@ -797,6 +797,7 @@ function computeRevenueV7(params, kv) {
       rev_bal: Math.round(rev_bal), rev_trd: Math.round(rev_trd),
       rev_gross: Math.round(rev_gross),
       trading_fraction: Math.round(mix.trading_fraction * 1000) / 1000,
+      switching_friction: mix.switching_friction,
       sd_ratio: mix.sd_ratio,
       R: mix.R, T: mix.T, price_ratio: mix.price_ratio,
       rtm_fee: Math.round(rtm_fee), brp_fee: Math.round(brp_fee),
@@ -954,7 +955,7 @@ function computeRevenueV7(params, kv) {
       demand_mw: fleet?.eff_demand_mw ?? 752,
       pipeline_realisation: PIPELINE_REALISATION[scenario_name],
       intraday_uplift: INTRADAY_UPLIFT,
-      switching_friction: 0.75,
+      switching_friction: { immature: FRICTION_IMMATURE, mature: FRICTION_MATURE, maturity_years: MATURITY_YEARS },
       spread_growth: SPREAD_GROWTH[scenario_name] ?? 0.02,
       source: fleet ? 'live_s4_fleet' : 'fallback',
     },
@@ -1431,10 +1432,21 @@ function projectDemand(cal_year, kv) {
  *
  * One tunable: switching_friction (0.75). Everything else from signals.
  */
-function computeTradingMix(kv, dur_h, cal_year, scenario, sc) {
+// Dynamic switching friction: grows from immature to mature over 7 project years.
+// Reflects: optimizer learning, intraday liquidity deepening, Baltic market maturation.
+const FRICTION_IMMATURE = 0.45;  // Baltic 2026-2027: thin intraday, new BBCM
+const FRICTION_MATURE = 0.75;    // Baltic 2033+: deep intraday, experienced optimizers
+const MATURITY_YEARS = 7;        // years to reach mature friction
+
+function switchingFriction(yr) {
+  const progress = Math.min(1.0, Math.max(0, yr - 1) / MATURITY_YEARS);
+  return Math.round((FRICTION_IMMATURE + (FRICTION_MATURE - FRICTION_IMMATURE) * progress) * 1000) / 1000;
+}
+
+function computeTradingMix(kv, dur_h, cal_year, scenario, sc, yr = 1) {
   const rte = 0.855;
   const trading_real = sc.trd_real || 0.85;
-  const switching_friction = 0.75;
+  const friction = switchingFriction(yr);
 
   const s2 = kv.s2 || {};
   const act = kv.s2_activation_parsed || {};
@@ -1452,13 +1464,13 @@ function computeTradingMix(kv, dur_h, cal_year, scenario, sc) {
                    + mfrr_share * sc.act_rate_mfrr * mfrr_clearing * 0.75;
   const R_base = R_cap_base + R_act_base;
 
-  // T base: trading value per MW-hour × intraday uplift
+  // T base: trading value per MW-hour (used for trade-vs-reserve ratio only)
   // DA capture × RTE × realisation / (2×dur_h) = per MW-hour value from DA
-  // × INTRADAY_UPLIFT (1.25) = DA + intraday auction + continuous
+  // INTRADAY_UPLIFT removed — it applies to REVENUE, not the trade-vs-reserve decision
   const s1_capture = dur_h <= 2
     ? (s1_cap.capture_2h?.gross_eur_mwh ?? s1_cap.rolling_30d?.stats_2h?.mean ?? 140)
     : (s1_cap.capture_4h?.gross_eur_mwh ?? s1_cap.rolling_30d?.stats_4h?.mean ?? 125);
-  const T_base = s1_capture * rte * trading_real / (2 * dur_h) * INTRADAY_UPLIFT;
+  const T_base = s1_capture * rte * trading_real / (2 * dur_h);
 
   // S/D ratio for this calendar year
   const supply = projectFleet(cal_year, kv, scenario);
@@ -1477,11 +1489,12 @@ function computeTradingMix(kv, dur_h, cal_year, scenario, sc) {
   const T_yr = Math.max(T_floor, T_base * Math.pow(1 + spread_rate, years_from_now));
 
   const raw = T_yr / (T_yr + R_yr);
-  const tf = Math.min(0.70, raw * switching_friction);
+  const tf = Math.min(0.70, raw * friction);
 
   return {
     trading_fraction: tf,
     reserve_fraction: 1 - tf,
+    switching_friction: friction,
     R: Math.round(R_yr * 100) / 100,
     T: Math.round(T_yr * 100) / 100,
     price_ratio: R_yr > 0 ? Math.round((T_yr / R_yr) * 1000) / 1000 : 99,
@@ -1716,7 +1729,7 @@ function computeBaseYear(kv, duration_h, sc) {
     const bal_monthly = (rev_cap + rev_act) * sc.bal_mult * sc.real_factor;
 
     // ── Trading via price-ratio: Y1 mix applied to reserve revenue ──
-    // trading = bal × (tf / (1 - tf)) so gross = bal + trading = bal / (1 - tf)
+    // trading = bal × (tf / (1 - tf))
     const trd_monthly = bal_monthly * (y1_mix.trading_fraction / Math.max(0.01, y1_mix.reserve_fraction));
 
     // ── Gross / Net ──
