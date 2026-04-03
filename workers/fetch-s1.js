@@ -725,13 +725,15 @@ function computeRevenueV7(params, kv) {
     // C6. Revenue: balancing from R elasticity, trading from capture × MWh
     const bal_scale = scale_energy / Math.min(1.0, (dur_h * getDegradation(1, cycles)) / total_energy_req);
 
-    // Balancing: calibrated from base year balancing, scaled by R elasticity
+    // Balancing: split into capacity (follows R) and activation (additional S/D compression)
     const R_now = mix_now.R;
     const bal_calibration = by_balancing_per_mw > 0 && R_now > 0 ? by_balancing_per_mw / R_now : 1;
-    const rev_bal = R_yr * bal_calibration * mw * Math.min(1.0, bal_scale);
+    const rev_bal_raw = R_yr * bal_calibration * mw * Math.min(1.0, bal_scale);
+    // Capacity (~65%) follows R directly. Activation (~35%) compresses further with fleet.
+    const act_comp = activationCompression(mix.sd_ratio);
+    const rev_bal = rev_bal_raw * (0.65 + 0.35 * act_comp);
 
-    // Trading: capture × RTE × realisation × MWh/cycle × cycles/day × 365 × fraction × MW
-    // Scales with dur_h × cycles (more MWh = more trading revenue)
+    // Trading: capture × RTE × realisation × MWh × fraction × depth discount
     const s1_cap = kv.s1_capture || {};
     const yr_capture = dur_h <= 2
       ? (s1_cap.capture_2h?.gross_eur_mwh ?? s1_cap.rolling_30d?.stats_2h?.mean ?? 140)
@@ -739,15 +741,15 @@ function computeRevenueV7(params, kv) {
     const spread_rate = SPREAD_GROWTH[scenario_name] ?? 0.02;
     const trading_real = sc.trd_real || 0.85;
     const rte_yr = dur_h <= 2 ? 0.855 : 0.852;
-    const rev_trd = yr_capture * rte_yr * trading_real * dur_h * cycles * 365
+    const depth = marketDepthFactor(mix.sd_ratio);
+    const rev_trd = yr_capture * depth * rte_yr * trading_real * dur_h * cycles * 365
                   * mix.trading_fraction * sc.avail * deg_ratio_vs_y1 * mw
                   * Math.pow(1 + spread_rate, yr - 1);
 
     // C7. Gross → Net
     // Revenue floor: even in saturated markets, BESS earns from trading + minimum FCR
-    // UK 2025 (very competitive): €60-100k/MW/yr. €80k = conservative floor.
-    // Floor prevents EBITDA collapse when OPEX escalates past compressed revenue.
-    const REVENUE_FLOOR_PER_MW = 80000; // €80k/MW/yr minimum
+    // UK FFR at peak saturation: £40-60k/MW/yr. €50k = realistic floor.
+    const REVENUE_FLOOR_PER_MW = 50000; // €50k/MW/yr minimum
     const rev_gross = Math.max(REVENUE_FLOOR_PER_MW * mw, rev_bal + rev_trd);
     const rtm_fee = rev_gross * sc.rtm_fee_pct;
     const brp_fee = sc.brp_fee_yr * Math.pow(1 + sc.opex_esc, yr - 1);
@@ -818,6 +820,8 @@ function computeRevenueV7(params, kv) {
       sd_ratio: mix.sd_ratio,
       R: mix.R, T: mix.T, price_ratio: mix.price_ratio,
       spread_growth_eff: mix.spread_growth_eff, r_proximity: mix.r_proximity,
+      market_depth: Math.round(depth * 1000) / 1000,
+      activation_compression: Math.round(act_comp * 1000) / 1000,
       rtm_fee: Math.round(rtm_fee), brp_fee: Math.round(brp_fee),
       rev_net: Math.round(rev_net),
       opex: Math.round(opex), ebitda: Math.round(ebitda),
@@ -1392,10 +1396,25 @@ function computeRevenueV6(params, kv) {
  * floor_fraction = 0.12 (€3.25/MW/h on €27 base — empirical from UK/DE/Nordic).
  */
 function reservePrice(sd_ratio, base_price) {
-  const floor_fraction = 0.12;
-  const x = sd_ratio - 1.0;  // normalise: x=0 at S/D=1.0
+  // floor_fraction = 0.06 → ~€1.5/MW/h on €24 base (UK FFR at S/D ~2.5: £1-2)
+  const floor_fraction = 0.06;
+  const x = sd_ratio - 1.0;
   const decay = 1 / (1 + Math.exp(5.0 * (x - 0.7)));
   return base_price * (floor_fraction + (1 - floor_fraction) * decay);
+}
+
+// Market depth: more BESS chasing same DA spreads → less capture per battery
+function marketDepthFactor(sd_ratio) {
+  const excess = Math.max(0, sd_ratio - 0.8);
+  return 1.0 / (1.0 + 0.25 * excess);
+}
+
+// Activation compression: more fleet → lower clearing + less volume per unit
+// Starts at S/D 1.5 (before that, fleet is still scarce relative to demand)
+function activationCompression(sd_ratio) {
+  if (sd_ratio <= 1.5) return 1.0;
+  const excess = sd_ratio - 1.5;
+  return 1.0 / (1.0 + 0.5 * excess);
 }
 
 /**
@@ -1512,7 +1531,7 @@ function computeTradingMix(kv, dur_h, cal_year, scenario, sc, yr = 1, T_prev = n
   // When reserves hit floor (saturated market): spread growth stops.
   const spread_rate = SPREAD_GROWTH[scenario] ?? 0.02;
   const T_floor = 5.0;
-  const R_floor = R_base * 0.12; // matches reservePrice floor_fraction
+  const R_floor = R_base * 0.06; // matches reservePrice floor_fraction
   const r_proximity = R_base > R_floor
     ? Math.max(0, Math.min(1, (R_yr - R_floor) / (R_base - R_floor)))
     : 0;
