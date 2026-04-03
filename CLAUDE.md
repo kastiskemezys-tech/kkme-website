@@ -262,27 +262,48 @@ DC news feed was REMOVED from S5. Never re-add.
 Nordic Hydro demoted from primary card. Use in details or behind scenes only.
 No giant equity IRR as hero number. Project IRR and EBITDA/MW are primary. Equity IRR is secondary/demoted.
 
-## Key model assumptions (for Reference Asset section)
+## Revenue Engine (v7.2 — current)
 
-These are the defaults. Changing any requires updating computeRevenue() in the worker.
-MW allocation: scales proportionally (16% FCR, 34% aFRR, 50% mFRR of grid cap)
-Capacity prices: FCR €45, aFRR €40, mFRR €22 /MW/h (Baltic-calibrated, ⚠ PROXY until BTD)
-  Source: AST Latvia Sept 2025 — Baltic FCR ~2× Finland, aFRR ~10× Finland, mFRR ~4× Finland.
-  These represent S/D = 1.0 (balanced market). CPI adjusts for actual S/D phase.
-Activation: aFRR 18% rate × 0.55 depth × €40 margin, mFRR 10% × 0.75 × €55
-Arbitrage: P_high €120, P_low €55, RTE 0.87, reserve drag 0.60, 0.9 cycles/day, 300 days/yr
-OPEX: €39k/MW/yr Y1 (scales with MW), 2.5% escalation
-CAPEX scenarios: €120/kWh competitive, €164/kWh CH S1 2025, €262/kWh turnkey EPC
-Financing: 55% debt, 4.5% rate, 8yr tenor, 1yr grace
-Tax: 17% Lithuanian CIT (from Jan 2026)
-Augmentation: €25/kWh at year 10 (scales with MWh)
-Depreciation: 10yr on gross CAPEX excl bond
-WACC: 8%
-Demand: 1190 MW effective (1700 MW total × 0.70 multi-product stacking, Elering Oct 2025)
-S/D thresholds: <0.6 SCARCITY, 0.6-1.0 COMPRESS, >1.0 MATURE
-CPI floor: 0.40 (Baltic structural reserve need ensures non-zero clearing)
-These match BESS_Financial_Model_Visaginas_50MW__5_.xlsx (v5, corrected March 2026).
-Expected outputs: Project IRR ~19%, Equity IRR ~29%, DSCR ~2.0×, Y1 Net/MW ~€177k.
+Model: computeRevenueV7 in workers/fetch-s1.js. Self-fetching RevenueCard.tsx (no props from page.tsx).
+Base year: trailing 12 months observed S1 DA capture + S2 BTD activation data.
+Forward: 20-year projection via S/D elasticity model.
+
+### Elasticity model
+- reservePrice(sd_ratio, base_price): sigmoid with floor_fraction=0.06, steepness=5.0, knee at S/D=1.7
+- R_floor ≈ €1.5/MW/h on €24 base (~6% of base). At S/D 2.0: R≈€4. At S/D 3.0: R≈€2.
+- T (trading value per MW-hour): self-limiting growth via R-proximity. When R near floor, T growth → 0.
+- Switching friction: constant 0.75 (was dynamic ramp 0.45→0.75; removed — base year already reflects maturity).
+- INTRADAY_UPLIFT: disabled (1.0). S1 capture at 15-min ISP already captures intraday.
+- marketDepthFactor(sd_ratio): 1/(1+0.25×excess) — more BESS = less DA capture per battery.
+- activationCompression(sd_ratio): starts at S/D>1.5, 1/(1+0.5×excess) — fleet competition crushes clearing.
+
+### Scenario parameters
+Pipeline realisation: base 0.50 / conservative 0.53 / stress 0.62
+Spread growth: 2% / 0% / -1% per year
+Trading realisation: 0.85 / 0.80 / 0.75
+OPEX escalation: 2.5% / 2.6% / 3.2%
+Demand growth: 2% / 2% / 1.5%
+Revenue floor: €50k/MW/yr minimum (even in saturated markets)
+Base year always uses base scenario params (observed data is scenario-independent).
+
+### Financing
+55% debt, Euribor + 250bp margin, 8yr tenor, 1yr grace
+CAPEX scenarios: €120/kWh (competitive), €164/kWh (CH S1 2025), €262/kWh (turnkey EPC)
+Tax: 17% Lithuanian CIT. Depreciation: 10yr. WACC: 8%.
+Augmentation: 12% of CAPEX at year 10.
+
+### IRR handling
+project_irr < -50% → null. irr_status: investable (≥12%) / marginal (≥6%) / below_hurdle (≥0%) / uneconomic (<0%).
+
+### Expected outputs (4H/mid/2028/base)
+Project IRR ~6-8%, Y1 Gross/MW ~€150k, trough ~€109k (Y16), recovery ~€123k (Y20).
+4H/low/2027: ~12-13%. 2H/mid/2028: ~19%. Conservative: ~0%. Stress: uneconomic.
+
+### Key fields in /revenue response
+years[]: 20 items, totals for 50MW fleet. Divide by 50 for per-MW.
+base_year.months[]: ALREADY per MW (do NOT divide by 50).
+project_irr: decimal (0.066 = 6.6%). Can be null.
+Each year: market_depth, activation_compression, spread_growth_eff, r_proximity for transparency.
 
 ## The signals
 
@@ -294,12 +315,13 @@ Rename: "BESS capture" → "Battery arbitrage capture"
 Model feeds: Assumptions!D72-D73 (P_high, P_low → arbitrage revenue)
 
 S2 — Baltic Balancing Market [Revenue Opportunity]
-Source: BTD via Mac cron + manual fleet input + BTD CSV upload · KV: s2, s2_fleet, s2_btd
-Returns: aFRR/mFRR/FCR prices, sd_ratio, phase, cpi, trajectory, fleet, prices_source
-Phases: SCARCITY (S/D <0.6, CPI >1.0) · COMPRESS (0.6-1.0) · MATURE (>1.0, CPI floor 0.35)
-Card: S2Card.tsx — S/D ratio hero + plain-language status tag (NOT "COMPRESS") + aFRR/mFRR revenue support + fleet pressure summary (NOT full list) + S/D trend chart + reference-asset impact
-Fleet list moves to collapsible details. Full fleet detail is NOT in the primary card view.
-Model feeds: Assumptions!D46,D50,D54 (capacity prices) · Market Drivers!D19-D21 (S/D, CPI)
+Source: BTD via Mac cron (every 4h) + Worker cron (every 4h, with SSL 526 fallback) · KV: s2, s2_activation, s2_btd_history, s2_rolling_180d
+Returns: aFRR/mFRR/FCR capacity prices, activation clearing (p50), S/D ratio, phase, CPI, trajectory, rolling_180d stats
+Phases: SCARCITY (S/D <0.6) · COMPRESS (0.6-1.0) · MATURE (>1.0)
+Card: S2Card.tsx — activation clearing hero ("aFRR activation clearing · latest") + 180-day avg context + S/D ratio + fleet pressure + S/D trend chart
+Extreme events: expire at midnight UTC (today-only). Worker filters on /s2 response.
+Rolling 180d stats: pushed daily from VPS PostgreSQL via POST /kv/set.
+Model feeds: S/D elasticity drives reserve price compression in revenue engine.
 
 S3 — Project Cost Trend [Cost / Bankability]
 Source: ECB API (Euribor, HICP) + static CAPEX refs · KV: s3
@@ -340,10 +362,12 @@ Source: energy-charts.info (every 4h) · KV: s9, s9_history
 Secondary card in Structural Market Drivers section.
 Model feeds: Market Drivers!D41 (carbon cost → P_high floor)
 
-Reference Asset Returns [Primary synthesis — replaces Revenue Engine]
-Source: computed from s2_fleet, s2_btd, s1 KV data
-Endpoint: GET /revenue?system=2h|2.4h|4h&capex=low|mid|high&grant=none|partial&cod=2027|2028|2029
-Component: ReferenceAssetSection.tsx (or refactored RevenueCard.tsx) — self-fetching, no props from page.tsx
+Reference Asset Returns [Primary synthesis — Revenue Engine v7.2]
+Source: computed from s1_capture, s2_activation, s4_fleet, euribor KV data
+Endpoint: GET /revenue?dur=2h|4h&capex=low|mid|high&cod=2027|2028|2029&scenario=base|conservative|stress
+Component: RevenueCard.tsx (762 lines) — self-fetching, no props from page.tsx
+Charts: revenue structure (Chart.js Line), DSCR bars (Chart.js Bar), sensitivity table (HTML), observed heatmap (HTML)
+Drawer: revenue split, scenario comparison, financing, degradation, data sources
 
 ## Hard DO NOTs
 
@@ -375,21 +399,22 @@ Do not expose private project names, term sheet dates, or confidential commercia
 
 ## Worker endpoints (kkme-fetch-s1.kastis-kemezys.workers.dev)
 
-GET: /s1 /s2 /s3 /s4 /s5 /s6 /s7 /s8 /s9 /read /health /revenue /api/model-inputs /s2/fleet
-POST: /s2/fleet /s2/fleet/entry /s2/btd /s2/update /s4/pipeline /s5/manual /da_tomorrow/update /heartbeat
+GET: /s1 /s2 /s3 /s4 /s5 /s6 /s7 /s8 /s9 /read /health /health-detail /revenue /api/model-inputs /s2/fleet /s4/fleet /s1/capture /history/trailing /extreme/latest /api/trading /api/trading/history /api/trading/latest /feed /feed/events /feed/by-signal /curations /digest /da_tomorrow /euribor
+POST: /s2/fleet /s2/fleet/entry /s2/update /s2/activation /s4/fleet/entry /s4/pipeline /s4/buildability /s5/manual /da_tomorrow/update /heartbeat /kv/set /trading/update /extreme/seed /s3/editorial /contact /curate /feed/clean
 All POST endpoints require X-Update-Secret header or Content-Type: application/json.
 jsonResp() helper handles CORS + JSON serialisation for all responses.
 
 ## KV keys
 
-s1 · s1_history · s2 · s2_fleet · s2_btd · s3 · euribor · s4 · s4_pipeline · s5 · s6 · s6_history · s7 · s7_history · s8 · s9 · s9_history · da_tomorrow · feed_index · cron_heartbeat · digest:cache
+s1 · s1_history · s1_capture · s1_capture_history · s1_trailing_12m · s2 · s2_activation · s2_btd_history · s2_fleet · s2_rolling_180d · s2_trailing_12m · s3 · s3_baseline · s3_editorial · s3_enrichment · s3_freshness · euribor · s4 · s4_fleet · s4_pipeline · s4_buildability · s5 · s5_manual · s6 · s7 · s7_history · s8 · s9 · s9_history · da_tomorrow · da_spread · feed_index · cron_heartbeat · digest:cache · extreme:latest · revenue_trailing · revenue_snapshot_prev · dispatch_observed_30d · capacity_monthly
 
 ## File map
 
 Worker (DO NOT cat entire file — use grep)
-~/kkme/workers/fetch-s1.js (~2600 lines)
+~/kkme/workers/fetch-s1.js (~6900 lines)
 grep -n "^function|pathname.*===" workers/fetch-s1.js | head -60
-Top: jsonResp(), STATUS_WEIGHT, processFleet(), computeRevenue()
+Top: jsonResp(), STATUS_WEIGHT, processFleet(), computeRevenueV7(), computeRevenueV6()
+Key functions: reservePrice(), marketDepthFactor(), activationCompression(), computeTradingMix(), computeBaseYear(), switchingFriction()
 Routing: if (pathname === '/...') in main fetch handler
 
 Frontend
@@ -398,9 +423,9 @@ Frontend
 ~/kkme/app/components/StickyNav.tsx — fixed nav (appears >300px scroll) + ThemeToggle
 ~/kkme/app/components/ThemeToggle.tsx — dark/light theme toggle (client component, sun/moon icons)
 ~/kkme/app/components/MarketSnapshot.tsx — hero market-now KPI card (being rebuilt)
-~/kkme/app/components/RevenueCard.tsx — self-fetching reference asset section (being rebuilt)
+~/kkme/app/components/RevenueCard.tsx — self-fetching reference asset (762 lines, v7.2, Chart.js)
 ~/kkme/app/components/S1Card.tsx — Baltic Price Separation
-~/kkme/app/components/S2Card.tsx — Baltic Balancing Market + Fleet Tracker
+~/kkme/app/components/S2Card.tsx — Baltic Balancing Market (1391 lines, activation clearing hero, rolling 180d)
 ~/kkme/app/components/S3Card.tsx — Project Cost Trend (being rebuilt from BESS Cost Stack)
 ~/kkme/app/components/S4Card.tsx — Grid Access & Buildability
 ~/kkme/app/components/S5Card.tsx — DC Power Viability (demoted)
@@ -410,6 +435,7 @@ Frontend
 ~/kkme/app/components/S9Card.tsx — EU ETS Carbon
 ~/kkme/app/components/IntelFeed.tsx — Market Intelligence board (being rebuilt from Telegram feed)
 ~/kkme/app/lib/useSignal.ts — shared fetch hook with cache layer
+~/kkme/app/lib/chartTheme.ts — useChartColors() hook + CHART_FONT + useTooltipStyle() (ALL chart colors here)
 ~/kkme/lib/signalColor.ts — signal state → var() CSS color mapping (theme-aware)
 
 Data typing
@@ -418,16 +444,29 @@ When adding new fields to a /sN endpoint, also update the interface in the card 
 
 ## Mac cron (~/kkme-cron/) · Secret: kkme-btd-2026
 
-| fetch-btd.js   | 0 */4 * * *  | BTD S2 + Litgrid ordered capacity |
-| fetch-np-da.js | 0 13 * * *   | Nord Pool DA LT+SE4               |
+| fetch-btd.js   | 0 */4 * * *  | BTD S2 + Litgrid ordered capacity + trading dispatch |
 | fetch-vert.js  | 0 6 1 * *    | VERT.lt permits PDF+XLSX          |
+Note: fetch-btd.js uses https.Agent for BTD SSL bypass (Node 24 ignores NODE_TLS_REJECT_UNAUTHORIZED).
+
+## VPS data infrastructure (89.167.124.42)
+
+PostgreSQL tables: s1_isp, s1_daily, s2_isp, s2_daily, revenue_trailing (+ 35 pipeline intelligence tables)
+Daily ingestion: /opt/kkme/app/data/ingest_daily.py at 07:45 UTC
+  - S1 from ENTSO-E A44 (15-min ISPs), S2 from worker /s2 KV
+  - Computes trailing 12m summary, rolling 180d S2 stats
+  - Pushes to KV: s1_capture, revenue_trailing, s2_rolling_180d
+  - Backfill: python3 ingest_daily.py --backfill-from 2025-04-01
+Other crons: kkme_sync.py at 07:00 (fleet sync), daily_intel.py at 07:30 (pipeline intel)
+DB auth: kkme_loader via password (127.0.0.1), postgres via peer (sudo)
+Env: /opt/kkme/config/.env (DATABASE_URL, UPDATE_SECRET, ENTSOE_API_KEY, KKME_API)
 
 ## Infrastructure
 
-Worker: kkme-fetch-s1.kastis-kemezys.workers.dev
+Worker: kkme-fetch-s1.kastis-kemezys.workers.dev (~6900 lines)
 Pages: kkme.eu (auto-deploy from main)
-KV: KKME_SIGNALS (bound as env.KV)
-Secrets: ENTSOE_API_KEY · ANTHROPIC_API_KEY · UPDATE_SECRET · TELEGRAM_BOT_TOKEN · TELEGRAM_CHAT_ID
+KV: KKME_SIGNALS (bound as env.KKME_SIGNALS)
+Secrets: ENTSOE_API_KEY · ANTHROPIC_API_KEY · UPDATE_SECRET · TELEGRAM_BOT_TOKEN · TELEGRAM_CHAT_ID · RESEND_API_KEY
+VPS: 89.167.124.42 (PostgreSQL + pipeline scrapers + daily ingestion)
 Deploy: npx wrangler deploy (worker) is SEPARATE from npm run build (Next.js Pages)
 
 ## SEO / Discoverability (current gaps — address when instructed)
@@ -492,23 +531,19 @@ When a metric's publication gate is INTERNAL_ONLY, do not show it as a hero valu
 16. CPI invariant: MATURE-phase CPI values in trajectory must NOT be identical for consecutive years.
 17. Activation merge invariant: /s2 response activation.lt.afrr_p50 must be a number when s2_activation KV exists.
 
-## Rebuild handover
+## Rebuild handover (reference — most build prompts executed)
 
-Full rebuild architecture docs are in ~/kkme/claude-handover/:
+Architecture docs in ~/kkme/claude-handover/:
 00_MASTER_ARCHITECTURE.md — vision, audience, page narrative, global rules
-01_IMPLEMENTATION_PHASES.md — phased build plan
+01_IMPLEMENTATION_PHASES.md — phased build plan (mostly executed)
 02_DATA_MODEL_RULES.md — data classification (observed/derived/modeled/proxy)
 03_DO_NOTS.md — hard constraints
-KKME_TECHNICAL_HANDOVER.md — current tech state, file map, endpoints, deploy
-KKME_ASSET_SUMMARY.md — full asset inventory (signals, fleet, revenue engine, data quality)
-PACK_1_MARKET_NOW_AND_REVENUE.md — Hero + S1 + S2 rebuild specs
-PACK_2_COMPETITION_AND_BUILDABILITY.md — Market Pressure + Grid Access
-PACK_3_STRUCTURAL_AND_MARKET_REALITY.md — Structural Drivers + Market Design
-PACK_4_COST_AND_REFERENCE_ASSET.md — Cost Trend + Reference Asset Economics
-PACK_5_CONTEXT_AND_CONVERSION.md — Europe Map + Intel Board + Closing CTA
-PIPELINE_DATA_MAP.md — maps Hetzner scraper pipeline to website sections (S2 fleet 8→145+, S4 grid enrichment, intel auto-generation)
-PIPELINE_ADMIN_PROMPT.md — spec for future VPS API + admin panel (separate workstream, build after main rebuild)
-images/screenshot_01-11.png — current state reference screenshots
+FREE_TOOL_PRODUCT_PRINCIPLES.md — decision filter for new features
+KKME_ASSET_SUMMARY.md — full asset inventory
+PACK_1-5 — section-by-section rebuild specs (reference, not active build prompts)
+PIPELINE_DATA_MAP.md — maps Hetzner scraper pipeline to website sections
+PIPELINE_ADMIN_PROMPT.md — spec for future VPS API + admin panel (not yet built)
+REVENUE_BENCHMARK_CALIBRATION_BACKLOG.md — external benchmark targets
 
 ## Shared primitives (Phase 1 complete)
 
