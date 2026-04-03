@@ -3230,9 +3230,18 @@ async function computeEuribor() {
 // ── BTD API fetch ─────────────────────────────────────────────────────────────
 async function fetchBTDDataset(id, start, end) {
   const url = `https://api-baltic.transparency-dashboard.eu/api/v1/export?id=${id}&start_date=${start}T00:00&end_date=${end}T00:00&output_time_zone=UTC&output_format=json&json_header_groups=1`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`BTD ${id}: HTTP ${res.status}`);
-  return res.json();
+  try {
+    const res = await fetch(url);
+    if (!res.ok) {
+      // BTD periodically has SSL cert issues (526) — Mac cron handles data push separately
+      console.log(`[BTD] ${id}: HTTP ${res.status} — using cached KV data`);
+      return null;
+    }
+    return res.json();
+  } catch (e) {
+    console.log(`[BTD] ${id}: fetch error (${e.message}) — using cached KV data`);
+    return null;
+  }
 }
 
 // ── Litgrid ordered balancing capacity scrape ─────────────────────────────────
@@ -3318,6 +3327,12 @@ async function computeS2() {
 
   const [reserves, direction, imbalance] = btdResults;
   const { ordered_price, ordered_mw } = litgrid;
+
+  // If any BTD dataset failed (SSL 526, timeout), return null — Mac cron pushes data separately
+  if (!reserves || !direction || !imbalance) {
+    console.log('[S2/compute] BTD dataset(s) unavailable — skipping worker S2 update (Mac cron handles this)');
+    return null;
+  }
 
   const payload = s2ShapePayload(reserves, direction, imbalance);
   if (ordered_price != null) payload.ordered_price = ordered_price;
@@ -4613,6 +4628,9 @@ export default {
 
     if (s2Result.status === 'fulfilled') {
       const payload = s2Result.value;
+      if (!payload) {
+        console.log('[S2] BTD unavailable — keeping cached KV data (Mac cron pushes independently)');
+      } else {
       const validation = await kvWrite(env.KKME_SIGNALS, 's2', payload, {
         required: ['fcr_avg', 'afrr_up_avg', 'mfrr_up_avg'],
         bounds_key: 's2',
@@ -4645,6 +4663,7 @@ export default {
           console.error('[S2/btd-history]', String(e));
         }
       }
+      } // end else (!payload)
     } else {
       console.error('[S2] cron failed:', s2Result.reason);
     }
