@@ -1498,13 +1498,12 @@ function computeTradingMix(kv, dur_h, cal_year, scenario, sc, yr = 1, T_prev = n
                    + mfrr_share * sc.act_rate_mfrr * mfrr_clearing * 0.75;
   const R_base = R_cap_base + R_act_base;
 
-  // T base: trading value per MW-hour (used for trade-vs-reserve ratio only)
-  // DA capture × RTE × realisation / (2×dur_h) = per MW-hour value from DA
-  // INTRADAY_UPLIFT removed — it applies to REVENUE, not the trade-vs-reserve decision
-  const s1_capture = dur_h <= 2
-    ? (s1_cap.capture_2h?.gross_eur_mwh ?? s1_cap.rolling_30d?.stats_2h?.mean ?? 140)
-    : (s1_cap.capture_4h?.gross_eur_mwh ?? s1_cap.rolling_30d?.stats_4h?.mean ?? 125);
-  const T_base = s1_capture * rte * trading_real / (2 * dur_h);
+  // T base: market-level trading signal (same for all durations)
+  // Uses 4H reference capture and fixed 4H cycle — the trade-vs-reserve decision
+  // is a MARKET signal, not a battery-specific one.
+  const REFERENCE_CYCLE_H = 4;
+  const s1_capture_ref = s1_cap.capture_4h?.gross_eur_mwh ?? s1_cap.rolling_30d?.stats_4h?.mean ?? 125;
+  const T_base = s1_capture_ref * rte * trading_real / (2 * REFERENCE_CYCLE_H);
 
   // S/D ratio for this calendar year
   const supply = projectFleet(cal_year, kv, scenario);
