@@ -728,10 +728,8 @@ function computeRevenueV7(params, kv) {
     // Balancing: split into capacity (follows R) and activation (additional S/D compression)
     const R_now = mix_now.R;
     const bal_calibration = by_balancing_per_mw > 0 && R_now > 0 ? by_balancing_per_mw / R_now : 1;
-    const rev_bal_raw = R_yr * bal_calibration * mw * Math.min(1.0, bal_scale);
-    // Capacity (~65%) follows R directly. Activation (~35%) compresses further with fleet.
-    const act_comp = activationCompression(mix.sd_ratio);
-    const rev_bal = rev_bal_raw * (0.65 + 0.35 * act_comp);
+    // R elasticity already compresses activation (included in R_base derivation)
+    const rev_bal = R_yr * bal_calibration * mw * Math.min(1.0, bal_scale);
 
     // Trading: capture × RTE × realisation × MWh × fraction × depth discount
     const s1_cap = kv.s1_capture || {};
@@ -821,7 +819,6 @@ function computeRevenueV7(params, kv) {
       R: mix.R, T: mix.T, price_ratio: mix.price_ratio,
       spread_growth_eff: mix.spread_growth_eff, r_proximity: mix.r_proximity,
       market_depth: Math.round(depth * 1000) / 1000,
-      activation_compression: Math.round(act_comp * 1000) / 1000,
       rtm_fee: Math.round(rtm_fee), brp_fee: Math.round(brp_fee),
       rev_net: Math.round(rev_net),
       opex: Math.round(opex), ebitda: Math.round(ebitda),
@@ -1403,18 +1400,12 @@ function reservePrice(sd_ratio, base_price) {
   return base_price * (floor_fraction + (1 - floor_fraction) * decay);
 }
 
-// Market depth: more BESS chasing same DA spreads → less capture per battery
+// Market depth: more BESS chasing same DA spreads → less capture per battery.
+// Coefficient 0.15: Baltic trades on Nord Pool (400+ GW pool), not a closed national market.
+// 15% haircut at S/D 2.0 matches lower end of German capture decline.
 function marketDepthFactor(sd_ratio) {
   const excess = Math.max(0, sd_ratio - 0.8);
-  return 1.0 / (1.0 + 0.25 * excess);
-}
-
-// Activation compression: more fleet → lower clearing + less volume per unit
-// Starts at S/D 1.5 (before that, fleet is still scarce relative to demand)
-function activationCompression(sd_ratio) {
-  if (sd_ratio <= 1.5) return 1.0;
-  const excess = sd_ratio - 1.5;
-  return 1.0 / (1.0 + 0.5 * excess);
+  return 1.0 / (1.0 + 0.15 * excess);
 }
 
 /**
