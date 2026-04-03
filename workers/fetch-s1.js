@@ -670,6 +670,7 @@ function computeRevenueV7(params, kv) {
   let min_dscr = Infinity;
   let crossover_year = null;
   let revenue_crossover_year = null;
+  let T_prev = null; // incremental T for self-limiting spread growth
 
   for (let yr = 1; yr <= 20; yr++) {
     // C1. Degradation
@@ -706,9 +707,10 @@ function computeRevenueV7(params, kv) {
       products[name].eff = products[name].raw * scale_energy;
     }
 
-    // C4. S/D elasticity mix model: R from reserve price curve, T flat/gentle
+    // C4. S/D elasticity mix model: R from reserve price curve, T self-limiting
     const cal_year = cod_year + yr;
-    const mix = computeTradingMix(kv, dur_h, cal_year, scenario_name, sc, yr);
+    const mix = computeTradingMix(kv, dur_h, cal_year, scenario_name, sc, yr, T_prev);
+    T_prev = mix.T_raw; // chain for next year's incremental growth
 
     // Compress: R decay for balancing calibration, R+T for reporting
     const mix_now = computeTradingMix(kv, dur_h, 2026, scenario_name, sc, 0);
@@ -815,6 +817,7 @@ function computeRevenueV7(params, kv) {
       switching_friction: mix.switching_friction,
       sd_ratio: mix.sd_ratio,
       R: mix.R, T: mix.T, price_ratio: mix.price_ratio,
+      spread_growth_eff: mix.spread_growth_eff, r_proximity: mix.r_proximity,
       rtm_fee: Math.round(rtm_fee), brp_fee: Math.round(brp_fee),
       rev_net: Math.round(rev_net),
       opex: Math.round(opex), ebitda: Math.round(ebitda),
@@ -1455,18 +1458,16 @@ function projectDemand(cal_year, kv, demand_growth = 0.02) {
  *
  * One tunable: switching_friction (0.75). Everything else from signals.
  */
-// Dynamic switching friction: grows from immature to mature over 7 project years.
-// Reflects: optimizer learning, intraday liquidity deepening, Baltic market maturation.
-const FRICTION_IMMATURE = 0.45;  // Baltic 2026-2027: thin intraday, new BBCM
-const FRICTION_MATURE = 0.75;    // Baltic 2033+: deep intraday, experienced optimizers
-const MATURITY_YEARS = 7;        // years to reach mature friction
+// Constant switching friction — base year already reflects market maturity.
+const FRICTION_IMMATURE = 0.75;  // kept for backward compat in output
+const FRICTION_MATURE = 0.75;
+const MATURITY_YEARS = 0;
 
 function switchingFriction(yr) {
-  const progress = Math.min(1.0, Math.max(0, yr - 1) / MATURITY_YEARS);
-  return Math.round((FRICTION_IMMATURE + (FRICTION_MATURE - FRICTION_IMMATURE) * progress) * 1000) / 1000;
+  return 0.75;
 }
 
-function computeTradingMix(kv, dur_h, cal_year, scenario, sc, yr = 1) {
+function computeTradingMix(kv, dur_h, cal_year, scenario, sc, yr = 1, T_prev = null) {
   const rte = 0.855;
   const trading_real = sc.trd_real || 0.85;
   const friction = switchingFriction(yr);
@@ -1506,11 +1507,25 @@ function computeTradingMix(kv, dur_h, cal_year, scenario, sc, yr = 1) {
   const R_act_yr = reservePrice(sd_yr * 1.15, R_act_base);
   const R_yr = R_cap_yr + R_act_yr;
 
-  // T: grows in base (more renewables = wider spreads), flat/shrinks in cons/stress
+  // T: grows incrementally, decelerating as R approaches its floor.
+  // When reserves are high (immature market): full spread growth.
+  // When reserves hit floor (saturated market): spread growth stops.
   const spread_rate = SPREAD_GROWTH[scenario] ?? 0.02;
-  const years_from_now = Math.max(0, cal_year - 2026);
   const T_floor = 5.0;
-  const T_yr = Math.max(T_floor, T_base * Math.pow(1 + spread_rate, years_from_now));
+  const R_floor = R_base * 0.12; // matches reservePrice floor_fraction
+  const r_proximity = R_base > R_floor
+    ? Math.max(0, Math.min(1, (R_yr - R_floor) / (R_base - R_floor)))
+    : 0;
+  const spread_growth_eff = spread_rate * r_proximity;
+
+  // Incremental: use T_prev if provided (year loop), else compute from base
+  let T_yr;
+  if (T_prev != null && yr > 1) {
+    T_yr = Math.max(T_floor, T_prev * (1 + spread_growth_eff));
+  } else {
+    // Year 1 or standalone call (base year, live rate): use T_base directly
+    T_yr = T_base;
+  }
 
   const raw = T_yr / (T_yr + R_yr);
   const tf = Math.min(0.70, raw * friction);
@@ -1521,12 +1536,15 @@ function computeTradingMix(kv, dur_h, cal_year, scenario, sc, yr = 1) {
     switching_friction: friction,
     R: Math.round(R_yr * 100) / 100,
     T: Math.round(T_yr * 100) / 100,
+    T_raw: T_yr,  // unrounded for incremental chaining
     price_ratio: R_yr > 0 ? Math.round((T_yr / R_yr) * 1000) / 1000 : 99,
     R_base: Math.round(R_base * 100) / 100,
     T_base: Math.round(T_base * 100) / 100,
     sd_ratio: Math.round(sd_yr * 100) / 100,
     supply_mw: Math.round(supply),
     demand_mw: Math.round(demand),
+    spread_growth_eff: Math.round(spread_growth_eff * 10000) / 10000,
+    r_proximity: Math.round(r_proximity * 1000) / 1000,
   };
 }
 
