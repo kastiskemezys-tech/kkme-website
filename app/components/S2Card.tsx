@@ -152,6 +152,9 @@ interface S2Signal {
       capacity_avg?: number;
       total_activations?: number;
       days?: number;
+      act_avg?: number;
+      cap_avg?: number;
+      total_activation_volume?: number;
     }>;
   } | null;
 }
@@ -372,11 +375,14 @@ export function S2Card() {
                   aFRR activation clearing {'\u00b7'} {latestAfrrMonth ?? 'latest'}
                 </div>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  {data.rolling_180d?.products?.afrr
-                    ? <>180-day avg {'\u20AC'}{Math.round(data.rolling_180d.products.afrr.clearing_avg ?? 0)} {'\u00b7'} {(data.rolling_180d.products.afrr.total_activations ?? 0).toLocaleString()} activations</>
-                    : recentAfrrCount != null
-                      ? <>{recentAfrrCount.toLocaleString()} events in period</>
-                      : null}
+                  {(() => {
+                    const r = data.rolling_180d?.products?.aFRR ?? data.rolling_180d?.products?.afrr;
+                    return r && r.days && r.days > 1
+                      ? <>180-day avg {'\u20AC'}{Math.round(r.clearing_avg ?? r.act_avg ?? 0)} {'\u00b7'} {r.days} days observed</>
+                      : recentAfrrCount != null
+                        ? <>{recentAfrrCount.toLocaleString()} events in period</>
+                        : null;
+                  })()}
                 </div>
                 {afrrDelta != null && Math.abs(afrrDelta) >= 1 && (
                   <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: afrrDelta <= 0 ? 'var(--teal-strong)' : 'var(--rose)', marginTop: '2px' }}>
@@ -402,11 +408,14 @@ export function S2Card() {
                   mFRR activation clearing {'\u00b7'} {latestMfrrMonth ?? 'latest'}
                 </div>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  {data.rolling_180d?.products?.mfrr
-                    ? <>180-day avg {'\u20AC'}{Math.round(data.rolling_180d.products.mfrr.clearing_avg ?? 0)} {'\u00b7'} {(data.rolling_180d.products.mfrr.total_activations ?? 0).toLocaleString()} activations</>
-                    : recentMfrrCount != null
-                      ? <>{recentMfrrCount.toLocaleString()} events in period</>
-                      : null}
+                  {(() => {
+                    const r = data.rolling_180d?.products?.mFRR ?? data.rolling_180d?.products?.mfrr;
+                    return r && r.days && r.days > 1
+                      ? <>180-day avg {'\u20AC'}{Math.round(r.clearing_avg ?? r.act_avg ?? 0)} {'\u00b7'} {r.days} days observed</>
+                      : recentMfrrCount != null
+                        ? <>{recentMfrrCount.toLocaleString()} events in period</>
+                        : null;
+                  })()}
                 </div>
                 {mfrrDelta != null && Math.abs(mfrrDelta) >= 1 && (
                   <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: mfrrDelta <= 0 ? 'var(--teal-strong)' : 'var(--rose)', marginTop: '2px' }}>
