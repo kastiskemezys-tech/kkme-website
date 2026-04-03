@@ -2545,7 +2545,10 @@ async function computeCapture(env) {
         timestamp: new Date().toISOString(),
         text: `DA spread €${Math.round(priceSpread)}/MWh (peak €${Math.round(maxPrice)}, low €${Math.round(minPrice)})`,
       };
-      await env.KKME_SIGNALS.put('extreme:latest', JSON.stringify(extremeEvent), { expirationTtl: 7 * 86400 });
+      // Expire at midnight UTC — extreme events are today's news only
+      const midnightMs = new Date().setUTCHours(23, 59, 59, 999) - Date.now();
+      const extremeTtl = Math.max(60, Math.floor(midnightMs / 1000));
+      await env.KKME_SIGNALS.put('extreme:latest', JSON.stringify(extremeEvent), { expirationTtl: extremeTtl });
       console.log(`[S1/extreme] ${extremeEvent.text}`);
     }
   }
@@ -5201,11 +5204,12 @@ export default {
     // Merges BTD capacity data + fleet S/D ratio data + activation clearing prices.
     if (request.method === 'GET' && url.pathname === '/s2') {
       try {
-        const [cached, activationRaw, btdHistRaw, extremeRaw] = await Promise.all([
+        const [cached, activationRaw, btdHistRaw, extremeRaw, rolling180dRaw] = await Promise.all([
           env.KKME_SIGNALS.get('s2'),
           env.KKME_SIGNALS.get('s2_activation').catch(() => null),
           env.KKME_SIGNALS.get('s2_btd_history').catch(() => null),
           env.KKME_SIGNALS.get('extreme:latest').catch(() => null),
+          env.KKME_SIGNALS.get('s2_rolling_180d').catch(() => null),
         ]);
         const base = cached
           ? JSON.parse(cached)
@@ -5256,9 +5260,19 @@ export default {
             console.error('[S2/capacity_monthly]', String(e));
           }
         }
-        // Attach extreme event if recent
+        // Attach rolling 180-day stats
+        if (rolling180dRaw) {
+          try { base.rolling_180d = JSON.parse(rolling180dRaw); } catch { /* ignore */ }
+        }
+        // Attach extreme event only if from today
         if (extremeRaw) {
-          try { base.extreme_event = JSON.parse(extremeRaw); } catch { /* ignore */ }
+          try {
+            const evt = JSON.parse(extremeRaw);
+            const todayStr = new Date().toISOString().slice(0, 10);
+            if (evt.date === todayStr) {
+              base.extreme_event = evt;
+            }
+          } catch { /* ignore */ }
         }
         return new Response(JSON.stringify(base), {
           headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600', ...CORS },
@@ -6346,7 +6360,10 @@ export default {
               timestamp: new Date().toISOString(),
               text: `${product} activation cleared at €${price.toLocaleString()}/MWh`,
             };
-            await env.KKME_SIGNALS.put('extreme:latest', JSON.stringify(extremeEvent), { expirationTtl: 7 * 86400 });
+            // Expire at midnight UTC — extreme events are today's news only
+      const midnightMs = new Date().setUTCHours(23, 59, 59, 999) - Date.now();
+      const extremeTtl = Math.max(60, Math.floor(midnightMs / 1000));
+      await env.KKME_SIGNALS.put('extreme:latest', JSON.stringify(extremeEvent), { expirationTtl: extremeTtl });
             console.log(`[Trading/extreme] ${extremeEvent.text}`);
           }
         }
@@ -6682,7 +6699,7 @@ export default {
       const { key, value } = await request.json();
       if (!key) return jsonResp({ error: 'key required' }, 400);
       // Allowlist: only permit known keys from ingestion pipeline
-      const ALLOWED_KEYS = ['s1_capture', 'revenue_trailing', 's1_trailing_12m', 's2_trailing_12m', 'capacity_monthly'];
+      const ALLOWED_KEYS = ['s1_capture', 'revenue_trailing', 's1_trailing_12m', 's2_trailing_12m', 'capacity_monthly', 's2_rolling_180d'];
       if (!ALLOWED_KEYS.includes(key)) {
         return jsonResp({ error: `key '${key}' not in allowlist` }, 400);
       }

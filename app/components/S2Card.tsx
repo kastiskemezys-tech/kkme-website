@@ -141,6 +141,19 @@ interface S2Signal {
     price?: number;
     product?: string;
   } | null;
+  rolling_180d?: {
+    computed_at?: string;
+    window_days?: number;
+    window_start?: string;
+    window_end?: string;
+    products?: Record<string, {
+      clearing_avg?: number;
+      clearing_median?: number;
+      capacity_avg?: number;
+      total_activations?: number;
+      days?: number;
+    }>;
+  } | null;
 }
 
 // -- Helpers ------------------------------------------------------------------
@@ -356,21 +369,18 @@ export function S2Card() {
                   <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginLeft: '4px' }}>/MWh</span>
                 </div>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>
-                  aFRR median clearing {'\u00b7'} {latestAfrrMonth ?? 'latest'} {'\u00b7'} {ltAct.afrr_rate != null ? Math.round(ltAct.afrr_rate * 100) : '?'}% activation rate
+                  aFRR activation clearing {'\u00b7'} {latestAfrrMonth ?? 'latest'}
                 </div>
-                {recentAfrrCount != null && (
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    {recentAfrrCount.toLocaleString()} events in period
-                  </div>
-                )}
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  {data.rolling_180d?.products?.afrr
+                    ? <>180-day avg {'\u20AC'}{Math.round(data.rolling_180d.products.afrr.clearing_avg ?? 0)} {'\u00b7'} {(data.rolling_180d.products.afrr.total_activations ?? 0).toLocaleString()} activations</>
+                    : recentAfrrCount != null
+                      ? <>{recentAfrrCount.toLocaleString()} events in period</>
+                      : null}
+                </div>
                 {afrrDelta != null && Math.abs(afrrDelta) >= 1 && (
                   <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: afrrDelta <= 0 ? 'var(--teal-strong)' : 'var(--rose)', marginTop: '2px' }}>
                     {'\u20AC'}{afrrDelta > 0 ? '+' : ''}{Math.round(afrrDelta)}/MWh vs prev month
-                  </div>
-                )}
-                {ltAct.afrr_p50 != null && latestAfrrP50 != null && (
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '4px' }}>
-                    6-month median {'\u20AC'}{Math.round(ltAct.afrr_p50)} {'\u00b7'} Oct 25 {'\u2013'} Mar 26
                   </div>
                 )}
               </div>
@@ -389,21 +399,18 @@ export function S2Card() {
                   <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginLeft: '4px' }}>/MWh</span>
                 </div>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>
-                  mFRR median clearing {'\u00b7'} {latestMfrrMonth ?? 'latest'} {'\u00b7'} {ltAct.mfrr_rate != null ? Math.round(ltAct.mfrr_rate * 100) : '?'}% activation rate
+                  mFRR activation clearing {'\u00b7'} {latestMfrrMonth ?? 'latest'}
                 </div>
-                {recentMfrrCount != null && (
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    {recentMfrrCount.toLocaleString()} events in period
-                  </div>
-                )}
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  {data.rolling_180d?.products?.mfrr
+                    ? <>180-day avg {'\u20AC'}{Math.round(data.rolling_180d.products.mfrr.clearing_avg ?? 0)} {'\u00b7'} {(data.rolling_180d.products.mfrr.total_activations ?? 0).toLocaleString()} activations</>
+                    : recentMfrrCount != null
+                      ? <>{recentMfrrCount.toLocaleString()} events in period</>
+                      : null}
+                </div>
                 {mfrrDelta != null && Math.abs(mfrrDelta) >= 1 && (
                   <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: mfrrDelta <= 0 ? 'var(--teal-strong)' : 'var(--rose)', marginTop: '2px' }}>
                     {'\u20AC'}{mfrrDelta > 0 ? '+' : ''}{Math.round(mfrrDelta)}/MWh vs prev month
-                  </div>
-                )}
-                {ltAct.mfrr_p50 != null && latestMfrrP50 != null && (
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '4px' }}>
-                    6-month median {'\u20AC'}{Math.round(ltAct.mfrr_p50)} {'\u00b7'} Oct 25 {'\u2013'} Mar 26
                   </div>
                 )}
               </div>
@@ -641,7 +648,8 @@ export function S2Card() {
       <SignalIntel signalId="S2" />
 
       {/* -- EXTREME EVENT CALLOUT -- */}
-      {data.extreme_event && isRecent(data.extreme_event.timestamp, 48) && (
+      {/* Extreme event — only rendered if worker confirmed it's from today */}
+      {data.extreme_event && (
         <div style={{
           borderLeft: '2px solid var(--amber)',
           background: 'var(--bg-elevated)',
@@ -654,7 +662,7 @@ export function S2Card() {
           lineHeight: 1.5,
         }}>
           <span style={{ color: 'var(--text-muted)', marginRight: '8px' }}>
-            {data.extreme_event.date}
+            Today
           </span>
           {data.extreme_event.text}
         </div>
