@@ -6673,6 +6673,30 @@ export default {
       });
     }
 
+    // ── POST /kv/set — generic KV write from VPS ingestion pipeline ─────────
+    if (request.method === 'POST' && url.pathname === '/kv/set') {
+      const secret = request.headers.get('X-Update-Secret');
+      if (!secret || secret !== env.UPDATE_SECRET) {
+        return jsonResp({ error: 'unauthorized' }, 401);
+      }
+      const { key, value } = await request.json();
+      if (!key) return jsonResp({ error: 'key required' }, 400);
+      // Allowlist: only permit known keys from ingestion pipeline
+      const ALLOWED_KEYS = ['s1_capture', 'revenue_trailing', 's1_trailing_12m', 's2_trailing_12m', 'capacity_monthly'];
+      if (!ALLOWED_KEYS.includes(key)) {
+        return jsonResp({ error: `key '${key}' not in allowlist` }, 400);
+      }
+      await env.KKME_SIGNALS.put(key, JSON.stringify(value));
+      console.log(`[KV/set] ${key} written (${JSON.stringify(value).length} bytes)`);
+      return jsonResp({ ok: true, key });
+    }
+
+    // ── GET /history/trailing — trailing 12m revenue summary ─────────────────
+    if (request.method === 'GET' && url.pathname === '/history/trailing') {
+      const raw = await env.KKME_SIGNALS.get('revenue_trailing');
+      return jsonResp(raw ? JSON.parse(raw) : null);
+    }
+
     // ── GET /s1/capture — DA gross capture data ──────────────────────────────
     if (request.method === 'GET' && url.pathname === '/s1/capture') {
       const raw = await env.KKME_SIGNALS.get('s1_capture');
