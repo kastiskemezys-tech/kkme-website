@@ -2956,10 +2956,17 @@ Return ONLY valid JSON:
     });
     const data = await res.json();
     const textContent = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
-    const cleaned = textContent.replace(/```json|```/g, '').trim();
     let enrichment;
-    try { enrichment = JSON.parse(cleaned); } catch {
-      console.error('[S3/enrichment] JSON parse failed');
+    try {
+      // Strip markdown fences and preamble
+      let cleaned = textContent.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+      const firstBrace = cleaned.indexOf('{');
+      if (firstBrace > 0) cleaned = cleaned.substring(firstBrace);
+      const lastBrace = cleaned.lastIndexOf('}');
+      if (lastBrace >= 0 && lastBrace < cleaned.length - 1) cleaned = cleaned.substring(0, lastBrace + 1);
+      enrichment = JSON.parse(cleaned);
+    } catch (parseErr) {
+      console.error('[S3/enrichment] JSON parse failed:', parseErr.message, 'response:', textContent.substring(0, 200));
       await notifyTelegram(env, '\u26a0\ufe0f S3 enrichment ran but JSON parse failed.');
       return;
     }
@@ -4592,6 +4599,10 @@ export default {
     if (event.cron === '30 9 * * *') {
       try {
         const payload = await withTimeout(computeS2(), 45000);
+        if (!payload) {
+          console.log('[S2/0930] BTD unavailable — keeping cached KV data');
+          return;
+        }
         const validation = await kvWrite(env.KKME_SIGNALS, 's2', payload, {
           required: ['fcr_avg', 'afrr_up_avg', 'mfrr_up_avg'],
           bounds_key: 's2',
