@@ -732,10 +732,11 @@ function computeRevenueV7(params, kv) {
     const rev_bal = R_yr * bal_calibration * mw * Math.min(1.0, bal_scale);
 
     // Trading: capture × RTE × realisation × MWh × fraction × depth discount
+    // Use rolling 30d mean (stable) for forward projection, not spot capture
     const s1_cap = kv.s1_capture || {};
     const yr_capture = dur_h <= 2
-      ? (s1_cap.capture_2h?.gross_eur_mwh ?? s1_cap.rolling_30d?.stats_2h?.mean ?? 140)
-      : (s1_cap.capture_4h?.gross_eur_mwh ?? s1_cap.rolling_30d?.stats_4h?.mean ?? 125);
+      ? (s1_cap.rolling_30d?.stats_2h?.mean ?? s1_cap.capture_2h?.gross_eur_mwh ?? 140)
+      : (s1_cap.rolling_30d?.stats_4h?.mean ?? s1_cap.capture_4h?.gross_eur_mwh ?? 125);
     const spread_rate = SPREAD_GROWTH[scenario_name] ?? 0.02;
     const trading_real = sc.trd_real || 0.85;
     const rte_yr = dur_h <= 2 ? 0.855 : 0.852;
@@ -756,10 +757,15 @@ function computeRevenueV7(params, kv) {
     const rev_act = rev_bal * 0.35;
 
     // C8. OPEX
-    const opex = sc.opex_per_kw_yr * mw * 1000 * Math.pow(1 + sc.opex_esc, yr - 1);
+    const opex_full = sc.opex_per_kw_yr * mw * 1000 * Math.pow(1 + sc.opex_esc, yr - 1);
 
-    // C9. EBITDA
-    const ebitda = rev_net - opex;
+    // C9. EBITDA (mothball if cash-negative: standby OPEX = 20%)
+    let opex = opex_full;
+    let ebitda = rev_net - opex;
+    if (ebitda < 0) {
+      opex = opex_full * 0.20;
+      ebitda = -opex;
+    }
 
     // C10. Tax (with depreciation shield)
     const depr_base = yr <= depr_years ? gross_capex_total / depr_years : 0;
@@ -1426,10 +1432,14 @@ function projectFleet(cal_year, kv, scenario) {
   const realisation = PIPELINE_REALISATION[scenario] || 0.50;
   const pipeline_effective = pipeline_raw * realisation;
 
-  // Pipeline deploys over 4 years from 2026
+  // Pipeline deploys on S-curve from 2026 (not all at once)
+  // Y1 (COD 2028 = cal 2029): ~40% deployed. Y3: ~70%. Y5: ~95%.
   const deploy_start = 2026;
   const years_into = Math.max(0, cal_year - deploy_start);
-  const deploy_fraction = Math.min(1.0, years_into / PIPELINE_DEPLOY_YEARS);
+  // Logistic S-curve: 30% at yr 1, 50% at yr 3, 85% at yr 5, 95% at yr 7
+  const k = 0.6;
+  const midpoint = 3.5;
+  const deploy_fraction = Math.min(1.0, 1.0 / (1 + Math.exp(-k * (years_into - midpoint))));
   const pipeline_deployed = pipeline_effective * deploy_fraction;
 
   // Kruonis PSP (fixed mFRR competitor)
@@ -1437,8 +1447,9 @@ function projectFleet(cal_year, kv, scenario) {
 
   // Post-pipeline organic growth: 3%/yr, capped at 50% of base
   let organic = 0;
-  if (years_into > PIPELINE_DEPLOY_YEARS) {
-    const yrs_post = years_into - PIPELINE_DEPLOY_YEARS;
+  const full_deploy_year = deploy_start + 7; // S-curve plateaus around year 7
+  if (cal_year > full_deploy_year) {
+    const yrs_post = cal_year - full_deploy_year;
     const base_total = current_weighted + pipeline_effective;
     organic = base_total * (Math.pow(1.03, yrs_post) - 1);
     organic = Math.min(organic, base_total * 0.5);
@@ -1499,10 +1510,11 @@ function computeTradingMix(kv, dur_h, cal_year, scenario, sc, yr = 1, T_prev = n
   const R_base = R_cap_base + R_act_base;
 
   // T base: market-level trading signal (same for all durations)
-  // Uses 4H reference capture and fixed 4H cycle — the trade-vs-reserve decision
-  // is a MARKET signal, not a battery-specific one.
+  // Uses rolling 30d mean (stable) rather than spot capture (volatile).
+  // Fixed 4H reference cycle — the trade-vs-reserve decision is MARKET-level.
   const REFERENCE_CYCLE_H = 4;
-  const s1_capture_ref = s1_cap.capture_4h?.gross_eur_mwh ?? s1_cap.rolling_30d?.stats_4h?.mean ?? 125;
+  const s1_capture_ref = s1_cap.rolling_30d?.stats_4h?.mean
+    ?? s1_cap.capture_4h?.gross_eur_mwh ?? 125;
   const T_base = s1_capture_ref * rte * trading_real / (2 * REFERENCE_CYCLE_H);
 
   // S/D ratio for this calendar year
