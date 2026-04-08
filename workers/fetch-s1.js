@@ -691,7 +691,7 @@ function computeDispatchV2(btdData, daHourly, opts = {}) {
     },
     revenue_per_mw: {
       daily_eur: t_r0(totalRev / mw),
-      annual_eur: t_r0(totalRev / mw * 365),
+      annual_eur: t_r0(totalRev / mw) * 365,
       capacity_eur_day: t_r0(totalCapRev / mw),
       activation_eur_day: t_r0(totalActRev / mw),
       arbitrage_eur_day: t_r0(Math.max(0, totalArbRev) / mw),
@@ -708,8 +708,8 @@ function computeDispatchV2(btdData, daHourly, opts = {}) {
       min_arb_mw: t_r1(min_arb_mw),
     },
     arbitrage_detail: {
-      capture_eur_mwh: t_r1(capture_hourly),
-      capture_eur_mwh_15min_uplifted: t_r1(capture_15min),
+      capture_eur_mwh: t_r2(capture_hourly),
+      capture_eur_mwh_15min_uplifted: t_r2(capture_15min),
       uplift_factor_decimal: RYSTAD_15MIN_UPLIFT_DECIMAL,
       cycles_per_day_count: t_r2(cycleEstimate),
       charge_isp_count: chargeISPs.length,
