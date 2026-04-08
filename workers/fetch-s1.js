@@ -670,8 +670,6 @@ function computeRevenueV7(params, kv) {
   let min_dscr = Infinity;
   let crossover_year = null;
   let revenue_crossover_year = null;
-  let T_prev = null; // incremental T for self-limiting spread growth
-
   for (let yr = 1; yr <= 20; yr++) {
     // C1. Degradation
     const retention = getDegradation(yr, cycles);
@@ -707,10 +705,9 @@ function computeRevenueV7(params, kv) {
       products[name].eff = products[name].raw * scale_energy;
     }
 
-    // C4. S/D elasticity mix model: R from reserve price curve, T self-limiting
+    // C4. S/D elasticity mix model: R from reserve price curve, T from renewable trajectory
     const cal_year = cod_year + yr;
-    const mix = computeTradingMix(kv, dur_h, cal_year, scenario_name, sc, yr, T_prev);
-    T_prev = mix.T_raw; // chain for next year's incremental growth
+    const mix = computeTradingMix(kv, dur_h, cal_year, scenario_name, sc, yr);
 
     // Compress: R decay for balancing calibration, R+T for reporting
     const mix_now = computeTradingMix(kv, dur_h, 2026, scenario_name, sc, 0);
@@ -737,13 +734,14 @@ function computeRevenueV7(params, kv) {
     const yr_capture = dur_h <= 2
       ? (s1_cap.rolling_30d?.stats_2h?.mean ?? s1_cap.capture_2h?.gross_eur_mwh ?? 140)
       : (s1_cap.rolling_30d?.stats_4h?.mean ?? s1_cap.capture_4h?.gross_eur_mwh ?? 125);
-    const spread_rate = SPREAD_GROWTH[scenario_name] ?? 0.02;
     const trading_real = sc.trd_real || 0.85;
     const rte_yr = dur_h <= 2 ? 0.855 : 0.852;
     const depth = marketDepthFactor(mix.sd_ratio);
-    const rev_trd = yr_capture * depth * rte_yr * trading_real * dur_h * cycles * 365
-                  * mix.trading_fraction * sc.avail * deg_ratio_vs_y1 * mw
-                  * Math.pow(1 + spread_rate, yr - 1);
+    // Capture grows with renewable-driven spread widening (same multiplier as T)
+    const spread_mult = mix.spread_mult || 1.0;
+    const rev_trd = yr_capture * spread_mult * depth * rte_yr * trading_real
+                  * dur_h * cycles * 365
+                  * mix.trading_fraction * sc.avail * deg_ratio_vs_y1 * mw;
 
     // C7. Gross → Net
     // Revenue floor: even in saturated markets, BESS earns from trading + minimum FCR
@@ -823,7 +821,7 @@ function computeRevenueV7(params, kv) {
       switching_friction: mix.switching_friction,
       sd_ratio: mix.sd_ratio,
       R: mix.R, T: mix.T, price_ratio: mix.price_ratio,
-      spread_growth_eff: mix.spread_growth_eff, r_proximity: mix.r_proximity,
+      spread_mult: mix.spread_mult, renewable_share: mix.renewable_share,
       market_depth: Math.round(depth * 1000) / 1000,
       rtm_fee: Math.round(rtm_fee), brp_fee: Math.round(brp_fee),
       rev_net: Math.round(rev_net),
@@ -1400,7 +1398,7 @@ function computeRevenueV6(params, kv) {
  */
 function reservePrice(sd_ratio, base_price) {
   // floor_fraction = 0.06 → ~€1.5/MW/h on €24 base (UK FFR at S/D ~2.5: £1-2)
-  const floor_fraction = 0.06;
+  const floor_fraction = 0.04;
   const x = sd_ratio - 1.0;
   const decay = 1 / (1 + Math.exp(5.0 * (x - 0.7)));
   return base_price * (floor_fraction + (1 - floor_fraction) * decay);
@@ -1479,6 +1477,26 @@ function projectDemand(cal_year, kv, demand_growth = 0.02) {
  *
  * One tunable: switching_friction (0.75). Everything else from signals.
  */
+// Lithuania renewable share trajectory (national targets + EU mandates)
+// 2025: ~50%, 2030: 70%, 2040: 95%, 2050: 100%
+function renewableShareYr(cal_year) {
+  if (cal_year <= 2025) return 0.50;
+  if (cal_year >= 2050) return 1.00;
+  if (cal_year <= 2030) return 0.50 + (0.70 - 0.50) * (cal_year - 2025) / 5;
+  if (cal_year <= 2040) return 0.70 + (0.95 - 0.70) * (cal_year - 2030) / 10;
+  return 0.95 + (1.00 - 0.95) * (cal_year - 2040) / 10;
+}
+
+// Spread multiplier: more renewables → more intermittency → wider DA spreads
+// 1pp renewable share → 1.2pp wider spread (calibrated to Y20 trading ~65-70%)
+// Baringa: post-sync Baltic will see "additional volatility" from reduced interconnection + RES
+function spreadMultiplierYr(cal_year) {
+  const share_baseline = 0.50; // 2025 Lithuania renewable share
+  const share_yr = renewableShareYr(cal_year);
+  const elasticity = 2.0;
+  return 1 + (share_yr - share_baseline) * elasticity;
+}
+
 // Constant switching friction — base year already reflects market maturity.
 const FRICTION_IMMATURE = 0.75;  // kept for backward compat in output
 const FRICTION_MATURE = 0.75;
@@ -1488,7 +1506,7 @@ function switchingFriction(yr) {
   return 0.75;
 }
 
-function computeTradingMix(kv, dur_h, cal_year, scenario, sc, yr = 1, T_prev = null) {
+function computeTradingMix(kv, dur_h, cal_year, scenario, sc, yr = 1) {
   const rte = 0.855;
   const trading_real = sc.trd_real || 0.85;
   const friction = switchingFriction(yr);
@@ -1528,25 +1546,15 @@ function computeTradingMix(kv, dur_h, cal_year, scenario, sc, yr = 1, T_prev = n
   const R_act_yr = reservePrice(sd_yr * 1.15, R_act_base);
   const R_yr = R_cap_yr + R_act_yr;
 
-  // T: grows incrementally, decelerating as R approaches its floor.
-  // When reserves are high (immature market): full spread growth.
-  // When reserves hit floor (saturated market): spread growth stops.
-  const spread_rate = SPREAD_GROWTH[scenario] ?? 0.02;
+  // T: grows with renewable penetration (more RES → more volatility → wider spreads)
+  // Replaces r_proximity deceleration — spread growth is SUPPLY-driven, not R-driven
   const T_floor = 5.0;
-  const R_floor = R_base * 0.06; // matches reservePrice floor_fraction
-  const r_proximity = R_base > R_floor
-    ? Math.max(0, Math.min(1, (R_yr - R_floor) / (R_base - R_floor)))
-    : 0;
-  const spread_growth_eff = spread_rate * r_proximity;
-
-  // Incremental: use T_prev if provided (year loop), else compute from base
-  let T_yr;
-  if (T_prev != null && yr > 1) {
-    T_yr = Math.max(T_floor, T_prev * (1 + spread_growth_eff));
-  } else {
-    // Year 1 or standalone call (base year, live rate): use T_base directly
-    T_yr = T_base;
-  }
+  const spread_mult = spreadMultiplierYr(cal_year);
+  // Scenario adjustment: conservative = no additional RES boost, stress = negative
+  const scenario_spread_adj = SPREAD_GROWTH[scenario] ?? 0.02;
+  const years_from_now = Math.max(0, cal_year - 2026);
+  const scenario_factor = Math.pow(1 + scenario_spread_adj, years_from_now);
+  const T_yr = Math.max(T_floor, T_base * spread_mult * scenario_factor);
 
   const raw = T_yr / (T_yr + R_yr);
   const tf = Math.min(0.70, raw * friction);
@@ -1557,15 +1565,15 @@ function computeTradingMix(kv, dur_h, cal_year, scenario, sc, yr = 1, T_prev = n
     switching_friction: friction,
     R: Math.round(R_yr * 100) / 100,
     T: Math.round(T_yr * 100) / 100,
-    T_raw: T_yr,  // unrounded for incremental chaining
+    T_raw: T_yr,
     price_ratio: R_yr > 0 ? Math.round((T_yr / R_yr) * 1000) / 1000 : 99,
     R_base: Math.round(R_base * 100) / 100,
     T_base: Math.round(T_base * 100) / 100,
     sd_ratio: Math.round(sd_yr * 100) / 100,
     supply_mw: Math.round(supply),
     demand_mw: Math.round(demand),
-    spread_growth_eff: Math.round(spread_growth_eff * 10000) / 10000,
-    r_proximity: Math.round(r_proximity * 1000) / 1000,
+    spread_mult: Math.round(spread_mult * 1000) / 1000,
+    renewable_share: Math.round(renewableShareYr(cal_year) * 1000) / 1000,
   };
 }
 
