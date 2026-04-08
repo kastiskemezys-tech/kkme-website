@@ -495,6 +495,295 @@ function computeTradeSignals(daHourly, isps) {
   };
 }
 
+// ─── Dispatch Engine v2 — parameterized, co-optimized ───────────────────────
+// Source: audit findings Apr 2026. Replaces hardcoded 60MW/130MWh with
+// parameterized 50MW + dur_h. Adds per-ISP co-optimization with reserve cap.
+
+// Rystad Dec 2025: Lithuania 15-min DA arbitrage = 14% uplift over hourly.
+// Proxy until Nord Pool 15-min API integrated.
+const RYSTAD_15MIN_UPLIFT_DECIMAL = 0.14;
+
+// Elering 2026 forecast: post-DRR FCR clearing ~€40-45/MW/h
+// based on continental FCR averages and Baltic demand 28 MW.
+const POST_DRR_FCR_PRICE_EUR_MW_H = 42;
+
+// Operator practice: max 70% MW to reserves, keep ≥30% for arbitrage.
+// Source: enspired German portfolio behavior (Dec 2025).
+const RESERVE_MW_CAP_FRACTION = 0.70;
+
+function computeDispatchV2(btdData, daHourly, opts = {}) {
+  const mw = opts.mw || 50;
+  const dur_h = opts.dur_h || 4;
+  const mwh = mw * dur_h;
+  const rte = dur_h <= 2 ? 0.855 : 0.852; // source: OEM datasheet
+  const mode = opts.mode || 'realised';
+  const drr_active = opts.drr_active !== false;
+  const date_iso = opts.date_iso || btdData?.date || new Date().toISOString().slice(0, 10);
+
+  const mfrrShare = bessShareMFRR(mw);
+  const max_reserve_mw = mw * RESERVE_MW_CAP_FRACTION;
+  const min_arb_mw = mw * (1 - RESERVE_MW_CAP_FRACTION);
+
+  // DA price analysis
+  const daH = (daHourly || []).slice(0, 24);
+  let chargeThreshold = 40, dischargeThreshold = 80;
+  if (daH.length >= 20) {
+    const sorted = [...daH].sort((a, b) => a - b);
+    chargeThreshold = sorted[Math.floor(sorted.length * 0.25)];
+    dischargeThreshold = sorted[Math.floor(sorted.length * 0.75)];
+  }
+
+  const isps = [];
+  let soc = 0.50; // initial SoC
+  let totalCapRev = 0, totalActRev = 0, totalArbRev = 0;
+  let totalReserveMW = 0, totalArbMW = 0;
+  let chargeISPs = [], dischargeISPs = [];
+
+  for (let i = 0; i < 96; i++) {
+    const h = Math.floor(i / 4);
+    const cap = btdData?.capacity_prices?.[i] || {};
+    const procured = btdData?.procured_mw?.[i] || {};
+    const actPrice = btdData?.activation_prices?.[i] || {};
+    const dir = btdData?.direction?.[i];
+
+    // --- Reserve allocation (capped at 70% MW) ---
+    const rawFcr = drr_active ? 0 : Math.min(mw * 0.20, 10); // DRR: FCR = 0 until 2028
+    const rawAfrr = Math.min((procured.afrr_up || 0) * 0.9, mw * 0.40);
+    const rawMfrr = Math.min((procured.mfrr_up || 0) * mfrrShare, mw * 0.50);
+    const rawTotal = rawFcr + rawAfrr + rawMfrr;
+
+    // Scale down proportionally if over cap
+    const scale = rawTotal > max_reserve_mw ? max_reserve_mw / rawTotal : 1.0;
+    const fcrMW = rawFcr * scale;
+    const afrrMW = rawAfrr * scale;
+    const mfrrMW = rawMfrr * scale;
+    const reservedMW = fcrMW + afrrMW + mfrrMW;
+    const arbMW = mw - reservedMW; // always ≥ min_arb_mw
+
+    totalReserveMW += reservedMW;
+    totalArbMW += arbMW;
+
+    // --- Capacity revenue (15-min pro rata) ---
+    const fcrPrice = drr_active ? (cap.fcr_sym || 0) : POST_DRR_FCR_PRICE_EUR_MW_H;
+    const fcrCapRev = fcrMW * fcrPrice / 4;
+    const afrrCapRev = afrrMW * (cap.afrr_up || 0) / 4;
+    const mfrrCapRev = mfrrMW * (cap.mfrr_up || 0) / 4;
+    const ispCapRev = fcrCapRev + afrrCapRev + mfrrCapRev;
+
+    // --- Activation (balancing energy dispatch) ---
+    const upActPrice = actPrice.up || 0;
+    const isShort = (dir || 0) > 0;
+    const afrrActMW = upActPrice > 0 && isShort ? afrrMW * 0.30 : 0;
+    const mfrrActMW = upActPrice > 50 && isShort ? mfrrMW * 0.20 : 0;
+    const ispActRev = (afrrActMW * upActPrice / 4) + (mfrrActMW * upActPrice / 4);
+
+    // --- Arbitrage (DA spread, always has ≥min_arb_mw) ---
+    const daPrice = daH[h] || 0;
+    let arbRev = 0;
+    let arbAction = 'hold';
+
+    if (arbMW > 0 && daPrice > 0) {
+      if (daPrice <= chargeThreshold && soc < 0.85) {
+        const maxCharge = Math.min(arbMW / 4, (0.90 - soc) * mwh);
+        if (maxCharge > 0) {
+          soc += maxCharge / mwh;
+          arbRev = -maxCharge * daPrice;
+          arbAction = 'charge';
+          chargeISPs.push(i);
+        }
+      } else if (daPrice >= dischargeThreshold && soc > 0.15) {
+        const maxDischarge = Math.min(arbMW * rte / 4, (soc - 0.10) * mwh);
+        if (maxDischarge > 0) {
+          soc -= maxDischarge / mwh;
+          arbRev = maxDischarge * daPrice;
+          arbAction = 'discharge';
+          dischargeISPs.push(i);
+        }
+      }
+    }
+
+    // SoC drain from activations
+    const actDrainMWh = (afrrActMW + mfrrActMW) / 4;
+    soc = Math.max(0.05, Math.min(0.95, soc - actDrainMWh / mwh));
+
+    totalCapRev += ispCapRev;
+    totalActRev += ispActRev;
+    totalArbRev += arbRev;
+
+    isps.push({
+      isp: i,
+      time: `${String(h).padStart(2, '0')}:${String((i % 4) * 15).padStart(2, '0')}`,
+      da_price: t_r2(daPrice),
+      reserves_mw: t_r1(reservedMW),
+      arb_mw: t_r1(arbMW),
+      soc: t_r3(soc),
+      revenue: {
+        capacity: t_r2(ispCapRev),
+        activation: t_r2(ispActRev),
+        arbitrage: t_r2(arbRev),
+        total: t_r2(ispCapRev + ispActRev + arbRev),
+      },
+    });
+  }
+
+  const totalRev = totalCapRev + totalActRev + totalArbRev;
+
+  // Hourly aggregation for display
+  const hourly = [];
+  for (let h = 0; h < 24; h++) {
+    const slice = isps.filter(isp => Math.floor(isp.isp / 4) === h);
+    hourly.push({
+      hour: h,
+      da_price_eur_mwh: t_r2(daH[h] || 0),
+      revenue_eur: {
+        capacity: t_r2(slice.reduce((s, p) => s + p.revenue.capacity, 0)),
+        activation: t_r2(slice.reduce((s, p) => s + p.revenue.activation, 0)),
+        arbitrage: t_r2(slice.reduce((s, p) => s + p.revenue.arbitrage, 0)),
+        total: t_r2(slice.reduce((s, p) => s + p.revenue.total, 0)),
+      },
+      avg_soc_pct: t_r1(slice.reduce((s, p) => s + p.soc, 0) / (slice.length || 1) * 100),
+    });
+  }
+
+  // Peak/off-peak
+  const peakHours = hourly.filter(h => h.hour >= 17 && h.hour <= 20);
+  const offPeakHours = hourly.filter(h => h.hour >= 1 && h.hour <= 5);
+  const peakRev = peakHours.reduce((s, h) => s + h.revenue_eur.total, 0) / (peakHours.length || 1);
+  const offPeakRev = offPeakHours.reduce((s, h) => s + h.revenue_eur.total, 0) / (offPeakHours.length || 1);
+
+  // Activation rate
+  const activatedISPs = isps.filter((_, i) => {
+    const actP = btdData?.activation_prices?.[i];
+    const dir = btdData?.direction?.[i];
+    return (actP?.up || 0) > 0 && (dir || 0) > 0;
+  });
+
+  // DA capture (hourly)
+  const daAvg = daH.length ? daH.reduce((a, b) => a + b, 0) / daH.length : 0;
+  const daMin = daH.length ? Math.min(...daH) : 0;
+  const daMax = daH.length ? Math.max(...daH) : 0;
+  const rawCapture = totalArbRev > 0 && dischargeISPs.length > 0
+    ? totalArbRev / mw / (dischargeISPs.length / 4) // per MWh discharged approx
+    : (daMax - daMin) * rte * 0.5; // theoretical
+  const capture_hourly = Math.max(0, rawCapture);
+  const capture_15min = capture_hourly * (1 + RYSTAD_15MIN_UPLIFT_DECIMAL);
+
+  // Cycles
+  const socValues = isps.map(p => p.soc);
+  const socMin = Math.min(...socValues);
+  const socMax = Math.max(...socValues);
+  const cycleEstimate = Math.max(0, (socMax - socMin) * mwh / mwh); // fraction of capacity swung
+
+  return {
+    meta: {
+      mw_total: mw,
+      dur_h,
+      mwh_total: mwh,
+      rte_decimal: rte,
+      mode,
+      drr_active,
+      date_iso,
+      as_of_iso: new Date().toISOString(),
+      data_class: 'derived',
+      sources: mode === 'forecast'
+        ? ['KV:da_tomorrow', 'KV:s2_rolling_180d']
+        : ['BTD:price_procured_reserves', 'BTD:balancing_energy_prices', 'ENTSOE:A44'],
+    },
+    revenue_per_mw: {
+      daily_eur: t_r0(totalRev / mw),
+      annual_eur: t_r0(totalRev / mw * 365),
+      capacity_eur_day: t_r0(totalCapRev / mw),
+      activation_eur_day: t_r0(totalActRev / mw),
+      arbitrage_eur_day: t_r0(Math.max(0, totalArbRev) / mw),
+    },
+    split_pct: totalRev > 0 ? {
+      capacity: Math.round(totalCapRev / totalRev * 100),
+      activation: Math.round(totalActRev / totalRev * 100),
+      arbitrage: Math.round(Math.max(0, totalArbRev) / totalRev * 100),
+    } : { capacity: 0, activation: 0, arbitrage: 0 },
+    mw_allocation: {
+      avg_reserves_mw: t_r1(totalReserveMW / 96),
+      avg_arbitrage_mw: t_r1(totalArbMW / 96),
+      max_reserve_mw: t_r1(max_reserve_mw),
+      min_arb_mw: t_r1(min_arb_mw),
+    },
+    arbitrage_detail: {
+      capture_eur_mwh: t_r1(capture_hourly),
+      capture_eur_mwh_15min_uplifted: t_r1(capture_15min),
+      uplift_factor_decimal: RYSTAD_15MIN_UPLIFT_DECIMAL,
+      cycles_per_day_count: t_r2(cycleEstimate),
+      charge_isp_count: chargeISPs.length,
+      discharge_isp_count: dischargeISPs.length,
+      capture_quality_label: capture_hourly >= 40 ? 'high' : capture_hourly >= 15 ? 'moderate' : 'low',
+    },
+    reserves_detail: {
+      fcr_mw_avg: t_r1(drr_active ? 0 : (mw * 0.20 * RESERVE_MW_CAP_FRACTION)),
+      afrr_mw_avg: t_r1(isps.reduce((s, p) => s + (p.reserves_mw * 0.4), 0) / 96), // approx
+      mfrr_mw_avg: t_r1(isps.reduce((s, p) => s + (p.reserves_mw * 0.6), 0) / 96),
+      activation_rate_pct: t_r1(activatedISPs.length / 96 * 100),
+    },
+    market_context: {
+      peak_offpeak_ratio_decimal: t_r2(peakRev / (offPeakRev || 1)),
+      da_avg_eur_mwh: t_r1(daAvg),
+      da_min_eur_mwh: t_r1(daMin),
+      da_max_eur_mwh: t_r1(daMax),
+    },
+    soc_dynamics: {
+      soc_min_pct: t_r1(socMin * 100),
+      soc_max_pct: t_r1(socMax * 100),
+      soc_avg_pct: t_r1(socValues.reduce((a, b) => a + b, 0) / socValues.length * 100),
+    },
+    drr_note: {
+      derogation_expires_iso: '2028-02',
+      extension_possible_iso: '2030-02',
+      post_drr_fcr_price_eur_mw_h: POST_DRR_FCR_PRICE_EUR_MW_H,
+    },
+    hourly_dispatch: hourly,
+    isp_dispatch: isps,
+  };
+}
+
+// Synthesize a BTD-like payload from rolling 180d averages (for forecast mode)
+function synthesizeBTDFromRolling(rolling, daTomorrow) {
+  if (!rolling?.products) return null;
+  const afrr = rolling.products.aFRR || rolling.products.afrr || {};
+  const mfrr = rolling.products.mFRR || rolling.products.mfrr || {};
+  const fcr = rolling.products.FCR || rolling.products.fcr || {};
+
+  // Build 96-ISP arrays with rolling averages (flat shape)
+  const capacity_prices = Array.from({ length: 96 }, () => ({
+    fcr_sym: fcr.cap_avg || 0,
+    afrr_up: afrr.cap_avg || 0,
+    mfrr_up: mfrr.cap_avg || 0,
+  }));
+  const procured_mw = Array.from({ length: 96 }, () => ({
+    fcr_sym: 28, // source: Elering Baltic FCR demand
+    afrr_up: 120, // source: Baltic aFRR demand
+    mfrr_up: 604, // source: Baltic mFRR demand
+  }));
+  // Activation shape: higher during high-DA-price hours
+  const daP = daTomorrow?.prices_24h || daTomorrow?.lt_prices || [];
+  const daMax = daP.length ? Math.max(...daP) : 100;
+  const activation_prices = Array.from({ length: 96 }, (_, i) => {
+    const h = Math.floor(i / 4);
+    const p = daP[h] || 50;
+    return { up: p > daMax * 0.6 ? (afrr.act_avg || 170) : 0, down: 0 };
+  });
+  const direction = Array.from({ length: 96 }, (_, i) => {
+    const h = Math.floor(i / 4);
+    const p = daP[h] || 50;
+    return p > daMax * 0.5 ? 1 : -1; // short when high price
+  });
+
+  return {
+    date: daTomorrow?.date || new Date(Date.now() + 86400000).toISOString().slice(0, 10),
+    capacity_prices,
+    procured_mw,
+    activation_prices,
+    direction,
+  };
+}
+
 // ─── Revenue Engine v6 — OEM degradation, scenarios, CFADS ────────────────────
 
 // OEM degradation curves — PowerCombo LFP 300MWh system
@@ -6393,11 +6682,23 @@ export default {
       // Store raw BTD data (90 day TTL)
       await env.KKME_SIGNALS.put(`trading:${date}:raw`, JSON.stringify(body), { expirationTtl: 86400 * 90 });
 
-      // Compute dispatch analysis for 60MW/130MWh reference battery
+      // Compute dispatch analysis — old format (backward compat) + new V2
       const analysis = computeDispatch(body, { mw: 60, mwh: 130, rte: 0.875 });
       await env.KKME_SIGNALS.put(`trading:${date}`, JSON.stringify(analysis), { expirationTtl: 86400 * 90 });
 
-      console.log(`[Trading] ${date} gross=€${analysis.totals.gross} per_mw=€${analysis.totals.per_mw} cap=${analysis.totals.splits_pct.capacity}% act=${analysis.totals.splits_pct.activation}% arb=${analysis.totals.splits_pct.arbitrage}%`);
+      // V2 dispatch: 50MW reference, 2H and 4H
+      const v2_4h = computeDispatchV2(body, body.da_hourly || [], { mw: 50, dur_h: 4, mode: 'realised', date_iso: date });
+      const v2_2h = computeDispatchV2(body, body.da_hourly || [], { mw: 50, dur_h: 2, mode: 'realised', date_iso: date });
+      // Also compute post-DRR scenarios
+      const v2_4h_drr = computeDispatchV2(body, body.da_hourly || [], { mw: 50, dur_h: 4, mode: 'realised', date_iso: date, drr_active: false });
+      const v2_2h_drr = computeDispatchV2(body, body.da_hourly || [], { mw: 50, dur_h: 2, mode: 'realised', date_iso: date, drr_active: false });
+
+      await env.KKME_SIGNALS.put(`dispatch:${date}:4h`, JSON.stringify(v2_4h), { expirationTtl: 86400 * 90 });
+      await env.KKME_SIGNALS.put(`dispatch:${date}:2h`, JSON.stringify(v2_2h), { expirationTtl: 86400 * 90 });
+      await env.KKME_SIGNALS.put(`dispatch:${date}:4h:post_drr`, JSON.stringify(v2_4h_drr), { expirationTtl: 86400 * 90 });
+      await env.KKME_SIGNALS.put(`dispatch:${date}:2h:post_drr`, JSON.stringify(v2_2h_drr), { expirationTtl: 86400 * 90 });
+
+      console.log(`[Trading] ${date} v1=€${analysis.totals.per_mw}/MW v2_4h=€${v2_4h.revenue_per_mw.daily_eur}/MW v2_2h=€${v2_2h.revenue_per_mw.daily_eur}/MW`);
 
       // ── Detect extreme activation events ──
       try {
@@ -6478,8 +6779,74 @@ export default {
       return jsonResp({ ok: true, date, totals: analysis.totals, signals: analysis.signals });
     }
 
+    // ── GET /api/dispatch — V2 dispatch with parameterized battery ────────────
+    // Params: dur (2h|4h), mode (realised|forecast)
+    if (request.method === 'GET' && url.pathname === '/api/dispatch') {
+      const dur_h = url.searchParams.get('dur') === '2h' ? 2 : 4;
+      const mode = url.searchParams.get('mode') === 'forecast' ? 'forecast' : 'realised';
+
+      if (mode === 'realised') {
+        // Find latest dispatch date from KV
+        const keys = await env.KKME_SIGNALS.list({ prefix: `dispatch:202` });
+        const dates = keys.keys.map(k => k.name)
+          .filter(k => k.endsWith(`:${dur_h}h`) && !k.includes('post_drr'))
+          .sort().reverse();
+        if (!dates.length) return jsonResp({ error: 'No dispatch data yet. Waiting for BTD push.' }, 404);
+
+        const current = await env.KKME_SIGNALS.get(dates[0]).catch(() => null);
+        const postDrr = await env.KKME_SIGNALS.get(dates[0] + ':post_drr').catch(() => null);
+        if (!current) return jsonResp({ error: 'Dispatch data missing' }, 404);
+
+        const result = JSON.parse(current);
+        if (postDrr) {
+          const drr = JSON.parse(postDrr);
+          result.scenarios = {
+            drr_uplift_eur_mw_day: drr.revenue_per_mw.daily_eur - result.revenue_per_mw.daily_eur,
+            post_drr_daily_eur: drr.revenue_per_mw.daily_eur,
+            post_drr_annual_eur: drr.revenue_per_mw.annual_eur,
+          };
+        }
+        return jsonResp(result);
+      }
+
+      // Forecast mode: compute live from da_tomorrow + rolling 180d
+      try {
+        const [daTomorrowRaw, rollingRaw] = await Promise.all([
+          env.KKME_SIGNALS.get('da_tomorrow').catch(() => null),
+          env.KKME_SIGNALS.get('s2_rolling_180d').catch(() => null),
+        ]);
+        if (!daTomorrowRaw) return jsonResp({ error: 'No DA tomorrow data yet (publishes ~14:00 CET)' }, 404);
+
+        const daTomorrow = JSON.parse(daTomorrowRaw);
+        const rolling = rollingRaw ? JSON.parse(rollingRaw) : null;
+        const daP = daTomorrow.prices_24h || daTomorrow.lt_prices || [];
+
+        if (!daP.length) return jsonResp({ error: 'DA tomorrow prices empty' }, 404);
+
+        const synthBTD = rolling ? synthesizeBTDFromRolling(rolling, daTomorrow) : null;
+
+        const current = computeDispatchV2(synthBTD, daP, {
+          mw: 50, dur_h, mode: 'forecast',
+          date_iso: daTomorrow.date || new Date(Date.now() + 86400000).toISOString().slice(0, 10),
+        });
+        const postDrr = computeDispatchV2(synthBTD, daP, {
+          mw: 50, dur_h, mode: 'forecast', drr_active: false,
+          date_iso: current.meta.date_iso,
+        });
+
+        current.scenarios = {
+          drr_uplift_eur_mw_day: postDrr.revenue_per_mw.daily_eur - current.revenue_per_mw.daily_eur,
+          post_drr_daily_eur: postDrr.revenue_per_mw.daily_eur,
+          post_drr_annual_eur: postDrr.revenue_per_mw.annual_eur,
+        };
+        return jsonResp(current);
+      } catch (e) {
+        return jsonResp({ error: `Forecast failed: ${e.message}` }, 500);
+      }
+    }
+
     // ── GET /api/trading ──────────────────────────────────────────────────────
-    // Returns dispatch analysis for a specific date.
+    // Returns dispatch analysis for a specific date (V1 backward compat).
     if (request.method === 'GET' && url.pathname === '/api/trading') {
       const date = url.searchParams.get('date');
       if (!date) return jsonResp({ error: 'date param required (YYYY-MM-DD)' }, 400);
