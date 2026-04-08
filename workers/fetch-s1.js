@@ -3644,6 +3644,12 @@ async function fetchLitgridBalancing() {
       }
     }
 
+    // Litgrid stopped publishing ordered capacity data post-synchronization.
+    // Page exists but data table is empty. BTD is now the authoritative source.
+    // Last verified 2026-04-08.
+    if (!ordered_price && !ordered_mw) {
+      console.log('[Litgrid] No ordered capacity data (expected — data moved to BTD post-sync)');
+    }
     return { ordered_price, ordered_mw };
   } catch (e) {
     clearTimeout(timer);
