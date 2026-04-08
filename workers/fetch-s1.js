@@ -3085,6 +3085,23 @@ const S4_INTERPRETATION = {
   SCARCE:     'Hard constraint approaching. Existing reservations repricing above €60k/MW. New entry difficult.',
 };
 
+// ─────────────────────────────────────────────────────────────────────
+// VERT.lt ArcGIS — PRIMARY source for Lithuanian BESS project data.
+//
+// Pulls from VERT.lt's grid-permits ArcGIS FeatureServer (layer 8),
+// filtered by Tipas === 'Kaupikliai' (storage type).
+//
+// Returns grid-level aggregates: free_mw, connected_mw, reserved_mw.
+// Individual project detail comes from s4_fleet KV (populated by VPS
+// daily pipeline → kkme_sync.py → POST /s2/fleet).
+//
+// NOT to be confused with the deprecated Litgrid balancing-capacites
+// scraper (litgrid.eu/dashboard/balancing-capacites/31577) which
+// stopped publishing data post-Feb 2025 synchronization. Baltic
+// balancing procurement is now in BTD only.
+//
+// Last verified: 2026-04-08
+// ─────────────────────────────────────────────────────────────────────
 async function computeS4() {
   const res = await fetch(S4_URL);
   if (!res.ok) throw new Error(`S4 FeatureServer: HTTP ${res.status}`);
@@ -6325,6 +6342,20 @@ export default {
                 product_sd:           fl.product_sd            ?? null,
                 updated:              fl.updated_at            ?? null,
               };
+
+              // Expose individual projects from fleet tracker
+              const entries = fl.raw_entries || [];
+              d.projects = entries;
+              const counts = { total: entries.length, by_country: {}, by_status: {}, total_mw: 0 };
+              for (const p of entries) {
+                const c = p.country || 'unknown';
+                const s = p.status || 'unknown';
+                counts.by_country[c] = (counts.by_country[c] || 0) + 1;
+                counts.by_status[s] = (counts.by_status[s] || 0) + 1;
+                counts.total_mw += parseFloat(p.mw || 0);
+              }
+              counts.total_mw = Math.round(counts.total_mw * 10) / 10;
+              d.project_counts = counts;
             } catch { /* ignore */ }
           }
 
