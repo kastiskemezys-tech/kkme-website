@@ -7,6 +7,7 @@ import { safeNum } from '@/lib/safeNum';
 import {
   MetricTile, SourceFooter, DetailsDrawer, DataClassBadge,
 } from '@/app/components/primitives';
+import DrawerTabs from './DrawerTabs';
 // Sentiment type removed — no editorial labels on this card
 import {
   Chart as ChartJS,
@@ -45,6 +46,7 @@ export function S1Card() {
   const { status, data } = useSignal<S1WithCapture>(`${WORKER_URL}/read`);
   const [captureData, setCaptureData] = useState<S1CaptureData | null>(null);
   const [duration, setDuration] = useState<'2h' | '4h'>('4h');
+  const [s1DrawerTab, setS1DrawerTab] = useState('capture');
   const [drawerKey, setDrawerKey] = useState(0);
   const openDrawer = () => setDrawerKey(k => k + 1);
   const CC = useChartColors();
@@ -487,44 +489,6 @@ export function S1Card() {
         </div>
       )}
 
-      {/* CHARGE / DISCHARGE SUMMARY */}
-      {(() => {
-        const capDetail = duration === '2h' ? captureData?.capture_2h : captureData?.capture_4h;
-        if (!capDetail) return null;
-        return (
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: '8px',
-            marginTop: '16px',
-            padding: '12px',
-            background: 'var(--bg-elevated)',
-            borderRadius: '4px',
-          }}>
-            <div>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--teal)', textTransform: 'uppercase', marginBottom: '4px' }}>Charge</div>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.125rem', color: 'var(--text-primary)' }}>
-                €{safeNum(capDetail.avg_charge, 1)}
-                <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginLeft: '2px' }}>/MWh</span>
-              </div>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>
-                avg of {duration === '4h' ? 4 : 2}h cheapest · today
-              </div>
-            </div>
-            <div>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--amber)', textTransform: 'uppercase', marginBottom: '4px' }}>Discharge</div>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.125rem', color: 'var(--text-primary)' }}>
-                €{safeNum(capDetail.avg_discharge, 1)}
-                <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginLeft: '2px' }}>/MWh</span>
-              </div>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>
-                avg of {duration === '4h' ? 4 : 2}h most expensive · today
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
       {/* EXTREME EVENT CALLOUT */}
       {data.extreme_event && isRecent(data.extreme_event.timestamp, 48) && (
         <div style={{
@@ -561,298 +525,360 @@ export function S1Card() {
       <div style={{ marginTop: '16px' }}>
         <DetailsDrawer key={drawerKey} label="View signal breakdown" defaultOpen={drawerKey > 0} portalId={isDesktop ? 'signal-drawer-s1' : undefined}>
 
-          {/* ── Capture detail ── */}
-          <p style={{
-            fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
-            color: 'var(--text-tertiary)', letterSpacing: '0.1em',
-            textTransform: 'uppercase', marginBottom: '8px',
-          }}>
-            Capture detail
-          </p>
-          <div style={{
-            display: 'grid', gridTemplateColumns: '1fr 1fr',
-            gap: '14px', marginBottom: '20px',
-          }}>
-            <div>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>
-                {netToday != null ? `€${safeNum(netToday, 1)}` : '—'} <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>/MWh</span>
-              </div>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
-                Net capture ({duration}) after RTE · today
-              </div>
-            </div>
-            {rolling && (
-              <div>
-                <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>
-                  €{safeNum(rolling.p50, 0)} <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>/MWh</span>
-                </div>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  30-day median gross ({duration})
-                </div>
-              </div>
-            )}
-            {swing != null && (
-              <div>
-                <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>
-                  €{safeNum(swing, 0)} <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>/MWh</span>
-                </div>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  Peak-to-trough swing · today
-                </div>
-              </div>
-            )}
-            {shape && (
-              <div>
-                <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>
-                  {String(shape.peak_hour).padStart(2, '0')}:00 / {String(shape.trough_hour).padStart(2, '0')}:00
-                </div>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  Peak / trough hour · today
-                </div>
-              </div>
-            )}
-          </div>
+          <DrawerTabs
+            tabs={[
+              { id: 'capture', label: 'Capture' },
+              { id: 'monthly', label: 'Monthly' },
+              { id: 'method', label: 'Method' },
+            ]}
+            active={s1DrawerTab}
+            onChange={setS1DrawerTab}
+          />
 
-          {/* ── Gross-to-net bridge ── */}
-          {(() => {
-            // Build bridge from duration-specific capture data (worker gross_to_net is 2h-only)
-            const capDetail = duration === '2h' ? captureData?.capture_2h : captureData?.capture_4h;
-            if (!capDetail) return null;
-
-            const rte = capDetail.rte ?? (duration === '2h' ? 0.875 : 0.87);
-            const rteLoss = -Math.round((capDetail.avg_charge / rte - capDetail.avg_charge) * 100) / 100;
-            const bridgeLines: { label: string; value: number; type: 'base' | 'deduction' | 'result'; annotation: string }[] = [
-              { label: `Gross spread (${duration})`, value: capDetail.gross_eur_mwh, type: 'base', annotation: 'observed' },
-              { label: `RTE loss (${duration})`, value: rteLoss, type: 'deduction', annotation: `Round-trip efficiency ×${rte}` },
-              { label: `Net capture (${duration})`, value: capDetail.net_eur_mwh, type: 'result', annotation: 'derived' },
-            ];
-
-            return (
-              <>
-                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>
-                  Gross-to-net bridge ({duration}, per MWh discharged)
-                </p>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', marginBottom: '8px' }}>
-                  {bridgeLines.map((line, i) => (
-                    <div key={i} style={{
-                      display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0',
-                      color: line.type === 'result' ? 'var(--text-secondary)' : line.type === 'deduction' ? 'var(--rose)' : 'var(--text-secondary)',
-                      borderTop: line.type === 'result' ? '1px solid var(--border-card)' : 'none',
-                      fontWeight: line.type === 'result' ? 500 : 400,
-                    }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        {line.label}
-                        <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', opacity: 0.7 }}>
-                          {line.annotation}
-                        </span>
-                      </span>
-                      <span>{line.value >= 0 ? '' : '−'}€{safeNum(Math.abs(line.value), 2)}/MWh</span>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Friction estimates — not included in net capture above */}
-                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.08em', marginBottom: '6px' }}>
-                  Not included in net capture
-                </p>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', marginBottom: '8px' }}>
-                  {[
-                    { label: 'Cycle degradation', range: '€8–15/MWh', status: 'estimated' },
-                    { label: 'Grid fees + PSO', range: '€3–5/MWh', status: 'estimated' },
-                    { label: 'Optimizer / RTM fees', range: '5–10% of gross', status: 'estimated' },
-                    { label: 'Auxiliary consumption', range: '2–3% of throughput', status: 'estimated' },
-                    { label: 'Imbalance admin (Litgrid)', range: '€0.58/MWh', status: 'confirmed' },
-                    { label: 'Availability haircut', range: '3–5% annual hours', status: 'estimated' },
-                  ].map((item, i) => (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', color: 'var(--text-muted)' }}>
-                      <span>{item.label} <span style={{ opacity: 0.5, fontStyle: 'italic' }}>{item.status}</span></span>
-                      <span>{item.range}</span>
-                    </div>
-                  ))}
-                </div>
-                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.4, marginBottom: '20px' }}>
-                  Realized capture is typically 40–65% of gross, depending on asset-specific factors.
-                </p>
-              </>
-            );
-          })()}
-
-          {/* ── Cross-border spread (demoted) ── */}
-          <p style={{
-            fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
-            color: 'var(--text-tertiary)', letterSpacing: '0.1em',
-            textTransform: 'uppercase', marginBottom: '8px',
-          }}>
-            Cross-border price spread
-          </p>
-          <div style={{
-            display: 'grid', gridTemplateColumns: 'auto 1fr',
-            gap: '5px 16px',
-            fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)',
-            marginBottom: '20px',
-          }}>
-            <span style={{ color: 'var(--text-muted)' }}>LT average</span>
-            <span style={{ color: 'var(--text-secondary)' }}>{safeNum(data.lt_avg_eur_mwh, 2)} €/MWh</span>
-            <span style={{ color: 'var(--text-muted)' }}>SE4 average</span>
-            <span style={{ color: 'var(--text-secondary)' }}>{safeNum(data.se4_avg_eur_mwh, 2)} €/MWh</span>
-            <span style={{ color: 'var(--text-muted)' }}>Spread</span>
-            <span style={{ color: 'var(--text-secondary)' }}>{spread >= 0 ? '+' : ''}{safeNum(spread, 2)} €/MWh</span>
-            <span style={{ color: 'var(--text-muted)' }}>Separation</span>
-            <span style={{ color: 'var(--text-secondary)' }}>{safeNum(data.separation_pct, 1)}% vs SE4</span>
-            {data.p_high_avg != null && (
-              <>
-                <span style={{ color: 'var(--text-muted)' }}>P_high (top-4h)</span>
-                <span style={{ color: 'var(--text-secondary)' }}>{safeNum(data.p_high_avg, 1)} €/MWh</span>
-              </>
-            )}
-            {data.p_low_avg != null && (
-              <>
-                <span style={{ color: 'var(--text-muted)' }}>P_low (bottom-4h)</span>
-                <span style={{ color: 'var(--text-secondary)' }}>{safeNum(data.p_low_avg, 1)} €/MWh</span>
-              </>
-            )}
-          </div>
-          <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', marginBottom: '20px', lineHeight: 1.5 }}>
-            LT-SE4 spread reflects interconnector price coupling. Wider spread = more DA arbitrage opportunity for LT-connected BESS. Spread narrows when NordBalt flows freely.
-          </p>
-
-          {/* ── Monthly seasonal view ── */}
-          {monthly.length > 1 && (
+          {/* ═══ CAPTURE TAB ═══ */}
+          {s1DrawerTab === 'capture' && (
             <>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <p style={{
-                  fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
-                  color: 'var(--text-tertiary)', letterSpacing: '0.1em',
-                  textTransform: 'uppercase', margin: 0,
-                }}>
-                  Monthly capture ({duration})
-                </p>
-                <button
-                  onClick={() => {
-                    const header = 'Month\tGross\tNet\tDays';
-                    const rows = monthly.map(m => {
-                      const g = duration === '2h' ? m.avg_gross_2h : m.avg_gross_4h;
-                      const n = duration === '2h' ? m.avg_net_2h : m.avg_net_4h;
-                      return `${m.month}\t${g?.toFixed(1) ?? ''}\t${n?.toFixed(1) ?? ''}\t${m.days}`;
-                    });
-                    navigator.clipboard.writeText([header, ...rows].join('\n'));
-                  }}
-                  title="Copy table as TSV"
-                  style={{
-                    all: 'unset',
-                    cursor: 'pointer',
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: 'var(--font-xs)',
-                    color: 'var(--text-muted)',
-                    padding: '2px 8px',
-                    border: '1px solid var(--border-card)',
-                    borderRadius: '2px',
-                    transition: 'all 0.15s',
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-highlight)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-card)'; e.currentTarget.style.color = 'var(--text-muted)'; }}
-                >
-                  Copy
-                </button>
-              </div>
-              <div style={{
-                display: 'grid', gridTemplateColumns: 'auto 1fr 1fr auto',
-                gap: '4px 12px',
-                fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)',
-                marginBottom: '20px',
+              {/* ── Capture detail ── */}
+              <p style={{
+                fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+                color: 'var(--text-tertiary)', letterSpacing: '0.1em',
+                textTransform: 'uppercase', marginBottom: '8px',
               }}>
-                <span style={{ color: 'var(--text-tertiary)', fontWeight: 500 }}>Month</span>
-                <span style={{ color: 'var(--text-tertiary)', fontWeight: 500 }}>Gross</span>
-                <span style={{ color: 'var(--text-tertiary)', fontWeight: 500 }}>Net</span>
-                <span style={{ color: 'var(--text-tertiary)', fontWeight: 500 }}>Days</span>
-                {monthly.slice(-6).map(m => {
-                  const gVal = duration === '2h' ? m.avg_gross_2h : m.avg_gross_4h;
-                  const nVal = duration === '2h' ? m.avg_net_2h : m.avg_net_4h;
-                  return (
-                    <div key={m.month} style={{ display: 'contents' }}>
-                      <span style={{ color: 'var(--text-muted)' }}>{m.month}</span>
-                      <span style={{ color: 'var(--text-secondary)' }}>
-                        {gVal != null ? `€${safeNum(gVal, 1)}` : '—'}
-                      </span>
-                      <span style={{ color: 'var(--text-secondary)' }}>
-                        {nVal != null ? `€${safeNum(nVal, 1)}` : '—'}
-                      </span>
-                      <span style={{ color: 'var(--text-muted)' }}>{m.days}</span>
+                Capture detail
+              </p>
+              <div style={{
+                display: 'grid', gridTemplateColumns: '1fr 1fr',
+                gap: '14px', marginBottom: '20px',
+              }}>
+                <div>
+                  <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>
+                    {netToday != null ? `€${safeNum(netToday, 1)}` : '—'} <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>/MWh</span>
+                  </div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    Net capture ({duration}) after RTE · today
+                  </div>
+                </div>
+                {rolling && (
+                  <div>
+                    <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>
+                      €{safeNum(rolling.p50, 0)} <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>/MWh</span>
                     </div>
-                  );
-                })}
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
+                      30-day median gross ({duration})
+                    </div>
+                  </div>
+                )}
+                {swing != null && (
+                  <div>
+                    <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>
+                      €{safeNum(swing, 0)} <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>/MWh</span>
+                    </div>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
+                      Peak-to-trough swing · today
+                    </div>
+                  </div>
+                )}
+                {shape && (
+                  <div>
+                    <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>
+                      {String(shape.peak_hour).padStart(2, '0')}:00 / {String(shape.trough_hour).padStart(2, '0')}:00
+                    </div>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
+                      Peak / trough hour · today
+                    </div>
+                  </div>
+                )}
               </div>
+
+              {/* ── Gross-to-net bridge ── */}
+              {(() => {
+                const capDetail = duration === '2h' ? captureData?.capture_2h : captureData?.capture_4h;
+                if (!capDetail) return null;
+
+                const rte = capDetail.rte ?? (duration === '2h' ? 0.875 : 0.87);
+                const rteLoss = -Math.round((capDetail.avg_charge / rte - capDetail.avg_charge) * 100) / 100;
+                const bridgeLines: { label: string; value: number; type: 'base' | 'deduction' | 'result'; annotation: string }[] = [
+                  { label: `Gross spread (${duration})`, value: capDetail.gross_eur_mwh, type: 'base', annotation: 'observed' },
+                  { label: `RTE loss (${duration})`, value: rteLoss, type: 'deduction', annotation: `Round-trip efficiency ×${rte}` },
+                  { label: `Net capture (${duration})`, value: capDetail.net_eur_mwh, type: 'result', annotation: 'derived' },
+                ];
+
+                return (
+                  <>
+                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>
+                      Gross-to-net bridge ({duration}, per MWh discharged)
+                    </p>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', marginBottom: '8px' }}>
+                      {bridgeLines.map((line, i) => (
+                        <div key={i} style={{
+                          display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0',
+                          color: line.type === 'result' ? 'var(--text-secondary)' : line.type === 'deduction' ? 'var(--rose)' : 'var(--text-secondary)',
+                          borderTop: line.type === 'result' ? '1px solid var(--border-card)' : 'none',
+                          fontWeight: line.type === 'result' ? 500 : 400,
+                        }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            {line.label}
+                            <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', opacity: 0.7 }}>
+                              {line.annotation}
+                            </span>
+                          </span>
+                          <span>{line.value >= 0 ? '' : '−'}€{safeNum(Math.abs(line.value), 2)}/MWh</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Friction estimates */}
+                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.08em', marginBottom: '6px' }}>
+                      Not included in net capture
+                    </p>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', marginBottom: '8px' }}>
+                      {[
+                        { label: 'Cycle degradation', range: '€8–15/MWh', status: 'estimated' },
+                        { label: 'Grid fees + PSO', range: '€3–5/MWh', status: 'estimated' },
+                        { label: 'Optimizer / RTM fees', range: '5–10% of gross', status: 'estimated' },
+                        { label: 'Auxiliary consumption', range: '2–3% of throughput', status: 'estimated' },
+                        { label: 'Imbalance admin (Litgrid)', range: '€0.58/MWh', status: 'confirmed' },
+                        { label: 'Availability haircut', range: '3–5% annual hours', status: 'estimated' },
+                      ].map((item, i) => (
+                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', color: 'var(--text-muted)' }}>
+                          <span>{item.label} <span style={{ opacity: 0.5, fontStyle: 'italic' }}>{item.status}</span></span>
+                          <span>{item.range}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.4, marginBottom: '20px' }}>
+                      Realized capture is typically 40–65% of gross, depending on asset-specific factors.
+                    </p>
+                  </>
+                );
+              })()}
+
+              {/* ── Charge / discharge summary (moved from default view) ── */}
+              {(() => {
+                const capDetail = duration === '2h' ? captureData?.capture_2h : captureData?.capture_4h;
+                if (!capDetail) return null;
+                return (
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: '8px',
+                    marginTop: '4px',
+                    padding: '12px',
+                    background: 'var(--bg-elevated)',
+                    borderRadius: '4px',
+                  }}>
+                    <div>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--teal)', textTransform: 'uppercase', marginBottom: '4px' }}>Charge</div>
+                      <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.125rem', color: 'var(--text-primary)' }}>
+                        €{safeNum(capDetail.avg_charge, 1)}
+                        <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginLeft: '2px' }}>/MWh</span>
+                      </div>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>
+                        avg of {duration === '4h' ? 4 : 2}h cheapest · today
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--amber)', textTransform: 'uppercase', marginBottom: '4px' }}>Discharge</div>
+                      <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.125rem', color: 'var(--text-primary)' }}>
+                        €{safeNum(capDetail.avg_discharge, 1)}
+                        <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginLeft: '2px' }}>/MWh</span>
+                      </div>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>
+                        avg of {duration === '4h' ? 4 : 2}h most expensive · today
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
             </>
           )}
 
-          {/* ── DA tomorrow ── */}
-          {data.da_tomorrow?.lt_peak != null && (
-            <div style={{
-              fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
-              color: 'var(--text-muted)', marginBottom: '20px',
-            }}>
-              Tomorrow DA: {safeNum(data.da_tomorrow.lt_peak, 0)} peak · {safeNum(data.da_tomorrow.lt_avg, 0)} avg €/MWh
-              {data.da_tomorrow.delivery_date && ` · ${data.da_tomorrow.delivery_date}`}
-            </div>
+          {/* ═══ MONTHLY TAB ═══ */}
+          {s1DrawerTab === 'monthly' && (
+            <>
+              {/* ── Cross-border spread ── */}
+              <p style={{
+                fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+                color: 'var(--text-tertiary)', letterSpacing: '0.1em',
+                textTransform: 'uppercase', marginBottom: '8px',
+              }}>
+                Cross-border price spread
+              </p>
+              <div style={{
+                display: 'grid', gridTemplateColumns: 'auto 1fr',
+                gap: '5px 16px',
+                fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)',
+                marginBottom: '20px',
+              }}>
+                <span style={{ color: 'var(--text-muted)' }}>LT average</span>
+                <span style={{ color: 'var(--text-secondary)' }}>{safeNum(data.lt_avg_eur_mwh, 2)} €/MWh</span>
+                <span style={{ color: 'var(--text-muted)' }}>SE4 average</span>
+                <span style={{ color: 'var(--text-secondary)' }}>{safeNum(data.se4_avg_eur_mwh, 2)} €/MWh</span>
+                <span style={{ color: 'var(--text-muted)' }}>Spread</span>
+                <span style={{ color: 'var(--text-secondary)' }}>{spread >= 0 ? '+' : ''}{safeNum(spread, 2)} €/MWh</span>
+                <span style={{ color: 'var(--text-muted)' }}>Separation</span>
+                <span style={{ color: 'var(--text-secondary)' }}>{safeNum(data.separation_pct, 1)}% vs SE4</span>
+                {data.p_high_avg != null && (
+                  <>
+                    <span style={{ color: 'var(--text-muted)' }}>P_high (top-4h)</span>
+                    <span style={{ color: 'var(--text-secondary)' }}>{safeNum(data.p_high_avg, 1)} €/MWh</span>
+                  </>
+                )}
+                {data.p_low_avg != null && (
+                  <>
+                    <span style={{ color: 'var(--text-muted)' }}>P_low (bottom-4h)</span>
+                    <span style={{ color: 'var(--text-secondary)' }}>{safeNum(data.p_low_avg, 1)} €/MWh</span>
+                  </>
+                )}
+              </div>
+              <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', marginBottom: '20px', lineHeight: 1.5 }}>
+                LT-SE4 spread reflects interconnector price coupling. Wider spread = more DA arbitrage opportunity for LT-connected BESS. Spread narrows when NordBalt flows freely.
+              </p>
+
+              {/* ── Monthly seasonal view ── */}
+              {monthly.length > 1 && (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <p style={{
+                      fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+                      color: 'var(--text-tertiary)', letterSpacing: '0.1em',
+                      textTransform: 'uppercase', margin: 0,
+                    }}>
+                      Monthly capture ({duration})
+                    </p>
+                    <button
+                      onClick={() => {
+                        const header = 'Month\tGross\tNet\tDays';
+                        const rows = monthly.map(m => {
+                          const g = duration === '2h' ? m.avg_gross_2h : m.avg_gross_4h;
+                          const n = duration === '2h' ? m.avg_net_2h : m.avg_net_4h;
+                          return `${m.month}\t${g?.toFixed(1) ?? ''}\t${n?.toFixed(1) ?? ''}\t${m.days}`;
+                        });
+                        navigator.clipboard.writeText([header, ...rows].join('\n'));
+                      }}
+                      title="Copy table as TSV"
+                      style={{
+                        all: 'unset',
+                        cursor: 'pointer',
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: 'var(--font-xs)',
+                        color: 'var(--text-muted)',
+                        padding: '2px 8px',
+                        border: '1px solid var(--border-card)',
+                        borderRadius: '2px',
+                        transition: 'all 0.15s',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-highlight)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-card)'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+                    >
+                      Copy
+                    </button>
+                  </div>
+                  <div style={{
+                    display: 'grid', gridTemplateColumns: 'auto 1fr 1fr auto',
+                    gap: '4px 12px',
+                    fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)',
+                    marginBottom: '20px',
+                  }}>
+                    <span style={{ color: 'var(--text-tertiary)', fontWeight: 500 }}>Month</span>
+                    <span style={{ color: 'var(--text-tertiary)', fontWeight: 500 }}>Gross</span>
+                    <span style={{ color: 'var(--text-tertiary)', fontWeight: 500 }}>Net</span>
+                    <span style={{ color: 'var(--text-tertiary)', fontWeight: 500 }}>Days</span>
+                    {monthly.slice(-6).map(m => {
+                      const gVal = duration === '2h' ? m.avg_gross_2h : m.avg_gross_4h;
+                      const nVal = duration === '2h' ? m.avg_net_2h : m.avg_net_4h;
+                      return (
+                        <div key={m.month} style={{ display: 'contents' }}>
+                          <span style={{ color: 'var(--text-muted)' }}>{m.month}</span>
+                          <span style={{ color: 'var(--text-secondary)' }}>
+                            {gVal != null ? `€${safeNum(gVal, 1)}` : '—'}
+                          </span>
+                          <span style={{ color: 'var(--text-secondary)' }}>
+                            {nVal != null ? `€${safeNum(nVal, 1)}` : '—'}
+                          </span>
+                          <span style={{ color: 'var(--text-muted)' }}>{m.days}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+
+              {/* ── DA tomorrow ── */}
+              {data.da_tomorrow?.lt_peak != null && (
+                <div style={{
+                  fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+                  color: 'var(--text-muted)', marginBottom: '20px',
+                }}>
+                  Tomorrow DA: {safeNum(data.da_tomorrow.lt_peak, 0)} peak · {safeNum(data.da_tomorrow.lt_avg, 0)} avg €/MWh
+                  {data.da_tomorrow.delivery_date && ` · ${data.da_tomorrow.delivery_date}`}
+                </div>
+              )}
+            </>
           )}
 
-          {/* ── Market context ── */}
-          <p style={{
-            fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
-            color: 'var(--text-tertiary)', letterSpacing: '0.1em',
-            marginBottom: '6px',
-          }}>
-            Market context · Q1 2026
-          </p>
-          <div style={{
-            fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
-            color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: '20px',
-          }}>
-            {[
-              { period: 'Feb 2025', note: 'Baltic synchronization with Continental Europe' },
-              { period: 'Oct 2025', note: 'NordBalt maintenance — reduced SE4 coupling, wider LT spreads' },
-              { period: 'Summer', note: 'Solar suppresses midday DA prices — deeper charge trough, higher gross capture' },
-              { period: 'Winter', note: 'Heating demand + low renewables — elevated peak prices widen spreads' },
-            ].map((e, i) => (
-              <div key={i} style={{ display: 'flex', gap: '8px', padding: '2px 0' }}>
-                <span style={{ color: 'var(--text-tertiary)', minWidth: '64px', flexShrink: 0 }}>{e.period}</span>
-                <span>{e.note}</span>
+          {/* ═══ METHOD TAB ═══ */}
+          {s1DrawerTab === 'method' && (
+            <>
+              {/* ── Market context ── */}
+              <p style={{
+                fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+                color: 'var(--text-tertiary)', letterSpacing: '0.1em',
+                marginBottom: '6px',
+              }}>
+                Market context · Q1 2026
+              </p>
+              <div style={{
+                fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+                color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: '20px',
+              }}>
+                {[
+                  { period: 'Feb 2025', note: 'Baltic synchronization with Continental Europe' },
+                  { period: 'Oct 2025', note: 'NordBalt maintenance — reduced SE4 coupling, wider LT spreads' },
+                  { period: 'Summer', note: 'Solar suppresses midday DA prices — deeper charge trough, higher gross capture' },
+                  { period: 'Winter', note: 'Heating demand + low renewables — elevated peak prices widen spreads' },
+                ].map((e, i) => (
+                  <div key={i} style={{ display: 'flex', gap: '8px', padding: '2px 0' }}>
+                    <span style={{ color: 'var(--text-tertiary)', minWidth: '64px', flexShrink: 0 }}>{e.period}</span>
+                    <span>{e.note}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
 
-          {/* ── Methodology ── */}
-          <p style={{
-            fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
-            color: 'var(--text-muted)', letterSpacing: '0.1em',
-            textTransform: 'uppercase', marginBottom: '4px', opacity: 0.7,
-          }}>
-            Methodology
-          </p>
-          <p style={{
-            fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)',
-            color: 'var(--text-muted)', lineHeight: 1.5, opacity: 0.8, marginBottom: '12px',
-          }}>
-            Perfect-foresight sort-and-dispatch on LT DA prices ({captureData?.resolution ?? '15min'} resolution where available, hourly for data before mid-2025). Picks cheapest {duration === '2h' ? '2' : '4'} hours to charge, most expensive {duration === '2h' ? '2' : '4'} to discharge. Single cycle per day. RTE {duration === '2h' ? '87.5' : '87.0'}% (assumed). This is gross market opportunity from observed prices — not realized asset revenue. Does not model reserve commitment, partial cycles, or intraday re-optimization.
-          </p>
-          <p style={{
-            fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
-            color: 'var(--text-muted)', letterSpacing: '0.1em',
-            textTransform: 'uppercase', marginBottom: '4px', opacity: 0.7,
-          }}>
-            Sources
-          </p>
-          <p style={{
-            fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
-            color: 'var(--text-muted)', lineHeight: 1.5, opacity: 0.6, marginBottom: '12px',
-          }}>
-            energy-charts.info · ENTSO-E A44 day-ahead prices · Nord Pool
-          </p>
-          <DetailsDrawer label="Use this data">
-            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.5, opacity: 0.6 }}>
-              curl kkme-fetch-s1.kastis-kemezys.workers.dev/s1/capture
-            </p>
-          </DetailsDrawer>
+              {/* ── Methodology ── */}
+              <p style={{
+                fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+                color: 'var(--text-muted)', letterSpacing: '0.1em',
+                textTransform: 'uppercase', marginBottom: '4px', opacity: 0.7,
+              }}>
+                Methodology
+              </p>
+              <p style={{
+                fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)',
+                color: 'var(--text-muted)', lineHeight: 1.5, opacity: 0.8, marginBottom: '12px',
+              }}>
+                Perfect-foresight sort-and-dispatch on LT DA prices ({captureData?.resolution ?? '15min'} resolution where available, hourly for data before mid-2025). Picks cheapest {duration === '2h' ? '2' : '4'} hours to charge, most expensive {duration === '2h' ? '2' : '4'} to discharge. Single cycle per day. RTE {duration === '2h' ? '87.5' : '87.0'}% (assumed). This is gross market opportunity from observed prices — not realized asset revenue. Does not model reserve commitment, partial cycles, or intraday re-optimization.
+              </p>
+              <p style={{
+                fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+                color: 'var(--text-muted)', letterSpacing: '0.1em',
+                textTransform: 'uppercase', marginBottom: '4px', opacity: 0.7,
+              }}>
+                Sources
+              </p>
+              <p style={{
+                fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+                color: 'var(--text-muted)', lineHeight: 1.5, opacity: 0.6, marginBottom: '12px',
+              }}>
+                energy-charts.info · ENTSO-E A44 day-ahead prices · Nord Pool
+              </p>
+              <DetailsDrawer label="Use this data">
+                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.5, opacity: 0.6 }}>
+                  curl kkme-fetch-s1.kastis-kemezys.workers.dev/s1/capture
+                </p>
+              </DetailsDrawer>
+            </>
+          )}
         </DetailsDrawer>
       </div>
     </article>

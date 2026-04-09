@@ -7,6 +7,7 @@ import { SignalIntel } from '@/app/components/SignalIntel';
 import {
   MetricTile, SourceFooter, DetailsDrawer, DataClassBadge,
 } from '@/app/components/primitives';
+import DrawerTabs from './DrawerTabs';
 
 import {
   Chart as ChartJS,
@@ -212,6 +213,7 @@ export function S2Card() {
   const { status, data } =
     useSignal<S2Signal>(`${WORKER_URL}/s2`);
   const [drawerKey, setDrawerKey] = useState(0);
+  const [s2DrawerTab, setS2DrawerTab] = useState('activation');
   const openDrawer = () => setDrawerKey(k => k + 1);
   const CC = useChartColors();
   const ttStyle = useTooltipStyle(CC);
@@ -594,55 +596,6 @@ export function S2Card() {
         );
       })()}
 
-      {/* -- CAPACITY TILES -- */}
-      <div style={{ borderTop: '1px solid var(--border-card)', paddingTop: '20px', marginBottom: '12px' }}>
-        <p style={{
-          fontFamily: 'var(--font-mono)',
-          fontSize: 'var(--font-xs)',
-          color: 'var(--text-tertiary)',
-          letterSpacing: '0.08em',
-          textTransform: 'uppercase',
-          marginBottom: '8px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-        }}>
-          Capacity reservation prices
-        </p>
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          gap: '14px',
-          marginBottom: '8px',
-        }}>
-          <div style={{ padding: '6px 10px', borderLeft: '2px dashed rgba(239,159,39,0.3)' }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>
-              {data.afrr_up_avg != null ? safeNum(data.afrr_up_avg, 1) : '--'} <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>EUR/MW/h</span>
-            </div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
-              aFRR reservation <DataClassBadge dataClass="reference_estimate" />
-            </div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
-              {'\u2248'} {'\u20AC'}{Math.round((data.afrr_up_avg ?? 0) * 8760 * 0.97 / 1000)}k/MW/yr at 97% availability
-            </div>
-          </div>
-          <div style={{ padding: '6px 10px', borderLeft: '2px dashed rgba(239,159,39,0.3)' }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>
-              {data.mfrr_up_avg != null ? safeNum(data.mfrr_up_avg, 1) : '--'} <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>EUR/MW/h</span>
-            </div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
-              mFRR reservation <DataClassBadge dataClass="reference_estimate" />
-            </div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
-              {'\u2248'} {'\u20AC'}{Math.round((data.mfrr_up_avg ?? 0) * 8760 * 0.97 / 1000)}k/MW/yr at 97% availability
-            </div>
-          </div>
-        </div>
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', marginTop: '4px' }}>
-          BTD procurement bid averages. Not observed clearing.
-        </p>
-      </div>
-
       {/* -- FLEET CONTEXT (compact one-liner) -- */}
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', margin: '16px 0 8px' }}>
         {opMw ?? '?'} MW operational {'\u00b7'} {pipeMw ?? '?'} MW pipeline {'\u00b7'} {data.eff_demand_mw ?? 752} MW procurement (Elering 2026)
@@ -708,6 +661,20 @@ export function S2Card() {
       {/* ================================================================== */}
       <div style={{ marginTop: '20px' }}>
         <DetailsDrawer key={drawerKey} label="View signal breakdown" defaultOpen={drawerKey > 0} portalId={isDesktop ? 'signal-drawer-s2' : undefined}>
+
+          <DrawerTabs
+            tabs={[
+              { id: 'activation', label: 'Activation' },
+              { id: 'fleet', label: 'Fleet' },
+              { id: 'capacity', label: 'Capacity' },
+              { id: 'method', label: 'Method' },
+            ]}
+            active={s2DrawerTab}
+            onChange={setS2DrawerTab}
+          />
+
+          {/* ═══ ACTIVATION TAB ═══ */}
+          {s2DrawerTab === 'activation' && (<>
 
           {/* -- 1. Activation detail · Lithuania · monthly -- */}
           {ltMonthlyAfrr && (
@@ -832,6 +799,60 @@ export function S2Card() {
             </div>
           )}
 
+          </>)}
+
+          {/* ═══ CAPACITY TAB ═══ */}
+          {s2DrawerTab === 'capacity' && (<>
+
+          {/* -- Capacity tiles (moved from default view) -- */}
+          <div style={{ marginBottom: '24px' }}>
+            <p style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 'var(--font-xs)',
+              color: 'var(--text-tertiary)',
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              marginBottom: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}>
+              Capacity reservation prices
+            </p>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: '14px',
+              marginBottom: '8px',
+            }}>
+              <div style={{ padding: '6px 10px', borderLeft: '2px dashed rgba(239,159,39,0.3)' }}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>
+                  {data.afrr_up_avg != null ? safeNum(data.afrr_up_avg, 1) : '--'} <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>EUR/MW/h</span>
+                </div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  aFRR reservation <DataClassBadge dataClass="reference_estimate" />
+                </div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  {'\u2248'} {'\u20AC'}{Math.round((data.afrr_up_avg ?? 0) * 8760 * 0.97 / 1000)}k/MW/yr at 97% availability
+                </div>
+              </div>
+              <div style={{ padding: '6px 10px', borderLeft: '2px dashed rgba(239,159,39,0.3)' }}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>
+                  {data.mfrr_up_avg != null ? safeNum(data.mfrr_up_avg, 1) : '--'} <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>EUR/MW/h</span>
+                </div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  mFRR reservation <DataClassBadge dataClass="reference_estimate" />
+                </div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  {'\u2248'} {'\u20AC'}{Math.round((data.mfrr_up_avg ?? 0) * 8760 * 0.97 / 1000)}k/MW/yr at 97% availability
+                </div>
+              </div>
+            </div>
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', marginTop: '4px' }}>
+              BTD procurement bid averages. Not observed clearing.
+            </p>
+          </div>
+
           {/* -- 3. Capacity price detail (monthly history) -- */}
           <div style={{ marginBottom: '24px', paddingTop: '20px', borderTop: '1px solid var(--border-card)' }}>
             <p style={{
@@ -908,6 +929,11 @@ export function S2Card() {
               </DetailsDrawer>
             )}
           </div>
+
+          </>)}
+
+          {/* ═══ FLEET TAB ═══ */}
+          {s2DrawerTab === 'fleet' && (<>
 
           {/* -- 4. Fleet tracker -- */}
           {allEntries.length > 0 && (() => {
@@ -1239,6 +1265,11 @@ export function S2Card() {
             )}
           </div>
 
+          </>)}
+
+          {/* ═══ METHOD TAB ═══ */}
+          {s2DrawerTab === 'method' && (<>
+
           {/* -- 6. Market context timeline -- */}
           <div style={{ marginBottom: '24px', paddingTop: '20px', borderTop: '1px solid var(--border-card)' }}>
             <p style={{
@@ -1383,6 +1414,8 @@ export function S2Card() {
               </p>
             </DetailsDrawer>
           </div>
+
+          </>)}
 
         </DetailsDrawer>
       </div>

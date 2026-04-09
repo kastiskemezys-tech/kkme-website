@@ -597,8 +597,8 @@ body,
 }
 
 /* ── Post-layout polish ──────────────────────────────────────────────────── */
-.grid-2 > .card,
-.grid-2 > .card-tier1-feature { min-height: 0; align-self: start; }
+.grid-2:not(.grid-2-stretch) > .card,
+.grid-2:not(.grid-2-stretch) > .card-tier1-feature { min-height: 0; align-self: start; }
 .card-split svg,
 .card-split canvas { max-height: 200px; width: 100%; }
 
