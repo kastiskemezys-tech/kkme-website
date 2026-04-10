@@ -4603,39 +4603,66 @@ async function fetchTTFGas() {
   }
 }
 
-// ─── S8 — Interconnector Flows (NordBalt + LitPol) ────────────────────────────
+// ─── S8 — Interconnector Flows (NordBalt + LitPol + EstLink + Fenno-Skan) ─────
 
 async function fetchInterconnectorFlows() {
-  // energy-charts.info CBET: cross-border electricity trading for Lithuania
-  // sign convention: positive value = LT importing FROM that country
-  // we negate → positive = LT exporting TO that country
-  const res = await fetch('https://api.energy-charts.info/cbet?country=lt', {
-    headers: { Accept: 'application/json' },
-  });
-  if (!res.ok) throw new Error(`CBET API: HTTP ${res.status}`);
-  const data = await res.json();
+  // energy-charts.info CBET: cross-border electricity trading
+  // Sign convention per endpoint: positive = country importing FROM neighbor
+  // We negate → positive = country exporting TO neighbor
+  const cbetHeaders = { Accept: 'application/json' };
 
-  // Response: { countries: [{ name, data }, ...], unix_seconds, ... }
-  // sign: positive value = LT importing FROM country; negate for LT export perspective
-  const countries = Array.isArray(data.countries) ? data.countries : [];
+  // Fetch LT, EE, and FI CBET data in parallel
+  const [ltRes, eeRes, fiRes] = await Promise.all([
+    fetch('https://api.energy-charts.info/cbet?country=lt', { headers: cbetHeaders }),
+    fetch('https://api.energy-charts.info/cbet?country=ee', { headers: cbetHeaders }).catch(() => null),
+    fetch('https://api.energy-charts.info/cbet?country=fi', { headers: cbetHeaders }).catch(() => null),
+  ]);
 
-  function avgFromCountry(name) {
-    const c = countries.find(c => c.name?.toLowerCase() === name.toLowerCase());
+  if (!ltRes.ok) throw new Error(`CBET LT API: HTTP ${ltRes.status}`);
+  const ltData = await ltRes.json();
+  const ltCountries = Array.isArray(ltData.countries) ? ltData.countries : [];
+
+  function avgFromList(countryList, name) {
+    const c = countryList.find(c => c.name?.toLowerCase() === name.toLowerCase());
     if (!c) return null;
     const valid = (c.data ?? []).filter(v => v != null);
     if (!valid.length) return null;
     const avg = valid.reduce((s, v) => s + v, 0) / valid.length;
-    return Math.round(-avg * 1000); // GW → MW, negate for LT export perspective
+    return Math.round(-avg * 1000); // GW → MW, negate for export perspective
   }
 
-  // NordBalt: LT ↔ SE4 → country name 'Sweden' in CBET response
-  // LitPol:   LT ↔ PL  → country name 'Poland' in CBET response
-  const nordbalt_avg_mw = avgFromCountry('Sweden');
-  const litpol_avg_mw   = avgFromCountry('Poland');
+  // NordBalt (LT ↔ SE4): from LT CBET, Sweden column
+  const nordbalt_avg_mw = avgFromList(ltCountries, 'Sweden');
+  // LitPol (LT ↔ PL): from LT CBET, Poland column
+  const litpol_avg_mw = avgFromList(ltCountries, 'Poland');
+
+  // EstLink (EE ↔ FI): from EE CBET, Finland column
+  let estlink_avg_mw = null;
+  if (eeRes && eeRes.ok) {
+    try {
+      const eeData = await eeRes.json();
+      const eeCountries = Array.isArray(eeData.countries) ? eeData.countries : [];
+      estlink_avg_mw = avgFromList(eeCountries, 'Finland');
+    } catch (e) {
+      console.error('[S8] EE CBET parse error:', String(e));
+    }
+  }
+
+  // Fenno-Skan (SE ↔ FI): from FI CBET, Sweden column
+  let fennoskan_avg_mw = null;
+  if (fiRes && fiRes.ok) {
+    try {
+      const fiData = await fiRes.json();
+      const fiCountries = Array.isArray(fiData.countries) ? fiData.countries : [];
+      fennoskan_avg_mw = avgFromList(fiCountries, 'Sweden');
+    } catch (e) {
+      console.error('[S8] FI CBET parse error:', String(e));
+    }
+  }
 
   if (nordbalt_avg_mw == null && litpol_avg_mw == null) {
-    console.error('[S8] countries not found, names:', countries.map(c => c.name).join(','));
-    throw new Error('CBET: no Sweden or Poland data found');
+    console.error('[S8] LT countries not found, names:', ltCountries.map(c => c.name).join(','));
+    throw new Error('CBET: no Sweden or Poland data in LT response');
   }
 
   function flowSignal(mw) {
@@ -4645,19 +4672,33 @@ async function fetchInterconnectorFlows() {
     return 'BALANCED';
   }
 
-  const nordbalt_signal = flowSignal(nordbalt_avg_mw);
-  const litpol_signal   = flowSignal(litpol_avg_mw);
+  const nordbalt_signal  = flowSignal(nordbalt_avg_mw);
+  const litpol_signal    = flowSignal(litpol_avg_mw);
+  const estlink_signal   = flowSignal(estlink_avg_mw);
+  const fennoskan_signal = flowSignal(fennoskan_avg_mw);
   const netTotal = (nordbalt_avg_mw ?? 0) + (litpol_avg_mw ?? 0);
   const signal   = netTotal > 100 ? 'EXPORTING' : netTotal < -100 ? 'IMPORTING' : 'NEUTRAL';
+
+  const fmtFlow = (label, sig, mw) =>
+    `${label}: ${sig ?? '—'} (${mw != null ? mw + ' MW' : '—'})`;
 
   return {
     timestamp:        new Date().toISOString(),
     signal,
     nordbalt_avg_mw,
     litpol_avg_mw,
+    estlink_avg_mw,
+    fennoskan_avg_mw,
     nordbalt_signal,
     litpol_signal,
-    interpretation: `NordBalt: ${nordbalt_signal ?? '—'} (${nordbalt_avg_mw != null ? nordbalt_avg_mw + ' MW' : '—'}). LitPol: ${litpol_signal ?? '—'} (${litpol_avg_mw != null ? litpol_avg_mw + ' MW' : '—'}).`,
+    estlink_signal,
+    fennoskan_signal,
+    interpretation: [
+      fmtFlow('NordBalt', nordbalt_signal, nordbalt_avg_mw),
+      fmtFlow('LitPol', litpol_signal, litpol_avg_mw),
+      fmtFlow('EstLink', estlink_signal, estlink_avg_mw),
+      fmtFlow('Fenno-Skan', fennoskan_signal, fennoskan_avg_mw),
+    ].join('. ') + '.',
   };
 }
 
