@@ -16,19 +16,10 @@ export default function HeroPreview() {
         color: 'var(--text-muted)', textTransform: 'uppercase',
         letterSpacing: '0.08em',
       }}>
-        DEV PREVIEW
+        DEV
         <ThemeToggle variant="hero" />
       </div>
-
       <HeroBalticMap />
-
-      <div style={{
-        maxWidth: '1200px', margin: '0 auto', padding: '48px 32px',
-        fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-muted)',
-        borderTop: '1px solid var(--border-card)',
-      }}>
-        Hero section ends here. Below would be #revenue-drivers.
-      </div>
     </div>
   );
 }
