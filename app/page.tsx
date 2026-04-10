@@ -3,7 +3,7 @@ import { S1Card } from '@/app/components/S1Card';
 import { S2Card } from '@/app/components/S2Card';
 import { CardBoundary } from '@/app/components/CardBoundary';
 import { ErrorBoundary } from '@/app/components/ErrorBoundary';
-import { HeroMarketNow } from '@/app/components/HeroMarketNow';
+import { HeroBalticMap } from '@/app/components/HeroBalticMap';
 import StickyNav from '@/app/components/StickyNav';
 import { PageInteractions } from '@/app/components/PageInteractions';
 import { SignalDrawerPanel } from '@/app/components/SignalDrawerPanel';
@@ -33,10 +33,10 @@ export default function Home() {
       <StickyNav />
       <CardEntrance />
 
-      <div className="page-container">
+      {/* ═══ HERO — full-width, outside page-container ═══ */}
+      <HeroBalticMap />
 
-        {/* ═══ HERO / MARKET NOW ═══ */}
-        <HeroMarketNow />
+      <div className="page-container">
 
         {/* ═══ REVENUE SIGNALS ═══ */}
         <div className="section" id="revenue-drivers">
