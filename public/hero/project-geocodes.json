@@ -1,0 +1,66 @@
+{
+  "bsp-hertz-1-kiisa-ee": {
+    "resolved": true,
+    "lat": 59.2,
+    "lng": 24.5667,
+    "source": "manual",
+    "matched_name": "BSP Hertz 1 — Kiisa substation, SW of Tallinn",
+    "resolved_at": "2026-04-10T10:51:39.189Z"
+  },
+  "eesti-energia-bess-ee": {
+    "resolved": true,
+    "lat": 59.3267,
+    "lng": 27.8831,
+    "source": "manual",
+    "matched_name": "Eesti Energia BESS — Auvere, Ida-Viru county (NE Estonia)",
+    "resolved_at": "2026-04-10T10:51:39.189Z"
+  },
+  "e-energija-lt": {
+    "resolved": true,
+    "lat": 54.7853,
+    "lng": 24.6592,
+    "source": "manual",
+    "matched_name": "E energija — Elektrėnai power plant complex",
+    "resolved_at": "2026-04-10T10:51:39.189Z"
+  },
+  "kruonis-psp-lt": {
+    "resolved": true,
+    "lat": 54.7806,
+    "lng": 24.0689,
+    "source": "manual",
+    "matched_name": "Kruonis PSP — pumped hydro near Kaunas",
+    "resolved_at": "2026-04-10T10:51:39.189Z"
+  },
+  "energy-cells-kruonis-": {
+    "resolved": true,
+    "lat": 54.7806,
+    "lng": 24.0689,
+    "source": "manual",
+    "matched_name": "Energy Cells (Kruonis) — TSO-owned at Kruonis PSP",
+    "resolved_at": "2026-04-10T10:51:39.189Z"
+  },
+  "ast-bess-r-zekne-tume-": {
+    "resolved": true,
+    "lat": 56.5095,
+    "lng": 27.3328,
+    "source": "manual",
+    "matched_name": "AST BESS — placed at Rēzekne (60 MW of the 80 MW total)",
+    "resolved_at": "2026-04-10T10:51:39.189Z"
+  },
+  "utilitas-targale-lv": {
+    "resolved": true,
+    "lat": 57.1906,
+    "lng": 21.8922,
+    "source": "manual",
+    "matched_name": "Utilitas Wind Targale BESS — Ventspils region, west Latvia",
+    "resolved_at": "2026-04-10T10:51:39.189Z"
+  },
+  "aj-power-portfolio-lv": {
+    "resolved": true,
+    "lat": 57.5414,
+    "lng": 25.4264,
+    "source": "manual",
+    "matched_name": "AJ Power portfolio — placed at Valmiera (largest of 3 sites)",
+    "resolved_at": "2026-04-10T10:51:39.189Z"
+  }
+}
