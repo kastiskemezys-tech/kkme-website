@@ -105,3 +105,45 @@ export const CITY_LABEL_PIXELS: Record<string, { x: number; y: number; name: str
       { x: g.px, y: g.py, name: g.name },
     ])
   )
+
+// ═══ Waypoint start-country inference ════════════════════════════════════════
+// For each cable, determine which country the first waypoint is closest to.
+// Used by resolveFlow() to compute particle direction (forward vs reverse).
+
+const ALL_ANCHORS = [
+  ...primary.gcps.filter((g: { px?: number; py?: number }) =>
+    typeof g.px === 'number' && typeof g.py === 'number'),
+  ...(cities as { gcps: { px?: number; py?: number; country?: string }[] }).gcps.filter(
+    (g: { px?: number; py?: number }) =>
+      typeof g.px === 'number' && typeof g.py === 'number'),
+]
+
+function closestCountryTo(px: number, py: number): string {
+  let best = { country: 'UNKNOWN', dist: Infinity }
+  for (const anchor of ALL_ANCHORS) {
+    const a = anchor as { px: number; py: number; country?: string; id?: string }
+    // Derive country from id suffix or country field
+    let country = 'UNKNOWN'
+    if ('country' in anchor && typeof (anchor as { country?: string }).country === 'string') {
+      country = (anchor as { country: string }).country
+    } else if (a.id) {
+      // calibration anchors have ids like "nordbalt-se", "estlink-ee"
+      const suffix = a.id.split('-').pop()?.toUpperCase() ?? ''
+      const MAP: Record<string, string> = { SE: 'SE', LT: 'LT', PL: 'PL', EE: 'EE', FI: 'FI' }
+      country = MAP[suffix] ?? 'UNKNOWN'
+    }
+    if (country === 'UNKNOWN') continue
+    const d = Math.hypot(a.px - px, a.py - py)
+    if (d < best.dist) {
+      best = { country, dist: d }
+    }
+  }
+  return best.country
+}
+
+export const WAYPOINT_START: Record<string, string> = {}
+for (const cableId of ['nordbalt', 'litpol', 'estlink', 'fennoskan']) {
+  const wps = cablesData[cableId]?.waypoints
+  if (!wps || wps.length === 0) continue
+  WAYPOINT_START[cableId] = closestCountryTo(wps[0].px, wps[0].py)
+}

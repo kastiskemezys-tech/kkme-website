@@ -1,3 +1,5 @@
+import { WAYPOINT_START } from './map-projection'
+
 export type Place = {
   id: string
   name: string
@@ -165,6 +167,8 @@ export type InterconnectorSpec = {
   nameplateMw: number
   capacityShare?: number
   baltic: 'A' | 'B' | 'none'
+  positiveFlowReceives: string
+  waypointCableId: string
 }
 
 export const INTERCONNECTORS: InterconnectorSpec[] = [
@@ -174,14 +178,18 @@ export const INTERCONNECTORS: InterconnectorSpec[] = [
     endpointB: { country: 'SE', name: 'Nybro' },
     cbetSource: 'nordbalt_avg_mw',
     nameplateMw: 700,
-    baltic: 'A' },
+    baltic: 'A',
+    positiveFlowReceives: 'LT',
+    waypointCableId: 'nordbalt' },
   { id: 'litpol',
     displayName: 'LitPol',
     endpointA: { country: 'LT', name: 'Alytus' },
     endpointB: { country: 'PL', name: 'Ełk' },
     cbetSource: 'litpol_avg_mw',
     nameplateMw: 500,
-    baltic: 'A' },
+    baltic: 'A',
+    positiveFlowReceives: 'LT',
+    waypointCableId: 'litpol' },
   { id: 'estlink-1',
     displayName: 'EstLink 1',
     endpointA: { country: 'EE', name: 'Harku' },
@@ -189,7 +197,9 @@ export const INTERCONNECTORS: InterconnectorSpec[] = [
     cbetSource: 'estlink_avg_mw',
     nameplateMw: 350,
     capacityShare: 0.35,
-    baltic: 'A' },
+    baltic: 'A',
+    positiveFlowReceives: 'EE',
+    waypointCableId: 'estlink' },
   { id: 'estlink-2',
     displayName: 'EstLink 2',
     endpointA: { country: 'EE', name: 'Püssi' },
@@ -197,7 +207,9 @@ export const INTERCONNECTORS: InterconnectorSpec[] = [
     cbetSource: 'estlink_avg_mw',
     nameplateMw: 650,
     capacityShare: 0.65,
-    baltic: 'A' },
+    baltic: 'A',
+    positiveFlowReceives: 'EE',
+    waypointCableId: 'estlink' },
   { id: 'fennoskan-1',
     displayName: 'Fenno-Skan 1',
     endpointA: { country: 'SE', name: 'Dannebo' },
@@ -205,7 +217,9 @@ export const INTERCONNECTORS: InterconnectorSpec[] = [
     cbetSource: 'fennoskan_avg_mw',
     nameplateMw: 550,
     capacityShare: 0.407,
-    baltic: 'none' },
+    baltic: 'none',
+    positiveFlowReceives: 'FI',
+    waypointCableId: 'fennoskan' },
   { id: 'fennoskan-2',
     displayName: 'Fenno-Skan 2',
     endpointA: { country: 'SE', name: 'Finnböle' },
@@ -213,17 +227,20 @@ export const INTERCONNECTORS: InterconnectorSpec[] = [
     cbetSource: 'fennoskan_avg_mw',
     nameplateMw: 800,
     capacityShare: 0.593,
-    baltic: 'none' },
+    baltic: 'none',
+    positiveFlowReceives: 'FI',
+    waypointCableId: 'fennoskan' },
 ]
 
 export type ResolvedFlow = {
   id: string
   displayName: string
-  from: { country: string; name: string }
-  to: { country: string; name: string }
+  fromCountry: string
+  toCountry: string
   mw: number
   rawMw: number
   utilization: number
+  particleDirection: 'forward' | 'reverse'
   arrowColor: 'rose' | 'teal' | 'neutral'
 }
 
@@ -232,25 +249,42 @@ export function resolveFlow(spec: InterconnectorSpec, s8Data: Record<string, unk
   const absMw = Math.abs(rawMw)
   const utilization = spec.nameplateMw > 0 ? absMw / spec.nameplateMw : 0
 
-  // Direction: positive rawMw = B → A, negative = A → B
-  const from = rawMw >= 0 ? spec.endpointB : spec.endpointA
-  const to   = rawMw >= 0 ? spec.endpointA : spec.endpointB
+  // positiveFlowReceives: the country that receives power when rawMw > 0
+  const receivingCountry = spec.positiveFlowReceives
+  const otherCountry =
+    spec.endpointA.country === receivingCountry
+      ? spec.endpointB.country
+      : spec.endpointA.country
 
+  const fromCountry = rawMw >= 0 ? otherCountry : receivingCountry
+  const toCountry = rawMw >= 0 ? receivingCountry : otherCountry
+
+  // Particle direction: does the flow depart from the same end as the
+  // first waypoint of the cable path? If yes → forward, else → reverse.
+  const waypointStartCountry = WAYPOINT_START[spec.waypointCableId] ?? 'UNKNOWN'
+  const particleDirection: 'forward' | 'reverse' =
+    fromCountry === waypointStartCountry ? 'forward' : 'reverse'
+
+  // Arrow color convention: toCountry === balticCountry → rose (import suppresses prices)
   let arrowColor: 'rose' | 'teal' | 'neutral'
   if (spec.baltic === 'none') {
     arrowColor = 'neutral'
   } else {
-    const balticEnd = spec.baltic === 'A' ? spec.endpointA : spec.endpointB
-    arrowColor = to.country === balticEnd.country ? 'rose' : 'teal'
+    const balticCountry = spec.baltic === 'A'
+      ? spec.endpointA.country
+      : spec.endpointB.country
+    arrowColor = toCountry === balticCountry ? 'rose' : 'teal'
   }
 
   return {
     id: spec.id,
     displayName: spec.displayName,
-    from, to,
+    fromCountry,
+    toCountry,
     mw: Math.round(absMw),
     rawMw,
     utilization,
+    particleDirection,
     arrowColor,
   }
 }

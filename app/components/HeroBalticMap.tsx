@@ -5,7 +5,7 @@ import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 import { MotionPathPlugin } from 'gsap/MotionPathPlugin';
 import { AnimatePresence, motion } from 'motion/react';
-import { geoToPixel, MAP_WIDTH, MAP_HEIGHT, CABLE_PATHS, COUNTRY_LABEL_PIXELS, CITY_LABEL_PIXELS } from '@/lib/map-projection';
+import { geoToPixel, MAP_WIDTH, MAP_HEIGHT, CABLE_PATHS, COUNTRY_LABEL_PIXELS, CITY_LABEL_PIXELS, WAYPOINT_START } from '@/lib/map-projection';
 import { INTERCONNECTORS, resolveFlow } from '@/lib/baltic-places';
 import type { ResolvedFlow } from '@/lib/baltic-places';
 import geocodes from '../../public/hero/project-geocodes.json';
@@ -153,14 +153,14 @@ export function HeroBalticMap() {
     resolved.forEach(r => {
       if (!CABLE_PATHS[r.id] || r.mw < 5) return;
       const particles = gsap.utils.toArray<SVGCircleElement>(`.particle-${r.id.replace(/[^a-z0-9]/g, '-')}`);
-      const isReversed = r.rawMw < 0;
       const duration = Math.max(3, 13 - r.utilization * 10);
       particles.forEach((el, i) => {
         gsap.to(el, {
           motionPath: {
             path: `#cable-${r.id}`, align: `#cable-${r.id}`,
             alignOrigin: [0.5, 0.5],
-            start: isReversed ? 1 : 0, end: isReversed ? 0 : 1,
+            start: r.particleDirection === 'forward' ? 0 : 1,
+            end:   r.particleDirection === 'forward' ? 1 : 0,
           },
           duration, repeat: -1,
           delay: (i / Math.max(particles.length, 1)) * duration,
@@ -169,6 +169,24 @@ export function HeroBalticMap() {
       });
     });
   }, { scope: svgRef, dependencies: [resolved] });
+
+  // Debug: log resolved flows for MCP verification
+  useEffect(() => {
+    if (resolved.length > 0 && resolved.some(r => r.mw > 0)) {
+      console.table(resolved.map(r => ({
+        id: r.id,
+        from: r.fromCountry,
+        to: r.toCountry,
+        mw: Math.round(r.mw),
+        util: (r.utilization * 100).toFixed(0) + '%',
+        waypointStart: WAYPOINT_START[
+          INTERCONNECTORS.find(s => s.id === r.id)?.waypointCableId ?? ''
+        ],
+        particleDir: r.particleDirection,
+        color: r.arrowColor,
+      })));
+    }
+  }, [resolved]);
 
   // Derived
   const lr = revenue?.live_rate;
@@ -225,19 +243,22 @@ export function HeroBalticMap() {
   return (
     <section style={{
       display: 'grid',
-      gridTemplateColumns: '300px 1fr 300px',
+      gridTemplateColumns: 'minmax(260px, 300px) minmax(540px, 620px) minmax(260px, 300px)',
       gridTemplateRows: '1fr 40px',
       minHeight: '720px',
       maxHeight: '900px',
-      gap: '40px 40px',
-      padding: '32px 64px',
+      gap: '36px',
+      padding: '48px',
       background: 'var(--bg-page)',
       overflow: 'hidden',
       position: 'relative',
+      maxWidth: '1440px',
+      margin: '0 auto',
+      width: '100%',
     }}>
 
       {/* ═══ LEFT COLUMN ═══ */}
-      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', zIndex: 2 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', zIndex: 2, gridColumn: 1, gridRow: 1 }}>
         <h1 style={{
           fontFamily: 'var(--font-display)', fontSize: '56px', fontWeight: 700,
           color: 'var(--text-primary)', letterSpacing: '-0.02em', lineHeight: 1, margin: 0,
@@ -270,7 +291,7 @@ export function HeroBalticMap() {
                 {r.displayName}
               </span>
               <span style={{ fontSize: '11px', color: arrowColorVar(r.arrowColor) }}>
-                {r.from.country} → {r.to.country}
+                {r.fromCountry} → {r.toCountry}
               </span>
               <span style={{
                 fontSize: '14px', fontWeight: 500, color: 'var(--text-primary)',
@@ -287,11 +308,13 @@ export function HeroBalticMap() {
       {/* ═══ CENTER — MAP ═══ */}
       <div style={{
         position: 'relative', display: 'flex', alignItems: 'center',
-        justifyContent: 'center', overflow: 'hidden', gridRow: '1 / 2',
+        justifyContent: 'center', overflow: 'hidden', gridColumn: 2, gridRow: 1,
       }}>
         <div style={{
-          position: 'relative', width: '100%',
+          position: 'relative',
+          height: '100%',
           aspectRatio: `${MAP_WIDTH} / ${MAP_HEIGHT}`,
+          maxWidth: '100%',
           margin: '0 auto',
         }}>
           <img
@@ -316,56 +339,68 @@ export function HeroBalticMap() {
             </defs>
 
             {/* City labels with halo stroke */}
-            {Object.values(CITY_LABEL_PIXELS).map(city => (
-              <g key={city.name}>
-                <circle cx={city.x} cy={city.y} r="1.5"
-                  fill={isDark ? 'rgba(232,226,217,0.35)' : 'rgba(26,26,31,0.35)'} />
-                <text x={city.x + 6} y={city.y + 3}
-                  fontFamily="DM Mono, monospace" fontSize="9"
-                  fill={isDark ? 'rgba(232,226,217,0.55)' : 'rgba(26,26,31,0.55)'}
-                  letterSpacing="0.05em"
-                  style={{
-                    paintOrder: 'stroke',
-                    stroke: isDark ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.85)',
-                    strokeWidth: '3px',
-                    strokeLinejoin: 'round' as const,
-                  }}
-                >{city.name.toUpperCase()}</text>
-              </g>
-            ))}
+            <g data-layer="cities">
+              {Object.values(CITY_LABEL_PIXELS).map(city => (
+                <g key={city.name}>
+                  <circle cx={city.x} cy={city.y} r="2"
+                    fill="var(--text-secondary)" opacity="0.8" />
+                  <text x={city.x + 7} y={city.y + 4}
+                    fontFamily="DM Mono, monospace" fontSize="10"
+                    fontWeight="500"
+                    fill="var(--text-secondary)"
+                    letterSpacing="0.04em"
+                    style={{
+                      paintOrder: 'stroke fill',
+                      stroke: 'var(--theme-bg, #0a0a0a)',
+                      strokeWidth: '3px',
+                      strokeLinejoin: 'round' as const,
+                      strokeOpacity: 0.9,
+                    }}
+                  >{city.name.toUpperCase()}</text>
+                </g>
+              ))}
+            </g>
 
             {/* Country MW totals under country labels */}
-            {['LITHUANIA', 'LATVIA', 'ESTONIA'].map(label => {
-              const pos = COUNTRY_LABEL_PIXELS[label];
-              if (!pos) return null;
-              const key = label.slice(0, 2) as 'LT' | 'LV' | 'EE';
-              const mw = countries?.[key]?.operational_mw;
-              if (!mw) return null;
-              return (
-                <text key={label} x={pos.x} y={pos.y + 24}
-                  fontFamily="DM Mono, monospace" fontSize="11"
-                  fill="var(--teal)" textAnchor="start" letterSpacing="0.03em"
-                  style={{
-                    paintOrder: 'stroke',
-                    stroke: isDark ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.85)',
-                    strokeWidth: '3px',
-                    strokeLinejoin: 'round' as const,
-                  }}
-                >{Math.round(mw)} MW</text>
-              );
-            })}
+            <g data-layer="country-totals">
+              {([
+                ['LITHUANIA', 'LT'],
+                ['LATVIA', 'LV'],
+                ['ESTONIA', 'EE'],
+              ] as const).map(([label, countryKey]) => {
+                const pos = COUNTRY_LABEL_PIXELS[label];
+                if (!pos) return null;
+                const mw = countries?.[countryKey]?.operational_mw;
+                if (!mw) return null;
+                return (
+                  <text key={label} x={pos.x} y={pos.y + 26}
+                    fontFamily="DM Mono, monospace" fontSize="13"
+                    fontWeight="500"
+                    fill="var(--accent-teal, var(--teal))"
+                    textAnchor="middle" letterSpacing="0.03em"
+                    style={{
+                      paintOrder: 'stroke fill',
+                      stroke: 'var(--theme-bg, #0a0a0a)',
+                      strokeWidth: '4px',
+                      strokeLinejoin: 'round' as const,
+                      strokeOpacity: 0.95,
+                    }}
+                  >{Math.round(mw)} MW</text>
+                );
+              })}
+            </g>
 
             {/* Project dots — hollow rings */}
             {projectDots.map(p => (
               <g key={p.id}>
                 <circle cx={p.x} cy={p.y} r={p.r + 3}
-                  fill={isDark ? 'rgba(45,212,191,0.08)' : 'transparent'} />
+                  fill="var(--project-dot-halo, rgba(45,212,191,0.08))" />
                 <circle cx={p.x} cy={p.y} r={p.r}
                   fill="none"
-                  stroke={isDark ? 'rgba(94,234,212,0.85)' : 'rgba(13,79,78,0.85)'}
+                  stroke="var(--project-dot-fill, var(--teal))"
                   strokeWidth="1.5" />
                 <circle cx={p.x} cy={p.y} r="1"
-                  fill={isDark ? 'rgba(94,234,212,0.9)' : 'rgba(13,79,78,0.9)'} />
+                  fill="var(--project-dot-fill, var(--teal))" />
               </g>
             ))}
 
@@ -386,7 +421,7 @@ export function HeroBalticMap() {
               const cls = `particle-${r.id.replace(/[^a-z0-9]/g, '-')}`;
               return Array.from({ length: particleCount }).map((_, i) => (
                 <circle key={`${r.id}-${i}`} className={cls}
-                  r="2.5" fill={color} opacity="0.85" />
+                  r="2.5" fill={color} opacity="0.7" />
               ));
             })}
           </svg>
@@ -463,7 +498,7 @@ export function HeroBalticMap() {
       </div>
 
       {/* ═══ RIGHT COLUMN ═══ */}
-      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', zIndex: 2 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', zIndex: 2, gridColumn: 3, gridRow: 1 }}>
         <div style={{
           fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-tertiary)',
           textTransform: 'uppercase', letterSpacing: '0.08em',
