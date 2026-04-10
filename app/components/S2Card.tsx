@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSignal } from '@/lib/useSignal';
 import { safeNum } from '@/lib/safeNum';
 import { SignalIntel } from '@/app/components/SignalIntel';
@@ -209,15 +209,36 @@ function productPhaseLabel(phase: string | null): string {
 
 // -- Component ----------------------------------------------------------------
 
+// Fleet data shape from /s4/fleet
+interface FleetData {
+  countries?: Record<string, FleetCountry>;
+  sd_ratio?: number | null;
+  baltic_operational_mw?: number | null;
+  baltic_pipeline_mw?: number | null;
+  non_commercial_mw?: number | null;
+  eff_demand_mw?: number | null;
+  trajectory?: TrajectoryPoint[] | null;
+  product_sd?: Record<string, ProductSd> | null;
+}
+
 export function S2Card() {
   const { status, data } =
     useSignal<S2Signal>(`${WORKER_URL}/s2`);
+  const [fleetData, setFleetData] = useState<FleetData | null>(null);
   const [drawerKey, setDrawerKey] = useState(0);
   const [s2DrawerTab, setS2DrawerTab] = useState('activation');
   const openDrawer = () => setDrawerKey(k => k + 1);
   const CC = useChartColors();
   const ttStyle = useTooltipStyle(CC);
   const isDesktop = useIsDesktop();
+
+  // Fetch fleet data separately (stripped from /s2, now at /s4/fleet)
+  useEffect(() => {
+    fetch(`${WORKER_URL}/s4/fleet`)
+      .then(r => r.ok ? r.json() : null)
+      .then((d: FleetData | null) => { if (d) setFleetData(d); })
+      .catch(() => {});
+  }, []);
 
   if (status === 'loading') {
     return (
@@ -240,13 +261,14 @@ export function S2Card() {
     );
   }
 
-  const sd = data.sd_ratio ?? null;
-  const opMw = data.baltic_operational_mw;
-  const pipeMw = data.baltic_pipeline_mw;
-  const ncMw = data.non_commercial_mw ?? 0;
-  const trajectory = data.trajectory ?? null;
+  // Fleet-derived values: prefer fleetData (from /s4/fleet), fall back to /s2 response
+  const sd = fleetData?.sd_ratio ?? data.sd_ratio ?? null;
+  const opMw = fleetData?.baltic_operational_mw ?? data.baltic_operational_mw;
+  const pipeMw = fleetData?.baltic_pipeline_mw ?? data.baltic_pipeline_mw;
+  const ncMw = fleetData?.non_commercial_mw ?? data.non_commercial_mw ?? 0;
+  const trajectory = fleetData?.trajectory ?? data.trajectory ?? null;
   const activation = data.activation ?? null;
-  const productSd = data.product_sd ?? null;
+  const productSd = fleetData?.product_sd ?? data.product_sd ?? null;
 
   // Flat activation accessors
   const ltAct = activation?.lt ?? null;
@@ -255,11 +277,13 @@ export function S2Card() {
   const ltMonthlyMfrr = activation?.lt_monthly_mfrr ?? null;
 
   // Collect all fleet entries for the details drawer
+  // Fleet data now comes from /s4/fleet (stripped from /s2)
   const STATUS_ORDER: Record<string, number> = {
     operational: 0, commissioned: 1, under_construction: 2,
     connection_agreement: 3, application: 4,
   };
-  const allEntries: FleetEntry[] = Object.values(data.fleet || {})
+  const fleetCountries = fleetData?.countries ?? data.fleet ?? {};
+  const allEntries: FleetEntry[] = Object.values(fleetCountries)
     .flatMap((c: unknown) => ((c as FleetCountry)?.entries || []))
     .sort((a, b) => (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9));
 
@@ -598,7 +622,7 @@ export function S2Card() {
 
       {/* -- FLEET CONTEXT (compact one-liner) -- */}
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', margin: '16px 0 8px' }}>
-        {opMw ?? '?'} MW operational {'\u00b7'} {pipeMw ?? '?'} MW pipeline {'\u00b7'} {data.eff_demand_mw ?? 752} MW procurement (Elering 2026)
+        {opMw ?? '?'} MW operational {'\u00b7'} {pipeMw ?? '?'} MW pipeline {'\u00b7'} {fleetData?.eff_demand_mw ?? data.eff_demand_mw ?? 752} MW procurement (Elering 2026)
       </div>
 
       {/* -- LIMITATION -- */}
@@ -1049,7 +1073,7 @@ export function S2Card() {
                   <DataClassBadge dataClass="derived" />
                 </div>
                 <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '16px' }}>
-                  Registered commercial fleet covers {Math.round(sd * 100)}% of total Baltic procurement capacity ({data.eff_demand_mw ?? 752} MW, Elering 2026). This is registered capacity, not observed participation {'\u2014'} assets split MW across products, trade wholesale, or may be offline.
+                  Registered commercial fleet covers {Math.round(sd * 100)}% of total Baltic procurement capacity ({fleetData?.eff_demand_mw ?? data.eff_demand_mw ?? 752} MW, Elering 2026). This is registered capacity, not observed participation {'\u2014'} assets split MW across products, trade wholesale, or may be offline.
                 </p>
               </div>
             )}
