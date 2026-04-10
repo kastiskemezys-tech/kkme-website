@@ -112,6 +112,12 @@ export const CITY_ANCHORS: (Place & { instruction: string })[] = [
   { id: 'tartu', name: 'Tartu', country: 'EE',
     lat: 58.3776, lng: 26.7290,
     instruction: 'Click the approximate location of Tartu (southeastern Estonia)' },
+  { id: 'stockholm', name: 'Stockholm', country: 'SE',
+    lat: 59.3293, lng: 18.0686,
+    instruction: 'Click where Stockholm sits on the Swedish east coast — near where the SWEDEN label is' },
+  { id: 'helsinki', name: 'Helsinki', country: 'FI',
+    lat: 60.1699, lng: 24.9384,
+    instruction: 'Click where Helsinki sits on the southern Finnish coast — directly opposite Tallinn across the Gulf of Finland' },
 ]
 
 export type CableId = 'nordbalt' | 'litpol' | 'estlink' | 'fennoskan'
