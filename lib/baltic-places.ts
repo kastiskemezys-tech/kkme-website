@@ -114,6 +114,25 @@ export const CITY_ANCHORS: (Place & { instruction: string })[] = [
     instruction: 'Click the approximate location of Tartu (southeastern Estonia)' },
 ]
 
+export type CableId = 'nordbalt' | 'litpol' | 'estlink' | 'fennoskan'
+
+export const CABLES_TO_CALIBRATE: {
+  id: CableId
+  name: string
+  minWaypoints: number
+  maxWaypoints: number
+  instruction: string
+}[] = [
+  { id: 'nordbalt', name: 'NordBalt', minWaypoints: 3, maxWaypoints: 6,
+    instruction: 'Click along the NordBalt cable from the Swedish coast to Klaipėda. Start at the Swedish endpoint dot, click at each visible bend/kink in the drawn cable, end at the Lithuanian endpoint dot. 3-6 clicks total.' },
+  { id: 'litpol', name: 'LitPol', minWaypoints: 2, maxWaypoints: 4,
+    instruction: 'Click along the LitPol cable from southern Lithuania to NE Poland. Start at the LT endpoint, any bends in between, end at the PL endpoint.' },
+  { id: 'estlink', name: 'EstLink', minWaypoints: 2, maxWaypoints: 4,
+    instruction: 'Click along the EstLink cable between Estonia and Finland. Start at the EE endpoint, any bends, end at the FI endpoint.' },
+  { id: 'fennoskan', name: 'Fenno-Skan', minWaypoints: 2, maxWaypoints: 5,
+    instruction: 'Click along the Fenno-Skan cable between Sweden and Finland. Start at the SE endpoint, follow the drawn curve, end at the FI endpoint.' },
+]
+
 export const COUNTRY_CENTROIDS: Place[] = [
   { id: 'lt-centroid', name: 'Lithuania', country: 'LT',
     lat: 55.1694, lng: 23.8813 },
