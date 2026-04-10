@@ -3,7 +3,7 @@
   "image": "kkme-interconnect-dark.png",
   "imageWidth": 1024,
   "imageHeight": 1332,
-  "capturedAt": "2026-04-10T10:42:55.006Z",
+  "capturedAt": "2026-04-10T18:57:42.679Z",
   "kind": "cities",
   "gcps": [
     {
@@ -11,39 +11,39 @@
       "name": "Vilnius",
       "lat": 54.6872,
       "lng": 25.2797,
-      "px": 820,
-      "py": 1031
+      "px": 821,
+      "py": 1033
     },
     {
       "id": "kaunas",
       "name": "Kaunas",
       "lat": 54.8985,
       "lng": 23.9036,
-      "px": 717,
-      "py": 991
+      "px": 707,
+      "py": 990
     },
     {
       "id": "klaipeda",
       "name": "Klaipėda",
       "lat": 55.7033,
       "lng": 21.1443,
-      "px": 506,
-      "py": 885
+      "px": 502,
+      "py": 883
     },
     {
       "id": "riga",
       "name": "Riga",
       "lat": 56.9496,
       "lng": 24.1052,
-      "px": 702,
-      "py": 712
+      "px": 697,
+      "py": 710
     },
     {
       "id": "daugavpils",
       "name": "Daugavpils",
       "lat": 55.8714,
       "lng": 26.5161,
-      "px": 903,
+      "px": 905,
       "py": 857
     },
     {
@@ -51,16 +51,32 @@
       "name": "Tallinn",
       "lat": 59.437,
       "lng": 24.7536,
-      "px": 726,
-      "py": 396
+      "px": 729,
+      "py": 393
     },
     {
       "id": "tartu",
       "name": "Tartu",
       "lat": 58.3776,
       "lng": 26.729,
-      "px": 892,
-      "py": 528
+      "px": 898,
+      "py": 525
+    },
+    {
+      "id": "stockholm",
+      "name": "Stockholm",
+      "lat": 59.3293,
+      "lng": 18.0686,
+      "px": 302,
+      "py": 419
+    },
+    {
+      "id": "helsinki",
+      "name": "Helsinki",
+      "lat": 60.1699,
+      "lng": 24.9384,
+      "px": 731,
+      "py": 307
     }
   ]
 }

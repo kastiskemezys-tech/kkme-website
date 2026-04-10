@@ -254,7 +254,7 @@ export function HeroBalticMap() {
       maxHeight: '900px',
       gap: '36px',
       padding: '48px',
-      background: 'var(--bg-page)',
+      background: 'var(--hero-bg)',
       overflow: 'hidden',
       position: 'relative',
       maxWidth: '1440px',

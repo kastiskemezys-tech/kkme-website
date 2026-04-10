@@ -122,7 +122,7 @@ export const CITY_ANCHORS: (Place & { instruction: string })[] = [
     instruction: 'Click where Helsinki sits on the southern Finnish coast — directly opposite Tallinn across the Gulf of Finland' },
 ]
 
-export type CableId = 'nordbalt' | 'litpol' | 'estlink' | 'fennoskan'
+export type CableId = 'nordbalt' | 'litpol' | 'estlink-1' | 'estlink-2' | 'fennoskan-1' | 'fennoskan-2'
 
 export const CABLES_TO_CALIBRATE: {
   id: CableId
@@ -132,13 +132,17 @@ export const CABLES_TO_CALIBRATE: {
   instruction: string
 }[] = [
   { id: 'nordbalt', name: 'NordBalt', minWaypoints: 3, maxWaypoints: 6,
-    instruction: 'Click along the NordBalt cable from the Swedish coast to Klaipėda. Start at the Swedish endpoint dot, click at each visible bend/kink in the drawn cable, end at the Lithuanian endpoint dot. 3-6 clicks total.' },
+    instruction: 'Click along the NordBalt cable from the Swedish coast to Klaipėda. Start at the Swedish endpoint, click at each visible bend, end at the Lithuanian endpoint.' },
   { id: 'litpol', name: 'LitPol', minWaypoints: 2, maxWaypoints: 4,
-    instruction: 'Click along the LitPol cable from southern Lithuania to NE Poland. Start at the LT endpoint, any bends in between, end at the PL endpoint.' },
-  { id: 'estlink', name: 'EstLink', minWaypoints: 2, maxWaypoints: 4,
-    instruction: 'Click along the EstLink cable between Estonia and Finland. Start at the EE endpoint, any bends, end at the FI endpoint.' },
-  { id: 'fennoskan', name: 'Fenno-Skan', minWaypoints: 2, maxWaypoints: 5,
-    instruction: 'Click along the Fenno-Skan cable between Sweden and Finland. Start at the SE endpoint, follow the drawn curve, end at the FI endpoint.' },
+    instruction: 'Click along the LitPol cable from southern Lithuania to NE Poland.' },
+  { id: 'estlink-1', name: 'EstLink 1', minWaypoints: 2, maxWaypoints: 4,
+    instruction: 'There are TWO visibly parallel EstLink cables drawn on the raster between Estonia and Finland. For EstLink 1, click along the FIRST line (whichever one you click first — we will call that #1). Start at the EE endpoint, end at the FI endpoint.' },
+  { id: 'estlink-2', name: 'EstLink 2', minWaypoints: 2, maxWaypoints: 4,
+    instruction: 'Now click along the OTHER EstLink cable — the second parallel line. Same start-end direction as EstLink 1 (EE to FI).' },
+  { id: 'fennoskan-1', name: 'Fenno-Skan 1', minWaypoints: 2, maxWaypoints: 5,
+    instruction: 'There are TWO visibly parallel Fenno-Skan cables between Sweden and Finland. For Fenno-Skan 1, click along the FIRST line. Start at the SE endpoint, end at the FI endpoint.' },
+  { id: 'fennoskan-2', name: 'Fenno-Skan 2', minWaypoints: 2, maxWaypoints: 5,
+    instruction: 'Now click along the OTHER Fenno-Skan cable — the second parallel line. Same start-end direction as Fenno-Skan 1 (SE to FI).' },
 ]
 
 export const COUNTRY_CENTROIDS: Place[] = [
@@ -199,7 +203,7 @@ export const INTERCONNECTORS: InterconnectorSpec[] = [
     capacityShare: 0.35,
     baltic: 'A',
     positiveFlowReceives: 'EE',
-    waypointCableId: 'estlink' },
+    waypointCableId: 'estlink-1' },
   { id: 'estlink-2',
     displayName: 'EstLink 2',
     endpointA: { country: 'EE', name: 'Püssi' },
@@ -209,7 +213,7 @@ export const INTERCONNECTORS: InterconnectorSpec[] = [
     capacityShare: 0.65,
     baltic: 'A',
     positiveFlowReceives: 'EE',
-    waypointCableId: 'estlink' },
+    waypointCableId: 'estlink-2' },
   { id: 'fennoskan-1',
     displayName: 'Fenno-Skan 1',
     endpointA: { country: 'SE', name: 'Dannebo' },
@@ -219,7 +223,7 @@ export const INTERCONNECTORS: InterconnectorSpec[] = [
     capacityShare: 0.407,
     baltic: 'none',
     positiveFlowReceives: 'FI',
-    waypointCableId: 'fennoskan' },
+    waypointCableId: 'fennoskan-1' },
   { id: 'fennoskan-2',
     displayName: 'Fenno-Skan 2',
     endpointA: { country: 'SE', name: 'Finnböle' },
@@ -229,7 +233,7 @@ export const INTERCONNECTORS: InterconnectorSpec[] = [
     capacityShare: 0.593,
     baltic: 'none',
     positiveFlowReceives: 'FI',
-    waypointCableId: 'fennoskan' },
+    waypointCableId: 'fennoskan-2' },
 ]
 
 export type ResolvedFlow = {

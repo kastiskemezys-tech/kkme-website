@@ -43,6 +43,7 @@
   --project-dot-halo: rgba(77, 197, 176, 0.1);
   --theme-bg:       #0a0a0a;
   --bg-page:        rgb(7, 7, 10);
+  --hero-bg:        #050505;
   --bg-card:        rgba(232, 226, 217, 0.025);
   --bg-card-highlight: rgba(232, 226, 217, 0.05);
   --bg-elevated:    rgba(232, 226, 217, 0.04);
@@ -119,6 +120,7 @@
 [data-theme="light"] {
   --bg: #f5f2ed;
   --bg-page: #f5f2ed;
+  --hero-bg: #fafafa;
   --text: #1a1a1f;
   --white: #1a1a1f;
 

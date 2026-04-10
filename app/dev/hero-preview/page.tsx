@@ -5,7 +5,7 @@ import { ThemeToggle } from '@/app/components/ThemeToggle';
 
 export default function HeroPreview() {
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg-page)' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--hero-bg)' }}>
       <div style={{
         position: 'fixed', top: 0, right: 0, zIndex: 100,
         padding: '8px 16px',

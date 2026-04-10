@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { CALIBRATION_ANCHORS, CITY_ANCHORS, CABLES_TO_CALIBRATE } from '@/lib/baltic-places';
 import type { CableId } from '@/lib/baltic-places';
 
@@ -23,13 +23,40 @@ export default function MapCalibrate() {
   const [clicksAnchors, setClicksAnchors] = useState<Record<string, ClickedPoint>>({});
   const [clicksCities, setClicksCities] = useState<Record<string, ClickedPoint>>({});
   const [skipped, setSkipped] = useState<Set<string>>(new Set());
-  // Cable waypoints state
+  // Cable waypoints state — dynamic from CABLES_TO_CALIBRATE
   const [currentCable, setCurrentCable] = useState(0);
-  const [cableWaypoints, setCableWaypoints] = useState<Record<CableId, CableWaypoint[]>>({
-    nordbalt: [], litpol: [], estlink: [], fennoskan: [],
-  });
+  const emptyCables = Object.fromEntries(
+    CABLES_TO_CALIBRATE.map(c => [c.id, [] as CableWaypoint[]])
+  ) as Record<CableId, CableWaypoint[]>;
+  const [cableWaypoints, setCableWaypoints] = useState<Record<CableId, CableWaypoint[]>>(emptyCables);
   const [cableFinished, setCableFinished] = useState<Set<CableId>>(new Set());
   const imgRef = useRef<HTMLImageElement>(null);
+
+  // Load existing waypoints on mount so previously-clicked cables are preserved
+  useEffect(() => {
+    fetch('/hero/map-cable-waypoints.json')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data?.cables) return;
+        const loaded: Partial<Record<CableId, CableWaypoint[]>> = {};
+        const finished = new Set<CableId>();
+        for (const cable of CABLES_TO_CALIBRATE) {
+          const existing = data.cables[cable.id]?.waypoints;
+          if (existing && existing.length >= cable.minWaypoints) {
+            loaded[cable.id] = existing;
+            finished.add(cable.id);
+          }
+        }
+        if (Object.keys(loaded).length > 0) {
+          setCableWaypoints(prev => ({ ...prev, ...loaded }));
+          setCableFinished(finished);
+          // Auto-advance to first unfinished cable
+          const firstUnfinished = CABLES_TO_CALIBRATE.findIndex(c => !finished.has(c.id));
+          if (firstUnfinished >= 0) setCurrentCable(firstUnfinished);
+        }
+      })
+      .catch(() => {/* no existing file, start fresh */});
+  }, []);
 
   // --- Pixel calc ---
   const getPixel = useCallback((e: React.MouseEvent<HTMLImageElement>) => {
@@ -289,7 +316,9 @@ export default function MapCalibrate() {
             {CABLES_TO_CALIBRATE.map(cable => {
               const pts = cableWaypoints[cable.id] ?? [];
               const colors: Record<string, string> = {
-                nordbalt: '#4af', litpol: '#fa4', estlink: '#4fa', fennoskan: '#f4a',
+                nordbalt: '#4af', litpol: '#fa4',
+                'estlink-1': '#4fa', 'estlink-2': '#8fd',
+                'fennoskan-1': '#f4a', 'fennoskan-2': '#f8c',
               };
               const color = colors[cable.id] ?? '#fff';
               if (pts.length === 0) return null;
