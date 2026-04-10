@@ -5,7 +5,7 @@
     "lng": 24.5667,
     "source": "manual",
     "matched_name": "BSP Hertz 1 — Kiisa substation, SW of Tallinn",
-    "resolved_at": "2026-04-10T10:51:39.189Z"
+    "resolved_at": "2026-04-10T18:20:49.456Z"
   },
   "eesti-energia-bess-ee": {
     "resolved": true,
@@ -13,7 +13,7 @@
     "lng": 27.8831,
     "source": "manual",
     "matched_name": "Eesti Energia BESS — Auvere, Ida-Viru county (NE Estonia)",
-    "resolved_at": "2026-04-10T10:51:39.189Z"
+    "resolved_at": "2026-04-10T18:20:49.456Z"
   },
   "e-energija-lt": {
     "resolved": true,
@@ -21,7 +21,7 @@
     "lng": 24.6592,
     "source": "manual",
     "matched_name": "E energija — Elektrėnai power plant complex",
-    "resolved_at": "2026-04-10T10:51:39.189Z"
+    "resolved_at": "2026-04-10T18:20:49.456Z"
   },
   "kruonis-psp-lt": {
     "resolved": true,
@@ -29,7 +29,7 @@
     "lng": 24.0689,
     "source": "manual",
     "matched_name": "Kruonis PSP — pumped hydro near Kaunas",
-    "resolved_at": "2026-04-10T10:51:39.189Z"
+    "resolved_at": "2026-04-10T18:20:49.456Z"
   },
   "energy-cells-kruonis-": {
     "resolved": true,
@@ -45,7 +45,7 @@
     "lng": 27.3328,
     "source": "manual",
     "matched_name": "AST BESS — placed at Rēzekne (60 MW of the 80 MW total)",
-    "resolved_at": "2026-04-10T10:51:39.189Z"
+    "resolved_at": "2026-04-10T18:20:49.456Z"
   },
   "utilitas-targale-lv": {
     "resolved": true,
@@ -53,7 +53,7 @@
     "lng": 21.8922,
     "source": "manual",
     "matched_name": "Utilitas Wind Targale BESS — Ventspils region, west Latvia",
-    "resolved_at": "2026-04-10T10:51:39.189Z"
+    "resolved_at": "2026-04-10T18:20:49.456Z"
   },
   "aj-power-portfolio-lv": {
     "resolved": true,
@@ -61,6 +61,62 @@
     "lng": 25.4264,
     "source": "manual",
     "matched_name": "AJ Power portfolio — placed at Valmiera (largest of 3 sites)",
-    "resolved_at": "2026-04-10T10:51:39.189Z"
+    "resolved_at": "2026-04-10T18:20:49.456Z"
+  },
+  "litgrid-kaupikliai-14542": {
+    "resolved": true,
+    "lat": 54.613034,
+    "lng": 25.117142,
+    "source": "manual",
+    "matched_name": "litgrid-layer3: Kaupikliai Vilnius",
+    "resolved_at": "2026-04-10T18:20:49.456Z"
+  },
+  "litgrid-kaupikliai-14543": {
+    "resolved": true,
+    "lat": 54.443268,
+    "lng": 23.976829,
+    "source": "manual",
+    "matched_name": "litgrid-layer3: Kaupikliai Alytus",
+    "resolved_at": "2026-04-10T18:20:49.456Z"
+  },
+  "litgrid-kaupikliai-14544": {
+    "resolved": true,
+    "lat": 55.914892,
+    "lng": 23.296236,
+    "source": "manual",
+    "matched_name": "litgrid-layer3: Kaupikliai Šiauliai",
+    "resolved_at": "2026-04-10T18:20:49.456Z"
+  },
+  "litgrid-kaupikliai-14545": {
+    "resolved": true,
+    "lat": 55.541669,
+    "lng": 25.634232,
+    "source": "manual",
+    "matched_name": "litgrid-layer3: Kaupikliai Utena",
+    "resolved_at": "2026-04-10T18:20:49.456Z"
+  },
+  "litgrid-kaupikliai-14568": {
+    "resolved": true,
+    "lat": 54.838903,
+    "lng": 24.584846,
+    "source": "manual",
+    "matched_name": "litgrid-layer3: Kaupikliai Kaišiadorys-Žasliai",
+    "resolved_at": "2026-04-10T18:20:49.456Z"
+  },
+  "litgrid-kaupikliai-14569": {
+    "resolved": true,
+    "lat": 54.597136,
+    "lng": 25.028197,
+    "source": "manual",
+    "matched_name": "litgrid-layer3: Kaupikliai Šventininkų TP",
+    "resolved_at": "2026-04-10T18:20:49.456Z"
+  },
+  "litgrid-kaupikliai-14572": {
+    "resolved": true,
+    "lat": 55.999887,
+    "lng": 22.230181,
+    "source": "manual",
+    "matched_name": "litgrid-layer3: Kaupikliai Telšiai-Plungė",
+    "resolved_at": "2026-04-10T18:20:49.456Z"
   }
 }

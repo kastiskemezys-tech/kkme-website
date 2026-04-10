@@ -26,7 +26,8 @@ const COUNTRY_AREA_IDS: Record<string, number> = {
 // Known name → place mappings for projects whose names don't contain a city
 const NAME_TO_PLACE: Record<string, { search: string; country: string }> = {
   'E energija': { search: 'Elektrėnai', country: 'LT' },
-  'Energy Cells (Kruonis)': { search: 'Kruonis', country: 'LT' },
+  // Litgrid Layer 3 Kaupikliai projects have source-provided coordinates
+  // and skip Overpass lookup entirely. No NAME_TO_PLACE entry needed.
   'AST BESS (Rēzekne + Tume)': { search: 'Rēzekne', country: 'LV' },
   'BSP Hertz 1 (Kiisa)': { search: 'Kiisa', country: 'EE' },
   'Eesti Energia BESS (Ida-Viru)': { search: 'Auvere', country: 'EE' },
@@ -141,6 +142,22 @@ async function main() {
         resolved_at: now.toISOString(),
       }
       console.log(`  [manual] ${id}: ${o.lat}, ${o.lng}`)
+      continue
+    }
+
+    // 1b. Source-provided coordinates (e.g. Litgrid Layer 3 ArcGIS geometry)
+    const srcLat = project.lat as number | null
+    const srcLng = project.lng as number | null
+    if (typeof srcLat === 'number' && typeof srcLng === 'number' && srcLat !== 0 && srcLng !== 0) {
+      cache[id] = {
+        resolved: true,
+        lat: srcLat,
+        lng: srcLng,
+        source: 'manual' as const,  // 'manual' in the cache type means non-overpass
+        matched_name: `${project.source ?? 'source-provided'}: ${project.name}`,
+        resolved_at: now.toISOString(),
+      }
+      console.log(`  [source] ${id}: ${srcLat}, ${srcLng} (from ${project.source ?? 'API'})`)
       continue
     }
 

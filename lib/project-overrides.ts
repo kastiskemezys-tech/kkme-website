@@ -1,9 +1,10 @@
-// Manual coordinate overrides for projects where OSM geocoding
-// failed or returned the wrong location.
+// Manual coordinate overrides for projects where the data source
+// doesn't provide coordinates or returns the wrong location.
 //
-// For the initial 8 operational projects, all are manually specified
-// because the /s4 project names don't map cleanly to Overpass.
-// Future projects with clearer names can use the geocode script.
+// Litgrid Layer 3 Kaupikliai projects have real geometry from ArcGIS
+// and do NOT need overrides. This file is for:
+//   - Non-Lithuanian projects (Latvia, Estonia) from fleet KV
+//   - Lithuanian projects not in Litgrid's connected-installations layer
 //
 // Kastis's workflow for new projects:
 //   1. Find the wrong project dot on the hero
@@ -29,12 +30,6 @@ export const MANUAL_OVERRIDES: Record<string, ProjectOverride> = {
     lat: 54.7853,
     lng: 24.6592,
     note: 'E energija — Elektrėnai power plant complex',
-  },
-  // Energy Cells has no id field in /s4 — key is derived from name
-  'energy-cells-kruonis-': {
-    lat: 54.7806,
-    lng: 24.0689,
-    note: 'Energy Cells (Kruonis) — TSO-owned at Kruonis PSP',
   },
 
   // === Estonia ===
@@ -67,3 +62,13 @@ export const MANUAL_OVERRIDES: Record<string, ProjectOverride> = {
     note: 'AJ Power portfolio — placed at Valmiera (largest of 3 sites)',
   },
 }
+
+// Projects excluded from hero map rendering.
+// These are valid /s4 records but not BESS — they'll be included
+// when we add a hydro-flex category in a future session.
+// Note: Litgrid Layer 3 Kaupikliai filter already excludes Kruonis PSP
+// (it's classified as Hidroakumuliacinės E, not Kaupikliai), so this
+// blocklist is defense-in-depth for the fleet KV manual entries.
+export const HERO_EXCLUDED_PROJECT_IDS: string[] = [
+  'kruonis-psp-lt', // Pumped storage hydro — not BESS
+]

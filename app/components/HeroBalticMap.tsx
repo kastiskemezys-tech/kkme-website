@@ -9,6 +9,7 @@ import { geoToPixel, MAP_WIDTH, MAP_HEIGHT, CABLE_PATHS, COUNTRY_LABEL_PIXELS, C
 import { INTERCONNECTORS, resolveFlow } from '@/lib/baltic-places';
 import type { ResolvedFlow } from '@/lib/baltic-places';
 import geocodes from '../../public/hero/project-geocodes.json';
+import { HERO_EXCLUDED_PROJECT_IDS } from '@/lib/project-overrides';
 
 gsap.registerPlugin(MotionPathPlugin);
 
@@ -33,7 +34,7 @@ interface RevenueData {
 }
 interface S8Data { [k: string]: unknown }
 interface S4Data {
-  projects?: Array<{ id?: string; name: string; mw: number; status: string; country: string; cod?: string }>;
+  projects?: Array<{ id?: string; name: string; mw: number; status: string; country: string; cod?: string; lat?: number; lng?: number }>;
   free_mw?: number;
 }
 interface S2Data { afrr_up_avg?: number; mfrr_up_avg?: number; fcr_avg?: number }
@@ -199,9 +200,13 @@ export function HeroBalticMap() {
       ['operational', 'live', 'commissioned'].includes((p.status ?? '').toLowerCase()));
     return ops.map(p => {
       const id = p.id || p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      if (HERO_EXCLUDED_PROJECT_IDS.includes(id)) return null;
+      // Use source-provided coordinates (e.g. Litgrid Layer 3), fall back to geocode cache
       const geo = (geocodes as Record<string, { resolved?: boolean; lat?: number; lng?: number }>)[id];
-      if (!geo?.resolved || !geo.lat || !geo.lng) return null;
-      const { x, y } = geoToPixel(geo.lat, geo.lng);
+      const lat = (typeof p.lat === 'number' && p.lat !== 0) ? p.lat : geo?.lat;
+      const lng = (typeof p.lng === 'number' && p.lng !== 0) ? p.lng : geo?.lng;
+      if (!lat || !lng) return null;
+      const { x, y } = geoToPixel(lat, lng);
       return { id, name: p.name, x, y, r: dotRadius(p.mw), mw: p.mw, cod: p.cod, country: p.country };
     }).filter(Boolean) as MappedProject[];
   }, [s4]);
