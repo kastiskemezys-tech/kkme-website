@@ -322,7 +322,7 @@ export function HeroBalticMap() {
                   fill={isDark ? 'rgba(232,226,217,0.35)' : 'rgba(26,26,31,0.35)'} />
                 <text x={city.x + 6} y={city.y + 3}
                   fontFamily="DM Mono, monospace" fontSize="9"
-                  fill={isDark ? 'rgba(232,226,217,0.4)' : 'rgba(26,26,31,0.45)'}
+                  fill={isDark ? 'rgba(232,226,217,0.55)' : 'rgba(26,26,31,0.55)'}
                   letterSpacing="0.05em"
                   style={{
                     paintOrder: 'stroke',

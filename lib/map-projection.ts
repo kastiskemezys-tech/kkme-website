@@ -80,10 +80,10 @@ const fennoskanBase = cablesData.fennoskan?.waypoints ?? []
 export const CABLE_PATHS: Record<string, string> = {
   nordbalt: buildPath(cablesData.nordbalt?.waypoints ?? []),
   litpol: buildPath(cablesData.litpol?.waypoints ?? []),
-  'estlink-1': buildPath(offsetPath(estlinkBase, -3)),
-  'estlink-2': buildPath(offsetPath(estlinkBase, 3)),
-  'fennoskan-1': buildPath(offsetPath(fennoskanBase, -3)),
-  'fennoskan-2': buildPath(offsetPath(fennoskanBase, 3)),
+  'estlink-1': buildPath(offsetPath(estlinkBase, -5)),
+  'estlink-2': buildPath(offsetPath(estlinkBase, 5)),
+  'fennoskan-1': buildPath(offsetPath(fennoskanBase, -5)),
+  'fennoskan-2': buildPath(offsetPath(fennoskanBase, 5)),
 }
 
 // ═══ Label positions from calibration ═══════════════════════════════════════
