@@ -6,8 +6,8 @@ import gsap from 'gsap';
 import { MotionPathPlugin } from 'gsap/MotionPathPlugin';
 import { AnimatePresence, motion } from 'motion/react';
 import { geoToPixel, MAP_WIDTH, MAP_HEIGHT, CABLE_PATHS, COUNTRY_LABEL_PIXELS, CITY_LABEL_PIXELS } from '@/lib/map-projection';
-import { COUNTRY_CENTROIDS } from '@/lib/baltic-places';
-import type { CableId } from '@/lib/baltic-places';
+import { INTERCONNECTORS, resolveFlow } from '@/lib/baltic-places';
+import type { ResolvedFlow } from '@/lib/baltic-places';
 import geocodes from '../../public/hero/project-geocodes.json';
 
 gsap.registerPlugin(MotionPathPlugin);
@@ -31,13 +31,9 @@ interface RevenueData {
   live_rate?: LiveRate; project_irr?: number; equity_irr?: number;
   ebitda_y1?: number; min_dscr?: number; capex_scenario?: string; cod_year?: number;
 }
-interface S8Data {
-  nordbalt_avg_mw?: number | null; litpol_avg_mw?: number | null;
-  estlink_avg_mw?: number | null; fennoskan_avg_mw?: number | null;
-  [k: string]: unknown;
-}
+interface S8Data { [k: string]: unknown }
 interface S4Data {
-  projects?: Array<{ id?: string; name: string; mw: number; status: string; country: string; cod?: string; type?: string }>;
+  projects?: Array<{ id?: string; name: string; mw: number; status: string; country: string; cod?: string }>;
   free_mw?: number;
 }
 interface S2Data { afrr_up_avg?: number; mfrr_up_avg?: number; fcr_avg?: number }
@@ -85,20 +81,39 @@ function Sparkline({ data, w = 200, h = 30 }: { data: number[]; w?: number; h?: 
   );
 }
 
-// ═══ Cable config ════════════════════════════════════════════════════════════
+// ═══ Label avoid zones (country label bounding boxes) ════════════════════════
 
-const CABLE_CONFIG: { id: CableId; label: string; field: string }[] = [
-  { id: 'nordbalt', label: 'NORDBALT', field: 'nordbalt_avg_mw' },
-  { id: 'litpol', label: 'LITPOL', field: 'litpol_avg_mw' },
-  { id: 'estlink', label: 'ESTLINK', field: 'estlink_avg_mw' },
-  { id: 'fennoskan', label: 'FENNO-SKAN', field: 'fennoskan_avg_mw' },
-];
+const AVOID_ZONES = Object.entries(COUNTRY_LABEL_PIXELS).map(([, pos]) => ({
+  cx: pos.x, cy: pos.y, halfWidth: 60, halfHeight: 20,
+}));
+
+function isInAvoidZone(x: number, y: number): boolean {
+  return AVOID_ZONES.some(z => Math.abs(x - z.cx) < z.halfWidth && Math.abs(y - z.cy) < z.halfHeight);
+}
+
+function findLabelPosition(dotX: number, dotY: number, dotR: number): { x: number; y: number } {
+  const offsets = [
+    { x: dotR + 16, y: 0 },     // right
+    { x: -(dotR + 80), y: 0 },  // left
+    { x: 0, y: -(dotR + 16) },  // above
+    { x: 0, y: dotR + 16 },     // below
+    { x: dotR + 16, y: -16 },   // top-right
+    { x: -(dotR + 80), y: -16 },// top-left
+    { x: dotR + 16, y: 16 },    // bottom-right
+  ];
+  for (const off of offsets) {
+    const lx = dotX + off.x, ly = dotY + off.y;
+    if (!isInAvoidZone(lx, ly)) return { x: lx, y: ly };
+  }
+  return { x: dotX + dotR + 16, y: dotY }; // fallback
+}
 
 // ═══ Component ═══════════════════════════════════════════════════════════════
 
 export function HeroBalticMap() {
   const theme = useTheme();
   const svgRef = useRef<SVGSVGElement>(null);
+  const isDark = theme === 'dark';
 
   const [fleet, setFleet] = useState<FleetData | null>(null);
   const [revenue, setRevenue] = useState<RevenueData | null>(null);
@@ -126,34 +141,39 @@ export function HeroBalticMap() {
     });
   }, []);
 
-  // GSAP particles — all 4 cables
+  // Resolve all 6 interconnector flows
+  const resolved = useMemo((): ResolvedFlow[] =>
+    INTERCONNECTORS.map(spec => resolveFlow(spec, s8)), [s8]);
+
+  // GSAP particles — all 6 cables
   useGSAP(() => {
     if (!svgRef.current) return;
     if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-    CABLE_CONFIG.forEach(cable => {
-      const mw = (s8?.[cable.field] as number) ?? 0;
-      const absMw = Math.abs(mw);
-      if (absMw < 5 || !CABLE_PATHS[cable.id]) return;
-      const dur = Math.max(4, 12 - Math.min(absMw / 60, 8));
-      const rev = mw < 0;
-      gsap.utils.toArray<SVGCircleElement>(`.particle-${cable.id}`).forEach((el, i) => {
+    resolved.forEach(r => {
+      if (!CABLE_PATHS[r.id] || r.mw < 5) return;
+      const particles = gsap.utils.toArray<SVGCircleElement>(`.particle-${r.id.replace(/[^a-z0-9]/g, '-')}`);
+      const isReversed = r.rawMw < 0;
+      const duration = Math.max(3, 13 - r.utilization * 10);
+      particles.forEach((el, i) => {
         gsap.to(el, {
           motionPath: {
-            path: `#path-${cable.id}`, align: `#path-${cable.id}`,
-            alignOrigin: [0.5, 0.5], start: rev ? 1 : 0, end: rev ? 0 : 1,
+            path: `#cable-${r.id}`, align: `#cable-${r.id}`,
+            alignOrigin: [0.5, 0.5],
+            start: isReversed ? 1 : 0, end: isReversed ? 0 : 1,
           },
-          duration: dur, repeat: -1, delay: i * 0.9, ease: 'none',
+          duration, repeat: -1,
+          delay: (i / Math.max(particles.length, 1)) * duration,
+          ease: 'none',
         });
       });
     });
-  }, { scope: svgRef, dependencies: [s8] });
+  }, { scope: svgRef, dependencies: [resolved] });
 
   // Derived
   const lr = revenue?.live_rate;
   const countries = fleet?.countries;
   const totalOp = fleet?.baltic_operational_mw ?? 0;
-  const isDark = theme === 'dark';
 
   // Operational project dots
   const projectDots = useMemo((): MappedProject[] => {
@@ -168,34 +188,24 @@ export function HeroBalticMap() {
     }).filter(Boolean) as MappedProject[];
   }, [s4]);
 
-  // Top 3 by MW for labels
+  // Top 3 by MW for labels — with avoid-zone-aware placement
   const top3 = useMemo(() => {
     const sorted = [...projectDots].sort((a, b) => b.mw - a.mw).slice(0, 3);
-    // Collision stacking: if two labels within 40px vertically, offset
-    const labels = sorted.map((p, i) => {
-      let labelY = p.y;
-      let labelX = p.x + 20;
-      for (let j = 0; j < i; j++) {
-        const prev = sorted[j];
-        if (Math.abs(prev.y - p.y) < 40 && Math.abs(prev.x - p.x) < 100) {
-          labelY = sorted[j].y + (j + 1) * 16;
-          labelX = sorted[j].x + 20;
-        }
-      }
-      return { ...p, labelX, labelY };
+    return sorted.map(p => {
+      const pos = findLabelPosition(p.x, p.y, p.r);
+      return { ...p, labelX: pos.x, labelY: pos.y };
     });
-    return labels;
   }, [projectDots]);
 
   // Ticker
   const tickerItems = useMemo(() => {
     const items: string[] = [];
-    if (read?.capture?.gross_4h != null) items.push(`DA CAPTURE \u20AC${fmt(read.capture.gross_4h)}/MWh`);
-    if (s2?.afrr_up_avg != null) items.push(`AFRR \u20AC${s2.afrr_up_avg.toFixed(2)}/MWh`);
-    if (s2?.mfrr_up_avg != null) items.push(`MFRR \u20AC${s2.mfrr_up_avg.toFixed(1)}/MWh`);
+    if (read?.capture?.gross_4h != null) items.push(`DA CAPTURE €${fmt(read.capture.gross_4h)}/MWh`);
+    if (s2?.afrr_up_avg != null) items.push(`AFRR €${s2.afrr_up_avg.toFixed(2)}/MWh`);
+    if (s2?.mfrr_up_avg != null) items.push(`MFRR €${s2.mfrr_up_avg.toFixed(1)}/MWh`);
     if (revenue?.project_irr != null) items.push(`PROJECT IRR ${(revenue.project_irr * 100).toFixed(1)}%`);
     if (revenue?.equity_irr != null) items.push(`EQUITY IRR ${(revenue.equity_irr * 100).toFixed(1)}%`);
-    if (revenue?.min_dscr != null) items.push(`DSCR ${revenue.min_dscr.toFixed(2)}\u00d7`);
+    if (revenue?.min_dscr != null) items.push(`DSCR ${revenue.min_dscr.toFixed(2)}×`);
     if (revenue?.capex_scenario) items.push(`CAPEX ${revenue.capex_scenario}`);
     if (fleet?.eff_demand_mw != null) items.push(`EFFECTIVE DEMAND ${fmt(fleet.eff_demand_mw)} MW`);
     if (s4?.free_mw != null) items.push(`FREE GRID ${fmt(s4.free_mw)} MW`);
@@ -204,25 +214,30 @@ export function HeroBalticMap() {
     return items;
   }, [read, s2, revenue, fleet, s4]);
 
-  const tickerText = tickerItems.join(' \u00b7 ');
+  const tickerText = tickerItems.join(' · ');
+
+  function arrowColorVar(c: 'rose' | 'teal' | 'neutral'): string {
+    if (c === 'rose') return 'var(--rose)';
+    if (c === 'teal') return 'var(--teal)';
+    return 'var(--text-tertiary)';
+  }
 
   return (
     <section style={{
       display: 'grid',
-      gridTemplateColumns: '320px 1fr 320px',
+      gridTemplateColumns: '300px 1fr 300px',
       gridTemplateRows: '1fr 40px',
       minHeight: '720px',
       maxHeight: '900px',
+      gap: '40px 40px',
+      padding: '32px 64px',
       background: 'var(--bg-page)',
       overflow: 'hidden',
       position: 'relative',
     }}>
 
       {/* ═══ LEFT COLUMN ═══ */}
-      <div style={{
-        padding: '32px', display: 'flex', flexDirection: 'column',
-        justifyContent: 'center', zIndex: 2,
-      }}>
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', zIndex: 2 }}>
         <h1 style={{
           fontFamily: 'var(--font-display)', fontSize: '56px', fontWeight: 700,
           color: 'var(--text-primary)', letterSpacing: '-0.02em', lineHeight: 1, margin: 0,
@@ -239,53 +254,45 @@ export function HeroBalticMap() {
 
         <div style={{ height: '40px' }} />
 
-        {/* Interconnector flows — all 4 cables */}
+        {/* Interconnector flows — 6 cables, arrow notation */}
         <div>
           <div style={{
             fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-tertiary)',
             textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '12px',
-          }}>
-            INTERCONNECTORS · LIVE FLOW
-          </div>
-          {CABLE_CONFIG.map(cable => {
-            const mw = s8?.[cable.field] as number | null | undefined;
-            const isImport = (mw ?? 0) < 0;
-            const color = mw == null ? 'var(--text-muted)' : isImport ? 'var(--rose)' : 'var(--teal)';
-            return (
-              <div key={cable.id} style={{
-                display: 'grid', gridTemplateColumns: '24px 100px 70px auto',
-                alignItems: 'baseline', fontFamily: 'var(--font-mono)', padding: '4px 0',
+          }}>INTERCONNECTORS · LIVE FLOW</div>
+
+          {resolved.map(r => (
+            <div key={r.id} style={{
+              display: 'grid', gridTemplateColumns: '100px 70px 60px',
+              alignItems: 'baseline', fontFamily: 'var(--font-mono)', padding: '3px 0',
+            }}>
+              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                {r.displayName}
+              </span>
+              <span style={{ fontSize: '11px', color: arrowColorVar(r.arrowColor) }}>
+                {r.from.country} → {r.to.country}
+              </span>
+              <span style={{
+                fontSize: '14px', fontWeight: 500, color: 'var(--text-primary)',
+                fontVariantNumeric: 'tabular-nums', textAlign: 'right',
               }}>
-                <span style={{ fontSize: '16px', color }}>{mw == null ? '\u00b7' : isImport ? '\u2199' : '\u2197'}</span>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>{cable.label}</span>
-                <span style={{
-                  fontSize: '16px', fontWeight: 500, color: 'var(--text-primary)',
-                  fontVariantNumeric: 'tabular-nums', textAlign: 'right',
-                }}>
-                  {mw != null ? Math.abs(mw) : '\u00b7'}
-                  {mw != null && <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginLeft: '2px' }}>MW</span>}
-                </span>
-                <span style={{
-                  fontSize: '10px', color, textTransform: 'uppercase',
-                  letterSpacing: '0.06em', marginLeft: '8px',
-                }}>
-                  {mw != null ? (isImport ? 'IMPORTING' : Math.abs(mw) < 10 ? 'BALANCED' : 'EXPORTING') : ''}
-                </span>
-              </div>
-            );
-          })}
+                {r.mw > 0 ? r.mw : '·'}
+                {r.mw > 0 && <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginLeft: '2px' }}>MW</span>}
+              </span>
+            </div>
+          ))}
         </div>
       </div>
 
       {/* ═══ CENTER — MAP ═══ */}
       <div style={{
         position: 'relative', display: 'flex', alignItems: 'center',
-        justifyContent: 'center', overflow: 'hidden',
+        justifyContent: 'center', overflow: 'hidden', gridRow: '1 / 2',
       }}>
         <div style={{
-          position: 'relative',
+          position: 'relative', width: '100%',
           aspectRatio: `${MAP_WIDTH} / ${MAP_HEIGHT}`,
-          maxHeight: '820px', height: '100%',
+          margin: '0 auto',
         }}>
           <img
             src={`/hero/kkme-interconnect-${theme}.png`}
@@ -303,12 +310,12 @@ export function HeroBalticMap() {
           >
             {/* Cable motion paths */}
             <defs>
-              {CABLE_CONFIG.map(c => (
-                CABLE_PATHS[c.id] ? <path key={c.id} id={`path-${c.id}`} d={CABLE_PATHS[c.id]} fill="none" stroke="none" /> : null
-              ))}
+              {Object.entries(CABLE_PATHS).map(([id, d]) =>
+                d ? <path key={id} id={`cable-${id}`} d={d} fill="none" stroke="none" /> : null
+              )}
             </defs>
 
-            {/* City labels */}
+            {/* City labels with halo stroke */}
             {Object.values(CITY_LABEL_PIXELS).map(city => (
               <g key={city.name}>
                 <circle cx={city.x} cy={city.y} r="1.5"
@@ -317,26 +324,34 @@ export function HeroBalticMap() {
                   fontFamily="DM Mono, monospace" fontSize="9"
                   fill={isDark ? 'rgba(232,226,217,0.4)' : 'rgba(26,26,31,0.45)'}
                   letterSpacing="0.05em"
-                  style={{ textShadow: isDark ? '0 0 3px rgba(0,0,0,0.9)' : '0 0 3px rgba(255,255,255,0.9)' }}
-                >
-                  {city.name.toUpperCase()}
-                </text>
+                  style={{
+                    paintOrder: 'stroke',
+                    stroke: isDark ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.85)',
+                    strokeWidth: '3px',
+                    strokeLinejoin: 'round' as const,
+                  }}
+                >{city.name.toUpperCase()}</text>
               </g>
             ))}
 
             {/* Country MW totals under country labels */}
-            {Object.entries(COUNTRY_LABEL_PIXELS).map(([country, pos]) => {
-              const key = country.slice(0, 2) as 'LT' | 'LV' | 'EE';
+            {['LITHUANIA', 'LATVIA', 'ESTONIA'].map(label => {
+              const pos = COUNTRY_LABEL_PIXELS[label];
+              if (!pos) return null;
+              const key = label.slice(0, 2) as 'LT' | 'LV' | 'EE';
               const mw = countries?.[key]?.operational_mw;
               if (!mw) return null;
               return (
-                <text key={country} x={pos.x} y={pos.y + 22}
+                <text key={label} x={pos.x} y={pos.y + 24}
                   fontFamily="DM Mono, monospace" fontSize="11"
-                  fill="var(--teal)" textAnchor="start"
-                  style={{ textShadow: isDark ? '0 0 3px rgba(0,0,0,0.9)' : '0 0 3px rgba(255,255,255,0.9)' }}
-                >
-                  {Math.round(mw)} MW
-                </text>
+                  fill="var(--teal)" textAnchor="start" letterSpacing="0.03em"
+                  style={{
+                    paintOrder: 'stroke',
+                    stroke: isDark ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.85)',
+                    strokeWidth: '3px',
+                    strokeLinejoin: 'round' as const,
+                  }}
+                >{Math.round(mw)} MW</text>
               );
             })}
 
@@ -344,7 +359,7 @@ export function HeroBalticMap() {
             {projectDots.map(p => (
               <g key={p.id}>
                 <circle cx={p.x} cy={p.y} r={p.r + 3}
-                  fill={isDark ? 'rgba(94,234,212,0.1)' : 'transparent'} />
+                  fill={isDark ? 'rgba(45,212,191,0.08)' : 'transparent'} />
                 <circle cx={p.x} cy={p.y} r={p.r}
                   fill="none"
                   stroke={isDark ? 'rgba(94,234,212,0.85)' : 'rgba(13,79,78,0.85)'}
@@ -354,26 +369,24 @@ export function HeroBalticMap() {
               </g>
             ))}
 
-            {/* Top 3 project label connector lines */}
+            {/* Top 3 label connector lines */}
             {top3.map(p => (
               <line key={`line-${p.id}`}
-                x1={p.x + p.r + 2} y1={p.y}
-                x2={p.labelX - 2} y2={p.labelY}
-                stroke={isDark ? 'rgba(232,226,217,0.2)' : 'rgba(26,26,31,0.2)'}
-                strokeWidth="1"
-              />
+                x1={p.x} y1={p.y}
+                x2={p.labelX} y2={p.labelY}
+                stroke={isDark ? 'rgba(232,226,217,0.15)' : 'rgba(26,26,31,0.15)'}
+                strokeWidth="1" />
             ))}
 
-            {/* Particles — all 4 cables */}
-            {CABLE_CONFIG.map(cable => {
-              const mw = (s8?.[cable.field] as number) ?? 0;
-              const isImport = mw < 0;
-              const color = isImport ? 'var(--amber)' : 'var(--teal)';
-              if (!CABLE_PATHS[cable.id]) return null;
-              return [0, 1, 2, 3, 4].map(i => (
-                <circle key={`${cable.id}-${i}`}
-                  className={`particle-${cable.id}`}
-                  r="3" fill={color} opacity="0.9" />
+            {/* Particles — all 6 cables */}
+            {resolved.map(r => {
+              if (!CABLE_PATHS[r.id] || r.mw < 5) return null;
+              const particleCount = Math.max(3, Math.min(8, Math.round(r.mw / 80)));
+              const color = arrowColorVar(r.arrowColor);
+              const cls = `particle-${r.id.replace(/[^a-z0-9]/g, '-')}`;
+              return Array.from({ length: particleCount }).map((_, i) => (
+                <circle key={`${r.id}-${i}`} className={cls}
+                  r="2.5" fill={color} opacity="0.85" />
               ));
             })}
           </svg>
@@ -386,23 +399,19 @@ export function HeroBalticMap() {
                 left: `${(p.labelX / MAP_WIDTH) * 100}%`,
                 top: `${(p.labelY / MAP_HEIGHT) * 100}%`,
                 transform: 'translateY(-50%)',
-                fontFamily: 'var(--font-mono)',
-                fontSize: '9px',
-                color: 'var(--text-secondary)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-                whiteSpace: 'nowrap',
+                fontFamily: 'var(--font-mono)', fontSize: '9px',
+                color: 'var(--text-secondary)', textTransform: 'uppercase',
+                letterSpacing: '0.05em', whiteSpace: 'nowrap',
                 padding: '2px 6px',
                 background: isDark ? 'rgba(7,7,10,0.5)' : 'rgba(245,242,237,0.6)',
-                backdropFilter: 'blur(4px)',
-                WebkitBackdropFilter: 'blur(4px)',
+                backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
               }}>
                 {p.name.split('(')[0].trim().toUpperCase()} · {p.mw} MW
               </div>
             ))}
           </div>
 
-          {/* Hover targets (HTML) */}
+          {/* Hover targets */}
           <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
             {projectDots.map(p => (
               <div key={`hover-${p.id}`} style={{
@@ -410,10 +419,8 @@ export function HeroBalticMap() {
                 left: `${(p.x / MAP_WIDTH) * 100}%`,
                 top: `${(p.y / MAP_HEIGHT) * 100}%`,
                 transform: 'translate(-50%, -50%)',
-                width: `${(p.r + 8) * 2}px`,
-                height: `${(p.r + 8) * 2}px`,
-                pointerEvents: 'auto',
-                cursor: 'pointer',
+                width: `${(p.r + 8) * 2}px`, height: `${(p.r + 8) * 2}px`,
+                pointerEvents: 'auto', cursor: 'pointer',
               }}
                 onMouseEnter={() => setHoveredProject(p)}
                 onMouseLeave={() => setHoveredProject(null)}
@@ -434,16 +441,12 @@ export function HeroBalticMap() {
                   left: `${(hoveredProject.x / MAP_WIDTH) * 100}%`,
                   top: `${(hoveredProject.y / MAP_HEIGHT) * 100}%`,
                   transform: 'translate(16px, -50%)',
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '10px',
+                  fontFamily: 'var(--font-mono)', fontSize: '10px',
                   padding: '8px 12px',
                   background: isDark ? 'rgba(7,7,10,0.85)' : 'rgba(245,242,237,0.9)',
-                  backdropFilter: 'blur(8px)',
-                  WebkitBackdropFilter: 'blur(8px)',
+                  backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
                   border: `1px solid ${isDark ? 'rgba(232,226,217,0.1)' : 'rgba(26,26,31,0.1)'}`,
-                  whiteSpace: 'nowrap',
-                  pointerEvents: 'none',
-                  zIndex: 20,
+                  whiteSpace: 'nowrap', pointerEvents: 'none', zIndex: 20,
                 }}
               >
                 <div style={{ color: 'var(--text-primary)', fontWeight: 600, marginBottom: '2px' }}>
@@ -460,10 +463,7 @@ export function HeroBalticMap() {
       </div>
 
       {/* ═══ RIGHT COLUMN ═══ */}
-      <div style={{
-        padding: '32px', display: 'flex', flexDirection: 'column',
-        justifyContent: 'center', zIndex: 2,
-      }}>
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', zIndex: 2 }}>
         <div style={{
           fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-tertiary)',
           textTransform: 'uppercase', letterSpacing: '0.08em',
@@ -477,7 +477,7 @@ export function HeroBalticMap() {
           color: lr?.today_total_daily != null ? 'var(--text-primary)' : 'var(--text-ghost)',
           lineHeight: 1, marginTop: '4px', fontVariantNumeric: 'tabular-nums',
         }}>
-          \u20AC{fmt(lr?.today_total_daily)}
+          {'€'}{fmt(lr?.today_total_daily)}
         </div>
         <div style={{
           fontFamily: 'var(--font-mono)', fontSize: '14px', color: 'var(--text-secondary)',
@@ -489,14 +489,14 @@ export function HeroBalticMap() {
             color: lr.delta_pct < 0 ? 'var(--rose)' : 'var(--teal)',
             marginTop: '8px', fontVariantNumeric: 'tabular-nums',
           }}>
-            {lr.delta_pct < 0 ? '\u2193' : '\u2191'} {Math.abs(lr.delta_pct)}% vs base \u20AC{fmt(lr.base_daily)}
+            {lr.delta_pct < 0 ? '↓' : '↑'} {Math.abs(lr.delta_pct)}% vs base {'€'}{fmt(lr.base_daily)}
           </div>
         )}
         <div style={{
           fontFamily: 'var(--font-mono)', fontSize: '18px', fontWeight: 500,
           color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums', marginTop: '8px',
         }}>
-          \u20AC{lr?.annualised != null ? `${fmt(Math.round(lr.annualised / 1000))}k` : '···'}
+          {'€'}{lr?.annualised != null ? `${fmt(Math.round(lr.annualised / 1000))}k` : '···'}
           <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 400, marginLeft: '4px' }}>/MW/YR</span>
         </div>
         {sparkData.length > 3 && (
@@ -553,12 +553,12 @@ export function HeroBalticMap() {
             {fmt(totalOp)} MW
             <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 400, textTransform: 'uppercase', letterSpacing: '0.06em', marginLeft: '4px' }}>OPERATIONAL</span>
           </div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-            + {fmt(fleet?.baltic_pipeline_mw)} MW pipeline
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px', textTransform: 'uppercase' }}>
+            + {fmt(fleet?.baltic_pipeline_mw)} MW PIPELINE
           </div>
           <div style={{ display: 'flex', gap: '12px', marginTop: '8px', fontFamily: 'var(--font-mono)', fontSize: '12px' }}>
             <span style={{ color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>
-              S/D {fleet?.sd_ratio != null ? fleet.sd_ratio.toFixed(2) : '—'}\u00d7
+              S/D {fleet?.sd_ratio != null ? fleet.sd_ratio.toFixed(2) : '—'}{'×'}
             </span>
             {fleet?.phase && (
               <span style={{
@@ -574,7 +574,7 @@ export function HeroBalticMap() {
         </div>
       </div>
 
-      {/* ═══ TICKER ═══ */}
+      {/* ═══ TICKER — seamless loop ═══ */}
       <div style={{
         gridColumn: '1 / -1', overflow: 'hidden', display: 'flex', alignItems: 'center',
         background: isDark ? 'rgba(7,7,10,0.8)' : 'rgba(245,242,237,0.8)',
@@ -582,21 +582,29 @@ export function HeroBalticMap() {
         borderTop: '1px solid var(--border-card)', zIndex: 10,
       }}>
         <div style={{
-          whiteSpace: 'nowrap', fontFamily: 'var(--font-mono)', fontSize: '11px',
-          color: 'var(--text-muted)', letterSpacing: '0.04em',
+          display: 'flex', whiteSpace: 'nowrap',
           animation: 'tickerScroll 60s linear infinite',
         }}>
-          {tickerText} \u00b7 {tickerText} \u00b7{' '}
+          <span style={{
+            fontFamily: 'var(--font-mono)', fontSize: '11px',
+            color: 'var(--text-muted)', letterSpacing: '0.04em',
+            paddingRight: '24px',
+          }}>{tickerText}</span>
+          <span aria-hidden="true" style={{
+            fontFamily: 'var(--font-mono)', fontSize: '11px',
+            color: 'var(--text-muted)', letterSpacing: '0.04em',
+            paddingRight: '24px',
+          }}>{tickerText}</span>
         </div>
       </div>
 
       <style>{`
         @keyframes tickerScroll {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
+          from { transform: translateX(0); }
+          to { transform: translateX(-50%); }
         }
         @media (prefers-reduced-motion: reduce) {
-          .particle-nordbalt, .particle-litpol, .particle-estlink, .particle-fennoskan { display: none; }
+          [class*="particle-"] { display: none; }
           [style*="tickerScroll"] { animation: none !important; }
         }
       `}</style>

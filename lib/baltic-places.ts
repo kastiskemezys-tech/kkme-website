@@ -141,3 +141,110 @@ export const COUNTRY_CENTROIDS: Place[] = [
   { id: 'ee-centroid', name: 'Estonia', country: 'EE',
     lat: 58.5953, lng: 25.0136 },
 ]
+
+// ═══ Interconnector specs with direction convention ════════════════════════
+
+// CANONICAL FLOW CONVENTION
+// For each interconnector, endpointA and endpointB define the path direction.
+// The CBET data: positive value means flow FROM endpointB INTO endpointA.
+// So positive rawMw → particles flow B→A, display shows "B → A {mw} MW".
+// Negative rawMw → particles flow A→B, display shows "A → B {mw} MW".
+
+export type InterconnectorSpec = {
+  id: string
+  displayName: string
+  endpointA: { country: string; name: string }
+  endpointB: { country: string; name: string }
+  cbetSource: string
+  nameplateMw: number
+  capacityShare?: number
+  baltic: 'A' | 'B' | 'none'
+}
+
+export const INTERCONNECTORS: InterconnectorSpec[] = [
+  { id: 'nordbalt',
+    displayName: 'NordBalt',
+    endpointA: { country: 'LT', name: 'Klaipėda' },
+    endpointB: { country: 'SE', name: 'Nybro' },
+    cbetSource: 'nordbalt_avg_mw',
+    nameplateMw: 700,
+    baltic: 'A' },
+  { id: 'litpol',
+    displayName: 'LitPol',
+    endpointA: { country: 'LT', name: 'Alytus' },
+    endpointB: { country: 'PL', name: 'Ełk' },
+    cbetSource: 'litpol_avg_mw',
+    nameplateMw: 500,
+    baltic: 'A' },
+  { id: 'estlink-1',
+    displayName: 'EstLink 1',
+    endpointA: { country: 'EE', name: 'Harku' },
+    endpointB: { country: 'FI', name: 'Espoo' },
+    cbetSource: 'estlink_avg_mw',
+    nameplateMw: 350,
+    capacityShare: 0.35,
+    baltic: 'A' },
+  { id: 'estlink-2',
+    displayName: 'EstLink 2',
+    endpointA: { country: 'EE', name: 'Püssi' },
+    endpointB: { country: 'FI', name: 'Anttila' },
+    cbetSource: 'estlink_avg_mw',
+    nameplateMw: 650,
+    capacityShare: 0.65,
+    baltic: 'A' },
+  { id: 'fennoskan-1',
+    displayName: 'Fenno-Skan 1',
+    endpointA: { country: 'SE', name: 'Dannebo' },
+    endpointB: { country: 'FI', name: 'Rauma' },
+    cbetSource: 'fennoskan_avg_mw',
+    nameplateMw: 550,
+    capacityShare: 0.407,
+    baltic: 'none' },
+  { id: 'fennoskan-2',
+    displayName: 'Fenno-Skan 2',
+    endpointA: { country: 'SE', name: 'Finnböle' },
+    endpointB: { country: 'FI', name: 'Rauma' },
+    cbetSource: 'fennoskan_avg_mw',
+    nameplateMw: 800,
+    capacityShare: 0.593,
+    baltic: 'none' },
+]
+
+export type ResolvedFlow = {
+  id: string
+  displayName: string
+  from: { country: string; name: string }
+  to: { country: string; name: string }
+  mw: number
+  rawMw: number
+  utilization: number
+  arrowColor: 'rose' | 'teal' | 'neutral'
+}
+
+export function resolveFlow(spec: InterconnectorSpec, s8Data: Record<string, unknown> | null): ResolvedFlow {
+  const rawMw = ((s8Data?.[spec.cbetSource] as number) ?? 0) * (spec.capacityShare ?? 1)
+  const absMw = Math.abs(rawMw)
+  const utilization = spec.nameplateMw > 0 ? absMw / spec.nameplateMw : 0
+
+  // Direction: positive rawMw = B → A, negative = A → B
+  const from = rawMw >= 0 ? spec.endpointB : spec.endpointA
+  const to   = rawMw >= 0 ? spec.endpointA : spec.endpointB
+
+  let arrowColor: 'rose' | 'teal' | 'neutral'
+  if (spec.baltic === 'none') {
+    arrowColor = 'neutral'
+  } else {
+    const balticEnd = spec.baltic === 'A' ? spec.endpointA : spec.endpointB
+    arrowColor = to.country === balticEnd.country ? 'rose' : 'teal'
+  }
+
+  return {
+    id: spec.id,
+    displayName: spec.displayName,
+    from, to,
+    mw: Math.round(absMw),
+    rawMw,
+    utilization,
+    arrowColor,
+  }
+}

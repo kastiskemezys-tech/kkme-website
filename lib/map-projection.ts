@@ -2,7 +2,7 @@ import { GcpTransformer } from '@allmaps/transform'
 import primary from '../public/hero/map-calibration.json'
 import cities from '../public/hero/map-calibration-cities.json'
 import waypoints from '../public/hero/map-cable-waypoints.json'
-import type { CableId } from './baltic-places'
+// CableId type not needed — CABLE_PATHS uses string keys for 6-cable support
 
 // Exclude country label GCPs — they are imprecise (center of large text).
 // Cable endpoint dots + city clicks give a clean polynomial1 fit.
@@ -61,11 +61,29 @@ function buildPath(points: { px: number; py: number }[]): string {
 
 const cablesData = (waypoints as { cables: Record<string, { waypoints: { px: number; py: number }[] }> }).cables
 
-export const CABLE_PATHS: Record<CableId, string> = {
+function offsetPath(points: { px: number; py: number }[], offset: number): { px: number; py: number }[] {
+  return points.map((p, i) => {
+    const prev = points[Math.max(0, i - 1)]
+    const next = points[Math.min(points.length - 1, i + 1)]
+    const dx = next.px - prev.px
+    const dy = next.py - prev.py
+    const len = Math.hypot(dx, dy) || 1
+    const nx = -dy / len
+    const ny = dx / len
+    return { px: Math.round(p.px + nx * offset), py: Math.round(p.py + ny * offset) }
+  })
+}
+
+const estlinkBase = cablesData.estlink?.waypoints ?? []
+const fennoskanBase = cablesData.fennoskan?.waypoints ?? []
+
+export const CABLE_PATHS: Record<string, string> = {
   nordbalt: buildPath(cablesData.nordbalt?.waypoints ?? []),
   litpol: buildPath(cablesData.litpol?.waypoints ?? []),
-  estlink: buildPath(cablesData.estlink?.waypoints ?? []),
-  fennoskan: buildPath(cablesData.fennoskan?.waypoints ?? []),
+  'estlink-1': buildPath(offsetPath(estlinkBase, -3)),
+  'estlink-2': buildPath(offsetPath(estlinkBase, 3)),
+  'fennoskan-1': buildPath(offsetPath(fennoskanBase, -3)),
+  'fennoskan-2': buildPath(offsetPath(fennoskanBase, 3)),
 }
 
 // ═══ Label positions from calibration ═══════════════════════════════════════
