@@ -8,6 +8,8 @@ import { AnimatePresence, motion } from 'motion/react';
 import { geoToPixel, MAP_WIDTH, MAP_HEIGHT, CABLE_PATHS, COUNTRY_LABEL_PIXELS, CITY_LABEL_PIXELS, WAYPOINT_START } from '@/lib/map-projection';
 import { INTERCONNECTORS, resolveFlow } from '@/lib/baltic-places';
 import type { ResolvedFlow } from '@/lib/baltic-places';
+import { resolveCollisions, hideCitiesNearProjects } from '@/lib/label-layout';
+import type { LabelBox } from '@/lib/label-layout';
 import geocodes from '../../public/hero/project-geocodes.json';
 import { HERO_EXCLUDED_PROJECT_IDS } from '@/lib/project-overrides';
 
@@ -220,6 +222,71 @@ export function HeroBalticMap() {
     });
   }, [projectDots]);
 
+  // ═══ Label collision resolution ═════════════════════════════════════════════
+  const resolvedLabels = useMemo(() => {
+    const CHAR_W = (fontSize: number) => fontSize * 0.6
+    const boxes: LabelBox[] = []
+
+    // Country labels baked into the raster (immovable obstacles)
+    for (const [label, pos] of Object.entries(COUNTRY_LABEL_PIXELS)) {
+      boxes.push({
+        id: `baked-${label}`, x: pos.x - 50, y: pos.y - 10,
+        width: label.length * CHAR_W(14) + 10, height: 18,
+        type: 'country-label-baked', movable: false,
+      })
+    }
+
+    // Country MW totals
+    const countryMwBoxes: LabelBox[] = []
+    for (const [label, countryKey] of [['LITHUANIA', 'LT'], ['LATVIA', 'LV'], ['ESTONIA', 'EE']] as const) {
+      const pos = COUNTRY_LABEL_PIXELS[label]
+      if (!pos) continue
+      const mw = countries?.[countryKey]?.operational_mw
+      if (!mw) continue
+      const text = `${Math.round(mw)} MW`
+      countryMwBoxes.push({
+        id: `mw-${countryKey}`, x: pos.x - (text.length * CHAR_W(13)) / 2, y: pos.y + 16,
+        width: text.length * CHAR_W(13), height: 17,
+        type: 'country-mw', movable: true,
+      })
+    }
+    boxes.push(...countryMwBoxes)
+
+    // Project labels (top 3)
+    const projectBoxes: LabelBox[] = top3.map(p => {
+      const text = `${p.name.split('(')[0].trim().toUpperCase()} · ${p.mw} MW`
+      return {
+        id: `proj-${p.id}`, x: p.labelX, y: p.labelY - 7,
+        width: text.length * CHAR_W(9) + 12, height: 14,
+        type: 'project' as const, movable: true,
+      }
+    })
+    boxes.push(...projectBoxes)
+
+    // City labels
+    const cityBoxes: LabelBox[] = Object.entries(CITY_LABEL_PIXELS).map(([id, city]) => ({
+      id: `city-${id}`,
+      x: city.x + 7, y: city.y - 6,
+      width: city.name.toUpperCase().length * CHAR_W(10), height: 14,
+      type: 'city' as const, movable: true,
+    }))
+
+    // Hide cities too close to project dots
+    const visibleCities = hideCitiesNearProjects(cityBoxes, projectBoxes, 35)
+    boxes.push(...visibleCities)
+
+    const resolved = resolveCollisions(boxes)
+
+    // Extract resolved positions by id
+    const posMap: Record<string, { x: number; y: number }> = {}
+    for (const b of resolved) posMap[b.id] = { x: b.x, y: b.y }
+
+    // Build city visibility set
+    const visibleCityIds = new Set(visibleCities.map(c => c.id))
+
+    return { posMap, visibleCityIds }
+  }, [top3, countries])
+
   // Ticker
   const tickerItems = useMemo(() => {
     const items: string[] = [];
@@ -343,30 +410,36 @@ export function HeroBalticMap() {
               )}
             </defs>
 
-            {/* City labels with halo stroke */}
+            {/* City labels with halo stroke — collision-resolved */}
             <g data-layer="cities">
-              {Object.values(CITY_LABEL_PIXELS).map(city => (
-                <g key={city.name}>
-                  <circle cx={city.x} cy={city.y} r="2"
-                    fill="var(--text-secondary)" opacity="0.8" />
-                  <text x={city.x + 7} y={city.y + 4}
-                    fontFamily="DM Mono, monospace" fontSize="10"
-                    fontWeight="500"
-                    fill="var(--text-secondary)"
-                    letterSpacing="0.04em"
-                    style={{
-                      paintOrder: 'stroke fill',
-                      stroke: 'var(--theme-bg, #0a0a0a)',
-                      strokeWidth: '3px',
-                      strokeLinejoin: 'round' as const,
-                      strokeOpacity: 0.9,
-                    }}
-                  >{city.name.toUpperCase()}</text>
-                </g>
-              ))}
+              {Object.entries(CITY_LABEL_PIXELS).map(([id, city]) => {
+                if (!resolvedLabels.visibleCityIds.has(`city-${id}`)) return null
+                const pos = resolvedLabels.posMap[`city-${id}`]
+                const textX = pos ? pos.x : city.x + 7
+                const textY = pos ? pos.y + 10 : city.y + 4
+                return (
+                  <g key={city.name}>
+                    <circle cx={city.x} cy={city.y} r="2"
+                      fill="var(--text-secondary)" opacity="0.8" />
+                    <text x={textX} y={textY}
+                      fontFamily="DM Mono, monospace" fontSize="10"
+                      fontWeight="500"
+                      fill="var(--text-secondary)"
+                      letterSpacing="0.04em"
+                      style={{
+                        paintOrder: 'stroke fill',
+                        stroke: 'var(--theme-bg, #0a0a0a)',
+                        strokeWidth: '3px',
+                        strokeLinejoin: 'round' as const,
+                        strokeOpacity: 0.9,
+                      }}
+                    >{city.name.toUpperCase()}</text>
+                  </g>
+                )
+              })}
             </g>
 
-            {/* Country MW totals under country labels */}
+            {/* Country MW totals — collision-resolved */}
             <g data-layer="country-totals">
               {([
                 ['LITHUANIA', 'LT'],
@@ -377,8 +450,11 @@ export function HeroBalticMap() {
                 if (!pos) return null;
                 const mw = countries?.[countryKey]?.operational_mw;
                 if (!mw) return null;
+                const resolved = resolvedLabels.posMap[`mw-${countryKey}`];
+                const textX = resolved ? resolved.x + ((`${Math.round(mw)} MW`).length * 13 * 0.6) / 2 : pos.x;
+                const textY = resolved ? resolved.y + 13 : pos.y + 26;
                 return (
-                  <text key={label} x={pos.x} y={pos.y + 26}
+                  <text key={label} x={textX} y={textY}
                     fontFamily="DM Mono, monospace" fontSize="13"
                     fontWeight="500"
                     fill="var(--accent-teal, var(--teal))"
