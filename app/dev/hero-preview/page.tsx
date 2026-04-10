@@ -2,6 +2,7 @@
 
 import { HeroBalticMap } from '@/app/components/HeroBalticMap';
 import { ThemeToggle } from '@/app/components/ThemeToggle';
+import { ColorTuner } from './ColorTuner';
 
 export default function HeroPreview() {
   return (
@@ -20,6 +21,7 @@ export default function HeroPreview() {
         <ThemeToggle variant="hero" />
       </div>
       <HeroBalticMap />
+      <ColorTuner />
     </div>
   );
 }
