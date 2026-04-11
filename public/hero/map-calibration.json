@@ -1,0 +1,105 @@
+{
+  "version": 1,
+  "image": "kkme-interconnect-dark.png",
+  "imageWidth": 1024,
+  "imageHeight": 1332,
+  "capturedAt": "2026-04-10T10:03:40.998Z",
+  "gcps": [
+    {
+      "id": "nordbalt-se",
+      "name": "NordBalt (Swedish end)",
+      "lat": 56.745,
+      "lng": 15.9067,
+      "px": 109,
+      "py": 761
+    },
+    {
+      "id": "nordbalt-lt",
+      "name": "NordBalt (Lithuanian end)",
+      "lat": 55.7033,
+      "lng": 21.1443,
+      "px": 515,
+      "py": 882
+    },
+    {
+      "id": "litpol-lt",
+      "name": "LitPol (Lithuanian end)",
+      "lat": 54.3961,
+      "lng": 24.0511,
+      "px": 722,
+      "py": 1058
+    },
+    {
+      "id": "litpol-pl",
+      "name": "LitPol (Polish end)",
+      "lat": 53.8272,
+      "lng": 22.365,
+      "px": 612,
+      "py": 1137
+    },
+    {
+      "id": "estlink-ee",
+      "name": "EstLink (Estonian end)",
+      "lat": 59.3889,
+      "lng": 24.5597,
+      "px": 737,
+      "py": 403
+    },
+    {
+      "id": "estlink-fi",
+      "name": "EstLink (Finnish end)",
+      "lat": 60.205,
+      "lng": 24.6511,
+      "px": 715,
+      "py": 299
+    },
+    {
+      "id": "fennoskan-se",
+      "name": "Fenno-Skan (Swedish end)",
+      "lat": 60.4033,
+      "lng": 18.1742,
+      "px": 299,
+      "py": 281
+    },
+    {
+      "id": "fennoskan-fi",
+      "name": "Fenno-Skan (Finnish end)",
+      "lat": 61.1283,
+      "lng": 21.5106,
+      "px": 535,
+      "py": 189
+    },
+    {
+      "id": "sweden-label",
+      "name": "SWEDEN label",
+      "lat": 59.3293,
+      "lng": 18.0686,
+      "px": 153,
+      "py": 430
+    },
+    {
+      "id": "lithuania-label",
+      "name": "LITHUANIA label",
+      "lat": 54.8985,
+      "lng": 23.9036,
+      "px": 715,
+      "py": 935
+    },
+    {
+      "id": "latvia-label",
+      "name": "LATVIA label",
+      "lat": 56.9496,
+      "lng": 24.1052,
+      "px": 838,
+      "py": 730
+    },
+    {
+      "id": "estonia-label",
+      "name": "ESTONIA label",
+      "lat": 59.437,
+      "lng": 24.7536,
+      "px": 811,
+      "py": 481
+    }
+  ]
+}

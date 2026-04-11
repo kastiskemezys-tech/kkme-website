@@ -1,0 +1,94 @@
+{
+  "version": 1,
+  "image": "kkme-interconnect-dark.png",
+  "imageWidth": 1024,
+  "imageHeight": 1332,
+  "capturedAt": "2026-04-10T18:49:12.731Z",
+  "kind": "cable_waypoints",
+  "cables": {
+    "nordbalt": {
+      "waypoints": [
+        {
+          "px": 111,
+          "py": 761
+        },
+        {
+          "px": 165,
+          "py": 837
+        },
+        {
+          "px": 514,
+          "py": 881
+        }
+      ]
+    },
+    "litpol": {
+      "waypoints": [
+        {
+          "px": 719,
+          "py": 1060
+        },
+        {
+          "px": 612,
+          "py": 1138
+        }
+      ]
+    },
+    "estlink-1": {
+      "waypoints": [
+        {
+          "px": 735,
+          "py": 401
+        },
+        {
+          "px": 718,
+          "py": 301
+        }
+      ]
+    },
+    "estlink-2": {
+      "waypoints": [
+        {
+          "px": 872,
+          "py": 394
+        },
+        {
+          "px": 856,
+          "py": 363
+        },
+        {
+          "px": 783,
+          "py": 281
+        }
+      ]
+    },
+    "fennoskan-1": {
+      "waypoints": [
+        {
+          "px": 299,
+          "py": 281
+        },
+        {
+          "px": 477,
+          "py": 234
+        },
+        {
+          "px": 534,
+          "py": 190
+        }
+      ]
+    },
+    "fennoskan-2": {
+      "waypoints": [
+        {
+          "px": 354,
+          "py": 355
+        },
+        {
+          "px": 579,
+          "py": 252
+        }
+      ]
+    }
+  }
+}

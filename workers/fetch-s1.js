@@ -34,6 +34,8 @@ const SE4_BZN = '10Y1001A1001A47J';
 const PL_BZN  = '10YPL-AREA-----S';
 
 const S4_URL = 'https://services-eu1.arcgis.com/NDrrY0T7kE7A7pU0/arcgis/rest/services/ElektrosPerdavimasAEI/FeatureServer/8/query?f=json&cacheHint=true&resultOffset=0&resultRecordCount=1000&where=1%3D1&orderByFields=&outFields=*&resultType=standard&returnGeometry=false&spatialRel=esriSpatialRelIntersects';
+// Layer 3: individual connected installations — queried for Kaupikliai (storage) projects
+const S4_LAYER3_URL = 'https://services-eu1.arcgis.com/NDrrY0T7kE7A7pU0/arcgis/rest/services/ElektrosPerdavimasAEI/FeatureServer/3/query?f=json&where=Elektrin%C4%97s_tipas%3D%27Kaupikliai%27&outFields=*&returnGeometry=true&outSR=4326';
 
 
 // Nord Pool DA — LT + SE4 day-ahead prices (latest delivery date)
@@ -144,10 +146,15 @@ function processFleet(entries, demand) {
     return bSpecific - aSpecific;
   });
   for (const e of sorted) {
-    const key = `${(e.name || '').replace(/\s*\(.*\)/, '').trim().toLowerCase()}|${e.country || 'LT'}`;
+    // When entry has an explicit id, use it as the dedup key (unique by definition)
+    const dedupKey = e.id
+      ? `id:${e.id}`
+      : `${(e.name || '').replace(/\s*\(.*\)/, '').trim().toLowerCase()}|${e.country || 'LT'}`;
     const existing = deduped.find(d => {
-      const dKey = `${(d.name || '').replace(/\s*\(.*\)/, '').trim().toLowerCase()}|${d.country || 'LT'}`;
-      return dKey === key && Math.abs(d.mw - e.mw) / Math.max(d.mw, e.mw) < 0.10;
+      const dKey = d.id
+        ? `id:${d.id}`
+        : `${(d.name || '').replace(/\s*\(.*\)/, '').trim().toLowerCase()}|${d.country || 'LT'}`;
+      return dKey === dedupKey && Math.abs(d.mw - e.mw) / Math.max(d.mw, e.mw) < 0.10;
     });
     if (existing) {
       console.log(`[Fleet/dedup] Skipping "${e.name}" (${e.mw} MW) — duplicate of "${existing.name}" (${existing.mw} MW)`);
@@ -486,7 +493,7 @@ function computeTradeSignals(daHourly, isps) {
     imbalance_bias: shortISPs > 48 ? 'SHORT' : shortISPs < 40 ? 'LONG' : 'BALANCED',
     activation_probability: t_r2(isps.filter(isp => isp.activation.up_price > 0).length / 96),
     drr_distortion: {
-      note: 'Capacity prices reflect DRR-distorted market. TSO resources (Litgrid/Fluence 200MW Energy Cells) bid at zero price.',
+      note: 'Capacity prices reflect DRR-distorted market. TSO resources (Litgrid/Fluence 4×50MW Energy Cells) bid at zero price.',
       derogation_expires: '2028-02',
       extension_possible: '2030-02',
       impact: 'Pre-DRR-exit prices likely 20-40% higher than current clearing',
@@ -3132,6 +3139,91 @@ async function computeS4() {
   };
 }
 
+// ─── S4 Layer 3 — Individual Kaupikliai (storage) projects from Litgrid ArcGIS ──
+// Queries FeatureServer/3 ("Prijungti įrenginiai" = connected installations)
+// filtered by Elektrinės_tipas = 'Kaupikliai'. Returns individual project records
+// with WGS84 geometry via outSR=4326.
+//
+// Fields available: OBJECTID, Eil_Nr, Prijungimo_taskas (city/substation),
+// Elektrines_LGG_MW (power MW), Prijungimo_tasko_itampa_kV (voltage),
+// Papildoma_informacija (notes). No owner, MWh, COD, or status fields.
+// Layer name "Connected installations" implies all rows are operational.
+// ─────────────────────────────────────────────────────────────────────
+
+async function fetchLitgridKaupikliai() {
+  const res = await fetch(S4_LAYER3_URL);
+  if (!res.ok) throw new Error(`S4 Layer 3: HTTP ${res.status}`);
+  const json = await res.json();
+  const features = json.features ?? [];
+  if (features.length === 0) throw new Error('S4 Layer 3: no Kaupikliai features returned');
+
+  return features.map(f => {
+    const a = f.attributes ?? {};
+    const g = f.geometry ?? {};
+    const city = (a.Prijungimo_taskas ?? '').trim();
+    const mw = a.Elektrines_LGG_MW ?? 0;
+    const kv = a.Prijungimo_tasko_itampa_kV ?? null;
+    const oid = a.OBJECTID;
+    const eil = a.Eil_Nr;
+    const info = (a.Papildoma_informacija ?? '').trim();
+    return {
+      id: `litgrid-kaupikliai-${oid}`,
+      name: `Kaupikliai ${city}`,
+      mw,
+      mwh: null,  // Layer 3 doesn't have duration/MWh
+      status: 'operational',
+      country: 'LT',
+      tso: 'Litgrid',
+      type: 'kaupikliai',
+      source: 'litgrid-layer3',
+      source_url: 'https://atviri-litgrid.hub.arcgis.com/',
+      connection_point: city,
+      voltage_kv: kv,
+      eil_nr: eil,
+      litgrid_objectid: oid,
+      info: info || null,
+      lat: typeof g.y === 'number' ? Math.round(g.y * 1e6) / 1e6 : null,
+      lng: typeof g.x === 'number' ? Math.round(g.x * 1e6) / 1e6 : null,
+      _contradiction_flags: [],
+      _freshness: 1.0,
+    };
+  });
+}
+
+// Merge Litgrid Layer 3 Kaupikliai records into fleet KV.
+// - Layer 3 records (source='litgrid-layer3') replace all prior Layer 3 records
+// - Manual entries for non-LT countries or LT entries without 'litgrid-layer3' source are preserved
+// - The old aggregate "Energy Cells (Kruonis)" manual entry is removed if present
+async function syncLitgridFleet(env) {
+  const kaupikliai = await fetchLitgridKaupikliai();
+  console.log(`[S4/layer3] fetched ${kaupikliai.length} Kaupikliai records from Litgrid`);
+
+  const raw = (await env.KKME_SIGNALS.get('s4_fleet').catch(() => null))
+           || (await env.KKME_SIGNALS.get('s2_fleet').catch(() => null));
+  const current = raw ? JSON.parse(raw) : { raw_entries: [], demand: { eff_demand_mw: 935 } };
+  const entries = current.raw_entries ?? [];
+
+  // Remove old Layer 3 records and the stale "Energy Cells (Kruonis)" aggregate
+  const preserved = entries.filter(e =>
+    e.source !== 'litgrid-layer3' &&
+    !(e.name === 'Energy Cells (Kruonis)')
+  );
+
+  // Add fresh Layer 3 records
+  const merged = [...preserved, ...kaupikliai];
+
+  const fleet = processFleet(merged, current.demand);
+  fleet.raw_entries = merged;
+  fleet.demand = current.demand;
+  const json = JSON.stringify(fleet);
+  await Promise.all([
+    env.KKME_SIGNALS.put('s4_fleet', json),
+    env.KKME_SIGNALS.put('s2_fleet', json),
+  ]);
+  console.log(`[S4/layer3] fleet synced: ${merged.length} entries (${kaupikliai.length} from Layer 3, ${preserved.length} preserved), sd_ratio=${fleet.sd_ratio}`);
+  return { synced: kaupikliai.length, total: merged.length, sd_ratio: fleet.sd_ratio };
+}
+
 // ─── S3 — Cell Cost Stack ───────────────────────────────────────────────────────
 // Layer 1: Trading Economics — Chinese lithium carbonate CNY/T (trend direction)
 // Layer 2: InfoLink — DC-side 2h ESS system bid price RMB/Wh (best effort)
@@ -4603,39 +4695,66 @@ async function fetchTTFGas() {
   }
 }
 
-// ─── S8 — Interconnector Flows (NordBalt + LitPol) ────────────────────────────
+// ─── S8 — Interconnector Flows (NordBalt + LitPol + EstLink + Fenno-Skan) ─────
 
 async function fetchInterconnectorFlows() {
-  // energy-charts.info CBET: cross-border electricity trading for Lithuania
-  // sign convention: positive value = LT importing FROM that country
-  // we negate → positive = LT exporting TO that country
-  const res = await fetch('https://api.energy-charts.info/cbet?country=lt', {
-    headers: { Accept: 'application/json' },
-  });
-  if (!res.ok) throw new Error(`CBET API: HTTP ${res.status}`);
-  const data = await res.json();
+  // energy-charts.info CBET: cross-border electricity trading
+  // Sign convention per endpoint: positive = country importing FROM neighbor
+  // We negate → positive = country exporting TO neighbor
+  const cbetHeaders = { Accept: 'application/json' };
 
-  // Response: { countries: [{ name, data }, ...], unix_seconds, ... }
-  // sign: positive value = LT importing FROM country; negate for LT export perspective
-  const countries = Array.isArray(data.countries) ? data.countries : [];
+  // Fetch LT, EE, and FI CBET data in parallel
+  const [ltRes, eeRes, fiRes] = await Promise.all([
+    fetch('https://api.energy-charts.info/cbet?country=lt', { headers: cbetHeaders }),
+    fetch('https://api.energy-charts.info/cbet?country=ee', { headers: cbetHeaders }).catch(() => null),
+    fetch('https://api.energy-charts.info/cbet?country=fi', { headers: cbetHeaders }).catch(() => null),
+  ]);
 
-  function avgFromCountry(name) {
-    const c = countries.find(c => c.name?.toLowerCase() === name.toLowerCase());
+  if (!ltRes.ok) throw new Error(`CBET LT API: HTTP ${ltRes.status}`);
+  const ltData = await ltRes.json();
+  const ltCountries = Array.isArray(ltData.countries) ? ltData.countries : [];
+
+  function avgFromList(countryList, name) {
+    const c = countryList.find(c => c.name?.toLowerCase() === name.toLowerCase());
     if (!c) return null;
     const valid = (c.data ?? []).filter(v => v != null);
     if (!valid.length) return null;
     const avg = valid.reduce((s, v) => s + v, 0) / valid.length;
-    return Math.round(-avg * 1000); // GW → MW, negate for LT export perspective
+    return Math.round(-avg * 1000); // GW → MW, negate for export perspective
   }
 
-  // NordBalt: LT ↔ SE4 → country name 'Sweden' in CBET response
-  // LitPol:   LT ↔ PL  → country name 'Poland' in CBET response
-  const nordbalt_avg_mw = avgFromCountry('Sweden');
-  const litpol_avg_mw   = avgFromCountry('Poland');
+  // NordBalt (LT ↔ SE4): from LT CBET, Sweden column
+  const nordbalt_avg_mw = avgFromList(ltCountries, 'Sweden');
+  // LitPol (LT ↔ PL): from LT CBET, Poland column
+  const litpol_avg_mw = avgFromList(ltCountries, 'Poland');
+
+  // EstLink (EE ↔ FI): from EE CBET, Finland column
+  let estlink_avg_mw = null;
+  if (eeRes && eeRes.ok) {
+    try {
+      const eeData = await eeRes.json();
+      const eeCountries = Array.isArray(eeData.countries) ? eeData.countries : [];
+      estlink_avg_mw = avgFromList(eeCountries, 'Finland');
+    } catch (e) {
+      console.error('[S8] EE CBET parse error:', String(e));
+    }
+  }
+
+  // Fenno-Skan (SE ↔ FI): from FI CBET, Sweden column
+  let fennoskan_avg_mw = null;
+  if (fiRes && fiRes.ok) {
+    try {
+      const fiData = await fiRes.json();
+      const fiCountries = Array.isArray(fiData.countries) ? fiData.countries : [];
+      fennoskan_avg_mw = avgFromList(fiCountries, 'Sweden');
+    } catch (e) {
+      console.error('[S8] FI CBET parse error:', String(e));
+    }
+  }
 
   if (nordbalt_avg_mw == null && litpol_avg_mw == null) {
-    console.error('[S8] countries not found, names:', countries.map(c => c.name).join(','));
-    throw new Error('CBET: no Sweden or Poland data found');
+    console.error('[S8] LT countries not found, names:', ltCountries.map(c => c.name).join(','));
+    throw new Error('CBET: no Sweden or Poland data in LT response');
   }
 
   function flowSignal(mw) {
@@ -4645,19 +4764,33 @@ async function fetchInterconnectorFlows() {
     return 'BALANCED';
   }
 
-  const nordbalt_signal = flowSignal(nordbalt_avg_mw);
-  const litpol_signal   = flowSignal(litpol_avg_mw);
+  const nordbalt_signal  = flowSignal(nordbalt_avg_mw);
+  const litpol_signal    = flowSignal(litpol_avg_mw);
+  const estlink_signal   = flowSignal(estlink_avg_mw);
+  const fennoskan_signal = flowSignal(fennoskan_avg_mw);
   const netTotal = (nordbalt_avg_mw ?? 0) + (litpol_avg_mw ?? 0);
   const signal   = netTotal > 100 ? 'EXPORTING' : netTotal < -100 ? 'IMPORTING' : 'NEUTRAL';
+
+  const fmtFlow = (label, sig, mw) =>
+    `${label}: ${sig ?? '—'} (${mw != null ? mw + ' MW' : '—'})`;
 
   return {
     timestamp:        new Date().toISOString(),
     signal,
     nordbalt_avg_mw,
     litpol_avg_mw,
+    estlink_avg_mw,
+    fennoskan_avg_mw,
     nordbalt_signal,
     litpol_signal,
-    interpretation: `NordBalt: ${nordbalt_signal ?? '—'} (${nordbalt_avg_mw != null ? nordbalt_avg_mw + ' MW' : '—'}). LitPol: ${litpol_signal ?? '—'} (${litpol_avg_mw != null ? litpol_avg_mw + ' MW' : '—'}).`,
+    estlink_signal,
+    fennoskan_signal,
+    interpretation: [
+      fmtFlow('NordBalt', nordbalt_signal, nordbalt_avg_mw),
+      fmtFlow('LitPol', litpol_signal, litpol_avg_mw),
+      fmtFlow('EstLink', estlink_signal, estlink_avg_mw),
+      fmtFlow('Fenno-Skan', fennoskan_signal, fennoskan_avg_mw),
+    ].join('. ') + '.',
   };
 }
 
@@ -5048,6 +5181,14 @@ export default {
       await appendSignalHistory(env, 's4', { free_mw: d.free_mw }).catch(e => console.error('[S4/history]', e));
     } else {
       console.error('[S4] cron failed:', s4Result.reason);
+    }
+
+    // Sync Litgrid Layer 3 Kaupikliai projects into fleet KV
+    try {
+      const sync = await withTimeout(syncLitgridFleet(env), 20000);
+      console.log(`[S4/layer3] synced ${sync.synced} Kaupikliai projects, total fleet=${sync.total}, sd_ratio=${sync.sd_ratio}`);
+    } catch (e) {
+      console.error('[S4/layer3] cron failed:', String(e));
     }
 
     // Write s3 first, then merge euribor in a second write if both succeed
@@ -6189,6 +6330,20 @@ export default {
       await env.KKME_SIGNALS.put('s4_buildability', JSON.stringify(body));
       console.log(`[S4/buildability] ${Object.keys(body.assertions || {}).length} assertions pushed`);
       return jsonResp({ ok: true, assertions: Object.keys(body.assertions || {}).length });
+    }
+
+    // ── POST /s4/sync-layer3 ──────────────────────────────────────────────────
+    // Manual trigger for Litgrid Layer 3 Kaupikliai → fleet KV sync.
+    // Also runs automatically in the 4-hourly cron.
+    if (request.method === 'POST' && url.pathname === '/s4/sync-layer3') {
+      const secret = request.headers.get('X-Update-Secret');
+      if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
+      try {
+        const result = await syncLitgridFleet(env);
+        return jsonResp({ ok: true, ...result });
+      } catch (err) {
+        return jsonResp({ error: String(err) }, 500);
+      }
     }
 
     // ── POST /s4/pipeline ────────────────────────────────────────────────────

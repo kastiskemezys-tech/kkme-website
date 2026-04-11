@@ -36,7 +36,14 @@
   --text-ghost:     rgba(232, 226, 217, 0.15);
   --accent-purple:  #7b5ea7;
   --accent-green:   #4ade80;
+  --accent-teal:    #4dc5b0;
+  --accent-rose:    #f5718e;
+  --accent-amber:   #d4a574;
+  --project-dot-fill: #4dc5b0;
+  --project-dot-halo: rgba(77, 197, 176, 0.1);
+  --theme-bg:       #0a0a0a;
   --bg-page:        rgb(7, 7, 10);
+  --hero-bg:        #050505;
   --bg-card:        rgba(232, 226, 217, 0.025);
   --bg-card-highlight: rgba(232, 226, 217, 0.05);
   --bg-elevated:    rgba(232, 226, 217, 0.04);
@@ -113,6 +120,7 @@
 [data-theme="light"] {
   --bg: #f5f2ed;
   --bg-page: #f5f2ed;
+  --hero-bg: #fafafa;
   --text: #1a1a1f;
   --white: #1a1a1f;
 
@@ -142,6 +150,12 @@
   --accent: #6b4f94;
   --accent-purple: #6b4f94;
   --accent-green:  #2d9a5e;
+  --accent-teal:    #0e6b63;
+  --accent-rose:    #a8324a;
+  --accent-amber:   #8a6a3a;
+  --project-dot-fill: #0e6b63;
+  --project-dot-halo: transparent;
+  --theme-bg:       #f6f5f1;
 
   --overlay-heavy: rgba(245, 242, 237, 0.95);
 
