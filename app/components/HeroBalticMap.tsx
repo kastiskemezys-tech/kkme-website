@@ -12,6 +12,7 @@ import { resolveCollisions, hideCitiesNearProjects } from '@/lib/label-layout';
 import type { LabelBox } from '@/lib/label-layout';
 import geocodes from '../../public/hero/project-geocodes.json';
 import { HERO_EXCLUDED_PROJECT_IDS } from '@/lib/project-overrides';
+import { ThemeToggle } from './ThemeToggle';
 
 gsap.registerPlugin(MotionPathPlugin);
 
@@ -329,6 +330,13 @@ export function HeroBalticMap() {
       width: '100%',
     }}>
 
+      {/* ═══ THEME TOGGLE — top right ═══ */}
+      <div style={{
+        position: 'absolute', top: '12px', right: '12px', zIndex: 20,
+      }}>
+        <ThemeToggle variant="hero" />
+      </div>
+
       {/* ═══ LEFT COLUMN ═══ */}
       <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', zIndex: 2, gridColumn: 1, gridRow: 1 }}>
         <h1 style={{
@@ -519,6 +527,7 @@ export function HeroBalticMap() {
                 color: 'var(--text-secondary)', textTransform: 'uppercase',
                 letterSpacing: '0.05em', whiteSpace: 'nowrap',
                 padding: '2px 6px',
+                borderRadius: '4px',
                 background: isDark ? 'rgba(7,7,10,0.5)' : 'rgba(245,242,237,0.6)',
                 backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
               }}>
@@ -559,6 +568,7 @@ export function HeroBalticMap() {
                   transform: 'translate(16px, -50%)',
                   fontFamily: 'var(--font-mono)', fontSize: '10px',
                   padding: '8px 12px',
+                  borderRadius: '6px',
                   background: isDark ? 'rgba(7,7,10,0.85)' : 'rgba(245,242,237,0.9)',
                   backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
                   border: `1px solid ${isDark ? 'rgba(232,226,217,0.1)' : 'rgba(26,26,31,0.1)'}`,
@@ -638,7 +648,7 @@ export function HeroBalticMap() {
             const opacities = [0.5, 0.85, 0.35];
             return (
               <>
-                <div style={{ display: 'flex', gap: '1px', height: '10px', marginBottom: '4px', maxWidth: '280px' }}>
+                <div style={{ display: 'flex', gap: '1px', height: '10px', marginBottom: '4px', maxWidth: '280px', borderRadius: '3px', overflow: 'hidden' }}>
                   {order.map((k, i) => {
                     const c = countries[k];
                     if (!c) return null;
@@ -680,7 +690,7 @@ export function HeroBalticMap() {
               <span style={{
                 color: 'var(--text-secondary)', border: '1px solid var(--border-card)',
                 padding: '0 6px', fontSize: '10px', textTransform: 'uppercase',
-                letterSpacing: '0.06em', lineHeight: '18px',
+                letterSpacing: '0.06em', lineHeight: '18px', borderRadius: '4px',
               }}>{fleet.phase}</span>
             )}
             {fleet?.cpi != null && (
@@ -693,6 +703,7 @@ export function HeroBalticMap() {
       {/* ═══ TICKER — seamless loop ═══ */}
       <div style={{
         gridColumn: '1 / -1', overflow: 'hidden', display: 'flex', alignItems: 'center',
+        borderRadius: '6px',
         background: isDark ? 'rgba(7,7,10,0.8)' : 'rgba(245,242,237,0.8)',
         backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
         borderTop: '1px solid var(--border-card)', zIndex: 10,
