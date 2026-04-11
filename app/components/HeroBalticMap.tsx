@@ -12,6 +12,7 @@ import { resolveCollisions, hideCitiesNearProjects } from '@/lib/label-layout';
 import type { LabelBox } from '@/lib/label-layout';
 import geocodes from '../../public/hero/project-geocodes.json';
 import { HERO_EXCLUDED_PROJECT_IDS } from '@/lib/project-overrides';
+import { ThemeToggle } from './ThemeToggle';
 
 gsap.registerPlugin(MotionPathPlugin);
 
@@ -236,17 +237,20 @@ export function HeroBalticMap() {
       })
     }
 
-    // Country MW totals
+    // Country gen/load pairs (two lines per country)
     const countryMwBoxes: LabelBox[] = []
     for (const [label, countryKey] of [['LITHUANIA', 'LT'], ['LATVIA', 'LV'], ['ESTONIA', 'EE']] as const) {
       const pos = COUNTRY_LABEL_PIXELS[label]
       if (!pos) continue
-      const mw = countries?.[countryKey]?.operational_mw
-      if (!mw) continue
-      const text = `${Math.round(mw)} MW`
+      const c = countries?.[countryKey]
+      if (!c?.operational_mw) continue
+      // Two-line bounding box: gen line + load line
+      const genText = `${Math.round(c.operational_mw)} MW OPER`
+      const pipeText = `+ ${Math.round(c.pipeline_mw ?? 0)} MW PIPE`
+      const maxLen = Math.max(genText.length, pipeText.length)
       countryMwBoxes.push({
-        id: `mw-${countryKey}`, x: pos.x - (text.length * CHAR_W(13)) / 2, y: pos.y + 16,
-        width: text.length * CHAR_W(13), height: 17,
+        id: `mw-${countryKey}`, x: pos.x - (maxLen * CHAR_W(11)) / 2, y: pos.y + 14,
+        width: maxLen * CHAR_W(11), height: 32,
         type: 'country-mw', movable: true,
       })
     }
@@ -328,6 +332,13 @@ export function HeroBalticMap() {
       margin: '0 auto',
       width: '100%',
     }}>
+
+      {/* ═══ THEME TOGGLE — top right ═══ */}
+      <div style={{
+        position: 'absolute', top: '12px', right: '12px', zIndex: 20,
+      }}>
+        <ThemeToggle variant="hero" />
+      </div>
 
       {/* ═══ LEFT COLUMN ═══ */}
       <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', zIndex: 2, gridColumn: 1, gridRow: 1 }}>
@@ -439,7 +450,7 @@ export function HeroBalticMap() {
               })}
             </g>
 
-            {/* Country MW totals — collision-resolved */}
+            {/* Country gen/load pairs — collision-resolved */}
             <g data-layer="country-totals">
               {([
                 ['LITHUANIA', 'LT'],
@@ -448,25 +459,37 @@ export function HeroBalticMap() {
               ] as const).map(([label, countryKey]) => {
                 const pos = COUNTRY_LABEL_PIXELS[label];
                 if (!pos) return null;
-                const mw = countries?.[countryKey]?.operational_mw;
-                if (!mw) return null;
+                const c = countries?.[countryKey];
+                if (!c?.operational_mw) return null;
                 const resolved = resolvedLabels.posMap[`mw-${countryKey}`];
-                const textX = resolved ? resolved.x + ((`${Math.round(mw)} MW`).length * 13 * 0.6) / 2 : pos.x;
-                const textY = resolved ? resolved.y + 13 : pos.y + 26;
+                const textX = resolved ? resolved.x + 40 : pos.x;
+                const baseY = resolved ? resolved.y + 12 : pos.y + 24;
+                const haloStyle = {
+                  paintOrder: 'stroke fill' as const,
+                  stroke: 'var(--theme-bg, #0a0a0a)',
+                  strokeWidth: '4px',
+                  strokeLinejoin: 'round' as const,
+                  strokeOpacity: 0.95,
+                };
                 return (
-                  <text key={label} x={textX} y={textY}
-                    fontFamily="DM Mono, monospace" fontSize="13"
-                    fontWeight="500"
-                    fill="var(--accent-teal, var(--teal))"
-                    textAnchor="middle" letterSpacing="0.03em"
-                    style={{
-                      paintOrder: 'stroke fill',
-                      stroke: 'var(--theme-bg, #0a0a0a)',
-                      strokeWidth: '4px',
-                      strokeLinejoin: 'round' as const,
-                      strokeOpacity: 0.95,
-                    }}
-                  >{Math.round(mw)} MW</text>
+                  <g key={label}>
+                    <text x={textX} y={baseY}
+                      fontFamily="DM Mono, monospace" fontSize="11"
+                      fontWeight="500"
+                      fill="var(--accent-teal, var(--teal))"
+                      textAnchor="middle" letterSpacing="0.03em"
+                      style={haloStyle}
+                    >{Math.round(c.operational_mw)} MW OPER</text>
+                    {(c.pipeline_mw ?? 0) > 0 && (
+                      <text x={textX} y={baseY + 14}
+                        fontFamily="DM Mono, monospace" fontSize="10"
+                        fontWeight="400"
+                        fill="var(--text-muted)"
+                        textAnchor="middle" letterSpacing="0.03em"
+                        style={haloStyle}
+                      >+ {Math.round(c.pipeline_mw ?? 0)} MW PIPE</text>
+                    )}
+                  </g>
                 );
               })}
             </g>
@@ -519,6 +542,7 @@ export function HeroBalticMap() {
                 color: 'var(--text-secondary)', textTransform: 'uppercase',
                 letterSpacing: '0.05em', whiteSpace: 'nowrap',
                 padding: '2px 6px',
+                borderRadius: '4px',
                 background: isDark ? 'rgba(7,7,10,0.5)' : 'rgba(245,242,237,0.6)',
                 backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
               }}>
@@ -559,6 +583,7 @@ export function HeroBalticMap() {
                   transform: 'translate(16px, -50%)',
                   fontFamily: 'var(--font-mono)', fontSize: '10px',
                   padding: '8px 12px',
+                  borderRadius: '6px',
                   background: isDark ? 'rgba(7,7,10,0.85)' : 'rgba(245,242,237,0.9)',
                   backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
                   border: `1px solid ${isDark ? 'rgba(232,226,217,0.1)' : 'rgba(26,26,31,0.1)'}`,
@@ -638,7 +663,7 @@ export function HeroBalticMap() {
             const opacities = [0.5, 0.85, 0.35];
             return (
               <>
-                <div style={{ display: 'flex', gap: '1px', height: '10px', marginBottom: '4px', maxWidth: '280px' }}>
+                <div style={{ display: 'flex', gap: '1px', height: '10px', marginBottom: '4px', maxWidth: '280px', borderRadius: '3px', overflow: 'hidden' }}>
                   {order.map((k, i) => {
                     const c = countries[k];
                     if (!c) return null;
@@ -680,7 +705,7 @@ export function HeroBalticMap() {
               <span style={{
                 color: 'var(--text-secondary)', border: '1px solid var(--border-card)',
                 padding: '0 6px', fontSize: '10px', textTransform: 'uppercase',
-                letterSpacing: '0.06em', lineHeight: '18px',
+                letterSpacing: '0.06em', lineHeight: '18px', borderRadius: '4px',
               }}>{fleet.phase}</span>
             )}
             {fleet?.cpi != null && (
@@ -693,6 +718,7 @@ export function HeroBalticMap() {
       {/* ═══ TICKER — seamless loop ═══ */}
       <div style={{
         gridColumn: '1 / -1', overflow: 'hidden', display: 'flex', alignItems: 'center',
+        borderRadius: '6px',
         background: isDark ? 'rgba(7,7,10,0.8)' : 'rgba(245,242,237,0.8)',
         backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
         borderTop: '1px solid var(--border-card)', zIndex: 10,
