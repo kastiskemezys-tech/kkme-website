@@ -237,20 +237,17 @@ export function HeroBalticMap() {
       })
     }
 
-    // Country gen/load pairs (two lines per country)
+    // Country MW totals
     const countryMwBoxes: LabelBox[] = []
     for (const [label, countryKey] of [['LITHUANIA', 'LT'], ['LATVIA', 'LV'], ['ESTONIA', 'EE']] as const) {
       const pos = COUNTRY_LABEL_PIXELS[label]
       if (!pos) continue
-      const c = countries?.[countryKey]
-      if (!c?.operational_mw) continue
-      // Two-line bounding box: gen line + load line
-      const genText = `${Math.round(c.operational_mw)} MW OPER`
-      const pipeText = `+ ${Math.round(c.pipeline_mw ?? 0)} MW PIPE`
-      const maxLen = Math.max(genText.length, pipeText.length)
+      const mw = countries?.[countryKey]?.operational_mw
+      if (!mw) continue
+      const text = `${Math.round(mw)} MW`
       countryMwBoxes.push({
-        id: `mw-${countryKey}`, x: pos.x - (maxLen * CHAR_W(11)) / 2, y: pos.y + 14,
-        width: maxLen * CHAR_W(11), height: 32,
+        id: `mw-${countryKey}`, x: pos.x - (text.length * CHAR_W(13)) / 2, y: pos.y + 16,
+        width: text.length * CHAR_W(13), height: 17,
         type: 'country-mw', movable: true,
       })
     }
@@ -450,7 +447,7 @@ export function HeroBalticMap() {
               })}
             </g>
 
-            {/* Country gen/load pairs — collision-resolved */}
+            {/* Country MW totals — collision-resolved */}
             <g data-layer="country-totals">
               {([
                 ['LITHUANIA', 'LT'],
@@ -459,37 +456,25 @@ export function HeroBalticMap() {
               ] as const).map(([label, countryKey]) => {
                 const pos = COUNTRY_LABEL_PIXELS[label];
                 if (!pos) return null;
-                const c = countries?.[countryKey];
-                if (!c?.operational_mw) return null;
+                const mw = countries?.[countryKey]?.operational_mw;
+                if (!mw) return null;
                 const resolved = resolvedLabels.posMap[`mw-${countryKey}`];
-                const textX = resolved ? resolved.x + 40 : pos.x;
-                const baseY = resolved ? resolved.y + 12 : pos.y + 24;
-                const haloStyle = {
-                  paintOrder: 'stroke fill' as const,
-                  stroke: 'var(--theme-bg, #0a0a0a)',
-                  strokeWidth: '4px',
-                  strokeLinejoin: 'round' as const,
-                  strokeOpacity: 0.95,
-                };
+                const textX = resolved ? resolved.x + ((`${Math.round(mw)} MW`).length * 13 * 0.6) / 2 : pos.x;
+                const textY = resolved ? resolved.y + 13 : pos.y + 26;
                 return (
-                  <g key={label}>
-                    <text x={textX} y={baseY}
-                      fontFamily="DM Mono, monospace" fontSize="11"
-                      fontWeight="500"
-                      fill="var(--accent-teal, var(--teal))"
-                      textAnchor="middle" letterSpacing="0.03em"
-                      style={haloStyle}
-                    >{Math.round(c.operational_mw)} MW OPER</text>
-                    {(c.pipeline_mw ?? 0) > 0 && (
-                      <text x={textX} y={baseY + 14}
-                        fontFamily="DM Mono, monospace" fontSize="10"
-                        fontWeight="400"
-                        fill="var(--text-muted)"
-                        textAnchor="middle" letterSpacing="0.03em"
-                        style={haloStyle}
-                      >+ {Math.round(c.pipeline_mw ?? 0)} MW PIPE</text>
-                    )}
-                  </g>
+                  <text key={label} x={textX} y={textY}
+                    fontFamily="DM Mono, monospace" fontSize="13"
+                    fontWeight="500"
+                    fill="var(--accent-teal, var(--teal))"
+                    textAnchor="middle" letterSpacing="0.03em"
+                    style={{
+                      paintOrder: 'stroke fill',
+                      stroke: 'var(--theme-bg, #0a0a0a)',
+                      strokeWidth: '4px',
+                      strokeLinejoin: 'round' as const,
+                      strokeOpacity: 0.95,
+                    }}
+                  >{Math.round(mw)} MW</text>
                 );
               })}
             </g>
