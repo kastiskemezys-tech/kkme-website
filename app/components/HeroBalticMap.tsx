@@ -42,6 +42,8 @@ interface S4Data {
 }
 interface S2Data { afrr_up_avg?: number; mfrr_up_avg?: number; fcr_avg?: number }
 interface ReadData { capture?: { gross_4h?: number; shape_swing?: number }; updated_at?: string }
+interface GenLoadCountry { generation_mw: number | null; load_mw: number | null; net_mw: number | null; timestamp: string | null; data_age_minutes: number | null }
+interface GenLoadData { lt: GenLoadCountry | null; lv: GenLoadCountry | null; ee: GenLoadCountry | null; fetched_at: string }
 
 interface MappedProject {
   id: string; name: string; x: number; y: number; r: number; mw: number; cod?: string; country: string;
@@ -65,6 +67,12 @@ function useTheme(): 'dark' | 'light' {
 function fmt(n: number | null | undefined): string {
   if (n == null) return '···';
   return new Intl.NumberFormat('en-GB').format(Math.round(n));
+}
+
+function formatPower(mw: number | null | undefined): string {
+  if (mw == null) return '—';
+  if (mw >= 1000) return `${(mw / 1000).toFixed(1)} GW`;
+  return `${Math.round(mw)} MW`;
 }
 
 const dotRadius = (mw: number) => 3 + Math.sqrt(mw / 10) * 1.2;
@@ -125,8 +133,10 @@ export function HeroBalticMap() {
   const [s8, setS8] = useState<S8Data | null>(null);
   const [s4, setS4] = useState<S4Data | null>(null);
   const [s2, setS2] = useState<S2Data | null>(null);
+  const [genLoad, setGenLoad] = useState<GenLoadData | null>(null);
   const [sparkData, setSparkData] = useState<number[]>([]);
   const [hoveredProject, setHoveredProject] = useState<MappedProject | null>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -137,11 +147,13 @@ export function HeroBalticMap() {
       fetch(`${W}/s4`).then(r => r.ok ? r.json() : null).catch(() => null),
       fetch(`${W}/s1/capture`).then(r => r.ok ? r.json() : null).catch(() => null),
       fetch(`${W}/s2`).then(r => r.ok ? r.json() : null).catch(() => null),
-    ]).then(([fl, rv, rd, i, s4d, cap, s2d]) => {
-      setFleet(fl); setRevenue(rv); setRead(rd); setS8(i); setS4(s4d); setS2(s2d);
+      fetch(`${W}/genload`).then(r => r.ok ? r.json() : null).catch(() => null),
+    ]).then(([fl, rv, rd, i, s4d, cap, s2d, gl]) => {
+      setFleet(fl); setRevenue(rv); setRead(rd); setS8(i); setS4(s4d); setS2(s2d); setGenLoad(gl);
       if (cap?.history) {
         setSparkData(cap.history.map((h: { gross_4h?: number }) => h.gross_4h).filter((v: unknown): v is number => v != null));
       }
+      setIsLoaded(true);
     });
   }, []);
 
@@ -237,17 +249,16 @@ export function HeroBalticMap() {
       })
     }
 
-    // Country MW totals
+    // Country gen/load labels (2 lines: 15px gen + 12px load = ~36px tall)
     const countryMwBoxes: LabelBox[] = []
-    for (const [label, countryKey] of [['LITHUANIA', 'LT'], ['LATVIA', 'LV'], ['ESTONIA', 'EE']] as const) {
+    for (const [label, countryKey] of [['LITHUANIA', 'lt'], ['LATVIA', 'lv'], ['ESTONIA', 'ee']] as const) {
       const pos = COUNTRY_LABEL_PIXELS[label]
       if (!pos) continue
-      const mw = countries?.[countryKey]?.operational_mw
-      if (!mw) continue
-      const text = `${Math.round(mw)} MW`
+      const genText = `${formatPower(genLoad?.[countryKey]?.generation_mw)} gen`
+      const boxWidth = Math.max(genText.length * CHAR_W(15), 90)
       countryMwBoxes.push({
-        id: `mw-${countryKey}`, x: pos.x - (text.length * CHAR_W(13)) / 2, y: pos.y + 16,
-        width: text.length * CHAR_W(13), height: 17,
+        id: `mw-${countryKey.toUpperCase()}`, x: pos.x - boxWidth / 2, y: pos.y + 14,
+        width: boxWidth, height: 36,
         type: 'country-mw', movable: true,
       })
     }
@@ -286,7 +297,7 @@ export function HeroBalticMap() {
     const visibleCityIds = new Set(visibleCities.map(c => c.id))
 
     return { posMap, visibleCityIds }
-  }, [top3, countries])
+  }, [top3, countries, genLoad])
 
   // Ticker
   const tickerItems = useMemo(() => {
@@ -314,7 +325,7 @@ export function HeroBalticMap() {
   }
 
   return (
-    <section style={{
+    <section className="hero-section" style={{
       display: 'grid',
       gridTemplateColumns: 'minmax(260px, 300px) minmax(540px, 620px) minmax(260px, 300px)',
       gridTemplateRows: '1fr 40px',
@@ -447,34 +458,46 @@ export function HeroBalticMap() {
               })}
             </g>
 
-            {/* Country MW totals — collision-resolved */}
+            {/* Country gen/load — collision-resolved 2-line stack */}
             <g data-layer="country-totals">
               {([
-                ['LITHUANIA', 'LT'],
-                ['LATVIA', 'LV'],
-                ['ESTONIA', 'EE'],
+                ['LITHUANIA', 'lt'],
+                ['LATVIA', 'lv'],
+                ['ESTONIA', 'ee'],
               ] as const).map(([label, countryKey]) => {
                 const pos = COUNTRY_LABEL_PIXELS[label];
                 if (!pos) return null;
-                const mw = countries?.[countryKey]?.operational_mw;
-                if (!mw) return null;
-                const resolved = resolvedLabels.posMap[`mw-${countryKey}`];
-                const textX = resolved ? resolved.x + ((`${Math.round(mw)} MW`).length * 13 * 0.6) / 2 : pos.x;
-                const textY = resolved ? resolved.y + 13 : pos.y + 26;
+                const gl = genLoad?.[countryKey];
+                const resolved = resolvedLabels.posMap[`mw-${countryKey.toUpperCase()}`];
+                const centerX = resolved ? resolved.x + 45 : pos.x;
+                const baseY = resolved ? resolved.y + 15 : pos.y + 24;
                 return (
-                  <text key={label} x={textX} y={textY}
-                    fontFamily="DM Mono, monospace" fontSize="13"
-                    fontWeight="500"
-                    fill="var(--accent-teal, var(--teal))"
-                    textAnchor="middle" letterSpacing="0.03em"
-                    style={{
-                      paintOrder: 'stroke fill',
-                      stroke: 'var(--theme-bg, #0a0a0a)',
-                      strokeWidth: '4px',
-                      strokeLinejoin: 'round' as const,
-                      strokeOpacity: 0.95,
-                    }}
-                  >{Math.round(mw)} MW</text>
+                  <g key={label}>
+                    <text x={centerX} y={baseY}
+                      fontFamily="DM Mono, monospace" fontSize="15"
+                      fontWeight="500"
+                      fill="var(--accent-teal, var(--teal))"
+                      textAnchor="middle" letterSpacing="0.02em"
+                      style={{
+                        paintOrder: 'stroke fill',
+                        stroke: 'var(--theme-bg, #0a0a0a)',
+                        strokeWidth: '4px',
+                        strokeLinejoin: 'round' as const,
+                        strokeOpacity: 0.95,
+                      }}
+                    >{formatPower(gl?.generation_mw)} gen</text>
+                    <text x={centerX} y={baseY + 18}
+                      fontFamily="DM Mono, monospace" fontSize="12"
+                      fill="var(--text-secondary)"
+                      textAnchor="middle" letterSpacing="0.02em"
+                      style={{
+                        paintOrder: 'stroke fill',
+                        stroke: 'var(--theme-bg, #0a0a0a)',
+                        strokeWidth: '3px',
+                        strokeLinejoin: 'round' as const,
+                      }}
+                    >{formatPower(gl?.load_mw)} load</text>
+                  </g>
                 );
               })}
             </g>
@@ -593,10 +616,19 @@ export function HeroBalticMap() {
         <div style={{
           fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-tertiary)',
           textTransform: 'uppercase', letterSpacing: '0.08em',
+          display: 'flex', alignItems: 'center', gap: '6px',
         }}>
-          50 MW · 4H · {lr?.as_of ? new Date(lr.as_of).toLocaleTimeString('en-GB', {
+          <div
+            className={isLoaded ? 'static-dot' : 'pulse-dot'}
+            aria-hidden="true"
+            style={{
+              width: 6, height: 6, borderRadius: '50%',
+              background: 'var(--teal)', flexShrink: 0,
+            }}
+          />
+          <span>50 MW · 4H · {lr?.as_of ? new Date(lr.as_of).toLocaleTimeString('en-GB', {
             hour: '2-digit', minute: '2-digit', timeZone: 'UTC',
-          }) + ' UTC' : ''}
+          }) + ' UTC' : ''}</span>
         </div>
         <div style={{
           fontFamily: 'var(--font-mono)', fontSize: '80px', fontWeight: 500,
