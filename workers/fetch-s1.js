@@ -32,6 +32,8 @@ const WORKER_URL    = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 const LT_BZN  = '10YLT-1001A0008Q';
 const SE4_BZN = '10Y1001A1001A47J';
 const PL_BZN  = '10YPL-AREA-----S';
+const LV_BZN  = '10YLV-1001A00074';
+const EE_BZN  = '10Y1001A1001A39I';
 
 const S4_URL = 'https://services-eu1.arcgis.com/NDrrY0T7kE7A7pU0/arcgis/rest/services/ElektrosPerdavimasAEI/FeatureServer/8/query?f=json&cacheHint=true&resultOffset=0&resultRecordCount=1000&where=1%3D1&orderByFields=&outFields=*&resultType=standard&returnGeometry=false&spatialRel=esriSpatialRelIntersects';
 // Layer 3: individual connected installations — queried for Kaupikliai (storage) projects
@@ -4714,19 +4716,23 @@ async function fetchInterconnectorFlows() {
   const ltData = await ltRes.json();
   const ltCountries = Array.isArray(ltData.countries) ? ltData.countries : [];
 
-  function avgFromList(countryList, name) {
+  function latestFromList(countryList, name) {
     const c = countryList.find(c => c.name?.toLowerCase() === name.toLowerCase());
     if (!c) return null;
-    const valid = (c.data ?? []).filter(v => v != null);
-    if (!valid.length) return null;
-    const avg = valid.reduce((s, v) => s + v, 0) / valid.length;
-    return Math.round(-avg * 1000); // GW → MW, negate for export perspective
+    const values = c.data ?? [];
+    // Walk backward to find the last non-null value (latest data point)
+    for (let i = values.length - 1; i >= 0; i--) {
+      if (values[i] != null) return Math.round(values[i] * 1000); // GW → MW, positive = importing
+    }
+    return null;
   }
 
   // NordBalt (LT ↔ SE4): from LT CBET, Sweden column
-  const nordbalt_avg_mw = avgFromList(ltCountries, 'Sweden');
+  const nordbalt_avg_mw = latestFromList(ltCountries, 'Sweden');
   // LitPol (LT ↔ PL): from LT CBET, Poland column
-  const litpol_avg_mw = avgFromList(ltCountries, 'Poland');
+  const litpol_avg_mw = latestFromList(ltCountries, 'Poland');
+  // LV ↔ LT internal Baltic flow: from LT CBET, Latvia column
+  const lv_lt_avg_mw = latestFromList(ltCountries, 'Latvia');
 
   // EstLink (EE ↔ FI): from EE CBET, Finland column
   let estlink_avg_mw = null;
@@ -4734,7 +4740,7 @@ async function fetchInterconnectorFlows() {
     try {
       const eeData = await eeRes.json();
       const eeCountries = Array.isArray(eeData.countries) ? eeData.countries : [];
-      estlink_avg_mw = avgFromList(eeCountries, 'Finland');
+      estlink_avg_mw = latestFromList(eeCountries, 'Finland');
     } catch (e) {
       console.error('[S8] EE CBET parse error:', String(e));
     }
@@ -4746,7 +4752,7 @@ async function fetchInterconnectorFlows() {
     try {
       const fiData = await fiRes.json();
       const fiCountries = Array.isArray(fiData.countries) ? fiData.countries : [];
-      fennoskan_avg_mw = avgFromList(fiCountries, 'Sweden');
+      fennoskan_avg_mw = latestFromList(fiCountries, 'Sweden');
     } catch (e) {
       console.error('[S8] FI CBET parse error:', String(e));
     }
@@ -4768,26 +4774,35 @@ async function fetchInterconnectorFlows() {
   const litpol_signal    = flowSignal(litpol_avg_mw);
   const estlink_signal   = flowSignal(estlink_avg_mw);
   const fennoskan_signal = flowSignal(fennoskan_avg_mw);
+  const lv_lt_signal     = flowSignal(lv_lt_avg_mw);
   const netTotal = (nordbalt_avg_mw ?? 0) + (litpol_avg_mw ?? 0);
   const signal   = netTotal > 100 ? 'EXPORTING' : netTotal < -100 ? 'IMPORTING' : 'NEUTRAL';
+
+  // Extract data timestamp from energy-charts unix_seconds (Bug 5 fix)
+  const unixSeconds = Array.isArray(ltData.unix_seconds) ? ltData.unix_seconds : [];
+  const lastUnix = unixSeconds.length > 0 ? unixSeconds[unixSeconds.length - 1] : null;
+  const dataTimestamp = lastUnix ? new Date(lastUnix * 1000).toISOString() : new Date().toISOString();
 
   const fmtFlow = (label, sig, mw) =>
     `${label}: ${sig ?? '—'} (${mw != null ? mw + ' MW' : '—'})`;
 
   return {
-    timestamp:        new Date().toISOString(),
+    timestamp:        dataTimestamp,
     signal,
     nordbalt_avg_mw,
     litpol_avg_mw,
     estlink_avg_mw,
     fennoskan_avg_mw,
+    lv_lt_avg_mw,
     nordbalt_signal,
     litpol_signal,
     estlink_signal,
     fennoskan_signal,
+    lv_lt_signal,
     interpretation: [
       fmtFlow('NordBalt', nordbalt_signal, nordbalt_avg_mw),
       fmtFlow('LitPol', litpol_signal, litpol_avg_mw),
+      fmtFlow('LV↔LT', lv_lt_signal, lv_lt_avg_mw),
       fmtFlow('EstLink', estlink_signal, estlink_avg_mw),
       fmtFlow('Fenno-Skan', fennoskan_signal, fennoskan_avg_mw),
     ].join('. ') + '.',
@@ -4858,6 +4873,158 @@ async function fetchEUCarbon() {
     clearTimeout(timer);
     throw err;
   }
+}
+
+// ─── /genload — Real-time Baltic generation & load (ENTSO-E A75 + A65) ────────
+// Queries ENTSO-E Transparency Platform for each Baltic country.
+// A75 = Actual Generation Per Type (sum all production types for total gen)
+// A65 = System Total Load
+// Returns per-country gen, load, net, timestamp, data_age_minutes.
+
+const GENLOAD_COUNTRIES = [
+  { key: 'lt', eic: LT_BZN },
+  { key: 'lv', eic: LV_BZN },
+  { key: 'ee', eic: EE_BZN },
+];
+
+function entsoeTimestamp(d) {
+  const y  = d.getUTCFullYear();
+  const mo = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const da = String(d.getUTCDate()).padStart(2, '0');
+  const hh = String(d.getUTCHours()).padStart(2, '0');
+  const mm = String(d.getUTCMinutes()).padStart(2, '0');
+  return `${y}${mo}${da}${hh}${mm}`;
+}
+
+/**
+ * Parse ENTSO-E XML to extract the latest quantity across all TimeSeries.
+ * For A75 (generation per type): sums quantities across all production types at the latest time point.
+ * For A65 (load): single TimeSeries, takes latest quantity.
+ * Returns { value_mw, timestamp_iso } or null.
+ */
+function parseEntsoeXml(xml, sumAllSeries = false) {
+  // Extract all TimeSeries blocks
+  const tsBlocks = [];
+  const tsRegex = /<TimeSeries>([\s\S]*?)<\/TimeSeries>/g;
+  let tsMatch;
+  while ((tsMatch = tsRegex.exec(xml)) !== null) {
+    tsBlocks.push(tsMatch[1]);
+  }
+  if (tsBlocks.length === 0) return null;
+
+  // For each TimeSeries, extract the Period with its start, resolution, and points
+  const seriesData = [];
+  for (const block of tsBlocks) {
+    const periodMatch = block.match(/<Period>([\s\S]*?)<\/Period>/);
+    if (!periodMatch) continue;
+    const period = periodMatch[1];
+
+    const startMatch = period.match(/<start>(.*?)<\/start>/);
+    const resMatch   = period.match(/<resolution>(.*?)<\/resolution>/);
+    if (!startMatch || !resMatch) continue;
+
+    const periodStart = new Date(startMatch[1]);
+    const resolution  = resMatch[1]; // PT15M or PT60M
+    const resMins     = resolution === 'PT15M' ? 15 : resolution === 'PT30M' ? 30 : 60;
+
+    // Extract all points (position + quantity)
+    const points = [];
+    const ptRegex = /<Point>\s*<position>(\d+)<\/position>\s*<quantity>([\d.]+)<\/quantity>/g;
+    let ptMatch;
+    while ((ptMatch = ptRegex.exec(period)) !== null) {
+      const position = parseInt(ptMatch[1]);
+      const quantity = parseFloat(ptMatch[2]);
+      const pointTime = new Date(periodStart.getTime() + (position - 1) * resMins * 60000);
+      points.push({ position, quantity, time: pointTime });
+    }
+    if (points.length > 0) {
+      seriesData.push(points);
+    }
+  }
+  if (seriesData.length === 0) return null;
+
+  if (sumAllSeries) {
+    // A75: sum each series' latest point regardless of timestamp alignment.
+    // Report the OLDEST contributing timestamp so consumers know the staleness bound.
+    let total = 0;
+    let oldestTime = null;
+    let newestTime = null;
+    for (const points of seriesData) {
+      const lastPoint = points[points.length - 1];
+      if (lastPoint?.quantity != null) {
+        total += lastPoint.quantity;
+        const t = lastPoint.time.getTime();
+        if (oldestTime === null || t < oldestTime) oldestTime = t;
+        if (newestTime === null || t > newestTime) newestTime = t;
+      }
+    }
+    if (oldestTime === null) return null;
+    return {
+      value_mw: Math.round(total),
+      timestamp_iso: new Date(oldestTime).toISOString(),
+      newest_iso: new Date(newestTime).toISOString(),
+      series_count: seriesData.length,
+    };
+  } else {
+    // A65: single series, take the last point
+    const allPoints = seriesData.flat().sort((a, b) => a.time - b.time);
+    const last = allPoints[allPoints.length - 1];
+    return { value_mw: Math.round(last.quantity), timestamp_iso: last.time.toISOString() };
+  }
+}
+
+async function fetchGenLoadCountry(eic, apiKey) {
+  const now = new Date();
+  const twoHoursAgo = new Date(now.getTime() - 2 * 3600 * 1000);
+  const start = entsoeTimestamp(twoHoursAgo);
+  const end   = entsoeTimestamp(now);
+
+  // Fetch A75 (generation per type) and A65 (load) in parallel
+  const [genRes, loadRes] = await Promise.all([
+    fetch(`${ENTSOE_API}?documentType=A75&processType=A16&in_Domain=${eic}&periodStart=${start}&periodEnd=${end}&securityToken=${apiKey}`)
+      .then(r => r.ok ? r.text() : null)
+      .catch(() => null),
+    fetch(`${ENTSOE_API}?documentType=A65&processType=A16&outBiddingZone_Domain=${eic}&periodStart=${start}&periodEnd=${end}&securityToken=${apiKey}`)
+      .then(r => r.ok ? r.text() : null)
+      .catch(() => null),
+  ]);
+
+  const gen  = genRes  ? parseEntsoeXml(genRes, true)  : null;
+  const load = loadRes ? parseEntsoeXml(loadRes, false) : null;
+
+  // Use the more recent timestamp of the two
+  const ts = gen?.timestamp_iso || load?.timestamp_iso || null;
+  const genMw  = gen?.value_mw  ?? null;
+  const loadMw = load?.value_mw ?? null;
+  const netMw  = (genMw != null && loadMw != null) ? genMw - loadMw : null;
+
+  let dataAge = null;
+  if (ts) {
+    dataAge = Math.round((now.getTime() - new Date(ts).getTime()) / 60000);
+  }
+
+  return {
+    generation_mw: genMw,
+    load_mw: loadMw,
+    net_mw: netMw,
+    timestamp: ts,
+    data_age_minutes: dataAge,
+  };
+}
+
+async function fetchGenLoad(apiKey) {
+  const results = await Promise.all(
+    GENLOAD_COUNTRIES.map(c =>
+      fetchGenLoadCountry(c.eic, apiKey)
+        .catch(err => {
+          console.error(`[genload/${c.key}]`, String(err));
+          return { generation_mw: null, load_mw: null, net_mw: null, timestamp: null, data_age_minutes: null };
+        })
+    )
+  );
+  const out = { fetched_at: new Date().toISOString() };
+  GENLOAD_COUNTRIES.forEach((c, i) => { out[c.key] = results[i]; });
+  return out;
 }
 
 // ─── Baltic Generation (Wind + Solar + Load) ────────────────────────────────────
@@ -5052,7 +5219,7 @@ async function fetchBalticGeneration() {
 // ─── Main export ───────────────────────────────────────────────────────────────
 
 export default {
-  /** Cron — every 4h (S1/S2/S3/S4/S5-S9/Euribor), daily 09:30 (S2 extra), daily 08:00 (digest). */
+  /** Cron — hourly (time-sensitive), 4h (all signals), 09:30 (S2 extra), 08:00 (digest). */
   async scheduled(event, env, _ctx) {
     // 08:00 UTC: daily digest to Telegram
     if (event.cron === '0 8 * * *') {
@@ -5082,6 +5249,47 @@ export default {
         console.error('[S2/0930]', String(e));
         await notifyTelegram(env, `⚠️ S2 fetch failed (09:30): ${String(e).slice(0, 200)}`).catch(() => {});
       }
+      return;
+    }
+
+    // ── Hourly: refresh time-sensitive signals only (genload, S8, wind/solar/load) ──
+    if (event.cron === '0 * * * *') {
+      console.log('[Hourly] refreshing time-sensitive signals...');
+      const [s8Res, genRes, genloadRes] = await Promise.allSettled([
+        withTimeout(fetchInterconnectorFlows(), 30000),
+        withTimeout(fetchBalticGeneration(),    25000),
+        withTimeout(fetchGenLoad(env.ENTSOE_API_KEY), 30000),
+      ]);
+
+      if (s8Res.status === 'fulfilled') {
+        const d = s8Res.value;
+        await env.KKME_SIGNALS.put('s8', JSON.stringify(d));
+        console.log(`[S8/hourly] ${d.signal} nordbalt=${d.nordbalt_avg_mw}MW litpol=${d.litpol_avg_mw}MW`);
+      } else {
+        console.error('[S8/hourly] failed:', s8Res.reason);
+      }
+
+      if (genRes.status === 'fulfilled') {
+        const { wind, solar, load } = genRes.value;
+        await Promise.all([
+          env.KKME_SIGNALS.put('s_wind', JSON.stringify(wind)),
+          env.KKME_SIGNALS.put('s_solar', JSON.stringify(solar)),
+          env.KKME_SIGNALS.put('s_load', JSON.stringify(load)),
+        ]);
+        console.log(`[Gen/hourly] wind=${wind.baltic_mw}MW solar=${solar.baltic_mw}MW load=${load.baltic_mw}MW`);
+      } else {
+        console.error('[Gen/hourly] failed:', genRes.reason);
+      }
+
+      if (genloadRes.status === 'fulfilled') {
+        const d = genloadRes.value;
+        await env.KKME_SIGNALS.put('genload', JSON.stringify(d));
+        console.log(`[Genload/hourly] lt=${d.lt?.generation_mw}/${d.lt?.load_mw} lv=${d.lv?.generation_mw}/${d.lv?.load_mw} ee=${d.ee?.generation_mw}/${d.ee?.load_mw}`);
+      } else {
+        console.error('[Genload/hourly] failed:', genloadRes.reason);
+      }
+
+      console.log('[Hourly] done.');
       return;
     }
 
@@ -5232,13 +5440,14 @@ export default {
       console.log(`[S5] ${s5Data.signal} free=${s5Data.grid_free_mw}MW news=${s5Data.news_items.length}`);
     }
 
-    // S6-S9 + Baltic generation — Context signals (best-effort, run in parallel)
-    const [s6Res, s7Res, s8Res, s9Res, genRes] = await Promise.allSettled([
+    // S6-S9 + Baltic generation + genload — Context signals (best-effort, run in parallel)
+    const [s6Res, s7Res, s8Res, s9Res, genRes, genloadRes] = await Promise.allSettled([
       withTimeout(fetchNordicHydro(),           20000),
       withTimeout(fetchTTFGas(),                20000),
       withTimeout(fetchInterconnectorFlows(), 30000),
       withTimeout(fetchEUCarbon(),              20000),
       withTimeout(fetchBalticGeneration(),      25000),
+      withTimeout(fetchGenLoad(env.ENTSOE_API_KEY), 30000),
     ]);
 
     if (s6Res.status === 'fulfilled') {
@@ -5288,6 +5497,15 @@ export default {
       console.log(`[Gen] wind=${wind.baltic_mw}MW solar=${solar.baltic_mw}MW load=${load.baltic_mw}MW [${wind.coverage_countries}]`);
     } else {
       console.error('[Gen] cron failed:', genRes.reason);
+    }
+
+    // Genload (ENTSO-E A75+A65 per Baltic country)
+    if (genloadRes.status === 'fulfilled') {
+      const d = genloadRes.value;
+      await env.KKME_SIGNALS.put('genload', JSON.stringify(d));
+      console.log(`[Genload] lt=${d.lt?.generation_mw}/${d.lt?.load_mw} lv=${d.lv?.generation_mw}/${d.lv?.load_mw} ee=${d.ee?.generation_mw}/${d.ee?.load_mw}`);
+    } else {
+      console.error('[Genload] cron failed:', genloadRes.reason);
     }
 
     // da_tomorrow is embedded in computeS1() and stored in the s1 KV key
@@ -6296,6 +6514,40 @@ export default {
           console.error(`[${genSig}] live fetch failed:`, String(err));
           return Response.json({ unavailable: true, signal: 'UNKNOWN', _serving: 'no_data_yet', timestamp: null }, { headers: CORS });
         }
+      }
+    }
+
+    // ── GET /genload — Real-time Baltic generation & load (ENTSO-E A75+A65) ─
+    if (request.method === 'GET' && url.pathname === '/genload') {
+      const cached = await env.KKME_SIGNALS.get('genload').catch(() => null);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        const age = parsed.fetched_at ? (Date.now() - new Date(parsed.fetched_at).getTime()) / 60000 : 999;
+        // Serve cached immediately, refresh in background if stale (>5 min)
+        if (age > 5) {
+          const apiKey = env.ENTSOE_API_KEY;
+          if (apiKey) {
+            ctx.waitUntil(
+              fetchGenLoad(apiKey)
+                .then(d => env.KKME_SIGNALS.put('genload', JSON.stringify(d)))
+                .catch(e => console.error('[genload] bg refresh failed:', String(e)))
+            );
+          }
+        }
+        return new Response(cached, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=300', ...CORS } });
+      }
+      // No cache — fetch live
+      const apiKey = env.ENTSOE_API_KEY;
+      if (!apiKey) {
+        return Response.json({ error: 'ENTSOE_API_KEY not configured' }, { status: 500, headers: CORS });
+      }
+      try {
+        const data = await fetchGenLoad(apiKey);
+        await env.KKME_SIGNALS.put('genload', JSON.stringify(data));
+        return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=300', ...CORS } });
+      } catch (err) {
+        console.error('[genload] fetch failed:', String(err));
+        return Response.json({ error: 'ENTSO-E fetch failed', detail: String(err) }, { status: 502, headers: CORS });
       }
     }
 
@@ -7316,7 +7568,7 @@ export default {
       const { key, value } = await request.json();
       if (!key) return jsonResp({ error: 'key required' }, 400);
       // Allowlist: only permit known keys from ingestion pipeline
-      const ALLOWED_KEYS = ['s1_capture', 'revenue_trailing', 's1_trailing_12m', 's2_trailing_12m', 'capacity_monthly', 's2_rolling_180d'];
+      const ALLOWED_KEYS = ['s1_capture', 'revenue_trailing', 's1_trailing_12m', 's2_trailing_12m', 'capacity_monthly', 's2_rolling_180d', 'genload'];
       if (!ALLOWED_KEYS.includes(key)) {
         return jsonResp({ error: `key '${key}' not in allowlist` }, 400);
       }
