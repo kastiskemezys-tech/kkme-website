@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSignal } from '@/lib/useSignal';
+import { REFRESH_COOL } from '@/lib/refresh-cadence';
 import {
   MetricTile, StatusChip, SourceFooter, DetailsDrawer,
 } from '@/app/components/primitives';
@@ -51,7 +52,7 @@ function gasImpact(regime: string | null | undefined): string {
 }
 
 export function S7Card() {
-  const { status, data } = useSignal<S7Signal>(`${WORKER_URL}/s7`);
+  const { status, data } = useSignal<S7Signal>(`${WORKER_URL}/s7`, { refreshInterval: REFRESH_COOL });
   const [history, setHistory] = useState<number[]>([]);
   const [showTip, setShowTip] = useState(false);
 

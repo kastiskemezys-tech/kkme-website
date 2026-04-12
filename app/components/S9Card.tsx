@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSignal } from '@/lib/useSignal';
+import { REFRESH_COOL } from '@/lib/refresh-cadence';
 import {
   MetricTile, StatusChip, SourceFooter, DetailsDrawer,
 } from '@/app/components/primitives';
@@ -52,7 +53,7 @@ function carbonImpact(sig: string | null | undefined, price: number | null | und
 }
 
 export function S9Card() {
-  const { status, data } = useSignal<S9Signal>(`${WORKER_URL}/s9`);
+  const { status, data } = useSignal<S9Signal>(`${WORKER_URL}/s9`, { refreshInterval: REFRESH_COOL });
   const [history, setHistory] = useState<number[]>([]);
   const [showTip, setShowTip] = useState(false);
   const [ttfPrice, setTtfPrice] = useState<number | null>(null);

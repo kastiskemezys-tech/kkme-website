@@ -1,6 +1,7 @@
 'use client';
 
 import { useSignal } from '@/lib/useSignal';
+import { REFRESH_WARM } from '@/lib/refresh-cadence';
 import {
   MetricTile, StatusChip, SourceFooter, DetailsDrawer,
 } from '@/app/components/primitives';
@@ -58,7 +59,7 @@ function solarImpact(trend: string | null | undefined, isNight: boolean | null |
 }
 
 export function SolarCard() {
-  const { status, data } = useSignal<SolarSignal>(`${WORKER_URL}/s_solar`);
+  const { status, data } = useSignal<SolarSignal>(`${WORKER_URL}/s_solar`, { refreshInterval: REFRESH_WARM });
 
   if (status === 'loading') {
     return (

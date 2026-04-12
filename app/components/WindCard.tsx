@@ -1,6 +1,7 @@
 'use client';
 
 import { useSignal } from '@/lib/useSignal';
+import { REFRESH_WARM } from '@/lib/refresh-cadence';
 import {
   MetricTile, StatusChip, SourceFooter, DetailsDrawer,
 } from '@/app/components/primitives';
@@ -51,7 +52,7 @@ function windImpact(trend: string | null | undefined): string {
 }
 
 export function WindCard() {
-  const { status, data } = useSignal<WindSignal>(`${WORKER_URL}/s_wind`);
+  const { status, data } = useSignal<WindSignal>(`${WORKER_URL}/s_wind`, { refreshInterval: REFRESH_WARM });
 
   if (status === 'loading') {
     return (
