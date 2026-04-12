@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import type { S1Signal, S1CaptureData, DailyCaptureEntry } from '@/lib/signals/s1';
 import { useSignal } from '@/lib/useSignal';
+import { REFRESH_HOT } from '@/lib/refresh-cadence';
 import { safeNum } from '@/lib/safeNum';
 import {
   MetricTile, SourceFooter, DetailsDrawer, DataClassBadge,
@@ -43,7 +44,7 @@ function isRecent(timestamp: string, maxHours: number): boolean {
 // ── Component ─────────────────────────────────────────────────────────────
 
 export function S1Card() {
-  const { status, data } = useSignal<S1WithCapture>(`${WORKER_URL}/read`);
+  const { status, data } = useSignal<S1WithCapture>(`${WORKER_URL}/read`, { refreshInterval: REFRESH_HOT });
   const [captureData, setCaptureData] = useState<S1CaptureData | null>(null);
   const [duration, setDuration] = useState<'2h' | '4h'>('4h');
   const [s1DrawerTab, setS1DrawerTab] = useState('capture');

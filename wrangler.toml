@@ -29,7 +29,8 @@ preview_urls = false
 
 [triggers]
 crons = [
-  "0 */4 * * *",    # Every 4h: S1 + S3 + S4 + Euribor + S5 + S6 + S7 + S8 + S9
+  "0 */4 * * *",    # Every 4h: all signals (S1-S9 + Euribor + gen/load)
+  "0 * * * *",      # Hourly: time-sensitive only (genload, S8, wind, solar, load)
   "30 9 * * *",     # 09:30 UTC daily: S2 watchdog
   "0 8 * * *",      # 08:00 UTC daily: daily digest to Telegram
 ]

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useSignal } from '@/lib/useSignal';
+import { REFRESH_WARM } from '@/lib/refresh-cadence';
 import { safeNum } from '@/lib/safeNum';
 import {
   MetricTile, StatusChip, SourceFooter, DetailsDrawer,
@@ -224,7 +225,7 @@ function AssetRow({ asset }: { asset: CountryAsset }) {
 
 export function S4Card() {
   const { status, data } =
-    useSignal<S4Signal>(`${WORKER_URL}/s4`);
+    useSignal<S4Signal>(`${WORKER_URL}/s4`, { refreshInterval: REFRESH_WARM });
   const [drawerKey, setDrawerKey] = useState(0);
   const [activeTab, setActiveTab] = useState<CountryTab>('LT');
   const [assetPanel, setAssetPanel] = useState<{ title: string; subtitle?: string; assets: DetailAsset[]; notes?: string[] } | null>(null);

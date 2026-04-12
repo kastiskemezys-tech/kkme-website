@@ -1,6 +1,7 @@
 'use client';
 
 import { useSignal } from '@/lib/useSignal';
+import { REFRESH_WARM } from '@/lib/refresh-cadence';
 import {
   MetricTile, StatusChip, SourceFooter, DetailsDrawer,
 } from '@/app/components/primitives';
@@ -49,7 +50,7 @@ function loadImpact(trend: string | null | undefined): string {
 }
 
 export function LoadCard() {
-  const { status, data } = useSignal<LoadSignal>(`${WORKER_URL}/s_load`);
+  const { status, data } = useSignal<LoadSignal>(`${WORKER_URL}/s_load`, { refreshInterval: REFRESH_WARM });
 
   if (status === 'loading') {
     return (

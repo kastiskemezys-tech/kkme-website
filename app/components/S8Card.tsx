@@ -1,6 +1,7 @@
 'use client';
 
 import { useSignal } from '@/lib/useSignal';
+import { REFRESH_HOT } from '@/lib/refresh-cadence';
 import {
   MetricTile, StatusChip, SourceFooter, DetailsDrawer,
 } from '@/app/components/primitives';
@@ -72,7 +73,7 @@ function dirColor(sig: string | null | undefined): string {
 }
 
 export function S8Card() {
-  const { status, data } = useSignal<S8Signal>(`${WORKER_URL}/s8`);
+  const { status, data } = useSignal<S8Signal>(`${WORKER_URL}/s8`, { refreshInterval: REFRESH_HOT });
 
   if (status === 'loading') {
     return (

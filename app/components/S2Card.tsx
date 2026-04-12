@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSignal } from '@/lib/useSignal';
+import { REFRESH_WARM } from '@/lib/refresh-cadence';
 import { safeNum } from '@/lib/safeNum';
 import { SignalIntel } from '@/app/components/SignalIntel';
 import {
@@ -223,7 +224,7 @@ interface FleetData {
 
 export function S2Card() {
   const { status, data } =
-    useSignal<S2Signal>(`${WORKER_URL}/s2`);
+    useSignal<S2Signal>(`${WORKER_URL}/s2`, { refreshInterval: REFRESH_WARM });
   const [fleetData, setFleetData] = useState<FleetData | null>(null);
   const [drawerKey, setDrawerKey] = useState(0);
   const [s2DrawerTab, setS2DrawerTab] = useState('activation');

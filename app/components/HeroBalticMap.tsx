@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useMemo } from 'react';
+import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 import { MotionPathPlugin } from 'gsap/MotionPathPlugin';
@@ -12,6 +12,7 @@ import { resolveCollisions, hideCitiesNearProjects } from '@/lib/label-layout';
 import type { LabelBox } from '@/lib/label-layout';
 import geocodes from '../../public/hero/project-geocodes.json';
 import { HERO_EXCLUDED_PROJECT_IDS } from '@/lib/project-overrides';
+import { REFRESH_HOT } from '@/lib/refresh-cadence';
 import { ThemeToggle } from './ThemeToggle';
 
 gsap.registerPlugin(MotionPathPlugin);
@@ -137,9 +138,10 @@ export function HeroBalticMap() {
   const [sparkData, setSparkData] = useState<number[]>([]);
   const [hoveredProject, setHoveredProject] = useState<MappedProject | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  useEffect(() => {
-    Promise.all([
+  const fetchAll = useCallback(() => {
+    return Promise.all([
       fetch(`${W}/s4/fleet`).then(r => r.ok ? r.json() : null).catch(() => null),
       fetch(`${W}/revenue?dur=4h`).then(r => r.ok ? r.json() : null).catch(() => null),
       fetch(`${W}/read`).then(r => r.ok ? r.json() : null).catch(() => null),
@@ -153,9 +155,22 @@ export function HeroBalticMap() {
       if (cap?.history) {
         setSparkData(cap.history.map((h: { gross_4h?: number }) => h.gross_4h).filter((v: unknown): v is number => v != null));
       }
-      setIsLoaded(true);
     });
   }, []);
+
+  // Initial mount fetch
+  useEffect(() => {
+    fetchAll().then(() => setIsLoaded(true));
+  }, [fetchAll]);
+
+  // Auto-refresh every 5 minutes (background — keeps existing data on failure)
+  useEffect(() => {
+    const id = setInterval(() => {
+      setIsRefreshing(true);
+      fetchAll().finally(() => setIsRefreshing(false));
+    }, REFRESH_HOT);
+    return () => clearInterval(id);
+  }, [fetchAll]);
 
   // Resolve all 6 interconnector flows
   const resolved = useMemo((): ResolvedFlow[] =>
@@ -619,7 +634,7 @@ export function HeroBalticMap() {
           display: 'flex', alignItems: 'center', gap: '6px',
         }}>
           <div
-            className={isLoaded ? 'static-dot' : 'pulse-dot'}
+            className={(!isLoaded || isRefreshing) ? 'pulse-dot' : 'static-dot'}
             aria-hidden="true"
             style={{
               width: 6, height: 6, borderRadius: '50%',
