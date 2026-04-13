@@ -25,6 +25,8 @@ Branch: `hero-v3-phase2a-3` (3 commits ahead of main, not yet merged).
 
 ## What's queued
 
+**Superpowers install** (one-off Claude Code session, ~15 min). Prompt at: [docs/phases/superpowers-install-prompt.md](phases/superpowers-install-prompt.md). Runs BEFORE Phase 2B-1 to test Superpowers on a real workload. See ADR-006 and docs/playbooks/tooling.md.
+
 **Phase 2B-1** (next Claude Code session): three bundled hero changes.
 Prompt at: [docs/phases/phase2b-1-prompt.md](phases/phase2b-1-prompt.md)
 1. Remove permanent project labels → hover-only tooltips
@@ -100,6 +102,9 @@ See [docs/map.md](map.md) for the full concept-to-file lookup table.
 | B-012 | tech-debt | P2 | README.md is boilerplate | 2026-04-13 audit | open | Rewrite as project description |
 | B-013 | tech-debt | P2 | origin/HEAD → dev, should be main | 2026-04-13 audit | open | Change GitHub default branch. Delete dev if unused |
 | B-014 | bug | P2 | Raw rgba() in page.tsx line 188 | 2026-04-13 audit | open | Should be var(--border-card). Violates design system |
+| B-015 | tech-debt | - | GSD evaluated and rejected | 2026-04-13 decision | wont-fix | See ADR-006. Re-evaluate 2026-10-13 or if workflow gaps emerge. |
+| B-016 | tech-debt | - | UI UX Pro Max evaluated and rejected | 2026-04-13 decision | wont-fix | See ADR-006 and ADR-005 (design system). Would conflict with three-font rule and halftone map identity. |
+| B-017 | enhancement | - | Obsidian Claude skill deferred | 2026-04-13 decision | open | Install only if separate personal/strategic notes vault emerges outside KKME. |
 
 ### Backlog notes
 
@@ -134,3 +139,21 @@ See [docs/map.md](map.md) for the full concept-to-file lookup table.
 **Deferred:** PNG/trace file deletion (flagged for manual approval). docs/CHART_AUDIT files not moved (left in docs/ root — see notes).
 
 **Findings:** /genload and /s8 appeared null during audit but confirmed healthy by manual recheck. Arrow direction inversion (B-001) is a real P1 bug visible on production. 462MB of untracked binary files in docs/ need cleanup.
+
+### Session 2 — 2026-04-13 — Tooling evaluation and Superpowers adoption planning
+
+**Scope:** Formalize tool adoption strategy. Evaluate 5 recommended tools against KKME-specific needs. Document decision in ADR-006. Create tooling playbook. Write Superpowers install prompt for a future Claude Code session. Fix the scripts that were created but not committed in Session 1.
+
+**Shipped:**
+- ADR-006 in docs/principles/decisions.md (tooling evaluation)
+- docs/playbooks/tooling.md (installed tools, rules, usage notes)
+- docs/phases/superpowers-install-prompt.md (Claude Code install session)
+- scripts/diagnose.sh and scripts/verify.sh added to repo (existed on disk but missed in Session 1 commit)
+- handover.md backlog updates (B-015, B-016, B-017)
+- handover.md queue update (Superpowers install scheduled before Phase 2B-1)
+
+**Deferred:**
+- Actual Superpowers install (requires Claude Code CLI, not Cowork)
+- Real-world Superpowers evaluation (happens during Phase 2B-1)
+
+**Findings:** Of 5 tools evaluated (Superpowers, GSD, UI UX Pro Max, Obsidian skill, Awesome Claude Code), only Superpowers passes the net-positive test for KKME. Three rejected on workflow-conflict or wrong-audience grounds. Rejection captured in ADR-006 to prevent re-evaluation churn. Established precedent that every future tool needs an ADR entry before installation — lightweight governance against tool sprawl.
