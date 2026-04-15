@@ -1,6 +1,16 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import {
+  classifySource,
+  extractDomain,
+  extractMagnitude,
+  featuredScore,
+  formatRelativeDate,
+  FEATURED_SCORE_FLOOR,
+  type SourceType,
+  type Magnitude,
+} from '@/app/lib/sourceClassify';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
@@ -290,6 +300,125 @@ function CategoryChip({ category }: { category: string }) {
   );
 }
 
+const SOURCE_TYPE_LABELS: Record<SourceType, string> = {
+  primary: 'Primary',
+  trade_press: 'Trade press',
+  company: 'Company',
+  uncurated: 'Uncurated',
+};
+
+const SOURCE_TYPE_COLORS: Record<SourceType, string> = {
+  primary: 'var(--teal)',
+  trade_press: 'var(--text-tertiary)',
+  company: 'var(--text-muted)',
+  uncurated: 'var(--amber)',
+};
+
+function SourceTypeChip({ type }: { type: SourceType }) {
+  return (
+    <span style={{
+      fontFamily: 'var(--font-mono)',
+      fontSize: 'var(--font-xs)',
+      letterSpacing: '0.06em',
+      textTransform: 'uppercase',
+      color: SOURCE_TYPE_COLORS[type],
+      opacity: 0.85,
+    }}>
+      {SOURCE_TYPE_LABELS[type]}
+    </span>
+  );
+}
+
+function OfficialBadge() {
+  return (
+    <span style={{
+      fontFamily: 'var(--font-mono)',
+      fontSize: '0.625rem',
+      letterSpacing: '0.1em',
+      textTransform: 'uppercase',
+      color: 'var(--teal)',
+      border: '1px solid var(--teal-subtle)',
+      background: 'var(--teal-bg)',
+      padding: '1px 5px',
+      borderRadius: '2px',
+      fontWeight: 500,
+    }}>
+      Official
+    </span>
+  );
+}
+
+function MagnitudeChip({ mag }: { mag: Magnitude }) {
+  const color =
+    mag.sign === 'positive' ? 'var(--teal)' :
+    mag.sign === 'negative' ? 'var(--rose)' :
+    'var(--text-secondary)';
+  return (
+    <span style={{
+      fontFamily: 'var(--font-mono)',
+      fontSize: 'var(--font-xs)',
+      color,
+      letterSpacing: '0.03em',
+      fontWeight: 500,
+    }}>
+      {mag.raw}
+    </span>
+  );
+}
+
+function SourceFavicon({ domain, sourceName, size = 16 }: {
+  domain: string | null;
+  sourceName: string;
+  size?: number;
+}) {
+  const [errored, setErrored] = useState(false);
+  const letter = (sourceName || '?').trim().charAt(0).toUpperCase() || '?';
+
+  if (!domain || errored) {
+    return (
+      <span
+        aria-hidden="true"
+        style={{
+          width: size,
+          height: size,
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'var(--bg-elevated)',
+          color: 'var(--text-tertiary)',
+          fontFamily: 'var(--font-mono)',
+          fontSize: Math.round(size * 0.62),
+          borderRadius: '2px',
+          flexShrink: 0,
+          lineHeight: 1,
+        }}
+      >
+        {letter}
+      </span>
+    );
+  }
+
+  return (
+    <img
+      src={`https://www.google.com/s2/favicons?sz=32&domain=${encodeURIComponent(domain)}`}
+      alt=""
+      aria-hidden="true"
+      width={size}
+      height={size}
+      loading="lazy"
+      decoding="async"
+      onError={() => setErrored(true)}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: '2px',
+        flexShrink: 0,
+        display: 'inline-block',
+      }}
+    />
+  );
+}
+
 // ─── Pinned strip ─────────────────────────────────────────────────────────────
 
 function PinnedStrip({ items }: { items: IntelItem[] }) {
@@ -357,6 +486,14 @@ function IntelRow({ item, isExpanded, onToggle }: {
   isExpanded: boolean;
   onToggle: () => void;
 }) {
+  const sourceType = classifySource(item.sourceName, item.sourceUrl, item.source_quality);
+  const domain = extractDomain(item.sourceUrl);
+  const magnitude = useMemo(
+    () => extractMagnitude(item.whyItMatters) || extractMagnitude(item.summary),
+    [item.whyItMatters, item.summary],
+  );
+  const relDate = formatRelativeDate(item.publishedAt);
+
   return (
     <div style={{
       borderBottom: '1px solid var(--border-card)',
@@ -409,7 +546,7 @@ function IntelRow({ item, isExpanded, onToggle }: {
             color: 'var(--text-ghost)',
             flexShrink: 0,
           }}>
-            {formatDate(item.publishedAt) ?? '—'}
+            {relDate ?? formatDate(item.publishedAt) ?? '—'}
           </span>
         </div>
 
@@ -424,7 +561,7 @@ function IntelRow({ item, isExpanded, onToggle }: {
           {item.whyItMatters}
         </p>
 
-        {/* Tags row — category + horizon only */}
+        {/* Tags row — magnitude + category + horizon + source-type + source */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
@@ -432,38 +569,50 @@ function IntelRow({ item, isExpanded, onToggle }: {
           flexWrap: 'wrap',
           marginTop: '2px',
         }}>
+          {magnitude && <MagnitudeChip mag={magnitude} />}
+          {magnitude && <span style={{ color: 'var(--text-ghost)' }}>·</span>}
           <CategoryChip category={item.primaryCategory} />
           <span style={{ color: 'var(--text-ghost)' }}>·</span>
           <HorizonChip horizon={item.horizon} />
-          {item.sourceUrl ? (
-            <a
-              href={item.sourceUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={e => e.stopPropagation()}
-              style={{
+          <span style={{ color: 'var(--text-ghost)' }}>·</span>
+          <SourceTypeChip type={sourceType} />
+
+          <div style={{
+            marginLeft: 'auto',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}>
+            <SourceFavicon domain={domain} sourceName={item.sourceName} />
+            {item.sourceUrl ? (
+              <a
+                href={item.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={e => e.stopPropagation()}
+                style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 'var(--font-xs)',
+                  color: 'var(--text-muted)',
+                  textDecoration: 'none',
+                  transition: 'color 0.15s',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-tertiary)')}
+                onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
+              >
+                {item.sourceName} ↗
+              </a>
+            ) : (
+              <span style={{
                 fontFamily: 'var(--font-mono)',
                 fontSize: 'var(--font-xs)',
                 color: 'var(--text-muted)',
-                marginLeft: 'auto',
-                textDecoration: 'none',
-                transition: 'color 0.15s',
-              }}
-              onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-tertiary)')}
-              onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
-            >
-              {item.sourceName} ↗
-            </a>
-          ) : (
-            <span style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: 'var(--font-xs)',
-              color: 'var(--text-muted)',
-              marginLeft: 'auto',
-            }}>
-              {item.sourceName}
-            </span>
-          )}
+              }}>
+                {item.sourceName}
+              </span>
+            )}
+            {sourceType === 'primary' && <OfficialBadge />}
+          </div>
         </div>
       </button>
 
@@ -478,7 +627,21 @@ function IntelRow({ item, isExpanded, onToggle }: {
           marginLeft: '2px',
           paddingLeft: '14px',
         }}>
-          {item.summary && (
+          {/* Pull-quote treatment for whyItMatters — editorial verdict */}
+          {item.whyItMatters && (
+            <p style={{
+              fontFamily: 'var(--font-serif)',
+              fontStyle: 'italic',
+              fontSize: 'var(--font-md)',
+              color: 'var(--text-primary)',
+              lineHeight: 1.55,
+              margin: 0,
+            }}>
+              {item.whyItMatters}
+            </p>
+          )}
+
+          {item.summary && item.summary !== item.whyItMatters && (
             <p style={{
               fontFamily: 'var(--font-mono)',
               fontSize: 'var(--font-xs)',
@@ -592,6 +755,151 @@ function IntelRow({ item, isExpanded, onToggle }: {
   );
 }
 
+// ─── Featured row ─────────────────────────────────────────────────────────────
+
+function FeaturedRow({ item }: { item: IntelItem }) {
+  const sourceType = classifySource(item.sourceName, item.sourceUrl, item.source_quality);
+  const domain = extractDomain(item.sourceUrl);
+  const magnitude = useMemo(
+    () => extractMagnitude(item.whyItMatters) || extractMagnitude(item.summary),
+    [item.whyItMatters, item.summary],
+  );
+  const relDate = formatRelativeDate(item.publishedAt);
+  const excerpt = (item.summary && item.summary.length > (item.whyItMatters?.length ?? 0))
+    ? item.summary
+    : item.whyItMatters;
+
+  return (
+    <div style={{ marginBottom: '28px' }}>
+      <p style={{
+        fontFamily: 'var(--font-mono)',
+        fontSize: 'var(--font-xs)',
+        color: 'var(--text-tertiary)',
+        letterSpacing: '0.14em',
+        textTransform: 'uppercase',
+        marginBottom: '12px',
+        fontWeight: 500,
+      }}>
+        Featured
+      </p>
+
+      <div style={{
+        borderTop: '1px solid var(--border-card)',
+        borderBottom: '1px solid var(--border-card)',
+        padding: '24px 0',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '14px',
+      }}>
+        {/* Title row */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'baseline',
+          gap: '12px',
+          width: '100%',
+        }}>
+          <h3 style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: '1.125rem',
+            lineHeight: 1.35,
+            color: 'var(--text-primary)',
+            margin: 0,
+            fontWeight: 500,
+            flex: 1,
+            letterSpacing: '-0.01em',
+          }}>
+            {item.sourceUrl ? (
+              <a
+                href={item.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: 'inherit', textDecoration: 'none', borderBottom: '1px dotted var(--text-muted)' }}
+                onMouseEnter={e => (e.currentTarget.style.color = 'var(--teal)')}
+                onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-primary)')}
+              >
+                {item.title} ↗
+              </a>
+            ) : item.title}
+          </h3>
+          <span style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-xs)',
+            color: 'var(--text-ghost)',
+            flexShrink: 0,
+          }}>
+            {relDate ?? formatDate(item.publishedAt) ?? '—'}
+          </span>
+        </div>
+
+        {/* Pull-quote: editorial verdict */}
+        {excerpt && (
+          <p style={{
+            fontFamily: 'var(--font-serif)',
+            fontStyle: 'italic',
+            fontSize: 'var(--font-md)',
+            lineHeight: 1.6,
+            color: 'var(--text-primary)',
+            margin: 0,
+            paddingLeft: '14px',
+            borderLeft: `2px solid ${CATEGORY_COLORS[item.primaryCategory] || 'var(--border-card)'}`,
+          }}>
+            {excerpt}
+          </p>
+        )}
+
+        {/* Tags row */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          flexWrap: 'wrap',
+        }}>
+          {magnitude && <MagnitudeChip mag={magnitude} />}
+          {magnitude && <span style={{ color: 'var(--text-ghost)' }}>·</span>}
+          <CategoryChip category={item.primaryCategory} />
+          <span style={{ color: 'var(--text-ghost)' }}>·</span>
+          <HorizonChip horizon={item.horizon} />
+          <span style={{ color: 'var(--text-ghost)' }}>·</span>
+          <SourceTypeChip type={sourceType} />
+
+          <div style={{
+            marginLeft: 'auto',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          }}>
+            <SourceFavicon domain={domain} sourceName={item.sourceName} size={18} />
+            {item.sourceUrl ? (
+              <a
+                href={item.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 'var(--font-sm)',
+                  color: 'var(--text-secondary)',
+                  textDecoration: 'none',
+                }}
+              >
+                {item.sourceName} ↗
+              </a>
+            ) : (
+              <span style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 'var(--font-sm)',
+                color: 'var(--text-secondary)',
+              }}>
+                {item.sourceName}
+              </span>
+            )}
+            {sourceType === 'primary' && <OfficialBadge />}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 type CountryFilter = 'all' | 'LT' | 'LV' | 'EE';
@@ -669,37 +977,67 @@ export function IntelFeed() {
   // Separate pinned and unpinned
   const pinned = useMemo(() => allItems.filter(i => i.isPinned).slice(0, 3), [allItems]);
 
-  // Category counts — use primaryCategory or category field
+  // Items scoped by the country filter — the base for category counts and the feed
+  const countryScopedItems = useMemo(() => {
+    if (countryFilter === 'all') return allItems;
+    return allItems.filter(i => i.geography === countryFilter || i.geography === 'Baltic');
+  }, [allItems, countryFilter]);
+
+  // Category counts — recompute under the active country filter so numbers reflect what's actually available
   const categoryCounts = useMemo(() => {
     const counts: Partial<Record<string, number>> = {};
-    allItems.forEach(item => {
+    countryScopedItems.forEach(item => {
       const cat = item.primaryCategory || (item.category as Category) || 'policy';
       counts[cat] = (counts[cat] ?? 0) + 1;
     });
     return counts;
-  }, [allItems]);
+  }, [countryScopedItems]);
+
+  // Featured item — top-scored by recency × impact × source quality. Pinned wins automatically.
+  const featuredItem = useMemo(() => {
+    if (activeFilter !== 'all' || countryFilter !== 'all') return null;
+    if (countryScopedItems.length === 0) return null;
+    const scored = countryScopedItems.map(it => ({
+      it,
+      score: featuredScore({
+        publishedAt: it.publishedAt,
+        impact: it.impact,
+        sourceType: classifySource(it.sourceName, it.sourceUrl, it.source_quality),
+        isPinned: it.isPinned,
+      }),
+    }));
+    scored.sort((a, b) => b.score - a.score);
+    const top = scored[0];
+    if (!top || top.score < FEATURED_SCORE_FLOOR) return null;
+    return top.it;
+  }, [countryScopedItems, activeFilter, countryFilter]);
 
   // Filtered items (excluding pinned from main list to avoid duplication)
   const filteredItems = useMemo(() => {
     let items = activeFilter === 'all'
-      ? allItems
-      : allItems.filter(i => i.primaryCategory === activeFilter);
-    // Country filter
-    if (countryFilter !== 'all') {
-      items = items.filter(i => i.geography === countryFilter || i.geography === 'Baltic');
-    }
+      ? countryScopedItems
+      : countryScopedItems.filter(i => i.primaryCategory === activeFilter);
     // If showing "all", exclude pinned items from main list (they appear in the strip)
     if (activeFilter === 'all' && pinned.length > 0) {
       const pinnedIds = new Set(pinned.map(p => p.id));
       items = items.filter(i => !pinnedIds.has(i.id));
     }
+    // Exclude the featured item from the standard list
+    if (featuredItem) {
+      items = items.filter(i => i.id !== featuredItem.id);
+    }
     return items;
-  }, [allItems, activeFilter, countryFilter, pinned]);
+  }, [countryScopedItems, activeFilter, pinned, featuredItem]);
+
+  const hasActiveFilters = activeFilter !== 'all' || countryFilter !== 'all';
 
   return (
     <section style={{ width: '100%' }}>
+      {/* Featured item */}
+      {featuredItem && <FeaturedRow item={featuredItem} />}
+
       {/* Pinned editorial strip */}
-      {activeFilter === 'all' && <PinnedStrip items={pinned} />}
+      {activeFilter === 'all' && countryFilter === 'all' && <PinnedStrip items={pinned} />}
 
       {/* Country tabs */}
       <div style={{ display: 'flex', gap: '2px', marginBottom: '12px' }}>
@@ -771,6 +1109,88 @@ export function IntelFeed() {
           })}
         </div>
       </nav>
+
+      {/* Active filters — removable chip row */}
+      {hasActiveFilters && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          flexWrap: 'wrap',
+          marginBottom: '16px',
+        }}>
+          <span style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-xs)',
+            color: 'var(--text-tertiary)',
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+          }}>
+            Filters
+          </span>
+          {activeFilter !== 'all' && (
+            <button
+              type="button"
+              onClick={() => setActiveFilter('all')}
+              aria-label={`Remove ${CATEGORY_LABELS[activeFilter]} filter`}
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 'var(--font-xs)',
+                padding: '3px 8px',
+                border: '1px solid var(--border-card)',
+                background: 'var(--bg-elevated)',
+                color: 'var(--text-secondary)',
+                cursor: 'pointer',
+                borderRadius: '2px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              <span aria-hidden="true" style={{ color: 'var(--text-muted)' }}>×</span>
+              {CATEGORY_LABELS[activeFilter]}
+            </button>
+          )}
+          {countryFilter !== 'all' && (
+            <button
+              type="button"
+              onClick={() => setCountryFilter('all')}
+              aria-label={`Remove ${countryFilter} country filter`}
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 'var(--font-xs)',
+                padding: '3px 8px',
+                border: '1px solid var(--border-card)',
+                background: 'var(--bg-elevated)',
+                color: 'var(--text-secondary)',
+                cursor: 'pointer',
+                borderRadius: '2px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              <span aria-hidden="true" style={{ color: 'var(--text-muted)' }}>×</span>
+              {countryFilter}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => { setActiveFilter('all'); setCountryFilter('all'); }}
+            style={{
+              all: 'unset',
+              fontFamily: 'var(--font-mono)',
+              fontSize: 'var(--font-xs)',
+              color: 'var(--teal)',
+              cursor: 'pointer',
+              marginLeft: '4px',
+              opacity: 0.85,
+            }}
+          >
+            Clear all
+          </button>
+        </div>
+      )}
 
       {/* Intelligence list */}
       <div style={{ borderTop: '1px solid var(--border-card)' }}>
