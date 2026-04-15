@@ -5822,7 +5822,7 @@ export default {
         if (item.source_url && existingUrls.has(item.source_url)) continue;
         if (existingTitles.has((item.title || '').toLowerCase().trim())) continue;
 
-        const EXPIRY_DAYS = { commodity_cost: 30, project_stage: 90, market_design: 180 };
+        const EXPIRY_DAYS = { commodity_cost: 30, project_stage: 180, market_design: 180, policy: 180 };
         const pubDate = item.published_at || new Date().toISOString();
         const expiryDays = EXPIRY_DAYS[item.category] || 60;
         const expiresAt = item.expires_at || new Date(new Date(pubDate).getTime() + expiryDays * 86400000).toISOString();
