@@ -69,19 +69,3 @@ export function resolveCollisions(
   return resolved
 }
 
-export function hideCitiesNearProjects(
-  cities: LabelBox[],
-  projects: LabelBox[],
-  proximityPx = 35
-): LabelBox[] {
-  return cities.filter(city => {
-    const cityCenterX = city.x + city.width / 2
-    const cityCenterY = city.y + city.height / 2
-    return !projects.some(proj => {
-      const projCenterX = proj.x + proj.width / 2
-      const projCenterY = proj.y + proj.height / 2
-      const dist = Math.hypot(cityCenterX - projCenterX, cityCenterY - projCenterY)
-      return dist < proximityPx
-    })
-  })
-}

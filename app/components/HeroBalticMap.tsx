@@ -8,7 +8,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { geoToPixel, MAP_WIDTH, MAP_HEIGHT, CABLE_PATHS, COUNTRY_LABEL_PIXELS, CITY_LABEL_PIXELS, WAYPOINT_START } from '@/lib/map-projection';
 import { INTERCONNECTORS, resolveFlow } from '@/lib/baltic-places';
 import type { ResolvedFlow } from '@/lib/baltic-places';
-import { resolveCollisions, hideCitiesNearProjects } from '@/lib/label-layout';
+import { resolveCollisions } from '@/lib/label-layout';
 import type { LabelBox } from '@/lib/label-layout';
 import geocodes from '../../public/hero/project-geocodes.json';
 import { HERO_EXCLUDED_PROJECT_IDS } from '@/lib/project-overrides';
@@ -92,33 +92,6 @@ function Sparkline({ data, w = 200, h = 30 }: { data: number[]; w?: number; h?: 
       <circle cx={w - 1} cy={lastY} r="2.5" fill="var(--teal)" />
     </svg>
   );
-}
-
-// ═══ Label avoid zones (country label bounding boxes) ════════════════════════
-
-const AVOID_ZONES = Object.entries(COUNTRY_LABEL_PIXELS).map(([, pos]) => ({
-  cx: pos.x, cy: pos.y, halfWidth: 60, halfHeight: 20,
-}));
-
-function isInAvoidZone(x: number, y: number): boolean {
-  return AVOID_ZONES.some(z => Math.abs(x - z.cx) < z.halfWidth && Math.abs(y - z.cy) < z.halfHeight);
-}
-
-function findLabelPosition(dotX: number, dotY: number, dotR: number): { x: number; y: number } {
-  const offsets = [
-    { x: dotR + 16, y: 0 },     // right
-    { x: -(dotR + 80), y: 0 },  // left
-    { x: 0, y: -(dotR + 16) },  // above
-    { x: 0, y: dotR + 16 },     // below
-    { x: dotR + 16, y: -16 },   // top-right
-    { x: -(dotR + 80), y: -16 },// top-left
-    { x: dotR + 16, y: 16 },    // bottom-right
-  ];
-  for (const off of offsets) {
-    const lx = dotX + off.x, ly = dotY + off.y;
-    if (!isInAvoidZone(lx, ly)) return { x: lx, y: ly };
-  }
-  return { x: dotX + dotR + 16, y: dotY }; // fallback
 }
 
 // ═══ Component ═══════════════════════════════════════════════════════════════
@@ -241,15 +214,6 @@ export function HeroBalticMap() {
     }).filter(Boolean) as MappedProject[];
   }, [s4]);
 
-  // Top 3 by MW for labels — with avoid-zone-aware placement
-  const top3 = useMemo(() => {
-    const sorted = [...projectDots].sort((a, b) => b.mw - a.mw).slice(0, 3);
-    return sorted.map(p => {
-      const pos = findLabelPosition(p.x, p.y, p.r);
-      return { ...p, labelX: pos.x, labelY: pos.y };
-    });
-  }, [projectDots]);
-
   // ═══ Label collision resolution ═════════════════════════════════════════════
   const resolvedLabels = useMemo(() => {
     const CHAR_W = (fontSize: number) => fontSize * 0.6
@@ -279,28 +243,14 @@ export function HeroBalticMap() {
     }
     boxes.push(...countryMwBoxes)
 
-    // Project labels (top 3)
-    const projectBoxes: LabelBox[] = top3.map(p => {
-      const text = `${p.name.split('(')[0].trim().toUpperCase()} · ${p.mw} MW`
-      return {
-        id: `proj-${p.id}`, x: p.labelX, y: p.labelY - 7,
-        width: text.length * CHAR_W(9) + 12, height: 14,
-        type: 'project' as const, movable: true,
-      }
-    })
-    boxes.push(...projectBoxes)
-
-    // City labels
+    // City labels — render all, no project-proximity hiding
     const cityBoxes: LabelBox[] = Object.entries(CITY_LABEL_PIXELS).map(([id, city]) => ({
       id: `city-${id}`,
       x: city.x + 7, y: city.y - 6,
       width: city.name.toUpperCase().length * CHAR_W(10), height: 14,
       type: 'city' as const, movable: true,
     }))
-
-    // Hide cities too close to project dots
-    const visibleCities = hideCitiesNearProjects(cityBoxes, projectBoxes, 35)
-    boxes.push(...visibleCities)
+    boxes.push(...cityBoxes)
 
     const resolved = resolveCollisions(boxes)
 
@@ -308,11 +258,8 @@ export function HeroBalticMap() {
     const posMap: Record<string, { x: number; y: number }> = {}
     for (const b of resolved) posMap[b.id] = { x: b.x, y: b.y }
 
-    // Build city visibility set
-    const visibleCityIds = new Set(visibleCities.map(c => c.id))
-
-    return { posMap, visibleCityIds }
-  }, [top3, countries, genLoad])
+    return { posMap }
+  }, [countries, genLoad])
 
   // Ticker
   const tickerItems = useMemo(() => {
@@ -327,7 +274,6 @@ export function HeroBalticMap() {
     if (fleet?.eff_demand_mw != null) items.push(`EFFECTIVE DEMAND ${fmt(fleet.eff_demand_mw)} MW`);
     if (s4?.free_mw != null) items.push(`FREE GRID ${fmt(s4.free_mw)} MW`);
     if (revenue?.cod_year) items.push(`COD ${revenue.cod_year}`);
-    items.push('9 SIGNALS LIVE');
     return items;
   }, [read, s2, revenue, fleet, s4]);
 
@@ -376,7 +322,7 @@ export function HeroBalticMap() {
           fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-tertiary)',
           textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: '8px', lineHeight: 1.6,
         }}>
-          9 SIGNALS · 4H UPDATES · ENTSO-E · LITGRID · AST · ELERING
+          LIVE · ENTSO-E · LITGRID · AST · ELERING
         </p>
 
         <div style={{ height: '40px' }} />
@@ -447,7 +393,6 @@ export function HeroBalticMap() {
             {/* City labels with halo stroke — collision-resolved */}
             <g data-layer="cities">
               {Object.entries(CITY_LABEL_PIXELS).map(([id, city]) => {
-                if (!resolvedLabels.visibleCityIds.has(`city-${id}`)) return null
                 const pos = resolvedLabels.posMap[`city-${id}`]
                 const textX = pos ? pos.x : city.x + 7
                 const textY = pos ? pos.y + 10 : city.y + 4
@@ -531,50 +476,20 @@ export function HeroBalticMap() {
               </g>
             ))}
 
-            {/* Top 3 label connector lines */}
-            {top3.map(p => (
-              <line key={`line-${p.id}`}
-                x1={p.x} y1={p.y}
-                x2={p.labelX} y2={p.labelY}
-                stroke={isDark ? 'rgba(232,226,217,0.15)' : 'rgba(26,26,31,0.15)'}
-                strokeWidth="1" />
-            ))}
-
-            {/* Particles — all 6 cables */}
+            {/* Particles — all 6 cables. Unified color via --cable-particle
+                token so dark/light themes can tune contrast against the raster. */}
             {resolved.map(r => {
               if (!CABLE_PATHS[r.id] || r.mw < 5) return null;
               const particleCount = Math.max(3, Math.min(8, Math.round(r.mw / 80)));
-              const color = arrowColorVar(r.arrowColor);
               const cls = `particle-${r.id.replace(/[^a-z0-9]/g, '-')}`;
               return Array.from({ length: particleCount }).map((_, i) => (
                 <circle key={`${r.id}-${i}`} className={cls}
-                  r="2.5" fill={color} opacity="0.7" />
+                  r="2.5" fill="var(--cable-particle)" opacity="0.85" />
               ));
             })}
           </svg>
 
-          {/* Top 3 project labels (HTML overlay) */}
-          <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-            {top3.map(p => (
-              <div key={`label-${p.id}`} style={{
-                position: 'absolute',
-                left: `${(p.labelX / MAP_WIDTH) * 100}%`,
-                top: `${(p.labelY / MAP_HEIGHT) * 100}%`,
-                transform: 'translateY(-50%)',
-                fontFamily: 'var(--font-mono)', fontSize: '9px',
-                color: 'var(--text-secondary)', textTransform: 'uppercase',
-                letterSpacing: '0.05em', whiteSpace: 'nowrap',
-                padding: '2px 6px',
-                borderRadius: '4px',
-                background: isDark ? 'rgba(7,7,10,0.5)' : 'rgba(245,242,237,0.6)',
-                backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
-              }}>
-                {p.name.split('(')[0].trim().toUpperCase()} · {p.mw} MW
-              </div>
-            ))}
-          </div>
-
-          {/* Hover targets */}
+          {/* Hover targets — TODO: Phase 3 mobile tap-to-reveal for project tooltips */}
           <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
             {projectDots.map(p => (
               <div key={`hover-${p.id}`} style={{
