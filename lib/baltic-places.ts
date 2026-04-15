@@ -157,10 +157,10 @@ export const COUNTRY_CENTROIDS: Place[] = [
 // ═══ Interconnector specs with direction convention ════════════════════════
 
 // CANONICAL FLOW CONVENTION
-// For each interconnector, endpointA and endpointB define the path direction.
-// The CBET data: positive value means flow FROM endpointB INTO endpointA.
-// So positive rawMw → particles flow B→A, display shows "B → A {mw} MW".
-// Negative rawMw → particles flow A→B, display shows "A → B {mw} MW".
+// Worker /s8 was fixed in Phase 2A-3 so positive *_avg_mw means the Baltic
+// endpoint is exporting (sending power out). For each interconnector,
+// positiveFlowReceives is the country on the RECEIVING end when rawMw > 0.
+// Example: nordbalt +694 → LT exporting → SE receiving → positiveFlowReceives: 'SE'.
 
 export type InterconnectorSpec = {
   id: string
@@ -183,7 +183,7 @@ export const INTERCONNECTORS: InterconnectorSpec[] = [
     cbetSource: 'nordbalt_avg_mw',
     nameplateMw: 700,
     baltic: 'A',
-    positiveFlowReceives: 'LT',
+    positiveFlowReceives: 'SE',
     waypointCableId: 'nordbalt' },
   { id: 'litpol',
     displayName: 'LitPol',
@@ -192,7 +192,7 @@ export const INTERCONNECTORS: InterconnectorSpec[] = [
     cbetSource: 'litpol_avg_mw',
     nameplateMw: 500,
     baltic: 'A',
-    positiveFlowReceives: 'LT',
+    positiveFlowReceives: 'PL',
     waypointCableId: 'litpol' },
   { id: 'estlink-1',
     displayName: 'EstLink 1',
@@ -202,7 +202,7 @@ export const INTERCONNECTORS: InterconnectorSpec[] = [
     nameplateMw: 350,
     capacityShare: 0.35,
     baltic: 'A',
-    positiveFlowReceives: 'EE',
+    positiveFlowReceives: 'FI',
     waypointCableId: 'estlink-1' },
   { id: 'estlink-2',
     displayName: 'EstLink 2',
@@ -212,7 +212,7 @@ export const INTERCONNECTORS: InterconnectorSpec[] = [
     nameplateMw: 650,
     capacityShare: 0.65,
     baltic: 'A',
-    positiveFlowReceives: 'EE',
+    positiveFlowReceives: 'FI',
     waypointCableId: 'estlink-2' },
   { id: 'fennoskan-1',
     displayName: 'Fenno-Skan 1',

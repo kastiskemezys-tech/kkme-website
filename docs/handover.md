@@ -12,6 +12,7 @@ Branch: `hero-v3-phase2a-3` (3 commits ahead of main, not yet merged).
 
 - Hero v3 georeferenced Baltic map with 6 cables, particles, project dots, gen/load overlays (PRs #1–#3 merged to main)
 - Phase 2A-3: worker bug fixes (5), auto-refresh via useSignal polling, VPS hourly genload script (on branch, not merged)
+- Phase 2B-1 (2026-04-15): project hover tooltips (removed permanent SVG labels), tagline "LIVE · ENTSO-E · …", light-mode cable particles via --cable-particle token, arrow direction fix in lib/baltic-places.ts
 - All 9 signal cards live (S1–S9) plus Wind, Solar, Load structural cards
 - Revenue engine v7.2 with self-fetching RevenueCard
 - TradingEngineCard (dispatch intelligence)
@@ -26,13 +27,6 @@ Branch: `hero-v3-phase2a-3` (3 commits ahead of main, not yet merged).
 ## What's queued
 
 **Superpowers install** (one-off Claude Code session, ~15 min). Prompt at: [docs/phases/superpowers-install-prompt.md](phases/superpowers-install-prompt.md). Runs BEFORE Phase 2B-1 to test Superpowers on a real workload. See ADR-006 and docs/playbooks/tooling.md.
-
-**Phase 2B-1** (next Claude Code session): three bundled hero changes.
-Prompt at: [docs/phases/phase2b-1-prompt.md](phases/phase2b-1-prompt.md)
-1. Remove permanent project labels → hover-only tooltips
-2. Tagline copy fix ("LIVE · ENTSO-E · LITGRID · AST · ELERING")
-3. Light mode cable particle visibility fix
-4. Arrow direction inversion fix on frontend side (B-001)
 
 **Backlog triage** (future Cowork session): organize and prioritize backlog.
 Prompt at: [docs/phases/backlog-triage-prompt.md](phases/backlog-triage-prompt.md)
@@ -88,11 +82,11 @@ See [docs/map.md](map.md) for the full concept-to-file lookup table.
 
 | ID | Type | Sev | Title | Discovered | Status | Notes |
 |----|------|-----|-------|------------|--------|-------|
-| B-001 | bug | P1 | Arrow direction inversion on live hero interconnectors | 2026-04-13 audit | scheduled phase2b-1 | Worker fixed (phase2a-3), frontend still inverted |
+| B-001 | bug | P1 | Arrow direction inversion on live hero interconnectors | 2026-04-13 audit | done 2026-04-15 | Fixed phase2b-1: flipped positiveFlowReceives in lib/baltic-places.ts |
 | B-002 | bug | P2 | /s8 timestamp shows future time | 2026-04-13 audit | open | Investigate in phase2b-1 or standalone |
 | B-003 | tech-debt | P2 | Live API keys in plaintext .env files | 2026-04-13 audit | open | Gitignored but on disk. Move to secrets service eventually |
-| B-004 | bug | P2 | "9 SIGNALS · 4H UPDATES" tagline stale | 2026-04-13 audit | scheduled phase2b-1 | Replace with "LIVE · ENTSO-E · LITGRID · AST · ELERING" |
-| B-005 | bug | P2 | Light mode cable particle visibility | 2026-04-13 audit | scheduled phase2b-1 | Particles too similar to cable strokes against raster |
+| B-004 | bug | P2 | "9 SIGNALS · 4H UPDATES" tagline stale | 2026-04-13 audit | done 2026-04-15 | Replaced with "LIVE · ENTSO-E · LITGRID · AST · ELERING" in phase2b-1 |
+| B-005 | bug | P2 | Light mode cable particle visibility | 2026-04-13 audit | done 2026-04-15 | Added --cable-particle token (amber dark / charcoal light) in phase2b-1 |
 | B-006 | enhancement | — | LV↔LT flow not displayed on hero | 2026-04-13 audit | open | Worker returns lv_lt_avg_mw, frontend doesn't render |
 | B-007 | tech-debt | P2 | CLAUDE.md model version inconsistency | 2026-04-13 audit | done | Resolved by CLAUDE.md rewrite in this session |
 | B-008 | refactor | P2 | Duplicate lib files (safeNum.ts, useSignal.ts) | 2026-04-13 audit | open | lib/ vs app/lib/ — determine authoritative copy, delete other |
@@ -157,3 +151,26 @@ See [docs/map.md](map.md) for the full concept-to-file lookup table.
 - Real-world Superpowers evaluation (happens during Phase 2B-1)
 
 **Findings:** Of 5 tools evaluated (Superpowers, GSD, UI UX Pro Max, Obsidian skill, Awesome Claude Code), only Superpowers passes the net-positive test for KKME. Three rejected on workflow-conflict or wrong-audience grounds. Rejection captured in ADR-006 to prevent re-evaluation churn. Established precedent that every future tool needs an ADR entry before installation — lightweight governance against tool sprawl.
+
+### Session 3 — 2026-04-15 — Phase 2B-1 hero polish (YOLO mode)
+
+**Scope:** Four bundled hero changes, executed end-to-end without pause-point stops (user override). Branch `hero-v3-phase2b-1` off main.
+
+**Shipped:**
+- WS1 — Removed permanent project SVG/HTML labels and the connector lines; kept hollow project-dot rings. Hover tooltip was already wired and remains (name · MW · country · COD). Removed `hideCitiesNearProjects` + `findLabelPosition` + `top3` memo + `AVOID_ZONES`. Added `// TODO: Phase 3 mobile tap-to-reveal` marker near the hover targets.
+- WS2 — Dropped `items.push('9 SIGNALS LIVE')` from the ticker and replaced the tagline line with `LIVE · ENTSO-E · LITGRID · AST · ELERING`. Grep confirms zero remaining occurrences under app/, lib/, workers/.
+- WS3 — Added `--cable-particle` CSS token to both themes in `app/globals.css` (dark: rgb(252,211,77) warm amber; light: rgb(26,26,31) charcoal). Particles in `HeroBalticMap.tsx` now fill via `var(--cable-particle)` at 0.85 opacity, dropping the per-flow rose/teal/neutral tint.
+- WS4 — Root-caused arrow inversion: after the Phase 2A-3 worker sign fix, `positiveFlowReceives` in `lib/baltic-places.ts` was still pointing at the exporting country instead of the receiving one. Flipped nordbalt (LT→SE), litpol (LT→PL), estlink-1/-2 (EE→FI). Fenno-Skan left as FI (already correct for SE→FI convention). Single-source fix; no changes to `resolveFlow()` or the render site. Verified against `/s8`: +694 nordbalt now renders `LT → SE 694 MW`, −113 litpol renders `PL → LT 113 MW`, +640 estlink renders `EE → FI`.
+
+**Verification:**
+- `npx tsc --noEmit` clean.
+- `npm run build` succeeds; production CSS chunk contains both `--cable-particle` values.
+- MCP screenshots: dark 1440, light 1440, hover tooltip all captured at `/tmp/phase2b1-*.png`.
+- Console: no new errors/warnings (pre-existing THREE.Clock deprecation only).
+- `/s8` curl cross-checked against rendered arrows for NordBalt + LitPol — match physical truth.
+
+**Deferred:**
+- B-002 (/s8 future timestamp), B-006 (LV↔LT flow display), B-008–B-014 remain open. No new backlog items surfaced during implementation.
+- Dev-server Turbopack briefly cached the old CSS after the globals.css edit; verified via `npm run build` + `python3 -m http.server out/` instead. Not a code issue.
+
+**Superpowers:** neutral — session ran in YOLO override with pause points skipped, so Superpowers' brainstorming/plan skills didn't meaningfully engage. The four workstreams were well-specified by the brief, so the frontend-design skill and pause-point playbook were already sufficient. Real evaluation still pending a normal-cadence Phase 2B-2.
