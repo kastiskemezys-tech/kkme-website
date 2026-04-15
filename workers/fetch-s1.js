@@ -5861,7 +5861,7 @@ export default {
       return jsonResp({ ok: true, added, total: idx.length });
     }
 
-    // ── POST /feed/clean — remove expired/old items ──────────────────────────
+    // ── POST /feed/clean — remove expired/old + low-quality items ───────────
     if (request.method === 'POST' && url.pathname === '/feed/clean') {
       let body = {};
       try { body = await request.json(); } catch { /* empty body ok */ }
@@ -5870,6 +5870,7 @@ export default {
       if (!rawIdx) return jsonResp({ cleaned: 0, remaining: 0 });
       const idx = JSON.parse(rawIdx);
       const kept = idx.filter(i => {
+        if (!isValidFeedItem(i)) return false;
         const d = i.published_at || i.date || i.added_at || '';
         return d >= cutoffDate;
       });
