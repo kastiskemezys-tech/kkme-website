@@ -217,12 +217,48 @@ const FILTER_CATEGORIES: (Category | 'all')[] = [
   'project_stage', 'interconnector', 'policy', 'demand', 'watchlist',
 ];
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleString('en-GB', {
+function parseDate(iso: string | null | undefined): Date | null {
+  if (!iso || typeof iso !== 'string') return null;
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function formatDate(iso: string | null | undefined): string | null {
+  const d = parseDate(iso);
+  if (!d) return null;
+  return d.toLocaleString('en-GB', {
     day: '2-digit',
     month: 'short',
     timeZone: 'UTC',
   });
+}
+
+const HTML_ENTITY_MAP: Record<string, string> = {
+  '&amp;': '&',
+  '&lt;': '<',
+  '&gt;': '>',
+  '&quot;': '"',
+  '&#039;': "'",
+  '&#39;': "'",
+  '&apos;': "'",
+  '&nbsp;': ' ',
+};
+
+function decodeHtmlEntities(s: string): string {
+  if (!s) return s;
+  let out = s;
+  // Named + common numeric entities via regex (SSR-safe fallback).
+  out = out.replace(/&(amp|lt|gt|quot|apos|nbsp|#0?39);/g, (m) => HTML_ENTITY_MAP[m] ?? m);
+  // Generic numeric entities (decimal + hex).
+  out = out.replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)));
+  out = out.replace(/&#x([0-9a-fA-F]+);/g, (_, code) => String.fromCodePoint(parseInt(code, 16)));
+  // DOM decode for anything else (client only).
+  if (typeof document !== 'undefined' && out.includes('&')) {
+    const el = document.createElement('textarea');
+    el.innerHTML = out;
+    out = el.value;
+  }
+  return out;
 }
 
 // ─── Chip components ──────────────────────────────────────────────────────────
@@ -373,7 +409,7 @@ function IntelRow({ item, isExpanded, onToggle }: {
             color: 'var(--text-ghost)',
             flexShrink: 0,
           }}>
-            {formatDate(item.publishedAt)}
+            {formatDate(item.publishedAt) ?? '—'}
           </span>
         </div>
 
@@ -572,31 +608,55 @@ export function IntelFeed() {
       .then(r => r.json())
       .then((data: { items?: Record<string, unknown>[] }) => {
         const raw = data?.items || [];
-        // Transform feed event items to IntelItem shape
-        const mapped: IntelItem[] = raw.filter(
-          (item): item is Record<string, unknown> =>
-            typeof item === 'object' && item !== null && typeof item.title === 'string'
-        ).map(item => ({
-          id: String(item.id || ''),
-          title: String(item.title || ''),
-          summary: String(item.consequence || ''),
-          primaryCategory: (item.category as Category) || 'policy',
-          sourceName: String(item.source || ''),
-          sourceUrl: item.source_url ? String(item.source_url) : undefined,
-          publishedAt: String(item.published_at || ''),
-          whyItMatters: String(item.consequence || item.title || ''),
-          impact: (item.impact_direction as Impact) || 'neutral',
-          horizon: (item.horizon as Horizon) || 'near_term',
-          geography: item.geography ? String(item.geography) : undefined,
-          confidence: item.confidence ? String(item.confidence) : undefined,
-          consequence: item.consequence ? String(item.consequence) : undefined,
-          event_type: item.event_type ? String(item.event_type) : undefined,
-          category: item.category ? String(item.category) : undefined,
-          affected_modules: Array.isArray(item.affected_modules) ? item.affected_modules as string[] : undefined,
-          affected_cod_windows: Array.isArray(item.affected_cod_windows) ? item.affected_cod_windows as string[] : undefined,
-          source_quality: item.source_quality ? String(item.source_quality) : undefined,
-          feed_score: typeof item.feed_score === 'number' ? item.feed_score : undefined,
-        }));
+        const total = raw.length;
+        const dropReasons = { shape: 0, noTitle: 0, noSource: 0, noDate: 0, bareUrl: 0 };
+
+        const mapped: IntelItem[] = raw.map((item): IntelItem | null => {
+          if (typeof item !== 'object' || item === null) { dropReasons.shape++; return null; }
+          const rawTitle = typeof item.title === 'string' ? item.title.trim() : '';
+          const rawSource = typeof item.source === 'string' ? item.source.trim() : '';
+          const rawDate = typeof item.published_at === 'string' ? item.published_at.trim() : '';
+          if (!rawTitle) { dropReasons.noTitle++; return null; }
+          if (!rawSource) { dropReasons.noSource++; return null; }
+          const parsed = parseDate(rawDate);
+          if (!parsed) { dropReasons.noDate++; return null; }
+          if (/^https?:\/\//i.test(rawTitle)) { dropReasons.bareUrl++; return null; }
+
+          const rawConsequence = typeof item.consequence === 'string' ? item.consequence : '';
+          const title = decodeHtmlEntities(rawTitle);
+          const consequence = decodeHtmlEntities(rawConsequence);
+
+          return {
+            id: String(item.id || ''),
+            title,
+            summary: consequence,
+            primaryCategory: (item.category as Category) || 'policy',
+            sourceName: decodeHtmlEntities(rawSource),
+            sourceUrl: item.source_url ? String(item.source_url) : undefined,
+            publishedAt: parsed.toISOString(),
+            whyItMatters: consequence || title,
+            impact: (item.impact_direction as Impact) || 'neutral',
+            horizon: (item.horizon as Horizon) || 'near_term',
+            geography: item.geography ? String(item.geography) : undefined,
+            confidence: item.confidence ? String(item.confidence) : undefined,
+            consequence: consequence || undefined,
+            event_type: item.event_type ? String(item.event_type) : undefined,
+            category: item.category ? String(item.category) : undefined,
+            affected_modules: Array.isArray(item.affected_modules) ? item.affected_modules as string[] : undefined,
+            affected_cod_windows: Array.isArray(item.affected_cod_windows) ? item.affected_cod_windows as string[] : undefined,
+            source_quality: item.source_quality ? String(item.source_quality) : undefined,
+            feed_score: typeof item.feed_score === 'number' ? item.feed_score : undefined,
+          };
+        }).filter((x): x is IntelItem => x !== null);
+
+        const dropped = total - mapped.length;
+        // eslint-disable-next-line no-console
+        console.info(
+          `[IntelFeed] kept ${mapped.length}/${total} items (dropped ${dropped}: ` +
+          `${dropReasons.noDate} no date, ${dropReasons.bareUrl} bare URL, ` +
+          `${dropReasons.noSource} no source, ${dropReasons.noTitle} no title, ${dropReasons.shape} malformed)`
+        );
+
         if (mapped.length > 0) setLiveItems(mapped);
       })
       .catch(() => {});
