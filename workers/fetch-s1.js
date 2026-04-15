@@ -4452,6 +4452,110 @@ async function storeCurationEntry(kv, entry) {
   await kv.delete(KV_DIGEST_CACHE);
 }
 
+// ─── Curation → feed item projection ───────────────────────────────────────────
+// Mirrors app/lib/sourceClassify.ts so /feed can surface classified curations
+// without requiring backfill or a frontend change.
+
+const FEED_PRIMARY_DOMAINS = [
+  'litgrid.eu', 'ast.lv', 'elering.ee', 'entsoe.eu', 'acer.europa.eu',
+  'ec.europa.eu', 'europa.eu', 'lrv.lt', 'vert.lt', 'apva.lrv.lt',
+  'nordpoolgroup.com', 'ena.lt', 'aib-net.org',
+];
+const FEED_TRADE_PRESS_HINTS = [
+  'montel', 'argusmedia', 'spglobal', 'reuters', 'bloomberg', 'ft.com',
+  'energy-storage.news', 'pv-magazine', 'reneweconomy', 'offshorewind.biz',
+  'energymonitor', 'rechargenews', 'windpowermonthly', 'bnef', 'mckinsey.com',
+];
+const FEED_TAG_CATEGORY = {
+  BESS: 'project_stage',
+  GRID: 'project_stage',
+  REGULATORY: 'policy',
+  RENEWABLES: 'project_stage',
+  MARKET: 'market_design',
+};
+
+function feedDomainOf(url) {
+  if (!url) return null;
+  try { return new URL(url).hostname.replace(/^www\./, '').toLowerCase(); }
+  catch { return null; }
+}
+
+function feedSourceQuality(source, url) {
+  const domain = feedDomainOf(url);
+  const nameLc = (source || '').toLowerCase();
+  if (domain) {
+    if (FEED_PRIMARY_DOMAINS.some(d => domain === d || domain.endsWith('.' + d))) return 'tso_regulator';
+    if (FEED_TRADE_PRESS_HINTS.some(h => domain.includes(h))) return 'trade_press';
+  }
+  if (['litgrid', 'ast', 'elering', 'vert', 'apva', 'entso'].some(n => nameLc.includes(n))) return 'tso_regulator';
+  return 'trade_press';
+}
+
+function curationCategory(tags) {
+  if (!Array.isArray(tags)) return 'policy';
+  for (const t of tags) {
+    const mapped = FEED_TAG_CATEGORY[t];
+    if (mapped) return mapped;
+  }
+  return 'policy';
+}
+
+function curationFeedScore(relevance) {
+  const r = typeof relevance === 'number' && Number.isFinite(relevance) ? relevance : 60;
+  return Math.min(1.0, 0.5 + 0.4 * (r / 100));
+}
+
+function projectCurationToFeedItem(entry) {
+  const title = (entry.title || '').trim();
+  if (!title || title.length < 15 || title.startsWith('http')) return null;
+  const pubDate = entry.created_at || new Date().toISOString();
+  return {
+    id: `cur_${entry.id}`,
+    title,
+    consequence: (entry.raw_text || title).slice(0, 240),
+    event_type: null,
+    category: curationCategory(entry.tags),
+    geography: 'Baltic',
+    published_at: pubDate,
+    source: entry.source || 'news',
+    source_url: entry.url || null,
+    source_quality: feedSourceQuality(entry.source, entry.url),
+    confidence: 'C',
+    horizon: 'near_term',
+    impact_direction: null,
+    affected_modules: [],
+    affected_cod_windows: [],
+    feed_score: curationFeedScore(entry.relevance),
+    expires_at: new Date(new Date(pubDate).getTime() + 30 * 86400000).toISOString(),
+    status: 'published',
+    origin: 'curation',
+  };
+}
+
+async function loadCurationFeedItems(kv) {
+  const ids = await readIndex(kv);
+  if (!ids.length) return [];
+  const out = [];
+  for (const id of ids) {
+    const raw = await kv.get(`${KV_CURATION_PREFIX}${id}`);
+    if (!raw) continue;
+    try {
+      const entry = JSON.parse(raw);
+      const item = projectCurationToFeedItem(entry);
+      if (item) out.push(item);
+    } catch { /* skip */ }
+  }
+  return out;
+}
+
+function isValidFeedItem(i) {
+  if (!i || !i.title) return false;
+  if (i.title.startsWith('/') || i.title.startsWith('http')) return false;
+  if (i.title.length < 15) return false;
+  if (!i.source || !i.category) return false;
+  return true;
+}
+
 // ─── Digest via Anthropic ──────────────────────────────────────────────────────
 
 async function buildDigest(entries, anthropicKey) {
@@ -5674,14 +5778,23 @@ export default {
     if (request.method === 'GET' && url.pathname === '/feed') {
       const category = url.searchParams.get('category');
       const rawIdx = await env.KKME_SIGNALS.get('feed_index').catch(() => null);
-      let idx = rawIdx ? JSON.parse(rawIdx) : [];
-      // Filter out bot commands, empty titles, and very short titles
-      idx = idx.filter(i => i.title && !i.title.startsWith('/') && i.title.length >= 15);
-      // Auto-expire: remove items past expires_at
+      const primary = rawIdx ? JSON.parse(rawIdx) : [];
+      const curations = await loadCurationFeedItems(env.KKME_SIGNALS).catch(() => []);
+      // Merge: feed_index wins on source_url or exact title collision.
+      const seenUrls = new Set(primary.map(i => i.source_url).filter(Boolean));
+      const seenTitles = new Set(primary.map(i => (i.title || '').toLowerCase().trim()));
+      const mergedCurations = curations.filter(c => {
+        if (c.source_url && seenUrls.has(c.source_url)) return false;
+        if (seenTitles.has((c.title || '').toLowerCase().trim())) return false;
+        return true;
+      });
+      let idx = [...primary, ...mergedCurations];
+      // Quality + expiry filters
+      idx = idx.filter(isValidFeedItem);
       const now = new Date().toISOString();
       idx = idx.filter(i => !i.expires_at || i.expires_at > now);
       if (category && category !== 'all') idx = idx.filter(i => i.category === category);
-      // Sort by feed_score descending, then by date
+      // Sort by feed_score desc, then date
       idx.sort((a, b) => (b.feed_score ?? 0) - (a.feed_score ?? 0) || (b.published_at ?? '').localeCompare(a.published_at ?? ''));
       const items = idx.slice(0, 50);
       const categories = [...new Set(idx.map(i => i.category).filter(Boolean))];
