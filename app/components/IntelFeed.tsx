@@ -909,6 +909,7 @@ export function IntelFeed() {
   const [activeFilter, setActiveFilter] = useState<Category | 'all'>('all');
   const [countryFilter, setCountryFilter] = useState<CountryFilter>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
 
   // Fetch event items from /feed endpoint
   useEffect(() => {
@@ -1193,37 +1194,72 @@ export function IntelFeed() {
       )}
 
       {/* Intelligence list */}
-      <div style={{ borderTop: '1px solid var(--border-card)' }}>
-        {filteredItems.length === 0 && (
-          <div style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--font-sm)',
-            color: 'var(--text-muted)',
-            padding: '24px 0',
-            textAlign: 'center',
-          }}>
-            No {activeFilter !== 'all' ? CATEGORY_LABELS[activeFilter].toLowerCase() : ''} intelligence items.
-            {activeFilter !== 'all' && (
+      {(() => {
+        const HOMEPAGE_CAP = 7;
+        const capped = !showAll && filteredItems.length > HOMEPAGE_CAP;
+        const visibleItems = capped ? filteredItems.slice(0, HOMEPAGE_CAP) : filteredItems;
+        return (
+          <div style={{ borderTop: '1px solid var(--border-card)' }}>
+            {filteredItems.length === 0 && (
+              <div style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 'var(--font-sm)',
+                color: 'var(--text-muted)',
+                padding: '24px 0',
+                textAlign: 'center',
+              }}>
+                No {activeFilter !== 'all' ? CATEGORY_LABELS[activeFilter].toLowerCase() : ''} intelligence items.
+                {activeFilter !== 'all' && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveFilter('all')}
+                    style={{ all: 'unset', color: 'var(--teal)', cursor: 'pointer', marginLeft: '6px', opacity: 0.7, fontFamily: 'inherit', fontSize: 'inherit' }}
+                  >
+                    Show all
+                  </button>
+                )}
+              </div>
+            )}
+
+            {visibleItems.map(item => (
+              <IntelRow
+                key={item.id}
+                item={item}
+                isExpanded={expandedId === item.id}
+                onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)}
+              />
+            ))}
+
+            {filteredItems.length > HOMEPAGE_CAP && (
               <button
                 type="button"
-                onClick={() => setActiveFilter('all')}
-                style={{ all: 'unset', color: 'var(--teal)', cursor: 'pointer', marginLeft: '6px', opacity: 0.7, fontFamily: 'inherit', fontSize: 'inherit' }}
+                onClick={() => setShowAll(!showAll)}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  padding: '16px 0',
+                  border: 'none',
+                  borderTop: '1px solid var(--border-card)',
+                  background: 'transparent',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 'var(--font-xs)',
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  color: 'var(--text-tertiary)',
+                  cursor: 'pointer',
+                  transition: 'color 0.15s',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.color = 'var(--teal)')}
+                onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-tertiary)')}
               >
-                Show all
+                {showAll
+                  ? 'Show less ↑'
+                  : `View all ${filteredItems.length} items →`}
               </button>
             )}
           </div>
-        )}
-
-        {filteredItems.map(item => (
-          <IntelRow
-            key={item.id}
-            item={item}
-            isExpanded={expandedId === item.id}
-            onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)}
-          />
-        ))}
-      </div>
+        );
+      })()}
 
       {/* Provenance note */}
       {isUsingSeeds && (

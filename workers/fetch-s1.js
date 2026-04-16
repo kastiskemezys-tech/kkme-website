@@ -4500,15 +4500,76 @@ function curationCategory(tags) {
   return 'policy';
 }
 
-function curationFeedScore(relevance) {
-  const r = typeof relevance === 'number' && Number.isFinite(relevance) ? relevance : 60;
-  return Math.min(1.0, 0.5 + 0.4 * (r / 100));
+const BESS_SIGNALS = [
+  'bess', 'battery', 'storage', 'flexibility', 'balancing',
+  'afrr', 'mfrr', 'fcr', 'reserve', 'ancillary',
+  'day-ahead', 'intraday', 'spread', 'arbitrage', 'dispatch',
+  'mw', 'mwh', 'gwh', 'capacity', 'grid connection',
+  'renewable', 'wind', 'solar', 'interconnect', 'cable',
+  'electricity', 'power', 'energy market', 'price',
+  'litgrid', 'ast.lv', 'elering', 'entsoe', 'entso-e',
+  'nord pool', 'nordpool', 'baltic',
+  'lithuania', 'latvia', 'estonia', 'vilnius', 'riga', 'tallinn',
+  'vert', 'apva', 'sprk',
+  'pipeline', 'cod ', 'commercial operation',
+  'subsidy', 'support scheme', 'auction', 'tender',
+  'derogation', 'transmission', 'distribution',
+  'hydrogen', 'electrolyser', 'offshore wind',
+  'carbon', 'ets', 'emission', 'co2',
+  'ttf', 'gas price', 'lng',
+];
+
+function computeBessRelevanceScore(entry) {
+  const blob = ((entry.title || '') + ' ' + (entry.raw_text || '') + ' ' + (entry.consequence || '')).toLowerCase();
+  let score = 0;
+
+  const BESS_CORE = ['bess', 'battery storage', 'battery energy', 'energy storage',
+                     'flexibility market', 'balancing market', 'ancillary service',
+                     'afrr', 'mfrr', 'fcr-d', 'fcr-n'];
+  if (BESS_CORE.some(k => blob.includes(k))) score += 0.35;
+
+  const BALTIC = ['lithuania', 'latvija', 'latvia', 'estonia', 'eesti',
+                  'litgrid', 'ast.lv', 'elering', 'baltic',
+                  'vilnius', 'riga', 'tallinn', 'kaunas', 'klaipeda'];
+  if (BALTIC.some(k => blob.includes(k))) score += 0.20;
+
+  if (/\d+\s*(mw|mwh|gwh|€\/mwh|eur\/mwh)/i.test(blob)) score += 0.15;
+
+  const MARKET = ['day-ahead', 'intraday', 'capacity market', 'reserve price',
+                  'clearing price', 'activation', 'tender', 'auction',
+                  'support scheme', 'subsidy', 'grid connection', 'derogation',
+                  'tariff', 'network code', 'regulation'];
+  if (MARKET.some(k => blob.includes(k))) score += 0.10;
+
+  const sq = feedSourceQuality(entry.source, entry.url);
+  if (sq === 'tso_regulator') score += 0.10;
+  else if (sq === 'trade_press') score += 0.05;
+
+  const pubDate = new Date(entry.created_at || entry.published_at || Date.now());
+  const daysOld = (Date.now() - pubDate.getTime()) / 86400000;
+  if (daysOld < 7) score += 0.10;
+  else if (daysOld < 30) score += 0.05;
+
+  return Math.min(1.0, score);
 }
 
 function projectCurationToFeedItem(entry) {
   const title = (entry.title || '').trim().replace(/^\[PDF\]\s*/i, '');
   if (!title || title.length < 15 || title.startsWith('http')) return null;
+
+  const blob = (title + ' ' + (entry.raw_text || '')).toLowerCase();
+  if (!BESS_SIGNALS.some(s => blob.includes(s))) return null;
+
   const pubDate = entry.created_at || new Date().toISOString();
+  const pubMs = new Date(pubDate).getTime();
+  if (isNaN(pubMs) || pubMs < Date.now() - 90 * 86400000) return null;
+
+  const rawText = (entry.raw_text || '').trim();
+  if (rawText.length < 50 && !entry.consequence) return null;
+
+  const score = computeBessRelevanceScore(entry);
+  if (score < 0.25) return null;
+
   return {
     id: `cur_${entry.id}`,
     title,
@@ -4525,7 +4586,7 @@ function projectCurationToFeedItem(entry) {
     impact_direction: null,
     affected_modules: [],
     affected_cod_windows: [],
-    feed_score: curationFeedScore(entry.relevance),
+    feed_score: score,
     expires_at: new Date(new Date(pubDate).getTime() + 30 * 86400000).toISOString(),
     status: 'published',
     origin: 'curation',
@@ -5877,6 +5938,37 @@ export default {
       if (idx.length > 1000) idx.length = 1000;
       await env.KKME_SIGNALS.put('feed_index', JSON.stringify(idx));
       return jsonResp({ backfilled, total: idx.length });
+    }
+
+    // ── POST /feed/rebuild-curations — strip + re-backfill all curation items ─
+    if (request.method === 'POST' && url.pathname === '/feed/rebuild-curations') {
+      const rawIdx = await env.KKME_SIGNALS.get('feed_index').catch(() => null);
+      const idx = rawIdx ? JSON.parse(rawIdx) : [];
+      const kept = idx.filter(i => i.origin !== 'curation');
+      const removedCount = idx.length - kept.length;
+      const ids = await readIndex(env.KKME_SIGNALS);
+      const seenUrls = new Set(kept.map(i => i.source_url).filter(Boolean));
+      const seenTitles = new Set(kept.map(i => (i.title || '').toLowerCase().trim()));
+      let added = 0;
+      let rejected = 0;
+      for (const id of ids) {
+        const raw = await env.KKME_SIGNALS.get(`${KV_CURATION_PREFIX}${id}`);
+        if (!raw) continue;
+        let entry;
+        try { entry = JSON.parse(raw); } catch { continue; }
+        const item = projectCurationToFeedItem(entry);
+        if (!item) { rejected++; continue; }
+        if (item.source_url && seenUrls.has(item.source_url)) continue;
+        if (seenTitles.has((item.title || '').toLowerCase().trim())) continue;
+        kept.push(item);
+        seenUrls.add(item.source_url);
+        seenTitles.add((item.title || '').toLowerCase().trim());
+        added++;
+      }
+      kept.sort((a, b) => (b.feed_score ?? 0) - (a.feed_score ?? 0));
+      if (kept.length > 1000) kept.length = 1000;
+      await env.KKME_SIGNALS.put('feed_index', JSON.stringify(kept));
+      return jsonResp({ removed: removedCount, added, rejected, total: kept.length });
     }
 
     // ── POST /feed/clean — remove expired/old + low-quality items ───────────
