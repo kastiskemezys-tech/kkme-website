@@ -1,3 +1,4 @@
+// Retired from homepage 2026-04-16. Analysis: docs/archive/data-confidence-assessment-2026-04.md
 'use client';
 
 const CONFIDENCE_ROWS = [
