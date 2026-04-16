@@ -1,3 +1,5 @@
+// Retired from homepage 2026-04-16. Replaced by SpreadCaptureCard.tsx in Phase 3B.
+// Kept for reference — contains interconnector flow logic and BalticMap integration.
 'use client';
 
 import { useSignal } from '@/lib/useSignal';

@@ -1,3 +1,5 @@
+// Retired from homepage 2026-04-16. Replaced by ResidualLoadCard.tsx in Phase 3B.
+// Kept for reference — contains per-country breakdown, night detection, and trend logic.
 'use client';
 
 import { useSignal } from '@/lib/useSignal';

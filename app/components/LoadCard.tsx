@@ -1,3 +1,5 @@
+// Retired from homepage 2026-04-16. Replaced by PeakForecastCard.tsx in Phase 3B.
+// Kept for reference — contains per-country breakdown and demand trend logic.
 'use client';
 
 import { useSignal } from '@/lib/useSignal';
