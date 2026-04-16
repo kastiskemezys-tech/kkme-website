@@ -1,93 +1,49 @@
 {
-  "version": 1,
-  "image": "kkme-interconnect-dark.png",
+  "version": 2,
+  "image": "design-assets/Map/Layers",
   "imageWidth": 1024,
   "imageHeight": 1332,
-  "capturedAt": "2026-04-10T18:49:12.731Z",
+  "capturedAt": "2026-04-16T20:00:00.000Z",
   "kind": "cable_waypoints",
   "cables": {
     "nordbalt": {
       "waypoints": [
-        {
-          "px": 111,
-          "py": 761
-        },
-        {
-          "px": 165,
-          "py": 837
-        },
-        {
-          "px": 514,
-          "py": 881
-        }
+        { "px": 130, "py": 760 },
+        { "px": 250, "py": 830 },
+        { "px": 515, "py": 870 }
       ]
     },
     "litpol": {
       "waypoints": [
-        {
-          "px": 719,
-          "py": 1060
-        },
-        {
-          "px": 612,
-          "py": 1138
-        }
+        { "px": 715, "py": 1055 },
+        { "px": 620, "py": 1125 }
       ]
     },
     "estlink-1": {
       "waypoints": [
-        {
-          "px": 735,
-          "py": 401
-        },
-        {
-          "px": 718,
-          "py": 301
-        }
+        { "px": 750, "py": 400 },
+        { "px": 750, "py": 300 }
       ]
     },
     "estlink-2": {
       "waypoints": [
-        {
-          "px": 872,
-          "py": 394
-        },
-        {
-          "px": 856,
-          "py": 363
-        },
-        {
-          "px": 783,
-          "py": 281
-        }
+        { "px": 835, "py": 395 },
+        { "px": 810, "py": 340 },
+        { "px": 775, "py": 290 }
       ]
     },
     "fennoskan-1": {
       "waypoints": [
-        {
-          "px": 299,
-          "py": 281
-        },
-        {
-          "px": 477,
-          "py": 234
-        },
-        {
-          "px": 534,
-          "py": 190
-        }
+        { "px": 325, "py": 290 },
+        { "px": 440, "py": 250 },
+        { "px": 555, "py": 218 }
       ]
     },
     "fennoskan-2": {
       "waypoints": [
-        {
-          "px": 354,
-          "py": 355
-        },
-        {
-          "px": 579,
-          "py": 252
-        }
+        { "px": 315, "py": 280 },
+        { "px": 430, "py": 240 },
+        { "px": 545, "py": 205 }
       ]
     }
   }

@@ -56,6 +56,7 @@
 
   /* Overlay */
   --overlay-heavy: rgba(7, 7, 10, 0.95);
+  --nav-bg: rgb(7, 7, 10);
 
   /* Accent alpha variants — teal */
   --teal-strong: rgba(0, 180, 160, 0.75);
@@ -229,6 +230,7 @@
   --theme-bg:       #f6f5f1;
 
   --overlay-heavy: rgba(245, 242, 237, 0.95);
+  --nav-bg: rgb(245, 242, 237);
 
   --teal-strong: rgba(19, 122, 101, 0.90);
   --teal-medium: rgba(19, 122, 101, 0.80);
@@ -352,6 +354,7 @@
 
 html {
   color-scheme: dark;
+  scroll-padding-top: 96px;
 }
 
 [data-theme="light"] {
