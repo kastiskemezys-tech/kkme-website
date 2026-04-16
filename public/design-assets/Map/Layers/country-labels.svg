@@ -1,0 +1,30 @@
+<svg version="1.2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1332" width="1024" height="1332">
+	<style>
+		tspan { white-space:pre } 
+		.t0 { font-size: 30px;line-height: 39px;fill: #ffffff;font-weight: 400;font-family: "BPdots", "BPdots" } 
+	</style>
+	<text id="LITHUANIA" transform="translate(638,933)">
+		<tspan x="0" y="0" class="t0" dx="0 2 2 2 2 2 2 2 2 2" >LITHUANIA
+</tspan>
+	</text>
+	<text id="POLAND" transform="translate(304,1143.6)">
+		<tspan x="0" y="0" class="t0" dx="0" >P</tspan><tspan  y="0" class="t0" dx="0" >O</tspan><tspan  y="0" class="t0" dx="0" >L</tspan><tspan  y="0" class="t0" dx="0" >A</tspan><tspan  y="0" class="t0" dx="0" >N</tspan><tspan  y="0" class="t0" dx="0 2" >D
+</tspan>
+	</text>
+	<text id="SWEDEN" transform="translate(127,430.6)">
+		<tspan x="0" y="0" class="t0" dx="0" >S</tspan><tspan  y="0" class="t0" dx="0" >W</tspan><tspan  y="0" class="t0" dx="0" >E</tspan><tspan  y="0" class="t0" dx="0" >D</tspan><tspan  y="0" class="t0" dx="0" >E</tspan><tspan  y="0" class="t0" dx="0 2" >N
+</tspan>
+	</text>
+	<text id="LATVIA" transform="translate(775,731)">
+		<tspan x="0" y="0" class="t0" dx="0" >L</tspan><tspan  y="0" class="t0" dx="0" >A</tspan><tspan  y="0" class="t0" dx="0" >T</tspan><tspan  y="0" class="t0" dx="0" >V</tspan><tspan  y="0" class="t0" dx="0" >I</tspan><tspan  y="0" class="t0" dx="0 2" >A
+</tspan>
+	</text>
+	<text id="ESTONIA" transform="translate(745,489)">
+		<tspan x="0" y="0" class="t0" dx="0" >E</tspan><tspan  y="0" class="t0" dx="0" >S</tspan><tspan  y="0" class="t0" dx="0" >T</tspan><tspan  y="0" class="t0" dx="0" >O</tspan><tspan  y="0" class="t0" dx="0" >N</tspan><tspan  y="0" class="t0" dx="0" >I</tspan><tspan  y="0" class="t0" dx="0 2" >A
+</tspan>
+	</text>
+	<text id="FINLAND" transform="translate(676,224.6)">
+		<tspan x="0" y="0" class="t0" dx="0" >F</tspan><tspan  y="0" class="t0" dx="0" >I</tspan><tspan  y="0" class="t0" dx="0" >N</tspan><tspan  y="0" class="t0" dx="0" >L</tspan><tspan  y="0" class="t0" dx="0" >A</tspan><tspan  y="0" class="t0" dx="0" >N</tspan><tspan  y="0" class="t0" dx="0 2" >D
+</tspan>
+	</text>
+</svg>

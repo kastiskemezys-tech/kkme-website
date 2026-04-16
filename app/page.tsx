@@ -225,12 +225,16 @@ export default function Home() {
             flexWrap: 'wrap',
             gap: '16px',
           }}>
-            <span style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: '0.8125rem',
-              color: 'var(--text-muted)',
-              letterSpacing: '0.06em',
-            }}>KKME · Baltic BESS Market Signals</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <img src="/design-assets/Logo/kkme-white.png" alt="KKME" height={16} width={76} className="logo-dark" style={{ opacity: 0.5 }} />
+              <img src="/design-assets/Logo/kkme-black.png" alt="KKME" height={16} width={76} className="logo-light" style={{ opacity: 0.5 }} />
+              <span style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.8125rem',
+                color: 'var(--text-muted)',
+                letterSpacing: '0.06em',
+              }}>Baltic BESS Market Signals</span>
+            </div>
             <div style={{
               display: 'flex', gap: '24px',
               fontFamily: 'var(--font-mono)',

@@ -50,12 +50,10 @@ export default function StickyNav() {
         backdropFilter: 'blur(12px)',
         borderBottom: '1px solid var(--border-subtle)',
       }}>
-        <span style={{
-          fontFamily: 'var(--font-display)',
-          fontSize: '0.7rem',
-          letterSpacing: '0.15em',
-          color: 'var(--text-primary)',
-        }}>KKME</span>
+        <a href="#" onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }} style={{ display: 'flex', alignItems: 'center' }}>
+          <img src="/design-assets/Logo/kkme-white.png" alt="KKME" height={20} width={95} className="logo-dark" />
+          <img src="/design-assets/Logo/kkme-black.png" alt="KKME" height={20} width={95} className="logo-light" />
+        </a>
 
         {/* Desktop links */}
         <div className="nav-desktop" style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>

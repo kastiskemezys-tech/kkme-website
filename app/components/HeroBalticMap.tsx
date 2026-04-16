@@ -370,7 +370,7 @@ export function HeroBalticMap() {
           margin: '0 auto',
         }}>
           <img
-            src={`/hero/kkme-interconnect-${theme}.png`}
+            src={`/design-assets/Map/kkme-interconnect-${theme === 'dark' ? 'black' : 'white'}.svg`}
             width={MAP_WIDTH} height={MAP_HEIGHT}
             style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
             alt="Baltic interconnect map"

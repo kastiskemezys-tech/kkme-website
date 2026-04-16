@@ -886,3 +886,12 @@ button:active { transform: scale(0.97); }
 .section-elevated {
   padding: 80px 32px;
 }
+
+/* ═══════════════════════════════════════════
+   LOGO THEME SWITCHING
+   ═══════════════════════════════════════════ */
+
+img.logo-dark { display: block; }
+img.logo-light { display: none; }
+[data-theme="light"] img.logo-dark { display: none; }
+[data-theme="light"] img.logo-light { display: block; }
