@@ -4452,6 +4452,110 @@ async function storeCurationEntry(kv, entry) {
   await kv.delete(KV_DIGEST_CACHE);
 }
 
+// ─── Curation → feed item projection ───────────────────────────────────────────
+// Mirrors app/lib/sourceClassify.ts so /feed can surface classified curations
+// without requiring backfill or a frontend change.
+
+const FEED_PRIMARY_DOMAINS = [
+  'litgrid.eu', 'ast.lv', 'elering.ee', 'entsoe.eu', 'acer.europa.eu',
+  'ec.europa.eu', 'europa.eu', 'lrv.lt', 'vert.lt', 'apva.lrv.lt',
+  'nordpoolgroup.com', 'ena.lt', 'aib-net.org',
+];
+const FEED_TRADE_PRESS_HINTS = [
+  'montel', 'argusmedia', 'spglobal', 'reuters', 'bloomberg', 'ft.com',
+  'energy-storage.news', 'pv-magazine', 'reneweconomy', 'offshorewind.biz',
+  'energymonitor', 'rechargenews', 'windpowermonthly', 'bnef', 'mckinsey.com',
+];
+const FEED_TAG_CATEGORY = {
+  BESS: 'project_stage',
+  GRID: 'project_stage',
+  REGULATORY: 'policy',
+  RENEWABLES: 'project_stage',
+  MARKET: 'market_design',
+};
+
+function feedDomainOf(url) {
+  if (!url) return null;
+  try { return new URL(url).hostname.replace(/^www\./, '').toLowerCase(); }
+  catch { return null; }
+}
+
+function feedSourceQuality(source, url) {
+  const domain = feedDomainOf(url);
+  const nameLc = (source || '').toLowerCase();
+  if (domain) {
+    if (FEED_PRIMARY_DOMAINS.some(d => domain === d || domain.endsWith('.' + d))) return 'tso_regulator';
+    if (FEED_TRADE_PRESS_HINTS.some(h => domain.includes(h))) return 'trade_press';
+  }
+  if (['litgrid', 'ast', 'elering', 'vert', 'apva', 'entso'].some(n => nameLc.includes(n))) return 'tso_regulator';
+  return 'trade_press';
+}
+
+function curationCategory(tags) {
+  if (!Array.isArray(tags)) return 'policy';
+  for (const t of tags) {
+    const mapped = FEED_TAG_CATEGORY[t];
+    if (mapped) return mapped;
+  }
+  return 'policy';
+}
+
+function curationFeedScore(relevance) {
+  const r = typeof relevance === 'number' && Number.isFinite(relevance) ? relevance : 60;
+  return Math.min(1.0, 0.5 + 0.4 * (r / 100));
+}
+
+function projectCurationToFeedItem(entry) {
+  const title = (entry.title || '').trim().replace(/^\[PDF\]\s*/i, '');
+  if (!title || title.length < 15 || title.startsWith('http')) return null;
+  const pubDate = entry.created_at || new Date().toISOString();
+  return {
+    id: `cur_${entry.id}`,
+    title,
+    consequence: (entry.raw_text || title).slice(0, 240),
+    event_type: null,
+    category: curationCategory(entry.tags),
+    geography: 'Baltic',
+    published_at: pubDate,
+    source: entry.source || 'news',
+    source_url: entry.url || null,
+    source_quality: feedSourceQuality(entry.source, entry.url),
+    confidence: 'C',
+    horizon: 'near_term',
+    impact_direction: null,
+    affected_modules: [],
+    affected_cod_windows: [],
+    feed_score: curationFeedScore(entry.relevance),
+    expires_at: new Date(new Date(pubDate).getTime() + 30 * 86400000).toISOString(),
+    status: 'published',
+    origin: 'curation',
+  };
+}
+
+async function appendCurationToFeedIndex(kv, curationEntry) {
+  const item = projectCurationToFeedItem(curationEntry);
+  if (!item) return false;
+  const rawIdx = await kv.get('feed_index').catch(() => null);
+  const idx = rawIdx ? JSON.parse(rawIdx) : [];
+  const seenUrls = new Set(idx.map(i => i.source_url).filter(Boolean));
+  const seenTitles = new Set(idx.map(i => (i.title || '').toLowerCase().trim()));
+  if (item.source_url && seenUrls.has(item.source_url)) return false;
+  if (seenTitles.has((item.title || '').toLowerCase().trim())) return false;
+  idx.push(item);
+  idx.sort((a, b) => (b.feed_score ?? 0) - (a.feed_score ?? 0));
+  if (idx.length > 1000) idx.length = 1000;
+  await kv.put('feed_index', JSON.stringify(idx));
+  return true;
+}
+
+function isValidFeedItem(i) {
+  if (!i || !i.title) return false;
+  if (i.title.startsWith('/') || i.title.startsWith('http')) return false;
+  if (i.title.length < 15) return false;
+  if (!i.source || !i.category) return false;
+  return true;
+}
+
 // ─── Digest via Anthropic ──────────────────────────────────────────────────────
 
 async function buildDigest(entries, anthropicKey) {
@@ -5675,13 +5779,12 @@ export default {
       const category = url.searchParams.get('category');
       const rawIdx = await env.KKME_SIGNALS.get('feed_index').catch(() => null);
       let idx = rawIdx ? JSON.parse(rawIdx) : [];
-      // Filter out bot commands, empty titles, and very short titles
-      idx = idx.filter(i => i.title && !i.title.startsWith('/') && i.title.length >= 15);
-      // Auto-expire: remove items past expires_at
+      // Quality + expiry filters
+      idx = idx.filter(isValidFeedItem);
       const now = new Date().toISOString();
       idx = idx.filter(i => !i.expires_at || i.expires_at > now);
       if (category && category !== 'all') idx = idx.filter(i => i.category === category);
-      // Sort by feed_score descending, then by date
+      // Sort by feed_score desc, then date
       idx.sort((a, b) => (b.feed_score ?? 0) - (a.feed_score ?? 0) || (b.published_at ?? '').localeCompare(a.published_at ?? ''));
       const items = idx.slice(0, 50);
       const categories = [...new Set(idx.map(i => i.category).filter(Boolean))];
@@ -5709,7 +5812,7 @@ export default {
         if (item.source_url && existingUrls.has(item.source_url)) continue;
         if (existingTitles.has((item.title || '').toLowerCase().trim())) continue;
 
-        const EXPIRY_DAYS = { commodity_cost: 30, project_stage: 90, market_design: 180 };
+        const EXPIRY_DAYS = { commodity_cost: 30, project_stage: 180, market_design: 180, policy: 180 };
         const pubDate = item.published_at || new Date().toISOString();
         const expiryDays = EXPIRY_DAYS[item.category] || 60;
         const expiresAt = item.expires_at || new Date(new Date(pubDate).getTime() + expiryDays * 86400000).toISOString();
@@ -5748,7 +5851,35 @@ export default {
       return jsonResp({ ok: true, added, total: idx.length });
     }
 
-    // ── POST /feed/clean — remove expired/old items ──────────────────────────
+    // ── POST /feed/backfill-curations — one-time migration: write-time merge ─
+    if (request.method === 'POST' && url.pathname === '/feed/backfill-curations') {
+      const ids = await readIndex(env.KKME_SIGNALS);
+      const rawIdx = await env.KKME_SIGNALS.get('feed_index').catch(() => null);
+      const idx = rawIdx ? JSON.parse(rawIdx) : [];
+      const seenUrls = new Set(idx.map(i => i.source_url).filter(Boolean));
+      const seenTitles = new Set(idx.map(i => (i.title || '').toLowerCase().trim()));
+      let backfilled = 0;
+      for (const id of ids) {
+        const raw = await env.KKME_SIGNALS.get(`${KV_CURATION_PREFIX}${id}`);
+        if (!raw) continue;
+        let entry;
+        try { entry = JSON.parse(raw); } catch { continue; }
+        const item = projectCurationToFeedItem(entry);
+        if (!item) continue;
+        if (item.source_url && seenUrls.has(item.source_url)) continue;
+        if (seenTitles.has((item.title || '').toLowerCase().trim())) continue;
+        idx.push(item);
+        seenUrls.add(item.source_url);
+        seenTitles.add((item.title || '').toLowerCase().trim());
+        backfilled++;
+      }
+      idx.sort((a, b) => (b.feed_score ?? 0) - (a.feed_score ?? 0));
+      if (idx.length > 1000) idx.length = 1000;
+      await env.KKME_SIGNALS.put('feed_index', JSON.stringify(idx));
+      return jsonResp({ backfilled, total: idx.length });
+    }
+
+    // ── POST /feed/clean — remove expired/old + low-quality items ───────────
     if (request.method === 'POST' && url.pathname === '/feed/clean') {
       let body = {};
       try { body = await request.json(); } catch { /* empty body ok */ }
@@ -5757,6 +5888,7 @@ export default {
       if (!rawIdx) return jsonResp({ cleaned: 0, remaining: 0 });
       const idx = JSON.parse(rawIdx);
       const kept = idx.filter(i => {
+        if (!isValidFeedItem(i)) return false;
         const d = i.published_at || i.date || i.added_at || '';
         return d >= cutoffDate;
       });
@@ -6101,7 +6233,8 @@ export default {
         created_at: new Date().toISOString(),
       };
       await storeCurationEntry(env.KKME_SIGNALS, entry);
-      return new Response(JSON.stringify({ ok: true, id: entry.id }), { status: 201, headers: { 'Content-Type': 'application/json', ...CORS } });
+      const projected = await appendCurationToFeedIndex(env.KKME_SIGNALS, entry);
+      return new Response(JSON.stringify({ ok: true, id: entry.id, projected }), { status: 201, headers: { 'Content-Type': 'application/json', ...CORS } });
     }
 
     // ── POST /contact ─────────────────────────────────────────────────────────
