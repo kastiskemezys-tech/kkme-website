@@ -1,6 +1,6 @@
 export function carbonColor(signal: string | null): string {
-  if (signal === 'HIGH')      return 'rgba(155, 48, 67, 0.85)';
-  if (signal === 'ELEVATED')  return 'rgba(180, 140, 60, 0.85)';
-  if (signal === 'LOW')       return 'rgba(74, 124, 89, 0.9)';
+  if (signal === 'HIGH')      return 'var(--signal-rose)';
+  if (signal === 'ELEVATED')  return 'var(--signal-amber)';
+  if (signal === 'LOW')       return 'var(--signal-green)';
   return 'var(--signal-neutral)';
 }

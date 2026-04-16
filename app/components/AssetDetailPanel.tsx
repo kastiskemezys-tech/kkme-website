@@ -78,7 +78,7 @@ export function AssetDetailPanel({ isOpen, onClose, title, subtitle, assets, not
         position: 'fixed',
         inset: 0,
         zIndex: 9999,
-        background: 'rgba(7,7,10,0.85)',
+        background: 'var(--map-bg)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -88,7 +88,7 @@ export function AssetDetailPanel({ isOpen, onClose, title, subtitle, assets, not
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          background: '#0d0d12',
+          background: 'var(--bg-page)',
           border: '1px solid var(--border-highlight)',
           borderRadius: '4px',
           maxWidth: '560px',
@@ -181,7 +181,7 @@ export function AssetDetailPanel({ isOpen, onClose, title, subtitle, assets, not
               fontFamily: 'var(--font-mono)',
               fontSize: 'var(--font-xs)',
               padding: '6px 0',
-              borderBottom: '1px solid rgba(232,226,217,0.03)',
+              borderBottom: '1px solid var(--bg-card)',
               alignItems: 'center',
             }}
           >

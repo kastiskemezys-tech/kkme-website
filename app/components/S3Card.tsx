@@ -85,7 +85,7 @@ function BreakdownBar({ label, rangeKwh, midKwh, scope, maxVal, isHV }: { label:
       <div style={{ width: '85px', flexShrink: 0, fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-primary)', textAlign: 'right' }}>€{low}–{high}</div>
       <div style={{ flex: 1, position: 'relative', height: '10px' }}>
         <div style={{ position: 'absolute', left: 0, right: 0, top: '3px', height: '4px', background: 'var(--bg-elevated)', borderRadius: '2px' }} />
-        <div style={{ position: 'absolute', left: `${(low / maxVal) * 100}%`, width: `${((high - low) / maxVal) * 100}%`, top: '1px', height: '8px', background: isHV ? 'rgba(212,160,60,0.2)' : 'rgba(0,180,160,0.15)', borderRadius: '2px', transition: 'left 0.3s ease, width 0.3s ease' }} />
+        <div style={{ position: 'absolute', left: `${(low / maxVal) * 100}%`, width: `${((high - low) / maxVal) * 100}%`, top: '1px', height: '8px', background: isHV ? 'var(--bar-fill-amber-mid)' : 'var(--bar-fill-teal)', borderRadius: '2px', transition: 'left 0.3s ease, width 0.3s ease' }} />
         {midKwh != null && (
           <div style={{ position: 'absolute', left: `${(midKwh / maxVal) * 100}%`, top: 0, width: '2px', height: '10px', background: isHV ? 'var(--amber)' : 'var(--teal)', borderRadius: '1px', transition: 'left 0.3s ease' }} />
         )}
@@ -321,9 +321,9 @@ export function S3Card() {
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Observed market spread</div>
             <div style={{ position: 'relative', height: '20px', marginBottom: '4px' }}>
               <div style={{ position: 'absolute', left: 0, right: 0, top: '7px', height: '6px', background: 'var(--bg-elevated)', borderRadius: '3px' }} />
-              <div style={{ position: 'absolute', left: `${pct(120)}%`, width: `${pct(euLow) - pct(120)}%`, top: '5px', height: '10px', background: 'rgba(0,180,160,0.2)', borderRadius: '2px' }} />
-              <div style={{ position: 'absolute', left: `${pct(euLow)}%`, width: `${pct(euHigh) - pct(euLow)}%`, top: '3px', height: '14px', background: 'rgba(0,180,160,0.35)', border: '1px solid var(--teal)', borderRadius: '2px' }} />
-              <div style={{ position: 'absolute', left: `${pct(euHigh)}%`, width: `${pct(500) - pct(euHigh)}%`, top: '5px', height: '10px', background: 'rgba(212,160,60,0.12)', borderRadius: '2px' }} />
+              <div style={{ position: 'absolute', left: `${pct(120)}%`, width: `${pct(euLow) - pct(120)}%`, top: '5px', height: '10px', background: 'var(--bar-fill-teal-mid)', borderRadius: '2px' }} />
+              <div style={{ position: 'absolute', left: `${pct(euLow)}%`, width: `${pct(euHigh) - pct(euLow)}%`, top: '3px', height: '14px', background: 'var(--bar-fill-teal-band)', border: '1px solid var(--teal)', borderRadius: '2px' }} />
+              <div style={{ position: 'absolute', left: `${pct(euHigh)}%`, width: `${pct(500) - pct(euHigh)}%`, top: '5px', height: '10px', background: 'var(--bar-fill-amber)', borderRadius: '2px' }} />
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', lineHeight: 1.3 }}>
               <span style={{ color: 'var(--text-muted)' }}>€120–{euLow}<br/>developer</span>

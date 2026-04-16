@@ -19,12 +19,12 @@ export function StaleBanner({ isDefault, isStale, ageHours, defaultReason }: Sta
     return (
       <div style={{
         ...MONO,
-        background:   'rgba(255,180,0,0.06)',
-        borderLeft:   '2px solid rgba(255,180,0,0.3)',
+        background:   'var(--stale-bg)',
+        borderLeft:   '2px solid var(--stale-border)',
         padding:      '0.4rem 0.6rem',
         marginBottom: '1.25rem',
         fontSize:     '0.5rem',
-        color:        'rgba(255,180,0,0.7)',
+        color:        'var(--stale-text)',
         lineHeight:    1.5,
       }}>
         ⟳ Live data unavailable · showing last known values
@@ -38,7 +38,7 @@ export function StaleBanner({ isDefault, isStale, ageHours, defaultReason }: Sta
       <span style={{
         ...MONO,
         fontSize:    '0.5rem',
-        color:       'rgba(255,180,0,0.6)',
+        color:       'var(--stale-text-soft)',
         marginLeft:  '0.4rem',
       }}>
         · ⟳ {Math.round(ageHours)}h old

@@ -38,7 +38,7 @@ export function HeroRays() {
           y1={ray.y1}
           x2={ray.x2}
           y2={ray.y2}
-          stroke="rgba(212,160,60,0.055)"
+          stroke="var(--amber-ray)"
           strokeWidth="1"
         />
       ))}

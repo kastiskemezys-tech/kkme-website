@@ -7,7 +7,7 @@ interface DataClassBadgeProps {
 }
 
 const STYLES: Record<string, { color: string; border: string; label: string; bg?: string; borderStyle?: string }> = {
-  observed:           { color: '#fff',               border: 'var(--teal)',          label: 'observed',     bg: 'var(--teal)' },
+  observed:           { color: 'var(--white)',        border: 'var(--teal)',          label: 'observed',     bg: 'var(--teal)' },
   derived:            { color: 'var(--teal)',         border: 'var(--teal)',          label: 'derived' },
   proxy:              { color: 'var(--amber)',        border: 'var(--amber)',         label: 'proxy \u26A0', bg: 'var(--amber-bg)' },
   modeled:            { color: 'var(--text-muted)',   border: 'var(--border-highlight)', label: 'modeled',  borderStyle: 'dashed' },

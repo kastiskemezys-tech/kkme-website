@@ -69,8 +69,8 @@ function dirLabel(sig: string | null | undefined): string {
 }
 
 function dirColor(sig: string | null | undefined): string {
-  if (sig === 'EXPORTING') return 'rgba(45,212,168,0.85)';
-  if (sig === 'IMPORTING') return 'rgba(245,158,11,0.85)';
+  if (sig === 'EXPORTING') return 'var(--teal-strong)';
+  if (sig === 'IMPORTING') return 'var(--amber-strong)';
   return 'var(--text-muted)';
 }
 
@@ -120,7 +120,7 @@ export function S8Card() {
         {flowInterpretation(dominantSig, nbSig, lpSig)}
       </p>
 
-      <div className="tier3-impact" style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'rgba(0,180,160,0.65)', marginBottom: '8px' }}>
+      <div className="tier3-impact" style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--teal-medium)', marginBottom: '8px' }}>
         {flowImpact(dominantSig)}
       </div>
 

@@ -22,7 +22,7 @@ export function FreshnessDot({ timestamp }: { timestamp?: string | null }) {
         width: '5px',
         height: '5px',
         borderRadius: '50%',
-        background: 'rgba(74,222,128,0.80)',
+        background: 'var(--accent-green-bright)',
         marginRight: '5px',
         verticalAlign: 'middle',
       }}

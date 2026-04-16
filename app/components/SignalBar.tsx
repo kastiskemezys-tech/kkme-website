@@ -85,14 +85,14 @@ export default function SignalBar() {
           }}
         >
           <span style={{
-            fontFamily: 'DM Mono, monospace',
+            fontFamily: 'var(--font-mono)',
             fontSize: '0.5625rem',
             color: 'var(--text-ghost)',
             letterSpacing: '0.10em',
             textTransform: 'uppercase',
           }}>{s.label}</span>
           <span style={{
-            fontFamily: 'DM Mono, monospace',
+            fontFamily: 'var(--font-mono)',
             fontSize: '0.6875rem',
             color: 'var(--text-secondary)',
             transition: 'color 150ms ease',

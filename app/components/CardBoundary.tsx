@@ -27,7 +27,7 @@ export class CardBoundary extends React.Component<Props, State> {
     if (this.state.hasError) {
       return (
         <div style={{
-          border:      '1px solid rgba(255,60,60,0.2)',
+          border:      '1px solid var(--error-border)',
           padding:     '2rem 2.5rem',
           fontFamily:  'var(--font-mono)',
           fontSize:    '0.6rem',
@@ -35,7 +35,7 @@ export class CardBoundary extends React.Component<Props, State> {
           maxWidth:    '440px',
           width:       '100%',
         }}>
-          <div style={{ color: 'rgba(255,60,60,0.7)', marginBottom: '0.4rem' }}>
+          <div style={{ color: 'var(--error-text)', marginBottom: '0.4rem' }}>
             {this.props.signal} render error
           </div>
           <div style={{ opacity: 0.5, marginBottom: '0.75rem' }}>

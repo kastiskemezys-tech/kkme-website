@@ -97,6 +97,72 @@
   --cat-cost:   rgba(180,160,100,0.85);
   --cat-demand: rgba(140,200,180,0.85);
 
+  /* Signal dot colours — used by -utils.ts signal colour functions */
+  --signal-green:    rgba(74, 124, 89, 0.9);
+  --signal-green-soft: rgba(74, 124, 89, 0.7);
+  --signal-green-mid: rgba(100, 160, 110, 0.75);
+  --signal-amber:    rgba(180, 140, 60, 0.85);
+  --signal-rose:     rgba(155, 48, 67, 0.85);
+  --signal-stable:   rgba(100, 100, 140, 0.85);
+
+  /* Map accent colours */
+  --accent-green-bright: rgba(74, 222, 128, 0.80);
+  --accent-green-flow:   rgba(74, 222, 128, 0.60);
+  --accent-green-label:  rgba(74, 222, 128, 0.85);
+  --accent-amber-bright: rgba(245, 158, 11, 0.80);
+  --accent-amber-flow:   rgba(245, 158, 11, 0.60);
+  --accent-se4-fill:     rgba(74, 222, 128, 0.06);
+
+  /* Violet alpha variants */
+  --violet-fill:   rgba(123, 94, 167, 0.15);
+  --violet-stroke: rgba(123, 94, 167, 0.50);
+  --violet-strong: rgba(123, 94, 167, 0.9);
+
+  /* Teal glow */
+  --teal-glow:     rgba(45, 212, 168, 0.55);
+  --teal-glow-bg:  rgba(45, 212, 168, 0.06);
+
+  /* Stale / warning banner */
+  --stale-bg:      rgba(255, 180, 0, 0.06);
+  --stale-border:  rgba(255, 180, 0, 0.3);
+  --stale-text:    rgba(255, 180, 0, 0.7);
+  --stale-text-soft: rgba(255, 180, 0, 0.6);
+
+  /* Error */
+  --error-border:  rgba(255, 60, 60, 0.2);
+  --error-text:    rgba(255, 60, 60, 0.7);
+
+  /* Bullet chart threshold colours */
+  --threshold-red:   rgba(239, 68, 68, 1);
+  --threshold-amber: rgba(245, 158, 11, 1);
+  --threshold-green: rgba(74, 222, 128, 1);
+
+  /* Chart fill opacities */
+  --chart-fill-teal:  rgba(0, 180, 160, 0.15);
+  --chart-fill-amber: rgba(212, 160, 60, 0.18);
+  --chart-fill-sd:    rgba(232, 226, 217, 0.18);
+  --chart-axis-faint: rgba(232, 226, 217, 0.2);
+
+  /* Breakdown bar fills */
+  --bar-fill-teal:  rgba(0, 180, 160, 0.15);
+  --bar-fill-teal-mid: rgba(0, 180, 160, 0.2);
+  --bar-fill-amber: rgba(212, 160, 60, 0.12);
+  --bar-fill-amber-mid: rgba(212, 160, 60, 0.2);
+  --bar-fill-teal-band: rgba(0, 180, 160, 0.35);
+
+  /* S6 hydro fill */
+  --hydro-fill-neutral: rgba(100, 130, 200, 0.20);
+  --hydro-shimmer:      rgba(100, 130, 200, 0.12);
+
+  /* S2 capacity border */
+  --capacity-border: rgba(239, 159, 39, 0.3);
+
+  /* Chart line muted */
+  --chart-line-muted: rgba(120, 118, 112, 0.7);
+
+  /* Amber ray decorative */
+  --amber-ray: rgba(212, 160, 60, 0.055);
+
   /* Section elevated surface */
   --bg-section-elevated: rgba(232, 226, 217, 0.012);
 
@@ -194,6 +260,72 @@
   --cat-demand: #3a7a65;
 
   --bg-section-elevated: rgba(26, 26, 31, 0.02);
+
+  /* Signal dot colours — light theme */
+  --signal-green:    rgba(45, 120, 70, 0.9);
+  --signal-green-soft: rgba(45, 120, 70, 0.7);
+  --signal-green-mid: rgba(60, 130, 80, 0.75);
+  --signal-amber:    rgba(138, 102, 32, 0.85);
+  --signal-rose:     rgba(160, 40, 50, 0.85);
+  --signal-stable:   rgba(80, 80, 110, 0.85);
+
+  /* Map accent colours — light */
+  --accent-green-bright: rgba(34, 160, 90, 0.85);
+  --accent-green-flow:   rgba(34, 160, 90, 0.65);
+  --accent-green-label:  rgba(34, 160, 90, 0.90);
+  --accent-amber-bright: rgba(180, 120, 10, 0.85);
+  --accent-amber-flow:   rgba(180, 120, 10, 0.65);
+  --accent-se4-fill:     rgba(34, 160, 90, 0.06);
+
+  /* Violet alpha variants — light */
+  --violet-fill:   rgba(107, 79, 148, 0.10);
+  --violet-stroke: rgba(107, 79, 148, 0.40);
+  --violet-strong: rgba(107, 79, 148, 0.9);
+
+  /* Teal glow — light */
+  --teal-glow:     rgba(14, 107, 99, 0.55);
+  --teal-glow-bg:  rgba(14, 107, 99, 0.06);
+
+  /* Stale / warning banner — light */
+  --stale-bg:      rgba(180, 120, 0, 0.06);
+  --stale-border:  rgba(180, 120, 0, 0.3);
+  --stale-text:    rgba(180, 120, 0, 0.8);
+  --stale-text-soft: rgba(180, 120, 0, 0.6);
+
+  /* Error — light */
+  --error-border:  rgba(200, 40, 40, 0.2);
+  --error-text:    rgba(200, 40, 40, 0.7);
+
+  /* Bullet chart threshold colours — light */
+  --threshold-red:   rgba(200, 50, 50, 1);
+  --threshold-amber: rgba(180, 120, 10, 1);
+  --threshold-green: rgba(34, 160, 90, 1);
+
+  /* Chart fill opacities — light */
+  --chart-fill-teal:  rgba(19, 122, 101, 0.12);
+  --chart-fill-amber: rgba(138, 102, 32, 0.15);
+  --chart-fill-sd:    rgba(26, 26, 31, 0.12);
+  --chart-axis-faint: rgba(26, 26, 31, 0.15);
+
+  /* Breakdown bar fills — light */
+  --bar-fill-teal:  rgba(19, 122, 101, 0.12);
+  --bar-fill-teal-mid: rgba(19, 122, 101, 0.18);
+  --bar-fill-amber: rgba(138, 102, 32, 0.10);
+  --bar-fill-amber-mid: rgba(138, 102, 32, 0.18);
+  --bar-fill-teal-band: rgba(19, 122, 101, 0.30);
+
+  /* S6 hydro fill — light */
+  --hydro-fill-neutral: rgba(60, 80, 150, 0.15);
+  --hydro-shimmer:      rgba(60, 80, 150, 0.08);
+
+  /* S2 capacity border — light */
+  --capacity-border: rgba(180, 120, 30, 0.3);
+
+  /* Chart line muted — light */
+  --chart-line-muted: rgba(80, 78, 74, 0.6);
+
+  /* Amber ray decorative — light */
+  --amber-ray: rgba(138, 102, 32, 0.04);
 
   color-scheme: light;
 }
@@ -702,4 +834,55 @@ button:active { transform: scale(0.97); }
 }
 .irr-delta-flash {
   animation: fadeOut 1.5s ease forwards;
+}
+
+/* ═══════════════════════════════════════════
+   V-04: SCROLL-TRIGGERED ENTRANCE ANIMATIONS
+   ═══════════════════════════════════════════ */
+
+.scroll-reveal {
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.4s ease-out, transform 0.4s ease-out;
+}
+.scroll-reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scroll-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* ═══════════════════════════════════════════
+   V-06: AMBER ACCENT — SECTION HEADING MARKS
+   ═══════════════════════════════════════════ */
+
+.section-header::after {
+  content: '';
+  display: block;
+  width: 40px;
+  height: 2px;
+  background: var(--amber-strong);
+  margin-top: 8px;
+}
+
+/* ═══════════════════════════════════════════
+   V-07: SECTION DIVIDERS + RHYTHM
+   ═══════════════════════════════════════════ */
+
+.section-divider {
+  border: none;
+  border-top: 1px solid var(--border-subtle);
+  margin: 0 auto 96px;
+  max-width: 120px;
+  opacity: 0.4;
+}
+
+.section-elevated {
+  padding: 80px 32px;
 }

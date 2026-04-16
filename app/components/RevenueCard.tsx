@@ -132,18 +132,18 @@ function ControlGroup({ label, options, value, onChange }: {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
       <span style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
-        fontFamily: "'DM Mono',monospace", textTransform: 'uppercase',
+        fontFamily: "var(--font-mono)", textTransform: 'uppercase',
         letterSpacing: '0.08em' }}>{label}</span>
       <div style={{ display: 'flex', gap: 2 }}>
         {options.map(o => (
           <button key={o.key} onClick={() => onChange(o.key)}
             style={{
               padding: '3px 10px', fontSize: 'var(--font-sm)',
-              fontFamily: "'DM Mono',monospace", cursor: 'pointer',
+              fontFamily: "var(--font-mono)", cursor: 'pointer',
               border: '1px solid',
               borderColor: value === o.key ? 'var(--teal)' : 'var(--border-card)',
               borderRadius: 3,
-              background: value === o.key ? 'rgba(0,180,160,0.12)' : 'transparent',
+              background: value === o.key ? 'var(--teal-bg)' : 'transparent',
               color: value === o.key ? 'var(--teal)' : 'var(--text-secondary)',
               transition: 'all 0.15s',
             }}>{o.label}</button>
@@ -161,13 +161,13 @@ function MetricCell({ label, value, sub, color }: {
   return (
     <div style={{ flex: 1, minWidth: 110 }}>
       <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
-        fontFamily: "'DM Mono',monospace", textTransform: 'uppercase',
+        fontFamily: "var(--font-mono)", textTransform: 'uppercase',
         letterSpacing: '0.08em', marginBottom: 4 }}>{label}</div>
       <div style={{ color: color || 'var(--text-primary)',
         fontSize: '1.25rem', fontFamily: "'Unbounded',sans-serif",
         fontWeight: 500, lineHeight: 1.1 }}>{value}</div>
       {sub && <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
-        fontFamily: "'DM Mono',monospace", marginTop: 4 }}>{sub}</div>}
+        fontFamily: "var(--font-mono)", marginTop: 4 }}>{sub}</div>}
     </div>
   );
 }
@@ -192,13 +192,13 @@ function SensitivityTable({ matrix, currentCod, currentCapex }: {
   const capexes = [120, 164, 262];
   const th: React.CSSProperties = {
     padding: '4px 8px', fontSize: 'var(--font-xs)', color: 'var(--text-muted)',
-    fontFamily: "'DM Mono',monospace", fontWeight: 400,
+    fontFamily: "var(--font-mono)", fontWeight: 400,
   };
 
   return (
     <div>
       <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
-        fontFamily: "'DM Mono',monospace", textTransform: 'uppercase',
+        fontFamily: "var(--font-mono)", textTransform: 'uppercase',
         letterSpacing: '0.08em', marginBottom: 8 }}>Project IRR sensitivity</div>
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
@@ -211,14 +211,14 @@ function SensitivityTable({ matrix, currentCod, currentCapex }: {
           {capexes.map(kwh => (
             <tr key={kwh}>
               <td style={{ padding: '5px 8px', fontSize: 'var(--font-sm)',
-                fontFamily: "'DM Mono',monospace", color: 'var(--text-secondary)' }}>€{kwh}</td>
+                fontFamily: "var(--font-mono)", color: 'var(--text-secondary)' }}>€{kwh}</td>
               {cods.map(c => {
                 const cell = getCell(kwh, c);
                 const isCurrent = kwh === currentCapex && c === currentCod;
                 return (
                   <td key={c} style={{
                     padding: '5px 8px', textAlign: 'right',
-                    fontFamily: "'DM Mono',monospace", fontSize: 'var(--font-sm)',
+                    fontFamily: "var(--font-mono)", fontSize: 'var(--font-sm)',
                     background: isCurrent ? 'var(--bg-elevated)' : 'transparent',
                     color: isCurrent ? 'var(--teal)' : cell.color,
                     fontWeight: cell.bold || isCurrent ? 600 : 400,
@@ -230,7 +230,7 @@ function SensitivityTable({ matrix, currentCod, currentCapex }: {
         </tbody>
       </table>
       <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
-        fontFamily: "'DM Mono',monospace", marginTop: 6 }}>
+        fontFamily: "var(--font-mono)", marginTop: 6 }}>
         Each year of COD delay adds ~1.5pp compression to fleet S/D</div>
     </div>
   );
@@ -250,10 +250,10 @@ function MonthlyHeatmap({ months }: { months: BaseMonth[] }) {
   return (
     <div style={{ marginTop: 16 }}>
       <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
-        fontFamily: "'DM Mono',monospace", textTransform: 'uppercase',
+        fontFamily: "var(--font-mono)", textTransform: 'uppercase',
         letterSpacing: '0.08em', marginBottom: 8 }}>Observed monthly revenue (€k/MW)</div>
       <div style={{ display: 'grid', gridTemplateColumns: `60px repeat(${months.length}, 1fr)`,
-        gap: 2, fontSize: 'var(--font-xs)', fontFamily: "'DM Mono',monospace" }}>
+        gap: 2, fontSize: 'var(--font-xs)', fontFamily: "var(--font-mono)" }}>
         <div style={{ color: 'var(--text-muted)', padding: '4px 0' }}>Bal</div>
         {months.map((m, i) => (
           <div key={'b' + i} style={{
@@ -278,7 +278,7 @@ function MonthlyHeatmap({ months }: { months: BaseMonth[] }) {
         ))}
       </div>
       <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
-        fontFamily: "'DM Mono',monospace", marginTop: 4 }}>
+        fontFamily: "var(--font-mono)", marginTop: 4 }}>
         {months[0]?.month} to {months[months.length - 1]?.month}</div>
     </div>
   );
@@ -297,14 +297,14 @@ function RevenueChart({ years, CC, ts }: {
       {
         label: 'Total',
         data: years.map(y => (y.rev_bal + y.rev_trd) / MW / 1000),
-        fill: { target: 1, above: 'rgba(212,160,60,0.18)' },
+        fill: { target: 1, above: 'var(--chart-fill-amber)' },
         borderColor: CC.amber, borderWidth: 1.5,
         pointRadius: 0, tension: 0.35, yAxisID: 'y',
       },
       {
         label: 'Balancing',
         data: years.map(y => y.rev_bal / MW / 1000),
-        fill: { target: 'origin', above: 'rgba(0,180,160,0.15)' },
+        fill: { target: 'origin', above: 'var(--chart-fill-teal)' },
         borderColor: CC.teal, borderWidth: 1.5,
         pointRadius: 0, tension: 0.35, yAxisID: 'y',
       },
@@ -317,7 +317,7 @@ function RevenueChart({ years, CC, ts }: {
       {
         label: 'Fleet S/D',
         data: years.map(y => y.sd_ratio),
-        fill: false, borderColor: 'rgba(232,226,217,0.18)', borderWidth: 1,
+        fill: false, borderColor: 'var(--chart-fill-sd)', borderWidth: 1,
         borderDash: [2, 3], pointRadius: 0, yAxisID: 'y2',
       },
     ],
@@ -364,7 +364,7 @@ function RevenueChart({ years, CC, ts }: {
       y2: {
         position: 'right', min: 0.5, max: 3,
         grid: { display: false }, border: { display: false },
-        ticks: { color: 'rgba(232,226,217,0.2)',
+        ticks: { color: 'var(--chart-axis-faint)',
           font: { family: CHART_FONT.family, size: 10 },
           callback: (v: number | string) => Number(v).toFixed(1) + '×' },
       },
@@ -415,7 +415,7 @@ function DSCRChart({ monthly, CC }: {
   return (
     <div>
       <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
-        fontFamily: "'DM Mono',monospace", textTransform: 'uppercase',
+        fontFamily: "var(--font-mono)", textTransform: 'uppercase',
         letterSpacing: '0.08em', marginBottom: 6 }}>Y1 monthly DSCR</div>
       <div style={{ height: 140 }}>
         <Bar data={data} plugins={[covenantPlugin]} options={{
@@ -445,12 +445,12 @@ function DrawerContent({ data }: { data: RevenueData }) {
 
   const head: React.CSSProperties = {
     color: 'var(--text-tertiary)', fontSize: 'var(--font-xs)',
-    fontFamily: "'DM Mono',monospace", textTransform: 'uppercase',
+    fontFamily: "var(--font-mono)", textTransform: 'uppercase',
     letterSpacing: '0.1em', marginTop: 20, marginBottom: 8,
   };
   const row: React.CSSProperties = {
     display: 'flex', justifyContent: 'space-between',
-    fontFamily: "'DM Mono',monospace", fontSize: 'var(--font-sm)',
+    fontFamily: "var(--font-mono)", fontSize: 'var(--font-sm)',
     color: 'var(--text-secondary)', padding: '2px 0',
   };
 
@@ -477,7 +477,7 @@ function DrawerContent({ data }: { data: RevenueData }) {
 
       <div style={head}>Scenario comparison</div>
       <table style={{ width: '100%', borderCollapse: 'collapse',
-        fontFamily: "'DM Mono',monospace", fontSize: 'var(--font-sm)' }}>
+        fontFamily: "var(--font-mono)", fontSize: 'var(--font-sm)' }}>
         <thead>
           <tr style={{ color: 'var(--text-muted)' }}>
             <th style={{ textAlign: 'left', fontWeight: 400, padding: '3px 4px' }} />
@@ -540,11 +540,11 @@ function DrawerContent({ data }: { data: RevenueData }) {
         }} />
       </div>
       <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
-        fontFamily: "'DM Mono',monospace", marginTop: 4 }}>
+        fontFamily: "var(--font-mono)", marginTop: 4 }}>
         OEM LFP · 1 cycle/day · augmentation Y10</div>
 
       <div style={head}>Data sources</div>
-      <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 'var(--font-xs)',
+      <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
         color: 'var(--text-muted)', lineHeight: 1.6 }}>
         S1: ENTSO-E A44, 15-min ISP, LT zone — {data.base_year.data_coverage.s1_months} months<br />
         S2: Baltic Transparency Dashboard — {data.base_year.data_coverage.s2_months} months<br />
@@ -610,11 +610,11 @@ export function RevenueCard() {
 
   if (status === 'loading' && !data) {
     return <div style={{ padding: 40, color: 'var(--text-muted)',
-      fontFamily: "'DM Mono',monospace", textAlign: 'center' }}>Loading revenue model…</div>;
+      fontFamily: "var(--font-mono)", textAlign: 'center' }}>Loading revenue model…</div>;
   }
   if (status === 'error' && !data) {
     return <div style={{ padding: 40, color: 'var(--rose)',
-      fontFamily: "'DM Mono',monospace", textAlign: 'center' }}>Revenue model unavailable</div>;
+      fontFamily: "var(--font-mono)", textAlign: 'center' }}>Revenue model unavailable</div>;
   }
   if (!data) return null;
 
@@ -636,17 +636,17 @@ export function RevenueCard() {
               fontWeight: 600, color: irrColor(data.project_irr), lineHeight: 1,
               opacity: status === 'loading' ? 0.5 : 1, transition: 'opacity 0.2s' }}>
               {fmtIrr(data.project_irr)}</span>
-            <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 'var(--font-sm)',
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-sm)',
               color: 'var(--text-secondary)' }}>
               €{fmtK(data.net_rev_per_mw_yr)} net/MW/yr</span>
             {data.irr_status && (
-              <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 'var(--font-xs)',
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
                 color: irrColor(data.project_irr), opacity: 0.75,
                 border: `1px solid ${irrColor(data.project_irr)}`,
                 borderRadius: 3, padding: '1px 6px' }}>{data.irr_status}</span>
             )}
           </div>
-          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 'var(--font-xs)',
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
             color: 'var(--text-muted)', marginTop: 6, cursor: 'pointer' }}
             onClick={openDrawer}>
             {data.system} · €{data.capex_eur_kwh}/kWh · COD {data.cod_year} · {data.scenario} · 20-yr unlevered DCF
@@ -662,10 +662,10 @@ export function RevenueCard() {
             <div style={{ fontFamily: "'Unbounded',sans-serif", fontSize: '1.1rem',
               color: 'var(--text-primary)', fontWeight: 500 }}>
               €{lr.today_total_daily}/MW/day</div>
-            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 'var(--font-xs)',
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
               color: lr.delta_pct >= 0 ? 'var(--teal)' : 'var(--amber)' }}>
               {lr.delta_pct >= 0 ? '+' : ''}{lr.delta_pct}% vs trailing avg</div>
-            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 'var(--font-xs)',
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
               color: 'var(--text-muted)' }}>{fmtDate(lr.as_of)}</div>
           </div>
         )}
@@ -710,7 +710,7 @@ export function RevenueCard() {
         <div>
           <RevenueChart years={data.years} CC={CC} ts={ts} />
           <div style={{ display: 'flex', gap: 16, marginTop: 8,
-            fontFamily: "'DM Mono',monospace", fontSize: 'var(--font-xs)',
+            fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
             color: 'var(--text-muted)' }}>
             <span><span style={{ display: 'inline-block', width: 8, height: 8,
               borderRadius: 1, background: CC.teal, marginRight: 4 }} />Balancing</span>
@@ -738,7 +738,7 @@ export function RevenueCard() {
       </div>
 
       {/* Source footer */}
-      <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 'var(--font-xs)',
+      <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
         color: 'var(--text-muted)', marginTop: 8, opacity: 0.7, cursor: 'pointer' }}
         onClick={openDrawer}>
         {data.model_version} · S1 €{si.s1_capture?.toFixed(0)}/MWh · S2 aFRR €{si.afrr_clearing?.toFixed(0)} · Euribor {si.euribor}% · {fmtDate(data.timestamp)}
