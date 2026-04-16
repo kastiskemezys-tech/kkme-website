@@ -414,6 +414,20 @@ export function HeroBalticMap() {
               )}
             </defs>
 
+            {/* Visible cable strokes — reinforce routes over raster art */}
+            <g data-layer="cable-strokes">
+              {Object.entries(CABLE_PATHS).map(([id, d]) =>
+                d ? <path key={`stroke-${id}`} d={d}
+                      fill="none"
+                      stroke="var(--cable-stroke, var(--teal))"
+                      strokeWidth="2"
+                      strokeOpacity="0.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    /> : null
+              )}
+            </g>
+
             {/* City labels with halo stroke — collision-resolved */}
             <g data-layer="cities">
               {Object.entries(CITY_LABEL_PIXELS).map(([id, city]) => {
@@ -440,6 +454,34 @@ export function HeroBalticMap() {
                   </g>
                 )
               })}
+            </g>
+
+            {/* Country name labels — positioned from designed country-labels.svg */}
+            <g data-layer="country-names">
+              {([
+                ['FINLAND',   676, 225],
+                ['SWEDEN',    127, 431],
+                ['ESTONIA',   745, 489],
+                ['LATVIA',    775, 731],
+                ['LITHUANIA', 638, 933],
+                ['POLAND',    304, 1144],
+              ] as const).map(([name, x, y]) => (
+                <text key={name} x={x} y={y}
+                  fontFamily="var(--font-display)"
+                  fontSize="18"
+                  fontWeight="700"
+                  fill="var(--text-secondary)"
+                  opacity="0.6"
+                  letterSpacing="0.15em"
+                  style={{
+                    paintOrder: 'stroke fill',
+                    stroke: 'var(--theme-bg, #0a0a0a)',
+                    strokeWidth: '4px',
+                    strokeLinejoin: 'round' as const,
+                    strokeOpacity: 0.95,
+                  }}
+                >{name}</text>
+              ))}
             </g>
 
             {/* Country gen/load — collision-resolved 2-line stack */}
@@ -506,10 +548,12 @@ export function HeroBalticMap() {
               if (!CABLE_PATHS[r.id] || r.mw < 5) return null;
               const particleCount = Math.max(3, Math.min(8, Math.round(r.mw / 80)));
               const cls = `particle-${r.id.replace(/[^a-z0-9]/g, '-')}`;
-              return Array.from({ length: particleCount }).map((_, i) => (
-                <circle key={`${r.id}-${i}`} className={cls}
-                  r="2.5" fill="var(--cable-particle)" opacity="0.85" />
-              ));
+              return Array.from({ length: particleCount }).flatMap((_, i) => [
+                <circle key={`${r.id}-glow-${i}`} className={cls}
+                  r="6" fill="var(--cable-particle)" opacity="0.15" />,
+                <circle key={`${r.id}-core-${i}`} className={cls}
+                  r="3" fill="var(--cable-particle)" opacity="0.9" />,
+              ]);
             })}
           </svg>
 

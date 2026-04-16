@@ -1,21 +1,25 @@
 {
-  "version": 2,
+  "version": 3,
   "image": "design-assets/Map/Layers",
   "imageWidth": 1024,
   "imageHeight": 1332,
-  "capturedAt": "2026-04-16T20:00:00.000Z",
+  "capturedAt": "2026-04-16T22:00:00.000Z",
   "kind": "cable_waypoints",
   "cables": {
     "nordbalt": {
       "waypoints": [
         { "px": 130, "py": 760 },
-        { "px": 250, "py": 830 },
-        { "px": 515, "py": 870 }
+        { "px": 180, "py": 790 },
+        { "px": 250, "py": 820 },
+        { "px": 340, "py": 845 },
+        { "px": 430, "py": 860 },
+        { "px": 515, "py": 865 }
       ]
     },
     "litpol": {
       "waypoints": [
         { "px": 715, "py": 1055 },
+        { "px": 668, "py": 1090 },
         { "px": 620, "py": 1125 }
       ]
     },
@@ -28,21 +32,26 @@
     "estlink-2": {
       "waypoints": [
         { "px": 835, "py": 395 },
-        { "px": 810, "py": 340 },
+        { "px": 815, "py": 345 },
+        { "px": 795, "py": 310 },
         { "px": 775, "py": 290 }
       ]
     },
     "fennoskan-1": {
       "waypoints": [
         { "px": 325, "py": 290 },
+        { "px": 370, "py": 272 },
         { "px": 440, "py": 250 },
+        { "px": 500, "py": 232 },
         { "px": 555, "py": 218 }
       ]
     },
     "fennoskan-2": {
       "waypoints": [
         { "px": 315, "py": 280 },
+        { "px": 360, "py": 262 },
         { "px": 430, "py": 240 },
+        { "px": 490, "py": 222 },
         { "px": 545, "py": 205 }
       ]
     }
