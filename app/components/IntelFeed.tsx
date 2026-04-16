@@ -657,7 +657,7 @@ function IntelRow({ item, isExpanded, onToggle }: {
             <p style={{
               fontFamily: 'var(--font-mono)',
               fontSize: 'var(--font-xs)',
-              color: 'rgba(0,180,160,0.65)',
+              color: 'var(--teal-medium)',
               margin: 0,
               lineHeight: 1.5,
             }}>
@@ -774,7 +774,7 @@ function FeaturedRow({ item }: { item: IntelItem }) {
       <p style={{
         fontFamily: 'var(--font-mono)',
         fontSize: 'var(--font-xs)',
-        color: 'var(--text-tertiary)',
+        color: 'var(--amber-strong)',
         letterSpacing: '0.14em',
         textTransform: 'uppercase',
         marginBottom: '12px',
@@ -1036,8 +1036,7 @@ export function IntelFeed() {
       {/* Featured item */}
       {featuredItem && <FeaturedRow item={featuredItem} />}
 
-      {/* Pinned editorial strip */}
-      {activeFilter === 'all' && countryFilter === 'all' && <PinnedStrip items={pinned} />}
+      {/* Pinned editorial strip — retired in Phase 4A (V-11), redundant after 8-item cap */}
 
       {/* Country tabs */}
       <div style={{ display: 'flex', gap: '2px', marginBottom: '12px' }}>
@@ -1092,13 +1091,15 @@ export function IntelFeed() {
                   fontSize: 'var(--font-xs)',
                   letterSpacing: '0.06em',
                   padding: '5px 10px',
-                  border: `1px solid ${isActive ? 'var(--border-highlight)' : 'var(--border-card)'}`,
-                  background: isActive ? 'var(--bg-elevated)' : 'transparent',
-                  color: isActive ? 'var(--text-secondary)' : 'var(--text-tertiary)',
+                  border: `1px solid ${isActive ? 'var(--teal-subtle)' : 'var(--border-card)'}`,
+                  background: isActive ? 'var(--teal-bg)' : 'transparent',
+                  color: isActive ? 'var(--teal-medium)' : 'var(--text-tertiary)',
                   cursor: 'pointer',
                   borderRadius: '2px',
-                  transition: 'border-color 0.15s, color 0.15s',
+                  transition: 'background 0.15s, border-color 0.15s, color 0.15s',
                 }}
+                onMouseEnter={e => { if (!isActive) { e.currentTarget.style.background = 'var(--bg-card-highlight)'; } }}
+                onMouseLeave={e => { if (!isActive) { e.currentTarget.style.background = 'transparent'; } }}
               >
                 {label}
                 {cat !== 'all' && count > 0 && (

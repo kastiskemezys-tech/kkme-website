@@ -850,7 +850,7 @@ export function S2Card() {
               gap: '14px',
               marginBottom: '8px',
             }}>
-              <div style={{ padding: '6px 10px', borderLeft: '2px dashed rgba(239,159,39,0.3)' }}>
+              <div style={{ padding: '6px 10px', borderLeft: '2px dashed var(--capacity-border)' }}>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>
                   {data.afrr_up_avg != null ? safeNum(data.afrr_up_avg, 1) : '--'} <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>EUR/MW/h</span>
                 </div>
@@ -861,7 +861,7 @@ export function S2Card() {
                   {'\u2248'} {'\u20AC'}{Math.round((data.afrr_up_avg ?? 0) * 8760 * 0.97 / 1000)}k/MW/yr at 97% availability
                 </div>
               </div>
-              <div style={{ padding: '6px 10px', borderLeft: '2px dashed rgba(239,159,39,0.3)' }}>
+              <div style={{ padding: '6px 10px', borderLeft: '2px dashed var(--capacity-border)' }}>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>
                   {data.mfrr_up_avg != null ? safeNum(data.mfrr_up_avg, 1) : '--'} <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>EUR/MW/h</span>
                 </div>

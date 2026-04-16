@@ -26,7 +26,7 @@ interface S6Signal {
   _age_hours?:      number | null;
 }
 
-const text = (opacity: number) => `rgba(232, 226, 217, ${opacity})`;
+// LEGACY: text() helper removed — use var(--text-*) tokens directly
 const MONO: CSSProperties = { fontFamily: 'var(--font-mono)' };
 
 function formatTs(iso: string): string {
@@ -56,7 +56,7 @@ export function S6Card() {
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
         <SignalIcon type="hydro" size={20} />
-        <h3 style={{ ...MONO, fontSize: '0.9375rem', letterSpacing: '0.06em', color: text(0.72), fontWeight: 600, textTransform: 'uppercase' }}>
+        <h3 style={{ ...MONO, fontSize: '0.9375rem', letterSpacing: '0.06em', color: 'var(--signal-neutral)', fontWeight: 600, textTransform: 'uppercase' }}>
           Nordic Hydro Reservoir
         </h3>
       </div>
@@ -90,8 +90,8 @@ export function S6Card() {
 function Skeleton() {
   return (
     <>
-      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', fontWeight: 400, color: text(0.1), lineHeight: 1, letterSpacing: '-0.02em', marginBottom: '0.75rem' }}>—</p>
-      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.625rem', color: text(0.2), letterSpacing: '0.1em' }}>Fetching</p>
+      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', fontWeight: 400, color: 'var(--text-ghost)', lineHeight: 1, letterSpacing: '-0.02em', marginBottom: '0.75rem' }}>—</p>
+      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.625rem', color: 'var(--text-faint)', letterSpacing: '0.1em' }}>Fetching</p>
     </>
   );
 }
@@ -99,8 +99,8 @@ function Skeleton() {
 function ErrorState() {
   return (
     <>
-      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', fontWeight: 400, color: text(0.1), lineHeight: 1, letterSpacing: '-0.02em', marginBottom: '0.75rem' }}>—</p>
-      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.625rem', color: text(0.40), letterSpacing: '0.1em' }}>Data unavailable</p>
+      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', fontWeight: 400, color: 'var(--text-ghost)', lineHeight: 1, letterSpacing: '-0.02em', marginBottom: '0.75rem' }}>—</p>
+      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.625rem', color: 'var(--text-muted)', letterSpacing: '0.1em' }}>Data unavailable</p>
     </>
   );
 }
@@ -116,12 +116,12 @@ function FillBar({ fill, median }: { fill: number; median: number }) {
     ? 'var(--amber-bg)'
     : isHigh
     ? 'var(--teal-bg)'
-    : 'rgba(100,130,200,0.20)';
+    : 'var(--hydro-fill-neutral)';
   const shimmerColor = isLow
     ? 'var(--amber-bg)'
     : isHigh
     ? 'var(--teal-bg)'
-    : 'rgba(100,130,200,0.12)';
+    : 'var(--hydro-shimmer)';
 
   return (
     <div style={{ margin: '12px 0 8px' }}>
@@ -172,7 +172,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
           <span style={{ fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', color: heroColor }}>
             {data.fill_pct != null ? `${safeNum(data.fill_pct, 1)}%` : '—'}
           </span>
-          <span style={{ fontSize: '0.75rem', marginLeft: '0.4em', color: text(0.4) }}>
+          <span style={{ fontSize: '0.75rem', marginLeft: '0.4em', color: 'var(--text-muted)' }}>
             {data.signal ?? ''}
           </span>
         </p>
@@ -186,18 +186,18 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
 
       {/* Deviation row */}
       {data.deviation_pp != null && (
-        <p style={{ ...MONO, fontSize: '0.6rem', color: text(0.45), lineHeight: 1.5, marginBottom: '0.75rem' }}>
+        <p style={{ ...MONO, fontSize: '0.6rem', color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: '0.75rem' }}>
           {devSign}{safeNum(data.deviation_pp, 1)}pp vs median
           {data.median_fill_pct != null && ` (median ${safeNum(data.median_fill_pct, 1)}%)`}
           {data.week != null && `, week ${data.week}`}
         </p>
       )}
 
-      <p style={{ ...MONO, fontSize: '0.6rem', color: text(0.4), lineHeight: 1.5, marginBottom: '1.5rem' }}>
+      <p style={{ ...MONO, fontSize: '0.6rem', color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: '1.5rem' }}>
         {data.interpretation ?? '—'}
       </p>
 
-      <time dateTime={ts ?? ''} style={{ ...MONO, fontSize: '0.575rem', color: text(0.40), letterSpacing: '0.06em', display: 'block', textAlign: 'right' }}>
+      <time dateTime={ts ?? ''} style={{ ...MONO, fontSize: '0.575rem', color: 'var(--text-muted)', letterSpacing: '0.06em', display: 'block', textAlign: 'right' }}>
         {ts ? formatTs(ts) : '—'}
         <StaleBanner isDefault={false} isStale={isStale} ageHours={ageHours} defaultReason={null} />
       </time>

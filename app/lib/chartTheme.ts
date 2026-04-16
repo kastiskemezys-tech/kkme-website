@@ -5,34 +5,34 @@ import { useState, useEffect } from 'react';
 
 // Data-semantic colors — consistent across themes
 const DATA_COLORS = {
-  teal: 'rgb(0,180,160)',
-  tealMid: 'rgba(0,180,160,0.55)',
-  tealLight: 'rgba(0,180,160,0.25)',
-  amber: 'rgb(212,160,60)',
-  amberLight: 'rgba(212,160,60,0.5)',
-  rose: 'rgb(214,88,88)',
-  roseLight: 'rgba(214,88,88,0.5)',
+  teal: 'var(--teal)',
+  tealMid: 'var(--teal-medium)',
+  tealLight: 'var(--teal-subtle)',
+  amber: 'var(--amber)',
+  amberLight: 'var(--amber-subtle)',
+  rose: 'var(--rose)',
+  roseLight: 'var(--rose-strong)',
 };
 
 // Chrome colors — theme-dependent
 const DARK_CHROME = {
-  textPrimary: 'rgba(232,226,217,0.88)',
-  textSecondary: 'rgba(232,226,217,0.65)',
-  textMuted: 'rgba(232,226,217,0.35)',
-  grid: 'rgba(232,226,217,0.08)',
-  border: 'rgba(232,226,217,0.08)',
-  tooltipBg: 'rgba(7,7,10,0.95)',
-  tooltipBorder: 'rgba(232,226,217,0.20)',
+  textPrimary: 'var(--text-primary)',
+  textSecondary: 'var(--text-secondary)',
+  textMuted: 'var(--text-muted)',
+  grid: 'var(--chart-grid)',
+  border: 'var(--chart-grid)',
+  tooltipBg: 'var(--overlay-heavy)',
+  tooltipBorder: 'var(--border-highlight)',
 };
 
 const LIGHT_CHROME = {
-  textPrimary: 'rgba(40,38,34,0.88)',
-  textSecondary: 'rgba(60,58,54,0.7)',
-  textMuted: 'rgba(80,78,74,0.5)',
-  grid: 'rgba(60,58,54,0.1)',
-  border: 'rgba(60,58,54,0.1)',
-  tooltipBg: 'rgba(250,248,244,0.97)',
-  tooltipBorder: 'rgba(60,58,54,0.2)',
+  textPrimary: 'var(--text-primary)',
+  textSecondary: 'var(--text-secondary)',
+  textMuted: 'var(--text-muted)',
+  grid: 'var(--chart-grid)',
+  border: 'var(--chart-grid)',
+  tooltipBg: 'var(--overlay-heavy)',
+  tooltipBorder: 'var(--border-highlight)',
 };
 
 export type ChartColors = typeof DATA_COLORS & typeof DARK_CHROME;
@@ -63,7 +63,7 @@ export function useChartColors(): ChartColors {
 }
 
 export const CHART_FONT = {
-  family: "'DM Mono', 'Courier New', monospace",
+  family: "var(--font-mono)",
 };
 
 // Hook: returns theme-aware tooltip style

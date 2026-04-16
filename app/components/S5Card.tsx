@@ -32,7 +32,7 @@ interface S5Signal {
   _age_hours?:       number | null;
 }
 
-const text = (opacity: number) => `rgba(232, 226, 217, ${opacity})`;
+// LEGACY: text() helper removed — use var(--text-*) tokens directly
 const MONO: CSSProperties = { fontFamily: 'var(--font-mono)' };
 const SERIF: CSSProperties = { fontFamily: 'var(--font-serif)' };
 
@@ -128,10 +128,10 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason }: LiveDat
       {/* Hero: dot + signal text */}
       {(() => {
         const glowColor = {
-          OPEN:        'rgba(45,212,168,0.55)',
+          OPEN:        'var(--teal-glow)',
           TIGHTENING:  'var(--amber-strong)',
-          CONSTRAINED: 'rgba(212,88,88,0.55)',
-        }[data.signal ?? 'OPEN'] ?? 'rgba(45,212,168,0.55)';
+          CONSTRAINED: 'var(--rose-strong)',
+        }[data.signal ?? 'OPEN'] ?? 'var(--teal-glow)';
         return (
           <div style={{ marginBottom: '1.25rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
@@ -183,9 +183,9 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason }: LiveDat
         unit="MW"
         width={180}
         thresholds={[
-          { value: 500,  label: '500',  color: 'rgba(239,68,68,1)' },
-          { value: 2000, label: '2GW',  color: 'rgba(245,158,11,1)' },
-          { value: 4000, label: '4GW',  color: 'rgba(74,222,128,1)' },
+          { value: 500,  label: '500',  color: 'var(--threshold-red)' },
+          { value: 2000, label: '2GW',  color: 'var(--threshold-amber)' },
+          { value: 4000, label: '4GW',  color: 'var(--threshold-green)' },
         ]}
       />
 
@@ -200,7 +200,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason }: LiveDat
           <p style={{ ...MONO, fontSize: '0.5rem', letterSpacing: '0.14em', color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: '0.6rem' }}>
             Baltic DC pipeline
           </p>
-          <p style={{ ...MONO, fontSize: '0.625rem', color: text(0.55), marginBottom: '0.3rem' }}>
+          <p style={{ ...MONO, fontSize: '0.625rem', color: 'var(--text-tertiary)', marginBottom: '0.3rem' }}>
             {data.pipeline_mw.toLocaleString('en-GB')} MW announced
           </p>
           {data.pipeline_note && (

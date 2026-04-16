@@ -7,6 +7,7 @@ import { HeroBalticMap } from '@/app/components/HeroBalticMap';
 import StickyNav from '@/app/components/StickyNav';
 import { PageInteractions } from '@/app/components/PageInteractions';
 import { SignalDrawerPanel } from '@/app/components/SignalDrawerPanel';
+import { ScrollReveal } from '@/app/components/ScrollReveal';
 
 // Below-fold: lazy-loaded via dynamic import to reduce initial bundle
 const S3Card = dynamic(() => import('@/app/components/S3Card').then(m => m.S3Card));
@@ -22,7 +23,6 @@ const TradingEngineCard = dynamic(() => import('@/app/components/TradingEngineCa
 const IntelFeed = dynamic(() => import('@/app/components/IntelFeed').then(m => m.IntelFeed));
 const ContactForm = dynamic(() => import('@/app/components/ContactForm').then(m => m.ContactForm));
 const PageBackground = dynamic(() => import('@/app/components/PageBackground').then(m => m.PageBackground));
-const CardEntrance = dynamic(() => import('@/app/components/CardEntrance').then(m => m.CardEntrance));
 
 export default function Home() {
   return (
@@ -30,7 +30,6 @@ export default function Home() {
       <PageInteractions />
       <PageBackground />
       <StickyNav />
-      <CardEntrance />
 
       {/* ═══ HERO — full-width, outside page-container ═══ */}
       <HeroBalticMap />
@@ -38,158 +37,180 @@ export default function Home() {
       <div className="page-container">
 
         {/* ═══ REVENUE SIGNALS ═══ */}
-        <div className="section" id="revenue-drivers">
-          <div style={{ marginBottom: '32px' }}>
-            <h2 className="section-header" style={{ marginBottom: '6px' }}>Revenue signals</h2>
-            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Day-ahead price capture and balancing market revenue — capacity reservation, activation energy, and DA arbitrage.</p>
-          </div>
-          <div className="grid-2 grid-2-stretch">
-            <div className="card card-tier1" style={{ alignSelf: 'stretch', display: 'flex', flexDirection: 'column' }}>
-              <CardBoundary signal="S1"><S1Card /></CardBoundary>
+        <ScrollReveal>
+          <div className="section" id="revenue-drivers">
+            <div style={{ marginBottom: '32px' }}>
+              <h2 className="section-header" style={{ marginBottom: '6px' }}>Revenue signals</h2>
+              <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-base)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>Day-ahead price capture and balancing market revenue — capacity reservation, activation energy, and DA arbitrage.</p>
             </div>
-            <div className="card-tier1-feature" style={{ alignSelf: 'stretch', display: 'flex', flexDirection: 'column' }}>
-              <CardBoundary signal="S2"><S2Card /></CardBoundary>
-            </div>
-          </div>
-          <SignalDrawerPanel />
-        </div>
-
-        {/* ═══ BUILD SIGNALS ═══ */}
-        <div className="section" id="build">
-          <div style={{ marginBottom: '32px' }}>
-            <h2 className="section-header" style={{ marginBottom: '6px' }}>Build conditions</h2>
-            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Project costs, financing, and grid access — the practical constraints on buildability</p>
-          </div>
-          <div className="grid-2">
-            <div className="card" style={{ alignSelf: 'stretch', display: 'flex', flexDirection: 'column' }}>
-              <CardBoundary signal="S3"><S3Card /></CardBoundary>
-            </div>
-            <div className="card" style={{ alignSelf: 'stretch', display: 'flex', flexDirection: 'column' }}>
-              <CardBoundary signal="S4"><S4Card /></CardBoundary>
-            </div>
-          </div>
-        </div>
-
-        {/* ═══ STRUCTURAL MARKET DRIVERS ═══ */}
-        <div className="section" id="structural">
-          <div style={{ marginBottom: '24px' }}>
-            <h2 className="section-header" style={{ marginBottom: '6px' }}>Structural market drivers</h2>
-            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Renewable mix, residual load, price spreads, and commodity signals driving Baltic BESS dispatch economics</p>
-          </div>
-
-          <div className="tier3-grid">
-            <div className="card-tier3">
-              <CardBoundary signal="renewable-mix"><RenewableMixCard /></CardBoundary>
-            </div>
-            <div className="card-tier3">
-              <CardBoundary signal="residual-load"><ResidualLoadCard /></CardBoundary>
-            </div>
-            <div className="card-tier3">
-              <CardBoundary signal="peak-forecast"><PeakForecastCard /></CardBoundary>
-            </div>
-            <div className="card-tier3">
-              <CardBoundary signal="spread-capture"><SpreadCaptureCard /></CardBoundary>
-            </div>
-            <div className="card-tier3">
-              <CardBoundary signal="S7"><S7Card /></CardBoundary>
-            </div>
-            <div className="card-tier3">
-              <CardBoundary signal="S9"><S9Card /></CardBoundary>
-            </div>
-          </div>
-
-        </div>
-
-        {/* ═══ REVENUE ENGINE — elevated ═══ */}
-        <div className="section-elevated" id="revenue">
-          <div style={{ marginBottom: '32px' }}>
-            <h2 className="section-header" style={{ marginBottom: '6px' }}>50 MW reference asset</h2>
-            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>How timing, duration, and installed cost shape storage economics</p>
-          </div>
-          <div>
-            <ErrorBoundary>
-              <RevenueCard />
-            </ErrorBoundary>
-          </div>
-          <div className="inline-cta">
-            <a href="#conversation">Looking at Baltic storage? Start the conversation ↗</a>
-          </div>
-        </div>
-
-        {/* ═══ DISPATCH INTELLIGENCE ═══ */}
-        <div className="section" id="trading">
-          <div style={{ marginBottom: '32px' }}>
-            <h2 className="section-header" style={{ marginBottom: '6px' }}>Dispatch intelligence</h2>
-            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>How the KKME dispatch algorithm allocates a reference BESS across Baltic balancing and arbitrage</p>
-          </div>
-          <div className="card card-tier1">
-            <ErrorBoundary>
-              <TradingEngineCard />
-            </ErrorBoundary>
-          </div>
-        </div>
-
-        {/* ═══ MARKET INTELLIGENCE ═══ */}
-        <div className="section" id="intel">
-          <div style={{ marginBottom: '24px' }}>
-            <h2 className="section-header" style={{ marginBottom: '6px' }}>Market intelligence</h2>
-            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>
-              Developments that affect Baltic BESS revenue, buildability, and market structure
-            </p>
-          </div>
-          <IntelFeed />
-        </div>
-
-        {/* ═══ DISCUSS BALTIC STORAGE ═══ */}
-        <div className="section" id="conversation">
-          <div style={{ marginBottom: '32px' }}>
-            <h2 className="section-header" style={{ marginBottom: '6px' }}>Discuss Baltic storage</h2>
-          </div>
-          <div className="grid-2" style={{ alignItems: 'start' }}>
-            {/* LEFT: Copy + credit */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
-              <p style={{
-                fontFamily: 'var(--font-serif)',
-                fontSize: 'var(--font-base)',
-                color: 'var(--text-secondary)',
-                lineHeight: 1.7,
-                maxWidth: '480px',
-              }}>
-                Looking at Baltic storage? Working on a project, evaluating an investment, or comparing market notes — I&apos;d like to hear from you.
-              </p>
-              <div>
-                <p style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: 'var(--font-sm)',
-                  color: 'var(--text-muted)',
-                  marginBottom: '10px',
-                }}>
-                  Kastytis Kemežys · Baltic energy infrastructure
-                </p>
-                <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-                  <a href="mailto:kastytis@kkme.eu" style={{
-                    fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)',
-                    color: 'var(--teal)', textDecoration: 'none',
-                  }}>kastytis@kkme.eu</a>
-                  <a href="tel:+37069822225" style={{
-                    fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)',
-                    color: 'var(--text-muted)', textDecoration: 'none',
-                  }}>+370 698 22225</a>
-                  <a href="https://www.linkedin.com/in/kastytis-kemezys/"
-                    target="_blank" rel="noopener noreferrer" style={{
-                    fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)',
-                    color: 'var(--teal)', textDecoration: 'none',
-                  }}>LinkedIn ↗</a>
-                </div>
+            <div className="grid-2 grid-2-stretch">
+              <div className="card card-tier1" style={{ alignSelf: 'stretch', display: 'flex', flexDirection: 'column' }}>
+                <CardBoundary signal="S1"><S1Card /></CardBoundary>
+              </div>
+              <div className="card-tier1-feature" style={{ alignSelf: 'stretch', display: 'flex', flexDirection: 'column' }}>
+                <CardBoundary signal="S2"><S2Card /></CardBoundary>
               </div>
             </div>
+            <SignalDrawerPanel />
+          </div>
+        </ScrollReveal>
 
-            {/* RIGHT: Form */}
-            <div>
-              <ContactForm />
+        <hr className="section-divider" />
+
+        {/* ═══ BUILD SIGNALS ═══ */}
+        <ScrollReveal>
+          <div className="section" id="build">
+            <div style={{ marginBottom: '32px' }}>
+              <h2 className="section-header" style={{ marginBottom: '6px' }}>Build conditions</h2>
+              <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-base)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>Project costs, financing, and grid access — the practical constraints on buildability.</p>
+            </div>
+            <div className="grid-2">
+              <div className="card" style={{ alignSelf: 'stretch', display: 'flex', flexDirection: 'column' }}>
+                <CardBoundary signal="S3"><S3Card /></CardBoundary>
+              </div>
+              <div className="card" style={{ alignSelf: 'stretch', display: 'flex', flexDirection: 'column' }}>
+                <CardBoundary signal="S4"><S4Card /></CardBoundary>
+              </div>
             </div>
           </div>
-        </div>
+        </ScrollReveal>
+
+        <hr className="section-divider" />
+
+        {/* ═══ STRUCTURAL MARKET DRIVERS ═══ */}
+        <ScrollReveal>
+          <div className="section" id="structural">
+            <div style={{ marginBottom: '24px' }}>
+              <h2 className="section-header" style={{ marginBottom: '6px' }}>Structural market drivers</h2>
+              <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-base)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>Renewable mix, residual load, price spreads, and commodity signals driving Baltic BESS dispatch economics.</p>
+            </div>
+
+            <div className="tier3-grid">
+              <ScrollReveal delay={0}><div className="card-tier3">
+                <CardBoundary signal="renewable-mix"><RenewableMixCard /></CardBoundary>
+              </div></ScrollReveal>
+              <ScrollReveal delay={80}><div className="card-tier3">
+                <CardBoundary signal="residual-load"><ResidualLoadCard /></CardBoundary>
+              </div></ScrollReveal>
+              <ScrollReveal delay={160}><div className="card-tier3">
+                <CardBoundary signal="peak-forecast"><PeakForecastCard /></CardBoundary>
+              </div></ScrollReveal>
+              <ScrollReveal delay={240}><div className="card-tier3">
+                <CardBoundary signal="spread-capture"><SpreadCaptureCard /></CardBoundary>
+              </div></ScrollReveal>
+              <ScrollReveal delay={320}><div className="card-tier3">
+                <CardBoundary signal="S7"><S7Card /></CardBoundary>
+              </div></ScrollReveal>
+              <ScrollReveal delay={400}><div className="card-tier3">
+                <CardBoundary signal="S9"><S9Card /></CardBoundary>
+              </div></ScrollReveal>
+            </div>
+
+          </div>
+        </ScrollReveal>
+
+        {/* ═══ REVENUE ENGINE — elevated ═══ */}
+        <ScrollReveal>
+          <div className="section-elevated" id="revenue">
+            <div style={{ marginBottom: '32px' }}>
+              <h2 className="section-header" style={{ marginBottom: '6px' }}>50 MW reference asset</h2>
+              <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-base)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>How timing, duration, and installed cost shape storage economics.</p>
+            </div>
+            <div>
+              <ErrorBoundary>
+                <RevenueCard />
+              </ErrorBoundary>
+            </div>
+            <div className="inline-cta">
+              <a href="#conversation">Looking at Baltic storage? Start the conversation ↗</a>
+            </div>
+          </div>
+        </ScrollReveal>
+
+        {/* ═══ DISPATCH INTELLIGENCE ═══ */}
+        <ScrollReveal>
+          <div className="section" id="trading">
+            <div style={{ marginBottom: '32px' }}>
+              <h2 className="section-header" style={{ marginBottom: '6px' }}>Dispatch intelligence</h2>
+              <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-base)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>How the KKME dispatch algorithm allocates a reference BESS across Baltic balancing and arbitrage.</p>
+            </div>
+            <div className="card card-tier1">
+              <ErrorBoundary>
+                <TradingEngineCard />
+              </ErrorBoundary>
+            </div>
+          </div>
+        </ScrollReveal>
+
+        <hr className="section-divider" />
+
+        {/* ═══ MARKET INTELLIGENCE ═══ */}
+        <ScrollReveal>
+          <div className="section" id="intel">
+            <div style={{ marginBottom: '24px' }}>
+              <h2 className="section-header" style={{ marginBottom: '6px' }}>Market intelligence</h2>
+              <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-base)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                Developments that affect Baltic BESS revenue, buildability, and market structure.
+              </p>
+            </div>
+            <IntelFeed />
+          </div>
+        </ScrollReveal>
+
+        <hr className="section-divider" />
+
+        {/* ═══ DISCUSS BALTIC STORAGE ═══ */}
+        <ScrollReveal>
+          <div className="section" id="conversation">
+            <div style={{ marginBottom: '32px' }}>
+              <h2 className="section-header" style={{ marginBottom: '6px' }}>Discuss Baltic storage</h2>
+            </div>
+            <div className="grid-2" style={{ alignItems: 'start' }}>
+              {/* LEFT: Copy + credit */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+                <p style={{
+                  fontFamily: 'var(--font-serif)',
+                  fontSize: 'var(--font-base)',
+                  color: 'var(--text-secondary)',
+                  lineHeight: 1.7,
+                  maxWidth: '480px',
+                }}>
+                  Looking at Baltic storage? Working on a project, evaluating an investment, or comparing market notes — I&apos;d like to hear from you.
+                </p>
+                <div>
+                  <p style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: 'var(--font-sm)',
+                    color: 'var(--text-muted)',
+                    marginBottom: '10px',
+                  }}>
+                    Kastytis Kemežys · Baltic energy infrastructure
+                  </p>
+                  <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                    <a href="mailto:kastytis@kkme.eu" style={{
+                      fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)',
+                      color: 'var(--teal)', textDecoration: 'none',
+                    }}>kastytis@kkme.eu</a>
+                    <a href="tel:+37069822225" style={{
+                      fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)',
+                      color: 'var(--text-muted)', textDecoration: 'none',
+                    }}>+370 698 22225</a>
+                    <a href="https://www.linkedin.com/in/kastytis-kemezys/"
+                      target="_blank" rel="noopener noreferrer" style={{
+                      fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)',
+                      color: 'var(--teal)', textDecoration: 'none',
+                    }}>LinkedIn ↗</a>
+                  </div>
+                </div>
+              </div>
+
+              {/* RIGHT: Form */}
+              <div>
+                <ContactForm />
+              </div>
+            </div>
+          </div>
+        </ScrollReveal>
 
         {/* ═══ FOOTER ═══ */}
         <footer style={{

@@ -522,9 +522,9 @@ export function HeroBalticMap() {
                   fontFamily: 'var(--font-mono)', fontSize: '10px',
                   padding: '8px 12px',
                   borderRadius: '6px',
-                  background: isDark ? 'rgba(7,7,10,0.85)' : 'rgba(245,242,237,0.9)',
+                  background: 'var(--map-bg)',
                   backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
-                  border: `1px solid ${isDark ? 'rgba(232,226,217,0.1)' : 'rgba(26,26,31,0.1)'}`,
+                  border: '1px solid var(--border-card)',
                   whiteSpace: 'nowrap', pointerEvents: 'none', zIndex: 20,
                 }}
               >
@@ -542,82 +542,101 @@ export function HeroBalticMap() {
       </div>
 
       {/* ═══ RIGHT COLUMN ═══ */}
-      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', zIndex: 2, gridColumn: 3, gridRow: 1 }}>
-        <div style={{
-          fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-tertiary)',
-          textTransform: 'uppercase', letterSpacing: '0.08em',
-          display: 'flex', alignItems: 'center', gap: '6px',
-        }}>
-          <div
-            className={(!isLoaded || isRefreshing) ? 'pulse-dot' : 'static-dot'}
-            aria-hidden="true"
-            style={{
-              width: 6, height: 6, borderRadius: '50%',
-              background: 'var(--teal)', flexShrink: 0,
-            }}
-          />
-          <span>50 MW · 4H · {lr?.as_of ? new Date(lr.as_of).toLocaleTimeString('en-GB', {
-            hour: '2-digit', minute: '2-digit', timeZone: 'UTC',
-          }) + ' UTC' : ''}</span>
-        </div>
-        <div style={{
-          fontFamily: 'var(--font-mono)', fontSize: '80px', fontWeight: 500,
-          color: lr?.today_total_daily != null ? 'var(--text-primary)' : 'var(--text-ghost)',
-          lineHeight: 1, marginTop: '4px', fontVariantNumeric: 'tabular-nums',
-        }}>
-          {'€'}{fmt(lr?.today_total_daily)}
-        </div>
-        <div style={{
-          fontFamily: 'var(--font-mono)', fontSize: '14px', color: 'var(--text-secondary)',
-          textTransform: 'uppercase', letterSpacing: '0.08em',
-        }}>/MW/DAY</div>
-        {lr?.delta_pct != null && (
-          <div style={{
-            fontFamily: 'var(--font-mono)', fontSize: '12px',
-            color: lr.delta_pct < 0 ? 'var(--rose)' : 'var(--teal)',
-            marginTop: '8px', fontVariantNumeric: 'tabular-nums',
-          }}>
-            {lr.delta_pct < 0 ? '↓' : '↑'} {Math.abs(lr.delta_pct)}% vs base {'€'}{fmt(lr.base_daily)}
-          </div>
-        )}
-        <div style={{
-          fontFamily: 'var(--font-mono)', fontSize: '18px', fontWeight: 500,
-          color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums', marginTop: '8px',
-        }}>
-          {'€'}{lr?.annualised != null ? `${fmt(Math.round(lr.annualised / 1000))}k` : '···'}
-          <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 400, marginLeft: '4px' }}>/MW/YR</span>
-        </div>
-        {sparkData.length > 3 && (
-          <div style={{ marginTop: '12px' }}>
-            <Sparkline data={sparkData} />
-            <div style={{
-              fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-tertiary)',
-              textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: '2px',
-            }}>30D CAPTURE TREND</div>
-          </div>
-        )}
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '8px', zIndex: 2, gridColumn: 3, gridRow: 1 }}>
 
-        <div style={{ height: '32px' }} />
-
-        {/* Fleet */}
-        <div>
+        {/* Block 1 — Revenue headline */}
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '12px 16px' }}>
           <div style={{
             fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-tertiary)',
-            textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px',
-          }}>BALTIC FLEET · OPERATIONAL</div>
+            textTransform: 'uppercase', letterSpacing: '0.08em',
+            display: 'flex', alignItems: 'center', gap: '6px',
+          }}>
+            <div
+              className={(!isLoaded || isRefreshing) ? 'pulse-dot' : 'static-dot'}
+              aria-hidden="true"
+              style={{
+                width: 6, height: 6, borderRadius: '50%',
+                background: 'var(--teal)', flexShrink: 0,
+              }}
+            />
+            <span>50 MW · 4H · {lr?.as_of ? new Date(lr.as_of).toLocaleTimeString('en-GB', {
+              hour: '2-digit', minute: '2-digit', timeZone: 'UTC',
+            }) + ' UTC' : ''}</span>
+          </div>
+          <div style={{
+            fontFamily: 'var(--font-display)', fontSize: '72px', fontWeight: 500,
+            color: lr?.today_total_daily != null ? 'var(--text-primary)' : 'var(--text-ghost)',
+            lineHeight: 1, marginTop: '4px', fontVariantNumeric: 'tabular-nums',
+          }}>
+            {'€'}{fmt(lr?.today_total_daily)}
+          </div>
+          <div style={{
+            fontFamily: 'var(--font-mono)', fontSize: '14px', color: 'var(--text-secondary)',
+            textTransform: 'uppercase', letterSpacing: '0.08em',
+          }}>/MW/DAY</div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px', marginTop: '6px', flexWrap: 'wrap' }}>
+            {lr?.delta_pct != null && (
+              <span style={{
+                fontFamily: 'var(--font-mono)', fontSize: '12px',
+                color: lr.delta_pct < 0 ? 'var(--rose)' : 'var(--teal)',
+                fontVariantNumeric: 'tabular-nums',
+              }}>
+                {lr.delta_pct < 0 ? '↓' : '↑'} {Math.abs(lr.delta_pct)}% vs base
+              </span>
+            )}
+            <span style={{
+              fontFamily: 'var(--font-mono)', fontSize: '14px', fontWeight: 500,
+              color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums',
+            }}>
+              {'€'}{lr?.annualised != null ? `${fmt(Math.round(lr.annualised / 1000))}k` : '···'}
+              <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 400, marginLeft: '3px' }}>/MW/YR</span>
+            </span>
+          </div>
+          {sparkData.length > 3 && (
+            <div style={{ marginTop: '10px' }}>
+              <Sparkline data={sparkData} />
+              <div style={{
+                fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-tertiary)',
+                textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: '2px',
+              }}>30D CAPTURE TREND</div>
+            </div>
+          )}
+          {revenue?.project_irr != null && (
+            <div style={{
+              fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--amber-strong)',
+              marginTop: '6px', fontVariantNumeric: 'tabular-nums',
+            }}>
+              {(revenue.project_irr * 100).toFixed(1)}% gross IRR
+            </div>
+          )}
+        </div>
+
+        {/* Block 2 — Fleet composition */}
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '12px 16px' }}>
+          <div style={{
+            fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-tertiary)',
+            textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px',
+          }}>BALTIC FLEET</div>
+          <div style={{
+            fontFamily: 'var(--font-display)', fontSize: '24px', fontWeight: 500,
+            color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums',
+          }}>
+            {fmt(totalOp)} MW
+            <span style={{ fontSize: '10px', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', fontWeight: 400, textTransform: 'uppercase', letterSpacing: '0.06em', marginLeft: '4px' }}>OPERATIONAL</span>
+          </div>
           {countries && totalOp > 0 && (() => {
             const order = ['EE', 'LT', 'LV'] as const;
             const opacities = [0.5, 0.85, 0.35];
             return (
               <>
-                <div style={{ display: 'flex', gap: '1px', height: '10px', marginBottom: '4px', maxWidth: '280px', borderRadius: '3px', overflow: 'hidden' }}>
+                <div style={{ display: 'flex', gap: '1px', height: '8px', marginTop: '6px', marginBottom: '4px', borderRadius: '4px', overflow: 'hidden' }}>
                   {order.map((k, i) => {
                     const c = countries[k];
                     if (!c) return null;
                     return <div key={k} style={{ width: `${(c.operational_mw / totalOp) * 100}%`, background: 'var(--teal)', opacity: opacities[i] }} />;
                   })}
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', maxWidth: '280px', fontFamily: 'var(--font-mono)', fontSize: '11px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-mono)', fontSize: '11px' }}>
                   {order.map(k => {
                     const c = countries[k];
                     if (!c) return null;
@@ -634,39 +653,42 @@ export function HeroBalticMap() {
               </>
             );
           })()}
-          <div style={{
-            fontFamily: 'var(--font-mono)', fontSize: '20px', fontWeight: 500,
-            color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums', marginTop: '8px',
-          }}>
-            {fmt(totalOp)} MW
-            <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 400, textTransform: 'uppercase', letterSpacing: '0.06em', marginLeft: '4px' }}>OPERATIONAL</span>
-          </div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px', textTransform: 'uppercase' }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', textTransform: 'uppercase' }}>
             + {fmt(fleet?.baltic_pipeline_mw)} MW PIPELINE
           </div>
-          <div style={{ display: 'flex', gap: '12px', marginTop: '8px', fontFamily: 'var(--font-mono)', fontSize: '12px' }}>
-            <span style={{ color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>
-              S/D {fleet?.sd_ratio != null ? fleet.sd_ratio.toFixed(2) : '—'}{'×'}
-            </span>
-            {fleet?.phase && (
-              <span style={{
-                color: 'var(--text-secondary)', border: '1px solid var(--border-card)',
-                padding: '0 6px', fontSize: '10px', textTransform: 'uppercase',
-                letterSpacing: '0.06em', lineHeight: '18px', borderRadius: '4px',
-              }}>{fleet.phase}</span>
-            )}
-            {fleet?.cpi != null && (
-              <span style={{ color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>CPI {fleet.cpi.toFixed(2)}</span>
-            )}
+        </div>
+
+        {/* Block 3 — Key ratios */}
+        <div style={{
+          display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '4px',
+        }}>
+          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '8px 10px', textAlign: 'center' }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>S/D</div>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: '16px', color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums', marginTop: '2px' }}>
+              {fleet?.sd_ratio != null ? fleet.sd_ratio.toFixed(2) : '—'}{'×'}
+            </div>
+          </div>
+          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '8px 10px', textAlign: 'center' }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>CPI</div>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: '16px', color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums', marginTop: '2px' }}>
+              {fleet?.cpi != null ? fleet.cpi.toFixed(2) : '—'}
+            </div>
+          </div>
+          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '8px 10px', textAlign: 'center' }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>PHASE</div>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: '14px', color: 'var(--text-primary)', textTransform: 'uppercase', marginTop: '2px' }}>
+              {fleet?.phase ?? '—'}
+            </div>
           </div>
         </div>
+
       </div>
 
       {/* ═══ TICKER — seamless loop ═══ */}
       <div style={{
         gridColumn: '1 / -1', overflow: 'hidden', display: 'flex', alignItems: 'center',
         borderRadius: '6px',
-        background: isDark ? 'rgba(7,7,10,0.8)' : 'rgba(245,242,237,0.8)',
+        background: 'var(--overlay-heavy)',
         backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
         borderTop: '1px solid var(--border-card)', zIndex: 10,
       }}>

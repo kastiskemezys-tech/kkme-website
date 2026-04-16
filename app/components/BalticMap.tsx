@@ -96,10 +96,10 @@ const LOCATIONS: Record<string, [number, number]> = {
 
 // Per-country fill and stroke
 const COUNTRY_STYLE: Record<string, { fill: string; stroke: string; strokeWidth: number }> = {
-  LT:  { fill: 'rgba(123,94,167,0.15)',  stroke: 'rgba(123,94,167,0.50)', strokeWidth: 0.8 },
+  LT:  { fill: 'var(--violet-fill)',  stroke: 'var(--violet-stroke)', strokeWidth: 0.8 },
   LV:  { fill: 'var(--bg-elevated)', stroke: 'var(--text-ghost)', strokeWidth: 0.4 },
   EE:  { fill: 'var(--bg-elevated)', stroke: 'var(--text-ghost)', strokeWidth: 0.4 },
-  SE4: { fill: 'rgba(74,222,128,0.06)',  stroke: 'var(--text-ghost)', strokeWidth: 0.4 },
+  SE4: { fill: 'var(--accent-se4-fill)',  stroke: 'var(--text-ghost)', strokeWidth: 0.4 },
   PL:  { fill: 'var(--bg-card)', stroke: 'var(--text-ghost)', strokeWidth: 0.4 },
 };
 
@@ -173,18 +173,18 @@ export function BalticMap({
         <defs>
           {/* markerEnd — arrow at the END of the path (used for LT exports) */}
           <marker id="arrow-green" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-            <path d="M0,0 L0,6 L6,3 z" fill="rgba(74,222,128,0.80)" />
+            <path d="M0,0 L0,6 L6,3 z" fill="var(--accent-green-bright)" />
           </marker>
           <marker id="arrow-amber" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-            <path d="M0,0 L0,6 L6,3 z" fill="rgba(245,158,11,0.80)" />
+            <path d="M0,0 L0,6 L6,3 z" fill="var(--accent-amber-bright)" />
           </marker>
 
           {/* markerStart — arrow at the START (LT end) reversed (used for LT imports) */}
           <marker id="arrow-start-green" markerWidth="6" markerHeight="6" refX="1" refY="3" orient="auto-start-reverse">
-            <path d="M0,0 L0,6 L6,3 z" fill="rgba(74,222,128,0.80)" />
+            <path d="M0,0 L0,6 L6,3 z" fill="var(--accent-green-bright)" />
           </marker>
           <marker id="arrow-start-amber" markerWidth="6" markerHeight="6" refX="1" refY="3" orient="auto-start-reverse">
-            <path d="M0,0 L0,6 L6,3 z" fill="rgba(245,158,11,0.80)" />
+            <path d="M0,0 L0,6 L6,3 z" fill="var(--accent-amber-bright)" />
           </marker>
 
           <filter id="map-glow">
@@ -220,7 +220,7 @@ export function BalticMap({
           id="nb-arc"
           d={arc(ltNode, se4Node, -35)}
           fill="none"
-          stroke={nbLTExports ? 'rgba(74,222,128,0.60)' : 'rgba(245,158,11,0.60)'}
+          stroke={nbLTExports ? 'var(--accent-green-flow)' : 'var(--accent-amber-flow)'}
           strokeWidth={nbThick}
           strokeDasharray={!nordbalt_mw ? '4,4' : undefined}
           markerEnd={nbLTExports ? 'url(#arrow-green)' : undefined}
@@ -235,7 +235,7 @@ export function BalticMap({
           id="lp-arc"
           d={arc(ltNode, plNode, 22)}
           fill="none"
-          stroke={lpLTExports ? 'rgba(74,222,128,0.60)' : 'rgba(245,158,11,0.60)'}
+          stroke={lpLTExports ? 'var(--accent-green-flow)' : 'var(--accent-amber-flow)'}
           strokeWidth={lpThick}
           strokeDasharray={!litpol_mw ? '4,4' : undefined}
           markerEnd={lpLTExports ? 'url(#arrow-green)' : undefined}
@@ -244,7 +244,7 @@ export function BalticMap({
         />
 
         {/* LT ambient glow ring */}
-        <circle cx={ltNode[0]} cy={ltNode[1]} r={42} fill="rgba(45,212,168,0.06)" filter="url(#lt-glow)" />
+        <circle cx={ltNode[0]} cy={ltNode[1]} r={42} fill="var(--teal-glow-bg)" filter="url(#lt-glow)" />
 
         {/* City nodes */}
         {Object.entries(LOCATIONS).map(([name, coords]) => {
@@ -258,7 +258,7 @@ export function BalticMap({
               <circle
                 cx={x} cy={y}
                 r={isLT ? 4 : 2.5}
-                fill={isLT ? 'rgba(123,94,167,0.9)' : 'var(--text-muted)'}
+                fill={isLT ? 'var(--violet-strong)' : 'var(--text-muted)'}
               />
               <text
                 x={x + 6} y={y + 1}
@@ -277,7 +277,7 @@ export function BalticMap({
             x={ltNode[0]} y={ltNode[1] - 22}
             textAnchor="middle"
             fontFamily="var(--font-mono)" fontSize="7"
-            fill={free_mw != null && free_mw > 2000 ? 'rgba(86,166,110,0.85)' : 'rgba(204,160,72,0.85)'}
+            fill={free_mw != null && free_mw > 2000 ? 'var(--signal-positive)' : 'var(--signal-warning)'}
           >
             {free_mw != null ? (free_mw > 2000 ? 'DC: OPEN' : 'DC: TIGHT') : 'DC VIEW'}
           </text>
@@ -287,7 +287,7 @@ export function BalticMap({
         {free_mw != null && (
           <g transform={`translate(${ltNode[0] - 23},${ltNode[1] + 8})`}>
             <rect width="50" height="14" rx="2" fill="var(--overlay-heavy)" stroke="var(--violet)" strokeWidth="0.5" />
-            <text x="25" y="10" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="6" fill="rgba(74,222,128,0.85)">
+            <text x="25" y="10" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="6" fill="var(--accent-green-label)">
               {(free_mw / 1000).toFixed(1)} GW free
             </text>
           </g>
@@ -319,8 +319,8 @@ export function BalticMap({
         marginTop: '4px',
         justifyContent: 'flex-end',
       }}>
-        <span><span style={{ color: 'rgba(74,222,128,0.80)' }}>→</span> LT export</span>
-        <span><span style={{ color: 'rgba(245,158,11,0.80)' }}>→</span> LT import</span>
+        <span><span style={{ color: 'var(--accent-green-bright)' }}>→</span> LT export</span>
+        <span><span style={{ color: 'var(--accent-amber-bright)' }}>→</span> LT import</span>
       </div>
     </div>
   );
