@@ -12,11 +12,11 @@ import { SignalDrawerPanel } from '@/app/components/SignalDrawerPanel';
 const S3Card = dynamic(() => import('@/app/components/S3Card').then(m => m.S3Card));
 const S4Card = dynamic(() => import('@/app/components/S4Card').then(m => m.S4Card));
 const S7Card = dynamic(() => import('@/app/components/S7Card').then(m => m.S7Card));
-const S8Card = dynamic(() => import('@/app/components/S8Card').then(m => m.S8Card));
 const S9Card = dynamic(() => import('@/app/components/S9Card').then(m => m.S9Card));
-const WindCard = dynamic(() => import('@/app/components/WindCard').then(m => m.WindCard));
-const SolarCard = dynamic(() => import('@/app/components/SolarCard').then(m => m.SolarCard));
-const LoadCard = dynamic(() => import('@/app/components/LoadCard').then(m => m.LoadCard));
+const RenewableMixCard = dynamic(() => import('@/app/components/RenewableMixCard').then(m => m.RenewableMixCard));
+const ResidualLoadCard = dynamic(() => import('@/app/components/ResidualLoadCard').then(m => m.ResidualLoadCard));
+const PeakForecastCard = dynamic(() => import('@/app/components/PeakForecastCard').then(m => m.PeakForecastCard));
+const SpreadCaptureCard = dynamic(() => import('@/app/components/SpreadCaptureCard').then(m => m.SpreadCaptureCard));
 const RevenueCard = dynamic(() => import('@/app/components/RevenueCard').then(m => m.RevenueCard));
 const TradingEngineCard = dynamic(() => import('@/app/components/TradingEngineCard').then(m => m.TradingEngineCard));
 const IntelFeed = dynamic(() => import('@/app/components/IntelFeed').then(m => m.IntelFeed));
@@ -74,21 +74,21 @@ export default function Home() {
         <div className="section" id="structural">
           <div style={{ marginBottom: '24px' }}>
             <h2 className="section-header" style={{ marginBottom: '6px' }}>Structural market drivers</h2>
-            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Wind, solar, demand, interconnectors, and commodity inputs shaping price spreads</p>
+            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Renewable mix, residual load, price spreads, and commodity signals driving Baltic BESS dispatch economics</p>
           </div>
 
           <div className="tier3-grid">
             <div className="card-tier3">
-              <CardBoundary signal="wind"><WindCard /></CardBoundary>
+              <CardBoundary signal="renewable-mix"><RenewableMixCard /></CardBoundary>
             </div>
             <div className="card-tier3">
-              <CardBoundary signal="solar"><SolarCard /></CardBoundary>
+              <CardBoundary signal="residual-load"><ResidualLoadCard /></CardBoundary>
             </div>
             <div className="card-tier3">
-              <CardBoundary signal="load"><LoadCard /></CardBoundary>
+              <CardBoundary signal="peak-forecast"><PeakForecastCard /></CardBoundary>
             </div>
             <div className="card-tier3">
-              <CardBoundary signal="S8"><S8Card /></CardBoundary>
+              <CardBoundary signal="spread-capture"><SpreadCaptureCard /></CardBoundary>
             </div>
             <div className="card-tier3">
               <CardBoundary signal="S7"><S7Card /></CardBoundary>
