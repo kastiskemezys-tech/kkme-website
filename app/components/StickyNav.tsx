@@ -46,8 +46,7 @@ export default function StickyNav() {
         justifyContent: 'space-between',
         alignItems: 'center',
         padding: '10px 24px',
-        background: 'var(--overlay-heavy)',
-        backdropFilter: 'blur(12px)',
+        background: 'var(--nav-bg)',
         borderBottom: '1px solid var(--border-subtle)',
       }}>
         <a href="#" onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }} style={{ display: 'flex', alignItems: 'center' }}>
@@ -118,8 +117,7 @@ export default function StickyNav() {
           display: 'none',
           flexDirection: 'column',
           gap: '0',
-          background: 'var(--overlay-heavy)',
-          backdropFilter: 'blur(12px)',
+          background: 'var(--nav-bg)',
           borderBottom: '1px solid var(--border-subtle)',
           padding: '8px 0',
         }}>

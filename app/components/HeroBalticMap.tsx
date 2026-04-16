@@ -311,10 +311,10 @@ export function HeroBalticMap() {
 
       {/* ═══ LEFT COLUMN ═══ */}
       <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', zIndex: 2, gridColumn: 1, gridRow: 1 }}>
-        <h1 style={{
-          fontFamily: 'var(--font-display)', fontSize: '56px', fontWeight: 700,
-          color: 'var(--text-primary)', letterSpacing: '-0.02em', lineHeight: 1, margin: 0,
-        }}>KKME</h1>
+        <h1 style={{ margin: 0, lineHeight: 1 }}>
+          <img src="/design-assets/Logo/kkme-white.png" alt="KKME" height={48} width={228} className="logo-dark" />
+          <img src="/design-assets/Logo/kkme-black.png" alt="KKME" height={48} width={228} className="logo-light" />
+        </h1>
         <p style={{ fontFamily: 'var(--font-mono)', fontSize: '14px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.4 }}>
           Baltic flexibility market, live
         </p>
@@ -369,12 +369,36 @@ export function HeroBalticMap() {
           maxWidth: '100%',
           margin: '0 auto',
         }}>
-          <img
-            src={`/design-assets/Map/kkme-interconnect-${theme === 'dark' ? 'black' : 'white'}.svg`}
-            width={MAP_WIDTH} height={MAP_HEIGHT}
-            style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
-            alt="Baltic interconnect map"
-          />
+          {/* Map base — designed SVG layers for dark, old PNG for light (light layers not yet provided) */}
+          {isDark ? (
+            <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+              <img
+                src="/design-assets/Map/Layers/background-black.svg"
+                alt="Baltic map background"
+                width={MAP_WIDTH} height={MAP_HEIGHT}
+                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }}
+              />
+              <img
+                src="/design-assets/Map/Layers/countries.svg"
+                alt=""
+                width={MAP_WIDTH} height={MAP_HEIGHT}
+                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }}
+              />
+              <img
+                src="/design-assets/Map/Layers/interconnect-lines.svg"
+                alt=""
+                width={MAP_WIDTH} height={MAP_HEIGHT}
+                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }}
+              />
+            </div>
+          ) : (
+            <img
+              src="/hero/kkme-interconnect-light.png"
+              width={MAP_WIDTH} height={MAP_HEIGHT}
+              style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+              alt="Baltic interconnect map"
+            />
+          )}
 
           {/* SVG overlay */}
           <svg

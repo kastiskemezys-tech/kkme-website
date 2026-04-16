@@ -69,7 +69,7 @@ export default function SignalBar() {
       gap: '16px',
       padding: '8px 32px',
       borderBottom: '1px solid var(--bg-elevated)',
-      background: 'var(--overlay-heavy)',
+      background: 'var(--nav-bg)',
     }}>
       {signals.map(s => (
         <button
