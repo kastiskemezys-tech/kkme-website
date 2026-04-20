@@ -71,8 +71,8 @@ function fmt(n: number | null | undefined): string {
 }
 
 function formatPower(mw: number | null | undefined): string {
-  if (mw == null) return '—';
-  if (mw >= 1000) return `${(mw / 1000).toFixed(1)} GW`;
+  if (mw == null || isNaN(mw)) return '';
+  if (Math.abs(mw) >= 1000) return `${(mw / 1000).toFixed(1)} GW`;
   return `${Math.round(mw)} MW`;
 }
 
@@ -384,12 +384,7 @@ export function HeroBalticMap() {
                 width={MAP_WIDTH} height={MAP_HEIGHT}
                 style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }}
               />
-              <img
-                src="/design-assets/Map/Layers/interconnect-lines.svg"
-                alt=""
-                width={MAP_WIDTH} height={MAP_HEIGHT}
-                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }}
-              />
+              {/* interconnect-lines.svg removed — cable routing handled by SVG overlay strokes */}
             </div>
           ) : (
             <img
@@ -414,14 +409,14 @@ export function HeroBalticMap() {
               )}
             </defs>
 
-            {/* Visible cable strokes — reinforce routes over raster art */}
+            {/* Visible cable strokes — sole cable visual (raster layer removed) */}
             <g data-layer="cable-strokes">
               {Object.entries(CABLE_PATHS).map(([id, d]) =>
                 d ? <path key={`stroke-${id}`} d={d}
                       fill="none"
                       stroke="var(--cable-stroke, var(--teal))"
-                      strokeWidth="2"
-                      strokeOpacity="0.5"
+                      strokeWidth="2.5"
+                      strokeOpacity="0.7"
                       strokeLinecap="round"
                       strokeLinejoin="round"
                     /> : null
@@ -459,12 +454,12 @@ export function HeroBalticMap() {
             {/* Country name labels — positioned from designed country-labels.svg */}
             <g data-layer="country-names">
               {([
-                ['FINLAND',   676, 225],
-                ['SWEDEN',    127, 431],
-                ['ESTONIA',   745, 489],
-                ['LATVIA',    775, 731],
-                ['LITHUANIA', 638, 933],
-                ['POLAND',    304, 1144],
+                ['FINLAND',   676, 195],
+                ['SWEDEN',    127, 401],
+                ['ESTONIA',   745, 459],
+                ['LATVIA',    775, 701],
+                ['LITHUANIA', 638, 903],
+                ['POLAND',    304, 1114],
               ] as const).map(([name, x, y]) => (
                 <text key={name} x={x} y={y}
                   fontFamily="var(--font-display)"
@@ -497,9 +492,12 @@ export function HeroBalticMap() {
                 const resolved = resolvedLabels.posMap[`mw-${countryKey.toUpperCase()}`];
                 const centerX = resolved ? resolved.x + 45 : pos.x;
                 const baseY = resolved ? resolved.y + 15 : pos.y + 24;
+                const genStr = formatPower(gl?.generation_mw);
+                const loadStr = formatPower(gl?.load_mw);
+                if (!genStr && !loadStr) return null;
                 return (
                   <g key={label}>
-                    <text x={centerX} y={baseY}
+                    {genStr && <text x={centerX} y={baseY}
                       fontFamily="DM Mono, monospace" fontSize="15"
                       fontWeight="500"
                       fill="var(--accent-teal, var(--teal))"
@@ -511,8 +509,8 @@ export function HeroBalticMap() {
                         strokeLinejoin: 'round' as const,
                         strokeOpacity: 0.95,
                       }}
-                    >{formatPower(gl?.generation_mw)} gen</text>
-                    <text x={centerX} y={baseY + 18}
+                    >{genStr} gen</text>}
+                    {loadStr && <text x={centerX} y={baseY + 18}
                       fontFamily="DM Mono, monospace" fontSize="12"
                       fill="var(--text-secondary)"
                       textAnchor="middle" letterSpacing="0.02em"
@@ -522,7 +520,7 @@ export function HeroBalticMap() {
                         strokeWidth: '3px',
                         strokeLinejoin: 'round' as const,
                       }}
-                    >{formatPower(gl?.load_mw)} load</text>
+                    >{loadStr} load</text>}
                   </g>
                 );
               })}

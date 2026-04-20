@@ -44,7 +44,7 @@
   /* Cable particle — unified colour for animated flow particles.
      Must contrast both against the raster background and the cable strokes. */
   --cable-particle: rgb(252, 211, 77);
-  --cable-stroke: rgba(45, 212, 191, 0.6);
+  --cable-stroke: rgba(45, 212, 191, 0.7);
   --theme-bg:       #0a0a0a;
   --bg-page:        rgb(7, 7, 10);
   --hero-bg:        #050505;
@@ -228,7 +228,7 @@
   --project-dot-halo: transparent;
   /* Cable particle — rich charcoal for contrast against cream raster */
   --cable-particle: rgb(26, 26, 31);
-  --cable-stroke: rgba(19, 122, 101, 0.5);
+  --cable-stroke: rgba(19, 122, 101, 0.6);
   --theme-bg:       #f6f5f1;
 
   --overlay-heavy: rgba(245, 242, 237, 0.95);
