@@ -297,14 +297,14 @@ function RevenueChart({ years, CC, ts }: {
       {
         label: 'Total',
         data: years.map(y => (y.rev_bal + y.rev_trd) / MW / 1000),
-        fill: { target: 1, above: 'var(--chart-fill-amber)' },
+        fill: { target: 1, above: CC.fillAmber },
         borderColor: CC.amber, borderWidth: 1.5,
         pointRadius: 0, tension: 0.35, yAxisID: 'y',
       },
       {
         label: 'Balancing',
         data: years.map(y => y.rev_bal / MW / 1000),
-        fill: { target: 'origin', above: 'var(--chart-fill-teal)' },
+        fill: { target: 'origin', above: CC.fillTeal },
         borderColor: CC.teal, borderWidth: 1.5,
         pointRadius: 0, tension: 0.35, yAxisID: 'y',
       },
@@ -317,7 +317,7 @@ function RevenueChart({ years, CC, ts }: {
       {
         label: 'Fleet S/D',
         data: years.map(y => y.sd_ratio),
-        fill: false, borderColor: 'var(--chart-fill-sd)', borderWidth: 1,
+        fill: false, borderColor: CC.fillSd, borderWidth: 1,
         borderDash: [2, 3], pointRadius: 0, yAxisID: 'y2',
       },
     ],
@@ -364,7 +364,7 @@ function RevenueChart({ years, CC, ts }: {
       y2: {
         position: 'right', min: 0.5, max: 3,
         grid: { display: false }, border: { display: false },
-        ticks: { color: 'var(--chart-axis-faint)',
+        ticks: { color: CC.textFaint,
           font: { family: CHART_FONT.family, size: 10 },
           callback: (v: number | string) => Number(v).toFixed(1) + '×' },
       },

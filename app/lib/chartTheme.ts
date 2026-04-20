@@ -1,74 +1,112 @@
 // Shared KKME Chart.js theme
-// Import into every chart component that uses Chart.js
+// Chart.js renders to <canvas> — CSS variables don't work in Canvas 2D context.
+// This module resolves CSS custom properties to actual color strings at runtime.
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
-// Data-semantic colors — consistent across themes
-const DATA_COLORS = {
-  teal: 'var(--teal)',
-  tealMid: 'var(--teal-medium)',
-  tealLight: 'var(--teal-subtle)',
-  amber: 'var(--amber)',
-  amberLight: 'var(--amber-subtle)',
-  rose: 'var(--rose)',
-  roseLight: 'var(--rose-strong)',
-};
+// Map of semantic name → CSS variable name
+const DATA_VAR_MAP = {
+  teal:       '--teal',
+  tealMid:    '--teal-medium',
+  tealLight:  '--teal-subtle',
+  amber:      '--amber',
+  amberLight: '--amber-subtle',
+  rose:       '--rose',
+  roseLight:  '--rose-strong',
+  fillTeal:   '--chart-fill-teal',
+  fillAmber:  '--chart-fill-amber',
+  fillSd:     '--chart-fill-sd',
+} as const;
 
-// Chrome colors — theme-dependent
-const DARK_CHROME = {
-  textPrimary: 'var(--text-primary)',
-  textSecondary: 'var(--text-secondary)',
-  textMuted: 'var(--text-muted)',
-  grid: 'var(--chart-grid)',
-  border: 'var(--chart-grid)',
-  tooltipBg: 'var(--overlay-heavy)',
-  tooltipBorder: 'var(--border-highlight)',
-};
+const CHROME_VAR_MAP = {
+  textPrimary:   '--text-primary',
+  textSecondary: '--text-secondary',
+  textMuted:     '--text-muted',
+  textFaint:     '--text-faint',
+  grid:          '--chart-grid',
+  border:        '--chart-grid',
+  tooltipBg:     '--overlay-heavy',
+  tooltipBorder: '--border-highlight',
+} as const;
 
-const LIGHT_CHROME = {
-  textPrimary: 'var(--text-primary)',
-  textSecondary: 'var(--text-secondary)',
-  textMuted: 'var(--text-muted)',
-  grid: 'var(--chart-grid)',
-  border: 'var(--chart-grid)',
-  tooltipBg: 'var(--overlay-heavy)',
-  tooltipBorder: 'var(--border-highlight)',
-};
-
-export type ChartColors = typeof DATA_COLORS & typeof DARK_CHROME;
-
-function isDarkTheme(): boolean {
-  if (typeof document === 'undefined') return true;
-  return document.documentElement.getAttribute('data-theme') !== 'light';
+// Resolve a CSS variable to its computed value
+function resolveVar(varName: string): string {
+  if (typeof document === 'undefined') return 'rgba(128,128,128,0.5)';
+  return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
 }
 
-function buildColors(dark: boolean): ChartColors {
-  return { ...DATA_COLORS, ...(dark ? DARK_CHROME : LIGHT_CHROME) };
+function resolveMap(map: Record<string, string>): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const [key, varName] of Object.entries(map)) {
+    result[key] = resolveVar(varName);
+  }
+  return result;
 }
 
-// Static export for non-chart JSX (legend squares, etc.)
-// Data colors are theme-independent so this is always safe.
-export const CHART_COLORS = buildColors(true);
+function buildResolvedColors(): ChartColors {
+  return { ...resolveMap(DATA_VAR_MAP), ...resolveMap(CHROME_VAR_MAP) } as ChartColors;
+}
 
-// Hook: returns theme-aware chart colors, re-renders on theme toggle
+export type ChartColors = Record<keyof typeof DATA_VAR_MAP | keyof typeof CHROME_VAR_MAP, string>;
+
+// Dark fallback for SSR / initial render
+const DARK_FALLBACK: ChartColors = {
+  teal: 'rgb(0,180,160)',
+  tealMid: 'rgba(0,180,160,0.65)',
+  tealLight: 'rgba(0,180,160,0.30)',
+  amber: 'rgb(212,160,60)',
+  amberLight: 'rgba(212,160,60,0.30)',
+  rose: 'rgb(214,88,88)',
+  roseLight: 'rgba(214,88,88,0.75)',
+  fillTeal: 'rgba(0,180,160,0.15)',
+  fillAmber: 'rgba(212,160,60,0.18)',
+  fillSd: 'rgba(232,226,217,0.18)',
+  textPrimary: 'rgba(232,226,217,0.92)',
+  textSecondary: 'rgba(232,226,217,0.65)',
+  textMuted: 'rgba(232,226,217,0.45)',
+  textFaint: 'rgba(232,226,217,0.22)',
+  grid: 'rgba(232,226,217,0.12)',
+  border: 'rgba(232,226,217,0.12)',
+  tooltipBg: 'rgba(7,7,10,0.95)',
+  tooltipBorder: 'rgba(232,226,217,0.20)',
+};
+
+// Static export for non-chart HTML/SVG contexts (legend squares, etc.)
+// CSS variables work fine in HTML — this uses var() strings for those cases.
+export const CHART_COLORS: ChartColors = DARK_FALLBACK;
+
+// Hook: resolves CSS variables to actual color values, re-resolves on theme toggle
 export function useChartColors(): ChartColors {
-  const [dark, setDark] = useState(true);
-  useEffect(() => {
-    setDark(isDarkTheme());
-    const observer = new MutationObserver(() => setDark(isDarkTheme()));
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-    return () => observer.disconnect();
+  const [colors, setColors] = useState<ChartColors>(DARK_FALLBACK);
+
+  const resolve = useCallback(() => {
+    setColors(buildResolvedColors());
   }, []);
-  return buildColors(dark);
+
+  useEffect(() => {
+    resolve();
+    const observer = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        if (m.attributeName === 'data-theme') {
+          setTimeout(resolve, 50);
+        }
+      }
+    });
+    observer.observe(document.documentElement, { attributes: true });
+    return () => observer.disconnect();
+  }, [resolve]);
+
+  return colors;
 }
 
 export const CHART_FONT = {
-  family: "var(--font-mono)",
+  family: "'DM Mono', monospace",
 };
 
-// Hook: returns theme-aware tooltip style
+// Hook: returns theme-aware tooltip style with resolved colors
 export function useTooltipStyle(colors: ChartColors) {
   return {
+    enabled: true,
     backgroundColor: colors.tooltipBg,
     borderColor: colors.tooltipBorder,
     borderWidth: 1,
@@ -84,41 +122,28 @@ export function useTooltipStyle(colors: ChartColors) {
   };
 }
 
-// Static tooltip for backwards compat (dark mode only)
-export const tooltipStyle = {
-  backgroundColor: CHART_COLORS.tooltipBg,
-  borderColor: CHART_COLORS.tooltipBorder,
-  borderWidth: 1,
-  titleFont: { family: CHART_FONT.family, size: 12, weight: 'bold' as const },
-  bodyFont: { family: CHART_FONT.family, size: 11 },
-  footerFont: { family: CHART_FONT.family, size: 11, weight: 'bold' as const },
-  titleColor: CHART_COLORS.textPrimary,
-  bodyColor: CHART_COLORS.textSecondary,
-  footerColor: CHART_COLORS.teal,
-  padding: { top: 8, bottom: 8, left: 12, right: 12 },
-  displayColors: false,
-  cornerRadius: 2,
-};
-
-export const axisStyle = {
-  x: {
-    grid: { display: false },
-    border: { color: DARK_CHROME.border },
-    ticks: {
-      color: CHART_COLORS.textMuted,
-      font: { family: CHART_FONT.family, size: 10 },
+// Shared axis/scale options factory — call with resolved colors
+export function buildScales(colors: ChartColors) {
+  return {
+    x: {
+      grid: { display: false },
+      border: { display: false },
+      ticks: {
+        color: colors.textMuted,
+        font: { family: CHART_FONT.family, size: 10 },
+      },
     },
-  },
-  y: {
-    grid: { color: CHART_COLORS.grid, lineWidth: 0.5 },
-    border: { display: false },
-    ticks: {
-      color: CHART_COLORS.textMuted,
-      font: { family: CHART_FONT.family, size: 10 },
-      maxTicksLimit: 4,
+    y: {
+      grid: { color: colors.grid, lineWidth: 0.5 },
+      border: { display: false },
+      ticks: {
+        color: colors.textMuted,
+        font: { family: CHART_FONT.family, size: 10 },
+        maxTicksLimit: 4,
+      },
     },
-  },
-};
+  };
+}
 
 export const euroTick = (v: number | string) => {
   const n = typeof v === 'string' ? parseFloat(v) : v;
