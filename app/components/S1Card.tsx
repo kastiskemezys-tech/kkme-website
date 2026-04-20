@@ -17,7 +17,7 @@ import {
   Tooltip, Legend, Filler,
 } from 'chart.js';
 import { Bar, Line } from 'react-chartjs-2';
-import { CHART_COLORS, CHART_FONT, useChartColors, useTooltipStyle } from '@/app/lib/chartTheme';
+import { CHART_FONT, useChartColors, useTooltipStyle } from '@/app/lib/chartTheme';
 import { useIsDesktop } from '@/app/lib/useIsDesktop';
 
 ChartJS.register(
@@ -239,10 +239,10 @@ export function S1Card() {
         const median = rolling?.p50 ?? null;
 
         const barColors = values.map(v =>
-          v >= 60 ? CHART_COLORS.teal :
-          v >= 30 ? CHART_COLORS.tealLight :
-          v >= 10 ? CHART_COLORS.amberLight :
-          CHART_COLORS.roseLight
+          v >= 60 ? CC.teal :
+          v >= 30 ? CC.tealLight :
+          v >= 10 ? CC.amberLight :
+          CC.roseLight
         );
 
         return (
@@ -374,14 +374,14 @@ export function S1Card() {
                   labels,
                   datasets: [{
                     data: prices,
-                    borderColor: 'var(--chart-line-muted)',
+                    borderColor: CC.textMuted,
                     borderWidth: 2,
                     pointRadius: prices.map((_: number, i: number) =>
                       chargeSet.has(i) || dischargeSet.has(i) ? 2.5 : 0
                     ),
                     pointBackgroundColor: prices.map((_: number, i: number) =>
-                      chargeSet.has(i) ? CHART_COLORS.teal :
-                      dischargeSet.has(i) ? CHART_COLORS.amber : 'transparent'
+                      chargeSet.has(i) ? CC.teal :
+                      dischargeSet.has(i) ? CC.amber : 'transparent'
                     ),
                     pointBorderWidth: 0,
                     fill: false,
@@ -440,8 +440,8 @@ export function S1Card() {
               display: 'flex', gap: '12px', marginTop: '4px',
               fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
             }}>
-              <span style={{ color: CHART_COLORS.teal }}>● Charge ({k} cheapest)</span>
-              <span style={{ color: CHART_COLORS.amber }}>● Discharge ({k} most expensive)</span>
+              <span style={{ color: CC.teal }}>● Charge ({k} cheapest)</span>
+              <span style={{ color: CC.amber }}>● Discharge ({k} most expensive)</span>
               <span style={{ color: 'var(--text-muted)', marginLeft: 'auto' }}>
                 Swing €{safeNum(swing, 0)}/MWh
               </span>

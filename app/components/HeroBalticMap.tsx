@@ -369,31 +369,21 @@ export function HeroBalticMap() {
           maxWidth: '100%',
           margin: '0 auto',
         }}>
-          {/* Map base — designed SVG layers for dark, old PNG for light (light layers not yet provided) */}
-          {isDark ? (
-            <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-              <img
-                src="/design-assets/Map/Layers/background-black.svg"
-                alt="Baltic map background"
-                width={MAP_WIDTH} height={MAP_HEIGHT}
-                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }}
-              />
-              <img
-                src="/design-assets/Map/Layers/countries.svg"
-                alt=""
-                width={MAP_WIDTH} height={MAP_HEIGHT}
-                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }}
-              />
-              {/* interconnect-lines.svg removed — cable routing handled by SVG overlay strokes */}
-            </div>
-          ) : (
+          {/* Map base — designed SVG layers for both dark and light themes */}
+          <div style={{ position: 'relative', width: '100%', height: '100%' }}>
             <img
-              src="/hero/kkme-interconnect-light.png"
+              src={isDark ? "/design-assets/Map/Layers/background-black.svg" : "/design-assets/Map/Layers/background-light.svg"}
+              alt="Baltic map background"
               width={MAP_WIDTH} height={MAP_HEIGHT}
-              style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
-              alt="Baltic interconnect map"
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }}
             />
-          )}
+            <img
+              src={isDark ? "/design-assets/Map/Layers/countries.svg" : "/design-assets/Map/Layers/countries-light.svg"}
+              alt=""
+              width={MAP_WIDTH} height={MAP_HEIGHT}
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }}
+            />
+          </div>
 
           {/* SVG overlay */}
           <svg

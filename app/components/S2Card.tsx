@@ -18,7 +18,7 @@ import {
   Tooltip, Legend,
 } from 'chart.js';
 import { Bar, Chart } from 'react-chartjs-2';
-import { CHART_COLORS, CHART_FONT, useChartColors, useTooltipStyle } from '@/app/lib/chartTheme';
+import { CHART_FONT, useChartColors, useTooltipStyle } from '@/app/lib/chartTheme';
 import { useIsDesktop } from '@/app/lib/useIsDesktop';
 
 ChartJS.register(CategoryScale, LinearScale, BarController, BarElement, LineController, LineElement, PointElement, Tooltip, Legend);
@@ -498,7 +498,7 @@ export function S2Card() {
                       type: 'bar' as const,
                       label: 'aFRR P50',
                       data: p50,
-                      backgroundColor: CHART_COLORS.tealMid,
+                      backgroundColor: CC.tealMid,
                       borderWidth: 0,
                       borderRadius: 2,
                       barPercentage: 0.7,
@@ -510,7 +510,7 @@ export function S2Card() {
                       type: 'bar' as const,
                       label: 'mFRR P50',
                       data: mfrrP50Vals,
-                      backgroundColor: CHART_COLORS.amberLight,
+                      backgroundColor: CC.amberLight,
                       borderWidth: 0,
                       borderRadius: 2,
                       barPercentage: 0.7,
@@ -603,9 +603,9 @@ export function S2Card() {
               marginTop: '4px',
             }}>
               <div style={{ display: 'flex', gap: '12px' }}>
-                <span><span style={{ color: CHART_COLORS.teal }}>{'\u25A0'}</span> aFRR P50</span>
-                <span><span style={{ color: CHART_COLORS.amber }}>{'\u25A0'}</span> mFRR P50</span>
-                <span><span style={{ color: CHART_COLORS.textSecondary }}>{'\u2501'}</span> Operational BESS</span>
+                <span><span style={{ color: CC.teal }}>{'\u25A0'}</span> aFRR P50</span>
+                <span><span style={{ color: CC.amber }}>{'\u25A0'}</span> mFRR P50</span>
+                <span><span style={{ color: CC.textSecondary }}>{'\u2501'}</span> Operational BESS</span>
               </div>
             </div>
             <p style={{
@@ -1101,9 +1101,9 @@ export function S2Card() {
             {/* S/D trajectory chart */}
             {trajectory && trajectory.length > 0 && (() => {
               const sdBarColor = (sdVal: number): string => {
-                if (sdVal < 0.6) return CHART_COLORS.teal;
-                if (sdVal < 1.0) return CHART_COLORS.amber;
-                return CHART_COLORS.rose;
+                if (sdVal < 0.6) return CC.teal;
+                if (sdVal < 1.0) return CC.amber;
+                return CC.rose;
               };
               const barBg = trajectory.map(pt => sdBarColor(pt.sd_ratio));
               const maxSd = Math.max(...trajectory.map(p => p.sd_ratio), 1.5);
@@ -1212,9 +1212,9 @@ export function S2Card() {
                     marginTop: '4px',
                   }}>
                     <div style={{ display: 'flex', gap: '10px' }}>
-                      <span><span style={{ color: CHART_COLORS.teal }}>{'\u25A0'}</span> S/D &lt; 0.6</span>
-                      <span><span style={{ color: CHART_COLORS.amber }}>{'\u25A0'}</span> S/D 0.6-1.0</span>
-                      <span><span style={{ color: CHART_COLORS.rose }}>{'\u25A0'}</span> S/D &gt; 1.0</span>
+                      <span><span style={{ color: CC.teal }}>{'\u25A0'}</span> S/D &lt; 0.6</span>
+                      <span><span style={{ color: CC.amber }}>{'\u25A0'}</span> S/D 0.6-1.0</span>
+                      <span><span style={{ color: CC.rose }}>{'\u25A0'}</span> S/D &gt; 1.0</span>
                     </div>
                     <span>S/D ratio (scenario) <DataClassBadge dataClass="modeled" /></span>
                   </div>
