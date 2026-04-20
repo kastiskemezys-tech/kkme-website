@@ -46,16 +46,13 @@ export default function StickyNav() {
         justifyContent: 'space-between',
         alignItems: 'center',
         padding: '10px 24px',
-        background: 'var(--overlay-heavy)',
-        backdropFilter: 'blur(12px)',
+        background: 'var(--nav-bg)',
         borderBottom: '1px solid var(--border-subtle)',
       }}>
-        <span style={{
-          fontFamily: 'var(--font-display)',
-          fontSize: '0.7rem',
-          letterSpacing: '0.15em',
-          color: 'var(--text-primary)',
-        }}>KKME</span>
+        <a href="#" onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }} style={{ display: 'flex', alignItems: 'center' }}>
+          <img src="/design-assets/Logo/kkme-white.png" alt="KKME" height={20} width={95} className="logo-dark" />
+          <img src="/design-assets/Logo/kkme-black.png" alt="KKME" height={20} width={95} className="logo-light" />
+        </a>
 
         {/* Desktop links */}
         <div className="nav-desktop" style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
@@ -120,8 +117,7 @@ export default function StickyNav() {
           display: 'none',
           flexDirection: 'column',
           gap: '0',
-          background: 'var(--overlay-heavy)',
-          backdropFilter: 'blur(12px)',
+          background: 'var(--nav-bg)',
           borderBottom: '1px solid var(--border-subtle)',
           padding: '8px 0',
         }}>
