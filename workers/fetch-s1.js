@@ -3769,6 +3769,126 @@ async function fetchLitgridBalancing() {
   }
 }
 
+// ── Monthly activation clearing aggregates from BTD ──────────────────────────
+// Fetches price_procured_reserves month by month (BTD rate-limits large ranges),
+// groups by month, computes stats. Stores in KV 's2_activation'.
+async function computeS2Activation() {
+  // Fetch in monthly chunks (parallel). BTD blocks large ranges from some IPs.
+  const now = new Date();
+  const fetches = [];
+  for (let i = 5; i >= 0; i--) {
+    const mStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const mEndDate = new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
+    const mEnd = mEndDate > now ? now : mEndDate;
+    fetches.push(fetchBTDDataset('price_procured_reserves', mStart.toISOString().slice(0, 10), mEnd.toISOString().slice(0, 10)));
+  }
+  const results = await Promise.all(fetches);
+
+  const allTimeseries = [];
+  for (const r of results) {
+    if (r?.data?.timeseries) allTimeseries.push(...r.data.timeseries);
+  }
+
+  if (allTimeseries.length === 0) {
+    console.log('[S2/activation] No timeseries data from BTD (all 6 month fetches returned null)');
+    return null;
+  }
+  console.log(`[S2/activation] fetched ${allTimeseries.length} ISPs across ${results.filter(r => r?.data?.timeseries).length}/6 months`);
+
+  const timeseries = allTimeseries;
+
+  // BTD columns: EE(0-4), LV(5-9), LT(10-14)
+  // Each: FCR_sym, aFRR_up, aFRR_dn, mFRR_up, mFRR_dn
+  const COUNTRY_COLS = {
+    Estonia:   { afrr_up: 1, mfrr_up: 3 },
+    Latvia:    { afrr_up: 6, mfrr_up: 8 },
+    Lithuania: { afrr_up: 11, mfrr_up: 13 },
+  };
+
+  // Group by country and month
+  const monthlyData = {}; // { country: { month: { afrr: [], mfrr: [] } } }
+  for (const [country, cols] of Object.entries(COUNTRY_COLS)) {
+    monthlyData[country] = {};
+  }
+
+  for (const isp of timeseries) {
+    const from = isp.from || isp._from || '';
+    const month = from.slice(0, 7);
+    if (!month || month.length !== 7) continue;
+    const values = isp.values;
+    if (!values) continue;
+
+    for (const [country, cols] of Object.entries(COUNTRY_COLS)) {
+      if (!monthlyData[country][month]) monthlyData[country][month] = { afrr: [], mfrr: [] };
+      const afrrVal = values[cols.afrr_up];
+      const mfrrVal = values[cols.mfrr_up];
+      if (afrrVal != null && afrrVal > 0) monthlyData[country][month].afrr.push(afrrVal);
+      if (mfrrVal != null && mfrrVal > 0) monthlyData[country][month].mfrr.push(mfrrVal);
+    }
+  }
+
+  // Stats helper
+  function stats(arr) {
+    if (!arr.length) return null;
+    const sorted = [...arr].sort((a, b) => a - b);
+    const avg = Math.round(arr.reduce((s, v) => s + v, 0) / arr.length * 10) / 10;
+    const p50 = sorted[Math.floor(sorted.length * 0.5)];
+    const p90 = sorted[Math.floor(sorted.length * 0.9)] ?? sorted[sorted.length - 1];
+    return { avg, p50, p90, count: arr.length, activation_rate: arr.length / (30 * 96) };
+  }
+
+  const months = [...new Set(
+    Object.values(monthlyData).flatMap(c => Object.keys(c))
+  )].sort();
+
+  // Build per-country data in the format the parser expects:
+  // countries.Lithuania.afrr_up = { '2026-01': { avg, p50, p90, count }, ... }
+  // countries.Lithuania.afrr_recent_3m = { avg_p50: ... }
+  const countries = {};
+  for (const [country, monthMap] of Object.entries(monthlyData)) {
+    const afrr_up = {};
+    const mfrr_up = {};
+    for (const month of months) {
+      if (monthMap[month]) {
+        const as = stats(monthMap[month].afrr);
+        const ms = stats(monthMap[month].mfrr);
+        if (as) afrr_up[month] = as;
+        if (ms) mfrr_up[month] = ms;
+      }
+    }
+
+    // Recent 3 months average P50
+    const recent3 = months.slice(-3);
+    const recentAfrrP50s = recent3.map(m => afrr_up[m]?.p50).filter(v => v != null);
+    const recentMfrrP50s = recent3.map(m => mfrr_up[m]?.p50).filter(v => v != null);
+    const afrr_recent_3m = recentAfrrP50s.length
+      ? { avg_p50: Math.round(recentAfrrP50s.reduce((s, v) => s + v, 0) / recentAfrrP50s.length * 10) / 10 }
+      : { avg_p50: null };
+    const mfrr_recent_3m = recentMfrrP50s.length
+      ? { avg_p50: Math.round(recentMfrrP50s.reduce((s, v) => s + v, 0) / recentMfrrP50s.length * 10) / 10 }
+      : { avg_p50: null };
+
+    countries[country] = { afrr_up, afrr_recent_3m, mfrr_up, mfrr_recent_3m };
+  }
+
+  // Compression trajectory (Lithuania P50 over time)
+  const ltData = monthlyData['Lithuania'] || {};
+  const compression_trajectory = {
+    afrr_lt_p50: months.map(m => stats(ltData[m]?.afrr)?.p50 ?? 0),
+    afrr_lt_avg: months.map(m => stats(ltData[m]?.afrr)?.avg ?? 0),
+    months,
+  };
+
+  return {
+    countries,
+    compression_trajectory,
+    period: `${months[0]} to ${months[months.length - 1]}`,
+    source: 'baltic.transparency-dashboard.eu',
+    data_class: 'observed',
+    stored_at: new Date().toISOString(),
+  };
+}
+
 // ── Full S2 fetch: BTD + Litgrid → shaped payload ────────────────────────────
 async function computeS2() {
   const nineAgo    = new Date(Date.now() - 9 * 86400000).toISOString().slice(0, 10);
@@ -4245,6 +4365,19 @@ async function sendDailyDigest(env) {
   const pipeTs = s4pipeline?.timestamp;
   const pipeAge = pipeTs ? (Date.now() - new Date(pipeTs).getTime()) / 3600000 : null;
   if (!pipeAge || pipeAge > 840) lines.push(`⚠️ S4 pipeline: ${pipeAge?.toFixed(0) ?? 'never'}h old (monthly VERT.lt — run fetch-vert.js)`);
+
+  // S2 activation freshness watchdog
+  const actRaw = await env.KKME_SIGNALS.get('s2_activation').catch(() => null);
+  if (actRaw) {
+    try {
+      const act = JSON.parse(actRaw);
+      const storedAt = new Date(act.stored_at);
+      const ageDays = (Date.now() - storedAt.getTime()) / 86400000;
+      if (ageDays > 3) issues.push(`⚠️ S2 activation: ${Math.floor(ageDays)}d old (stored ${act.stored_at?.slice(0, 10)})`);
+    } catch { /* ignore */ }
+  } else {
+    issues.push('🔴 S2 activation: no data');
+  }
 
   const idx = await env.KKME_SIGNALS.get('feed_index').then(r => r ? JSON.parse(r) : []).catch(() => []);
   const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
@@ -5353,6 +5486,19 @@ export default {
         console.error('[S2/0930]', String(e));
         await notifyTelegram(env, `⚠️ S2 fetch failed (09:30): ${String(e).slice(0, 200)}`).catch(() => {});
       }
+
+      // Also update monthly activation clearing (daily is sufficient for monthly aggregates)
+      try {
+        const actPayload = await withTimeout(computeS2Activation(), 60000);
+        if (actPayload) {
+          await env.KKME_SIGNALS.put('s2_activation', JSON.stringify(actPayload));
+          console.log(`[S2/activation] updated: period=${actPayload.period}, lt_afrr_3m_p50=${actPayload.countries?.Lithuania?.afrr_recent_3m?.avg_p50}`);
+        } else {
+          console.log('[S2/activation] BTD unavailable — keeping cached data');
+        }
+      } catch (e) {
+        console.error('[S2/activation]', String(e));
+      }
       return;
     }
 
@@ -6000,6 +6146,16 @@ export default {
       const countryKeys = Object.keys(body.countries);
       console.log(`[S2/activation] stored ${countryKeys.length} countries: ${countryKeys.join(', ')}`);
       return jsonResp({ ok: true, countries: countryKeys, stored_at: body.stored_at });
+    }
+
+    // ── POST /admin/trigger-activation — manually trigger activation update ──
+    if (request.method === 'POST' && url.pathname === '/admin/trigger-activation') {
+      const secret = request.headers.get('X-Update-Secret');
+      if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
+      const payload = await computeS2Activation();
+      if (!payload) return jsonResp({ error: 'BTD unavailable' }, 502);
+      await env.KKME_SIGNALS.put('s2_activation', JSON.stringify(payload));
+      return jsonResp({ ok: true, period: payload.period, lt_afrr_3m_p50: payload.countries?.Lithuania?.afrr_recent_3m?.avg_p50 });
     }
 
     // ── GET /s2/activation ──────────────────────────────────────────────────
