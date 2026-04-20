@@ -149,7 +149,7 @@ export function HeroBalticMap() {
   const resolved = useMemo((): ResolvedFlow[] =>
     INTERCONNECTORS.map(spec => resolveFlow(spec, s8)), [s8]);
 
-  // GSAP particles — all 6 cables
+  // GSAP particles — velocity normalized by path length so visual speed reflects utilization
   useGSAP(() => {
     if (!svgRef.current) return;
     if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
@@ -157,7 +157,15 @@ export function HeroBalticMap() {
     resolved.forEach(r => {
       if (!CABLE_PATHS[r.id] || r.mw < 5) return;
       const particles = gsap.utils.toArray<SVGCircleElement>(`.particle-${r.id.replace(/[^a-z0-9]/g, '-')}`);
-      const duration = Math.max(3, 13 - r.utilization * 10);
+
+      // Measure path length from the rendered SVG element
+      const pathEl = svgRef.current?.querySelector<SVGPathElement>(`#cable-${r.id}`);
+      const pathLen = pathEl?.getTotalLength() || 300;
+
+      // Velocity in px/s: 20 at idle → 150 at full capacity (capped at 1.5× utilization)
+      const velocity = 20 + Math.min(r.utilization, 1.5) * (150 - 20) / 1.5;
+      const duration = Math.max(1.5, pathLen / velocity);
+
       particles.forEach((el, i) => {
         gsap.to(el, {
           motionPath: {
@@ -173,6 +181,13 @@ export function HeroBalticMap() {
       });
     });
   }, { scope: svgRef, dependencies: [resolved] });
+
+  // Debug: log genLoad state
+  useEffect(() => {
+    if (genLoad) {
+      console.log('[KKME] genLoad:', { lt: genLoad.lt?.generation_mw, lv: genLoad.lv?.generation_mw, ee: genLoad.ee?.generation_mw });
+    }
+  }, [genLoad]);
 
   // Debug: log resolved flows for MCP verification
   useEffect(() => {
