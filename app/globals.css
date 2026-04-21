@@ -53,7 +53,13 @@
   --bg-elevated:    rgba(232, 226, 217, 0.04);
   --border-card:    rgba(232, 226, 217, 0.10);
   --border-highlight: rgba(232, 226, 217, 0.20);
-  --border-subtle:  rgba(232, 226, 217, 0.07);
+  --border-subtle:  rgba(255, 255, 255, 0.06);
+  --border-hairline: rgba(255, 255, 255, 0.12);
+
+  /* Phase 7.5 — surface layering (page < card < drawer) */
+  --surface-1: #0a0b0d;
+  --surface-2: #111316;
+  --surface-3: #16191d;
 
   /* Overlay */
   --overlay-heavy: rgba(7, 7, 10, 0.95);
@@ -209,6 +215,12 @@
   --border-card:      rgba(26, 26, 31, 0.10);
   --border-highlight: rgba(26, 26, 31, 0.18);
   --border-subtle:    rgba(26, 26, 31, 0.06);
+  --border-hairline:  rgba(26, 26, 31, 0.12);
+
+  /* Phase 7.5 — surface layering (page > card > drawer; drawer whitest) */
+  --surface-1: #f7f5f0;
+  --surface-2: #fbfaf6;
+  --surface-3: #ffffff;
 
   --teal:   #137a65;
   --green:  #3d8a55;
@@ -626,14 +638,15 @@ body,
 }
 
 .card-tier1 {
-  background: var(--bg-card-highlight);
-  border-color: var(--border-highlight);
+  background: var(--surface-2);
+  border-color: var(--border-subtle);
+  border-radius: 8px;
 }
 
 .card-tier1-feature {
-  background: var(--bg-card-highlight);
-  border: 1px solid var(--border-highlight);
-  border-radius: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
   padding: 28px;
   overflow: hidden;
   animation: cardFadeIn 0.4s ease-out both;

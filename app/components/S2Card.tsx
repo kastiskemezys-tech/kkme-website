@@ -174,13 +174,21 @@ export function S2Card() {
       </div>
 
       {/* ── 2. Hero metric ──────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginBottom: '6px' }}>
-        <span style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(1.75rem, 4vw, 2.25rem)', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1 }}>
+      <div style={{
+        background: 'var(--surface-3)',
+        border: '1px solid var(--border-subtle)',
+        borderRadius: '6px',
+        padding: '16px 18px',
+        marginBottom: '14px',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
+          <span style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(1.75rem, 4vw, 2.25rem)', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
           {hero != null ? <AnimatedNumber value={hero} prefix={'\u20AC'} decimals={prod === 'FCR' ? 2 : 1} /> : '\u2014'}
         </span>
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>/MW/h</span>
         {/* ── 3. Status chip ─────────────────────────────────── */}
         <StatusChip status={phase} sentiment={sentiment} />
+        </div>
       </div>
 
       {/* ── 4. Interpretation ───────────────────────────────────── */}
