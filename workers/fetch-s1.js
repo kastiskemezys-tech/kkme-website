@@ -6300,14 +6300,22 @@ export default {
               lv: {
                 afrr_p50: lv?.afrr_recent_3m?.avg_p50 ?? null,
                 afrr_rate: lv?.afrr_recent_3m?.avg_activation_rate ?? null,
+                mfrr_p50: lv?.mfrr_recent_3m?.avg_p50 ?? null,
+                mfrr_rate: lv?.mfrr_recent_3m?.avg_activation_rate ?? null,
               },
               ee: {
                 afrr_p50: ee?.afrr_recent_3m?.avg_p50 ?? null,
                 afrr_rate: ee?.afrr_recent_3m?.avg_activation_rate ?? null,
+                mfrr_p50: ee?.mfrr_recent_3m?.avg_p50 ?? null,
+                mfrr_rate: ee?.mfrr_recent_3m?.avg_activation_rate ?? null,
               },
               compression: act.compression_trajectory ?? null,
               lt_monthly_afrr: lt?.afrr_up ?? null,
               lt_monthly_mfrr: lt?.mfrr_up ?? null,
+              lv_monthly_afrr: lv?.afrr_up ?? null,
+              lv_monthly_mfrr: lv?.mfrr_up ?? null,
+              ee_monthly_afrr: ee?.afrr_up ?? null,
+              ee_monthly_mfrr: ee?.mfrr_up ?? null,
               data_class: 'observed',
               period: act.period,
               source: act.source,
@@ -7201,13 +7209,27 @@ export default {
         try {
           const actRaw = JSON.parse(s2ActivationRaw);
           const lt = actRaw.countries?.Lithuania;
+          const lv = actRaw.countries?.Latvia;
+          const ee = actRaw.countries?.Estonia;
           s2_activation_parsed = {
             lt: {
               afrr_p50: lt?.afrr_recent_3m?.avg_p50 ?? null,
               mfrr_p50: lt?.mfrr_recent_3m?.avg_p50 ?? null,
             },
+            lv: {
+              afrr_p50: lv?.afrr_recent_3m?.avg_p50 ?? null,
+              mfrr_p50: lv?.mfrr_recent_3m?.avg_p50 ?? null,
+            },
+            ee: {
+              afrr_p50: ee?.afrr_recent_3m?.avg_p50 ?? null,
+              mfrr_p50: ee?.mfrr_recent_3m?.avg_p50 ?? null,
+            },
             lt_monthly_afrr: lt?.afrr_up ?? {},
             lt_monthly_mfrr: lt?.mfrr_up ?? {},
+            lv_monthly_afrr: lv?.afrr_up ?? {},
+            lv_monthly_mfrr: lv?.mfrr_up ?? {},
+            ee_monthly_afrr: ee?.afrr_up ?? {},
+            ee_monthly_mfrr: ee?.mfrr_up ?? {},
             compression: actRaw.compression_trajectory ?? null,
           };
         } catch { /* ignore */ }
