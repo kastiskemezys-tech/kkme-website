@@ -419,3 +419,4 @@ See [docs/map.md](map.md) for the full concept-to-file lookup table.
 **Deferred:**
 - Notion board sync (Phase 7.6 entry + renumber) — pending.
 - Decision on H1 copy (3 options in Phase 7.6 prompt) — Kastytis picks at Pause 2.
+- Phase 7.5 Intervention A shipped at d2a120d (branch `phase-7-5-polish`, pushed); B/C/D/E queued for fresh CC session.
