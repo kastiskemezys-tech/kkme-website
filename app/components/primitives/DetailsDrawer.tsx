@@ -1,7 +1,16 @@
 'use client';
 
-import { useState, useEffect, useRef, type ReactNode } from 'react';
+import {
+  useState, useEffect, useRef, forwardRef, useImperativeHandle,
+  type ReactNode, type ForwardedRef,
+} from 'react';
 import { createPortal } from 'react-dom';
+
+export interface DrawerHandle {
+  open: (anchor?: string) => void;
+  close: () => void;
+  toggle: () => void;
+}
 
 interface DetailsDrawerProps {
   label?: string
@@ -11,10 +20,24 @@ interface DetailsDrawerProps {
   portalId?: string
 }
 
-export function DetailsDrawer({ label = 'Details', defaultOpen = false, children, portalId }: DetailsDrawerProps) {
+export const DetailsDrawer = forwardRef(function DetailsDrawer(
+  { label = 'Details', defaultOpen = false, children, portalId }: DetailsDrawerProps,
+  ref: ForwardedRef<DrawerHandle>,
+) {
   const [open, setOpen] = useState(defaultOpen);
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+  const [pendingAnchor, setPendingAnchor] = useState<string | null>(null);
   const prevOpen = useRef(defaultOpen);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useImperativeHandle(ref, () => ({
+    open: (anchor) => {
+      if (anchor) setPendingAnchor(anchor);
+      setOpen(true);
+    },
+    close: () => setOpen(false),
+    toggle: () => setOpen((o) => !o),
+  }), []);
 
   // Find portal target — re-check periodically since SignalDrawerPanel renders lazily
   useEffect(() => {
@@ -25,12 +48,11 @@ export function DetailsDrawer({ label = 'Details', defaultOpen = false, children
       return !!el;
     };
     if (find()) return;
-    // Poll briefly for lazy-rendered portal targets
     const iv = setInterval(() => { if (find()) clearInterval(iv); }, 100);
     return () => clearInterval(iv);
   }, [portalId, open]);
 
-  // Listen for tab-click requests to auto-open this drawer
+  // Listen for tab-click requests to auto-open this drawer (kept for SignalDrawerPanel)
   useEffect(() => {
     if (!portalId) return;
     const signal = portalId.includes('s1') ? 's1' : 's2';
@@ -51,7 +73,6 @@ export function DetailsDrawer({ label = 'Details', defaultOpen = false, children
   // Dispatch signal-drawer events for the tabbed panel
   useEffect(() => {
     if (!portalId) return;
-    // Only dispatch on actual state changes, not initial mount
     if (open === prevOpen.current) return;
     prevOpen.current = open;
 
@@ -61,17 +82,33 @@ export function DetailsDrawer({ label = 'Details', defaultOpen = false, children
     }));
   }, [open, portalId]);
 
+  // Scroll pending anchor into view after transition settles
+  useEffect(() => {
+    if (!open || !pendingAnchor) return;
+    const timeout = window.setTimeout(() => {
+      const host = containerRef.current;
+      if (!host) { setPendingAnchor(null); return; }
+      const el = host.querySelector<HTMLElement>(`[data-anchor="${pendingAnchor}"]`);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setPendingAnchor(null);
+    }, 320);
+    return () => window.clearTimeout(timeout);
+  }, [open, pendingAnchor]);
+
   const drawerContent = (
     <div style={{
       overflow: 'hidden',
       maxHeight: open ? '5000px' : '0',
       transition: 'max-height 300ms ease',
     }}>
-      <div style={{
-        paddingTop: '16px',
-        borderTop: portalId ? 'none' : '1px solid var(--border-card)',
-        marginTop: portalId ? '0' : '8px',
-      }}>
+      <div
+        ref={containerRef}
+        style={{
+          paddingTop: '16px',
+          borderTop: portalId ? 'none' : '1px solid var(--border-card)',
+          marginTop: portalId ? '0' : '8px',
+        }}
+      >
         {children}
       </div>
     </div>
@@ -113,5 +150,35 @@ export function DetailsDrawer({ label = 'Details', defaultOpen = false, children
       {/* Render into portal when portalId is set and target exists */}
       {portalId && portalTarget && createPortal(drawerContent, portalTarget)}
     </>
+  );
+});
+
+interface DrawerSectionProps {
+  id: string;
+  title: string;
+  children: ReactNode;
+}
+
+export function DrawerSection({ id, title, children }: DrawerSectionProps) {
+  return (
+    <section
+      data-anchor={id}
+      style={{
+        marginBottom: '20px',
+        scrollMarginTop: '8px',
+      }}
+    >
+      <div style={{
+        fontFamily: 'var(--font-mono)',
+        fontSize: 'var(--font-xs)',
+        color: 'var(--text-tertiary)',
+        letterSpacing: '0.08em',
+        textTransform: 'uppercase',
+        marginBottom: '8px',
+      }}>
+        {title}
+      </div>
+      {children}
+    </section>
   );
 }

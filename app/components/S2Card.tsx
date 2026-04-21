@@ -132,8 +132,8 @@ function derivePhase(hero: number, act: ActivationCountry | undefined, prod: Pro
 }
 
 function fmtEuro(v: number | null | undefined): string {
-  if (v == null) return '\u2014';
-  return '\u20AC' + (Math.abs(v) >= 100 ? Math.round(v) : v.toFixed(1));
+  if (v == null) return '—';
+  return '€' + (Math.abs(v) >= 100 ? Math.round(v) : v.toFixed(1));
 }
 
 function fmtDate(d: string): string {
@@ -212,7 +212,7 @@ export function S2Card() {
       {/* ── 2. Hero metric ──────────────────────────────────────── */}
       <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginBottom: '6px', flexWrap: 'wrap' }}>
         <span style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(1.75rem, 4vw, 2.25rem)', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1 }}>
-          {hero != null ? <AnimatedNumber value={hero} prefix={'\u20AC'} decimals={prod === 'FCR' ? 2 : 1} /> : '\u2014'}
+          {hero != null ? <AnimatedNumber value={hero} prefix={'€'} decimals={prod === 'FCR' ? 2 : 1} /> : '—'}
         </span>
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>/MW/h</span>
         {/* ── 3. Status chip ─────────────────────────────────── */}
@@ -456,7 +456,7 @@ function HistoryChart({ history, prod, CC, ttStyle }: {
           scales: {
             ...scales,
             x: { ...scales.x, ticks: { ...scales.x.ticks, maxRotation: 0, autoSkip: true, maxTicksLimit: 6 } },
-            y: { ...scales.y, ticks: { ...scales.y.ticks, callback: (v) => `\u20AC${v}` } },
+            y: { ...scales.y, ticks: { ...scales.y.ticks, callback: (v) => `€${v}` } },
           },
         }}
       />
@@ -558,7 +558,7 @@ function CapacityChart({ monthly, prod, CC, ttStyle }: {
             scales: {
               ...scales,
               x: { ...scales.x, ticks: { ...scales.x.ticks, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 } },
-              y: { ...scales.y, ticks: { ...scales.y.ticks, callback: (v) => `\u20AC${v}` } },
+              y: { ...scales.y, ticks: { ...scales.y.ticks, callback: (v) => `€${v}` } },
             },
           }}
         />
@@ -571,9 +571,9 @@ function CapacityChart({ monthly, prod, CC, ttStyle }: {
 
 function ContextTable({ data }: { data: S2Signal }) {
   const rows = [
-    ['aFRR up avg', data.afrr_up_avg, '\u20AC/MW/h'],
-    ['mFRR up avg', data.mfrr_up_avg, '\u20AC/MW/h'],
-    ['FCR avg', data.fcr_avg, '\u20AC/MW/h'],
+    ['aFRR up avg', data.afrr_up_avg, '€/MW/h'],
+    ['mFRR up avg', data.mfrr_up_avg, '€/MW/h'],
+    ['FCR avg', data.fcr_avg, '€/MW/h'],
     ['Imbalance mean', data.imbalance_mean, 'MWh'],
     ['Imbalance p90', data.imbalance_p90, 'MWh'],
     ['% above 100 MWh', data.pct_above_100, '%'],
@@ -589,7 +589,7 @@ function ContextTable({ data }: { data: S2Signal }) {
         {rows.map(([label, val, unit]) => (
           <div key={label} style={{ display: 'contents' }}>
             <span style={{ color: 'var(--text-muted)' }}>{label}</span>
-            <span style={{ color: 'var(--text-primary)', textAlign: 'right' }}>{val != null ? (typeof val === 'number' ? (Math.abs(val) >= 10 ? Math.round(val) : val.toFixed(1)) : val) : '\u2014'}</span>
+            <span style={{ color: 'var(--text-primary)', textAlign: 'right' }}>{val != null ? (typeof val === 'number' ? (Math.abs(val) >= 10 ? Math.round(val) : val.toFixed(1)) : val) : '—'}</span>
             <span style={{ color: 'var(--text-muted)' }}>{unit}</span>
           </div>
         ))}
