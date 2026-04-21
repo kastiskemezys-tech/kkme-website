@@ -1,13 +1,23 @@
 # KKME Handover
 
 Canonical state document. Read this first in every session.
-Last updated: 2026-04-21.
+Last updated: 2026-04-21 (Session 9).
 
 ## Current phase
 
-Phase 7 (S1/S2 card rebuild) prompt revised and ready to run in Claude Code (YOLO).
-Phases 4E, 5A, 5B, 6A shipped between last handover update (2026-04-16) and today — captured in Session 6 log below.
-Strategic roadmap written: `docs/roadmap.md` — Phases 7–14, significant-improvement track (synthesis, peer comparison, fleet, interactive revenue).
+Phase 7 shipped (S1/S2 card rebuild). Phase 7.5 polish prompt queued. Phase 7.6
+hero refinement prompt authored after 2026-04-21 visual audit surfaced four
+concrete hero issues. Roadmap re-sequenced: Phase 12 (time toggles) →
+promoted to Phase 8; Phase 14 (mobile) → promoted to Phase 9; old
+Phases 8–11 and 13 demoted by 2 slots.
+
+Active queue order: **7.5 → 7.6 → 8 → 9 → 10 → …**
+
+Reference docs:
+- `docs/visual-audit/phase-7-5-audit/DIAGNOSTIC.md` — audit findings + routing
+- `docs/phases/phase7-5-polish-prompt.md` — ready to run in CC
+- `docs/phases/phase7-6-hero-prompt.md` — ready to run after 7.5
+- `docs/roadmap.md` — re-sequenced master plan
 
 ## What's shipped
 
@@ -34,9 +44,11 @@ Strategic roadmap written: `docs/roadmap.md` — Phases 7–14, significant-impr
 
 ## What's queued
 
-**Phase 7 — S1 & S2 card rebuild (Bloomberg density)** (Claude Code YOLO, ~4–6h). Two real worker bugs (flat `gross_2h/gross_4h` missing from `/s1/capture` + null in `/s1/history`), S1 card rebuild leveraging already-populated `rolling_30d` stats, S2 card rebuild against existing `/s2` activation + rolling_180d, shared `AnimatedNumber` primitive. Revised prompt at: [docs/phases/phase7-s1-s2-rebuild-prompt.md](phases/phase7-s1-s2-rebuild-prompt.md)
+**Phase 7.5 — S1/S2 polish pass** (Claude Code YOLO, ~2–3h). Surface layering tokens, chart refinement (gradients, annotations, tabular ticks), table rhythm, motion tokens. Prompt: [docs/phases/phase7-5-polish-prompt.md](phases/phase7-5-polish-prompt.md).
 
-**Strategic roadmap (Phases 8–14)**: cross-signal synthesis, peer comparison, fleet dashboard, interactive revenue, historical depth, methodology page, mobile. See [docs/roadmap.md](roadmap.md).
+**Phase 7.6 — Hero refinement** (Claude Code YOLO, ~2–3h). Fixed atmospheric background, Baltic map polygon opacity to ~10% + hairline stroke, real 48px Cormorant H1 with investor-facing copy, sub-520px breakpoint for iPhone-class viewports. Authored after 2026-04-21 audit. Prompt: [docs/phases/phase7-6-hero-prompt.md](phases/phase7-6-hero-prompt.md).
+
+**Strategic roadmap (Phases 8–14, re-sequenced 2026-04-21)**: historical depth (time toggles, promoted from 12), mobile pass (promoted from 14), market regime synthesis, peer comparison, fleet dashboard, interactive revenue, methodology page. See [docs/roadmap.md](roadmap.md).
 
 **Backlog triage** (future Cowork session): organize and prioritize backlog.
 Prompt at: [docs/phases/backlog-triage-prompt.md](phases/backlog-triage-prompt.md)
@@ -377,3 +389,33 @@ See [docs/map.md](map.md) for the full concept-to-file lookup table.
 **Deferred:**
 - PR open — left to user (GitHub web UI, manual merge per protocol).
 - Notion Phase 7 status → Shipped — user to update.
+
+---
+
+### Session 9 — 2026-04-21 — Phase 7.5 audit + roadmap re-sequencing (Cowork)
+
+**Scope:** User critique after Phase 7 landing surfaced 8 visual/structural issues. Verify each against live production via Chrome MCP DOM diagnostics. Route each to an existing or new phase. Re-sequence roadmap so first-impression phases come before synthesis phases.
+
+**Shipped:**
+- **Baseline audit** — pulled DOM/CSS diagnostics from kkme.eu via Chrome MCP. Confirmed: hero bg is flat `rgb(5,5,5)` with no image and `attachment: scroll`; Baltic map has 52 country polygons at solid `rgb(252,211,77)` full opacity; `<h1>` has empty innerText and 16px font; only 4 CSS breakpoints exist (520/768/900/1100), none below 520px; body has 27,968 chars of text vs. 8 canvases (~3,500 chars per chart). Report: `docs/visual-audit/phase-7-5-audit/DIAGNOSTIC.md`.
+- **Phase 7.6 prompt authored** — `docs/phases/phase7-6-hero-prompt.md`. Four interventions: atmospheric background layer (radial gradient, fixed), country polygon opacity to ~10% + hairline stroke, real 48px Cormorant H1 with three proposed copy options, explicit <520 + <380 breakpoints. Pause points after A, C, D.
+- **Roadmap re-sequenced** — `docs/roadmap.md`. Phase 12 (historical toggles) promoted to Phase 8. Phase 14 (mobile) promoted to Phase 9. Old Phases 8 (regime), 9 (peer), 10 (fleet), 11 (revenue model), 13 (methodology) demoted by 2 slots. Sequencing rationale rewritten to reflect first-impression-first priority.
+- **Handover updated** — current phase pointer, queued list, this session log.
+
+**Verification gates:**
+- `grep -nE '^### Phase'` on roadmap confirmed clean 7 → 7.5 → 7.6 → 8 → 9 → 10 → 11 → 12 → 13 → 14 order.
+- DOM diagnostics re-read to confirm each finding cited in DIAGNOSTIC.md matches live state.
+- Phase 7.5 scope re-read to confirm hero/mobile/new-chart-types are explicitly excluded (avoiding duplicate scope with 7.6 / 8 / 9).
+
+**Key findings not obvious without the audit:**
+- The map SVG root is already transparent; the "not transparent" symptom traces specifically to 52 solid amber country polygons, not the SVG container.
+- Hero has zero canvases — `0 canvases, 3 SVGs, 4 images` in 720px. All 8 Chart.js canvases are below the fold.
+- Chrome MCP `resize_window` resizes the OS window but does NOT shrink inner viewport. Mobile visual confirmation needs to defer to CC's `chrome-devtools` MCP device emulation.
+
+**Next session:**
+- Kastytis chooses: run Phase 7.5 first (polish shipped cards) OR skip to Phase 7.6 (hero issues are more visible). Recommendation: 7.5 first — it's the shorter hop, the prompt is already written, and 7.6 will benefit from polished-card tokens.
+- Update Notion board: add Phase 7.6 entry, renumber promoted/demoted phases.
+
+**Deferred:**
+- Notion board sync (Phase 7.6 entry + renumber) — pending.
+- Decision on H1 copy (3 options in Phase 7.6 prompt) — Kastytis picks at Pause 2.
