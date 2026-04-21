@@ -1,11 +1,11 @@
 'use client';
 
-import { Fragment, useState, useEffect, useMemo } from 'react';
+import { Fragment, useState } from 'react';
 import type { S1CaptureData, CaptureRolling, DailyCaptureEntry, MonthlyCapture, GrossToNetLine } from '@/lib/signals/s1';
 import { useSignal } from '@/lib/useSignal';
 import { REFRESH_HOT } from '@/lib/refresh-cadence';
 import {
-  AnimatedNumber, StatusChip, SourceFooter, DetailsDrawer, DataClassBadge,
+  AnimatedNumber, SourceFooter, DetailsDrawer, DataClassBadge,
 } from '@/app/components/primitives';
 import {
   Chart as ChartJS,
@@ -35,14 +35,8 @@ function rollingStats(cap: S1CaptureData | null, dur: Duration): CaptureRolling 
   return dur === '2h' ? cap?.rolling_30d?.stats_2h ?? null : cap?.rolling_30d?.stats_4h ?? null;
 }
 
-type Phase = 'OPEN' | 'TIGHTENING' | 'COMPRESSED';
-
-function derivePhase(hero: number, stats: CaptureRolling | null): { phase: Phase; sentiment: 'positive' | 'caution' | 'negative' } {
-  if (!stats) return { phase: 'TIGHTENING', sentiment: 'caution' };
-  if (hero >= stats.p75) return { phase: 'OPEN', sentiment: 'positive' };
-  if (hero >= stats.p25) return { phase: 'TIGHTENING', sentiment: 'caution' };
-  return { phase: 'COMPRESSED', sentiment: 'negative' };
-}
+// No editorial labels or sentiment mappings — data speaks for itself.
+// (Percentile band in pBucket below is descriptive, not editorial.)
 
 function pBucket(hero: number, stats: CaptureRolling): string {
   if (hero >= stats.p90) return 'above p90';
@@ -84,7 +78,6 @@ export function S1Card() {
 
   const heroVal = gross(cap, dur);
   const stats = rollingStats(cap, dur);
-  const { phase, sentiment } = useMemo(() => derivePhase(heroVal ?? 0, stats), [heroVal, stats]);
 
   // Loading / error state
   if (status === 'loading' && !cap) {
@@ -132,12 +125,10 @@ export function S1Card() {
           {heroVal != null ? <AnimatedNumber value={heroVal} prefix={'\u20AC'} decimals={0} /> : '\u2014'}
         </span>
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>/MWh</span>
-        {/* ── 3. Status chip ─────────────────────────────────── */}
-        <StatusChip status={phase} sentiment={sentiment} />
         </div>
       </div>
 
-      {/* ── 4. Interpretation ───────────────────────────────────── */}
+      {/* ── 3. Descriptive context — percentile band only, no editorial tail ─── */}
       {heroVal != null && stats && (
         <p style={{
           fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)',
@@ -146,7 +137,6 @@ export function S1Card() {
           Today&apos;s gross {dur} capture is{' '}
           <span style={{ fontFamily: 'var(--font-mono)' }}>{fmtEuro(heroVal)}/MWh</span>,
           sitting {pBucket(heroVal, stats)} of the rolling 30-day distribution.
-          {' '}{phase === 'OPEN' ? 'Wide spreads favour BESS dispatch.' : phase === 'COMPRESSED' ? 'Compressed spreads limit arbitrage upside.' : 'Moderate spread environment.'}
         </p>
       )}
 
@@ -282,13 +272,23 @@ function Sparkline({ history, dur, stats, CC, ttStyle }: {
         options={{
           responsive: true,
           maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
           plugins: {
             legend: { display: false },
             tooltip: {
               ...ttStyle,
+              filter: (item) => item.dataset.label !== 'p50',
               callbacks: {
-                title: (items) => labels[items[0].dataIndex],
-                label: (item) => `${fmtEuro(item.raw as number)}/MWh`,
+                title: (items) => labels[items[0].dataIndex].toUpperCase(),
+                label: (item) => {
+                  const v = item.raw as number | null;
+                  if (v == null) return '';
+                  return `Gross ${dur}  €${v.toFixed(1)}/MWh`;
+                },
+                footer: (items) => {
+                  const swing = history[items[0].dataIndex]?.swing;
+                  return swing != null ? `swing €${swing.toFixed(1)}/MWh` : '';
+                },
               },
             },
           },

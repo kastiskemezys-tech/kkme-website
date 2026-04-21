@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useSignal } from '@/lib/useSignal';
 import { REFRESH_WARM } from '@/lib/refresh-cadence';
 import {
-  AnimatedNumber, StatusChip, SourceFooter, DetailsDrawer, DataClassBadge,
+  AnimatedNumber, SourceFooter, DetailsDrawer, DataClassBadge,
 } from '@/app/components/primitives';
 import {
   Chart as ChartJS,
@@ -88,16 +88,8 @@ function historyField(prod: Product): keyof S2HistoryEntry {
   return 'fcr';
 }
 
-type Phase = 'HIGH' | 'STABLE' | 'LOW';
-
-function derivePhase(hero: number, act: ActivationCountry | undefined, prod: Product): { phase: Phase; sentiment: 'positive' | 'caution' | 'negative' } {
-  // Compare today's clearing to activation P50 (a longer-term benchmark)
-  const p50 = prod === 'mFRR' ? act?.mfrr_p50 : act?.afrr_p50;
-  if (p50 == null) return { phase: 'STABLE', sentiment: 'caution' };
-  if (hero > p50 * 1.3) return { phase: 'HIGH', sentiment: 'positive' };
-  if (hero < p50 * 0.7) return { phase: 'LOW', sentiment: 'negative' };
-  return { phase: 'STABLE', sentiment: 'caution' };
-}
+// No editorial labels or sentiment mappings — data speaks for itself.
+// (Per-country activation P50s render as raw context below; readers draw their own conclusions.)
 
 function fmtEuro(v: number | null | undefined): string {
   if (v == null) return '\u2014';
@@ -139,8 +131,6 @@ export function S2Card() {
   }, []);
 
   const hero = data ? heroValue(data, prod) : null;
-  const ltAct = data?.activation?.lt;
-  const { phase, sentiment } = useMemo(() => derivePhase(hero ?? 0, ltAct, prod), [hero, ltAct, prod]);
 
   if (status === 'loading' && !data) {
     return (
@@ -186,8 +176,6 @@ export function S2Card() {
           {hero != null ? <AnimatedNumber value={hero} prefix={'\u20AC'} decimals={prod === 'FCR' ? 2 : 1} /> : '\u2014'}
         </span>
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>/MW/h</span>
-        {/* ── 3. Status chip ─────────────────────────────────── */}
-        <StatusChip status={phase} sentiment={sentiment} />
         </div>
       </div>
 
@@ -338,11 +326,16 @@ function HistoryChart({ history, prod, CC, ttStyle }: {
             tooltip: {
               ...ttStyle,
               callbacks: {
-                title: (items) => labels[items[0].dataIndex],
-                label: (item) => `${fmtEuro(item.raw as number)}/MW/h`,
+                title: (items) => labels[items[0].dataIndex].toUpperCase(),
+                label: (item) => {
+                  const v = item.raw as number | null;
+                  if (v == null) return '';
+                  return `${prod}  €${v.toFixed(1)}/MW/h`;
+                },
               },
             },
           },
+          interaction: { mode: 'index', intersect: false },
           scales: {
             ...scales,
             x: { ...scales.x, ticks: { ...scales.x.ticks, maxRotation: 0, autoSkip: true, maxTicksLimit: 6 } },
