@@ -1,3 +1,4 @@
+export { AnimatedNumber } from './AnimatedNumber';
 export { SectionHeader } from './SectionHeader';
 export { MetricTile } from './MetricTile';
 export { StatusChip } from './StatusChip';
