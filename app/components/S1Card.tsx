@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useState, useEffect, useMemo } from 'react';
+import { Fragment, useState, useEffect, useMemo, useRef } from 'react';
 import type { S1CaptureData, CaptureRolling, DailyCaptureEntry, MonthlyCapture, GrossToNetLine } from '@/lib/signals/s1';
 import { useSignal } from '@/lib/useSignal';
 import { REFRESH_HOT } from '@/lib/refresh-cadence';
@@ -77,8 +77,9 @@ function timeAgo(ts: string): string {
 // ── Component ────────────────────────────────────────────────────────────────
 
 export function S1Card() {
-  const { status, data: cap } = useSignal<S1CaptureData>(`${W}/s1/capture`, { refreshInterval: REFRESH_HOT });
+  const { status, data: cap, isRefreshing } = useSignal<S1CaptureData>(`${W}/s1/capture`, { refreshInterval: REFRESH_HOT });
   const [dur, setDur] = useState<Duration>('2h');
+  const flash = useRefreshFlash(isRefreshing);
   const CC = useChartColors();
   const ttStyle = useTooltipStyle(CC);
 
@@ -111,11 +112,7 @@ export function S1Card() {
         }}>
           S1 · DA Arbitrage · Lithuania
         </span>
-        {cap.updated_at && (
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>
-            {timeAgo(cap.updated_at)}
-          </span>
-        )}
+        <LiveSignal updatedAt={cap.updated_at} source="energy-charts.info" flash={flash} />
         <DurationToggle value={dur} onChange={setDur} />
       </div>
 
@@ -201,6 +198,58 @@ export function S1Card() {
         {cap.shape && <ShapeRow shape={cap.shape} />}
       </DetailsDrawer>
     </article>
+  );
+}
+
+// ── Live-signal row (pulse dot + timestamp + source chip) ───────────────────
+
+function useRefreshFlash(isRefreshing: boolean): boolean {
+  const [flash, setFlash] = useState(false);
+  const prev = useRef(false);
+  useEffect(() => {
+    if (isRefreshing && !prev.current) {
+      setFlash(true);
+      const t = setTimeout(() => setFlash(false), 300);
+      prev.current = true;
+      return () => clearTimeout(t);
+    }
+    if (!isRefreshing) prev.current = false;
+  }, [isRefreshing]);
+  return flash;
+}
+
+function LiveSignal({ updatedAt, source, flash }: { updatedAt?: string | null; source: string; flash: boolean }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+      <span
+        className="pulse-dot"
+        aria-label={updatedAt ? `Live data; last update ${timeAgo(updatedAt)}` : 'Live data'}
+        style={{
+          width: '6px', height: '6px', borderRadius: '50%',
+          background: flash ? 'var(--amber)' : 'var(--teal)',
+          transition: 'background 150ms ease',
+          display: 'inline-block',
+        }}
+      />
+      {updatedAt && (
+        <span style={{
+          fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)',
+          color: 'var(--text-primary)',
+        }}>
+          {timeAgo(updatedAt)}
+        </span>
+      )}
+      <span style={{
+        fontFamily: 'var(--font-mono)', fontSize: 'var(--font-2xs, 10px)',
+        color: 'var(--text-tertiary)',
+        padding: '2px 6px',
+        border: '1px solid var(--border-subtle)',
+        borderRadius: '2px',
+        letterSpacing: '0.04em',
+      }}>
+        {source}
+      </span>
+    </span>
   );
 }
 

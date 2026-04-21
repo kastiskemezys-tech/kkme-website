@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useSignal } from '@/lib/useSignal';
 import { REFRESH_WARM } from '@/lib/refresh-cadence';
 import {
@@ -124,9 +124,10 @@ function timeAgo(ts: string): string {
 // ── Component ────────────────────────────────────────────────────────────────
 
 export function S2Card() {
-  const { status, data } = useSignal<S2Signal>(`${W}/s2`, { refreshInterval: REFRESH_WARM });
+  const { status, data, isRefreshing } = useSignal<S2Signal>(`${W}/s2`, { refreshInterval: REFRESH_WARM });
   const [history, setHistory] = useState<S2HistoryEntry[]>([]);
   const [prod, setProd] = useState<Product>('aFRR');
+  const flash = useRefreshFlash(isRefreshing);
   const CC = useChartColors();
   const ttStyle = useTooltipStyle(CC);
 
@@ -165,11 +166,7 @@ export function S2Card() {
         }}>
           S2 · Balancing · LT/LV/EE
         </span>
-        {data.timestamp && (
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>
-            {timeAgo(data.timestamp)}
-          </span>
-        )}
+        <LiveSignal updatedAt={data.timestamp} source="BTD" flash={flash} />
         <ProductToggle value={prod} onChange={setProd} />
       </div>
 
@@ -268,6 +265,58 @@ export function S2Card() {
         <ContextTable data={data} />
       </DetailsDrawer>
     </article>
+  );
+}
+
+// ── Live-signal row (pulse dot + timestamp + source chip) ───────────────────
+
+function useRefreshFlash(isRefreshing: boolean): boolean {
+  const [flash, setFlash] = useState(false);
+  const prev = useRef(false);
+  useEffect(() => {
+    if (isRefreshing && !prev.current) {
+      setFlash(true);
+      const t = setTimeout(() => setFlash(false), 300);
+      prev.current = true;
+      return () => clearTimeout(t);
+    }
+    if (!isRefreshing) prev.current = false;
+  }, [isRefreshing]);
+  return flash;
+}
+
+function LiveSignal({ updatedAt, source, flash }: { updatedAt?: string | null; source: string; flash: boolean }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+      <span
+        className="pulse-dot"
+        aria-label={updatedAt ? `Live data; last update ${timeAgo(updatedAt)}` : 'Live data'}
+        style={{
+          width: '6px', height: '6px', borderRadius: '50%',
+          background: flash ? 'var(--amber)' : 'var(--teal)',
+          transition: 'background 150ms ease',
+          display: 'inline-block',
+        }}
+      />
+      {updatedAt && (
+        <span style={{
+          fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)',
+          color: 'var(--text-primary)',
+        }}>
+          {timeAgo(updatedAt)}
+        </span>
+      )}
+      <span style={{
+        fontFamily: 'var(--font-mono)', fontSize: 'var(--font-2xs, 10px)',
+        color: 'var(--text-tertiary)',
+        padding: '2px 6px',
+        border: '1px solid var(--border-subtle)',
+        borderRadius: '2px',
+        letterSpacing: '0.04em',
+      }}>
+        {source}
+      </span>
+    </span>
   );
 }
 
