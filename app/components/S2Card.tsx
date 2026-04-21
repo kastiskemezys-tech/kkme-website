@@ -180,25 +180,33 @@ export function S2Card() {
         <StatusChip status={phase} sentiment={sentiment} />
       </div>
 
-      {/* ── 4. Interpretation ───────────────────────────────────── */}
-      <p style={{
-        fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)',
-        color: 'var(--text-secondary)', lineHeight: 1.5, margin: '0 0 16px',
-      }}>
-        {prod} capacity clearing at{' '}
-        <span style={{ fontFamily: 'var(--font-mono)' }}>{fmtEuro(hero)}/MW/h</span>.
-        {data.imbalance_mean != null && (
-          <> LT imbalance averaging{' '}
-            <span style={{ fontFamily: 'var(--font-mono)' }}>{Math.round(data.imbalance_mean)} MWh</span>
-            {data.pct_above_100 != null && <> ({Math.round(data.pct_above_100)}% of periods above 100 MWh)</>}.
-          </>
-        )}
-        {data.imbalance_p90 != null && (
-          <> p90 stress at{' '}
-            <span style={{ fontFamily: 'var(--font-mono)' }}>{Math.round(data.imbalance_p90)} MWh</span>.
-          </>
-        )}
-      </p>
+      {/* ── 4. Imbalance context strip ──────────────────────────── */}
+      {(data.imbalance_mean != null || data.imbalance_p90 != null || data.pct_above_100 != null) && (
+        <div style={{
+          display: 'flex', gap: '16px', flexWrap: 'wrap',
+          padding: '10px 0', marginBottom: '12px',
+          borderTop: '1px solid var(--border-subtle)', borderBottom: '1px solid var(--border-subtle)',
+        }}>
+          <div style={{ minWidth: '72px' }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>imb. mean</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-primary)' }}>
+              {data.imbalance_mean != null ? `${Math.round(data.imbalance_mean)} MWh` : '—'}
+            </div>
+          </div>
+          <div style={{ minWidth: '72px' }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>imb. p90</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-primary)' }}>
+              {data.imbalance_p90 != null ? `${Math.round(data.imbalance_p90)} MWh` : '—'}
+            </div>
+          </div>
+          <div style={{ minWidth: '72px' }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>% &gt;100 MWh</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-primary)' }}>
+              {data.pct_above_100 != null ? `${Math.round(data.pct_above_100)}%` : '—'}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── 5. Rolling context — activation P50 per country ─────── */}
       {data.activation && (

@@ -44,14 +44,6 @@ function derivePhase(hero: number, stats: CaptureRolling | null): { phase: Phase
   return { phase: 'COMPRESSED', sentiment: 'negative' };
 }
 
-function pBucket(hero: number, stats: CaptureRolling): string {
-  if (hero >= stats.p90) return 'above p90';
-  if (hero >= stats.p75) return 'p75\u2013p90';
-  if (hero >= stats.p50) return 'p50\u2013p75';
-  if (hero >= stats.p25) return 'p25\u2013p50';
-  return 'below p25';
-}
-
 function fmtEuro(v: number | null | undefined): string {
   if (v == null) return '\u2014';
   return '\u20AC' + Math.round(v);
@@ -126,20 +118,7 @@ export function S1Card() {
         <StatusChip status={phase} sentiment={sentiment} />
       </div>
 
-      {/* ── 4. Interpretation ───────────────────────────────────── */}
-      {heroVal != null && stats && (
-        <p style={{
-          fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)',
-          color: 'var(--text-secondary)', lineHeight: 1.5, margin: '0 0 16px',
-        }}>
-          Today&apos;s gross {dur} capture is{' '}
-          <span style={{ fontFamily: 'var(--font-mono)' }}>{fmtEuro(heroVal)}/MWh</span>,
-          sitting {pBucket(heroVal, stats)} of the rolling 30-day distribution.
-          {' '}{phase === 'OPEN' ? 'Wide spreads favour BESS dispatch.' : phase === 'COMPRESSED' ? 'Compressed spreads limit arbitrage upside.' : 'Moderate spread environment.'}
-        </p>
-      )}
-
-      {/* ── 5. Rolling context strip ────────────────────────────── */}
+      {/* ── 4. Rolling context strip ────────────────────────────── */}
       {stats && (
         <div style={{
           display: 'flex', gap: '16px', flexWrap: 'wrap',
