@@ -353,3 +353,27 @@ See [docs/map.md](map.md) for the full concept-to-file lookup table.
 **Deferred:**
 - Visual audit screenshots (Chrome DevTools MCP unavailable this session).
 - `/s2` rolling_180d products have sparse data (1 day each) — context strip falls back to activation P50 instead.
+
+### Session 8 — 2026-04-21 — Phase 7 Pause Point 2 resume (Claude Code)
+
+**Scope:** Resume Phase 7 at Pause Point 2. Walk items a–e, mobile verification, optional RTE footnote, Pause Point 3 gate, push for PR.
+
+**Shipped:**
+- **RTE footnote in S1 drawer** (`0c8bb61`): wrapped `BridgeChart` rows in `<Fragment>`, appended muted caption `loss scales with charge-leg cost` under any `deduction`-type row whose label starts with `RTE loss`. Uses `var(--font-2xs, 10px)` + `var(--text-muted)`, no new tokens.
+- **Visual audit captured** (`docs/visual-audit/phase-7/`): S1 and S2 at mobile (375 emu) + desktop (1440×900) in both themes, plus drawer-open screenshot showing the footnote render. Script-measured article widths at mobile: S1 = 301 px, S2 = 285 px. Zero horizontal scroll.
+- **Branch pushed** to `origin/phase-7-s1-s2-cards` (8 commits total ahead of `dev`).
+
+**Walked but skipped (phantom findings):**
+- `(a)` S2 `?%` Rate column — grep across `app/components/` returned zero. The `afrr_rate`/`mfrr_rate` fields on the TS interface are declared but never rendered. Nothing to drop.
+- `(c)` dead S1Card/S2Card imports — only `app/page.tsx` imports each. Already clean.
+- `(e)` sparkline data path — `Sparkline` reads `cap.history` = `/s1/capture.history[-30:]`. Live curl confirms 30 entries, all numeric `gross_2h/gross_4h`. No stale reference.
+
+**Verification gates:**
+- `npx next build` clean (70 s compile, 6 static pages).
+- `rg 'rgba\('` on S1Card + S2Card: 0.
+- `rg '#[0-9a-fA-F]{6}'` on S1Card + S2Card: 0.
+- Runtime console: 1 unrelated 404, zero Chart.js/React/token errors.
+
+**Deferred:**
+- PR open — left to user (GitHub web UI, manual merge per protocol).
+- Notion Phase 7 status → Shipped — user to update.

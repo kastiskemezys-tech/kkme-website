@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { Fragment, useState, useEffect, useMemo } from 'react';
 import type { S1CaptureData, CaptureRolling, DailyCaptureEntry, MonthlyCapture, GrossToNetLine } from '@/lib/signals/s1';
 import { useSignal } from '@/lib/useSignal';
 import { REFRESH_HOT } from '@/lib/refresh-cadence';
@@ -366,16 +366,26 @@ function BridgeChart({ bridge, CC }: { bridge: GrossToNetLine[]; CC: ReturnType<
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
         {bridge.map((line, i) => (
-          <div key={i} style={{
-            display: 'flex', justifyContent: 'space-between',
-            fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
-            padding: '2px 0',
-            color: line.type === 'result' ? 'var(--text-primary)' : line.type === 'deduction' ? 'var(--rose)' : 'var(--text-secondary)',
-            fontWeight: line.type === 'result' ? 600 : 400,
-          }}>
-            <span>{line.label}</span>
-            <span>{line.value >= 0 ? '+' : ''}{fmtEuro(line.value)}</span>
-          </div>
+          <Fragment key={i}>
+            <div style={{
+              display: 'flex', justifyContent: 'space-between',
+              fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+              padding: '2px 0',
+              color: line.type === 'result' ? 'var(--text-primary)' : line.type === 'deduction' ? 'var(--rose)' : 'var(--text-secondary)',
+              fontWeight: line.type === 'result' ? 600 : 400,
+            }}>
+              <span>{line.label}</span>
+              <span>{line.value >= 0 ? '+' : ''}{fmtEuro(line.value)}</span>
+            </div>
+            {line.type === 'deduction' && line.label.startsWith('RTE loss') && (
+              <div style={{
+                fontFamily: 'var(--font-mono)', fontSize: 'var(--font-2xs, 10px)',
+                color: 'var(--text-muted)', padding: '0 0 2px',
+              }}>
+                loss scales with charge-leg cost
+              </div>
+            )}
+          </Fragment>
         ))}
       </div>
     </div>
