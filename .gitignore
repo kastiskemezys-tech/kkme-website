@@ -45,6 +45,8 @@ logs/*.log
 
 # doc artifacts (screenshots, traces — point-in-time verification, not reference)
 docs/**/*.png
+!docs/visual-audit/phase-*/
+!docs/visual-audit/phase-*/*.png
 docs/**/*.json
 claude-handover/images/
 
