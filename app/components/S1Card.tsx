@@ -1,12 +1,13 @@
 'use client';
 
-import { Fragment, useState, useEffect, useMemo } from 'react';
+import { Fragment, useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import type { S1CaptureData, CaptureRolling, DailyCaptureEntry, MonthlyCapture, GrossToNetLine } from '@/lib/signals/s1';
 import { useSignal } from '@/lib/useSignal';
 import { REFRESH_HOT } from '@/lib/refresh-cadence';
 import {
-  AnimatedNumber, StatusChip, SourceFooter, DetailsDrawer, DataClassBadge,
+  AnimatedNumber, StatusChip, SourceFooter, DetailsDrawer, DrawerSection, DataClassBadge,
 } from '@/app/components/primitives';
+import type { DrawerHandle } from '@/app/components/primitives';
 import {
   Chart as ChartJS,
   CategoryScale, LinearScale,
@@ -44,17 +45,9 @@ function derivePhase(hero: number, stats: CaptureRolling | null): { phase: Phase
   return { phase: 'COMPRESSED', sentiment: 'negative' };
 }
 
-function pBucket(hero: number, stats: CaptureRolling): string {
-  if (hero >= stats.p90) return 'above p90';
-  if (hero >= stats.p75) return 'p75\u2013p90';
-  if (hero >= stats.p50) return 'p50\u2013p75';
-  if (hero >= stats.p25) return 'p25\u2013p50';
-  return 'below p25';
-}
-
 function fmtEuro(v: number | null | undefined): string {
-  if (v == null) return '\u2014';
-  return '\u20AC' + Math.round(v);
+  if (v == null) return '—';
+  return '€' + Math.round(v);
 }
 
 function fmtDate(d: string): string {
@@ -77,8 +70,12 @@ function timeAgo(ts: string): string {
 // ── Component ────────────────────────────────────────────────────────────────
 
 export function S1Card() {
-  const { status, data: cap } = useSignal<S1CaptureData>(`${W}/s1/capture`, { refreshInterval: REFRESH_HOT });
+  const { status, data: cap, isRefreshing } = useSignal<S1CaptureData>(`${W}/s1/capture`, { refreshInterval: REFRESH_HOT });
   const [dur, setDur] = useState<Duration>('2h');
+  const [pinned, setPinned] = useState<{ idx: number; date: string; value: number; swing: number | null } | null>(null);
+  const flash = useRefreshFlash(isRefreshing);
+  const drawerRef = useRef<DrawerHandle>(null);
+  const openDrawer = (anchor: 'what' | 'how' | 'monthly' | 'bridge') => drawerRef.current?.open(anchor);
   const CC = useChartColors();
   const ttStyle = useTooltipStyle(CC);
 
@@ -111,38 +108,21 @@ export function S1Card() {
         }}>
           S1 · DA Arbitrage · Lithuania
         </span>
-        {cap.updated_at && (
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>
-            {timeAgo(cap.updated_at)}
-          </span>
-        )}
+        <LiveSignal updatedAt={cap.updated_at} source="energy-charts.info" flash={flash} />
         <DurationToggle value={dur} onChange={setDur} />
       </div>
 
-      {/* ── 2. Hero metric ──────────────────────────────────────── */}
+      {/* ── 2. Hero metric (clickable → drawer `what`) ──────────── */}
       <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginBottom: '6px' }}>
-        <span style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(1.75rem, 4vw, 2.25rem)', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1 }}>
-          {heroVal != null ? <AnimatedNumber value={heroVal} prefix={'\u20AC'} decimals={0} /> : '\u2014'}
-        </span>
+        <HeroButton onClick={() => openDrawer('what')} ariaLabel="Read how gross capture is computed">
+          {heroVal != null ? <AnimatedNumber value={heroVal} prefix={'€'} decimals={0} /> : '—'}
+        </HeroButton>
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>/MWh</span>
         {/* ── 3. Status chip ─────────────────────────────────── */}
         <StatusChip status={phase} sentiment={sentiment} />
       </div>
 
-      {/* ── 4. Interpretation ───────────────────────────────────── */}
-      {heroVal != null && stats && (
-        <p style={{
-          fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)',
-          color: 'var(--text-secondary)', lineHeight: 1.5, margin: '0 0 16px',
-        }}>
-          Today&apos;s gross {dur} capture is{' '}
-          <span style={{ fontFamily: 'var(--font-mono)' }}>{fmtEuro(heroVal)}/MWh</span>,
-          sitting {pBucket(heroVal, stats)} of the rolling 30-day distribution.
-          {' '}{phase === 'OPEN' ? 'Wide spreads favour BESS dispatch.' : phase === 'COMPRESSED' ? 'Compressed spreads limit arbitrage upside.' : 'Moderate spread environment.'}
-        </p>
-      )}
-
-      {/* ── 5. Rolling context strip ────────────────────────────── */}
+      {/* ── 4. Rolling context strip (tiles → `what` drawer) ────── */}
       {stats && (
         <div style={{
           display: 'flex', gap: '16px', flexWrap: 'wrap',
@@ -156,20 +136,24 @@ export function S1Card() {
             ['p75', stats.p75],
             ['p90', stats.p90],
           ] as const).map(([label, val]) => (
-            <div key={label} style={{ minWidth: '48px' }}>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</div>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-primary)' }}>{fmtEuro(val)}</div>
-            </div>
+            <TileButton key={label} onClick={() => openDrawer('what')} label={label} value={fmtEuro(val)} />
           ))}
-          <div style={{ minWidth: '48px' }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>days</div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-primary)' }}>{stats.days}</div>
-          </div>
+          <TileButton onClick={() => openDrawer('what')} label="days" value={String(stats.days)} />
         </div>
       )}
 
-      {/* ── 6. Sparkline — 30-day gross capture ─────────────────── */}
-      {history.length > 2 && <Sparkline history={history} dur={dur} stats={stats} CC={CC} ttStyle={ttStyle} />}
+      {/* ── 6. Sparkline — 30-day gross capture (click-to-pin) ──── */}
+      {history.length > 2 && (
+        <Sparkline
+          history={history}
+          dur={dur}
+          stats={stats}
+          CC={CC}
+          ttStyle={ttStyle}
+          pinned={pinned}
+          onPin={setPinned}
+        />
+      )}
 
       {/* ── 8. Impact line ──────────────────────────────────────── */}
       {heroVal != null && (
@@ -194,13 +178,75 @@ export function S1Card() {
         dataClass="derived"
       />
 
-      {/* ── 10. Drawer — monthly + bridge ───────────────────────── */}
-      <DetailsDrawer label="Monthly + Gross→Net bridge">
-        {monthly.length > 0 && <MonthlyChart monthly={monthly} dur={dur} CC={CC} ttStyle={ttStyle} />}
-        {cap.gross_to_net && cap.gross_to_net.length > 0 && <BridgeChart bridge={cap.gross_to_net} CC={CC} />}
-        {cap.shape && <ShapeRow shape={cap.shape} />}
+      {/* ── 10. Drawer — narrative + history ────────────────────── */}
+      <DetailsDrawer ref={drawerRef} label="Reading this card">
+        <DrawerSection id="what" title="What this is">
+          <S1WhatSection heroVal={heroVal} stats={stats} dur={dur} phase={phase} />
+        </DrawerSection>
+        <DrawerSection id="how" title="How we compute this">
+          <S1HowSection />
+        </DrawerSection>
+        <DrawerSection id="monthly" title="Monthly trajectory">
+          {monthly.length > 0 ? <MonthlyChart monthly={monthly} dur={dur} CC={CC} ttStyle={ttStyle} /> : <MutedLine text="No monthly history yet." />}
+        </DrawerSection>
+        <DrawerSection id="bridge" title="Gross → Net bridge">
+          {cap.gross_to_net && cap.gross_to_net.length > 0 ? <BridgeChart bridge={cap.gross_to_net} CC={CC} /> : <MutedLine text="No bridge data yet." />}
+          {cap.shape && <ShapeRow shape={cap.shape} />}
+        </DrawerSection>
       </DetailsDrawer>
     </article>
+  );
+}
+
+// ── Live-signal row (pulse dot + timestamp + source chip) ───────────────────
+
+function useRefreshFlash(isRefreshing: boolean): boolean {
+  const [flash, setFlash] = useState(false);
+  const prev = useRef(false);
+  useEffect(() => {
+    if (isRefreshing && !prev.current) {
+      setFlash(true);
+      const t = setTimeout(() => setFlash(false), 300);
+      prev.current = true;
+      return () => clearTimeout(t);
+    }
+    if (!isRefreshing) prev.current = false;
+  }, [isRefreshing]);
+  return flash;
+}
+
+function LiveSignal({ updatedAt, source, flash }: { updatedAt?: string | null; source: string; flash: boolean }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+      <span
+        className="pulse-dot"
+        aria-label={updatedAt ? `Live data; last update ${timeAgo(updatedAt)}` : 'Live data'}
+        style={{
+          width: '6px', height: '6px', borderRadius: '50%',
+          background: flash ? 'var(--amber)' : 'var(--teal)',
+          transition: 'background 150ms ease',
+          display: 'inline-block',
+        }}
+      />
+      {updatedAt && (
+        <span style={{
+          fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)',
+          color: 'var(--text-primary)',
+        }}>
+          {timeAgo(updatedAt)}
+        </span>
+      )}
+      <span style={{
+        fontFamily: 'var(--font-mono)', fontSize: 'var(--font-2xs, 10px)',
+        color: 'var(--text-tertiary)',
+        padding: '2px 6px',
+        border: '1px solid var(--border-subtle)',
+        borderRadius: '2px',
+        letterSpacing: '0.04em',
+      }}>
+        {source}
+      </span>
+    </span>
   );
 }
 
@@ -224,14 +270,18 @@ function DurationToggle({ value, onChange }: { value: Duration; onChange: (d: Du
   );
 }
 
-// ── Sparkline chart ──────────────────────────────────────────────────────────
+// ── Sparkline chart (click-to-pin) ───────────────────────────────────────────
 
-function Sparkline({ history, dur, stats, CC, ttStyle }: {
+type Pinned = { idx: number; date: string; value: number; swing: number | null } | null;
+
+function Sparkline({ history, dur, stats, CC, ttStyle, pinned, onPin }: {
   history: DailyCaptureEntry[];
   dur: Duration;
   stats: CaptureRolling | null;
   CC: ReturnType<typeof useChartColors>;
   ttStyle: ReturnType<typeof useTooltipStyle>;
+  pinned: Pinned;
+  onPin: (p: Pinned) => void;
 }) {
   const field = dur === '2h' ? 'gross_2h' : 'gross_4h';
   const labels = history.map(h => fmtDate(h.date));
@@ -244,8 +294,10 @@ function Sparkline({ history, dur, stats, CC, ttStyle }: {
       borderColor: CC.teal,
       backgroundColor: CC.fillTeal,
       borderWidth: 1.5,
-      pointRadius: 0,
+      pointRadius: values.map((_, i) => (pinned?.idx === i ? 4 : 0)),
       pointHoverRadius: 3,
+      pointBackgroundColor: CC.teal,
+      pointBorderColor: CC.teal,
       tension: 0.3,
       fill: true,
       spanGaps: true,
@@ -268,12 +320,28 @@ function Sparkline({ history, dur, stats, CC, ttStyle }: {
   const scales = buildScales(CC);
 
   return (
-    <div style={{ height: '120px', marginBottom: '8px' }}>
+    <>
+    <div style={{ height: '120px', marginBottom: pinned ? '4px' : '8px' }}>
       <Line
         data={{ labels, datasets: datasets as never }}
         options={{
           responsive: true,
           maintainAspectRatio: false,
+          onClick: (_evt, elements) => {
+            if (!elements || elements.length === 0) {
+              onPin(null);
+              return;
+            }
+            const idx = elements[0].index;
+            const entry = history[idx];
+            const val = values[idx];
+            if (!entry || val == null) return;
+            if (pinned?.idx === idx) {
+              onPin(null);
+            } else {
+              onPin({ idx, date: entry.date, value: val, swing: entry.swing });
+            }
+          },
           plugins: {
             legend: { display: false },
             tooltip: {
@@ -299,13 +367,40 @@ function Sparkline({ history, dur, stats, CC, ttStyle }: {
               ...scales.y,
               ticks: {
                 ...scales.y.ticks,
-                callback: (v) => `\u20AC${v}`,
+                callback: (v) => `€${v}`,
               },
             },
           },
         }}
       />
     </div>
+    {pinned && (
+      <div
+        role="status"
+        style={{
+          display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap',
+          fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+          color: 'var(--text-secondary)',
+          padding: '2px 0 10px',
+        }}
+      >
+        <span style={{ color: 'var(--text-muted)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Pinned</span>
+        <span>{fmtDate(pinned.date)}: <span style={{ color: 'var(--text-primary)' }}>{fmtEuro(pinned.value)}/MWh</span></span>
+        {pinned.swing != null && <span style={{ color: 'var(--text-muted)' }}>swing {fmtEuro(pinned.swing)}</span>}
+        <button
+          onClick={() => onPin(null)}
+          style={{
+            marginLeft: 'auto', background: 'none', border: 'none', padding: 0,
+            cursor: 'pointer', color: 'var(--text-muted)',
+            fontFamily: 'var(--font-mono)', fontSize: 'var(--font-2xs, 10px)',
+            textDecoration: 'underline',
+          }}
+        >
+          unpin
+        </button>
+      </div>
+    )}
+    </>
   );
 }
 
@@ -347,7 +442,7 @@ function MonthlyChart({ monthly, dur, CC, ttStyle }: {
             scales: {
               ...scales,
               x: { ...scales.x, ticks: { ...scales.x.ticks, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 } },
-              y: { ...scales.y, ticks: { ...scales.y.ticks, callback: (v) => `\u20AC${v}` } },
+              y: { ...scales.y, ticks: { ...scales.y.ticks, callback: (v) => `€${v}` } },
             },
           }}
         />
@@ -406,5 +501,190 @@ function ShapeRow({ shape }: { shape: NonNullable<S1CaptureData['shape']> }) {
       <span>Swing {fmtEuro(shape.swing)}</span>
       {shape.evening_premium != null && <span>Eve premium {fmtEuro(shape.evening_premium)}</span>}
     </div>
+  );
+}
+
+// ── Hero button (keeps AnimatedNumber intact, adds hover underline) ─────────
+
+function HeroButton({ children, onClick, ariaLabel }: {
+  children: ReactNode;
+  onClick: () => void;
+  ariaLabel: string;
+}) {
+  const [hover, setHover] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={ariaLabel}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      onFocus={() => setHover(true)}
+      onBlur={() => setHover(false)}
+      style={{
+        background: 'none',
+        border: 'none',
+        padding: 0,
+        margin: 0,
+        cursor: 'pointer',
+        fontFamily: 'var(--font-display)',
+        fontSize: 'clamp(1.75rem, 4vw, 2.25rem)',
+        fontWeight: 600,
+        color: 'var(--text-primary)',
+        lineHeight: 1,
+        textDecoration: hover ? 'underline' : 'none',
+        textDecorationColor: 'var(--text-muted)',
+        textUnderlineOffset: '4px',
+        textDecorationThickness: '1px',
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+// ── Tile button (percentile / imbalance tiles → drawer) ──────────────────────
+
+function TileButton({ label, value, onClick }: { label: string; value: string; onClick: () => void }) {
+  const [hover, setHover] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      onFocus={() => setHover(true)}
+      onBlur={() => setHover(false)}
+      style={{
+        background: 'none',
+        border: 'none',
+        padding: 0,
+        margin: 0,
+        minWidth: '48px',
+        textAlign: 'left',
+        cursor: 'pointer',
+        color: 'inherit',
+      }}
+    >
+      <div style={{
+        fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+        color: hover ? 'var(--text-secondary)' : 'var(--text-muted)',
+        textTransform: 'uppercase', letterSpacing: '0.04em',
+        transition: 'color 0.12s',
+      }}>{label}</div>
+      <div style={{
+        fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)',
+        color: 'var(--text-primary)',
+        textDecoration: hover ? 'underline' : 'none',
+        textDecorationColor: 'var(--text-muted)',
+        textUnderlineOffset: '3px',
+      }}>{value}</div>
+    </button>
+  );
+}
+
+// ── Drawer content: narrative sections ───────────────────────────────────────
+
+function MutedLine({ text }: { text: string }) {
+  return (
+    <p style={{
+      fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+      color: 'var(--text-muted)', margin: 0,
+    }}>
+      {text}
+    </p>
+  );
+}
+
+function DrawerProse({ children }: { children: ReactNode }) {
+  return (
+    <p style={{
+      fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)',
+      color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 0 8px',
+    }}>
+      {children}
+    </p>
+  );
+}
+
+function S1WhatSection({ heroVal, stats, dur, phase }: {
+  heroVal: number | null;
+  stats: CaptureRolling | null;
+  dur: Duration;
+  phase: Phase;
+}) {
+  const bucket = useMemo(() => {
+    if (heroVal == null || !stats) return null;
+    if (heroVal >= stats.p90) return 'p90+';
+    if (heroVal >= stats.p75) return 'p75–p90';
+    if (heroVal >= stats.p50) return 'p50–p75';
+    if (heroVal >= stats.p25) return 'p25–p50';
+    return '<p25';
+  }, [heroVal, stats]);
+
+  const dailyRevenue = heroVal != null
+    ? Math.round(heroVal * (dur === '2h' ? 200 : 400) / 100) * 100
+    : null;
+
+  return (
+    <>
+      <DrawerProse>
+        Today&rsquo;s gross {dur} capture sits at{' '}
+        <strong style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{fmtEuro(heroVal)}/MWh</strong>
+        {bucket && stats && (
+          <>
+            , in the <strong style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{bucket}</strong> band of the rolling 30-day distribution
+            (mean {fmtEuro(stats.mean)}, p50 {fmtEuro(stats.p50)}, p90 {fmtEuro(stats.p90)})
+          </>
+        )}
+        . The market regime reads {phase.toLowerCase()}.
+      </DrawerProse>
+      <DrawerProse>
+        Why the distribution matters: a battery can only capture what the day-ahead curve offers. When
+        today&rsquo;s gross capture is well above p75, the peak-to-trough shape is unusually
+        wide — typically a tight residual load event, a low-wind evening, or an interconnector
+        constraint. p25–p50 is the flat-curve regime where even a perfectly-timed cycle earns thin.
+      </DrawerProse>
+      {dailyRevenue != null && (
+        <DrawerProse>
+          In revenue terms: a 100 MW / {dur} plant cycling once/day at today&rsquo;s gross would clear{' '}
+          <strong style={{ color: 'var(--text-primary)', fontWeight: 500 }}>€{dailyRevenue.toLocaleString('en-GB')}/day</strong>{' '}
+          before RTE loss, fees, and imbalance — see the Gross → Net bridge below.
+        </DrawerProse>
+      )}
+    </>
+  );
+}
+
+function S1HowSection() {
+  return (
+    <>
+      <DrawerProse>
+        <strong>Gross capture</strong> = the peak 2 or 4 hours&rsquo; average day-ahead price minus the
+        trough 2 or 4 hours&rsquo; average, for the given day. It&rsquo;s the theoretical €/MWh a perfectly-
+        timed battery of that duration could clear on DA arbitrage alone, before any costs.
+      </DrawerProse>
+      <DrawerProse>
+        <strong>2h vs 4h</strong> tracks typical Baltic BESS durations. 2h is today&rsquo;s dominant build;
+        4h wins when shoulder hours stay bid. The two series diverge most under tight residual-load
+        days when only the sharpest peak clears rich.
+      </DrawerProse>
+      <DrawerProse>
+        <strong>RTE (round-trip efficiency) loss</strong> is applied on the charge leg at 85% round-trip —
+        i.e. you pay for ~18% more charge energy than you discharge. The convention is visible in the
+        Gross → Net bridge: the RTE line scales with the charge-leg cost, not the discharge revenue.
+      </DrawerProse>
+      <DrawerProse>
+        <strong>Data ends at T-1</strong>: day-ahead clearing for the next day is published by ~13:00
+        CET, and yesterday&rsquo;s physical hourly shape is finalised overnight. We plot through
+        yesterday so every point reflects a real market outcome, not a forecast.
+      </DrawerProse>
+      <DrawerProse>
+        <strong>Source</strong>: day-ahead LT prices via{' '}
+        <a href="https://energy-charts.info" target="_blank" rel="noreferrer" style={{ color: 'var(--text-secondary)' }}>energy-charts.info</a>
+        {' '}(Fraunhofer ISE), polled every 5 minutes. We store the 30-day rolling distribution
+        in KV alongside the history array.
+      </DrawerProse>
+    </>
   );
 }

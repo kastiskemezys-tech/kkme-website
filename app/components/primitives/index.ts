@@ -5,6 +5,7 @@ export { StatusChip } from './StatusChip';
 export { ImpactLine } from './ImpactLine';
 export { FreshnessBadge } from './FreshnessBadge';
 export { ConfidenceBadge } from './ConfidenceBadge';
-export { DetailsDrawer } from './DetailsDrawer';
+export { DetailsDrawer, DrawerSection } from './DetailsDrawer';
+export type { DrawerHandle } from './DetailsDrawer';
 export { SourceFooter } from './SourceFooter';
 export { DataClassBadge } from './DataClassBadge';
