@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { useSignal } from '@/lib/useSignal';
 import { REFRESH_WARM } from '@/lib/refresh-cadence';
 import {
-  AnimatedNumber, StatusChip, SourceFooter, DetailsDrawer, DataClassBadge,
+  AnimatedNumber, StatusChip, SourceFooter, DetailsDrawer, DrawerSection, DataClassBadge,
 } from '@/app/components/primitives';
+import type { DrawerHandle } from '@/app/components/primitives';
 import {
   Chart as ChartJS,
   CategoryScale, LinearScale,
@@ -155,12 +156,17 @@ function timeAgo(ts: string): string {
 
 // ── Component ────────────────────────────────────────────────────────────────
 
+type Pinned = { idx: number; date: string; value: number; swing: number | null } | null;
+
 export function S2Card() {
   const { status, data, isRefreshing } = useSignal<S2Signal>(`${W}/s2`, { refreshInterval: REFRESH_WARM });
   const [history, setHistory] = useState<S2HistoryEntry[]>([]);
   const [prod, setProd] = useState<Product>('aFRR');
   const [country, setCountry] = useState<Country>('LT');
+  const [pinned, setPinned] = useState<Pinned>(null);
   const flash = useRefreshFlash(isRefreshing);
+  const drawerRef = useRef<DrawerHandle>(null);
+  const openDrawer = (anchor: 'what' | 'how' | 'monthly' | 'bridge') => drawerRef.current?.open(anchor);
   const CC = useChartColors();
   const ttStyle = useTooltipStyle(CC);
 
@@ -171,6 +177,9 @@ export function S2Card() {
       .then((d: S2HistoryEntry[]) => { if (Array.isArray(d)) setHistory(d); })
       .catch(() => {});
   }, []);
+
+  // Reset pin on product/country change — idx no longer maps to the same day
+  useEffect(() => { setPinned(null); }, [prod, country]);
 
   const hero = data ? heroValue(data, prod, country) : null;
   const rate = data ? activationRate(data, prod, country) : null;
@@ -209,50 +218,47 @@ export function S2Card() {
         </span>
       </div>
 
-      {/* ── 2. Hero metric ──────────────────────────────────────── */}
+      {/* ── 2. Hero metric (clickable → drawer `what`) ──────────── */}
       <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginBottom: '6px', flexWrap: 'wrap' }}>
-        <span style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(1.75rem, 4vw, 2.25rem)', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1 }}>
+        <HeroButton onClick={() => openDrawer('what')} ariaLabel="Read how balancing capacity clearing is computed">
           {hero != null ? <AnimatedNumber value={hero} prefix={'€'} decimals={prod === 'FCR' ? 2 : 1} /> : '—'}
-        </span>
+        </HeroButton>
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>/MW/h</span>
         {/* ── 3. Status chip ─────────────────────────────────── */}
         <StatusChip status={phase} sentiment={sentiment} />
         {/* Activation-rate chiplet (muted n/a when upstream null) */}
-        {prod !== 'FCR' && <RateChip rate={rate} />}
+        {prod !== 'FCR' && <RateChip rate={rate} onClick={() => openDrawer('what')} />}
       </div>
 
-      {/* ── 4. Imbalance context strip ──────────────────────────── */}
+      {/* ── 4. Imbalance context tiles (→ `what` drawer) ────────── */}
       {(data.imbalance_mean != null || data.imbalance_p90 != null || data.pct_above_100 != null) && (
         <div style={{
           display: 'flex', gap: '16px', flexWrap: 'wrap',
           padding: '10px 0', marginBottom: '12px',
           borderTop: '1px solid var(--border-subtle)', borderBottom: '1px solid var(--border-subtle)',
         }}>
-          <div style={{ minWidth: '72px' }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>imb. mean</div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-primary)' }}>
-              {data.imbalance_mean != null ? `${Math.round(data.imbalance_mean)} MWh` : '—'}
-            </div>
-          </div>
-          <div style={{ minWidth: '72px' }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>imb. p90</div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-primary)' }}>
-              {data.imbalance_p90 != null ? `${Math.round(data.imbalance_p90)} MWh` : '—'}
-            </div>
-          </div>
-          <div style={{ minWidth: '72px' }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>% &gt;100 MWh</div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-primary)' }}>
-              {data.pct_above_100 != null ? `${Math.round(data.pct_above_100)}%` : '—'}
-            </div>
-          </div>
+          <TileButton
+            onClick={() => openDrawer('what')}
+            label="imb. mean"
+            value={data.imbalance_mean != null ? `${Math.round(data.imbalance_mean)} MWh` : '—'}
+          />
+          <TileButton
+            onClick={() => openDrawer('what')}
+            label="imb. p90"
+            value={data.imbalance_p90 != null ? `${Math.round(data.imbalance_p90)} MWh` : '—'}
+          />
+          <TileButton
+            onClick={() => openDrawer('what')}
+            label="% >100 MWh"
+            value={data.pct_above_100 != null ? `${Math.round(data.pct_above_100)}%` : '—'}
+          />
         </div>
       )}
 
-      {/* ── 5. Sparkline — monthly P50 trajectory per country, or FCR daily ─ */}
+      {/* ── 5. Sparkline — monthly P50 trajectory per country, or FCR daily (click-to-pin) ─ */}
       {prod === 'FCR'
-        ? (history.length > 2 && <HistoryChart history={history} prod={prod} CC={CC} ttStyle={ttStyle} />)
-        : (monthly && Object.keys(monthly).length > 1 && <MonthlyTrajectoryChart monthly={monthly} country={country} prod={prod} CC={CC} ttStyle={ttStyle} />)}
+        ? (history.length > 2 && <HistoryChart history={history} prod={prod} CC={CC} ttStyle={ttStyle} pinned={pinned} onPin={setPinned} />)
+        : (monthly && Object.keys(monthly).length > 1 && <MonthlyTrajectoryChart monthly={monthly} country={country} prod={prod} CC={CC} ttStyle={ttStyle} pinned={pinned} onPin={setPinned} />)}
 
       {/* ── 9. Impact line ──────────────────────────────────────── */}
       {hero != null && prod === 'aFRR' && (
@@ -277,10 +283,20 @@ export function S2Card() {
         dataClass="source"
       />
 
-      {/* ── Drawer — capacity monthly + methodology ─────────────── */}
-      <DetailsDrawer label="Capacity monthly + detail">
-        {capMonthly.length > 0 && <CapacityChart monthly={capMonthly} prod={prod} CC={CC} ttStyle={ttStyle} />}
-        <ContextTable data={data} />
+      {/* ── Drawer — narrative + methodology + monthly + bridge ─── */}
+      <DetailsDrawer ref={drawerRef} label="Reading this card">
+        <DrawerSection id="what" title="What this is">
+          <S2WhatSection data={data} prod={prod} country={country} hero={hero} rate={rate} />
+        </DrawerSection>
+        <DrawerSection id="how" title="How we compute this">
+          <S2HowSection />
+        </DrawerSection>
+        <DrawerSection id="monthly" title="Monthly trajectory — Baltic aggregate">
+          {capMonthly.length > 0 ? <CapacityChart monthly={capMonthly} prod={prod} CC={CC} ttStyle={ttStyle} /> : <MutedLine text="No capacity history yet." />}
+        </DrawerSection>
+        <DrawerSection id="bridge" title="Country detail + BTD context">
+          <ContextTable data={data} country={country} prod={prod} />
+        </DrawerSection>
       </DetailsDrawer>
     </article>
   );
@@ -391,31 +407,104 @@ function CountryToggle({ value, onChange, disabled }: {
 
 // ── Rate chiplet (next to hero) ──────────────────────────────────────────────
 
-function RateChip({ rate }: { rate: number | null }) {
-  const muted = rate == null;
+function RateChip({ rate, onClick }: { rate: number | null; onClick?: () => void }) {
+  const [hover, setHover] = useState(false);
+  if (rate == null) {
+    // Muted branch — informational, no click target when data is absent.
+    return (
+      <span
+        title="Activation rate not published for this country yet"
+        style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: 'var(--font-2xs, 10px)',
+          color: 'var(--text-muted)',
+          padding: '2px 6px',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: '2px',
+          letterSpacing: '0.04em',
+          marginLeft: '2px',
+        }}
+      >
+        n/a
+      </span>
+    );
+  }
   return (
-    <span style={{
-      fontFamily: 'var(--font-mono)',
-      fontSize: 'var(--font-2xs, 10px)',
-      color: muted ? 'var(--text-muted)' : 'var(--text-secondary)',
-      padding: '2px 6px',
-      border: '1px solid var(--border-subtle)',
-      borderRadius: '2px',
-      letterSpacing: '0.04em',
-      marginLeft: '2px',
-    }} title={muted ? 'Activation rate not published for this country yet' : 'Share of periods cleared'}>
-      {muted ? 'n/a' : `${Math.round(rate * 100)}%`}
-    </span>
+    <button
+      type="button"
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      onFocus={() => setHover(true)}
+      onBlur={() => setHover(false)}
+      title="Share of periods cleared — read methodology"
+      style={{
+        fontFamily: 'var(--font-mono)',
+        fontSize: 'var(--font-2xs, 10px)',
+        color: 'var(--text-secondary)',
+        padding: '2px 6px',
+        border: '1px solid var(--border-subtle)',
+        borderRadius: '2px',
+        letterSpacing: '0.04em',
+        marginLeft: '2px',
+        background: 'transparent',
+        cursor: 'pointer',
+        textDecoration: hover ? 'underline' : 'none',
+        textDecorationColor: 'var(--text-muted)',
+        textUnderlineOffset: '3px',
+      }}
+    >
+      {`${Math.round(rate * 100)}%`}
+    </button>
   );
 }
 
-// ── History line chart ───────────────────────────────────────────────────────
+// ── Pinned readout (mirrors S1 pattern, no swing) ───────────────────────────
 
-function HistoryChart({ history, prod, CC, ttStyle }: {
+function PinReadout({ prefix, pinned, onClear, fmtKey }: {
+  prefix: string;
+  pinned: NonNullable<Pinned>;
+  onClear: () => void;
+  fmtKey: (raw: string) => string;
+}) {
+  return (
+    <div
+      role="status"
+      style={{
+        display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap',
+        fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+        color: 'var(--text-secondary)',
+        padding: '2px 0 10px',
+      }}
+    >
+      <span style={{ color: 'var(--text-muted)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Pinned</span>
+      <span>
+        {prefix} {fmtKey(pinned.date)}: <span style={{ color: 'var(--text-primary)' }}>{fmtEuro(pinned.value)}/MW/h</span>
+      </span>
+      <button
+        onClick={onClear}
+        style={{
+          marginLeft: 'auto', background: 'none', border: 'none', padding: 0,
+          cursor: 'pointer', color: 'var(--text-muted)',
+          fontFamily: 'var(--font-mono)', fontSize: 'var(--font-2xs, 10px)',
+          textDecoration: 'underline',
+        }}
+      >
+        unpin
+      </button>
+    </div>
+  );
+}
+
+// ── History line chart (FCR) ────────────────────────────────────────────────
+
+function HistoryChart({ history, prod, CC, ttStyle, pinned, onPin }: {
   history: S2HistoryEntry[];
   prod: Product;
   CC: ReturnType<typeof useChartColors>;
   ttStyle: ReturnType<typeof useTooltipStyle>;
+  pinned: Pinned;
+  onPin: (p: Pinned) => void;
 }) {
   const field = historyField(prod);
   const labels = history.map(h => fmtDate(h.date));
@@ -423,55 +512,84 @@ function HistoryChart({ history, prod, CC, ttStyle }: {
   const scales = buildScales(CC);
 
   return (
-    <div style={{ height: '120px', marginBottom: '8px' }}>
-      <Line
-        data={{
-          labels,
-          datasets: [{
-            label: prod,
-            data: values,
-            borderColor: CC.teal,
-            backgroundColor: CC.fillTeal,
-            borderWidth: 1.5,
-            pointRadius: 0,
-            pointHoverRadius: 3,
-            tension: 0.3,
-            fill: true,
-            spanGaps: true,
-          }],
-        }}
-        options={{
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              ...ttStyle,
-              callbacks: {
-                title: (items) => labels[items[0].dataIndex],
-                label: (item) => `${fmtEuro(item.raw as number)}/MW/h`,
+    <>
+      <div style={{ height: '120px', marginBottom: pinned ? '4px' : '8px' }}>
+        <Line
+          data={{
+            labels,
+            datasets: [{
+              label: prod,
+              data: values,
+              borderColor: CC.teal,
+              backgroundColor: CC.fillTeal,
+              borderWidth: 1.5,
+              pointRadius: values.map((_, i) => (pinned?.idx === i ? 4 : 0)),
+              pointHoverRadius: 3,
+              pointBackgroundColor: CC.teal,
+              pointBorderColor: CC.teal,
+              tension: 0.3,
+              fill: true,
+              spanGaps: true,
+            }],
+          }}
+          options={{
+            responsive: true,
+            maintainAspectRatio: false,
+            onClick: (_evt, elements) => {
+              if (!elements || elements.length === 0) {
+                onPin(null);
+                return;
+              }
+              const idx = elements[0].index;
+              const entry = history[idx];
+              const val = values[idx];
+              if (!entry || val == null) return;
+              if (pinned?.idx === idx) {
+                onPin(null);
+              } else {
+                onPin({ idx, date: entry.date, value: val, swing: null });
+              }
+            },
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                ...ttStyle,
+                callbacks: {
+                  title: (items) => labels[items[0].dataIndex],
+                  label: (item) => `${fmtEuro(item.raw as number)}/MW/h`,
+                },
               },
             },
-          },
-          scales: {
-            ...scales,
-            x: { ...scales.x, ticks: { ...scales.x.ticks, maxRotation: 0, autoSkip: true, maxTicksLimit: 6 } },
-            y: { ...scales.y, ticks: { ...scales.y.ticks, callback: (v) => `€${v}` } },
-          },
-        }}
-      />
-    </div>
+            scales: {
+              ...scales,
+              x: { ...scales.x, ticks: { ...scales.x.ticks, maxRotation: 0, autoSkip: true, maxTicksLimit: 6 } },
+              y: { ...scales.y, ticks: { ...scales.y.ticks, callback: (v) => `€${v}` } },
+            },
+          }}
+        />
+      </div>
+      {pinned && (
+        <PinReadout
+          prefix="FCR"
+          pinned={pinned}
+          onClear={() => onPin(null)}
+          fmtKey={fmtDate}
+        />
+      )}
+    </>
   );
 }
 
 // ── Monthly P50 trajectory (per-country, per-product) ───────────────────────
 
-function MonthlyTrajectoryChart({ monthly, country, prod, CC, ttStyle }: {
+function MonthlyTrajectoryChart({ monthly, country, prod, CC, ttStyle, pinned, onPin }: {
   monthly: Record<string, MonthlyStat>;
   country: Country;
   prod: Product;
   CC: ReturnType<typeof useChartColors>;
   ttStyle: ReturnType<typeof useTooltipStyle>;
+  pinned: Pinned;
+  onPin: (p: Pinned) => void;
 }) {
   const months = Object.keys(monthly).sort();
   const labels = months.map(fmtMonth);
@@ -479,44 +597,71 @@ function MonthlyTrajectoryChart({ monthly, country, prod, CC, ttStyle }: {
   const scales = buildScales(CC);
 
   return (
-    <div style={{ height: '120px', marginBottom: '8px' }}>
-      <Line
-        data={{
-          labels,
-          datasets: [{
-            label: `${country} ${prod} P50`,
-            data: values,
-            borderColor: CC.teal,
-            backgroundColor: CC.fillTeal,
-            borderWidth: 1.5,
-            pointRadius: 2,
-            pointHoverRadius: 4,
-            tension: 0.3,
-            fill: true,
-            spanGaps: true,
-          }],
-        }}
-        options={{
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              ...ttStyle,
-              callbacks: {
-                title: (items) => labels[items[0].dataIndex],
-                label: (item) => `${country} ${prod} ${fmtEuro(item.raw as number)}/MW/h`,
+    <>
+      <div style={{ height: '120px', marginBottom: pinned ? '4px' : '8px' }}>
+        <Line
+          data={{
+            labels,
+            datasets: [{
+              label: `${country} ${prod} P50`,
+              data: values,
+              borderColor: CC.teal,
+              backgroundColor: CC.fillTeal,
+              borderWidth: 1.5,
+              pointRadius: values.map((_, i) => (pinned?.idx === i ? 4 : 2)),
+              pointHoverRadius: 4,
+              pointBackgroundColor: CC.teal,
+              pointBorderColor: CC.teal,
+              tension: 0.3,
+              fill: true,
+              spanGaps: true,
+            }],
+          }}
+          options={{
+            responsive: true,
+            maintainAspectRatio: false,
+            onClick: (_evt, elements) => {
+              if (!elements || elements.length === 0) {
+                onPin(null);
+                return;
+              }
+              const idx = elements[0].index;
+              const key = months[idx];
+              const val = values[idx];
+              if (!key || val == null) return;
+              if (pinned?.idx === idx) {
+                onPin(null);
+              } else {
+                onPin({ idx, date: key, value: val, swing: null });
+              }
+            },
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                ...ttStyle,
+                callbacks: {
+                  title: (items) => labels[items[0].dataIndex],
+                  label: (item) => `${country} ${prod} ${fmtEuro(item.raw as number)}/MW/h`,
+                },
               },
             },
-          },
-          scales: {
-            ...scales,
-            x: { ...scales.x, ticks: { ...scales.x.ticks, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 } },
-            y: { ...scales.y, ticks: { ...scales.y.ticks, callback: (v) => `€${v}` } },
-          },
-        }}
-      />
-    </div>
+            scales: {
+              ...scales,
+              x: { ...scales.x, ticks: { ...scales.x.ticks, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 } },
+              y: { ...scales.y, ticks: { ...scales.y.ticks, callback: (v) => `€${v}` } },
+            },
+          }}
+        />
+      </div>
+      {pinned && (
+        <PinReadout
+          prefix={`${country} ${prod}`}
+          pinned={pinned}
+          onClear={() => onPin(null)}
+          fmtKey={fmtMonth}
+        />
+      )}
+    </>
   );
 }
 
@@ -569,8 +714,12 @@ function CapacityChart({ monthly, prod, CC, ttStyle }: {
 
 // ── Context table (drawer) ───────────────────────────────────────────────────
 
-function ContextTable({ data }: { data: S2Signal }) {
-  const rows = [
+function ContextTable({ data, country, prod }: { data: S2Signal; country: Country; prod: Product }) {
+  const act = data.activation?.[COUNTRY_KEY[country]];
+  const countryP50 = prod === 'FCR' ? null : (prod === 'aFRR' ? act?.afrr_p50 ?? null : act?.mfrr_p50 ?? null);
+  const countryRate = prod === 'FCR' ? null : (prod === 'aFRR' ? act?.afrr_rate ?? null : act?.mfrr_rate ?? null);
+
+  const balticRows = [
     ['aFRR up avg', data.afrr_up_avg, '€/MW/h'],
     ['mFRR up avg', data.mfrr_up_avg, '€/MW/h'],
     ['FCR avg', data.fcr_avg, '€/MW/h'],
@@ -580,20 +729,272 @@ function ContextTable({ data }: { data: S2Signal }) {
     ['% upward', data.pct_up, '%'],
   ] as const;
 
+  const labelStyle = { color: 'var(--text-muted)' };
+  const valueStyle = { color: 'var(--text-primary)', textAlign: 'right' as const };
+  const unitStyle = { color: 'var(--text-muted)' };
+
   return (
-    <div style={{ paddingTop: '8px', borderTop: '1px solid var(--border-subtle)' }}>
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '6px' }}>
-        9-day BTD averages
+    <div style={{ paddingTop: '4px' }}>
+      {/* Country-prefixed header rows */}
+      {prod !== 'FCR' && (
+        <>
+          <div style={{
+            fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+            color: 'var(--text-tertiary)', letterSpacing: '0.08em', textTransform: 'uppercase',
+            marginBottom: '6px',
+          }}>
+            {country} {prod} — country-scoped
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: '2px 12px', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', marginBottom: '12px' }}>
+            <span style={labelStyle}>{country} {prod} P50</span>
+            <span style={valueStyle}>{countryP50 != null ? (Math.abs(countryP50) >= 10 ? Math.round(countryP50) : countryP50.toFixed(1)) : '—'}</span>
+            <span style={unitStyle}>€/MW/h</span>
+
+            <span style={labelStyle}>{country} {prod} rate</span>
+            <span style={{ ...valueStyle, color: countryRate == null ? 'var(--text-muted)' : 'var(--text-primary)' }}>
+              {countryRate != null ? `${Math.round(countryRate * 100)}` : 'n/a'}
+            </span>
+            <span style={unitStyle}>%</span>
+          </div>
+        </>
+      )}
+
+      {/* Baltic-wide averages caption + 9-day rows */}
+      <div style={{
+        fontFamily: 'var(--font-mono)', fontSize: 'var(--font-2xs, 10px)',
+        color: 'var(--text-muted)', letterSpacing: '0.04em',
+        marginBottom: '6px',
+      }}>
+        Imbalance &amp; Baltic-wide averages:
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: '2px 12px', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)' }}>
-        {rows.map(([label, val, unit]) => (
+        {balticRows.map(([label, val, unit]) => (
           <div key={label} style={{ display: 'contents' }}>
-            <span style={{ color: 'var(--text-muted)' }}>{label}</span>
-            <span style={{ color: 'var(--text-primary)', textAlign: 'right' }}>{val != null ? (typeof val === 'number' ? (Math.abs(val) >= 10 ? Math.round(val) : val.toFixed(1)) : val) : '—'}</span>
-            <span style={{ color: 'var(--text-muted)' }}>{unit}</span>
+            <span style={labelStyle}>{label}</span>
+            <span style={valueStyle}>{val != null ? (typeof val === 'number' ? (Math.abs(val) >= 10 ? Math.round(val) : val.toFixed(1)) : val) : '—'}</span>
+            <span style={unitStyle}>{unit}</span>
           </div>
         ))}
       </div>
     </div>
+  );
+}
+
+// ── Hero button (keeps AnimatedNumber intact, adds hover underline) ─────────
+
+function HeroButton({ children, onClick, ariaLabel }: {
+  children: ReactNode;
+  onClick: () => void;
+  ariaLabel: string;
+}) {
+  const [hover, setHover] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={ariaLabel}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      onFocus={() => setHover(true)}
+      onBlur={() => setHover(false)}
+      style={{
+        background: 'none',
+        border: 'none',
+        padding: 0,
+        margin: 0,
+        cursor: 'pointer',
+        fontFamily: 'var(--font-display)',
+        fontSize: 'clamp(1.75rem, 4vw, 2.25rem)',
+        fontWeight: 600,
+        color: 'var(--text-primary)',
+        lineHeight: 1,
+        textDecoration: hover ? 'underline' : 'none',
+        textDecorationColor: 'var(--text-muted)',
+        textUnderlineOffset: '4px',
+        textDecorationThickness: '1px',
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+// ── Tile button (imbalance tiles → drawer) ──────────────────────────────────
+
+function TileButton({ label, value, onClick }: { label: string; value: string; onClick: () => void }) {
+  const [hover, setHover] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      onFocus={() => setHover(true)}
+      onBlur={() => setHover(false)}
+      style={{
+        background: 'none',
+        border: 'none',
+        padding: 0,
+        margin: 0,
+        minWidth: '72px',
+        textAlign: 'left',
+        cursor: 'pointer',
+        color: 'inherit',
+      }}
+    >
+      <div style={{
+        fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+        color: hover ? 'var(--text-secondary)' : 'var(--text-muted)',
+        textTransform: 'uppercase', letterSpacing: '0.04em',
+        transition: 'color 0.12s',
+      }}>{label}</div>
+      <div style={{
+        fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)',
+        color: 'var(--text-primary)',
+        textDecoration: hover ? 'underline' : 'none',
+        textDecorationColor: 'var(--text-muted)',
+        textUnderlineOffset: '3px',
+      }}>{value}</div>
+    </button>
+  );
+}
+
+// ── Drawer content: narrative sections ───────────────────────────────────────
+
+function MutedLine({ text }: { text: string }) {
+  return (
+    <p style={{
+      fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+      color: 'var(--text-muted)', margin: 0,
+    }}>
+      {text}
+    </p>
+  );
+}
+
+function DrawerProse({ children }: { children: ReactNode }) {
+  return (
+    <p style={{
+      fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)',
+      color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 0 8px',
+    }}>
+      {children}
+    </p>
+  );
+}
+
+function S2WhatSection({ data, prod, country, hero, rate }: {
+  data: S2Signal;
+  prod: Product;
+  country: Country;
+  hero: number | null;
+  rate: number | null;
+}) {
+  const act = data.activation?.[COUNTRY_KEY[country]];
+  const benchmarkP50 = prod === 'FCR' ? null : (prod === 'aFRR' ? act?.afrr_p50 ?? null : act?.mfrr_p50 ?? null);
+
+  const tone: 'rich' | 'routine' | 'thin' = (() => {
+    if (hero == null || benchmarkP50 == null) return 'routine';
+    if (hero > benchmarkP50 * 1.3) return 'rich';
+    if (hero < benchmarkP50 * 0.7) return 'thin';
+    return 'routine';
+  })();
+
+  const imbMean = data.imbalance_mean;
+  const imbP90 = data.imbalance_p90;
+  const pctHigh = data.pct_above_100;
+  const balancingRegime: 'tight' | 'routine' | 'loose' = (() => {
+    if (pctHigh == null) return 'routine';
+    if (pctHigh > 25) return 'tight';
+    if (pctHigh < 8) return 'loose';
+    return 'routine';
+  })();
+
+  const annualRevenue = hero != null && prod !== 'FCR'
+    ? Math.round(hero * 50 * 24 * 365 / 1000)
+    : null;
+
+  return (
+    <>
+      <DrawerProse>
+        The current <strong style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{prod}</strong> clearing for{' '}
+        <strong style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{country}</strong> is{' '}
+        <strong style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{fmtEuro(hero)}/MW/h</strong>
+        {benchmarkP50 != null && (
+          <>
+            {' '}— {tone === 'rich' ? 'well above' : tone === 'thin' ? 'well below' : 'in line with'}{' '}
+            the rolling P50 of {fmtEuro(benchmarkP50)}.
+          </>
+        )}
+        {benchmarkP50 == null && prod === 'FCR' && ' — FCR clears Baltic-wide, so the country toggle doesn’t change this number.'}
+        {benchmarkP50 == null && prod !== 'FCR' && ' — no P50 benchmark is published for this country/product today.'}
+      </DrawerProse>
+      <DrawerProse>
+        This is the <strong>capacity</strong> payment — paid per MW offered, per hour, regardless of whether
+        the TSO actually activates the reserve. Activation pay (the energy-leg €/MWh) sits on top when the
+        reserve is called;{' '}
+        {rate != null
+          ? <>the activation share here is <strong style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{Math.round(rate * 100)}%</strong> of offered periods.</>
+          : <>the activation share for this country/product isn’t always reported, which is why the chiplet reads muted.</>}
+      </DrawerProse>
+      <DrawerProse>
+        Imbalance mean{' '}
+        <strong style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{imbMean != null ? `${Math.round(imbMean)} MWh` : '—'}</strong>
+        {' '}with p90{' '}
+        <strong style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{imbP90 != null ? `${Math.round(imbP90)} MWh` : '—'}</strong>
+        {' '}reads as <strong style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{balancingRegime}</strong> balancing conditions.
+        The higher the imbalance, the more the TSO leans on activated reserves, and the richer aFRR/mFRR
+        tends to clear the following day.
+      </DrawerProse>
+      {annualRevenue != null && (
+        <DrawerProse>
+          In revenue terms: a <strong style={{ color: 'var(--text-primary)', fontWeight: 500 }}>50 MW</strong>{' '}
+          {prod} offer held continuously at today’s clearing implies roughly{' '}
+          <strong style={{ color: 'var(--text-primary)', fontWeight: 500 }}>€{annualRevenue.toLocaleString('en-GB')}k/year</strong>{' '}
+          of reserved-capacity revenue — before any activation pay, before availability deductions, and
+          before LT/LV/EE procurement-mix differences smooth out.
+        </DrawerProse>
+      )}
+    </>
+  );
+}
+
+function S2HowSection() {
+  return (
+    <>
+      <DrawerProse>
+        <strong>aFRR</strong> (automatic frequency restoration reserve) is the secondary reserve — automatic
+        TSO-commanded response within ~30 s, procured in 15-minute bid windows. It is the main Baltic
+        revenue stream for fast-response BESS today, and the one LT/LV/EE all actively procure.
+      </DrawerProse>
+      <DrawerProse>
+        <strong>mFRR</strong> (manual frequency restoration reserve) is TSO-dispatched and slower
+        (~15 min activation). Only LT runs a mature mFRR capacity market today; LV and EE rely mostly
+        on activated-energy settlement, which is why their mFRR P50 frequently reads n/a.
+      </DrawerProse>
+      <DrawerProse>
+        <strong>FCR</strong> (frequency containment reserve) is the primary reserve — symmetric, ~30 s
+        response, held Baltic-wide rather than country-by-country. The Baltic FCR pool is still thin and
+        mostly Estonia-led; the country toggle is disabled while FCR is selected because clearing is one
+        price across the zone.
+      </DrawerProse>
+      <DrawerProse>
+        <strong>P50 vs mean</strong>: reserve prices skew — a handful of high-stress periods can pull the
+        mean well above the typical day. The median (P50) is the honest summary of what a “normal” hour
+        clears, which is why the drawer table and benchmark both lead with P50.
+      </DrawerProse>
+      <DrawerProse>
+        <strong>Activation rate caveat</strong>: BTD publishes €/MW/h cleanly for capacity, but the
+        per-country activation fraction is not always reported on the same day. The <code>n/a</code> chip
+        reflects a real reporting gap, not a data bug — the underlying market still clears; we just can’t
+        translate it into an activated-energy expectation for that country yet.
+      </DrawerProse>
+      <DrawerProse>
+        <strong>Source</strong>: Baltic Transparency Dashboard —{' '}
+        <a href="https://api-baltic.transparency-dashboard.eu" target="_blank" rel="noreferrer" style={{ color: 'var(--text-secondary)' }}>api-baltic.transparency-dashboard.eu</a>
+        , polled every 20 minutes. Monthly P50 / P90 series and capacity clearing are aggregated server-side
+        and stored in KV alongside the 9-day rolling averages.
+      </DrawerProse>
+    </>
   );
 }
