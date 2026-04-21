@@ -85,6 +85,12 @@ export interface CaptureRolling {
 /** Full capture payload from GET /s1/capture */
 export interface S1CaptureData {
   date: string;
+  // Flat top-level (added phase 7 — matches /read merged shape)
+  gross_2h?: number | null;
+  gross_4h?: number | null;
+  net_2h?: number | null;
+  net_4h?: number | null;
+  // Nested originals
   capture_2h: CaptureDetail | null;
   capture_4h: CaptureDetail | null;
   shape: PriceShape | null;
