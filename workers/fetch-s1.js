@@ -2859,6 +2859,12 @@ async function computeCapture(env) {
 
   const captureData = {
     date: today,
+    // Flat top-level for convenience (matches /read merged shape)
+    gross_2h: capture_2h?.gross_eur_mwh ?? null,
+    gross_4h: capture_4h?.gross_eur_mwh ?? null,
+    net_2h:   capture_2h?.net_eur_mwh   ?? null,
+    net_4h:   capture_4h?.net_eur_mwh   ?? null,
+    // Nested originals (unchanged — existing consumers depend on these)
     capture_2h,
     capture_4h,
     shape,
@@ -3036,9 +3042,9 @@ async function updateHistory(env, todayEntry) {
     spread_eur: todayEntry.spread_eur_mwh,
     spread_pct: todayEntry.separation_pct,
     lt_swing:   todayEntry.lt_daily_swing_eur_mwh,
-    // Capture fields — populated after computeCapture() merges into todayEntry
-    gross_2h:   todayEntry.capture?.gross_2h ?? null,
-    gross_4h:   todayEntry.capture?.gross_4h ?? null,
+    // Capture fields — read flat first, fall back to nested (works regardless of merge order)
+    gross_2h:   todayEntry.capture?.gross_2h ?? todayEntry.capture?.capture_2h?.gross_eur_mwh ?? null,
+    gross_4h:   todayEntry.capture?.gross_4h ?? todayEntry.capture?.capture_4h?.gross_eur_mwh ?? null,
   });
 
   if (history.length > MAX_HISTORY) history = history.slice(-MAX_HISTORY);
@@ -6156,6 +6162,47 @@ export default {
       if (!payload) return jsonResp({ error: 'BTD unavailable' }, 502);
       await env.KKME_SIGNALS.put('s2_activation', JSON.stringify(payload));
       return jsonResp({ ok: true, period: payload.period, lt_afrr_3m_p50: payload.countries?.Lithuania?.afrr_recent_3m?.avg_p50 });
+    }
+
+    // ── POST /admin/trigger-s1-capture — force recompute S1 capture ──
+    if (request.method === 'POST' && url.pathname === '/admin/trigger-s1-capture') {
+      const secret = request.headers.get('X-Update-Secret');
+      if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
+      const cap = await computeCapture(env);
+      if (!cap) return jsonResp({ error: 'computeCapture returned null' }, 502);
+      return jsonResp({ ok: true, gross_2h: cap.gross_2h, gross_4h: cap.gross_4h, net_2h: cap.net_2h, net_4h: cap.net_4h, date: cap.date });
+    }
+
+    // ── POST /admin/backfill-s1-history — patch gross_2h/4h from capture history ──
+    if (request.method === 'POST' && url.pathname === '/admin/backfill-s1-history') {
+      const secret = request.headers.get('X-Update-Secret');
+      if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
+
+      const capHistRaw = await env.KKME_SIGNALS.get('s1_capture_history').catch(() => null);
+      const s1HistRaw = await env.KKME_SIGNALS.get('s1_history').catch(() => null);
+      if (!capHistRaw || !s1HistRaw) return jsonResp({ error: 'Missing KV data' }, 404);
+
+      const capHist = JSON.parse(capHistRaw); // [{date, gross_2h, gross_4h, ...}, ...]
+      const s1Hist = JSON.parse(s1HistRaw);   // [{date, spread_eur, ..., gross_2h: null}, ...]
+
+      // Build lookup from capture history
+      const capByDate = {};
+      for (const row of capHist) {
+        if (row.date) capByDate[row.date] = row;
+      }
+
+      let patched = 0;
+      for (const entry of s1Hist) {
+        if (entry.gross_2h != null && entry.gross_4h != null) continue; // already populated
+        const cap = capByDate[entry.date];
+        if (!cap) continue;
+        entry.gross_2h = cap.gross_2h ?? cap.capture_2h?.gross_eur_mwh ?? null;
+        entry.gross_4h = cap.gross_4h ?? cap.capture_4h?.gross_eur_mwh ?? null;
+        if (entry.gross_2h != null) patched++;
+      }
+
+      await env.KKME_SIGNALS.put('s1_history', JSON.stringify(s1Hist));
+      return jsonResp({ ok: true, patched, total: s1Hist.length });
     }
 
     // ── GET /s2/activation ──────────────────────────────────────────────────

@@ -1,13 +1,13 @@
 # KKME Handover
 
 Canonical state document. Read this first in every session.
-Last updated: 2026-04-16.
+Last updated: 2026-04-21.
 
 ## Current phase
 
-Bucket 3 rebuild: structural drivers + visual overhaul + design asset integration.
-Phases 3B, 4A, 4C, 4D shipped and merged. Phase 4E (country labels + cable refinement) queued.
-All prior phases merged to main.
+Phase 7 (S1/S2 card rebuild) prompt revised and ready to run in Claude Code (YOLO).
+Phases 4E, 5A, 5B, 6A shipped between last handover update (2026-04-16) and today — captured in Session 6 log below.
+Strategic roadmap written: `docs/roadmap.md` — Phases 7–14, significant-improvement track (synthesis, peer comparison, fleet, interactive revenue).
 
 ## What's shipped
 
@@ -34,8 +34,9 @@ All prior phases merged to main.
 
 ## What's queued
 
-**Phase 4E — Country labels + cable refinement + color tuning** (Claude Code YOLO, ~1-2h). Add country name labels to SVG overlay (dark mode missing FINLAND/SWEDEN/etc since designed SVG uses unavailable BPdots font). Refine cable waypoints with more intermediate points for curve tracing. Add visible teal cable strokes + larger particle glow.
-Prompt at: [docs/phases/phase4e-prompt.md](phases/phase4e-prompt.md)
+**Phase 7 — S1 & S2 card rebuild (Bloomberg density)** (Claude Code YOLO, ~4–6h). Two real worker bugs (flat `gross_2h/gross_4h` missing from `/s1/capture` + null in `/s1/history`), S1 card rebuild leveraging already-populated `rolling_30d` stats, S2 card rebuild against existing `/s2` activation + rolling_180d, shared `AnimatedNumber` primitive. Revised prompt at: [docs/phases/phase7-s1-s2-rebuild-prompt.md](phases/phase7-s1-s2-rebuild-prompt.md)
+
+**Strategic roadmap (Phases 8–14)**: cross-signal synthesis, peer comparison, fleet dashboard, interactive revenue, historical depth, methodology page, mobile. See [docs/roadmap.md](roadmap.md).
 
 **Backlog triage** (future Cowork session): organize and prioritize backlog.
 Prompt at: [docs/phases/backlog-triage-prompt.md](phases/backlog-triage-prompt.md)
@@ -45,7 +46,7 @@ Prompt at: [docs/phases/backlog-triage-prompt.md](phases/backlog-triage-prompt.m
 | Layer | Component | Location |
 |-------|-----------|----------|
 | Frontend | Next.js 16 static export | `app/` → Cloudflare Pages (kkme.eu) |
-| Worker | Cloudflare Worker (7740 lines) | `workers/fetch-s1.js` → kkme-fetch-s1.kastis-kemezys.workers.dev |
+| Worker | Cloudflare Worker (8029 lines as of 2026-04-21) | `workers/fetch-s1.js` → kkme-fetch-s1.kastis-kemezys.workers.dev |
 | Storage | Cloudflare KV | KKME_SIGNALS namespace |
 | VPS | Hetzner 89.167.124.42 | PostgreSQL + scrapers + daily ingestion |
 | Mac cron | ~/kkme-cron/ | fetch-btd.js (4h), fetch-vert.js (monthly) — deprecated per /health |
@@ -264,3 +265,91 @@ See [docs/map.md](map.md) for the full concept-to-file lookup table.
 - B-028: Bloomberg ticker (SignalBar) styling polish
 
 **Deferred:** Phase 4E execution, cable interactive calibration via /dev/map-calibrate, light mode audit (V-18).
+
+### Session 6 — 2026-04-21 — Phase 7 prompt revision + strategic roadmap (Cowork)
+
+**Scope:** Take over Claude Code prompt authoring for S1/S2 card rebuild. Existing `docs/phases/phase7-s1-s2-rebuild-prompt.md` (v1, authored by older Claude) contained multiple factual drifts vs. production. Verify against live worker, rewrite, and draft strategic roadmap for significant-improvement work beyond Phase 7.
+
+**Staleness caught:** Last handover update was Session 5 (2026-04-16). Git log shows Phases 4E, 5A, 5B, 6A shipped between then and today without handover entries. Captured below under "Work shipped since last handover" rather than fabricating individual session entries.
+
+**Shipped (this session):**
+
+- **Phase 7 prompt revision** — overwrote `docs/phases/phase7-s1-s2-rebuild-prompt.md` (v1 → v2, 637→473 lines). Verified against live production:
+  - Corrected `rolling_30d` field names: v1 asked for new `{avg, p5, p95, n}`; reality is `{mean, p25, p50, p75, p90, days}` already populated.
+  - Corrected `/s2/history` claim (v1 said afrr_up/mfrr_up/fcr were null; they're populated).
+  - Corrected `/s2.activation` shape (v1 assumed `countries[]` array; reality is `{lt, lv, ee}` objects each with `{afrr_p50, afrr_rate, mfrr_p50, mfrr_rate}`).
+  - Pinned both real bugs with verified line numbers:
+    - `/s1/capture` top-level `gross_2h/gross_4h` missing — `captureData` at `workers/fetch-s1.js:2860` needs flat fields added.
+    - `/s1/history` null `gross_2h/gross_4h` — `updateHistory` at `workers/fetch-s1.js:3040-3041` reads wrong path; fix or rely on the /s1/capture flatten.
+  - Updated worker line count (7800→8029) and function line numbers (captureRollingStats 2768, computeCapture 2787, computeS1 2906, updateHistory 3027, computeS2Activation 3775, computeS2 3893).
+  - Added branch-state prep section (current tree is `phase-6a-s2-auto-tampere` with untracked files — stash `-u` before checkout).
+  - Added three explicit pause points (after worker deploy, after card build, before PR).
+
+- **Strategic roadmap** — new doc `docs/roadmap.md`. Phases 7–14 framed around significant improvement vs. polish: cross-signal synthesis (Market Regime header), peer comparison strip (DE/PL/SE4), fleet & pipeline dashboard (VERT.lt already in worker), interactive revenue model, historical depth, methodology page, mobile pass.
+
+**Production state verified via live curl (2026-04-21):**
+- `/s1/capture`: healthy; `capture_2h.gross_eur_mwh=141.35`, `rolling_30d.stats_2h.mean=127.89`.
+- `/s1/history`: 90 entries; newest has spread/swing populated; gross_2h/gross_4h null across all 90.
+- `/s2`: healthy; 24 top-level keys including activation/capacity_monthly/rolling_180d.
+- `/s2/history`: 35 entries; newest 2026-04-20 has afrr_up=2.6, mfrr_up=10.1, fcr=0.37.
+
+**Work shipped since last handover (2026-04-16 → 2026-04-21, caught up retroactively):**
+
+- **Phase 4E** (merged PR #20) — map country labels + cable refinement.
+- **Phase 5A** (merged PR #21) — visual audit fix: removed double cable rendering, fixed gen/load display, adjusted country label positions.
+- **Phase 5B** (merged PR #22) — Chart.js color fix (resolve CSS vars for canvas via `useChartColors()` hook in `app/lib/chartTheme.ts`), generated light-mode map layers, vector logos.
+- **Phase 5C** — prompt authored at `docs/phases/phase5c-final-polish-prompt.md`; execution status unknown (still untracked).
+- **Phase 6A** — worker cron now automates S2 activation clearing (commit 6bf074a on branch `phase-6a-s2-auto-tampere`, not yet merged). Admin trigger + staleness watchdog.
+
+**Deferred:**
+- Notion board updates (Phase 7 entry refresh + add Phases 8–14) — next step this session.
+- Execution of Phase 7 (goes to Claude Code YOLO).
+- Phase 6A merge to main (still on feature branch).
+
+**Findings for future Cowork sessions:**
+- Handover.md drifted 5 days / 4 phases behind. Cadence issue — add it to end-of-session checklist for Claude Code phases too, not just Cowork.
+- `docs/map.md` line counts (and probably function line numbers) are stale. Prompt authors should `wc -l` before citing.
+- Prompt v1 claimed null fields that were populated — suggests previous prompt author didn't curl live worker before writing. Verification-first should apply to prompt authoring, not just code.
+- Untracked files accumulating: `docs/phases/phase5c-final-polish-prompt.md`, `docs/phases/phase7-s1-s2-rebuild-prompt.md`, `public/hero/map-calibration-cities.json.json` (B-011 still open).
+
+### Session 7 — 2026-04-21 — Phase 7 execution (Claude Code YOLO)
+
+**Scope:** Execute Phase 7 — S1 & S2 card rebuild (Bloomberg density). Two worker bugs, AnimatedNumber primitive, full card rebuilds.
+
+**Shipped:**
+
+- **Part A — Worker bug fixes** (deployed version d278adff):
+  - Bug 2: `computeCapture()` now emits flat `gross_2h/gross_4h/net_2h/net_4h` at top level. Verified via curl: `gross_2h=141.35, gross_4h=128.33, net_2h=140.61, net_4h=127.48`.
+  - Bug 1: `updateHistory()` reads flat fields first, falls back to `capture_2h.gross_eur_mwh`. Belt-and-braces with Bug 2 fix.
+  - Backfill: `POST /admin/backfill-s1-history` patched 65/90 history rows (25 had no capture data). Before: all null. After: numeric.
+  - Added `POST /admin/trigger-s1-capture` for manual recompute.
+
+- **Part D — AnimatedNumber primitive** (`app/components/primitives/AnimatedNumber.tsx`, 56 lines):
+  - Raw RAF tween, ease-out cubic, `tabular-nums`, `prefers-reduced-motion` respect. No library deps.
+
+- **Part B — S1Card rebuild** (887→400 lines):
+  - Hero: AnimatedNumber with gross capture (2h/4h toggle).
+  - Status chip: OPEN/TIGHTENING/COMPRESSED from `rolling_30d` percentile position.
+  - Interpretation: one sentence with p-bucket.
+  - Rolling context strip: mean/p25/p50/p75/p90/days.
+  - 30-day sparkline with p50 reference line. Chart.js via `useChartColors()`.
+  - Impact line: 100 MW × duration revenue implication.
+  - Drawer: monthly bars + gross→net bridge + price shape.
+
+- **Part C — S2Card rebuild** (1449→425 lines):
+  - Hero: product toggle (aFRR/mFRR/FCR) with AnimatedNumber.
+  - Status chip: HIGH/STABLE/LOW from activation P50 comparison.
+  - Per-country activation strip (LT/LV/EE aFRR + mFRR P50).
+  - 35-day history sparkline.
+  - Impact line: 50 MW aFRR annual revenue.
+  - Drawer: capacity monthly bars + 9-day BTD averages table.
+
+**Verification:**
+- `npx next build` passes clean.
+- Zero raw rgba/hex in either card. All Chart.js via `useChartColors()`.
+- S1Card 400 lines (target <600). S2Card 425 lines (target <800).
+- Net reduction: -1,511 lines across both cards.
+
+**Deferred:**
+- Visual audit screenshots (Chrome DevTools MCP unavailable this session).
+- `/s2` rolling_180d products have sparse data (1 day each) — context strip falls back to activation P50 instead.
