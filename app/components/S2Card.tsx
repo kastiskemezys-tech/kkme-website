@@ -15,6 +15,7 @@ import {
 } from 'chart.js';
 import { Line, Bar } from 'react-chartjs-2';
 import { CHART_FONT, useChartColors, useTooltipStyle, buildScales } from '@/app/lib/chartTheme';
+import { freshnessLabel } from '@/app/lib/freshness';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, LineController, Tooltip, Filler);
 
@@ -286,7 +287,7 @@ export function S2Card() {
       {/* ── Drawer — narrative + methodology + monthly + bridge ─── */}
       <DetailsDrawer ref={drawerRef} label="Reading this card">
         <DrawerSection id="what" title="What this is">
-          <S2WhatSection data={data} prod={prod} country={country} hero={hero} rate={rate} />
+          <S2WhatSection prod={prod} country={country} hero={hero} />
         </DrawerSection>
         <DrawerSection id="how" title="How we compute this">
           <S2HowSection />
@@ -320,24 +321,43 @@ function useRefreshFlash(isRefreshing: boolean): boolean {
 }
 
 function LiveSignal({ updatedAt, source, flash }: { updatedAt?: string | null; source: string; flash: boolean }) {
+  const fresh = freshnessLabel(updatedAt);
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
       <span
         className="pulse-dot"
-        aria-label={updatedAt ? `Live data; last update ${timeAgo(updatedAt)}` : 'Live data'}
+        aria-label={updatedAt ? `Data ${fresh.age} (${fresh.label.toLowerCase()})` : 'Data freshness unknown'}
         style={{
           width: '6px', height: '6px', borderRadius: '50%',
-          background: flash ? 'var(--amber)' : 'var(--teal)',
+          background: flash ? 'var(--amber)' : `var(${fresh.colorToken})`,
           transition: 'background 150ms ease',
           display: 'inline-block',
+          opacity: fresh.label === 'LIVE' ? 1 : 0.7,
         }}
       />
+      <span
+        title={fresh.absolute}
+        style={{
+          fontFamily: 'var(--font-mono)', fontSize: 'var(--font-2xs, 10px)',
+          color: `var(${fresh.colorToken})`,
+          padding: '2px 6px',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: '2px',
+          letterSpacing: '0.06em',
+        }}
+      >
+        {fresh.label}
+      </span>
       {updatedAt && (
-        <span style={{
-          fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)',
-          color: 'var(--text-primary)',
-        }}>
-          {timeAgo(updatedAt)}
+        <span
+          title={fresh.absolute}
+          style={{
+            fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)',
+            color: 'var(--text-primary)',
+            cursor: 'help',
+          }}
+        >
+          {fresh.age}
         </span>
       )}
       <span style={{
@@ -883,118 +903,39 @@ function DrawerProse({ children }: { children: ReactNode }) {
   );
 }
 
-function S2WhatSection({ data, prod, country, hero, rate }: {
-  data: S2Signal;
+function S2WhatSection({ prod, country, hero }: {
   prod: Product;
   country: Country;
   hero: number | null;
-  rate: number | null;
 }) {
-  const act = data.activation?.[COUNTRY_KEY[country]];
-  const benchmarkP50 = prod === 'FCR' ? null : (prod === 'aFRR' ? act?.afrr_p50 ?? null : act?.mfrr_p50 ?? null);
-
-  const tone: 'rich' | 'routine' | 'thin' = (() => {
-    if (hero == null || benchmarkP50 == null) return 'routine';
-    if (hero > benchmarkP50 * 1.3) return 'rich';
-    if (hero < benchmarkP50 * 0.7) return 'thin';
-    return 'routine';
-  })();
-
-  const imbMean = data.imbalance_mean;
-  const imbP90 = data.imbalance_p90;
-  const pctHigh = data.pct_above_100;
-  const balancingRegime: 'tight' | 'routine' | 'loose' = (() => {
-    if (pctHigh == null) return 'routine';
-    if (pctHigh > 25) return 'tight';
-    if (pctHigh < 8) return 'loose';
-    return 'routine';
-  })();
-
-  const annualRevenue = hero != null && prod !== 'FCR'
-    ? Math.round(hero * 50 * 24 * 365 / 1000)
-    : null;
-
   return (
     <>
       <DrawerProse>
-        The current <strong style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{prod}</strong> clearing for{' '}
-        <strong style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{country}</strong> is{' '}
-        <strong style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{fmtEuro(hero)}/MW/h</strong>
-        {benchmarkP50 != null && (
-          <>
-            {' '}— {tone === 'rich' ? 'well above' : tone === 'thin' ? 'well below' : 'in line with'}{' '}
-            the rolling P50 of {fmtEuro(benchmarkP50)}.
-          </>
-        )}
-        {benchmarkP50 == null && prod === 'FCR' && ' — FCR clears Baltic-wide, so the country toggle doesn’t change this number.'}
-        {benchmarkP50 == null && prod !== 'FCR' && ' — no P50 benchmark is published for this country/product today.'}
+        {country} {prod} clears at{' '}
+        <strong style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{fmtEuro(hero)}/MW/h</strong>{' '}
+        on a 7-day rolling P50.
       </DrawerProse>
       <DrawerProse>
-        This is the <strong>capacity</strong> payment — paid per MW offered, per hour, regardless of whether
-        the TSO actually activates the reserve. Activation pay (the energy-leg €/MWh) sits on top when the
-        reserve is called;{' '}
-        {rate != null
-          ? <>the activation share here is <strong style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{Math.round(rate * 100)}%</strong> of offered periods.</>
-          : <>the activation share for this country/product isn’t always reported, which is why the chiplet reads muted.</>}
+        This is capacity payment — paid per MW offered per hour, regardless of activation.
       </DrawerProse>
-      <DrawerProse>
-        Imbalance mean{' '}
-        <strong style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{imbMean != null ? `${Math.round(imbMean)} MWh` : '—'}</strong>
-        {' '}with p90{' '}
-        <strong style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{imbP90 != null ? `${Math.round(imbP90)} MWh` : '—'}</strong>
-        {' '}reads as <strong style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{balancingRegime}</strong> balancing conditions.
-        The higher the imbalance, the more the TSO leans on activated reserves, and the richer aFRR/mFRR
-        tends to clear the following day.
-      </DrawerProse>
-      {annualRevenue != null && (
-        <DrawerProse>
-          In revenue terms: a <strong style={{ color: 'var(--text-primary)', fontWeight: 500 }}>50 MW</strong>{' '}
-          {prod} offer held continuously at today’s clearing implies roughly{' '}
-          <strong style={{ color: 'var(--text-primary)', fontWeight: 500 }}>€{annualRevenue.toLocaleString('en-GB')}k/year</strong>{' '}
-          of reserved-capacity revenue — before any activation pay, before availability deductions, and
-          before LT/LV/EE procurement-mix differences smooth out.
-        </DrawerProse>
-      )}
     </>
   );
 }
 
 function S2HowSection() {
   return (
-    <>
-      <DrawerProse>
-        <strong>aFRR</strong> (automatic frequency restoration reserve) is the secondary reserve — automatic
-        TSO-commanded response within ~30 s, procured in 15-minute bid windows. It is the main Baltic
-        revenue stream for fast-response BESS today, and the one LT/LV/EE all actively procure.
-      </DrawerProse>
-      <DrawerProse>
-        <strong>mFRR</strong> (manual frequency restoration reserve) is TSO-dispatched and slower
-        (~15 min activation). Only LT runs a mature mFRR capacity market today; LV and EE rely mostly
-        on activated-energy settlement, which is why their mFRR P50 frequently reads n/a.
-      </DrawerProse>
-      <DrawerProse>
-        <strong>FCR</strong> (frequency containment reserve) is the primary reserve — symmetric, ~30 s
-        response, held Baltic-wide rather than country-by-country. The Baltic FCR pool is still thin and
-        mostly Estonia-led; the country toggle is disabled while FCR is selected because clearing is one
-        price across the zone.
-      </DrawerProse>
-      <DrawerProse>
-        <strong>P50 vs mean</strong>: reserve prices skew — a handful of high-stress periods can pull the
-        mean well above the typical day. The median (P50) is the honest summary of what a “normal” hour
-        clears, which is why the drawer table and benchmark both lead with P50.
-      </DrawerProse>
-      <DrawerProse>
-        <strong>Activation rate caveat</strong>: BTD publishes €/MW/h cleanly for capacity, but the
-        per-country activation fraction is not always reported on the same day. The <code>n/a</code> chip
-        reflects a real reporting gap, not a data bug — the underlying market still clears; we just can’t
-        translate it into an activated-energy expectation for that country yet.
-      </DrawerProse>
-      <DrawerProse>
-        <strong>Source</strong>: Baltic Transparency Dashboard —{' '}
+    <ul style={{
+      fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)',
+      color: 'var(--text-secondary)', lineHeight: 1.6,
+      margin: '0 0 8px', paddingLeft: '18px',
+    }}>
+      <li>7-day rolling P50 of capacity clearing prices, per country, per product.</li>
+      <li>aFRR / mFRR / FCR are reserve products; LT has the richest mix, LV/EE are aFRR-dominated.</li>
+      <li>
+        Source: BTD —{' '}
         <a href="https://api-baltic.transparency-dashboard.eu" target="_blank" rel="noreferrer" style={{ color: 'var(--text-secondary)' }}>api-baltic.transparency-dashboard.eu</a>
-        , polled every 20 minutes. Monthly P50 / P90 series and capacity clearing are aggregated server-side
-        and stored in KV alongside the 9-day rolling averages.
-      </DrawerProse>
-    </>
+        , polled every 20 minutes.
+      </li>
+    </ul>
   );
 }
