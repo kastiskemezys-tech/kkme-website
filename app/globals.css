@@ -55,6 +55,28 @@
   --border-highlight: rgba(232, 226, 217, 0.20);
   --border-subtle:  rgba(232, 226, 217, 0.07);
 
+  /* ─── Semantic palette aliases (Phase 8.1) ─────────────────────────────
+     Names per P1 brand position: color encodes data state, not editorial
+     favorability. Aliases map to existing primitives — no new color values
+     introduced (Phase 11 owns the light-mode palette redesign).
+     Existing --teal/--amber/--accent-* primitives stay; renderer code that
+     reaches for --success / --mint / --ink / etc. now resolves correctly. */
+  --mint:           var(--teal);          /* expansive / wide / observed */
+  --amber-semantic: var(--amber);         /* tight / compressed / warning */
+  --coral:          var(--accent-rose);   /* extreme / stress / red flag */
+  --lavender:       var(--accent-purple); /* modelled / forecast / structural */
+  --sky:            var(--accent-green);  /* informational / connected */
+
+  --success:        var(--teal);
+  --warning:        var(--amber);
+  --danger:         var(--accent-rose);
+
+  --ink:            var(--text-primary);
+  --ink-muted:      var(--text-secondary);
+  --ink-subtle:     var(--text-tertiary);
+  --paper:          var(--bg-card);
+  --paper-elevated: var(--bg-card-highlight);
+
   /* Overlay */
   --overlay-heavy: rgba(7, 7, 10, 0.95);
   --nav-bg: rgb(7, 7, 10);
@@ -182,6 +204,37 @@
   --space-md: 16px;
   --space-lg: 24px;
   --space-xl: 48px;
+
+  /* ─── Three-voice typography (Phase 8.2) ─────────────────────────────
+     Names per P4 brand position: editorial (Fraunces) + numeric
+     (JetBrains Mono) + body (Inter). New tokens use the *-editorial /
+     *-numeric / *-body suffix so legacy --font-display / --font-mono /
+     --font-serif consumers keep their existing fonts until Phase 10
+     migrates each card. */
+  --font-editorial: var(--font-fraunces), Georgia, serif;
+  --font-numeric:   var(--font-jetbrains-mono), ui-monospace, "SF Mono", monospace;
+  --font-body:      var(--font-inter), system-ui, sans-serif;
+
+  /* Type ramp — P2 locked: 56px middle-ground for hero numbers.
+     `clamp(min, fluid, max) / line-height font-family` shorthand
+     so any `font: var(--type-hero)` consumer gets the full setup. */
+  --type-hero:      clamp(40px, 6vw, 64px) / 0.95 var(--font-editorial);
+  --type-number-xl: clamp(40px, 5vw, 56px) / 1.0  var(--font-numeric);
+  --type-number-l:  clamp(28px, 3.5vw, 40px) / 1.0  var(--font-numeric);
+  --type-section:   clamp(24px, 2.5vw, 32px) / 1.15 var(--font-editorial);
+  --type-eyebrow:   11px / 1.4 var(--font-numeric);
+  --type-body:      16px / 1.55 var(--font-body);
+  --type-caption:   12px / 1.4 var(--font-numeric);
+}
+
+/* Tabular numerals everywhere — keeps numbers vertically aligned across
+   live updates and prevents column jitter on every refresh. */
+* {
+  font-feature-settings: "tnum" 1;
+}
+
+[data-font="numeric"], code, kbd, samp, pre {
+  font-variant-numeric: tabular-nums;
 }
 
 /* ════════════════════════════════════════════
@@ -330,6 +383,27 @@
 
   /* Amber ray decorative — light */
   --amber-ray: rgba(138, 102, 32, 0.04);
+
+  /* ─── Semantic palette aliases — light (Phase 8.1) ─────────────────────
+     Mirrors the dark-mode aliases. Light-mode values are inherited via
+     the underlying primitives the [data-theme="light"] block already
+     redefines (--teal, --amber, --accent-*, --text-*, --bg-card*).
+     Phase 11 retunes the light palette — names stay, values shift then. */
+  --mint:           var(--teal);
+  --amber-semantic: var(--amber);
+  --coral:          var(--accent-rose);
+  --lavender:       var(--accent-purple);
+  --sky:            var(--accent-green);
+
+  --success:        var(--teal);
+  --warning:        var(--amber);
+  --danger:         var(--accent-rose);
+
+  --ink:            var(--text-primary);
+  --ink-muted:      var(--text-secondary);
+  --ink-subtle:     var(--text-tertiary);
+  --paper:          var(--bg-card);
+  --paper-elevated: var(--bg-card-highlight);
 
   color-scheme: light;
 }
