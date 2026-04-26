@@ -615,3 +615,59 @@ Plus `713b8b5 docs(7.6): Session 3 prompt` capturing the Session 3 plan at end-o
 - Card migrations to consume the new primitives — Phase 10.
 - `app/lib/types.ts` — left untouched per prompt rule.
 - Existing untracked tree (`logs/btd.log`, `.claude/skills/`, `docs/visual-audit/phase-7/`, `public/hero/map-calibration-cities.json.json`, `workers/.wrangler/`, `docs/phases/phase-8-session-1-prompt.md`, `docs/phases/phase-8-session-2-prompt.md`, `docs/phases/plan-audit-2026-04-26.md`) — left as-is per "out of scope" list in the prompt.
+
+### Session 15 — 2026-04-26 — Phase 7.7a (financial display binding, Claude Code)
+
+**Scope:** Phase 7.7a (per `docs/phases/plan-audit-2026-04-26.md` Phase 7.7 split rationale — the low-risk display half). Branch `phase-7-7a-financial-display` cut off main at `8b9129a` (post-Phase 8 Session 2 merge). Pure UI binding of fields the worker already returns — zero engine changes, zero `wrangler deploy` calls.
+
+**Shipped (7 commits on `phase-7-7a-financial-display`):**
+
+| # | Commit | Surface | What it bound |
+|---|--------|---------|---------------|
+| 7.7.1  | `8c0a292` | RevenueCard | Project IRR + Equity IRR split via new `app/lib/financialDefinitions.ts` (N-11 vocabulary module). `MetricCell` extended with `title` + `methodVersion` props. |
+| 7.7.2  | `9f47ece` | RevenueCard | DSCR triple panel — base / conservative / worst-month with covenant tick at 1.20×. Returns row reorganised; CFADS promoted into the row. |
+| 7.7.6  | `237dffd` | RevenueCard | Degradation curve from `years[].retention`, dashed reference lines at 0.80 (augment) + 0.70 (EoL). New full-width analytics row introduced after the heatmap. |
+| 7.7.10 | `d21614d` | RevenueCard | Sensitivity tornado — pure-SVG, mint/coral by sign, sorted by absolute magnitude. CAPEX + COD axes from the 9-cell `matrix`; scenario axis from `all_scenarios`. |
+| 7.7.12 | `77cc85e` | RevenueCard | Back-test 13-month chart, modeled-Y1 reference line in dashed amber, mean-error caption in mint when ±5%, EET-month axis convention. |
+| 7.7.13 | `c18e097` | RevenueCard | Cannibalization curve from `fleet_trajectory[].cpi`, 1.0× today reference. Curve shape public; formula coefficients stay drawer-only per P3. |
+| 7.7.14 | `8256724` | TradingEngineCard + S2Card | Market thickness chips — aFRR thick / mFRR medium / FCR thin via new `MarketThicknessChip` primitive routing through `MARKET_THICKNESS` from financialDefinitions. |
+
+**Verification gates:**
+- Tests: 257 baseline → **333 passing** (76 new across 6 spec files: `financialDefinitions` 18, `degradation` 12, `sensitivity` 13, `backtest` 14, `cannibalization` 11, `marketThicknessChip` 8).
+- `npx tsc --noEmit` clean.
+- `npx next build` clean (Turbopack 17.7s, 6 routes prerendered).
+- Live snapshot at `localhost:3000?dur=4h&capex=mid&cod=2028&scenario=base` confirmed via DOM evaluation: Project IRR 8.6% / Equity IRR 11.9%, DSCR triple 1.31× / 1.06× / 0.93×, all four analytics charts rendering, market thickness chips visible on both surfaces with mFRR + FCR captions surfaced.
+- Worker payload audit (7.7.0): every field claimed in `reference_engine_audit.md` still present and shaped as documented — no engine drift.
+
+**New modules / components:**
+
+- `app/lib/financialDefinitions.ts` — N-11 vocabulary module for IRR_TILES, DSCR_LABELS, RETURNS_METRICS, MARKET_THICKNESS. Re-exports `IRR_LABELS` + `isForbiddenIrrLabel` from `irrLabels.ts` so the existing "Gross IRR" forbidden-term guard keeps applying. Phase 10 will route the entire returns surface through this.
+- `app/lib/degradation.ts` — `projectDegradationCurve`, `degradationAxisRange`, `isYearOneFresh`, `AUGMENTATION_THRESHOLD` (0.80), `END_OF_LIFE_THRESHOLD` (0.70).
+- `app/lib/sensitivity.ts` — `findBaseCase`, `buildTornadoBars`, `tornadoAxisExtent`. Wider `capex: string` accepted at the boundary; narrowed internally by equality checks.
+- `app/lib/backtest.ts` — `backtestStats` (days-weighted mean, signed mean error vs reference, null when reference is zero or absent), `backtestAxisRange`, `formatBacktestMonth` ("YYYY-MM" → "Mon 'YY").
+- `app/lib/cannibalization.ts` — `projectCannibalizationCurve`, `cannibalizationAxisRange` (1.0 reference always inside the visible range), `isMonotonicallyCompressing`, `TODAYS_MARKET_REFERENCE`.
+- `app/components/RevenueSensitivityTornado.tsx` — pure-SVG tornado renderer, no Chart.js dep.
+- `app/components/RevenueBacktest.tsx` — Chart.js Line with custom reference-line plugin and n=N · Dd badge (N-4).
+- `app/components/MarketThicknessChip.tsx` — small chip primitive with optional warning caption.
+
+**Anomalies / non-obvious findings:**
+
+- **`all_scenarios.stress.project_irr` returns `null` for the live request.** The tornado handles this gracefully by skipping the stress bar; conservative still appears. Worth confirming whether the engine is supposed to populate stress for the production scenario set — flag for Phase 7.7b/c, NOT fixed here per the "no engine work" rule.
+- **`worst_month_dscr` of 0.93× on the live mid/2028/base request is below 1.0×** — that's a real cash-trap risk signal that was previously buried in the drawer's monthly DSCR chart. The new triple panel surfaces it next to the base 1.31× — exactly the credibility-per-pixel improvement the phase aimed for.
+- **Local `MatrixCell` interface in RevenueCard typed `capex: string`** — wider than the `'low' | 'mid' | 'high'` union the tornado needs. Solved by widening the boundary type in `sensitivity.ts` (accept `CapexBucket | string`, narrow internally) rather than narrowing the consumer. Avoids a cast and keeps the existing SensitivityTable consumer unchanged.
+- **Test for the chip's caption-suppression on aFRR was initially too strict** — it forbade the substring "price-taker" in the rendered HTML, but aFRR's *tooltip* legitimately contains "A 50 MW asset is a price-taker". Replaced with a stronger check: `showCaption=true` produces identical output to `showCaption=false` when `spec.caption` is null. Same intent, no false positive.
+- **No `app/lib/types.ts` modification** — `DataClass` still doesn't include `forecast`; the financial display work doesn't need it. The 8.3b `<VintageGlyphRow>` continues to handle the F position via its own narrower `Vintage` union.
+
+**Cross-cutting notes for the next phase:**
+
+- **Phase 7.7b — engine extensions** (LCOS, RTE, MOIC, capital structure live recompute) is the natural next alternate-track CC job. Prompt only after this PR is merged.
+- **Phase 7.7c — Monte Carlo + real/nominal indexing + PPA/tolling** is wholly new engine architecture; deferred per the audit's split rationale.
+- **No card migrations to new design system** were attempted (Phase 10 owns that). The new sub-components on RevenueCard match the existing `MonthlyChart` / `BridgeChart` pattern from S1Card.tsx — consistent with the page's current vocabulary.
+- **Phase 8 Session 3** (icons + logo system) remains gated on Q3 from `plan-audit-2026-04-26.md` — Lucide React vs. user's Figma exports for the icon sprite + true-vector logo. Don't author a Session 3 prompt until that decision lands.
+
+**Out of scope / not touched (per scope discipline):**
+
+- Worker code (`workers/fetch-s1.js`) — zero edits, zero deploys.
+- Card migrations to consume Phase 8 visual atoms (`<DataState>`, `<VintageGlyphRow>`, etc.) — Phase 10.
+- LCOS, RTE, MOIC, Monte Carlo, real/nominal indexing, PPA/tolling toggle — all deferred to 7.7b/c.
+- The pre-existing untracked tree (`.claude/skills/`, `docs/visual-audit/phase-7/`, `public/hero/map-calibration-cities.json.json`, `workers/.wrangler/`, the various phase-prompt drafts) — left as-is per the prompt's "out of scope" list. A new `docs/phases/phase-7-7b-session-1-prompt.md` showed up untracked partway through the session (user-side authoring); also left as-is.
