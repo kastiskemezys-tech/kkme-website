@@ -14,6 +14,7 @@ import geocodes from '../../public/hero/project-geocodes.json';
 import { HERO_EXCLUDED_PROJECT_IDS } from '@/lib/project-overrides';
 import { REFRESH_HOT } from '@/lib/refresh-cadence';
 import { formatTickerItem } from '@/app/lib/ticker';
+import { IRR_LABELS } from '@/app/lib/irrLabels';
 import { ThemeToggle } from './ThemeToggle';
 
 gsap.registerPlugin(MotionPathPlugin);
@@ -268,8 +269,8 @@ export function HeroBalticMap() {
     if (read?.capture?.gross_4h != null) items.push(formatTickerItem('da_capture', 'DA CAPTURE', read.capture.gross_4h, 0));
     if (s2?.afrr_up_avg != null) items.push(formatTickerItem('afrr', 'AFRR', s2.afrr_up_avg, 2));
     if (s2?.mfrr_up_avg != null) items.push(formatTickerItem('mfrr', 'MFRR', s2.mfrr_up_avg, 1));
-    if (revenue?.project_irr != null) items.push(`PROJECT IRR ${(revenue.project_irr * 100).toFixed(1)}%`);
-    if (revenue?.equity_irr != null) items.push(`EQUITY IRR ${(revenue.equity_irr * 100).toFixed(1)}%`);
+    if (revenue?.project_irr != null) items.push(`${IRR_LABELS.unlevered.short.toUpperCase()} ${(revenue.project_irr * 100).toFixed(1)}%`);
+    if (revenue?.equity_irr != null) items.push(`${IRR_LABELS.equity.short.toUpperCase()} ${(revenue.equity_irr * 100).toFixed(1)}%`);
     if (revenue?.min_dscr != null) items.push(`DSCR ${revenue.min_dscr.toFixed(2)}×`);
     if (revenue?.capex_scenario) items.push(`CAPEX ${revenue.capex_scenario}`);
     if (fleet?.eff_demand_mw != null) items.push(`EFFECTIVE DEMAND ${fmt(fleet.eff_demand_mw)} MW`);
@@ -659,11 +660,14 @@ export function HeroBalticMap() {
             </div>
           )}
           {revenue?.project_irr != null && (
-            <div style={{
-              fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--amber-strong)',
-              marginTop: '6px', fontVariantNumeric: 'tabular-nums',
-            }}>
-              {(revenue.project_irr * 100).toFixed(1)}% gross IRR
+            <div
+              style={{
+                fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--amber-strong)',
+                marginTop: '6px', fontVariantNumeric: 'tabular-nums',
+              }}
+              title={IRR_LABELS.unlevered.long + ' — ' + IRR_LABELS.unlevered.detail}
+            >
+              {(revenue.project_irr * 100).toFixed(1)}% {IRR_LABELS.unlevered.short}
             </div>
           )}
         </div>

@@ -12,6 +12,7 @@ import { useChartColors, CHART_FONT, useTooltipStyle } from '@/app/lib/chartThem
 import { DetailsDrawer } from '@/app/components/primitives';
 import { findMatrixCell, type MatrixCell as SensMatrixCell } from '@/app/lib/sensitivityMatrix';
 import { DISPATCH_LABELS, vsCanonicalDispatchFootnote } from '@/app/lib/dispatchDefinitions';
+import { IRR_LABELS } from '@/app/lib/irrLabels';
 
 ChartJS.register(
   CategoryScale, LinearScale,
@@ -201,7 +202,7 @@ function SensitivityTable({ matrix, currentCod, currentCapex }: {
     <div>
       <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
         fontFamily: "var(--font-mono)", textTransform: 'uppercase',
-        letterSpacing: '0.08em', marginBottom: 8 }}>Project IRR sensitivity</div>
+        letterSpacing: '0.08em', marginBottom: 8 }}>{IRR_LABELS.unlevered.short} sensitivity</div>
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr>
@@ -719,7 +720,7 @@ export function RevenueCard() {
 
       {/* Four metrics */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginBottom: 20 }}>
-        <MetricCell label="Unlevered IRR" value={fmtIrr(data.project_irr)}
+        <MetricCell label={IRR_LABELS.unlevered.short} value={fmtIrr(data.project_irr)}
           color={irrColor(data.project_irr)}
           sub={`cons. ${fmtIrr(data.all_scenarios.conservative?.project_irr ?? null)} · stress ${fmtIrr(data.all_scenarios.stress?.project_irr ?? null)}`} />
         <MetricCell label="CFADS/MW/yr"
