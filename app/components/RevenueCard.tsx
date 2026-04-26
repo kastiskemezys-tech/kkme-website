@@ -24,6 +24,12 @@ import {
   AUGMENTATION_THRESHOLD,
   END_OF_LIFE_THRESHOLD,
 } from '@/app/lib/degradation';
+import {
+  projectCannibalizationCurve,
+  cannibalizationAxisRange,
+  TODAYS_MARKET_REFERENCE,
+  type FleetYearRow,
+} from '@/app/lib/cannibalization';
 
 ChartJS.register(
   CategoryScale, LinearScale,
@@ -96,6 +102,8 @@ interface RevenueData {
   matrix: MatrixCell[];
   all_scenarios: Record<string, ScenarioSummary>;
   backtest?: BacktestRow[];
+  fleet_trajectory?: FleetYearRow[];
+  cpi_at_cod?: number;
   fleet_context: { source?: string };
   reconciliation: Record<string, boolean>;
 }
@@ -294,6 +302,112 @@ function DegradationChart({ years, CC, ts }: {
       </div>
       <div style={{ height: 160 }}>
         <Line data={data} plugins={[refLines]} options={options} />
+      </div>
+    </div>
+  );
+}
+
+// ═══ Cannibalization Curve (7.7.13) ═════════════════════════════════════════
+//
+// Capacity-payment compression projection from /revenue.fleet_trajectory.
+// Public: chart line shape + axis. Drawer-only (P3): the cpi formula
+// coefficients (S/D thresholds 0.6 / 1.0, slopes 2.5 / 1.5 / 0.08 inside the
+// worker). Investor sees how the curve evolves; sponsor IP stays unpublished.
+
+function CannibalizationChart({ rows, codYear, CC, ts }: {
+  rows: FleetYearRow[];
+  codYear?: number;
+  CC: ReturnType<typeof useChartColors>;
+  ts: ReturnType<typeof useTooltipStyle>;
+}) {
+  const points = projectCannibalizationCurve(rows);
+  if (!points.length) return null;
+  const { min, max } = cannibalizationAxisRange(points);
+
+  const data = {
+    labels: points.map(p => String(p.year)),
+    datasets: [{
+      label: 'CPI',
+      data: points.map(p => p.cpi),
+      borderColor: CC.amber,
+      borderWidth: 1.5,
+      pointRadius: 2,
+      tension: 0.3,
+      fill: false,
+    }],
+  };
+
+  const refLine = {
+    id: 'cpi-today-ref',
+    afterDraw(chart: any) {
+      const { ctx, scales } = chart;
+      const yPx = scales.y.getPixelForValue(TODAYS_MARKET_REFERENCE);
+      if (!Number.isFinite(yPx)) return;
+      ctx.save();
+      ctx.setLineDash([4, 4]);
+      ctx.strokeStyle = CC.textMuted;
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(scales.x.left, yPx);
+      ctx.lineTo(scales.x.right, yPx);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = CC.textMuted;
+      ctx.font = `9px ${CHART_FONT.family}`;
+      ctx.textAlign = 'right';
+      ctx.fillText('1.0 · today', scales.x.right - 4, yPx - 3);
+      ctx.restore();
+    },
+  };
+
+  const options: any = {
+    responsive: true, maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        ...ts,
+        callbacks: {
+          title: (items: any[]) => items[0]?.label ?? '',
+          label: (ctx: any) => `CPI ${ctx.parsed.y.toFixed(2)}×`,
+        },
+      },
+    },
+    scales: {
+      x: {
+        grid: { display: false },
+        ticks: { color: CC.textMuted, font: { family: CHART_FONT.family, size: 9 } },
+      },
+      y: {
+        min, max,
+        grid: { color: CC.grid, lineWidth: 0.5 },
+        border: { display: false },
+        ticks: { color: CC.textMuted, font: { family: CHART_FONT.family, size: 9 },
+          callback: (v: number | string) => Number(v).toFixed(2) + '×' },
+      },
+    },
+  };
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between',
+        alignItems: 'baseline', marginBottom: 6 }}>
+        <div style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-xs)',
+          fontFamily: 'var(--font-mono)', textTransform: 'uppercase',
+          letterSpacing: '0.08em' }}>
+          Capacity-payment compression · KKME proprietary supply-stack model
+        </div>
+        {codYear && (
+          <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
+            fontFamily: 'var(--font-mono)' }}>COD {codYear}</div>
+        )}
+      </div>
+      <div style={{ height: 160 }}>
+        <Line data={data} plugins={[refLine]} options={options} />
+      </div>
+      <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
+        fontFamily: 'var(--font-mono)', marginTop: 4 }}>
+        cpi at COD applied as multiplier on capacity + balancing revenue
       </div>
     </div>
   );
@@ -989,7 +1103,7 @@ export function RevenueCard() {
       {/* Heatmap */}
       <MonthlyHeatmap months={data.base_year.months} />
 
-      {/* Analytics row — degradation, sensitivity, backtest, cannibalization */}
+      {/* Analytics row — degradation, sensitivity, cannibalization, backtest */}
       <div className="rv-analytics" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr',
         gap: 24, marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--border-card)' }}>
         <DegradationChart years={data.years} CC={CC} ts={ts} />
@@ -998,6 +1112,10 @@ export function RevenueCard() {
             conservative: data.all_scenarios.conservative,
             stress: data.all_scenarios.stress,
           }} />
+        {data.fleet_trajectory && data.fleet_trajectory.length > 0 && (
+          <CannibalizationChart rows={data.fleet_trajectory}
+            codYear={data.cod_year} CC={CC} ts={ts} />
+        )}
         <div style={{ gridColumn: '1 / -1' }}>
           <RevenueBacktest rows={data.backtest ?? []}
             modeledY1Daily={data.net_rev_per_mw_yr ? data.net_rev_per_mw_yr / 365 : null} />
