@@ -10,6 +10,7 @@ import {
 import { Line, Bar } from 'react-chartjs-2';
 import { useChartColors, CHART_FONT, useTooltipStyle } from '@/app/lib/chartTheme';
 import { DetailsDrawer } from '@/app/components/primitives';
+import { findMatrixCell, type MatrixCell as SensMatrixCell } from '@/app/lib/sensitivityMatrix';
 
 ChartJS.register(
   CategoryScale, LinearScale,
@@ -178,7 +179,7 @@ function SensitivityTable({ matrix, currentCod, currentCapex }: {
   matrix: MatrixCell[]; currentCod: number; currentCapex: number;
 }) {
   const getCell = (kwh: number, cod: number) => {
-    const item = matrix.find(m => m.capex_kwh === kwh && m.cod === cod);
+    const item = findMatrixCell(matrix as unknown as SensMatrixCell[], kwh, cod);
     if (!item || item.project_irr === null) return { display: '—', color: 'var(--rose)', bold: false };
     const irr = item.project_irr * 100;
     return {
