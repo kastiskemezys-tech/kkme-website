@@ -15,6 +15,12 @@ import { DISPATCH_LABELS, vsCanonicalDispatchFootnote } from '@/app/lib/dispatch
 import { IRR_LABELS } from '@/app/lib/irrLabels';
 import { IRR_TILES, DSCR_LABELS, DEFAULT_DSCR_COVENANT } from '@/app/lib/financialDefinitions';
 import { formatNumber } from '@/app/lib/format';
+import {
+  projectDegradationCurve,
+  degradationAxisRange,
+  AUGMENTATION_THRESHOLD,
+  END_OF_LIFE_THRESHOLD,
+} from '@/app/lib/degradation';
 
 ChartJS.register(
   CategoryScale, LinearScale,
@@ -184,6 +190,107 @@ function MetricCell({ label, value, sub, color, title, methodVersion }: {
         fontWeight: 500, lineHeight: 1.1 }}>{value}</div>
       {sub && <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
         fontFamily: "var(--font-mono)", marginTop: 4 }}>{sub}</div>}
+    </div>
+  );
+}
+
+// ═══ Degradation Curve (7.7.6) ══════════════════════════════════════════════
+//
+// State-of-health trajectory pulled from /revenue.years[].retention. Reference
+// lines at 0.80 (typical augmentation trigger) and 0.70 (typical end-of-life).
+// Engine math is unchanged — this is pure binding of a field already present.
+
+function DegradationChart({ years, CC, ts }: {
+  years: YearData[];
+  CC: ReturnType<typeof useChartColors>;
+  ts: ReturnType<typeof useTooltipStyle>;
+}) {
+  const points = projectDegradationCurve(years);
+  if (!points.length) return null;
+  const { min, max } = degradationAxisRange(points);
+
+  const data = {
+    labels: points.map(p => 'Y' + p.year),
+    datasets: [{
+      label: 'Retention',
+      data: points.map(p => p.retention),
+      borderColor: CC.teal,
+      borderWidth: 1.5,
+      pointRadius: 0,
+      tension: 0.3,
+      fill: false,
+    }],
+  };
+
+  // Reference-line plugin (Chart.js doesn't ship annotations in core).
+  const refLines = {
+    id: 'degradation-refs',
+    afterDraw(chart: any) {
+      const { ctx, scales } = chart;
+      const xL = scales.x.left;
+      const xR = scales.x.right;
+      const drawLine = (yVal: number, color: string, label: string) => {
+        const yPx = scales.y.getPixelForValue(yVal);
+        if (yPx == null || !Number.isFinite(yPx)) return;
+        ctx.save();
+        ctx.setLineDash([4, 4]);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(xL, yPx);
+        ctx.lineTo(xR, yPx);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = color;
+        ctx.font = `9px ${CHART_FONT.family}`;
+        ctx.textAlign = 'right';
+        ctx.fillText(label, xR - 4, yPx - 3);
+        ctx.restore();
+      };
+      drawLine(AUGMENTATION_THRESHOLD, CC.amber, '0.80 · augment');
+      drawLine(END_OF_LIFE_THRESHOLD, CC.rose, '0.70 · EoL');
+    },
+  };
+
+  const options: any = {
+    responsive: true, maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        ...ts,
+        callbacks: {
+          title: (items: any[]) => items[0]?.label ?? '',
+          label: (ctx: any) => `Retention ${(ctx.parsed.y * 100).toFixed(1)}%`,
+        },
+      },
+    },
+    scales: {
+      x: {
+        grid: { display: false },
+        ticks: { color: CC.textMuted, font: { family: CHART_FONT.family, size: 9 },
+          autoSkip: true, maxTicksLimit: 7 },
+      },
+      y: {
+        min, max,
+        grid: { color: CC.grid, lineWidth: 0.5 },
+        border: { display: false },
+        ticks: { color: CC.textMuted, font: { family: CHART_FONT.family, size: 9 },
+          callback: (v: number | string) => (Number(v) * 100).toFixed(0) + '%' },
+      },
+    },
+  };
+
+  return (
+    <div>
+      <div style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-xs)',
+        fontFamily: 'var(--font-mono)', textTransform: 'uppercase',
+        letterSpacing: '0.08em', marginBottom: 6 }}>
+        State-of-health trajectory · OEM curve · LFP 4h
+      </div>
+      <div style={{ height: 160 }}>
+        <Line data={data} plugins={[refLines]} options={options} />
+      </div>
     </div>
   );
 }
@@ -878,6 +985,12 @@ export function RevenueCard() {
       {/* Heatmap */}
       <MonthlyHeatmap months={data.base_year.months} />
 
+      {/* Analytics row — degradation, sensitivity, backtest, cannibalization */}
+      <div className="rv-analytics" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr',
+        gap: 24, marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--border-card)' }}>
+        <DegradationChart years={data.years} CC={CC} ts={ts} />
+      </div>
+
       {/* Disclosure */}
       <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 'var(--font-sm)',
         fontStyle: 'italic', color: 'var(--text-muted)', marginTop: 16 }}>
@@ -900,6 +1013,7 @@ export function RevenueCard() {
       <style>{`
         @media (max-width: 768px) {
           .rv-main { grid-template-columns: 1fr !important; }
+          .rv-analytics { grid-template-columns: 1fr !important; }
         }
       `}</style>
     </div>
