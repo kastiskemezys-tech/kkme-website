@@ -3,6 +3,7 @@
 import { useSignal } from '@/lib/useSignal';
 import { REFRESH_HOT } from '@/lib/refresh-cadence';
 import { SourceFooter } from '@/app/components/primitives';
+import { formatTomorrowLine } from '@/app/lib/peakForecast';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
@@ -15,6 +16,7 @@ interface S1Signal {
     lt_peak?: number | null;
     lt_trough?: number | null;
     lt_avg?: number | null;
+    se4_avg?: number | null;
     spread_pct?: number | null;
     delivery_date?: string | null;
   } | null;
@@ -105,10 +107,16 @@ export function PeakForecastCard() {
         </div>
       )}
 
-      {/* Tomorrow preview */}
-      {tomorrow?.lt_peak != null && (
+      {/* Tomorrow preview — intraday range (peak−trough) and cross-zone separation are two distinct quantities; show both with correct labels */}
+      {tomorrow?.lt_peak != null && tomorrow?.lt_trough != null && (
         <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-muted)', marginBottom: '6px' }}>
-          Tomorrow: peak {'\u20AC'}{tomorrow.lt_peak.toFixed(0)} · trough {'\u20AC'}{tomorrow.lt_trough?.toFixed(0)} · spread {tomorrow.spread_pct?.toFixed(0)}%
+          {formatTomorrowLine({
+            lt_peak: tomorrow.lt_peak,
+            lt_trough: tomorrow.lt_trough,
+            lt_avg: tomorrow.lt_avg,
+            se4_avg: tomorrow.se4_avg,
+            spread_pct: tomorrow.spread_pct,
+          })}
         </p>
       )}
 
