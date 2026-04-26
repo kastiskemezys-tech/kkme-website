@@ -3,6 +3,7 @@
 import { useSignal } from '@/lib/useSignal';
 import { REFRESH_WARM } from '@/lib/refresh-cadence';
 import { SourceFooter } from '@/app/components/primitives';
+import { computeRenewableMix, solarAnomalyFootnote } from '@/app/lib/renewableShare';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
@@ -48,18 +49,18 @@ export function RenewableMixCard() {
   const windMw = wind?.baltic_mw ?? 0;
   const solarMw = solar?.baltic_mw ?? 0;
   const totalLoad = load?.baltic_mw ?? 1;
-  const renewableMw = windMw + solarMw;
-  const renewablePct = totalLoad > 0 ? (renewableMw / totalLoad) * 100 : 0;
-  const thermalMw = Math.max(0, totalLoad - renewableMw);
-
-  const windPct = totalLoad > 0 ? (windMw / totalLoad) * 100 : 0;
-  const solarPct = totalLoad > 0 ? (solarMw / totalLoad) * 100 : 0;
-  const thermalPct = totalLoad > 0 ? (thermalMw / totalLoad) * 100 : 0;
-
-  // 7D comparison
   const windAvg = wind?.avg_7d_mw ?? 0;
   const solarAvg = solar?.avg_7d_mw ?? 0;
   const loadAvg = load?.avg_7d_mw ?? 1;
+
+  const mix = computeRenewableMix({
+    windMw, solarMw, loadMw: totalLoad,
+    windAvg7dMw: windAvg, solarAvg7dMw: solarAvg, loadAvg7dMw: loadAvg,
+  });
+  const { windPct, solarPct, thermalPct, renewableMw, renewablePct, thermalMw } = mix;
+  const solarFootnote = solarAnomalyFootnote(mix, solarMw, solarAvg);
+
+  // 7D comparison
   const avgPct = loadAvg > 0 ? ((windAvg + solarAvg) / loadAvg) * 100 : 0;
   const deltaPp = renewablePct - avgPct;
 
@@ -85,9 +86,14 @@ export function RenewableMixCard() {
         <div style={{ flex: solarPct, background: 'var(--amber)', transition: 'flex 0.3s ease' }} />
         <div style={{ flex: thermalPct, background: 'var(--text-ghost)', transition: 'flex 0.3s ease' }} />
       </div>
-      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-muted)', marginBottom: '8px' }}>
+      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-muted)', marginBottom: solarFootnote ? '4px' : '8px' }}>
         Wind {windPct.toFixed(0)}% · Solar {solarPct.toFixed(0)}% · Thermal {thermalPct.toFixed(0)}%
       </p>
+      {solarFootnote && (
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--amber)', marginBottom: '8px', lineHeight: 1.5 }}>
+          {solarFootnote}
+        </p>
+      )}
 
       {/* vs 7D */}
       {loadAvg > 0 && (
