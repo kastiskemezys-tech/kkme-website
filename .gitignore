@@ -48,6 +48,7 @@ docs/**/*.png
 !docs/visual-audit/phase-*/
 !docs/visual-audit/phase-*/*.png
 docs/**/*.json
+!docs/audits/phase-*/*.json
 claude-handover/images/
 
 # AI tool config directories (from various coding assistants)
