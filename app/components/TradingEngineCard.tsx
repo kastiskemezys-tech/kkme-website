@@ -11,6 +11,7 @@ import { Bar } from 'react-chartjs-2';
 import { useChartColors, CHART_FONT, useTooltipStyle } from '@/app/lib/chartTheme';
 import { DetailsDrawer, SourceFooter } from '@/app/components/primitives';
 import { normaliseHourlyDispatch, dailyAvgPerHour } from '@/app/lib/dispatchChart';
+import { DISPATCH_LABELS } from '@/app/lib/dispatchDefinitions';
 
 ChartJS.register(
   CategoryScale, LinearScale,
@@ -392,6 +393,10 @@ export function TradingEngineCard() {
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
                 color: 'var(--text-muted)', marginTop: 4 }}>
                 €{data.revenue_per_mw.annual_eur.toLocaleString()}/MW/yr annualised · {data.meta.mw_total}MW · {data.meta.dur_h}H · {data.meta.mode} · {fmtDate(data.meta.date_iso)}
+              </div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: '0.5625rem',
+                color: 'var(--text-ghost)', marginTop: 4, letterSpacing: '0.04em' }}>
+                {DISPATCH_LABELS.dispatch_model.short.toUpperCase()} · {DISPATCH_LABELS.dispatch_model.detail} · canonical
               </div>
             </div>
           </div>

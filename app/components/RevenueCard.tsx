@@ -11,6 +11,7 @@ import { Line, Bar } from 'react-chartjs-2';
 import { useChartColors, CHART_FONT, useTooltipStyle } from '@/app/lib/chartTheme';
 import { DetailsDrawer } from '@/app/components/primitives';
 import { findMatrixCell, type MatrixCell as SensMatrixCell } from '@/app/lib/sensitivityMatrix';
+import { DISPATCH_LABELS, vsCanonicalDispatchFootnote } from '@/app/lib/dispatchDefinitions';
 
 ChartJS.register(
   CategoryScale, LinearScale,
@@ -567,6 +568,8 @@ export function RevenueCard() {
   const [data, setData] = useState<RevenueData | null>(null);
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [drawerKey, setDrawerKey] = useState(0);
+  // Canonical dispatch (ISP model) for the live-rate footnote — never derive locally
+  const [canonicalDispatch, setCanonicalDispatch] = useState<number | null>(null);
   const CC = useChartColors();
   const ts = useTooltipStyle(CC);
   const initDone = useRef(false);
@@ -608,6 +611,16 @@ export function RevenueCard() {
   }, [dur, capex, cod, scenario]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Pull canonical dispatch headline so live-rate can footnote it.
+  useEffect(() => {
+    fetch(`${WORKER}/api/dispatch?dur=${dur}&mode=realised`)
+      .then(r => (r.ok ? r.json() : null))
+      .then((d: { revenue_per_mw?: { daily_eur?: number | null } } | null) => {
+        if (d?.revenue_per_mw?.daily_eur != null) setCanonicalDispatch(d.revenue_per_mw.daily_eur);
+      })
+      .catch(() => {});
+  }, [dur]);
 
   if (status === 'loading' && !data) {
     return <div style={{ padding: 40, color: 'var(--text-muted)',
@@ -658,18 +671,33 @@ export function RevenueCard() {
           </div>
         </div>
 
-        {lr && lr.today_total_daily > 0 && (
-          <div style={{ textAlign: 'right', minWidth: 140 }}>
-            <div style={{ fontFamily: "'Unbounded',sans-serif", fontSize: '1.1rem',
-              color: 'var(--text-primary)', fontWeight: 500 }}>
-              €{lr.today_total_daily}/MW/day</div>
-            <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
-              color: lr.delta_pct >= 0 ? 'var(--teal)' : 'var(--amber)' }}>
-              {lr.delta_pct >= 0 ? '+' : ''}{lr.delta_pct}% vs trailing avg</div>
-            <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
-              color: 'var(--text-muted)' }}>{fmtDate(lr.as_of)}</div>
-          </div>
-        )}
+        {lr && lr.today_total_daily > 0 && (() => {
+          const liveLabel = DISPATCH_LABELS.live_rate_aggregate;
+          const dispatchNote = vsCanonicalDispatchFootnote('live_rate_aggregate', canonicalDispatch);
+          return (
+            <div style={{ textAlign: 'right', minWidth: 140 }}>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
+                color: 'var(--text-tertiary)', textTransform: 'uppercase',
+                letterSpacing: '0.06em', marginBottom: 2 }}>{liveLabel.short}</div>
+              <div style={{ fontFamily: "'Unbounded',sans-serif", fontSize: '1.1rem',
+                color: 'var(--text-primary)', fontWeight: 500 }}>
+                €{lr.today_total_daily}/MW/day</div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: '0.5625rem',
+                color: 'var(--text-muted)' }}>{liveLabel.detail}</div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
+                color: lr.delta_pct >= 0 ? 'var(--teal)' : 'var(--amber)', marginTop: 2 }}>
+                {lr.delta_pct >= 0 ? '+' : ''}{lr.delta_pct}% vs trailing avg</div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
+                color: 'var(--text-muted)' }}>{fmtDate(lr.as_of)}</div>
+              {dispatchNote && (
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: '0.5625rem',
+                  color: 'var(--text-ghost)', marginTop: 4, lineHeight: 1.4 }}>
+                  {dispatchNote}
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </div>
 
       {/* Controls */}
