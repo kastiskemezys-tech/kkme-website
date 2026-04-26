@@ -59,7 +59,7 @@ Two-line presentation: today's value with the input that drove it, plus a typica
 
 ## 2. F5-lite.2 — Freshness chip thresholds
 
-**Define the global thresholds** (apply to S1 and S2 only in F5-lite; Phase 11 templates them across the rest of the cards):
+**Define the global thresholds** (apply to S1 and S2 only in F5-lite; Phase 7.6.16 normalises all timestamps site-wide, and Phase 10 propagates the chip pattern across remaining cards as part of the MetricDisplay rollout):
 
 | Age | Label | Color |
 |---|---|---|
@@ -178,9 +178,10 @@ grep -rn "LIVE" app/components/S1Card.tsx app/components/S2Card.tsx | head
 ```
 
 Visual sanity: `npm run dev` and load `localhost:3000`. Verify:
-- S1 hero with bridge expanded shows non-zero RTE loss
-- Freshness chip color/label matches age (currently S1 ~28h → STALE amber-muted; S2 ~3h → RECENT neutral)
-- Drawer WHAT/HOW are visibly shorter (~30% of F4 length)
+- S1 hero with bridge expanded shows the formula visibly (either non-zero RTE loss with the math shown, or €0 today with the formula and typical-case anchor visible).
+- Freshness chip color/label matches actual current age — re-curl `/s1` and `/s2` to read `updated_at` and confirm the label maps correctly through the threshold table.
+- Drawer WHAT/HOW are visibly shorter (~30% of F4 length).
+- The word `LIVE` does not appear on a card whose data is older than 1h.
 
 Commit (single commit for F5-lite code; merge commit is separate):
 `phase-7-5-F(cards): F5-lite — bridge math fix, freshness thresholds, drawer trim`
@@ -218,4 +219,4 @@ Report to Kastytis:
 
 ## 8. After merge
 
-The user opens `docs/phases/upgrade-plan.md`, ticks the F5-lite checkboxes, adds a session-log entry, and kicks off **Phase 7.6 — Numerical Reconciliation** next (not Phase 8). Principles P1–P5 are already locked. Phase 7.6 fixes the ~20% of numbers that have arithmetic or labelling errors plus the ~35% that fail to reconcile across cards. Foundation work (Phase 8) starts on top of trusted numbers, not on top of broken ones.
+The user opens `docs/phases/upgrade-plan.md`, ticks the F5-lite checkboxes, adds a session-log entry, and kicks off **Phase 7.6 — Numerical Reconciliation** next (not Phase 8). Principles P1–P6 are locked; P7 (engagement layer) is pending and only gates Phase 17. Phase 7.6 fixes the ~20% of numbers that have arithmetic or labelling errors plus the ~35% that fail to reconcile across cards. Foundation work (Phase 8) starts on top of trusted numbers, not on top of broken ones.

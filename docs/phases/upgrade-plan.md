@@ -1,9 +1,9 @@
 # KKME Upgrade Master Plan
 
 **Status snapshot (2026-04-26):**
-- F1–F4 shipped on `phase-7-5-F-card-redesign` branch, PR #27 open, merge conflict on `phase7-5-F-resume-prompt.md`.
-- Three reviews absorbed: short UX/UI audit, 10× dev+designer plan, brand & graphic design plan.
-- Synthesis below sequences ALL three into a multi-phase roadmap; F5-lite is the only piece that runs against the existing branch — every phase from 8 onward starts on a fresh branch off main.
+- F1–F4 shipped on `phase-7-5-F-card-redesign` branch, PR #27 open, merge conflict on `phase7-5-F-resume-prompt.md`. F5-lite is in flight in CC.
+- **Five reviews absorbed:** (1) short UX/UI audit, (2) 10× dev+designer plan, (3) brand & graphic design plan, (4) deep numerical audit, (5) visual & gamification layer.
+- Synthesis below sequences all five into a multi-phase roadmap; F5-lite is the only piece that runs against the existing branch — every phase from 7.6 onward starts on a fresh branch off main.
 - This document is the living tracker. Each phase has a checkbox; update on completion. Don't archive old phases — strike them through so the history reads as a build log.
 
 ---
@@ -57,7 +57,7 @@ These rules emerged from the deep numerical audit (§0). Every phase touching nu
 
 **N-8 · Availability haircut on theoretical annualised numbers.** Any "asset earns €X/year if it always clears at today's rate" gets two values: theoretical maximum + realistic 60–80% haircut. Or label the headline explicitly as theoretical.
 
-**N-9 · Reconciliation through a single canonical store.** When the same metric (capture, dispatch, fleet, pipeline, IRR) appears in multiple surfaces, all surfaces read from one canonical computation. Variants get distinct names. Phase 15.1 implements the single-store architecture.
+**N-9 · Reconciliation through a single canonical store.** When the same metric (capture, dispatch, fleet, pipeline, IRR) appears in multiple surfaces, all surfaces read from one canonical computation. Variants get distinct names. Phase 15.1 (`useScenario()` for scenario-state) and a sibling `useMetric()` store (for canonical metric values) together implement this — `useScenario()` owns user-set knobs (duration / capex / cod / scenario / country / product), `useMetric()` owns the resolved values keyed by `(metric_id, scenario_hash)`. Both bound to URL.
 
 **N-10 · Math has unit tests.** Every financial formula (LCOS, IRR, DSCR, gross→net bridge, annualisation, RTE convention) has a Vitest spec. Formulas are the actual product; an off-by-one destroys credibility. Phase 15.5 establishes the testing harness; Phase 7.6 fixes ship with their own spec coverage.
 
@@ -87,6 +87,10 @@ These rules emerged from the deep numerical audit (§0). Every phase touching nu
 **Maps to:** Deep numerical audit §0, §1–§21, §23 quick-fixes 1–4.
 **Why this comes before Phase 8:** the deep audit catches ~20% of numbers as mathematical or labelling errors, ~35% as cross-card reconciliation failures. Industry experts catch each in 30 seconds. Doing the redesign on top of broken numbers wastes the redesign. Fix the data layer first; design on top of trusted numbers.
 
+**Prerequisite (do this first):**
+
+- [ ] **7.6.0 — Vitest harness setup.** `npm i -D vitest @vitest/ui`, basic `vitest.config.ts`, one passing smoke test. Every fix below ships with at least one spec covering the formula. Phase 15.5 generalises later; 7.6 just needs a working harness.
+
 **Bug-class fixes (do all of them; each is small):**
 
 - [ ] **7.6.1 — Ticker unit error.** `AFRR €5.64/MWh` and `MFRR €11.6/MWh` should be `€/MW/h`. Capacity payments are €/MW/h, not €/MWh. This is the single fastest credibility leak — fix everywhere this confusion appears (ticker, hero KPI strip, anywhere reserves are quoted in energy units).
@@ -101,16 +105,15 @@ These rules emerged from the deep numerical audit (§0). Every phase touching nu
 - [ ] **7.6.10 — Pipeline number reconciliation.** 1.08 GW / 1.4 GW / 3.7 GW / 1.5 GW APVA all appear as "pipeline." Each has a real meaning; the names should differ. Audit recommends a credibility-tiered funnel — but for 7.6 just LABEL each correctly so the user can tell what they're reading.
 - [ ] **7.6.11 — IRR label consistency.** "Gross IRR", "Project IRR", "Unlevered IRR", "Equity IRR" all appear, sometimes for the same number. Standardize: unlevered project IRR = single label for one definition; equity IRR = the post-debt levered case. Use one term in every surface.
 - [ ] **7.6.12 — Gross→Net bridge: SHOW THE WORK.** Audit clarified the `+€0` is mathematically correct (RTE × €0 trough = €0). The fix is to display the formula even when the output rounds to zero: e.g. `RTE loss = 12.5% × charge price (€0 today) = €0; on a typical day with €30 charge, RTE loss ≈ €4/MWh.` This rule is now in F5-lite.1.
-- [ ] **7.6.13 — S1 distribution skew investigation.** Mean €129 < median €137 over a 30-day window is anomalous (arbitrage spreads are nearly always right-skewed). Investigate whether mean and percentiles use different sample windows or aggregation methods.
+- [ ] **7.6.13 — S1 distribution skew investigation.** Mean €129 < median €137 over a 30-day window is anomalous (arbitrage spreads are nearly always right-skewed). Investigate whether mean and percentiles use different sample windows or aggregation methods. **Action:** if it's a sampling-window mismatch (computation artifact), fix the aggregation. If the data really is left-skewed, document with a footnote on the card and ship as-is.
 - [ ] **7.6.14 — Hour labelling (S1 peak h0).** Peak hour at h0 (midnight UTC, 2am EET) is unusual for daily peak. Verify the hour-indexing convention; fix if labels are off-by-one.
 - [ ] **7.6.15 — Activation-rate display.** 49% activation rate per Trading card is high for European aFRR (typical 20–40%). Either a Baltic specificity worth flagging or a definition mismatch. Document the methodology explicitly.
 - [ ] **7.6.16 — Time-stamp normalisation.** Mixed formats across the page: `28h ago`, `26 Apr 11:00`, `Apr 26, 2026`, `5 days ago`, `2025-04`. Pick one rule globally — relative for ≤24h, absolute UTC otherwise — and always show the timezone (UTC vs CET vs EET; Baltic markets straddle EET).
-- [ ] **7.6.17 — Annualised-equivalent rule.** Every primary value in `€/MW/day` or `€/MWh` should have a muted annualised twin (`× 365` or `× cycles/yr`) rendered immediately below. Forces the reader to stop doing the math 20× per page.
-- [ ] **7.6.18 — Availability-haircut rule for theoretical annualised numbers.** S2 card says `50 MW aFRR offer → €5,957k/year` assuming 100% availability and persistent clearing. Real availability is 75–90% with variable clearing. Either show two numbers (theoretical vs realistic 60–80% haircut) or label the headline as "theoretical maximum."
+**Cross-cutting display rules — DEFERRED to Phase 10:** the annualised-twin rule (N-3) and availability-haircut rule (N-8) are display behaviors implemented via `<AnnualisedTwin>` and `<HaircutToggle>` primitives in Phase 8.3, then applied card-by-card during Phase 10's MetricDisplay rollout. Implementing them inline in 7.6 would be wasted work since the primitives replace the inline implementation immediately after.
 
-**Verification gate per fix:** numerical reconciliation REQUIRES a unit test. Any value that's "computed" gets a Vitest spec covering the formula. The audit's closing point — "credibility compounds; first error discounts everything else by 30%" — means we don't ship reconciliation work that itself has math errors.
+**Verification gate per fix:** every numerical fix ships with a Vitest spec covering the formula (using the harness from 7.6.0). The audit's closing point — "credibility compounds; first error discounts everything else by 30%" — means we don't ship reconciliation work that itself has math errors.
 
-**Estimated effort:** 2 CC sessions (one for bug-class fixes 7.6.1–7.6.16; one for cross-cutting rules 7.6.17–7.6.18 + verification).
+**Estimated effort:** 3 CC sessions. Session 1: 7.6.0 setup + 7.6.1–7.6.7 (the obvious bug-fixes with smaller blast radius). Session 2: 7.6.8–7.6.13 (the cross-card reconciliation work + IRR sensitivity investigation, which is the riskiest item). Session 3: 7.6.14–7.6.16 + verification + commit.
 
 ---
 
@@ -125,7 +128,7 @@ The keystone phase. Until tokens are real, every other design fix is duct tape.
 - [ ] **8.2 — Three-voice typography system.** Display serif (recommend Fraunces with optical-size axis), mono (JetBrains Mono or Berkeley Mono), body sans (Inter). Replace the dead Super Sans/Serif/Mono VF requests. Build the `--type-hero / --type-number-xl / --type-number-l / --type-section / --type-eyebrow / --type-body / --type-caption` ramp. Apply `font-variant-numeric: tabular-nums` globally on mono.
 - [ ] **8.3 — Core primitives.** `<MetricDisplay>` (value + unit + vintage glyph O/D/F/M + label + delta + regime + **optional P10/P50/P90 fan** + **optional sample-size N badge** + **methodology version stamp**), `<Source>` (favicon + domain + last-fetched + timezone), `<Icon>` (sprite reference), `<Eyebrow>`, `<Hairline>`, `<AnnualisedTwin>` (renders muted `× 365` companion below any €/MW/day or €/MWh number — implements 7.6.17 rule), `<HaircutToggle>` (theoretical vs realistic on annualised offer values — implements 7.6.18 rule). Storybook entry per primitive. Type the `Metric` interface so renderer can never display a unitless or unstamped number (per 10× review Tier 4 #5).
 - [ ] **8.3b — Visual atom primitives** (per visual review §1; these are the four shared visual primitives that account for ~70% of the surface): `<DistributionTick>` (1px hairline + tick mark showing where today's value sits across min / p25 / p50 / p75 / p90 / max — used 50+ times across the site), `<RegimeBarometer>` (horizontal bar tight→compressed→normal→wide→stress with vertical needle for today's reading; uses semantic palette per P1), `<VintageGlyphRow>` (16×16 pill row for O/D/F/M provenance — extracted as standalone for cards where MetricDisplay is overkill), `<CredibilityLadderBar>` (horizontal stacked bar from intention → reservation → permit → agreement → construction → operational; reusable across pipeline, project counts, asset funnel). Each is a single visual atom; reuse — not bespoke per card — drives coherence.
-- [ ] **8.4 — Icon sprite.** 20-icon set on 24×24 grid, 1.5px stroke, square caps. Categories per brand review §6.
+- [ ] **8.4 — Icon sprite.** ~25-icon set on 24×24 grid, 1.5px stroke, square caps. Categories per brand review §6: energy/asset (battery, solar, wind, thermal, transformer, substation, interconnector, grid), market (arbitrage, capacity, activation, imbalance, forecast), geography (LT, LV, EE monogram tiles), vintage glyphs (O/D/F/M), UI (expand, collapse, external, copy, pin, filter, info, share).
 - [ ] **8.5 — Logo system.** Wordmark variants at multiple optical sizes, monogram, stamp, lockup-tagline. Favicon set (16/32/48/192/512), apple-touch, safari-pinned-tab.
 - [ ] **8.6 — Public design system pages.** `/brand` (logo system + clear-space rules + minimum sizes), `/style` (color palette + type ramp + token reference), `/visuals` (per visual review §17 — primitives doc with examples/props/usage rules; chart catalog with sample data and "do not use when N<7" guidance; motion timings/easing rationale; game elements catalog if P7 lands "selective"), `/colophon` (typefaces, color philosophy, data sources, build stack, person behind it). These doubled as marketing — credibility signal. Designers in adjacent industries quote them; press articles screenshot them.
 - [ ] **8.7 — Microbrand details.** Custom 404/500 pages, console signature, `::selection` color, `:focus-visible` ring, print stylesheet, `humans.txt`, `security.txt`.
@@ -180,8 +183,11 @@ The keystone phase. Until tokens are real, every other design fix is duct tape.
     - **Trading revenue donut:** replace the three percentage cells (33% / 60% / 7%) with a donut chart linked by hover-highlight to the bar segments above.
     - **Renewable mix as stacked area** + **residual load as divergent area** + **peak forecast as hourly bar chart with peak/trough marked** + **cross-border spread as diverging bar (LT-SE4 / LT-PL / LT-LV / EE-FI / LV-EE)** — all per visual review §9.
     - **Commodity card causal chains:** TTF and EUA cards get small horizontal bar chains (`TTF €44.8 × 1/0.6 = €75 CCGT marginal`) with connector lines into the Peak Forecast card. Combined P_high formation as a single waterfall: `[€44.8 TTF] + [€30 efficiency] + [€34 carbon] = [€109 P_high]` with horizontal line showing today's actual peak — visually shows scarcity rents above the marginal generator.
+    - **Apply N-3 (annualised twin) and N-8 (availability haircut)** rules to every primary value via `<AnnualisedTwin>` and `<HaircutToggle>` primitives from Phase 8.3.
 - [ ] **10.11 — Cross-card metric highlight.** Hovering a metric anywhere on the page subtly highlights every other surface displaying the same metric (e.g., hovering "8.6% IRR" in Returns highlights the same value in hero and ticker). Cross-card relationships made visible without click. Implemented via a global hover-key store (`metric:project_irr_unlevered`), each rendered metric subscribes.
 - [ ] **10.12 — "Today's chain" causal visualization.** Top of Structural section: a single horizontal chain `High wind → renewable share 119% → residual load -495 MW → DA spread above P90 → BESS arbitrage profitable today`. Each link tappable, opens corresponding card. Teaches the entire structural model in 30 seconds. Per visual review §9.
+
+**Estimated effort:** 4–5 CC sessions. Card-by-card visualization upgrade is the largest individual workstream in the plan after Phase 8.
 
 ---
 
@@ -204,8 +210,6 @@ The keystone phase. Until tokens are real, every other design fix is duct tape.
 - [ ] **10.5.11 — 2D LCOS sensitivity heatmap on Build card.** x = cycles/yr (200–500), y = WACC (5–12%), color = LCOS €/MWh, with "your asset" position marked as a draggable circle. Teaches the LCOS sensitivity intuition in seconds.
 
 **Estimated effort:** 4 CC sessions (largest content phase; can split LT/LV/EE comparison work with rest of plan).
-
-**Estimated effort:** 3–4 CC sessions.
 
 ---
 
@@ -291,7 +295,7 @@ The keystone phase. Until tokens are real, every other design fix is duct tape.
 
 - [ ] **16.1 — Press mode theme.** High-contrast, screenshot-ready for IC decks. One keyboard shortcut, one toggle.
 - [ ] **16.2 — Final visual QA.** 4 viewports × 2 themes × press mode. Snapshot regression baseline.
-- [ ] **16.3 — Motion polish layer** (per visual review §16): scroll-linked underline animation on section headings (left-to-right reveal over 800ms when heading enters viewport), card entrance fade-up + 12px translate staggered 80ms apart, button affordances (1px mint border on hover + soft 4px outer glow fading in over 200ms; pressed states inset 1px translate-y for tactile feedback), loading shimmer on data refresh (600ms diagonal mint highlight sweeping across the number's bounding box, replaces "Updated 3h ago" badge state-change), cursor states (mint dot on map interactive zones, crosshair with snap-to-data-point guides on chart canvases, grab/grabbing on draggable controls), text reveals on scroll (section heading copy fades word-by-word ~50ms per word as user scrolls in). Sound explicitly NOT included — P6 forbids it. Subtle, fast — page reveals itself rather than slams in.
+- [ ] **16.3 — Motion polish layer** (per visual review §16): scroll-linked underline animation on section headings (left-to-right reveal over 800ms when heading enters viewport), card entrance fade-up + 12px translate staggered 80ms apart, button affordances (1px mint border on hover + soft 4px outer glow fading in over 200ms; pressed states inset 1px translate-y for tactile feedback), loading shimmer on data refresh (600ms diagonal mint highlight sweeping across the *number's* bounding box when fresh data lands; the freshness chip beside the number stays visible with its label and tooltip — shimmer is the visual "ping" on the number itself, not a replacement for the chip), cursor states (mint dot on map interactive zones, crosshair with snap-to-data-point guides on chart canvases, grab/grabbing on draggable controls), text reveals on scroll (section heading copy fades word-by-word ~50ms per word as user scrolls in). Sound explicitly NOT included — P6 forbids it. Subtle, fast — page reveals itself rather than slams in.
 
 **Estimated effort:** 1 CC session.
 
