@@ -204,6 +204,37 @@
   --space-md: 16px;
   --space-lg: 24px;
   --space-xl: 48px;
+
+  /* ─── Three-voice typography (Phase 8.2) ─────────────────────────────
+     Names per P4 brand position: editorial (Fraunces) + numeric
+     (JetBrains Mono) + body (Inter). New tokens use the *-editorial /
+     *-numeric / *-body suffix so legacy --font-display / --font-mono /
+     --font-serif consumers keep their existing fonts until Phase 10
+     migrates each card. */
+  --font-editorial: var(--font-fraunces), Georgia, serif;
+  --font-numeric:   var(--font-jetbrains-mono), ui-monospace, "SF Mono", monospace;
+  --font-body:      var(--font-inter), system-ui, sans-serif;
+
+  /* Type ramp — P2 locked: 56px middle-ground for hero numbers.
+     `clamp(min, fluid, max) / line-height font-family` shorthand
+     so any `font: var(--type-hero)` consumer gets the full setup. */
+  --type-hero:      clamp(40px, 6vw, 64px) / 0.95 var(--font-editorial);
+  --type-number-xl: clamp(40px, 5vw, 56px) / 1.0  var(--font-numeric);
+  --type-number-l:  clamp(28px, 3.5vw, 40px) / 1.0  var(--font-numeric);
+  --type-section:   clamp(24px, 2.5vw, 32px) / 1.15 var(--font-editorial);
+  --type-eyebrow:   11px / 1.4 var(--font-numeric);
+  --type-body:      16px / 1.55 var(--font-body);
+  --type-caption:   12px / 1.4 var(--font-numeric);
+}
+
+/* Tabular numerals everywhere — keeps numbers vertically aligned across
+   live updates and prevents column jitter on every refresh. */
+* {
+  font-feature-settings: "tnum" 1;
+}
+
+[data-font="numeric"], code, kbd, samp, pre {
+  font-variant-numeric: tabular-nums;
 }
 
 /* ════════════════════════════════════════════
