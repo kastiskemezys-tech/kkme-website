@@ -7295,17 +7295,22 @@ export default {
       };
 
       // ── Sensitivity matrix: 3 COD × 3 CAPEX = 9 cells ──
+      // Matrix re-runs computeEngine for each (cod, capex) cell. Honours the
+      // user's scenario param so toggling base/conservative/stress on the
+      // Returns card moves the matrix in lockstep with the headline IRR.
       const COD_YEARS  = [2027, 2028, 2029];
       const CAPEX_KEYS = ['low', 'mid', 'high'];
       const matrix = [];
       for (const cy of COD_YEARS) {
         for (const ck of CAPEX_KEYS) {
           const ckv = CAPEX_MAP[ck];
-          if (cy === codParam && ckv === capex_kwh && scenParam === 'base') {
-            matrix.push({ cod: cy, capex: ck, capex_kwh: ckv, project_irr: all_scenarios.base.project_irr, equity_irr: all_scenarios.base.equity_irr, min_dscr: all_scenarios.base.min_dscr, net_mw_yr: all_scenarios.base.net_mw_yr, bankability: all_scenarios.base.bankability });
+          if (cy === codParam && ckv === capex_kwh) {
+            // Reuse the headline scenario result for the current cell.
+            const cur = all_scenarios[scenParam] || all_scenarios.base;
+            matrix.push({ cod: cy, capex: ck, capex_kwh: ckv, project_irr: cur.project_irr, equity_irr: cur.equity_irr, min_dscr: cur.min_dscr, net_mw_yr: cur.net_mw_yr, bankability: cur.bankability });
           } else {
             const mr = computeEngine(
-              { mw: mwParam, dur_h, capex_kwh: ckv, cod_year: cy, scenario: 'base', grant_pct: grantPct },
+              { mw: mwParam, dur_h, capex_kwh: ckv, cod_year: cy, scenario: scenParam, grant_pct: grantPct },
               kv
             );
             matrix.push({ cod: cy, capex: ck, capex_kwh: ckv, project_irr: mr.project_irr, equity_irr: mr.equity_irr, min_dscr: mr.min_dscr, net_mw_yr: mr.net_mw_yr, bankability: mr.bankability });

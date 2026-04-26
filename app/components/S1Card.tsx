@@ -16,7 +16,9 @@ import {
 } from 'chart.js';
 import { Line, Bar } from 'react-chartjs-2';
 import { CHART_FONT, useChartColors, useTooltipStyle, buildScales } from '@/app/lib/chartTheme';
-import { freshnessLabel } from '@/app/lib/freshness';
+import { freshnessLabel, formatTimestamp } from '@/app/lib/freshness';
+import { leftSkewFootnote } from '@/app/lib/distributionShape';
+import { formatHourEET } from '@/app/lib/hourLabels';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, LineController, Tooltip, Filler);
 
@@ -61,12 +63,8 @@ function fmtMonth(m: string): string {
   return `${names[parseInt(mo) - 1]} ${y.slice(2)}`;
 }
 
-function timeAgo(ts: string): string {
-  const mins = Math.round((Date.now() - new Date(ts).getTime()) / 60000);
-  if (mins < 2) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  return `${Math.floor(mins / 60)}h ago`;
-}
+// timeAgo retired in 7.6.16 — formatTimestamp covers the same shape and adds
+// the >24h absolute UTC fallback (N-7).
 
 // ── Component ────────────────────────────────────────────────────────────────
 
@@ -125,22 +123,38 @@ export function S1Card() {
 
       {/* ── 4. Rolling context strip (tiles → `what` drawer) ────── */}
       {stats && (
-        <div style={{
-          display: 'flex', gap: '16px', flexWrap: 'wrap',
-          padding: '10px 0', marginBottom: '12px',
-          borderTop: '1px solid var(--border-subtle)', borderBottom: '1px solid var(--border-subtle)',
-        }}>
-          {([
-            ['mean', stats.mean],
-            ['p25', stats.p25],
-            ['p50', stats.p50],
-            ['p75', stats.p75],
-            ['p90', stats.p90],
-          ] as const).map(([label, val]) => (
-            <TileButton key={label} onClick={() => openDrawer('what')} label={label} value={fmtEuro(val)} />
-          ))}
-          <TileButton onClick={() => openDrawer('what')} label="days" value={String(stats.days)} />
-        </div>
+        <>
+          <div style={{
+            display: 'flex', gap: '16px', flexWrap: 'wrap',
+            padding: '10px 0', marginBottom: '4px',
+            borderTop: '1px solid var(--border-subtle)', borderBottom: '1px solid var(--border-subtle)',
+          }}>
+            {([
+              ['mean', stats.mean],
+              ['p25', stats.p25],
+              ['p50', stats.p50],
+              ['p75', stats.p75],
+              ['p90', stats.p90],
+            ] as const).map(([label, val]) => (
+              <TileButton key={label} onClick={() => openDrawer('what')} label={label} value={fmtEuro(val)} />
+            ))}
+            <TileButton onClick={() => openDrawer('what')} label="days" value={String(stats.days)} />
+          </div>
+          {(() => {
+            const note = leftSkewFootnote({
+              mean: stats.mean, p25: stats.p25, p50: stats.p50, p75: stats.p75, p90: stats.p90, days: stats.days,
+            });
+            if (!note) return null;
+            return (
+              <p style={{
+                fontFamily: 'var(--font-mono)', fontSize: '0.5625rem',
+                color: 'var(--text-muted)', marginBottom: '12px', lineHeight: 1.5,
+              }}>
+                {note}
+              </p>
+            );
+          })()}
+        </>
       )}
 
       {/* ── 6. Sparkline — 30-day gross capture (click-to-pin) ──── */}
@@ -175,7 +189,7 @@ export function S1Card() {
       {/* ── 9. Source footer ────────────────────────────────────── */}
       <SourceFooter
         source="energy-charts.info (Fraunhofer ISE)"
-        updatedAt={cap.updated_at ? timeAgo(cap.updated_at) : undefined}
+        updatedAt={formatTimestamp(cap.updated_at)}
         dataClass="derived"
       />
 
@@ -194,7 +208,7 @@ export function S1Card() {
           {cap.gross_to_net && cap.gross_to_net.length > 0
             ? <BridgeChart bridge={cap.gross_to_net} chargePrice={cap.capture_2h?.avg_charge ?? null} rte={cap.capture_2h?.rte ?? 0.875} CC={CC} />
             : <MutedLine text="No bridge data yet." />}
-          {cap.shape && <ShapeRow shape={cap.shape} />}
+          {cap.shape && <ShapeRow shape={cap.shape} refIso={cap.updated_at} />}
         </DrawerSection>
       </DetailsDrawer>
     </article>
@@ -534,15 +548,15 @@ function BridgeChart({ bridge, chargePrice, rte, CC }: {
 
 // ── Price shape summary ──────────────────────────────────────────────────────
 
-function ShapeRow({ shape }: { shape: NonNullable<S1CaptureData['shape']> }) {
+function ShapeRow({ shape, refIso }: { shape: NonNullable<S1CaptureData['shape']>; refIso?: string | null }) {
   return (
     <div style={{
       display: 'flex', gap: '16px', flexWrap: 'wrap',
       fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)',
       paddingTop: '8px', borderTop: '1px solid var(--border-subtle)',
     }}>
-      <span>Peak h{shape.peak_hour} {fmtEuro(shape.peak_price)}</span>
-      <span>Trough h{shape.trough_hour} {fmtEuro(shape.trough_price)}</span>
+      <span>Peak {formatHourEET(shape.peak_hour, refIso)} {fmtEuro(shape.peak_price)}</span>
+      <span>Trough {formatHourEET(shape.trough_hour, refIso)} {fmtEuro(shape.trough_price)}</span>
       <span>Swing {fmtEuro(shape.swing)}</span>
       {shape.evening_premium != null && <span>Eve premium {fmtEuro(shape.evening_premium)}</span>}
     </div>

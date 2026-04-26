@@ -70,7 +70,7 @@ export function SourceFooter({ source, sourceUrl, updatedAt, dataClass, methodol
           </a>
         ) : source}
       </span>
-      {updatedAt && (
+      {updatedAt && updatedAt !== '—' && (
         <>
           <span style={{ opacity: 0.5 }}>·</span>
           <span>Updated {updatedAt}</span>

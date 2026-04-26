@@ -2,9 +2,65 @@
  * Supply/Demand ratio display utilities.
  * Replaces categorical SCARCITY/COMPRESS/MATURE labels with
  * continuous descriptions that honestly reflect the data.
+ *
+ * S/D formula (mirrors workers/fetch-s1.js processFleet):
+ *   S/D = baltic_weighted_mw / eff_demand_mw
+ *   baltic_weighted_mw = Σ_country Σ_BESS-entries (mw × STATUS_WEIGHT[status])
+ *
+ * Pumped hydro and tso_bess are EXCLUDED from the weighted sum because
+ * Kruonis-class assets are DRR-suppressed for FCR/aFRR until 2028-02 and
+ * would inflate the merchant supply curve.
+ *
+ * The user-visible "operational 822 + pipeline 1083" counts are NOT the
+ * numerator — they're raw flex fleet sums. The numerator is the
+ * credibility-weighted figure (operational at 1.0, under_construction at
+ * 0.9, connection_agreement at 0.6, application at 0.3, announced at 0.1).
  */
 
 import type { Sentiment } from '@/app/lib/types';
+
+export const SD_STATUS_WEIGHT: Readonly<Record<string, number>> = Object.freeze({
+  operational: 1.0,
+  commissioned: 1.0,
+  under_construction: 0.9,
+  connection_agreement: 0.6,
+  application: 0.3,
+  announced: 0.1,
+});
+export const SD_DEFAULT_WEIGHT = 0.1;
+
+export interface SdEntry {
+  mw: number;
+  status: string;
+  type?: string;
+}
+
+const NON_COMMERCIAL_TYPES = new Set(['pumped_hydro', 'tso_bess']);
+
+/** Sum credibility-weighted commercial-BESS MW per worker convention. */
+export function weightedSupplyMw(entries: ReadonlyArray<SdEntry>): number {
+  let sum = 0;
+  for (const e of entries) {
+    if (e.type && NON_COMMERCIAL_TYPES.has(e.type)) continue;
+    const w = SD_STATUS_WEIGHT[e.status] ?? SD_DEFAULT_WEIGHT;
+    sum += e.mw * w;
+  }
+  return sum;
+}
+
+/** S/D = weighted supply / effective demand. Returns null if demand <= 0. */
+export function sdRatio(weightedMw: number, effDemandMw: number): number | null {
+  if (!Number.isFinite(weightedMw) || !Number.isFinite(effDemandMw) || effDemandMw <= 0) return null;
+  return Math.round((weightedMw / effDemandMw) * 100) / 100;
+}
+
+/** Compose a one-line caption that surfaces the formula AND its inputs. */
+export function sdFormulaCaption(weightedMw: number, effDemandMw: number): string {
+  const r = sdRatio(weightedMw, effDemandMw);
+  const w = Math.round(weightedMw);
+  const d = Math.round(effDemandMw);
+  return `S/D = weighted supply / effective demand · ${w} MW / ${d} MW = ${r != null ? r.toFixed(2) : '—'}×`;
+}
 
 /** Continuous color mapping for S/D ratio */
 export function sdColor(sd: number): string {

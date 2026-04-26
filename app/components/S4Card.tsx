@@ -10,6 +10,9 @@ import {
 import { SignalIntel } from '@/app/components/SignalIntel';
 import { AssetDetailPanel, type Asset as DetailAsset } from '@/app/components/AssetDetailPanel';
 import type { ImpactState, Sentiment } from '@/app/lib/types';
+import { sdFormulaCaption } from '@/app/lib/sdRatio';
+import { PIPELINE_TIER_LABELS } from '@/app/lib/pipelineDefinitions';
+import { formatTimestamp } from '@/app/lib/freshness';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
@@ -96,6 +99,7 @@ interface FleetData {
   phase?:                string | null;
   baltic_operational_mw?: number | null;
   baltic_pipeline_mw?:   number | null;
+  baltic_weighted_mw?:    number | null;
   eff_demand_mw?:        number | null;
   updated?:              string | null;
 }
@@ -603,16 +607,27 @@ export function S4Card() {
             }}>
               Fleet tracker · {allEntries.length > 0 ? `${allEntries.length} projects` : ''} · {fl.sd_ratio?.toFixed(2)}× S/D
             </div>
+            {fl.baltic_weighted_mw != null && fl.eff_demand_mw != null && (
+              <div
+                style={{
+                  fontFamily: 'var(--font-mono)', fontSize: '0.5625rem',
+                  color: 'var(--text-muted)', marginBottom: '10px', lineHeight: 1.5,
+                }}
+                title="Numerator is the credibility-weighted supply: operational ×1.0, under_construction ×0.9, connection_agreement ×0.6, application ×0.3, announced ×0.1. Pumped hydro and TSO BESS excluded (DRR-suppressed for FCR/aFRR until 2028-02)."
+              >
+                {sdFormulaCaption(fl.baltic_weighted_mw, fl.eff_demand_mw)}
+              </div>
+            )}
             <div style={{
               display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px',
               fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
             }}>
-              <div>
-                <div style={{ color: 'var(--text-muted)' }}>Operational</div>
+              <div title="All commissioned, grid-connected flex assets — BESS + pumped hydro (Kruonis 205 MW). Distinct from BESS-only registry total shown in the LT pipeline bar above.">
+                <div style={{ color: 'var(--text-muted)' }}>Flex fleet</div>
                 <div style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>{fl.baltic_operational_mw ?? '—'} MW</div>
               </div>
-              <div>
-                <div style={{ color: 'var(--text-muted)' }}>Pipeline</div>
+              <div title={PIPELINE_TIER_LABELS.flex_pipeline.detail + '. Distinct from LT-only TSO reservations (1.4 GW), intention protocols (3.7 GW), and APVA grant applications (1.5 GW) shown in the LT pipeline detail.'}>
+                <div style={{ color: 'var(--text-muted)' }}>{PIPELINE_TIER_LABELS.flex_pipeline.short}</div>
                 <div style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>{fl.baltic_pipeline_mw ?? '—'} MW</div>
               </div>
               <div>
@@ -630,9 +645,7 @@ export function S4Card() {
       <button type="button" onClick={openDrawer} style={{ all: 'unset', display: 'block', width: '100%', cursor: 'pointer' }}>
         <SourceFooter
           source="Litgrid · APVA · VERT.lt ArcGIS · Elering"
-          updatedAt={data.timestamp ? new Date(data.timestamp).toLocaleString('en-GB', {
-            day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC',
-          }) : undefined}
+          updatedAt={formatTimestamp(data.timestamp)}
           dataClass="observed"
         />
       </button>

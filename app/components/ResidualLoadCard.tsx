@@ -3,6 +3,7 @@
 import { useSignal } from '@/lib/useSignal';
 import { REFRESH_WARM } from '@/lib/refresh-cadence';
 import { SourceFooter } from '@/app/components/primitives';
+import { formatTimestamp } from '@/app/lib/freshness';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
@@ -108,7 +109,7 @@ export function ResidualLoadCard() {
         {interpretation(residualMw, residual7d)}
       </p>
 
-      <SourceFooter source="ENTSO-E" updatedAt={ts ? new Date(ts).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) : undefined} dataClass="observed" />
+      <SourceFooter source="ENTSO-E" updatedAt={formatTimestamp(ts)} dataClass="observed" />
     </article>
   );
 }

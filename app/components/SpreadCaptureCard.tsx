@@ -5,6 +5,8 @@ import { useSignal } from '@/lib/useSignal';
 import { REFRESH_HOT } from '@/lib/refresh-cadence';
 import { SourceFooter } from '@/app/components/primitives';
 import { Sparkline } from './Sparkline';
+import { CAPTURE_LABELS, vsCanonicalFootnote } from '@/app/lib/captureDefinitions';
+import { formatTimestamp } from '@/app/lib/freshness';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
@@ -31,15 +33,17 @@ function dotColor(capture: number): string {
 }
 
 function interpretation(capture: number): string {
-  if (capture > 200) return 'Strong capture day — peak-trough spread supports 2+ profitable cycles';
-  if (capture > 100) return 'Moderate capture — single-cycle profitable at current stack';
-  if (capture < 50) return 'Thin margins — hold or flex to ancillary services';
-  return 'Normal capture conditions';
+  if (capture > 200) return 'Wide envelope — supports 2+ profitable cycles before RTE losses';
+  if (capture > 100) return 'Moderate envelope — single-cycle viable at current stack';
+  if (capture < 50) return 'Thin envelope — hold or flex to ancillary services';
+  return 'Normal envelope — see Signals · S1 for cycle-normalised capture';
 }
 
 export function SpreadCaptureCard() {
   const { status, data } = useSignal<S1Signal>(`${WORKER_URL}/read`, { refreshInterval: REFRESH_HOT });
   const [history, setHistory] = useState<number[]>([]);
+  // Canonical DA capture (gross_4h) for the vs-canonical footnote — never derive it locally
+  const [canonicalGross4h, setCanonicalGross4h] = useState<number | null>(null);
 
   useEffect(() => {
     fetch(`${WORKER_URL}/s1/history`)
@@ -47,6 +51,12 @@ export function SpreadCaptureCard() {
       .then((h: HistoryEntry[]) => {
         const vals = h.slice(-14).map(e => e.lt_swing).filter((v): v is number => v != null && isFinite(v));
         setHistory(vals);
+      })
+      .catch(() => {});
+    fetch(`${WORKER_URL}/s1/capture`)
+      .then(r => r.json())
+      .then((c: { gross_4h?: number | null }) => {
+        if (c?.gross_4h != null) setCanonicalGross4h(c.gross_4h);
       })
       .catch(() => {});
   }, []);
@@ -72,19 +82,27 @@ export function SpreadCaptureCard() {
   // Use last 24 hours for today's curve
   const todayCurve = hourly && hourly.length >= 24 ? hourly.slice(-24) : (hourly ?? []);
 
+  const label = CAPTURE_LABELS.da_peak_trough_range;
+  const canonicalNote = vsCanonicalFootnote('da_peak_trough_range', canonicalGross4h);
+
   return (
     <article style={{ width: '100%' }}>
       <h3 style={{ fontFamily: 'var(--font-mono)', fontSize: '0.9375rem', color: 'var(--text-tertiary)', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600, marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-        Spread Capture
+        {label.short}
         <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: dotColor(capture), display: 'inline-block' }} />
       </h3>
 
       <div style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(1.5rem, 3vw, 1.75rem)', fontWeight: 400, color: 'var(--text-primary)', lineHeight: 1, letterSpacing: '0.02em', marginBottom: '2px' }}>
         {'\u20AC'}{capture}/MWh
       </div>
-      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '8px' }}>
-        4h cycle · Buy {'\u20AC'}{pLow.toFixed(0)} · Sell {'\u20AC'}{pHigh.toFixed(0)}
+      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '4px' }}>
+        {label.detail} · Buy {'\u20AC'}{pLow.toFixed(0)} · Sell {'\u20AC'}{pHigh.toFixed(0)}
       </p>
+      {canonicalNote && (
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-ghost)', marginBottom: '8px', lineHeight: 1.4 }}>
+          {canonicalNote}
+        </p>
+      )}
 
       {/* Today's price curve */}
       {todayCurve.length >= 2 && (
@@ -115,7 +133,7 @@ export function SpreadCaptureCard() {
         {interpretation(capture)}
       </p>
 
-      <SourceFooter source="Nord Pool" updatedAt={data.updated_at ? new Date(data.updated_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) : undefined} dataClass="observed" />
+      <SourceFooter source="Nord Pool" updatedAt={formatTimestamp(data.updated_at)} dataClass="observed" />
     </article>
   );
 }

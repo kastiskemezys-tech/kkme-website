@@ -4,6 +4,12 @@
 // less than 1h old; older payloads must show STALE / OUTDATED instead. A
 // "LIVE" label on a 28h-old number is the audit's single most cited
 // credibility break.
+//
+// Phase 7.6.16 — Timestamp normalisation:
+//   `formatTimestamp` is the canonical site-wide formatter for all human-readable
+//   data timestamps (SourceFooter, hero readouts, etc.). Rule: ≤24h → relative
+//   ("3h ago", "45m ago"); >24h → absolute UTC ISO8601 with timezone
+//   ("2026-04-25 14:30 UTC"). N-7 in upgrade-plan.md.
 
 export type FreshnessLabel = 'LIVE' | 'RECENT' | 'TODAY' | 'STALE' | 'OUTDATED';
 
@@ -43,6 +49,29 @@ function formatAge(hoursStale: number): string {
   if (hoursStale < 1) return `${Math.round(hoursStale * 60)}m ago`;
   if (hoursStale < 48) return `${Math.round(hoursStale)}h ago`;
   return `${Math.round(hoursStale / 24)}d ago`;
+}
+
+/**
+ * Canonical site-wide timestamp formatter (Phase 7.6.16, N-7).
+ *
+ *  ≤24h → relative ("just now", "12m ago", "3h ago", "24h ago")
+ *  >24h → absolute UTC ISO8601 ("2026-04-25 14:30 UTC")
+ *  null/unparseable → "—"
+ *
+ * Boundary: exactly 24h reads as "24h ago" — relative wins to keep the
+ * morning-after refresh continuous. The next minute crosses into absolute.
+ *
+ * `now` is exposed for unit tests; production callers omit it.
+ */
+export function formatTimestamp(
+  updatedAt: string | number | Date | null | undefined,
+  now: number = Date.now(),
+): string {
+  const ts = parseTs(updatedAt);
+  if (ts == null) return '—';
+  const hoursStale = Math.max(0, (now - ts) / 3_600_000);
+  if (hoursStale <= 24) return formatAge(hoursStale);
+  return formatAbsoluteUTC(ts);
 }
 
 export function freshnessLabel(updatedAt: string | number | Date | null | undefined): FreshnessState {

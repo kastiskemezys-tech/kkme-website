@@ -3,6 +3,9 @@
 import { useSignal } from '@/lib/useSignal';
 import { REFRESH_HOT } from '@/lib/refresh-cadence';
 import { SourceFooter } from '@/app/components/primitives';
+import { formatTomorrowLine } from '@/app/lib/peakForecast';
+import { formatHourEET } from '@/app/lib/hourLabels';
+import { formatTimestamp } from '@/app/lib/freshness';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
@@ -15,6 +18,7 @@ interface S1Signal {
     lt_peak?: number | null;
     lt_trough?: number | null;
     lt_avg?: number | null;
+    se4_avg?: number | null;
     spread_pct?: number | null;
     delivery_date?: string | null;
   } | null;
@@ -86,7 +90,7 @@ export function PeakForecastCard() {
         {'\u20AC'}{swing.toFixed(0)}/MWh
       </div>
       <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '8px' }}>
-        Today&apos;s DA swing{pt ? ` · Peak h${pt.peakHour} · Trough h${pt.troughHour}` : ''}
+        Today&apos;s DA swing{pt ? ` · Peak ${formatHourEET(pt.peakHour, data.updated_at)} · Trough ${formatHourEET(pt.troughHour, data.updated_at)}` : ''}
       </p>
 
       {/* Peak/trough detail */}
@@ -94,21 +98,27 @@ export function PeakForecastCard() {
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', marginBottom: '8px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
           <div>
             <span style={{ color: 'var(--rose)' }}>▲ Peak</span>
-            <span style={{ color: 'var(--text-muted)', marginLeft: '6px' }}>h{pt.peakHour}</span>
+            <span style={{ color: 'var(--text-muted)', marginLeft: '6px' }}>{formatHourEET(pt.peakHour, data.updated_at)}</span>
             <span style={{ color: 'var(--text-secondary)', marginLeft: '6px' }}>{'\u20AC'}{pt.peakPrice.toFixed(1)}/MWh</span>
           </div>
           <div>
             <span style={{ color: 'var(--teal)' }}>▼ Trough</span>
-            <span style={{ color: 'var(--text-muted)', marginLeft: '6px' }}>h{pt.troughHour}</span>
+            <span style={{ color: 'var(--text-muted)', marginLeft: '6px' }}>{formatHourEET(pt.troughHour, data.updated_at)}</span>
             <span style={{ color: 'var(--text-secondary)', marginLeft: '6px' }}>{'\u20AC'}{pt.troughPrice.toFixed(1)}/MWh</span>
           </div>
         </div>
       )}
 
-      {/* Tomorrow preview */}
-      {tomorrow?.lt_peak != null && (
+      {/* Tomorrow preview — intraday range (peak−trough) and cross-zone separation are two distinct quantities; show both with correct labels */}
+      {tomorrow?.lt_peak != null && tomorrow?.lt_trough != null && (
         <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-muted)', marginBottom: '6px' }}>
-          Tomorrow: peak {'\u20AC'}{tomorrow.lt_peak.toFixed(0)} · trough {'\u20AC'}{tomorrow.lt_trough?.toFixed(0)} · spread {tomorrow.spread_pct?.toFixed(0)}%
+          {formatTomorrowLine({
+            lt_peak: tomorrow.lt_peak,
+            lt_trough: tomorrow.lt_trough,
+            lt_avg: tomorrow.lt_avg,
+            se4_avg: tomorrow.se4_avg,
+            spread_pct: tomorrow.spread_pct,
+          })}
         </p>
       )}
 
@@ -123,7 +133,7 @@ export function PeakForecastCard() {
         {interpretation(swing, stats)}
       </p>
 
-      <SourceFooter source="Nord Pool via ENTSO-E" updatedAt={data.updated_at ? new Date(data.updated_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) : undefined} dataClass="observed" />
+      <SourceFooter source="Nord Pool via ENTSO-E" updatedAt={formatTimestamp(data.updated_at)} dataClass="observed" />
     </article>
   );
 }

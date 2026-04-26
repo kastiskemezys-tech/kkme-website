@@ -10,6 +10,9 @@ import {
 import { Bar } from 'react-chartjs-2';
 import { useChartColors, CHART_FONT, useTooltipStyle } from '@/app/lib/chartTheme';
 import { DetailsDrawer, SourceFooter } from '@/app/components/primitives';
+import { normaliseHourlyDispatch, dailyAvgPerHour } from '@/app/lib/dispatchChart';
+import { DISPATCH_LABELS } from '@/app/lib/dispatchDefinitions';
+import { ACTIVATION_COVERAGE_LABEL, ACTIVATION_COVERAGE_FORMULA } from '@/app/lib/activationCoverage';
 
 ChartJS.register(
   CategoryScale, LinearScale,
@@ -135,25 +138,30 @@ function HourlyChart({ data, CC, ts }: {
   ts: ReturnType<typeof useTooltipStyle>;
 }) {
   const hourly = data.hourly_dispatch;
+  const mwTotal = data.meta.mw_total;
+  // Normalise raw € (absolute, for the reference asset) to €/MW/h so the
+  // y-axis unit matches the headline (€/MW/day = sum of these bars).
+  const norm = normaliseHourlyDispatch(hourly, mwTotal);
+  const avgLine = dailyAvgPerHour(data.revenue_per_mw.daily_eur);
   const chartData = {
     labels: hourly.map(h => `${String(h.hour).padStart(2, '0')}:00`),
     datasets: [
       {
         label: 'Capacity',
-        data: hourly.map(h => h.revenue_eur.capacity),
+        data: norm.map(h => h.capacity_eur_per_mw_h),
         backgroundColor: CC.tealLight,
         borderColor: CC.teal,
         borderWidth: 0.5, stack: 'rev',
       },
       {
         label: 'Activation',
-        data: hourly.map(h => h.revenue_eur.activation),
+        data: norm.map(h => h.activation_eur_per_mw_h),
         backgroundColor: CC.tealMid,
         stack: 'rev',
       },
       {
         label: 'Arbitrage',
-        data: hourly.map(h => Math.max(0, h.revenue_eur.arbitrage)),
+        data: norm.map(h => Math.max(0, h.arbitrage_eur_per_mw_h)),
         backgroundColor: CC.amberLight,
         stack: 'rev',
       },
@@ -170,11 +178,11 @@ function HourlyChart({ data, CC, ts }: {
         callbacks: {
           title: (items: any[]) => items[0]?.label ?? '',
           label: (ctx: any) => {
-            const h = hourly[ctx.dataIndex];
-            if (!h) return '';
-            if (ctx.datasetIndex === 0) return `Capacity €${h.revenue_eur.capacity.toFixed(0)}`;
-            if (ctx.datasetIndex === 1) return `Activation €${h.revenue_eur.activation.toFixed(0)}`;
-            if (ctx.datasetIndex === 2) return `Arbitrage €${h.revenue_eur.arbitrage.toFixed(0)}`;
+            const n = norm[ctx.dataIndex];
+            if (!n) return '';
+            if (ctx.datasetIndex === 0) return `Capacity €${n.capacity_eur_per_mw_h.toFixed(2)}/MW/h`;
+            if (ctx.datasetIndex === 1) return `Activation €${n.activation_eur_per_mw_h.toFixed(2)}/MW/h`;
+            if (ctx.datasetIndex === 2) return `Arbitrage €${n.arbitrage_eur_per_mw_h.toFixed(2)}/MW/h`;
             return '';
           },
           footer: (items: any[]) => {
@@ -196,12 +204,25 @@ function HourlyChart({ data, CC, ts }: {
         grid: { color: CC.grid, lineWidth: 0.5 },
         border: { display: false },
         ticks: { color: CC.textMuted, font: { family: CHART_FONT.family, size: 9 },
-          callback: (v: number | string) => '€' + v },
+          callback: (v: number | string) => '€' + Number(v).toFixed(0) },
+        title: { display: true, text: '€/MW/h', color: CC.textMuted,
+          font: { family: CHART_FONT.family, size: 9 } },
       },
     },
   };
 
-  return <div style={{ height: 220 }}><Bar data={chartData} options={options} /></div>;
+  return (
+    <div style={{ height: 220, position: 'relative' }}>
+      <Bar data={chartData} options={options} />
+      <div style={{
+        position: 'absolute', top: 0, right: 0,
+        fontFamily: CHART_FONT.family, fontSize: '0.5625rem',
+        color: 'var(--text-muted)', pointerEvents: 'none',
+      }}>
+        Daily avg: €{avgLine.toFixed(2)}/MW/h · sum = €{data.revenue_per_mw.daily_eur}/MW/day
+      </div>
+    </div>
+  );
 }
 
 // ═══ ISP Drawer Table ═══════════════════════════════════════════════════════
@@ -374,6 +395,10 @@ export function TradingEngineCard() {
                 color: 'var(--text-muted)', marginTop: 4 }}>
                 €{data.revenue_per_mw.annual_eur.toLocaleString()}/MW/yr annualised · {data.meta.mw_total}MW · {data.meta.dur_h}H · {data.meta.mode} · {fmtDate(data.meta.date_iso)}
               </div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: '0.5625rem',
+                color: 'var(--text-ghost)', marginTop: 4, letterSpacing: '0.04em' }}>
+                {DISPATCH_LABELS.dispatch_model.short.toUpperCase()} · {DISPATCH_LABELS.dispatch_model.detail} · canonical
+              </div>
             </div>
           </div>
 
@@ -431,7 +456,11 @@ export function TradingEngineCard() {
               </div>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
                 color: 'var(--text-muted)', marginTop: 2 }}>
-                Activation rate {data.reserves_detail.activation_rate_pct}%
+                {ACTIVATION_COVERAGE_LABEL} {data.reserves_detail.activation_rate_pct}%
+              </div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: '0.5625rem',
+                color: 'var(--text-ghost)', marginTop: 2, lineHeight: 1.4 }}>
+                = {ACTIVATION_COVERAGE_FORMULA}
               </div>
             </div>
             <div style={{ flex: 1, minWidth: 140 }}>
