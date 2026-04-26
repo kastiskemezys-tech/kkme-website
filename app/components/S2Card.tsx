@@ -16,6 +16,8 @@ import {
 import { Line, Bar } from 'react-chartjs-2';
 import { CHART_FONT, useChartColors, useTooltipStyle, buildScales } from '@/app/lib/chartTheme';
 import { freshnessLabel, formatTimestamp } from '@/app/lib/freshness';
+import { MarketThicknessChip } from '@/app/components/MarketThicknessChip';
+import type { ThicknessProduct } from '@/app/lib/financialDefinitions';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, LineController, Tooltip, Filler);
 
@@ -225,6 +227,8 @@ export function S2Card() {
         <StatusChip status={phase} sentiment={sentiment} />
         {/* Activation-rate chiplet (muted n/a when upstream null) */}
         {prod !== 'FCR' && <RateChip rate={rate} onClick={() => openDrawer('what')} />}
+        {/* Market thickness chip (7.7.14) — discloses depth for the active product */}
+        <MarketThicknessChip product={prod.toLowerCase() as ThicknessProduct} showCaption />
       </div>
 
       {/* ── 4. Imbalance context tiles (→ `what` drawer) ────────── */}
