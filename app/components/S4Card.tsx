@@ -12,6 +12,7 @@ import { AssetDetailPanel, type Asset as DetailAsset } from '@/app/components/As
 import type { ImpactState, Sentiment } from '@/app/lib/types';
 import { sdFormulaCaption } from '@/app/lib/sdRatio';
 import { PIPELINE_TIER_LABELS } from '@/app/lib/pipelineDefinitions';
+import { formatTimestamp } from '@/app/lib/freshness';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
@@ -644,9 +645,7 @@ export function S4Card() {
       <button type="button" onClick={openDrawer} style={{ all: 'unset', display: 'block', width: '100%', cursor: 'pointer' }}>
         <SourceFooter
           source="Litgrid · APVA · VERT.lt ArcGIS · Elering"
-          updatedAt={data.timestamp ? new Date(data.timestamp).toLocaleString('en-GB', {
-            day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC',
-          }) : undefined}
+          updatedAt={formatTimestamp(data.timestamp)}
           dataClass="observed"
         />
       </button>

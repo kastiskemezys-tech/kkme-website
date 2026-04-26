@@ -5,6 +5,7 @@ import { REFRESH_HOT } from '@/lib/refresh-cadence';
 import { SourceFooter } from '@/app/components/primitives';
 import { formatTomorrowLine } from '@/app/lib/peakForecast';
 import { formatHourEET } from '@/app/lib/hourLabels';
+import { formatTimestamp } from '@/app/lib/freshness';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
@@ -132,7 +133,7 @@ export function PeakForecastCard() {
         {interpretation(swing, stats)}
       </p>
 
-      <SourceFooter source="Nord Pool via ENTSO-E" updatedAt={data.updated_at ? new Date(data.updated_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) : undefined} dataClass="observed" />
+      <SourceFooter source="Nord Pool via ENTSO-E" updatedAt={formatTimestamp(data.updated_at)} dataClass="observed" />
     </article>
   );
 }

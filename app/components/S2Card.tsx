@@ -15,7 +15,7 @@ import {
 } from 'chart.js';
 import { Line, Bar } from 'react-chartjs-2';
 import { CHART_FONT, useChartColors, useTooltipStyle, buildScales } from '@/app/lib/chartTheme';
-import { freshnessLabel } from '@/app/lib/freshness';
+import { freshnessLabel, formatTimestamp } from '@/app/lib/freshness';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, LineController, Tooltip, Filler);
 
@@ -148,12 +148,8 @@ function fmtMonth(m: string): string {
   return `${names[parseInt(mo) - 1]} ${y.slice(2)}`;
 }
 
-function timeAgo(ts: string): string {
-  const mins = Math.round((Date.now() - new Date(ts).getTime()) / 60000);
-  if (mins < 2) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  return `${Math.floor(mins / 60)}h ago`;
-}
+// timeAgo retired in 7.6.16 — formatTimestamp covers the same shape and adds
+// the >24h absolute UTC fallback (N-7).
 
 // ── Component ────────────────────────────────────────────────────────────────
 
@@ -280,7 +276,7 @@ export function S2Card() {
       {/* ── 10. Source footer ───────────────────────────────────── */}
       <SourceFooter
         source="BTD (Baltics TSOs)"
-        updatedAt={data.timestamp ? timeAgo(data.timestamp) : undefined}
+        updatedAt={formatTimestamp(data.timestamp)}
         dataClass="source"
       />
 

@@ -8,6 +8,7 @@ import {
 } from '@/app/components/primitives';
 import { Sparkline } from './Sparkline';
 import type { Sentiment } from '@/app/lib/types';
+import { formatTimestamp } from '@/app/lib/freshness';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
@@ -169,7 +170,7 @@ export function S9Card() {
         </div>
       )}
 
-      <SourceFooter source="energy-charts.info" updatedAt={data.timestamp ? new Date(data.timestamp).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) : undefined} dataClass="observed" />
+      <SourceFooter source="energy-charts.info" updatedAt={formatTimestamp(data.timestamp)} dataClass="observed" />
 
       <div style={{ marginTop: '8px' }}>
         <DetailsDrawer label="View carbon detail">
