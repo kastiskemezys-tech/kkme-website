@@ -10,6 +10,7 @@ import {
 import { Line, Bar } from 'react-chartjs-2';
 import { useChartColors, CHART_FONT, useTooltipStyle } from '@/app/lib/chartTheme';
 import { DetailsDrawer } from '@/app/components/primitives';
+import { RevenueSensitivityTornado } from '@/app/components/RevenueSensitivityTornado';
 import { findMatrixCell, type MatrixCell as SensMatrixCell } from '@/app/lib/sensitivityMatrix';
 import { DISPATCH_LABELS, vsCanonicalDispatchFootnote } from '@/app/lib/dispatchDefinitions';
 import { IRR_LABELS } from '@/app/lib/irrLabels';
@@ -989,6 +990,11 @@ export function RevenueCard() {
       <div className="rv-analytics" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr',
         gap: 24, marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--border-card)' }}>
         <DegradationChart years={data.years} CC={CC} ts={ts} />
+        <RevenueSensitivityTornado matrix={data.matrix}
+          scenarios={{
+            conservative: data.all_scenarios.conservative,
+            stress: data.all_scenarios.stress,
+          }} />
       </div>
 
       {/* Disclosure */}
