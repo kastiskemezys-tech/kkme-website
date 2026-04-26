@@ -11,6 +11,8 @@ import { Line, Bar } from 'react-chartjs-2';
 import { useChartColors, CHART_FONT, useTooltipStyle } from '@/app/lib/chartTheme';
 import { DetailsDrawer } from '@/app/components/primitives';
 import { RevenueSensitivityTornado } from '@/app/components/RevenueSensitivityTornado';
+import { RevenueBacktest } from '@/app/components/RevenueBacktest';
+import type { BacktestRow } from '@/app/lib/backtest';
 import { findMatrixCell, type MatrixCell as SensMatrixCell } from '@/app/lib/sensitivityMatrix';
 import { DISPATCH_LABELS, vsCanonicalDispatchFootnote } from '@/app/lib/dispatchDefinitions';
 import { IRR_LABELS } from '@/app/lib/irrLabels';
@@ -93,6 +95,7 @@ interface RevenueData {
   };
   matrix: MatrixCell[];
   all_scenarios: Record<string, ScenarioSummary>;
+  backtest?: BacktestRow[];
   fleet_context: { source?: string };
   reconciliation: Record<string, boolean>;
 }
@@ -995,6 +998,10 @@ export function RevenueCard() {
             conservative: data.all_scenarios.conservative,
             stress: data.all_scenarios.stress,
           }} />
+        <div style={{ gridColumn: '1 / -1' }}>
+          <RevenueBacktest rows={data.backtest ?? []}
+            modeledY1Daily={data.net_rev_per_mw_yr ? data.net_rev_per_mw_yr / 365 : null} />
+        </div>
       </div>
 
       {/* Disclosure */}
