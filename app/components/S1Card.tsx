@@ -16,6 +16,7 @@ import {
 } from 'chart.js';
 import { Line, Bar } from 'react-chartjs-2';
 import { CHART_FONT, useChartColors, useTooltipStyle, buildScales } from '@/app/lib/chartTheme';
+import { freshnessLabel } from '@/app/lib/freshness';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, LineController, Tooltip, Filler);
 
@@ -181,7 +182,7 @@ export function S1Card() {
       {/* ── 10. Drawer — narrative + history ────────────────────── */}
       <DetailsDrawer ref={drawerRef} label="Reading this card">
         <DrawerSection id="what" title="What this is">
-          <S1WhatSection heroVal={heroVal} stats={stats} dur={dur} phase={phase} />
+          <S1WhatSection heroVal={heroVal} stats={stats} dur={dur} />
         </DrawerSection>
         <DrawerSection id="how" title="How we compute this">
           <S1HowSection />
@@ -190,7 +191,9 @@ export function S1Card() {
           {monthly.length > 0 ? <MonthlyChart monthly={monthly} dur={dur} CC={CC} ttStyle={ttStyle} /> : <MutedLine text="No monthly history yet." />}
         </DrawerSection>
         <DrawerSection id="bridge" title="Gross → Net bridge">
-          {cap.gross_to_net && cap.gross_to_net.length > 0 ? <BridgeChart bridge={cap.gross_to_net} CC={CC} /> : <MutedLine text="No bridge data yet." />}
+          {cap.gross_to_net && cap.gross_to_net.length > 0
+            ? <BridgeChart bridge={cap.gross_to_net} chargePrice={cap.capture_2h?.avg_charge ?? null} rte={cap.capture_2h?.rte ?? 0.875} CC={CC} />
+            : <MutedLine text="No bridge data yet." />}
           {cap.shape && <ShapeRow shape={cap.shape} />}
         </DrawerSection>
       </DetailsDrawer>
@@ -216,24 +219,43 @@ function useRefreshFlash(isRefreshing: boolean): boolean {
 }
 
 function LiveSignal({ updatedAt, source, flash }: { updatedAt?: string | null; source: string; flash: boolean }) {
+  const fresh = freshnessLabel(updatedAt);
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
       <span
         className="pulse-dot"
-        aria-label={updatedAt ? `Live data; last update ${timeAgo(updatedAt)}` : 'Live data'}
+        aria-label={updatedAt ? `Data ${fresh.age} (${fresh.label.toLowerCase()})` : 'Data freshness unknown'}
         style={{
           width: '6px', height: '6px', borderRadius: '50%',
-          background: flash ? 'var(--amber)' : 'var(--teal)',
+          background: flash ? 'var(--amber)' : `var(${fresh.colorToken})`,
           transition: 'background 150ms ease',
           display: 'inline-block',
+          opacity: fresh.label === 'LIVE' ? 1 : 0.7,
         }}
       />
+      <span
+        title={fresh.absolute}
+        style={{
+          fontFamily: 'var(--font-mono)', fontSize: 'var(--font-2xs, 10px)',
+          color: `var(${fresh.colorToken})`,
+          padding: '2px 6px',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: '2px',
+          letterSpacing: '0.06em',
+        }}
+      >
+        {fresh.label}
+      </span>
       {updatedAt && (
-        <span style={{
-          fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)',
-          color: 'var(--text-primary)',
-        }}>
-          {timeAgo(updatedAt)}
+        <span
+          title={fresh.absolute}
+          style={{
+            fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)',
+            color: 'var(--text-primary)',
+            cursor: 'help',
+          }}
+        >
+          {fresh.age}
         </span>
       )}
       <span style={{
@@ -453,7 +475,25 @@ function MonthlyChart({ monthly, dur, CC, ttStyle }: {
 
 // ── Gross→Net bridge ─────────────────────────────────────────────────────────
 
-function BridgeChart({ bridge, CC }: { bridge: GrossToNetLine[]; CC: ReturnType<typeof useChartColors> }) {
+function BridgeChart({ bridge, chargePrice, rte, CC }: {
+  bridge: GrossToNetLine[];
+  chargePrice: number | null;
+  rte: number;
+  CC: ReturnType<typeof useChartColors>;
+}) {
+  // Loss fraction applied on the charge leg (e.g. 0.875 round-trip → 12.5%).
+  const lossFrac = Math.max(0, 1 - rte);
+  const lossPct = Math.round(lossFrac * 1000) / 10; // one decimal: 12.5
+  const charge = chargePrice ?? 0;
+  // Today's RTE €/MWh contribution: lossFrac × charge price (the formula the
+  // bridge silently applies). Negative or near-zero charge → near-zero loss,
+  // which is mathematically correct but presentationally confusing — hence
+  // the explicit formula + typical-day anchor below.
+  const todayLoss = lossFrac * charge;
+  const typicalCharge = 30;
+  const typicalLoss = lossFrac * typicalCharge;
+  const fmtChargeEuro = (v: number): string => `€${Math.abs(v) < 0.5 ? v.toFixed(2) : Math.round(v)}`;
+
   return (
     <div style={{ marginBottom: '16px' }}>
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '6px' }}>
@@ -475,9 +515,14 @@ function BridgeChart({ bridge, CC }: { bridge: GrossToNetLine[]; CC: ReturnType<
             {line.type === 'deduction' && line.label.startsWith('RTE loss') && (
               <div style={{
                 fontFamily: 'var(--font-mono)', fontSize: 'var(--font-2xs, 10px)',
-                color: 'var(--text-muted)', padding: '0 0 2px',
+                color: 'var(--text-muted)', padding: '0 0 6px', lineHeight: 1.5,
               }}>
-                loss scales with charge-leg cost
+                <div>
+                  = {lossPct}% × charge price ({fmtChargeEuro(charge)} today) = {fmtChargeEuro(todayLoss)}/MWh
+                </div>
+                <div>
+                  Typical: €{typicalCharge} charge → ≈ €{typicalLoss.toFixed(typicalLoss < 10 ? 1 : 0)}/MWh
+                </div>
               </div>
             )}
           </Fragment>
@@ -607,11 +652,10 @@ function DrawerProse({ children }: { children: ReactNode }) {
   );
 }
 
-function S1WhatSection({ heroVal, stats, dur, phase }: {
+function S1WhatSection({ heroVal, stats, dur }: {
   heroVal: number | null;
   stats: CaptureRolling | null;
   dur: Duration;
-  phase: Phase;
 }) {
   const bucket = useMemo(() => {
     if (heroVal == null || !stats) return null;
@@ -622,69 +666,30 @@ function S1WhatSection({ heroVal, stats, dur, phase }: {
     return '<p25';
   }, [heroVal, stats]);
 
-  const dailyRevenue = heroVal != null
-    ? Math.round(heroVal * (dur === '2h' ? 200 : 400) / 100) * 100
-    : null;
-
   return (
-    <>
-      <DrawerProse>
-        Today&rsquo;s gross {dur} capture sits at{' '}
-        <strong style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{fmtEuro(heroVal)}/MWh</strong>
-        {bucket && stats && (
-          <>
-            , in the <strong style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{bucket}</strong> band of the rolling 30-day distribution
-            (mean {fmtEuro(stats.mean)}, p50 {fmtEuro(stats.p50)}, p90 {fmtEuro(stats.p90)})
-          </>
-        )}
-        . The market regime reads {phase.toLowerCase()}.
-      </DrawerProse>
-      <DrawerProse>
-        Why the distribution matters: a battery can only capture what the day-ahead curve offers. When
-        today&rsquo;s gross capture is well above p75, the peak-to-trough shape is unusually
-        wide — typically a tight residual load event, a low-wind evening, or an interconnector
-        constraint. p25–p50 is the flat-curve regime where even a perfectly-timed cycle earns thin.
-      </DrawerProse>
-      {dailyRevenue != null && (
-        <DrawerProse>
-          In revenue terms: a 100 MW / {dur} plant cycling once/day at today&rsquo;s gross would clear{' '}
-          <strong style={{ color: 'var(--text-primary)', fontWeight: 500 }}>€{dailyRevenue.toLocaleString('en-GB')}/day</strong>{' '}
-          before RTE loss, fees, and imbalance — see the Gross → Net bridge below.
-        </DrawerProse>
-      )}
-    </>
+    <DrawerProse>
+      Today&rsquo;s gross {dur} capture is{' '}
+      <strong style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{fmtEuro(heroVal)}/MWh</strong>
+      {bucket && <>, in the <strong style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{bucket}</strong> band of the rolling 30-day distribution</>}
+      .
+    </DrawerProse>
   );
 }
 
 function S1HowSection() {
   return (
-    <>
-      <DrawerProse>
-        <strong>Gross capture</strong> = the peak 2 or 4 hours&rsquo; average day-ahead price minus the
-        trough 2 or 4 hours&rsquo; average, for the given day. It&rsquo;s the theoretical €/MWh a perfectly-
-        timed battery of that duration could clear on DA arbitrage alone, before any costs.
-      </DrawerProse>
-      <DrawerProse>
-        <strong>2h vs 4h</strong> tracks typical Baltic BESS durations. 2h is today&rsquo;s dominant build;
-        4h wins when shoulder hours stay bid. The two series diverge most under tight residual-load
-        days when only the sharpest peak clears rich.
-      </DrawerProse>
-      <DrawerProse>
-        <strong>RTE (round-trip efficiency) loss</strong> is applied on the charge leg at 85% round-trip —
-        i.e. you pay for ~18% more charge energy than you discharge. The convention is visible in the
-        Gross → Net bridge: the RTE line scales with the charge-leg cost, not the discharge revenue.
-      </DrawerProse>
-      <DrawerProse>
-        <strong>Data ends at T-1</strong>: day-ahead clearing for the next day is published by ~13:00
-        CET, and yesterday&rsquo;s physical hourly shape is finalised overnight. We plot through
-        yesterday so every point reflects a real market outcome, not a forecast.
-      </DrawerProse>
-      <DrawerProse>
-        <strong>Source</strong>: day-ahead LT prices via{' '}
+    <ul style={{
+      fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)',
+      color: 'var(--text-secondary)', lineHeight: 1.6,
+      margin: '0 0 8px', paddingLeft: '18px',
+    }}>
+      <li>Peak-2h average price minus trough-2h average, on day-ahead clearing prices.</li>
+      <li>85% round-trip efficiency applied on the charge leg (gross → net).</li>
+      <li>
+        Source:{' '}
         <a href="https://energy-charts.info" target="_blank" rel="noreferrer" style={{ color: 'var(--text-secondary)' }}>energy-charts.info</a>
-        {' '}(Fraunhofer ISE), polled every 5 minutes. We store the 30-day rolling distribution
-        in KV alongside the history array.
-      </DrawerProse>
-    </>
+        {' '}(Fraunhofer ISE), polled every 5 minutes.
+      </li>
+    </ul>
   );
 }
