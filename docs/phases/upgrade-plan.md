@@ -344,7 +344,7 @@ The "Configure your project" cost calculator and "Stress your asset" Returns int
 
 > Brief entries per phase completion. Date, scope shipped, anomalies found, deferred items.
 
-(empty — first entry will be F5-lite when it ships)
+- **2026-04-26 — Phase 8 Session 2** (extend primitives + visual atoms) shipped on `phase-8-foundation` (commits `06b75d0` 8.3, `42764a8` 8.3b, `bd80cdd` 8.3c, `606e16a` 8.3d). Adds `MetricTile` `fan/sampleSize/methodVersion` props (N-4 / N-5 / N-6), refactors `FreshnessBadge` onto the global `freshnessLabel()` helper (N-7), repoints `DataClassBadge` to the 8.1 semantic tokens, ships four new visual atoms (`DistributionTick`, `RegimeBarometer`, `VintageGlyphRow`, `CredibilityLadderBar`), `formatNumber` + a11y twin (N-2 across 14 NumberKinds), and the `<DataState>` 4-state wrapper. All backwards-compatible — no card migrated. Tests: 141 → 257 (+116). `tsc --noEmit`, `next build`, full vitest all green.
 
 ## 5. Out-of-scope but worth noting
 

@@ -1,0 +1,119 @@
+'use client';
+
+// Phase 8.3b — CredibilityLadderBar.
+// Horizontal stacked bars from most-aspirational (top) to most-real (bottom).
+// Width proportional to MW within the ordered set; color gradient lavender →
+// mint (aspirational → real). Reusable across pipeline cards, project counts,
+// asset funnel.
+
+export interface CredibilityLadderTier {
+  label: string;
+  mw: number;
+  href?: string;
+}
+
+export interface CredibilityLadderBarProps {
+  tiers: CredibilityLadderTier[];
+  width?: number;
+  height?: number;
+}
+
+export function ladderTotal(tiers: CredibilityLadderTier[]): number {
+  let s = 0;
+  for (const t of tiers) s += Math.max(0, t.mw);
+  return s;
+}
+
+export function ladderTierLayout(
+  tiers: CredibilityLadderTier[],
+  width: number,
+): Array<{ tier: CredibilityLadderTier; widthPx: number; pct: number; color: string }> {
+  const max = tiers.reduce((m, t) => Math.max(m, t.mw), 0) || 1;
+  const total = ladderTotal(tiers) || 1;
+  const n = Math.max(1, tiers.length - 1);
+  return tiers.map((tier, i) => {
+    // Linear ramp top→bottom from lavender (i=0) → mint (i=n-1).
+    const t = n === 0 ? 0 : i / n;
+    const color = t < 0.5 ? 'var(--lavender)' : 'var(--mint)';
+    const widthPx = (Math.max(0, tier.mw) / max) * width;
+    const pct = (Math.max(0, tier.mw) / total) * 100;
+    return { tier, widthPx, pct, color };
+  });
+}
+
+export function CredibilityLadderBar({
+  tiers,
+  width = 220,
+  height = 10,
+}: CredibilityLadderBarProps) {
+  const layout = ladderTierLayout(tiers, width);
+  const total = ladderTotal(tiers);
+
+  return (
+    <div
+      role="img"
+      aria-label={`Credibility ladder: ${tiers.length} tiers, total ${total} MW`}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 3,
+        width,
+        fontFamily: 'var(--font-mono)',
+        fontSize: 'var(--font-xs)',
+      }}
+    >
+      {layout.map(({ tier, widthPx, pct, color }) => {
+        const tooltip = `${tier.label}: ${tier.mw.toLocaleString()} MW · ${pct.toFixed(0)}% of pipeline`;
+        const bar = (
+          <div
+            data-tier={tier.label}
+            title={tooltip}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              cursor: tier.href ? 'pointer' : 'default',
+            }}
+          >
+            <span
+              style={{
+                color: 'var(--text-tertiary)',
+                width: 110,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                flexShrink: 0,
+              }}
+            >
+              {tier.label}
+            </span>
+            <span
+              style={{
+                display: 'inline-block',
+                width: widthPx,
+                height,
+                background: color,
+                opacity: 0.55,
+                borderRadius: 1,
+              }}
+            />
+            <span style={{ color: 'var(--text-muted)' }}>
+              {tier.mw.toLocaleString()} MW
+            </span>
+          </div>
+        );
+        return tier.href ? (
+          <a
+            key={tier.label}
+            href={tier.href}
+            style={{ textDecoration: 'none', color: 'inherit' }}
+          >
+            {bar}
+          </a>
+        ) : (
+          <div key={tier.label}>{bar}</div>
+        );
+      })}
+    </div>
+  );
+}

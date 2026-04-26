@@ -566,3 +566,52 @@ Plus `713b8b5 docs(7.6): Session 3 prompt` capturing the Session 3 plan at end-o
 - S3Card capex basis date format ("Apr 26, 2026") — domain-appropriate as-of label, not data freshness.
 - `docs/phases/upgrade-plan.md` checkbox-strikes for 7.6.* — left to user (P7 lock); user may prefer to mark done from their own clock.
 - HeroMarketNow.tsx (B-009), `logs/btd.log`, `.claude/skills/`, `public/hero/map-calibration-cities.json.json` (B-011), `workers/.wrangler/`, `docs/visual-audit/phase-7/`, `docs/phases/phase7-6-prompt.md` user-side edit — all left as-is.
+
+### Session 14 — 2026-04-26 — Phase 8 Session 2 (extend primitives + visual atoms, Claude Code)
+
+**Scope:** Phase 8 Session 2 of 5 (per `docs/phases/plan-audit-2026-04-26.md` re-split). Branch `phase-8-foundation` re-cut off main at `c5fdb1d` (the prior branch was merged in PR #30 with 8.1 + 8.2 — semantic token aliases + three-voice typography ramp). This session ships 8.3 / 8.3b / 8.3c / 8.3d. No card consumes the new primitives yet — Phase 10 owns the migration.
+
+**Shipped (4 commits on `phase-8-foundation`):**
+
+| # | Commit | Specs (added) |
+|---|--------|---------------|
+| 8.3   | `06b75d0` extend MetricTile + FreshnessBadge + DataClassBadge | `metricTile` (7), `freshnessBadge` (10), `dataClassBadge` (12) |
+| 8.3b  | `42764a8` four visual atom primitives — DistributionTick / RegimeBarometer / VintageGlyphRow / CredibilityLadderBar | `distributionTick` (10), `regimeBarometer` (11), `vintageGlyphRow` (8), `credibilityLadder` (13) |
+| 8.3c  | `bd80cdd` formatNumber + a11y twin utility | `format` (37 across 14 NumberKinds) |
+| 8.3d  | `606e16a` `<DataState>` 4-state wrapper primitive | `dataState` (8) |
+
+**Verification gates:** 257 unit tests across 27 spec files green (141 baseline + 116 new); `npx tsc --noEmit` clean; `npx next build` clean (Turbopack 12.0 s compile, prerender 636 ms for the 4 routes); production endpoints `/s1 /s2 /s8 /genload` all 200 from session-start diagnose.
+
+**API summary for the new primitives:**
+
+- `MetricTile` — gains optional `fan?: { p10; p50; p90 }`, `sampleSize?`, `methodVersion?`. Existing call sites in S4/S7/S8/S9/HeroMarketNow continue to work unchanged. Implements N-4 / N-5 / N-6 at the renderer level.
+- `FreshnessBadge` — refactored to consume `freshnessLabel()` (single source of truth, N-7). Renders LIVE / RECENT / TODAY / STALE / OUTDATED with the absolute UTC on hover. No active consumers at refactor time, so the API change has zero blast radius.
+- `DataClassBadge` — re-pointed to the 8.1 `--mint` / `--lavender` / `--ink-subtle` aliases. The `derived` and `observed` paths used by S1/S2 resolve to `--teal` (no visible change); the `modeled` path now picks lavender per P1 ("modelled = lavender") instead of the prior muted gray.
+- `<DistributionTick>` — pure-SVG hairline + p25/p50/p75/p90 ticks + mint today tick. Default 80×12. Phase 10 will apply 50+ times.
+- `<RegimeBarometer>` — five-zone bar (tight=coral, compressed=amber, normal=text-tertiary, wide=mint, stress=lavender) with mint needle. Aria label encodes the active regime.
+- `<VintageGlyphRow>` — O / D / F / M provenance pills. observed=mint-filled, derived=mint outline, forecast=lavender outline, model=lavender dashed. Standalone for cards where MetricTile is overkill.
+- `<CredibilityLadderBar>` — descending stacked tiers with width proportional to MW, lavender (aspirational top) → mint (real bottom) gradient. Tooltip carries label + MW + percent.
+- `formatNumber()` / `formatNumberA11y()` — fourteen `NumberKind` cases enforce N-2 unit clarity. The a11y twin produces verbose unit phrases ("euros per megawatt-hour") so screen-readers don't say "E slash M W H".
+- `<DataState>` — `loading | ok | stale | error` wrapper. Loading uses the existing `.skeleton` class (no new keyframes). Stale renders an amber dot + tooltip. Error renders a rose dot, message, and an optional Retry button bound to a callback.
+
+**Anomalies / non-obvious findings:**
+
+- **Vitest path-alias resolution gap (fixed in this session).** Existing tests imported via relative paths only, so the `@/` alias was never exercised in vitest. Component-level tests via SSR rendering needed it; vitest config now registers `'@'` → repo root (commit `06b75d0` includes the config delta). All 27 specs run green afterwards.
+- **`@testing-library/react` not installed (per the prompt's `Hard stops`).** Tests SSR-render via `react-dom/server.renderToStaticMarkup` and assert against the markup. The `<DataState>` retry-callback test reaches into the React element tree by recursively expanding component nodes (`typeof node.type === 'function'` → call it with the props), which avoids needing a DOM while still exercising the `onClick` wiring.
+- **`DataClass` type does not include `forecast`.** The audit's O / D / F / M alphabet is covered by `<VintageGlyphRow>`'s narrower `Vintage` union (`observed | derived | forecast | model`); `DataClass` itself was not modified per the prompt's "don't modify; consume" rule on `app/lib/types.ts`. Phases 7.7 / 10 will revisit if an `F` data class becomes useful for runtime payloads.
+- **Old local `phase-8-foundation` had to be deleted.** The branch was already merged in PR #30; the prompt explicitly authorises `git branch -D phase-8-foundation` to recreate it off main. Remote was untouched; the push was a fast-forward (`e89a053..606e16a`).
+
+**Cross-cutting notes for the next phase:**
+
+- **Phase 8 Session 3 is gated on Q3 from `plan-audit-2026-04-26.md`** — Lucide React vs. user's Figma exports for the icon sprite + true-vector logo. Don't author a Session 3 prompt until that decision lands.
+- **No card migrations were attempted** (Phase 10 owns that). Pages render identically because (a) no card consumes any new primitive, (b) the `DataClassBadge` token swaps resolve through the 8.1 aliases to the same legacy values for `observed` and `derived`.
+- **`docs/phases/upgrade-plan.md` § Session log** updated with a one-line "Phase 8 Session 2 shipped" entry. Checkboxes for 8.3* left for the user (P7 lock).
+- **`HeroMarketNow.tsx` (B-009) still flagged as dead code** — unchanged in this session; removal candidate for a future cleanup pass (now slightly riskier because the file is the largest current `MetricTile` consumer and would show up on a search-by-API audit).
+
+**Out of scope / not touched (per scope discipline):**
+
+- `<Term>` (8.3e) and `<Cite>` (8.3f) — deferred to Phase 7.8 alongside their content (glossary + bibliography).
+- Icon sprite (8.4), logo system (8.5), `/brand` `/style` `/visuals` `/colophon` design-system pages (8.6), microbrand details (8.7) — Sessions 3–5.
+- Card migrations to consume the new primitives — Phase 10.
+- `app/lib/types.ts` — left untouched per prompt rule.
+- Existing untracked tree (`logs/btd.log`, `.claude/skills/`, `docs/visual-audit/phase-7/`, `public/hero/map-calibration-cities.json.json`, `workers/.wrangler/`, `docs/phases/phase-8-session-1-prompt.md`, `docs/phases/phase-8-session-2-prompt.md`, `docs/phases/plan-audit-2026-04-26.md`) — left as-is per "out of scope" list in the prompt.

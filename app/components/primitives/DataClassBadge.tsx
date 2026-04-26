@@ -6,14 +6,26 @@ interface DataClassBadgeProps {
   dataClass: DataClass
 }
 
+// Colors map to P1 semantic palette — data state, not opinion:
+//   observed   = mint (filled)        — confirmed reading from a primary feed
+//   derived    = mint (outline)       — computed from observed inputs
+//   modeled    = lavender (dashed)    — model output (M in the O/D/F/M alphabet)
+//   proxy      = amber (filled bg)    — substitute series; ⚠ surfaced
+//   reference  = ink-subtle           — bibliographic / editorial reference
+//   reference_estimate = ink-subtle (bg) — soft ref estimate, not a measurement
+//   editorial  = ink-subtle           — opinion / commentary
+//
+// Note: the DataClass type does not include `forecast` today — the 'F' position
+// of the O/D/F/M alphabet is covered by the dedicated `<VintageGlyphRow>` atom
+// (8.3b.3) which uses its own narrower Vintage union.
 const STYLES: Record<string, { color: string; border: string; label: string; bg?: string; borderStyle?: string }> = {
-  observed:           { color: 'var(--white)',        border: 'var(--teal)',          label: 'observed',     bg: 'var(--teal)' },
-  derived:            { color: 'var(--teal)',         border: 'var(--teal)',          label: 'derived' },
-  proxy:              { color: 'var(--amber)',        border: 'var(--amber)',         label: 'proxy \u26A0', bg: 'var(--amber-bg)' },
-  modeled:            { color: 'var(--text-muted)',   border: 'var(--border-highlight)', label: 'modeled',  borderStyle: 'dashed' },
-  reference:          { color: 'var(--text-muted)',   border: 'var(--border-card)',   label: 'reference' },
-  reference_estimate: { color: 'var(--text-muted)',   border: 'var(--border-card)',   label: 'ref estimate', bg: 'var(--bg-elevated)' },
-  editorial:          { color: 'var(--text-muted)',   border: 'var(--border-card)',   label: 'editorial' },
+  observed:           { color: 'var(--white)',        border: 'var(--mint)',             label: 'observed',     bg: 'var(--mint)' },
+  derived:            { color: 'var(--mint)',         border: 'var(--mint)',             label: 'derived' },
+  proxy:              { color: 'var(--amber)',        border: 'var(--amber)',            label: 'proxy ⚠',      bg: 'var(--amber-bg)' },
+  modeled:            { color: 'var(--lavender)',     border: 'var(--lavender)',         label: 'modeled',      borderStyle: 'dashed' },
+  reference:          { color: 'var(--ink-subtle)',   border: 'var(--border-card)',      label: 'reference' },
+  reference_estimate: { color: 'var(--ink-subtle)',   border: 'var(--border-card)',      label: 'ref estimate', bg: 'var(--bg-elevated)' },
+  editorial:          { color: 'var(--ink-subtle)',   border: 'var(--border-card)',      label: 'editorial' },
 };
 
 export function DataClassBadge({ dataClass }: DataClassBadgeProps) {
@@ -28,7 +40,7 @@ export function DataClassBadge({ dataClass }: DataClassBadgeProps) {
       padding: '1px 6px',
       borderRadius: 2,
       whiteSpace: 'nowrap',
-      opacity: s.bg === 'var(--teal)' ? 1 : 0.8,
+      opacity: s.bg === 'var(--mint)' ? 1 : 0.85,
       marginLeft: 6,
     }}>
       {s.label}
