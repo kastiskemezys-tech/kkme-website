@@ -12,6 +12,7 @@ import { useChartColors, CHART_FONT, useTooltipStyle } from '@/app/lib/chartThem
 import { DetailsDrawer, SourceFooter } from '@/app/components/primitives';
 import { normaliseHourlyDispatch, dailyAvgPerHour } from '@/app/lib/dispatchChart';
 import { DISPATCH_LABELS } from '@/app/lib/dispatchDefinitions';
+import { ACTIVATION_COVERAGE_LABEL, ACTIVATION_COVERAGE_FORMULA } from '@/app/lib/activationCoverage';
 
 ChartJS.register(
   CategoryScale, LinearScale,
@@ -455,7 +456,11 @@ export function TradingEngineCard() {
               </div>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
                 color: 'var(--text-muted)', marginTop: 2 }}>
-                Activation rate {data.reserves_detail.activation_rate_pct}%
+                {ACTIVATION_COVERAGE_LABEL} {data.reserves_detail.activation_rate_pct}%
+              </div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: '0.5625rem',
+                color: 'var(--text-ghost)', marginTop: 2, lineHeight: 1.4 }}>
+                = {ACTIVATION_COVERAGE_FORMULA}
               </div>
             </div>
             <div style={{ flex: 1, minWidth: 140 }}>
