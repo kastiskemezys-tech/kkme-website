@@ -17,3 +17,5 @@ export { VintageGlyphRow, VINTAGE_ORDER, VINTAGE_STYLE } from './VintageGlyphRow
 export type { Vintage, VintageGlyphRowProps } from './VintageGlyphRow';
 export { CredibilityLadderBar, ladderTierLayout, ladderTotal } from './CredibilityLadderBar';
 export type { CredibilityLadderBarProps, CredibilityLadderTier } from './CredibilityLadderBar';
+export { DataState } from './DataState';
+export type { DataStateProps, DataStateStatus } from './DataState';
