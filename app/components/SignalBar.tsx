@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { flexibilityFleetMw } from '@/app/lib/fleet';
 
 const BASE = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
@@ -8,7 +9,7 @@ const SECTION_MAP: Record<string, string> = {
   'S/D RATIO': 'revenue-drivers',
   'aFRR': 'revenue-drivers',
   'GRID FREE': 'build',
-  'FLEET OP': 'structural',
+  'FLEX FLEET': 'structural',
   'DISPATCH': 'trading',
 };
 
@@ -46,9 +47,13 @@ export default function SignalBar() {
         ? `${(data.s4.free_mw / 1000).toFixed(1)} GW` : '—',
     },
     {
-      label: 'FLEET OP',
-      value: data.s2?.baltic_operational_mw != null
-        ? `${data.s2.baltic_operational_mw} MW` : '—',
+      // Flex fleet = BESS + pumped hydro (Kruonis), live from /s4.fleet.
+      // Was reading /s2.baltic_operational_mw which is always null on /s2.
+      label: 'FLEX FLEET',
+      value: (() => {
+        const v = flexibilityFleetMw(data.s4);
+        return v != null ? `${Math.round(v)} MW` : '—';
+      })(),
     },
     {
       label: 'DISPATCH',

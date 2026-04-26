@@ -607,8 +607,8 @@ export function S4Card() {
               display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px',
               fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
             }}>
-              <div>
-                <div style={{ color: 'var(--text-muted)' }}>Operational</div>
+              <div title="All commissioned, grid-connected flex assets — BESS + pumped hydro (Kruonis 205 MW). Distinct from BESS-only registry total shown in the LT pipeline bar above.">
+                <div style={{ color: 'var(--text-muted)' }}>Flex fleet</div>
                 <div style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>{fl.baltic_operational_mw ?? '—'} MW</div>
               </div>
               <div>
