@@ -13,6 +13,7 @@ import type { LabelBox } from '@/lib/label-layout';
 import geocodes from '../../public/hero/project-geocodes.json';
 import { HERO_EXCLUDED_PROJECT_IDS } from '@/lib/project-overrides';
 import { REFRESH_HOT } from '@/lib/refresh-cadence';
+import { formatTickerItem } from '@/app/lib/ticker';
 import { ThemeToggle } from './ThemeToggle';
 
 gsap.registerPlugin(MotionPathPlugin);
@@ -264,9 +265,9 @@ export function HeroBalticMap() {
   // Ticker
   const tickerItems = useMemo(() => {
     const items: string[] = [];
-    if (read?.capture?.gross_4h != null) items.push(`DA CAPTURE €${fmt(read.capture.gross_4h)}/MWh`);
-    if (s2?.afrr_up_avg != null) items.push(`AFRR €${s2.afrr_up_avg.toFixed(2)}/MWh`);
-    if (s2?.mfrr_up_avg != null) items.push(`MFRR €${s2.mfrr_up_avg.toFixed(1)}/MWh`);
+    if (read?.capture?.gross_4h != null) items.push(formatTickerItem('da_capture', 'DA CAPTURE', read.capture.gross_4h, 0));
+    if (s2?.afrr_up_avg != null) items.push(formatTickerItem('afrr', 'AFRR', s2.afrr_up_avg, 2));
+    if (s2?.mfrr_up_avg != null) items.push(formatTickerItem('mfrr', 'MFRR', s2.mfrr_up_avg, 1));
     if (revenue?.project_irr != null) items.push(`PROJECT IRR ${(revenue.project_irr * 100).toFixed(1)}%`);
     if (revenue?.equity_irr != null) items.push(`EQUITY IRR ${(revenue.equity_irr * 100).toFixed(1)}%`);
     if (revenue?.min_dscr != null) items.push(`DSCR ${revenue.min_dscr.toFixed(2)}×`);
