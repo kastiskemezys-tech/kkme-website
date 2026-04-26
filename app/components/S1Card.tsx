@@ -17,6 +17,7 @@ import {
 import { Line, Bar } from 'react-chartjs-2';
 import { CHART_FONT, useChartColors, useTooltipStyle, buildScales } from '@/app/lib/chartTheme';
 import { freshnessLabel } from '@/app/lib/freshness';
+import { leftSkewFootnote } from '@/app/lib/distributionShape';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, LineController, Tooltip, Filler);
 
@@ -125,22 +126,38 @@ export function S1Card() {
 
       {/* ── 4. Rolling context strip (tiles → `what` drawer) ────── */}
       {stats && (
-        <div style={{
-          display: 'flex', gap: '16px', flexWrap: 'wrap',
-          padding: '10px 0', marginBottom: '12px',
-          borderTop: '1px solid var(--border-subtle)', borderBottom: '1px solid var(--border-subtle)',
-        }}>
-          {([
-            ['mean', stats.mean],
-            ['p25', stats.p25],
-            ['p50', stats.p50],
-            ['p75', stats.p75],
-            ['p90', stats.p90],
-          ] as const).map(([label, val]) => (
-            <TileButton key={label} onClick={() => openDrawer('what')} label={label} value={fmtEuro(val)} />
-          ))}
-          <TileButton onClick={() => openDrawer('what')} label="days" value={String(stats.days)} />
-        </div>
+        <>
+          <div style={{
+            display: 'flex', gap: '16px', flexWrap: 'wrap',
+            padding: '10px 0', marginBottom: '4px',
+            borderTop: '1px solid var(--border-subtle)', borderBottom: '1px solid var(--border-subtle)',
+          }}>
+            {([
+              ['mean', stats.mean],
+              ['p25', stats.p25],
+              ['p50', stats.p50],
+              ['p75', stats.p75],
+              ['p90', stats.p90],
+            ] as const).map(([label, val]) => (
+              <TileButton key={label} onClick={() => openDrawer('what')} label={label} value={fmtEuro(val)} />
+            ))}
+            <TileButton onClick={() => openDrawer('what')} label="days" value={String(stats.days)} />
+          </div>
+          {(() => {
+            const note = leftSkewFootnote({
+              mean: stats.mean, p25: stats.p25, p50: stats.p50, p75: stats.p75, p90: stats.p90, days: stats.days,
+            });
+            if (!note) return null;
+            return (
+              <p style={{
+                fontFamily: 'var(--font-mono)', fontSize: '0.5625rem',
+                color: 'var(--text-muted)', marginBottom: '12px', lineHeight: 1.5,
+              }}>
+                {note}
+              </p>
+            );
+          })()}
+        </>
       )}
 
       {/* ── 6. Sparkline — 30-day gross capture (click-to-pin) ──── */}
