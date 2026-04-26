@@ -11,6 +11,7 @@ import { SignalIntel } from '@/app/components/SignalIntel';
 import { AssetDetailPanel, type Asset as DetailAsset } from '@/app/components/AssetDetailPanel';
 import type { ImpactState, Sentiment } from '@/app/lib/types';
 import { sdFormulaCaption } from '@/app/lib/sdRatio';
+import { PIPELINE_TIER_LABELS } from '@/app/lib/pipelineDefinitions';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
@@ -624,8 +625,8 @@ export function S4Card() {
                 <div style={{ color: 'var(--text-muted)' }}>Flex fleet</div>
                 <div style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>{fl.baltic_operational_mw ?? '—'} MW</div>
               </div>
-              <div>
-                <div style={{ color: 'var(--text-muted)' }}>Pipeline</div>
+              <div title={PIPELINE_TIER_LABELS.flex_pipeline.detail + '. Distinct from LT-only TSO reservations (1.4 GW), intention protocols (3.7 GW), and APVA grant applications (1.5 GW) shown in the LT pipeline detail.'}>
+                <div style={{ color: 'var(--text-muted)' }}>{PIPELINE_TIER_LABELS.flex_pipeline.short}</div>
                 <div style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>{fl.baltic_pipeline_mw ?? '—'} MW</div>
               </div>
               <div>
