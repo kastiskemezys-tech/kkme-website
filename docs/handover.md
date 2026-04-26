@@ -1,17 +1,19 @@
 # KKME Handover
 
 Canonical state document. Read this first in every session.
-Last updated: 2026-04-21 (Session 9).
+Last updated: 2026-04-21 (Session 10).
 
 ## Current phase
 
-Phase 7 shipped (S1/S2 card rebuild). Phase 7.5 polish prompt queued. Phase 7.6
-hero refinement prompt authored after 2026-04-21 visual audit surfaced four
-concrete hero issues. Roadmap re-sequenced: Phase 12 (time toggles) →
-promoted to Phase 8; Phase 14 (mobile) → promoted to Phase 9; old
-Phases 8–11 and 13 demoted by 2 slots.
+Phase 7 shipped (S1/S2 card rebuild). Phase 7.5-F shipped 2026-04-21 (card
+redesign sub-phase — live-data signal row, prose→drawer, country/product
+toggles, clickable face). Phase 7.5 polish pass still queued. Phase 7.6
+hero refinement prompt authored after 2026-04-21 visual audit; now also
+carries two 7.5-F capture-session findings (B-029 pulse-dot colour in
+light mode, B-030 FCR hero transient). Roadmap re-sequencing from Session
+9 still holds.
 
-Active queue order: **7.5 → 7.6 → 8 → 9 → 10 → …**
+Active queue order: **7.5 (polish remainder) → 7.6 → 8 → 9 → 10 → …**
 
 Reference docs:
 - `docs/visual-audit/phase-7-5-audit/DIAGNOSTIC.md` — audit findings + routing
@@ -40,6 +42,7 @@ Reference docs:
 - Phase 4C (2026-04-16): Design asset integration — designed logo in header/footer/hero, hero map base layer swap to designed SVG layers (dark mode). Wife's assets organized in public/design-assets/.
 - Phase 4D (2026-04-16): Hero map rebuild — layered SVG base (background-black + countries + interconnect-lines), cable waypoints v2 recalibrated, hero logo text→designed PNG, opaque --nav-bg token, scroll-padding-top 96px.
 - Design tokens: full dark/light theme system with anti-flash script
+- Phase 7.5-F (2026-04-21): S1/S2 card redesign — live-data signal row (pulse dot + relative timestamp + source chip), prose migrated into anchored drawer (data-anchor=what/how/monthly/bridge), country/product toggle bar on S2 with disabled-state for FCR, clickable hero face that auto-opens the drawer scrolled to `what`. Visual-audit PNGs persisted under `docs/visual-audit/phase-7-5-F/` (whitelist carved in .gitignore). Merged to dev.
 - Static export to Cloudflare Pages (kkme.eu)
 
 ## What's queued
@@ -132,6 +135,8 @@ See [docs/map.md](map.md) for the full concept-to-file lookup table.
 | B-026 | enhancement | P2 | Mobile responsive hero map | 2026-04-16 | open | Hero map doesn't adapt to small screens. Needs layout breakpoints |
 | B-027 | enhancement | P3 | Wire useCountUp hook to hero metrics | 2026-04-16 | open | Hook created in Phase 4A, needs wiring to €509/MW/DAY, 822 MW, etc. |
 | B-028 | enhancement | P3 | Bloomberg ticker (SignalBar) styling polish | 2026-04-16 | open | Tighter spacing, better hierarchy, live pulse indicator |
+| B-029 | bug | P1 | Pulse-dot colour wrong in light theme | 2026-04-21 | open | `--teal` resolves to `rgb(138, 102, 32)` (dark amber) in light mode. Dot stays visible but reads amber/warning, not live/green. Either fix `--teal` light-mode definition or rebind pulse dot to a semantic `--signal-live` token that holds green across both themes. Queue as Phase 7.6 blocker. |
+| B-030 | bug | P2 | S2 FCR hero transient re-render | 2026-04-21 | open | Clicking FCR from aFRR+EE state: hero shows €3.44 for ~1s then settles at €0.37. Likely race between product-state switch and data re-key. Not blocking (steady state is correct), but worth fixing alongside B-029 in Phase 7.6. |
 
 ### Backlog notes
 
@@ -419,3 +424,76 @@ See [docs/map.md](map.md) for the full concept-to-file lookup table.
 **Deferred:**
 - Notion board sync (Phase 7.6 entry + renumber) — pending.
 - Decision on H1 copy (3 options in Phase 7.6 prompt) — Kastytis picks at Pause 2.
+
+### Session 10 — 2026-04-21 — Phase 7.5-F screenshot finish + push (Claude Code)
+
+**Scope:** Resume from `docs/phases/phase7-5-F-resume-prompt-v3.md` at Pause 2. v2 session landed at ~83% context mid-drawer-shot batch; commit boundary `3000e7e` (F4 part 2) already clean. Task was narrow: re-shoot 1 imperfect PNG, capture 7 new ones, commit + push.
+
+**Shipped (commit `117b1a7`, merged to dev):**
+- 8 new PNGs in `docs/visual-audit/phase-7-5-F/`: `s1-drawer-how`, `s2-drawer-what`, `s2-drawer-how`, `s2-country-lv`, `s2-country-ee`, `s2-product-fcr`, `s1-face-light`, `s2-face-light`.
+- Re-shot `s1-drawer-what.png` — previous crop cut the "WHAT THIS IS" title flush to top edge; new crop lands the title at viewport y≈104 with ~44 px clean space above.
+- **`.gitignore` carve-out:** added `!docs/visual-audit/phase-*/` and `!docs/visual-audit/phase-*/*.png` immediately below the existing `docs/**/*.png` rule. Verified via `git check-ignore`: phase-`*` subfolder PNGs whitelisted; `docs/*.png` and `docs/visual-audit/non-phase/**/*.png` still ignored. Rationale: phase-specific visual-audit folders are evidence tied to shipped commits (regression reference), not incidental screenshots — the existing blanket rule would have hidden them forever.
+
+**Verification during capture:**
+- Live-worker spot checks matched rendered heroes to decimal: LV `activation.lv.afrr_p50=13.6` → hero €13.6; EE `13.2` → €13.2; LT aFRR `13.5` → €13.5.
+- FCR: all three country toggles confirmed disabled (`opacity: 0.45`, `cursor: not-allowed`, muted `rgba(232, 226, 217, 0.45)` text).
+- Light-theme pulse dot: visible (~5.7 px, `rgb(138, 102, 32)`) but no longer green — flagged as B-029.
+- Pause 3 was honoured (no push until user "merged" confirmation).
+
+**New blockers surfaced during capture (queued for Phase 7.6):**
+- **B-029 — pulse-dot colour remap in light theme.** Real bug. `--teal` token resolves to dark amber in light mode. Dot reads as "warning amber" rather than "live green" — semantic drift. Fix: rebind pulse dot to a semantic `--signal-live` token that holds green across themes, or correct the light-mode `--teal` definition.
+- **B-030 — S2 FCR hero transient.** Non-blocking race: hero briefly shows previous-product value (€3.44) before settling on FCR-specific value (€0.37). ~1 s transient. Worth grouping with B-029 for a Phase 7.6 S2-path review.
+
+**Disposition of third anomaly flagged in Pause 3:**
+- FCR keeps the imbalance-tile row → **spec wrong, implementation right.** Imbalance is grid-wide MWh context, not product-scoped. Plan doc (`docs/phases/phase7-5-F-card-redesign-plan.md`) to be updated by Kastytis.
+
+**Out of scope / not touched:**
+- `logs/btd.log` modifications, `.claude/skills/`, `public/hero/map-calibration-cities.json.json` (still B-011 open), `workers/.wrangler/` — all remain untracked.
+- Pre-commit lint noise (worker + two `no-direct-set-state-in-use-effect` in S1Card/S2Card) — out of scope per v3 prompt; `next build` remains the release gate.
+
+**Tooling notes for next session:**
+- Screenshot workflow that worked end-to-end: `new_page` → `resize_page 1440 900` → scroll article to viewport y ≈ 80 via `evaluate_script` → `take_screenshot` to `/tmp/` → Pillow crop at 2× DPR with S1 rect `(140, 60, 688, 585)` and S2 rect `(742, 60, 1290, 555)` in CSS px. For drawer shots, target anchor top at viewport y ≈ 104 so the section title breathes above the prose.
+- `wait_for` on the S1/S2 text returns the full page accessibility snapshot (~120K chars) — ignore the dump, it just confirms load.
+- A previously-hidden folder `docs/visual-audit/phase-7/` surfaced as untracked once the gitignore exception was added. Left untouched this session; likely candidate for a follow-up commit if Session 8's `phase-7` visual-audit PNGs should also be persisted retroactively.
+
+### Session 11 — 2026-04-26 — Phase 7.6 Session 1 (numerical reconciliation, Claude Code)
+
+**Scope:** Phase 7.6 Session 1 of 3. Vitest harness + 7 small bug-class fixes (7.6.1–7.6.7), each with a unit-test spec and an individual commit. Branch `phase-7-6-numbers` off main.
+
+**Shipped (8 commits, branch pushed to `origin/phase-7-6-numbers`):**
+
+| # | Commit | Spec |
+|---|--------|------|
+| 7.6.0 | `1862ca4` chore: vitest harness setup | `smoke.test.ts` |
+| 7.6.1 | `b431bb2` ticker reserve units €/MWh → €/MW/h | `ticker.test.ts` (4 cases) |
+| 7.6.2 | `84d1b03` Peak Forecast spread delta — correct label and denominator | `peakForecast.test.ts` (6 cases) |
+| 7.6.3 | `4c2c5c1` canonical fleet count — single source of truth for operational MW | `fleet.test.ts` (7 cases) |
+| 7.6.4 | `40baa79` S/D ratio — surface formula and reconcile inputs | `sdRatio.test.ts` (7 cases) |
+| 7.6.5 | `7beae66` renewable mix — corrected/footnoted Solar share | `renewableShare.test.ts` (8 cases) |
+| 7.6.6 | `13c8dbf` dispatch chart — y-axis unit correctness, integration matches headline | `dispatchChart.test.ts` (6 cases) |
+| 7.6.7 | `209d7f0` IRR sensitivity panel — matrix honours scenario, regression spec lands | `sensitivityMatrix.test.ts` (6 cases) |
+
+**Verification gates:** 46 tests across 8 files green; `npx tsc --noEmit` clean; `npx next build` clean (39.6 s); production endpoints `/s1 /s2 /s8 /genload` all 200 post-worker-deploy.
+
+**Worker change deployed (version `5d791e86-e36e-460e-8e87-a1e40658fc25`, single hunk in `processFleet`'s sensitivity-matrix loop): 7.6.7.**
+- `workers/fetch-s1.js:7308` was hardcoding `scenario: 'base'` for off-diagonal matrix cells. The Returns sensitivity matrix therefore stayed pinned to base IRRs even when the user toggled conservative or stress on the headline. The audit symptom ("the model isn't responding to its CAPEX input") was actually two stacked phenomena: the audit-described reading was the mid-CAPEX *row* across COD years (8.8 / 8.6 / 8.6 — flat by 0.2 pp because COD has small effect in mid-CAPEX, but CAPEX axis IS responding correctly along columns: 14.3 / 8.8 / 2.1 in 2027); and the matrix-vs-scenario divergence was a real bug that mis-rendered scenario-toggle interactions. Fix: pass `scenParam` through, reuse `all_scenarios[scenParam]` for the current cell. Verified post-deploy: `base [14,8,2,...]`, `conservative [10,5,-1,...]`, `stress [null×9 — uneconomic floor]`. Stress all-null is correct (pre-existing model behaviour, IRRs <-50% across the matrix).
+
+**Anomalies / non-obvious findings discovered during investigation:**
+- **7.6.2 — "spread %" was actually cross-zone.** PeakForecastCard's `tomorrow.spread_pct` field is the LT–SE4 cross-zone separation `(lt_avg − se4_avg) / |se4_avg|`, NOT the intraday peak−trough spread that readers infer from the adjacent peak/trough labels. Same name, two different quantities. Now displayed as `range €X/MWh · vs SE4 ±Y%` with distinct labels.
+- **7.6.3 — 822 vs 651 is real semantic difference, not a bug.** 822 MW = flex fleet (BESS + Kruonis 205 MW pumped hydro) from `/s4.fleet`; 651 MW = BESS-only registry from `/s4.baltic_total`. Both valid; both should exist; they should not share the label "operational." Renamed Hero/SignalBar tile to **FLEX FLEET** with hover-title disambiguation.
+- **7.6.3 — silent null on SignalBar.** `SignalBar.tsx` was reading `data.s2.baltic_operational_mw`, which is always null on `/s2` (the field only exists on `/s4`). Tile silently rendered "—" forever. Fixed: now reads `data.s4?.fleet?.baltic_operational_mw` via the new helper. **The same silent-null pattern lives on in `HeroMarketNow.tsx:61` (B-009 dead code, not imported anywhere). Left untouched per scope discipline; B-009 is a candidate for outright deletion in a future cleanup.**
+- **7.6.4 — S/D inputs are not what readers think.** Formula is `baltic_weighted_mw / eff_demand_mw` = 1358 / 752 = 1.81. The user-visible inputs (operational 822, pipeline 1083, demand 752) are NOT the numerator. Numerator is the credibility-weighted sum (operational ×1.0, under_construction ×0.9, connection_agreement ×0.6, application ×0.3, announced ×0.1; pumped_hydro and tso_bess excluded). Surfaced inline beneath the headline.
+- **7.6.5 — solar 62% is real, not an artifact.** Live trace today (2026-04-26 14:00 UTC): solar 1482 MW / load 2395 MW = 62%. Solar at 53% of installed (1482/2800), load unusually low (2395 vs ~3500 typical). Aggregation is correct. Ships with anomaly footnote that fires when today's solar share is ≥1.9× the 7D average.
+- **7.6.6 — chart bars were absolute € for 50 MW asset.** Sum/mw_total = headline (internally consistent), but unlabeled axis made the chart unreadable — peak ~€1,750 looked like €/MW/h. Now bars are normalised to €/MW/h (divided by mw_total), explicit y-axis title, corner annotation showing "Daily avg: €X/MW/h · sum = €Y/MW/day."
+
+**Cross-cutting Cowork-side notes captured during this session:**
+- **`/revenue` engine is FAR richer than the Phase 7.7 scope assumed.** `project_irr` and `equity_irr` already separately computed; `min_dscr`, `min_dscr_conservative`, `worst_month_dscr` already exist; bankability flag exists; 13-month backtest array exists; `ch_benchmark` and `eu_ranking` exist; full `all_scenarios` (base/conservative/stress) exists. Phase 7.7 estimate revised down from 4 sessions to 3 — most of the work is binding existing engine output to cards, not extending the engine.
+- **HeroMarketNow.tsx is dead code (B-009).** Still imports the silent-null pattern fixed in SignalBar. Decision deferred: delete in a future cleanup once it's confirmed nothing latent still routes through it.
+
+**Out of scope / not touched (per scope discipline):**
+- 7.6.8–7.6.13 (cross-card reconciliation + IRR labels + distribution skew) → Session 2.
+- 7.6.14–7.6.16 (hour labelling, activation-rate methodology, timestamp normalisation) → Session 3.
+- 7.6.12 (Gross→Net "show the work") was completed in F5-lite; skipped here.
+- HeroMarketNow.tsx, `docs/handover.md` (this entry will close that), `docs/phases/upgrade-plan.md` (P7 lock edit by user mid-session — left intact), `logs/btd.log`, `.claude/skills/`, `public/hero/map-calibration-cities.json.json` (B-011), `workers/.wrangler/` — all left as-is.
+
+**Next session:** Session 2 of Phase 7.6 — 7.6.8 (capture price), 7.6.9 (dispatch price), 7.6.10 (pipeline labelling), 7.6.11 (IRR labels), 7.6.13 (S1 distribution skew investigation). Same discipline. Session 3 prompt to be authored at the end of Session 2.
