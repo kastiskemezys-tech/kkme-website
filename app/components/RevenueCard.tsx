@@ -13,7 +13,7 @@ import { DetailsDrawer } from '@/app/components/primitives';
 import { findMatrixCell, type MatrixCell as SensMatrixCell } from '@/app/lib/sensitivityMatrix';
 import { DISPATCH_LABELS, vsCanonicalDispatchFootnote } from '@/app/lib/dispatchDefinitions';
 import { IRR_LABELS } from '@/app/lib/irrLabels';
-import { IRR_TILES } from '@/app/lib/financialDefinitions';
+import { IRR_TILES, DSCR_LABELS, DEFAULT_DSCR_COVENANT } from '@/app/lib/financialDefinitions';
 import { formatNumber } from '@/app/lib/format';
 
 ChartJS.register(
@@ -184,6 +184,99 @@ function MetricCell({ label, value, sub, color, title, methodVersion }: {
         fontWeight: 500, lineHeight: 1.1 }}>{value}</div>
       {sub && <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
         fontFamily: "var(--font-mono)", marginTop: 4 }}>{sub}</div>}
+    </div>
+  );
+}
+
+// ═══ DSCR Triple Panel (7.7.2) ══════════════════════════════════════════════
+//
+// Three values from the worker, three different stories:
+//   base         — min annual DSCR over debt life, base scenario
+//   conservative — same metric, conservative scenario (banks size against this)
+//   worst-month  — lowest monthly DSCR within Y1 (cash-trap risk)
+//
+// Covenant hairline at 1.20× (industry standard for Baltic merchant BESS).
+
+function DSCRPanel({ base, conservative, worstMonth, covenant }: {
+  base: number | null;
+  conservative: number | null;
+  worstMonth: number | null;
+  covenant?: number;
+}) {
+  const all = [base, conservative, worstMonth].filter((v): v is number => v != null);
+  if (!all.length) return null;
+  const max = Math.max(3, ...all, covenant ?? 0) * 1.05;
+  const min = 0;
+  const cov = covenant ?? null;
+  const covPct = cov != null ? ((cov - min) / (max - min)) * 100 : null;
+
+  const cells: Array<{
+    spec: typeof DSCR_LABELS[keyof typeof DSCR_LABELS];
+    value: number | null;
+    muted?: boolean;
+  }> = [
+    { spec: DSCR_LABELS.base, value: base },
+    { spec: DSCR_LABELS.conservative, value: conservative, muted: true },
+    { spec: DSCR_LABELS.worst_month, value: worstMonth, muted: true },
+  ];
+
+  return (
+    <div data-testid="dscr-triple-panel" style={{
+      padding: '12px 16px',
+      border: '1px solid var(--border-card)',
+      borderRadius: 6,
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between',
+        alignItems: 'baseline', marginBottom: 10 }}>
+        <div style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-xs)',
+          fontFamily: 'var(--font-mono)', textTransform: 'uppercase',
+          letterSpacing: '0.08em' }}>Debt-service coverage</div>
+        {cov != null && (
+          <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
+            fontFamily: 'var(--font-mono)' }}
+            title={`Covenant threshold for Baltic merchant BESS debt: DSCR ≥ ${cov.toFixed(2)}×`}>
+            covenant {formatNumber(cov, 'ratio')}
+          </div>
+        )}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+        {cells.map((c) => (
+          <div key={c.spec.variant} title={c.spec.tooltip}>
+            <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
+              fontFamily: 'var(--font-mono)', textTransform: 'uppercase',
+              letterSpacing: '0.08em', marginBottom: 4,
+              opacity: c.muted ? 0.78 : 1 }}>
+              {c.spec.label}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+              <span style={{ fontFamily: "'Unbounded',sans-serif", fontSize: '1.125rem',
+                fontWeight: 500, lineHeight: 1.1,
+                color: dscrColor(c.value) }}>
+                {c.value != null ? formatNumber(c.value, 'ratio') : '—'}
+              </span>
+            </div>
+            <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
+              fontFamily: 'var(--font-mono)', marginTop: 4 }}>
+              {c.spec.sublabel}
+            </div>
+            <div style={{ position: 'relative', height: 4, background: 'var(--border-card)',
+              borderRadius: 1, marginTop: 6 }}>
+              {c.value != null && (
+                <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0,
+                  width: `${Math.min(100, ((c.value - min) / (max - min)) * 100)}%`,
+                  background: dscrColor(c.value), borderRadius: 1,
+                  opacity: 0.85 }} />
+              )}
+              {covPct != null && (
+                <div style={{ position: 'absolute', top: -2, bottom: -2,
+                  left: `${covPct}%`, width: 1, background: 'var(--text-muted)' }}
+                  title="Covenant threshold" />
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -731,8 +824,8 @@ export function RevenueCard() {
           onChange={v => setScenario(v)} />
       </div>
 
-      {/* Returns metrics — Project IRR + Equity IRR (split per 7.7.1) + DSCR + Payback */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginBottom: 20 }}>
+      {/* Returns metrics — Project IRR + Equity IRR (split per 7.7.1) + CFADS + Payback */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginBottom: 16 }}>
         <MetricCell label={IRR_TILES.unlevered.label}
           value={formatNumber(data.project_irr, 'irr')}
           color={irrColor(data.project_irr)}
@@ -745,13 +838,18 @@ export function RevenueCard() {
           methodVersion={data.model_version}
           title={IRR_TILES.equity.tooltip}
           sub={IRR_TILES.equity.sublabel} />
-        <MetricCell label="Min DSCR"
-          value={data.min_dscr != null ? data.min_dscr.toFixed(2) + '×' : '—'}
-          color={dscrColor(data.min_dscr)}
-          sub={`cons. ${data.min_dscr_conservative?.toFixed(2) ?? '—'}× · debt ${(data.rate_allin * 100).toFixed(1)}%`} />
+        <MetricCell label="CFADS/MW/yr"
+          value={y1 ? '€' + fmtK(y1.cfads / MW) : '—'}
+          sub={`net €${fmtK(data.net_rev_per_mw_yr)} less opex, tax`} />
         <MetricCell label="Payback"
           value={data.payback_years != null ? data.payback_years + ' yr' : '—'}
-          sub={`€${fmtK(data.capex_total / MW)}/MW capex`} />
+          sub={`€${fmtK(data.capex_total / MW)}/MW capex · debt ${(data.rate_allin * 100).toFixed(1)}%`} />
+      </div>
+
+      {/* DSCR triple panel — base, conservative, worst-month (7.7.2) */}
+      <div style={{ marginBottom: 20 }}>
+        <DSCRPanel base={data.min_dscr} conservative={data.min_dscr_conservative}
+          worstMonth={data.worst_month_dscr} covenant={DEFAULT_DSCR_COVENANT} />
       </div>
 
       {/* Main chart area */}
