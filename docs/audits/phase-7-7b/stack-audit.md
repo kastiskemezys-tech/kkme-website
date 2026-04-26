@@ -1,5 +1,7 @@
 # Revenue Stack Composition Audit — Phase 7.7b Session 1
 
+> **2026-04-26 — Verdict superseded.** See [`stack-audit-addendum-2026-04-26.md`](./stack-audit-addendum-2026-04-26.md) for the operational reframe based on Kastytis's pushback. The "FIX REQUIRED, approach B" verdict below was based on an incomplete operational model (Baltic BESS bid simultaneously into FCR + aFRR + mFRR + DA, hierarchy-driven by SoC; the additive `rev_bal + rev_trd` structure is operationally valid). This document remains as a snapshot of the static-code analysis.
+
 *Captured: 2026-04-26 by Claude Code session (`phase-7-7b-engine-audit` branch)*
 *Engine snapshot: `workers/fetch-s1.js` at commit `8e4c4df` (post-Phase 7.7a merge)*
 *Worker `model_version`: `v7`. Production endpoint: `https://kkme-fetch-s1.kastis-kemezys.workers.dev/revenue`.*
