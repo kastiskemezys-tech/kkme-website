@@ -13,6 +13,8 @@ import { DetailsDrawer } from '@/app/components/primitives';
 import { findMatrixCell, type MatrixCell as SensMatrixCell } from '@/app/lib/sensitivityMatrix';
 import { DISPATCH_LABELS, vsCanonicalDispatchFootnote } from '@/app/lib/dispatchDefinitions';
 import { IRR_LABELS } from '@/app/lib/irrLabels';
+import { IRR_TILES } from '@/app/lib/financialDefinitions';
+import { formatNumber } from '@/app/lib/format';
 
 ChartJS.register(
   CategoryScale, LinearScale,
@@ -158,14 +160,25 @@ function ControlGroup({ label, options, value, onChange }: {
 
 // ═══ Metric Cell ════════════════════════════════════════════════════════════
 
-function MetricCell({ label, value, sub, color }: {
+function MetricCell({ label, value, sub, color, title, methodVersion }: {
   label: string; value: string; sub?: string; color?: string;
+  /** Browser-native tooltip (title=…). */
+  title?: string;
+  /** Methodology version stamp ("v7"); rendered as superscript on the label (N-6). */
+  methodVersion?: string;
 }) {
   return (
-    <div style={{ flex: 1, minWidth: 110 }}>
+    <div style={{ flex: 1, minWidth: 110 }} title={title}>
       <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
         fontFamily: "var(--font-mono)", textTransform: 'uppercase',
-        letterSpacing: '0.08em', marginBottom: 4 }}>{label}</div>
+        letterSpacing: '0.08em', marginBottom: 4 }}>
+        {label}
+        {methodVersion && (
+          <sup style={{ marginLeft: 4, color: 'var(--lavender)',
+            fontSize: '0.55rem', letterSpacing: '0.04em', top: '-0.35em',
+            position: 'relative' }}>{methodVersion}</sup>
+        )}
+      </div>
       <div style={{ color: color || 'var(--text-primary)',
         fontSize: '1.25rem', fontFamily: "'Unbounded',sans-serif",
         fontWeight: 500, lineHeight: 1.1 }}>{value}</div>
@@ -718,14 +731,20 @@ export function RevenueCard() {
           onChange={v => setScenario(v)} />
       </div>
 
-      {/* Four metrics */}
+      {/* Returns metrics — Project IRR + Equity IRR (split per 7.7.1) + DSCR + Payback */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginBottom: 20 }}>
-        <MetricCell label={IRR_LABELS.unlevered.short} value={fmtIrr(data.project_irr)}
+        <MetricCell label={IRR_TILES.unlevered.label}
+          value={formatNumber(data.project_irr, 'irr')}
           color={irrColor(data.project_irr)}
-          sub={`cons. ${fmtIrr(data.all_scenarios.conservative?.project_irr ?? null)} · stress ${fmtIrr(data.all_scenarios.stress?.project_irr ?? null)}`} />
-        <MetricCell label="CFADS/MW/yr"
-          value={y1 ? '€' + fmtK(y1.cfads / MW) : '—'}
-          sub={`net €${fmtK(data.net_rev_per_mw_yr)} less opex, tax`} />
+          methodVersion={data.model_version}
+          title={IRR_TILES.unlevered.tooltip}
+          sub={IRR_TILES.unlevered.sublabel} />
+        <MetricCell label={IRR_TILES.equity.label}
+          value={formatNumber(data.equity_irr, 'irr')}
+          color={irrColor(data.equity_irr)}
+          methodVersion={data.model_version}
+          title={IRR_TILES.equity.tooltip}
+          sub={IRR_TILES.equity.sublabel} />
         <MetricCell label="Min DSCR"
           value={data.min_dscr != null ? data.min_dscr.toFixed(2) + '×' : '—'}
           color={dscrColor(data.min_dscr)}
