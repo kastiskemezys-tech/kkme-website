@@ -10,9 +10,26 @@ import {
 import { Line, Bar } from 'react-chartjs-2';
 import { useChartColors, CHART_FONT, useTooltipStyle } from '@/app/lib/chartTheme';
 import { DetailsDrawer } from '@/app/components/primitives';
+import { RevenueSensitivityTornado } from '@/app/components/RevenueSensitivityTornado';
+import { RevenueBacktest } from '@/app/components/RevenueBacktest';
+import type { BacktestRow } from '@/app/lib/backtest';
 import { findMatrixCell, type MatrixCell as SensMatrixCell } from '@/app/lib/sensitivityMatrix';
 import { DISPATCH_LABELS, vsCanonicalDispatchFootnote } from '@/app/lib/dispatchDefinitions';
 import { IRR_LABELS } from '@/app/lib/irrLabels';
+import { IRR_TILES, DSCR_LABELS, DEFAULT_DSCR_COVENANT } from '@/app/lib/financialDefinitions';
+import { formatNumber } from '@/app/lib/format';
+import {
+  projectDegradationCurve,
+  degradationAxisRange,
+  AUGMENTATION_THRESHOLD,
+  END_OF_LIFE_THRESHOLD,
+} from '@/app/lib/degradation';
+import {
+  projectCannibalizationCurve,
+  cannibalizationAxisRange,
+  TODAYS_MARKET_REFERENCE,
+  type FleetYearRow,
+} from '@/app/lib/cannibalization';
 
 ChartJS.register(
   CategoryScale, LinearScale,
@@ -84,6 +101,9 @@ interface RevenueData {
   };
   matrix: MatrixCell[];
   all_scenarios: Record<string, ScenarioSummary>;
+  backtest?: BacktestRow[];
+  fleet_trajectory?: FleetYearRow[];
+  cpi_at_cod?: number;
   fleet_context: { source?: string };
   reconciliation: Record<string, boolean>;
 }
@@ -158,19 +178,330 @@ function ControlGroup({ label, options, value, onChange }: {
 
 // ═══ Metric Cell ════════════════════════════════════════════════════════════
 
-function MetricCell({ label, value, sub, color }: {
+function MetricCell({ label, value, sub, color, title, methodVersion }: {
   label: string; value: string; sub?: string; color?: string;
+  /** Browser-native tooltip (title=…). */
+  title?: string;
+  /** Methodology version stamp ("v7"); rendered as superscript on the label (N-6). */
+  methodVersion?: string;
 }) {
   return (
-    <div style={{ flex: 1, minWidth: 110 }}>
+    <div style={{ flex: 1, minWidth: 110 }} title={title}>
       <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
         fontFamily: "var(--font-mono)", textTransform: 'uppercase',
-        letterSpacing: '0.08em', marginBottom: 4 }}>{label}</div>
+        letterSpacing: '0.08em', marginBottom: 4 }}>
+        {label}
+        {methodVersion && (
+          <sup style={{ marginLeft: 4, color: 'var(--lavender)',
+            fontSize: '0.55rem', letterSpacing: '0.04em', top: '-0.35em',
+            position: 'relative' }}>{methodVersion}</sup>
+        )}
+      </div>
       <div style={{ color: color || 'var(--text-primary)',
         fontSize: '1.25rem', fontFamily: "'Unbounded',sans-serif",
         fontWeight: 500, lineHeight: 1.1 }}>{value}</div>
       {sub && <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
         fontFamily: "var(--font-mono)", marginTop: 4 }}>{sub}</div>}
+    </div>
+  );
+}
+
+// ═══ Degradation Curve (7.7.6) ══════════════════════════════════════════════
+//
+// State-of-health trajectory pulled from /revenue.years[].retention. Reference
+// lines at 0.80 (typical augmentation trigger) and 0.70 (typical end-of-life).
+// Engine math is unchanged — this is pure binding of a field already present.
+
+function DegradationChart({ years, CC, ts }: {
+  years: YearData[];
+  CC: ReturnType<typeof useChartColors>;
+  ts: ReturnType<typeof useTooltipStyle>;
+}) {
+  const points = projectDegradationCurve(years);
+  if (!points.length) return null;
+  const { min, max } = degradationAxisRange(points);
+
+  const data = {
+    labels: points.map(p => 'Y' + p.year),
+    datasets: [{
+      label: 'Retention',
+      data: points.map(p => p.retention),
+      borderColor: CC.teal,
+      borderWidth: 1.5,
+      pointRadius: 0,
+      tension: 0.3,
+      fill: false,
+    }],
+  };
+
+  // Reference-line plugin (Chart.js doesn't ship annotations in core).
+  const refLines = {
+    id: 'degradation-refs',
+    afterDraw(chart: any) {
+      const { ctx, scales } = chart;
+      const xL = scales.x.left;
+      const xR = scales.x.right;
+      const drawLine = (yVal: number, color: string, label: string) => {
+        const yPx = scales.y.getPixelForValue(yVal);
+        if (yPx == null || !Number.isFinite(yPx)) return;
+        ctx.save();
+        ctx.setLineDash([4, 4]);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(xL, yPx);
+        ctx.lineTo(xR, yPx);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = color;
+        ctx.font = `9px ${CHART_FONT.family}`;
+        ctx.textAlign = 'right';
+        ctx.fillText(label, xR - 4, yPx - 3);
+        ctx.restore();
+      };
+      drawLine(AUGMENTATION_THRESHOLD, CC.amber, '0.80 · augment');
+      drawLine(END_OF_LIFE_THRESHOLD, CC.rose, '0.70 · EoL');
+    },
+  };
+
+  const options: any = {
+    responsive: true, maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        ...ts,
+        callbacks: {
+          title: (items: any[]) => items[0]?.label ?? '',
+          label: (ctx: any) => `Retention ${(ctx.parsed.y * 100).toFixed(1)}%`,
+        },
+      },
+    },
+    scales: {
+      x: {
+        grid: { display: false },
+        ticks: { color: CC.textMuted, font: { family: CHART_FONT.family, size: 9 },
+          autoSkip: true, maxTicksLimit: 7 },
+      },
+      y: {
+        min, max,
+        grid: { color: CC.grid, lineWidth: 0.5 },
+        border: { display: false },
+        ticks: { color: CC.textMuted, font: { family: CHART_FONT.family, size: 9 },
+          callback: (v: number | string) => (Number(v) * 100).toFixed(0) + '%' },
+      },
+    },
+  };
+
+  return (
+    <div>
+      <div style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-xs)',
+        fontFamily: 'var(--font-mono)', textTransform: 'uppercase',
+        letterSpacing: '0.08em', marginBottom: 6 }}>
+        State-of-health trajectory · OEM curve · LFP 4h
+      </div>
+      <div style={{ height: 160 }}>
+        <Line data={data} plugins={[refLines]} options={options} />
+      </div>
+    </div>
+  );
+}
+
+// ═══ Cannibalization Curve (7.7.13) ═════════════════════════════════════════
+//
+// Capacity-payment compression projection from /revenue.fleet_trajectory.
+// Public: chart line shape + axis. Drawer-only (P3): the cpi formula
+// coefficients (S/D thresholds 0.6 / 1.0, slopes 2.5 / 1.5 / 0.08 inside the
+// worker). Investor sees how the curve evolves; sponsor IP stays unpublished.
+
+function CannibalizationChart({ rows, codYear, CC, ts }: {
+  rows: FleetYearRow[];
+  codYear?: number;
+  CC: ReturnType<typeof useChartColors>;
+  ts: ReturnType<typeof useTooltipStyle>;
+}) {
+  const points = projectCannibalizationCurve(rows);
+  if (!points.length) return null;
+  const { min, max } = cannibalizationAxisRange(points);
+
+  const data = {
+    labels: points.map(p => String(p.year)),
+    datasets: [{
+      label: 'CPI',
+      data: points.map(p => p.cpi),
+      borderColor: CC.amber,
+      borderWidth: 1.5,
+      pointRadius: 2,
+      tension: 0.3,
+      fill: false,
+    }],
+  };
+
+  const refLine = {
+    id: 'cpi-today-ref',
+    afterDraw(chart: any) {
+      const { ctx, scales } = chart;
+      const yPx = scales.y.getPixelForValue(TODAYS_MARKET_REFERENCE);
+      if (!Number.isFinite(yPx)) return;
+      ctx.save();
+      ctx.setLineDash([4, 4]);
+      ctx.strokeStyle = CC.textMuted;
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(scales.x.left, yPx);
+      ctx.lineTo(scales.x.right, yPx);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = CC.textMuted;
+      ctx.font = `9px ${CHART_FONT.family}`;
+      ctx.textAlign = 'right';
+      ctx.fillText('1.0 · today', scales.x.right - 4, yPx - 3);
+      ctx.restore();
+    },
+  };
+
+  const options: any = {
+    responsive: true, maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        ...ts,
+        callbacks: {
+          title: (items: any[]) => items[0]?.label ?? '',
+          label: (ctx: any) => `CPI ${ctx.parsed.y.toFixed(2)}×`,
+        },
+      },
+    },
+    scales: {
+      x: {
+        grid: { display: false },
+        ticks: { color: CC.textMuted, font: { family: CHART_FONT.family, size: 9 } },
+      },
+      y: {
+        min, max,
+        grid: { color: CC.grid, lineWidth: 0.5 },
+        border: { display: false },
+        ticks: { color: CC.textMuted, font: { family: CHART_FONT.family, size: 9 },
+          callback: (v: number | string) => Number(v).toFixed(2) + '×' },
+      },
+    },
+  };
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between',
+        alignItems: 'baseline', marginBottom: 6 }}>
+        <div style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-xs)',
+          fontFamily: 'var(--font-mono)', textTransform: 'uppercase',
+          letterSpacing: '0.08em' }}>
+          Capacity-payment compression · KKME proprietary supply-stack model
+        </div>
+        {codYear && (
+          <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
+            fontFamily: 'var(--font-mono)' }}>COD {codYear}</div>
+        )}
+      </div>
+      <div style={{ height: 160 }}>
+        <Line data={data} plugins={[refLine]} options={options} />
+      </div>
+      <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
+        fontFamily: 'var(--font-mono)', marginTop: 4 }}>
+        cpi at COD applied as multiplier on capacity + balancing revenue
+      </div>
+    </div>
+  );
+}
+
+// ═══ DSCR Triple Panel (7.7.2) ══════════════════════════════════════════════
+//
+// Three values from the worker, three different stories:
+//   base         — min annual DSCR over debt life, base scenario
+//   conservative — same metric, conservative scenario (banks size against this)
+//   worst-month  — lowest monthly DSCR within Y1 (cash-trap risk)
+//
+// Covenant hairline at 1.20× (industry standard for Baltic merchant BESS).
+
+function DSCRPanel({ base, conservative, worstMonth, covenant }: {
+  base: number | null;
+  conservative: number | null;
+  worstMonth: number | null;
+  covenant?: number;
+}) {
+  const all = [base, conservative, worstMonth].filter((v): v is number => v != null);
+  if (!all.length) return null;
+  const max = Math.max(3, ...all, covenant ?? 0) * 1.05;
+  const min = 0;
+  const cov = covenant ?? null;
+  const covPct = cov != null ? ((cov - min) / (max - min)) * 100 : null;
+
+  const cells: Array<{
+    spec: typeof DSCR_LABELS[keyof typeof DSCR_LABELS];
+    value: number | null;
+    muted?: boolean;
+  }> = [
+    { spec: DSCR_LABELS.base, value: base },
+    { spec: DSCR_LABELS.conservative, value: conservative, muted: true },
+    { spec: DSCR_LABELS.worst_month, value: worstMonth, muted: true },
+  ];
+
+  return (
+    <div data-testid="dscr-triple-panel" style={{
+      padding: '12px 16px',
+      border: '1px solid var(--border-card)',
+      borderRadius: 6,
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between',
+        alignItems: 'baseline', marginBottom: 10 }}>
+        <div style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-xs)',
+          fontFamily: 'var(--font-mono)', textTransform: 'uppercase',
+          letterSpacing: '0.08em' }}>Debt-service coverage</div>
+        {cov != null && (
+          <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
+            fontFamily: 'var(--font-mono)' }}
+            title={`Covenant threshold for Baltic merchant BESS debt: DSCR ≥ ${cov.toFixed(2)}×`}>
+            covenant {formatNumber(cov, 'ratio')}
+          </div>
+        )}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+        {cells.map((c) => (
+          <div key={c.spec.variant} title={c.spec.tooltip}>
+            <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
+              fontFamily: 'var(--font-mono)', textTransform: 'uppercase',
+              letterSpacing: '0.08em', marginBottom: 4,
+              opacity: c.muted ? 0.78 : 1 }}>
+              {c.spec.label}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+              <span style={{ fontFamily: "'Unbounded',sans-serif", fontSize: '1.125rem',
+                fontWeight: 500, lineHeight: 1.1,
+                color: dscrColor(c.value) }}>
+                {c.value != null ? formatNumber(c.value, 'ratio') : '—'}
+              </span>
+            </div>
+            <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
+              fontFamily: 'var(--font-mono)', marginTop: 4 }}>
+              {c.spec.sublabel}
+            </div>
+            <div style={{ position: 'relative', height: 4, background: 'var(--border-card)',
+              borderRadius: 1, marginTop: 6 }}>
+              {c.value != null && (
+                <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0,
+                  width: `${Math.min(100, ((c.value - min) / (max - min)) * 100)}%`,
+                  background: dscrColor(c.value), borderRadius: 1,
+                  opacity: 0.85 }} />
+              )}
+              {covPct != null && (
+                <div style={{ position: 'absolute', top: -2, bottom: -2,
+                  left: `${covPct}%`, width: 1, background: 'var(--text-muted)' }}
+                  title="Covenant threshold" />
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -718,21 +1049,32 @@ export function RevenueCard() {
           onChange={v => setScenario(v)} />
       </div>
 
-      {/* Four metrics */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginBottom: 20 }}>
-        <MetricCell label={IRR_LABELS.unlevered.short} value={fmtIrr(data.project_irr)}
+      {/* Returns metrics — Project IRR + Equity IRR (split per 7.7.1) + CFADS + Payback */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginBottom: 16 }}>
+        <MetricCell label={IRR_TILES.unlevered.label}
+          value={formatNumber(data.project_irr, 'irr')}
           color={irrColor(data.project_irr)}
-          sub={`cons. ${fmtIrr(data.all_scenarios.conservative?.project_irr ?? null)} · stress ${fmtIrr(data.all_scenarios.stress?.project_irr ?? null)}`} />
+          methodVersion={data.model_version}
+          title={IRR_TILES.unlevered.tooltip}
+          sub={IRR_TILES.unlevered.sublabel} />
+        <MetricCell label={IRR_TILES.equity.label}
+          value={formatNumber(data.equity_irr, 'irr')}
+          color={irrColor(data.equity_irr)}
+          methodVersion={data.model_version}
+          title={IRR_TILES.equity.tooltip}
+          sub={IRR_TILES.equity.sublabel} />
         <MetricCell label="CFADS/MW/yr"
           value={y1 ? '€' + fmtK(y1.cfads / MW) : '—'}
           sub={`net €${fmtK(data.net_rev_per_mw_yr)} less opex, tax`} />
-        <MetricCell label="Min DSCR"
-          value={data.min_dscr != null ? data.min_dscr.toFixed(2) + '×' : '—'}
-          color={dscrColor(data.min_dscr)}
-          sub={`cons. ${data.min_dscr_conservative?.toFixed(2) ?? '—'}× · debt ${(data.rate_allin * 100).toFixed(1)}%`} />
         <MetricCell label="Payback"
           value={data.payback_years != null ? data.payback_years + ' yr' : '—'}
-          sub={`€${fmtK(data.capex_total / MW)}/MW capex`} />
+          sub={`€${fmtK(data.capex_total / MW)}/MW capex · debt ${(data.rate_allin * 100).toFixed(1)}%`} />
+      </div>
+
+      {/* DSCR triple panel — base, conservative, worst-month (7.7.2) */}
+      <div style={{ marginBottom: 20 }}>
+        <DSCRPanel base={data.min_dscr} conservative={data.min_dscr_conservative}
+          worstMonth={data.worst_month_dscr} covenant={DEFAULT_DSCR_COVENANT} />
       </div>
 
       {/* Main chart area */}
@@ -761,6 +1103,25 @@ export function RevenueCard() {
       {/* Heatmap */}
       <MonthlyHeatmap months={data.base_year.months} />
 
+      {/* Analytics row — degradation, sensitivity, cannibalization, backtest */}
+      <div className="rv-analytics" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr',
+        gap: 24, marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--border-card)' }}>
+        <DegradationChart years={data.years} CC={CC} ts={ts} />
+        <RevenueSensitivityTornado matrix={data.matrix}
+          scenarios={{
+            conservative: data.all_scenarios.conservative,
+            stress: data.all_scenarios.stress,
+          }} />
+        {data.fleet_trajectory && data.fleet_trajectory.length > 0 && (
+          <CannibalizationChart rows={data.fleet_trajectory}
+            codYear={data.cod_year} CC={CC} ts={ts} />
+        )}
+        <div style={{ gridColumn: '1 / -1' }}>
+          <RevenueBacktest rows={data.backtest ?? []}
+            modeledY1Daily={data.net_rev_per_mw_yr ? data.net_rev_per_mw_yr / 365 : null} />
+        </div>
+      </div>
+
       {/* Disclosure */}
       <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 'var(--font-sm)',
         fontStyle: 'italic', color: 'var(--text-muted)', marginTop: 16 }}>
@@ -783,6 +1144,7 @@ export function RevenueCard() {
       <style>{`
         @media (max-width: 768px) {
           .rv-main { grid-template-columns: 1fr !important; }
+          .rv-analytics { grid-template-columns: 1fr !important; }
         }
       `}</style>
     </div>

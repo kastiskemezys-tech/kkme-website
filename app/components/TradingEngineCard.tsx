@@ -13,6 +13,7 @@ import { DetailsDrawer, SourceFooter } from '@/app/components/primitives';
 import { normaliseHourlyDispatch, dailyAvgPerHour } from '@/app/lib/dispatchChart';
 import { DISPATCH_LABELS } from '@/app/lib/dispatchDefinitions';
 import { ACTIVATION_COVERAGE_LABEL, ACTIVATION_COVERAGE_FORMULA } from '@/app/lib/activationCoverage';
+import { MarketThicknessChip } from '@/app/components/MarketThicknessChip';
 
 ChartJS.register(
   CategoryScale, LinearScale,
@@ -454,8 +455,13 @@ export function TradingEngineCard() {
                 color: 'var(--text-secondary)' }}>
                 avg {data.mw_allocation.avg_reserves_mw} MW (FCR {data.reserves_detail.fcr_mw_avg} + aFRR {data.reserves_detail.afrr_mw_avg} + mFRR {data.reserves_detail.mfrr_mw_avg})
               </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                <MarketThicknessChip product="afrr" />
+                <MarketThicknessChip product="mfrr" showCaption />
+                <MarketThicknessChip product="fcr" showCaption />
+              </div>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
-                color: 'var(--text-muted)', marginTop: 2 }}>
+                color: 'var(--text-muted)', marginTop: 6 }}>
                 {ACTIVATION_COVERAGE_LABEL} {data.reserves_detail.activation_rate_pct}%
               </div>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: '0.5625rem',
