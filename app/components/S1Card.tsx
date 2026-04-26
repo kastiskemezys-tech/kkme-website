@@ -18,6 +18,7 @@ import { Line, Bar } from 'react-chartjs-2';
 import { CHART_FONT, useChartColors, useTooltipStyle, buildScales } from '@/app/lib/chartTheme';
 import { freshnessLabel } from '@/app/lib/freshness';
 import { leftSkewFootnote } from '@/app/lib/distributionShape';
+import { formatHourEET } from '@/app/lib/hourLabels';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, LineController, Tooltip, Filler);
 
@@ -211,7 +212,7 @@ export function S1Card() {
           {cap.gross_to_net && cap.gross_to_net.length > 0
             ? <BridgeChart bridge={cap.gross_to_net} chargePrice={cap.capture_2h?.avg_charge ?? null} rte={cap.capture_2h?.rte ?? 0.875} CC={CC} />
             : <MutedLine text="No bridge data yet." />}
-          {cap.shape && <ShapeRow shape={cap.shape} />}
+          {cap.shape && <ShapeRow shape={cap.shape} refIso={cap.updated_at} />}
         </DrawerSection>
       </DetailsDrawer>
     </article>
@@ -551,15 +552,15 @@ function BridgeChart({ bridge, chargePrice, rte, CC }: {
 
 // ── Price shape summary ──────────────────────────────────────────────────────
 
-function ShapeRow({ shape }: { shape: NonNullable<S1CaptureData['shape']> }) {
+function ShapeRow({ shape, refIso }: { shape: NonNullable<S1CaptureData['shape']>; refIso?: string | null }) {
   return (
     <div style={{
       display: 'flex', gap: '16px', flexWrap: 'wrap',
       fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)',
       paddingTop: '8px', borderTop: '1px solid var(--border-subtle)',
     }}>
-      <span>Peak h{shape.peak_hour} {fmtEuro(shape.peak_price)}</span>
-      <span>Trough h{shape.trough_hour} {fmtEuro(shape.trough_price)}</span>
+      <span>Peak {formatHourEET(shape.peak_hour, refIso)} {fmtEuro(shape.peak_price)}</span>
+      <span>Trough {formatHourEET(shape.trough_hour, refIso)} {fmtEuro(shape.trough_price)}</span>
       <span>Swing {fmtEuro(shape.swing)}</span>
       {shape.evening_premium != null && <span>Eve premium {fmtEuro(shape.evening_premium)}</span>}
     </div>

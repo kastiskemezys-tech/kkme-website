@@ -4,6 +4,7 @@ import { useSignal } from '@/lib/useSignal';
 import { REFRESH_HOT } from '@/lib/refresh-cadence';
 import { SourceFooter } from '@/app/components/primitives';
 import { formatTomorrowLine } from '@/app/lib/peakForecast';
+import { formatHourEET } from '@/app/lib/hourLabels';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
@@ -88,7 +89,7 @@ export function PeakForecastCard() {
         {'\u20AC'}{swing.toFixed(0)}/MWh
       </div>
       <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '8px' }}>
-        Today&apos;s DA swing{pt ? ` · Peak h${pt.peakHour} · Trough h${pt.troughHour}` : ''}
+        Today&apos;s DA swing{pt ? ` · Peak ${formatHourEET(pt.peakHour, data.updated_at)} · Trough ${formatHourEET(pt.troughHour, data.updated_at)}` : ''}
       </p>
 
       {/* Peak/trough detail */}
@@ -96,12 +97,12 @@ export function PeakForecastCard() {
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', marginBottom: '8px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
           <div>
             <span style={{ color: 'var(--rose)' }}>▲ Peak</span>
-            <span style={{ color: 'var(--text-muted)', marginLeft: '6px' }}>h{pt.peakHour}</span>
+            <span style={{ color: 'var(--text-muted)', marginLeft: '6px' }}>{formatHourEET(pt.peakHour, data.updated_at)}</span>
             <span style={{ color: 'var(--text-secondary)', marginLeft: '6px' }}>{'\u20AC'}{pt.peakPrice.toFixed(1)}/MWh</span>
           </div>
           <div>
             <span style={{ color: 'var(--teal)' }}>▼ Trough</span>
-            <span style={{ color: 'var(--text-muted)', marginLeft: '6px' }}>h{pt.troughHour}</span>
+            <span style={{ color: 'var(--text-muted)', marginLeft: '6px' }}>{formatHourEET(pt.troughHour, data.updated_at)}</span>
             <span style={{ color: 'var(--text-secondary)', marginLeft: '6px' }}>{'\u20AC'}{pt.troughPrice.toFixed(1)}/MWh</span>
           </div>
         </div>
