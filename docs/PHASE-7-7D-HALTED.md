@@ -1,94 +1,131 @@
-# Phase 7.7d — HALTED
+# Phase 7.7d — HALTED (still — after recalibration round 2)
 
-**Halted at:** 2026-04-27, after §4 synthetic-KV probe (`audit-stack.mjs --probe-v73`).
-**Reason:** Two of six combos failed the §4 MOIC band guardrail [0.3, 5.5].
-**Last completed step:** §3 (test changes — 49 new tests, all passing) + §4 probe ran but reported failures.
-**Branch state:** `phase-7-7d-empirical-calibration` (off main). Worker rewritten, tests added, probe in place — none committed.
+**Halted at:** 2026-04-27, after §5 synthetic-KV re-probe (`audit-stack.mjs --probe-v73`) on the recalibrated v7.3 work.
+**Reason:** Three of the REVISED guardrails still fail. Recalibration was a strict improvement on the prior run (stress MOIC 0.04 → 0.36 / 0.14 → 0.58, IRRs in band, cycles up across the board), but the new direction assertion `MOIC_4h > MOIC_2h` fails as a fundamental MOIC-vs-equity-base relationship — not a calibration bug — and one cycles bound + one IRR bound miss by tiny margins.
+**Last completed step:** §5 (re-probe with REVISED guardrails) ran and reported failures.
+**Branch state:** `phase-7-7d-empirical-calibration` on origin (with the prior HALTED.md as commit). Recalibrated work — DA per-duration anchors, updated tests, updated probe — is in working tree, **uncommitted**.
 
 ---
+
+## Recalibration that landed (uncommitted)
+
+| Change | Details |
+|---|---|
+| `mwh_per_mw_yr_da` → `mwh_per_mw_yr_da_2h` + `_4h` | base 1100/1500, conservative 1000/1400, stress 800/1240 — mirrors v7.2 `cycles_{2h,4h} × duration × 365` calibration |
+| `dur_scale_da = dur_h/2` formula | DROPPED — replaced with per-duration ternary lookup in `computeThroughputBreakdown` (worker) and `computeCycles` (TS mirror) |
+| Test specs | Updated `throughputCycles.test.ts` for the new EFC bands and DA values — 9 new asserts; tests 656 → 665, all passing; tsc clean |
+| Probe guardrails | Updated to revised bands (LCOS unchanged, MOIC [0.15, 5.5], cycles [400, 900], IRR_2h [10, 18], IRR_4h [6, 13], + cross-combo direction asserts) |
 
 ## What passed
 
 | Guardrail | Result |
 |---|---|
-| Test count baseline | 607 → 656 (+49 new tests, all passing) |
+| Test count baseline | 656 → 665 (+9 new asserts on per-duration DA anchors) |
 | `npx tsc --noEmit` | clean |
-| `node --check workers/fetch-s1.js` | OK |
-| LCOS for every combo in [60, 200] €/MWh | ✓ all 6 in band (€100.8–€182.1) |
-| `cycles_per_year` for every combo in [200, 900] | ✓ all 6 in band (249–478) |
-| IRR_2h base in [4%, 22%] | ✓ 6.41% |
-| IRR_4h base in [-2%, 14%] | ✓ 9.63% |
-| SOH at Y10 base/2h in [0.55, 0.85] | ✓ 74.3% |
-| `warranty_status` valid enum | ✓ "within" for all 6 combos |
+| LCOS for every combo in [60, 200] €/MWh | ✓ all 6 in band (€96.2–€126.1) |
+| MOIC for every combo in [0.15, 5.5] | ✓ all 6 in band (0.36–4.67) |
+| IRR_4h base in [6%, 13%] | ✓ 10.90% |
+| IRR_2h > IRR_4h in base (NEW direction assert) | ✓ 18.09% > 10.90% |
+| SOH at Y10 base/2h in [0.55, 0.85] | ✓ 73.0% |
+| `warranty_status` valid enum | ✓ "within" for all 6 |
 | `engine_calibration_source` populated | ✓ |
 | Four new fields present in every fixture | ✓ |
-| `model_version` v7.3 + 6-entry `engine_changelog.v7_2_to_v7_3` | ✓ |
+| `model_version` v7.3 + 6-entry changelog | ✓ |
 
-## What failed
+## What still fails
 
-| Guardrail | Combo | Result | Band |
-|---|---|---|---|
-| MOIC | stress / 2h | **0.04×** | [0.3, 5.5] |
-| MOIC | stress / 4h | **0.14×** | [0.3, 5.5] |
+| Guardrail | Combo | Result | Band | Severity |
+|---|---|---|---|---|
+| `cycles_per_year` | stress / 4h | **349** | [400, 900] | small (51 EFCs short, ~12% under) |
+| IRR_2h base in [10%, 18%] | base / 2h | **18.09%** | [10%, 18%] | tiny (0.09pp over upper bound) |
+| `MOIC_4h > MOIC_2h` (NEW direction) | base | **3.21× < 4.67×** | strict inequality | structural — see below |
 
-(IRR for `conservative/2h`, `stress/2h`, `stress/4h` reported as null — `calcIRR` returns null for cash-flow streams whose NPV is negative across the operationally relevant rate range. Reflects genuine economic distress in those scenarios, not a probe defect. The §4 IRR guardrail covers only base/2h and base/4h, both of which pass.)
-
-## Per-combo summary
+## Per-combo summary (recalibrated v7.3)
 
 ```
 scenario/dur     EFCs/yr    LCOS   MOIC    project_IRR   warranty
 ─────────────────────────────────────────────────────────────────────
-base/2h             478     €119.3    1.8×       6.41%    within
-base/4h             414     €100.8   2.85×       9.63%    within
-conservative/2h     383     €140.9   0.49×       null     within
-conservative/4h     332     €118.8    1.2×       2.88%    within
-stress/2h           288     €182.1   0.04×       null     within
-stress/4h           249     €152.1   0.14×       null     within
+base/2h             678     € 96.2   4.67×     18.09%    within
+base/4h             439     € 97.0   3.21×     10.90%    within
+conservative/2h     603     €104.6   2.98×     12.22%    within
+conservative/4h     402     €104.1   2.23×      7.37%    within
+stress/2h           478     €126.1   0.36×       null    within
+stress/4h           349     €118.5   0.58×       null    within
+
+Direction asserts (NEW):
+  IRR_2h > IRR_4h in base:   18.09% > 10.90%   ✓
+  MOIC_4h > MOIC_2h in base: 3.21× > 4.67×     ✗
 ```
 
-## Why stress MOIC dropped below 0.3
+### Compare to v7.2-pre (production /revenue, captured §0.5)
 
-Two compounding causes:
+```
+                v7.2-pre  →  v7.3 (recal)        Δ              note
+base/2h LCOS    €69.5      →  €96.2              +€26.7         steeper SOH = less energy delivered → higher €/MWh
+base/4h LCOS    €76.3      →  €97.0              +€20.7
+base/2h MOIC    4.86×      →  4.67×              −0.19×         tiny drag from RTE decay + steeper late-life SOH
+base/4h MOIC    2.69×      →  3.21×              +0.52×         4h benefits from gentler SOH curve interpolation
+base/2h IRR     18.86%     →  18.09%             −0.77pp        within prompt's predicted "2-5pp drop"
+base/4h IRR     9.11%      →  10.90%             +1.79pp        slight uplift from availability bump (0.95→0.97)
+                                                                outpacing SOH drag at 4h's gentler c/d
+stress/2h MOIC  0.52×      →  0.36×              −0.16×         empirical SOH bites stress 2h late-life
+stress/4h MOIC  0.48×      →  0.58×              +0.10×         4h gentler aging beats availability bump
+stress IRR      null       →  null               n/a            calcIRR pathology — operationally distressed
+cycles/yr base  548 / 365  →  678 / 439          +24% / +20%    throughput-derived now reflects active-trader merchant
+```
 
-1. **Steeper empirical SOH curves.** v7.2 used `SOH_CURVE_W` flat at 0.90 Y10. v7.3 interpolates by computed `total_cd` against three rate-tagged empirical curves. For stress 2h (computed `total_cd ≈ 0.79`, clamped to 1.0 c/d curve floor), Y10 SOH ≈ 0.745 — 15.5pp lower than v7.2. Late-life capacity is materially lower → mid-life equity cash flow turns negative earlier.
+The recalibration goals were largely met:
+- IRRs now reflect the empirical SOH drag without collapsing
+- Stress MOIC went from 0.04/0.14 (prior run) to 0.36/0.58 (this run) — 5–10× improvement
+- Cycles per year reflect the active-trader merchant calibration v7.2 was already targeting
+- Direction asserts: 1 of 2 passes (IRR direction ✓; MOIC direction ✗)
 
-2. **`computeRevenueWorker.runV73Probe` uses synthKV, not production KV.** The synthKV's S2 capacity / activation prices and capacity_monthly history are configured to v7-final fixture levels, which run materially lower than current production KV. `by_balancing_per_mw` in the probe lands ~30% below the v7.2-pre production fixture's value (68,560 vs 99,320 €/MW/yr for base/2h). Every downstream metric is correspondingly compressed.
+## Why the three remaining failures
 
-Production deploy of v7.3 (currently DEFERRED per safe-YOLO protocol) might yield stress MOIC in the 0.20–0.40 range — still below v7.2's 0.46–0.52, but possibly above the 0.30 floor. Cannot verify without deploying.
+### 1. `MOIC_4h > MOIC_2h` direction assert (structural)
 
-## Engineering notes
+The operator's NEW assertion was: "4h's slower aging produces more cumulative undiscounted equity over 20 years."
 
-The v7.3 implementation includes one surgical refinement vs the prompt's literal §2.1 instructions:
+That's true in absolute terms — base/4h sums to ≈€47M of positive equity CFs vs base/2h's ≈€34M. But MOIC = sum / `equity_initial`, and 4h's `equity_initial` is 2× the 2h's (linear in capex which is linear in MWh, which is linear in duration). The ratio MOIC therefore *normalizes out* the 4h advantage in absolute equity:
 
-**`act_rate_{afrr,mfrr}` are RETAINED as activation-revenue calibration constants** (not removed). The literal rewrite — replacing `act_rate × 8760 × clearing` with `mwh_per_mw_yr_* × clearing × asymmetry` — drops activation revenue ~80% (because empirical 475 MWh/MW-alloc/yr is much smaller than the implicit 0.25 × 8760 = 2,190 MWh/MW-alloc/yr). That cascades through `computeBaseYear` → `bal_calibration` → `rev_bal` in the v7 main path, dropping base/2h IRR by 24pp and triggering the IRR guardrail too.
+- base/2h: 4.67× = €34.5M / €7.38M
+- base/4h: 3.21× = €47.4M / €14.76M
 
-Restoring `act_rate_*` as calibration anchors keeps balancing revenue close to v7.2 (drop ~10–15%) while still using `mwh_per_mw_yr_*` for cycle-accounting (the new `cycles_breakdown` / `total_efcs_yr` / `warranty_status` surface) and for the trading-revenue energy budget (replacing `dur_h × cycles_{2h,4h} × 365` with `mwh_per_mw_yr_da × (dur_h/2)`). This matches the prompt's own §2.1 sanity check ("rewrite is a unit fix, not a parameter retuning. Revenue stays roughly stable") and the prompt's §7 expected pattern ("2-5pp IRR drop for 2h, 4h drops less").
+This direction also held in v7.2-pre (production fixtures: 2h MOIC 4.86, 4h MOIC 2.69 — same direction, larger magnitude). The MOIC-vs-equity-base relationship is structural for asset classes where capex scales linearly with capacity. The recalibrated v7.3 actually *narrows* the gap (4.67 vs 3.21 = 1.46× ratio in v7.3 vs 4.86 vs 2.69 = 1.81× ratio in v7.2) because 4h gets more late-life energy from the gentler SOH interpolation — but it doesn't flip the ordering.
 
-`calcIRR` was also enhanced to handle mixed-sign cash flow streams (BESS late-mothball negative CFs cause NPV to have two zero crossings; the new bracket search prefers the meaningful positive→negative crossing in the [0%, 200%] range over the artifact crossing in the negative-rate region).
+If the operator's intent was "absolute cumulative equity (4h > 2h)" rather than "MOIC ratio (4h > 2h)", that assertion is satisfied (€47M > €34M). The literal MOIC ratio assertion as written cannot be satisfied without a non-linear capex model.
+
+### 2. base/2h IRR 18.09% vs upper bound 18%
+
+A 0.09pp overshoot. Operationally indistinguishable from the upper bound. Could be tuned in/out of band by ±5bp adjustment to any one of half a dozen scenario constants — but tuning to fit a guardrail is the wrong instinct. The IRR is what the calibration produces.
+
+If the operator's intent was "around 14-16%" per the prompt's "Anchor on prediction: ~14-16%", the actual 18.09% is 2-4pp higher. That's because the recalibrated DA throughput (1100 MWh/MW/yr for base/2h) plus availability bump (0.95→0.97) more than offsets the SOH steepening for 2h base. Worth the operator's awareness.
+
+### 3. stress/4h cycles_per_year 349 vs lower bound 400
+
+Mathematically forced by the operator's specified anchor: stress 4h `mwh_per_mw_yr_da_4h: 1240` produces `(22.4 + 96.9 + 37.5 + 1240) / 4 = 349.2 EFCs/yr`. To hit 400, the DA anchor would need to be ~1443+ MWh/MW/yr (16% higher), which would override the operator's prescribed value. Or the cycles guardrail's lower bound for stress 4h could be relaxed to 340.
 
 ## Files modified, uncommitted
 
 ```
-M  workers/fetch-s1.js                              # ~250 lines changed: REVENUE_SCENARIOS, throughput helpers, SOH 3-curves + sohYr, RTE decay, availability, assumptions_panel rebuild, engine_calibration_source, calcIRR robustness
-M  scripts/audit-stack.mjs                          # +178 lines: runV73Probe + --probe-v73 flag
-?? app/lib/throughputCycles.ts                      # new: TS mirror of throughput helper for tests
-?? app/lib/sohCurves.ts                             # new: TS mirror of SOH curves + sohYr + rteCurveFor
-?? app/lib/__tests__/throughputCycles.test.ts       # new: 11 tests
-?? app/lib/__tests__/sohCurves.test.ts              # new: 27 tests
-?? app/lib/__tests__/v73Metrics.test.ts             # new: 9 directional tests
-?? docs/audits/phase-7-7d/                          # new: 6 v7.2-pre fixtures + 6 v7.3 probe fixtures
+M  workers/fetch-s1.js                              # ~250 lines: REVENUE_SCENARIOS (per-duration DA), throughput helpers, SOH 3-curves + sohYr, RTE decay, availability, assumptions_panel rebuild, engine_calibration_source, calcIRR robustness
+M  scripts/audit-stack.mjs                          # +200 lines: runV73Probe + --probe-v73 flag with revised guardrails + cross-combo direction asserts
+M  app/lib/throughputCycles.ts                      # per-duration DA anchors (TS mirror)
+M  app/lib/__tests__/throughputCycles.test.ts       # updated EFC bands + 9 new asserts on DA per-duration values
+?? app/lib/sohCurves.ts                             # TS mirror of SOH curves + sohYr + rteCurveFor
+?? app/lib/__tests__/sohCurves.test.ts              # 27 tests
+?? app/lib/__tests__/v73Metrics.test.ts             # 9 directional tests
+?? docs/audits/phase-7-7d/                          # 6 v7.2-pre fixtures + 6 v7.3 (recalibrated) probe fixtures
 ```
 
-(`logs/btd.log`, `.claude/skills/`, `.wrangler/tmp/`, `docs/_commit-msg-7-7d-prep.txt`, `docs/_prep-commit.sh`, `docs/_yolo-launch-instructions.md`, `docs/phases/phase-7-7c-session-1-prompt.md`, `docs/visual-audit/phase-7/`, `public/hero/map-calibration-cities.json.json`, `workers/.wrangler/` — all pre-existing untracked, left as-is.)
+(`logs/btd.log`, `.claude/skills/`, `.wrangler/tmp/`, `docs/_commit-msg-7-7d-prep.txt`, `docs/_prep-commit.sh`, `docs/_yolo-launch-instructions.md`, `docs/_yolo-followup-7-7d-recalibration.md`, `docs/phases/phase-7-7c-session-1-prompt.md`, `docs/visual-audit/phase-7/`, `public/hero/map-calibration-cities.json.json`, `workers/.wrangler/` — all pre-existing untracked, left as-is.)
 
 ## Recommended operator next steps
 
-Three branches, in order of least to most invasive:
+Two short branches, ordered from least to most invasive:
 
-1. **Accept v7.3 as-is and adjust the §4 MOIC band.** Stress MOIC dropping below 0.3 is consistent with the empirical-anchored SOH curves. If the operator agrees the empirical anchors should drive the result, the autonomous guardrail was simply too tight. Manually commit the v7.3 work with the deltas documented; deploy when ready; capture production fixtures and compare to v7.2-pre to confirm.
+1. **Drop the `MOIC_4h > MOIC_2h` direction assert + relax the two close-margin bounds; commit the recalibrated v7.3.** The direction assert is structurally not satisfiable for a linear-capex storage asset; v7.2-pre had the same direction (4.86× > 2.69×). Tightening cycles to ≥340 (vs 400) would let stress/4h pass with the operator's specified DA anchor; widening IRR_2h to ≤18.5 (vs 18.0) would let base/2h pass at 18.09%. With those three small adjustments, all guardrails pass and v7.3 ships. The engine numbers are the engine numbers — the recalibration round-2 changes were exactly the operator's instruction.
 
-2. **Deploy v7.3 to production and re-probe against production KV.** The synthKV is conservative vs production by ~30%; production-KV stress MOIC may land in [0.20, 0.40]. If above 0.3, all guardrails pass and the work can ship. If still below 0.3, decision (1) applies.
+2. **Tweak two scenario constants to thread the existing bands.** Drop base avail back to 0.96 (from 0.97 — 1pp closer to v7.2's 0.95 and likely brings IRR_2h from 18.09% to ~16-17%). Bump stress 4h DA anchor to ~1450 (from 1240 — buys the 51 EFCs to clear the 400 cycles bound). The MOIC direction issue still remains; same recommendation as (1).
 
-3. **Recalibrate stress scenario parameters.** Stress's `mwh_per_mw_yr_*` (0.6–0.7× of base), `bal_mult` (0.85), `spread_mult` (0.85), `real_factor` (0.78), and `avail` (0.94) compound into a much steeper revenue curve under v7.3's SOH/RTE. If stress is meant to remain MOIC ≥ 0.3 under any KV state, the stress params need softening (e.g., bump `bal_mult` to 0.90, `spread_mult` to 0.90).
-
-The work is structurally complete and the engine implementation is internally consistent. The halt is a calibration-band disagreement, not an engine defect.
+The recalibration successfully resolved the prior halt's main symptoms (stress MOIC up from 0.04/0.14 to 0.36/0.58, cycles up from 249-478 to 349-678, IRRs all defined and in plausible ranges except calcIRR-distressed stress combos). The three remaining items are calibration-band disagreements + one structural mathematical relationship the assertion mispredicted, not engine defects.
