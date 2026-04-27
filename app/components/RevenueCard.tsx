@@ -78,9 +78,24 @@ interface AssumptionRow {
   note: string;
 }
 
+interface CyclesBreakdown {
+  fcr: number;
+  afrr: number;
+  mfrr: number;
+  da: number;
+  total_cd: number;
+  total_efcs_yr: number;
+  label?: string;
+}
+
 interface AssumptionsPanelData {
   rte: AssumptionRow;
-  cycles_per_year: AssumptionRow;
+  // v7.2 carried this as AssumptionRow; v7.3 replaced it with cycles_breakdown.
+  // Kept optional for back-compat; the renderer derives a synthetic row from
+  // cycles_breakdown when v7.3 shape is detected.
+  cycles_per_year?: AssumptionRow;
+  cycles_breakdown?: CyclesBreakdown;
+  warranty_status?: 'within' | 'premium-tier-required' | 'unwarranted';
   availability: AssumptionRow;
   hold_period: AssumptionRow;
   wacc: AssumptionRow;
@@ -311,9 +326,24 @@ function DurationOptimizer({ rec }: { rec: DurationRecommendation | undefined })
 function AssumptionsPanel({ panel }: { panel: AssumptionsPanelData | undefined }) {
   if (!panel) return null;
 
-  const rows: Array<{ key: keyof AssumptionsPanelData; row: AssumptionRow }> = [
+  // v7.3 cycle row: derive a synthetic AssumptionRow from cycles_breakdown so
+  // the panel layout stays identical. Falls back to v7.2's flat cycles_per_year
+  // when present (back-compat).
+  const cyclesRow: AssumptionRow | null = panel.cycles_breakdown
+    ? {
+        value: Math.round(panel.cycles_breakdown.total_efcs_yr),
+        label: 'Cycles per year',
+        unit: '',
+        note: `${panel.cycles_breakdown.total_cd.toFixed(2)} c/d throughput-derived — `
+          + `FCR ${panel.cycles_breakdown.fcr} + aFRR ${panel.cycles_breakdown.afrr} + `
+          + `mFRR ${panel.cycles_breakdown.mfrr} + DA ${panel.cycles_breakdown.da} EFCs/yr`
+          + (panel.warranty_status ? ` (warranty ${panel.warranty_status})` : ''),
+      }
+    : (panel.cycles_per_year ?? null);
+
+  const rows: Array<{ key: string; row: AssumptionRow }> = [
     { key: 'rte',             row: panel.rte },
-    { key: 'cycles_per_year', row: panel.cycles_per_year },
+    ...(cyclesRow ? [{ key: 'cycles_per_year', row: cyclesRow }] : []),
     { key: 'availability',    row: panel.availability },
     { key: 'hold_period',     row: panel.hold_period },
     { key: 'wacc',            row: panel.wacc },
