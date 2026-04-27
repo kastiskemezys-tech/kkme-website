@@ -107,6 +107,23 @@
   --series-gas:    #f6a35a;
   --series-carbon: #c084fc;
 
+  /* Phase 7.7e — canonical per-product cycles palette.
+   * Reused wherever FCR / aFRR / mFRR / DA appear together. Hues chosen for
+   * (a) maximum perceptual distinctness side-by-side, (b) reuse of existing
+   * semantic tokens (lavender = modelled, teal = observed-dominant,
+   * amber = warning weight, blue = scheduling/long-horizon). */
+  --cycles-fcr:    var(--lavender);
+  --cycles-afrr:   var(--teal);
+  --cycles-mfrr:   var(--amber);
+  --cycles-da:     var(--blue);
+
+  /* Phase 7.7e — chart tooltip shadow. Heavier in dark (pulls the frosted
+   * card off the page bg); softer in light (avoids muddy halo on sand). */
+  --tooltip-shadow:
+    0 1px 0 rgba(255,255,255,0.04) inset,
+    0 8px 24px rgba(0,0,0,0.32),
+    0 2px 6px rgba(0,0,0,0.18);
+
   /* Map */
   --map-bg: rgba(7, 7, 10, 0.85);
 
@@ -310,6 +327,12 @@
   --signal-warning:  rgba(138, 102, 32, 0.90);
   --signal-negative: rgba(192, 72, 72, 0.90);
   --signal-neutral:  rgba(26, 26, 31, 0.65);
+
+  /* Phase 7.7e — tooltip shadow softened for ivory bg */
+  --tooltip-shadow:
+    0 1px 0 rgba(255,255,255,0.5) inset,
+    0 6px 16px rgba(26,26,31,0.10),
+    0 1px 3px rgba(26,26,31,0.06);
 
   /* Intel category accent colors — darkened for ivory bg */
   --cat-design: #4a5a8a;

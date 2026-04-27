@@ -103,8 +103,26 @@ export const CHART_FONT = {
   family: "'DM Mono', monospace",
 };
 
-// Hook: returns theme-aware tooltip style with resolved colors
-export function useTooltipStyle(colors: ChartColors) {
+// Hook: returns theme-aware tooltip style with resolved colors.
+// Default — chart.js renders its own tooltip with the legacy theme. Existing
+// consumers continue to call `useTooltipStyle(colors)` and see identical output.
+//
+// Phase 7.7e — pass `external: handler` to delegate rendering to the unified
+// `<ChartTooltip>` primitive. The handler is built via
+// `buildExternalTooltipHandler(setState, mapPoint)` from chartTooltip.ts.
+//
+// `external` is typed as a generic chart.js handler — the handler shape is
+// (ctx: { chart, tooltip }) => void, matching chart.js's own contract.
+export function useTooltipStyle<T = unknown>(
+  colors: ChartColors,
+  opts?: { external?: (ctx: T) => void },
+) {
+  if (opts?.external) {
+    return {
+      enabled: false,
+      external: opts.external,
+    };
+  }
   return {
     enabled: true,
     backgroundColor: colors.tooltipBg,

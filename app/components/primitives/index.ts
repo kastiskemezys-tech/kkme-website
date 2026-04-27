@@ -19,3 +19,5 @@ export { CredibilityLadderBar, ladderTierLayout, ladderTotal } from './Credibili
 export type { CredibilityLadderBarProps, CredibilityLadderTier } from './CredibilityLadderBar';
 export { DataState } from './DataState';
 export type { DataStateProps, DataStateStatus } from './DataState';
+export { ChartTooltip, ChartTooltipPortal, useChartTooltipState } from './ChartTooltip';
+export type { ChartTooltipProps, ChartTooltipState } from './ChartTooltip';
