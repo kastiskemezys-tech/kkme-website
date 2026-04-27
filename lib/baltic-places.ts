@@ -157,10 +157,13 @@ export const COUNTRY_CENTROIDS: Place[] = [
 // ═══ Interconnector specs with direction convention ════════════════════════
 
 // CANONICAL FLOW CONVENTION
-// Worker /s8 was fixed in Phase 2A-3 so positive *_avg_mw means the Baltic
-// endpoint is exporting (sending power out). For each interconnector,
+// Worker /s8 forwards energy-charts.info CBET values as-is (no sign flip),
+// so positive *_avg_mw means the country in front of the column-name is
+// IMPORTING from its neighbor (per API documentation). For each spec,
 // positiveFlowReceives is the country on the RECEIVING end when rawMw > 0.
-// Example: nordbalt +694 → LT exporting → SE receiving → positiveFlowReceives: 'SE'.
+// Example: nordbalt_avg_mw = -429 (LT CBET, Sweden column) → LT exporting
+// 429 MW to SE → positiveFlowReceives: 'LT' (positive value would mean LT
+// receives). Fixed in Phase 12.4 (was inverted in Phase 2B-1).
 
 export type InterconnectorSpec = {
   id: string
@@ -183,7 +186,7 @@ export const INTERCONNECTORS: InterconnectorSpec[] = [
     cbetSource: 'nordbalt_avg_mw',
     nameplateMw: 700,
     baltic: 'A',
-    positiveFlowReceives: 'SE',
+    positiveFlowReceives: 'LT',
     waypointCableId: 'nordbalt' },
   { id: 'litpol',
     displayName: 'LitPol',
@@ -192,7 +195,7 @@ export const INTERCONNECTORS: InterconnectorSpec[] = [
     cbetSource: 'litpol_avg_mw',
     nameplateMw: 500,
     baltic: 'A',
-    positiveFlowReceives: 'PL',
+    positiveFlowReceives: 'LT',
     waypointCableId: 'litpol' },
   { id: 'estlink-1',
     displayName: 'EstLink 1',
@@ -202,7 +205,7 @@ export const INTERCONNECTORS: InterconnectorSpec[] = [
     nameplateMw: 350,
     capacityShare: 0.35,
     baltic: 'A',
-    positiveFlowReceives: 'FI',
+    positiveFlowReceives: 'EE',
     waypointCableId: 'estlink-1' },
   { id: 'estlink-2',
     displayName: 'EstLink 2',
@@ -212,7 +215,7 @@ export const INTERCONNECTORS: InterconnectorSpec[] = [
     nameplateMw: 650,
     capacityShare: 0.65,
     baltic: 'A',
-    positiveFlowReceives: 'FI',
+    positiveFlowReceives: 'EE',
     waypointCableId: 'estlink-2' },
   { id: 'fennoskan-1',
     displayName: 'Fenno-Skan 1',

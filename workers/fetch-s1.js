@@ -4944,8 +4944,9 @@ async function fetchTTFGas() {
 
 async function fetchInterconnectorFlows() {
   // energy-charts.info CBET: cross-border electricity trading
-  // Sign convention per endpoint: positive = country importing FROM neighbor
-  // We negate → positive = country exporting TO neighbor
+  // Sign convention per endpoint: positive = country importing FROM neighbor.
+  // Preserved as-is downstream (no negation): *_avg_mw and *_signal both
+  // follow the API convention. See lib/baltic-places.ts for arrow rendering.
   const cbetHeaders = { Accept: 'application/json' };
 
   // Fetch LT, EE, and FI CBET data in parallel
@@ -5008,8 +5009,8 @@ async function fetchInterconnectorFlows() {
 
   function flowSignal(mw) {
     if (mw == null) return null;
-    if (mw > 100)  return 'EXPORTING';
-    if (mw < -100) return 'IMPORTING';
+    if (mw > 100)  return 'IMPORTING';   // positive → LT importing from neighbor (per API convention)
+    if (mw < -100) return 'EXPORTING';   // negative → LT exporting to neighbor
     return 'BALANCED';
   }
 
@@ -5019,7 +5020,7 @@ async function fetchInterconnectorFlows() {
   const fennoskan_signal = flowSignal(fennoskan_avg_mw);
   const lv_lt_signal     = flowSignal(lv_lt_avg_mw);
   const netTotal = (nordbalt_avg_mw ?? 0) + (litpol_avg_mw ?? 0);
-  const signal   = netTotal > 100 ? 'EXPORTING' : netTotal < -100 ? 'IMPORTING' : 'NEUTRAL';
+  const signal   = netTotal > 100 ? 'IMPORTING' : netTotal < -100 ? 'EXPORTING' : 'NEUTRAL';
 
   // Extract data timestamp from energy-charts unix_seconds (Bug 5 fix)
   const unixSeconds = Array.isArray(ltData.unix_seconds) ? ltData.unix_seconds : [];
