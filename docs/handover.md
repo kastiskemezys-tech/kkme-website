@@ -1,11 +1,13 @@
 # KKME Handover
 
 Canonical state document. Read this first in every session.
-Last updated: 2026-04-27 (Session 23 — Phase 12.7 interconnector rate-limit fix shipped; UA header + persist-last-good KV fallback + per-cable freshness; worker `f8173210` deployed; branch pushed for PR review).
+Last updated: 2026-04-27 (Session 24 — Phase 7.7e UI track shipped; sitewide ChartTooltip primitive + 24 chart-bearing surface migration + RTE sparkline / cycles_breakdown chart / calibration footer in RevenueCard; canonical `--cycles-{fcr,afrr,mfrr,da}` palette tokens; 731/731 tests; branch `phase-7-7e-ui` pushed for PR review).
 
 ## Current phase
 
-Phase 12.7 **interconnector rate-limit fix** shipped on `phase-12-7-interconnector-rate-limit`. Worker version `f8173210-cb4b-493d-a1d8-0fd339ec6dac` live. Three fixes in `fetchInterconnectorFlows()`: identifying User-Agent on all three CBET fetches (reduces anonymous-bucket 429s), persist-last-good KV fallback (when current fetch returns null, reuse prior KV value), per-cable `freshness` map (`live | stale | null`) for future card UI. EstLink 1 / 2 + Fenno-Skan 1 / 2 hero cable rows now degrade to "stale" rather than `·` even when the upstream rate-limits a leg of the parallel fetch. Branch pushed; awaiting PR creation + merge.
+Phase 7.7e **UI track** shipped on `phase-7-7e-ui` (Session 24). Sitewide ChartTooltip primitive + data contract; 24 chart-bearing surfaces migrated; three new RevenueCard sub-components surfacing the v7.3 calibration narrative; canonical per-product palette tokens; 675 → 731 tests; branch pushed for PR. No worker changes — this is a frontend-only track.
+
+Phase 12.7 **interconnector rate-limit fix** shipped on `phase-12-7-interconnector-rate-limit` (Session 23). Worker version `f8173210-cb4b-493d-a1d8-0fd339ec6dac` live. Three fixes in `fetchInterconnectorFlows()`: identifying User-Agent on all three CBET fetches (reduces anonymous-bucket 429s), persist-last-good KV fallback (when current fetch returns null, reuse prior KV value), per-cable `freshness` map (`live | stale | null`) for future card UI. EstLink 1 / 2 + Fenno-Skan 1 / 2 hero cable rows now degrade to "stale" rather than `·` even when the upstream rate-limits a leg of the parallel fetch. Phase 7.7e Session 24 wires this `freshness` field into the cable hover tooltip as a secondary row.
 
 Phase 7.7d **engine v7.3** shipped end-to-end. Worker version `41978587-ddda-42f5-b975-1da0570a3b01` live; PR #40 merged to main (commit `ec9136e`). Frontend `RevenueCard` aligned with v7.3 shape via Session 22 hotfix (commit `94ca8d8`) — auto-deployed to kkme.eu via Cloudflare Pages. Returns card now surfaces v7.3 numbers (LCOS, MOIC, duration recommendation, throughput-derived cycles breakdown, warranty status) without errors.
 
@@ -1062,3 +1064,85 @@ The synthesized note surfaces the per-product EFC breakdown + warranty status in
 - Generalizing the persist-last-good pattern across other signal fetchers (/s1, /s2, /s4, /s9). Each has its own caching dynamics.
 - Phase 12.6 (KV cache invalidation on worker deploy). Separate concern.
 - Pre-existing untracked tree (`.claude/skills/`, `docs/visual-audit/phase-7/`, `public/hero/map-calibration-cities.json.json`, `workers/.wrangler/`, `.wrangler/tmp/`, `docs/_yolo-followup-*.md`, `docs/_prep-commit-*.sh`, `docs/phases/phase-7-7c-session-1-prompt.md`) — left as-is per Session 18 + 22 convention.
+
+
+### Session 24 — 2026-04-27 — Phase 7.7e UI track (sitewide ChartTooltip + v7.3 visualizations, Claude Code)
+
+**Scope:** Phase 7.7e UI track per `docs/phases/phase-7-7e-ui-prompt.md`. Branch `phase-7-7e-ui` cut off main at `56a3b5b` (post-Phase 12.7 PR #41 merge). Frontend-only track — no engine changes, no worker deploy, no `model_version` bump. Six logical commits on the branch tell a clean story (tooltip primitive → chart.js migration → SVG migration → map cable → revenue card sub-components → audit). Operator approved upfront: 1) iterate on tooltip styling against two charts before cascading, 2) pick canonical FCR/aFRR/mFRR/DA hues with sitewide reuse in mind, 3) Pause B mobile-iPhone-14 viewport audit.
+
+**Two interlocking deliverables — both shipped:**
+
+1. **Unified `<ChartTooltip>` primitive** (`app/components/primitives/ChartTooltip.tsx` + `app/lib/chartTooltip.ts`). Single React component, portal-mounted so it can overflow chart bounding boxes; viewport-edge auto-flip; theme-aware shadow via `var(--tooltip-shadow)` token; single 120ms motion-react fade. Data contract: `{ date?: Date | string, time?, value, unit, label?, secondary?, source? }` — every chart on the site now surfaces date (or label) + value + unit consistently. Format helpers (`fmtTooltipDate`, `fmtTooltipTime`, `fmtTooltipValue`) hold per-unit decimal-place rules in one place. chart.js consumers wire via `buildExternalTooltipHandler(setState, mapPoint)` returned through `useTooltipStyle(CC, { external })`. SVG consumers use `useChartTooltipState()` + `<ChartTooltipPortal>` directly.
+
+2. **Three new RevenueCard visualizations** consuming the v7.3 payload:
+   - **`RteSparkline`** — 96×18px SVG of the 18-year `roundtrip_efficiency_curve`. Per-year hover surfaces year + RTE % + Δ vs BOL.
+   - **`CyclesBreakdownChart`** — single-row stacked bar with FCR / aFRR / mFRR / DA segments using the new canonical `--cycles-{fcr,afrr,mfrr,da}` palette (lavender / teal / amber / blue). Responsive (viewBox + width:100%). Legend with per-product EFCs + total c/d + warranty chip ("WITHIN WARRANTY" / "PREMIUM TIER REQUIRED" / "UNWARRANTED").
+   - **`CalibrationFooter`** — collapsed: italic Cormorant single line "Calibrated 2026-04-27 against Tier 1 LFP integrator consensus + public market research · Next review 2026-Q3"; expanded: 7-row labelled provenance grid showing the full `engine_calibration_source` object. Confidentiality discipline preserved verbatim.
+
+**Migration coverage — every chart-bearing surface in the codebase (24 in inventory):**
+
+| Group | Files migrated |
+|---|---|
+| chart.js cards (12 charts across 5 files) | `S1Card.tsx` (2), `S2Card.tsx` (3), `TradingEngineCard.tsx` (1), `RevenueBacktest.tsx` (1), `RevenueCard.tsx` internal subcharts (3 — DegradationChart / CannibalizationChart / RevenueChart). Two intentionally-disabled tooltips at `RevenueCard:937` / `:1043` preserved per operator approval. |
+| inline-SVG primitives (6) | `Sparkline.tsx`, `BulletChart.tsx`, `RevenueSensitivityTornado.tsx`, `primitives/CredibilityLadderBar.tsx`, `primitives/RegimeBarometer.tsx`, `primitives/DistributionTick.tsx`. `Sparkline` cascades to S6/S7/S9/SpreadCapture cards in one edit. |
+| custom hover-divs (2) | `S7Card.tsx` (TTF gas threshold) + `S9Card.tsx` (EUA carbon threshold) — `showTip` boolean state replaced by `useChartTooltipState`. |
+| maps (1) | `HeroBalticMap.tsx` — invisible-stroke hit-target layer over `CABLE_PATHS` routes through unified primitive; `freshness` (Phase 12.7) renders as `secondary` row. Inline duplicate `Sparkline` definition deleted in favour of the shared component (operator-approved cleanup). `BalticMap.tsx` left untouched (decorative-only). |
+
+**Canonical per-product palette (operator's "future site-wide reuse" mandate):**
+
+| Token | Resolves to | Semantic role |
+|---|---|---|
+| `--cycles-fcr` | `var(--lavender)` | Modelled-grade automation; smallest contributor; visually distinct from operational-data hues |
+| `--cycles-afrr` | `var(--teal)` | Observed-dominant balancing flow |
+| `--cycles-mfrr` | `var(--amber)` | Manual activation; warning weight |
+| `--cycles-da` | `var(--blue)` | Scheduling / long-horizon arbitrage |
+
+Lives in `app/globals.css` alongside the other semantic tokens. Any future component rendering the four products by hue inherits the palette by name, not by hex.
+
+**Iter1 → iter2 craft refinements (visual-eyeballed against actual page CSS):**
+
+1. Value-text dropped 18 → 17px Unbounded with -0.005em letter-spacing (proportional balance against the 10.5px headline). 18px read slightly hot in light mode.
+2. Headline gained `font-variant-numeric: tabular-nums` and a 10px gap between date+time so HH:MM aligns under the date.
+3. Theme-aware `--tooltip-shadow` token replaces hard-coded rgba: heavy 24px+6px black on dark; soft 16px+3px ink on ivory. Resolves the muddy halo from the first iteration on light bg.
+4. Single 120ms fade via motion-react. No spring physics (per scope discipline).
+
+**Tests:** 675 baseline → **731 passing** (+56 across 4 new test files + 1 update across 48 files):
+- `app/lib/__tests__/chartTooltip.test.ts` — 22 specs on format helpers (locale-short dates, HH:MM-UTC time, per-unit decimal rules, magnitude shortening, NaN/null handling, currency-leading vs trailing-suffix conventions).
+- `app/components/__tests__/RteSparkline.test.tsx` — 5 specs.
+- `app/components/__tests__/CyclesBreakdownChart.test.tsx` — 8 specs (canonical token usage, segment widths sum to chart width, three warranty-chip color branches).
+- `app/components/__tests__/CalibrationFooter.test.tsx` — 6 specs (collapsed/expanded states, anonymization grep, partial-source fallback, generic-copy fallback).
+- `app/lib/__tests__/chartTooltipShape.test.ts` — 14 sitewide-canary specs asserting every chart-bearing component is wired (one per file in the inventory). A future regression that reintroduces a bespoke `<title>` or a missed migration fails loudly here.
+- `app/lib/__tests__/credibilityLadder.test.tsx` — legacy `title="permit: 800 MW · X% of pipeline"` assertion replaced by `data-tier=` + absence-of-legacy-title assertion.
+
+**Verification gates:**
+- `npx tsc --noEmit` clean.
+- `npx next build` clean (Turbopack 27.2s, 5 routes prerendered).
+- `npm test` 731/731 passing.
+- Visual audit screenshots captured to `docs/visual-audit/phase-7-7e/`: `revenue-assumptions-{dark,light,mobile-dark}.png`, `calibration-footer-expanded-dark.png`, `hero-cable-tooltip-{dark,light}.png`. Iteration scratch screenshots discarded.
+- Inventory at `docs/audits/phase-7-7e/chart-inventory.md`: 24 surfaces × 4 groups, with anomalies surfaced (HeroBalticMap inline `Sparkline` duplicate, `ImpactLine` non-chart classification, two intentionally-disabled tooltips).
+
+**Anomalies / non-obvious findings:**
+
+- **chart.js v4 synthetic events don't trigger the external callback.** `dispatchEvent(new PointerEvent(...))` doesn't reach chart.js's hit-test loop (it relies on real CDP-level pointer events). Result: programmatic chart-tooltip captures via JS injection didn't surface the actual primitive. Mitigation: cable tooltip captured live via direct SVG path event dispatch (which works); chart.js path covered by the canary test + iter2 static-preview overlay using the same CSS variables. Runtime behaviour fires under real cursor input; the migration is verified by the wiring test, not the screenshot.
+- **Mobile viewport reveals pre-existing horizontal overflow** in the page's two-column hero grid containing the AssumptionsPanel. The `CyclesBreakdownChart` itself was made responsive (viewBox + width:100% + max-width:240px) after the §6 audit revealed the original 240px-fixed width overflowed at 390px. The parent grid not reflowing at narrow viewports is pre-existing — the prompt explicitly out-of-scopes mobile-specific layout work to Phase 8.
+- **HeroBalticMap had an inline duplicate `Sparkline` definition** at `:83` (4-prop signature `{data, w, h}`, different from shared `app/components/Sparkline.tsx` `{values, width, height, ...}`). Operator-approved cleanup: deleted, replaced with `<SharedSparkline values={sparkData} unit="€/MW/day" ... />`. Eliminates one duplicate-tooltip surface.
+- **`engine_calibration_source` was not on the `RevenueData` interface** at session start — added as an optional top-level field in commit 5 to feed `CalibrationFooter`. v7.3 worker has been emitting it since 2026-04-27; the frontend type was just lagging.
+- **chart.js TooltipItem `parsed.y` is `number | null`** (missing values), not `number | undefined` as my initial type assumed. Loosened `ChartJsDataPoint.parsed.y` to `number | null | undefined` for compatibility — the format helpers handle nullish inputs by returning `'—'`.
+
+**Cross-cutting notes for the next phase:**
+
+- **Phase 7.7e data-contract** (Zod at /revenue boundary) is the natural next CC job. The Session 22 root cause was an `as RevenueData` cast at `RevenueCard:1087` letting any shape through. Tightening this with Zod or io-ts would surface v8+ schema changes as explicit validation errors rather than downstream `Cannot read properties of undefined`. Smaller phase (~30-60 min).
+- **Phase 7.7c Session 2** (capital-structure sliders + request-time recompute) remains gated on operator UX decision (vertical vs horizontal sliders, request debounce vs blur-fire, persisted state encoding).
+- **Mobile-pass (Phase 8)** should rework the hero-grid container so AssumptionsPanel and the chart grid reflow cleanly at 390px. The chart primitives are mobile-ready (cycles bar + sparkline are responsive); the parent layout is the constraint.
+- **The unified `<ChartTooltip>` primitive can be consumed by future cards** without re-deriving the styling. Pattern: `useChartTooltipState()` + `<ChartTooltipPortal tt={tt} />` for inline-SVG; `buildExternalTooltipHandler(tt.setState, mapPoint)` + `useTooltipStyle(CC, { external })` for chart.js. The hooks live in `app/components/primitives/ChartTooltip.tsx`.
+
+**Out of scope / not touched (per scope discipline):**
+
+- Engine changes. Worker untouched. No `model_version` bump.
+- Mobile-specific tooltip behaviour (tap-to-show explicit UX is Phase 8 territory).
+- Animation polish on tooltips (spring physics, fade timings beyond a single token).
+- Frontend Zod boundary tightening — separate Phase 7.7e data-contract sub-track.
+- `roundtrip_efficiency_curve` and `cycles_breakdown` rendering anywhere outside the RevenueCard (Phase 8/9 scope).
+- Pre-existing untracked tree (`.claude/skills/`, `docs/visual-audit/phase-7/`, `public/hero/map-calibration-cities.json.json`, `workers/.wrangler/`, `.wrangler/tmp/`, `docs/_yolo-followup-*.md`, `docs/_prep-commit-*.sh`, `docs/phases/phase-7-7c-session-1-prompt.md`, `docs/phases/phase-7-7e-ui-prompt.md`) — left as-is per Session 18/22/23 convention.
+
+**Verification:** `git log --oneline phase-7-7e-ui ^main` shows 6 commits totalling +1,906 / −320 lines. `npm test` 731/731 passing. `npx tsc --noEmit` clean. `npx next build` clean. Branch pushed to origin; PR creation deferred to operator.
