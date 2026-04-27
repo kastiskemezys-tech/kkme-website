@@ -21,6 +21,7 @@ const SpreadCaptureCard = dynamic(() => import('@/app/components/SpreadCaptureCa
 const RevenueCard = dynamic(() => import('@/app/components/RevenueCard').then(m => m.RevenueCard));
 const TradingEngineCard = dynamic(() => import('@/app/components/TradingEngineCard').then(m => m.TradingEngineCard));
 const IntelFeed = dynamic(() => import('@/app/components/IntelFeed').then(m => m.IntelFeed));
+import { RegulatoryPreview } from '@/app/components/regulatory/RegulatoryPreview';
 const ContactForm = dynamic(() => import('@/app/components/ContactForm').then(m => m.ContactForm));
 const PageBackground = dynamic(() => import('@/app/components/PageBackground').then(m => m.PageBackground));
 
@@ -153,6 +154,7 @@ export default function Home() {
                 Developments that affect Baltic BESS revenue, buildability, and market structure.
               </p>
             </div>
+            <RegulatoryPreview />
             <IntelFeed />
           </div>
         </ScrollReveal>
