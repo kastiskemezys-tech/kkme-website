@@ -88,3 +88,10 @@ claude-handover/images/
 # skills (AI tool skills, not project code)
 /skills/
 skills-lock.json
+
+# confidential — NDA-protected private datasets used for engine calibration.
+# Place private materials under one of these directories. Engine references
+# constants by value, not by source file, so paths inside never appear in
+# committed code.
+docs/_private/
+docs/_clients/
