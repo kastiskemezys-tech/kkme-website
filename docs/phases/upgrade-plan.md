@@ -1,10 +1,12 @@
 # KKME Upgrade Master Plan
 
 **Status snapshot (2026-04-26):**
-- F1–F4 shipped on `phase-7-5-F-card-redesign` branch, PR #27 open, merge conflict on `phase7-5-F-resume-prompt.md`. F5-lite is in flight in CC.
-- **Five reviews absorbed:** (1) short UX/UI audit, (2) 10× dev+designer plan, (3) brand & graphic design plan, (4) deep numerical audit, (5) visual & gamification layer.
-- Synthesis below sequences all five into a multi-phase roadmap; F5-lite is the only piece that runs against the existing branch — every phase from 7.6 onward starts on a fresh branch off main.
-- This document is the living tracker. Each phase has a checkbox; update on completion. Don't archive old phases — strike them through so the history reads as a build log.
+- F1–F4 + F5-lite shipped on `phase-7-5-F-card-redesign` branch (3 commits ahead of origin pre-merge). PR #27 was merged earlier; new PR needed for F5-lite + doc updates.
+- **Six reviews absorbed:** (1) short UX/UI audit, (2) 10× dev+designer plan, (3) brand & graphic design plan, (4) deep numerical audit, (5) visual & gamification layer, (6) finance/energy/economics/math correctness audit.
+- Review (6) reshuffled the roadmap meaningfully — Phases 7.7 (financial model exposure + bankability), 7.8 (methodology + glossary + citations), 7.9 (sharability + data states) inserted BEFORE Phase 8 design foundation. Reviewer's verdict applied: "if numbers are wrong, no visual polish helps."
+- Phase ordering: F5-lite → 7.6 numerical reconciliation → 7.7 bankability → 7.8 trust foundation → 7.9 sharability → 8 design foundation → 9 identity → 10 cards → 10.5 content → 11 layout/mobile → 12 intel → 13 distribution → 14 IA/A11y → 15 eng rigor → 16 press → 17 engagement.
+- Each phase from 7.6 onward starts on a fresh branch off main.
+- Living tracker — check off, strike through, don't archive.
 
 ---
 
@@ -28,12 +30,14 @@
 **P6 · Sound — NEVER.**
 > Confirmed: no audio cues, ever.
 
-**P7 · Engagement layer (gamification) — PENDING.**
-> Visual review §15 proposes a KKME Pass (anonymous browser-stored profile with streak, level, badges), public weekly leaderboards (dispatch optimization, prediction accuracy), and daily "ping" notifications. Per-card games include "Build your own day" arbitrage drag, "Beat the TSO" imbalance prediction, "Predict 2028 fleet" slider, "Today's Map" daily question, "Dispatch champion" leaderboard, "What changed this week" Friday quiz.
+**P7 · Engagement layer — LOCKED, calibration-style only, fully opt-in.**
+> Adopted: daily regime call, Friday digest with 5-question quiz, private accuracy ledger, anonymous aggregate community signal (always-on stat + quarterly post), educational dispatch challenge. All anonymous by default; optional email subscription only for the Friday digest. No public leaderboards, no streaks, no levels/XP/badges, no profile system, no "Day X of regime" cute counters.
 >
-> *Recommendation:* SELECTIVE adoption. The daily Friday quiz is high-leverage and low-conflict — a 60-second knowledge-check email becomes a sticky weekly artifact for industry insiders. The "Stress your asset" Returns sliders and "Configure your project" cost calculator are functional, not gamified — adopt as primary features (already in Phase 10.5). Skip the streak/level/badge profile system, the daily map question, and the public leaderboards — these conflict with P4 ("quiet technical publication, numbers as heroes") and risk turning the site into a toy.
+> **Hard rule (the non-negotiable):** gamification must be **invisible to users who don't engage**. No nags, no popups, no "haven't taken today's call yet!" reminders, no UI bloat from engagement metadata. The default reader experience is unchanged from a passive data dashboard. Engagement features exist as small, opt-in entry points — never as forced surfaces.
 >
-> Decide before kicking off Phase 17. F5-lite, 7.6, and 8–16 do not depend on this.
+> No daily push to non-subscribers. No banner growth-hacks. No friction to dismiss. If a user wants to ignore the engagement layer entirely, they should never notice it exists.
+>
+> Year-in-review (Phase 18) is NOT scoped — added to backlog. Build only after Phase 17 ships and produces measurable engagement signal. Don't build infrastructure betting on traction we haven't observed.
 
 ---
 
@@ -117,6 +121,83 @@ These rules emerged from the deep numerical audit (§0). Every phase touching nu
 
 ---
 
+### Phase 7.7 — Financial Model Exposure + Bankability Gaps
+
+**Branch:** new `phase-7-7-bankability` off main (after 7.6 merges).
+**Maps to:** Bankability audit (review 6) §2 (finance correctness), §4 (economics), §5.8 (back-test).
+**Engine audit (done 2026-04-26 in Cowork — see below for findings):** the worker `/revenue` endpoint is FAR more sophisticated than the cards expose. ~80% of what review 6 flagged as missing is actually a UI display gap, not an engine gap. Phase 7.7 is mostly binding existing rich payload to the cards + filling 5 real engine gaps.
+
+**Engine audit summary:**
+- **Already in payload (just not on cards):** `project_irr` AND `equity_irr` separately, `min_dscr` + `min_dscr_conservative` + `worst_month_dscr`, `bankability` flag, `irr_status`, `payback_years`, `simple_payback_years`, full Y1 revenue split (`capacity_y1` / `activation_y1` / `arbitrage_y1` / `ebitda_y1` / `rtm_fees_y1`), 13-month trailing **`backtest`** array, 6-year `fleet_trajectory` + `cpi` per year (capacity-payment compression IS modelled), `all_scenarios` (3 scenarios), `crossover_year` + `revenue_crossover_year` + note, `ch_benchmark` (Swiss comparator) + `eu_ranking`, `irr_2h` AND `irr_4h` dual-duration, `monthly_y1` (12-month Y1), 20-year `years` cashflow, `live_rate` (dict), `deltas`, `forward`, `reconciliation`, `signal_inputs`.
+- **Genuinely missing from engine:** LCOS (€/MWh-cycled), MOIC, Monte Carlo P10/P50/P90 fans, real-vs-nominal explicit metadata (`priceBase: "EUR2026"`), cannibalization elasticity surface (the `cpi` trajectory exists but isn't framed as a cannibalization curve), sensitivity tornado output (9-cell matrix exists; tornado visualization extracts from it).
+
+**Why parallel-with-Phase-8 (decision B locked):** ship design and bankability simultaneously. Phase 7.7's exposure work has minimal engine-build dependency; Phase 8's design system has minimal data-binding dependency. Solo bandwidth = alternating CC sessions between tracks.
+
+- [ ] **7.7.0 — Worker output inventory CONFIRMATION.** Engine audit was done in Cowork. CC's task: re-run `curl /revenue | jq` to confirm payload still matches summary above; confirm S3-utils, S4-utils, S7-utils, S9-utils are reading from `/revenue` correctly. Note any payload drift since 2026-04-26. Output diff at `docs/phases/phase-7-7-worker-inventory.md` only if drift is found.
+- [ ] **7.7.1 — Surface Project IRR vs Equity IRR split.** Returns card displays both side-by-side with badges: `Project IRR (unlevered, post-tax, real)` and `Equity IRR (levered, post-tax, nominal)`. Currently shown as a single ambiguous "IRR" — this is the audit's #1 financial-correctness gap. If worker only outputs one variant, add the missing one (engine likely already supports it; just bind it to UI).
+- [ ] **7.7.2 — Surface DSCR explicitly.** Min DSCR + Avg DSCR + LLCR (Loan Life Coverage Ratio) on Returns card. Banks underwrite to DSCR, not IRR. Worker has `min_dscr` already; surface it. Add hover with debt assumptions (gearing, tenor, all-in rate).
+- [ ] **7.7.3 — Surface LCOS as headline.** LCOS (€/MWh-cycled) is the cross-tech comparator every analyst computes. Should be a prominent tile in Returns or its own card. Formula: `(CAPEX·CRF + Fixed O&M + Variable O&M·cycles + Charging cost) / annual MWh discharged`. If worker outputs it via `lcos_reference`, surface it; if not, compute from existing inputs.
+- [ ] **7.7.4 — Capital structure controls.** Returns sub-panel: gearing slider (0–80%, default 60%), tenor (5/7/10/12/15y, default 10y), all-in rate (EURIBOR + spread, default `+ 250bps`), recompute Min/Avg DSCR + LLCR live. Worker likely supports the levers via existing scenario inputs; if not, add to engine.
+- [ ] **7.7.5 — Surface RTE + auxiliary load + availability.** RTE (0.86 AC-AC default, declining 0.5%/yr) + parasitic load (1.5% of throughput) + availability (97% default) all visible somewhere — likely on a Build card sub-panel or Returns assumptions panel. Worker has RTE; verify availability + auxiliary are modelled or add them. Without these, current revenue is overstated by ~14%.
+- [ ] **7.7.6 — Surface degradation curve.** Worker has `getDegradation()` already — add a small chart on Returns showing SoH vs year curve, with augmentation toggle (overbuild + fade to 70% SoH OR periodic module replacement). This separates a marketing site from an asset-management site.
+- [ ] **7.7.7 — Revenue stack allocator (verify; the engine has `capacity_pct` / `activation_pct` / `arbitrage_pct` summing to 1.0, suggesting pre-allocated, but math needs confirmation).** Read `computeRevenueV7()` in worker. Confirm whether the three percentages represent (a) allocation of total MW-hours to each market (correct, no double-counting) OR (b) revenue contribution of each market computed independently then summed (additive, would double-count). If (b): replace with greedy max-per-hour allocator: `revenue ≤ Σ_t max_m(price_{m,t}) × MW × Δt`. Document as `lib/revenueStack.ts` with Vitest spec. **If this fix lands, every IRR on the site shifts down 10–25%.**
+- [ ] **7.7.8 — Real vs nominal + inflation indexing.** Every monetary figure carries a `priceBase: "EUR2026"` attribute. Inflation slider (default 2.0%) and effective tax rate (LT 15% / LV 20% / EE 22%) — country-specific. Worker likely treats most numbers as nominal currently; document and surface the convention.
+- [ ] **7.7.9 — Payback / MOIC / cash-on-cash year-1.** Equity investors look at multiple-of-money and cash yield. Add Payback (yrs) + MOIC (×) + Y1 cash yield (%) to Returns. Worker should support; add if missing.
+- [ ] **7.7.10 — Sensitivity tornado chart.** Standard PF deliverable. IRR sensitivity (±20%) to: CAPEX, RTE, DA spread, aFRR capacity price, cycles/day, WACC, degradation rate. Sort by impact magnitude. Compute by perturbing existing engine inputs.
+- [ ] **7.7.11 — P10/P50/P90 Monte Carlo (genuine new engine work).** Run 1,000-iteration MC on price volatility (σ from historical) and degradation, output P10/P50/P90 IRR and DSCR; display as fan chart per N-5. This is THE new engine work in 7.7 — most other items are exposure.
+- [ ] **7.7.12 — Back-test against historical years.** Run dispatch model on 2023 and 2024 historical prices; compare to known reference (Nordic comparator if no Baltic public data). Display: `Back-test 2023: predicted €/kW-yr = 78, actual = 81, error = -3.7%.` Single chart converts marketing site to evidence-based one. Worker has `backtest` array — extend.
+- [ ] **7.7.13 — Cannibalization / merit-order erosion (CONFIRMED — engine has the model).** Worker at `workers/fetch-s1.js:211-217` defines `cpi` = capacity-payment index, indexed to S/D ratio across three phases (SCARCITY / COMPRESS / MATURE). Applied as a multiplier on fcr_rev / afrr_rev / mfrr_rev / afrr_act / mfrr_act at lines 2392-2398. The `fleet_trajectory` array projects cpi forward 6 years. **Engine work is done.** Phase 7.7.13 task is purely surface: render the cpi trajectory as a "revenue compression vs storage maturity" curve. Per P3: chart's curve SHAPE is public; the cpi formula coefficients (1.0/2.0/0.30/0.40 thresholds, the 2.5/1.5/0.08 slopes) stay in drawer marked "KKME proprietary supply-stack model." Don't publish the breakpoints.
+- [ ] **7.7.14 — Market thickness badge.** Each balancing tile gets `Thick / Medium / Thin` label with implied bid-shading rules. mFRR is thin; price-taker assumption breaks down for a 50 MW asset. Documented in `/methodology` (Phase 7.8).
+- [ ] **7.7.15 — Real-options duration toggle.** "Given current and forward spreads, which duration (2h/4h/8h) maximizes NPV?" Output a clear recommendation. Existing scenario engine likely supports; add the comparison logic.
+- [ ] **7.7.16 — PPA / tolling structure scenario toggle.** Merchant / Tolling / Hybrid — three different IRR distributions. Tolling caps upside but de-risks revenue; relevant for IC committees.
+
+**Verification:** every formula change has a Vitest spec (Phase 7.6.0 harness). Engine changes deployed via `wrangler deploy` and verified against historical inputs (back-test catches regressions).
+
+**Estimated effort:** 3 CC sessions (revised down from 4 after engine audit confirmed most work is binding, not engine-building):
+- **Session 1 — Display work, low risk:** 7.7.0 confirmation + 7.7.1 (IRR split, both already in payload) + 7.7.2 (DSCR triple, already in payload) + 7.7.6 (degradation chart, `getDegradation()` exists) + 7.7.10 (sensitivity tornado from existing 9-cell matrix) + 7.7.12 (back-test chart from existing `backtest` array) + 7.7.14 (market thickness label).
+- **Session 2 — Small engine adds:** 7.7.3 (LCOS — formula well-known, all inputs in worker) + 7.7.7 (revenue stack confirmation/fix — most consequential math check) + 7.7.8 (priceBase metadata) + 7.7.9 (MOIC) + 7.7.4 (capital structure controls — sliders need worker live recompute) + 7.7.13 (cannibalization surface from existing cpi).
+- **Session 3 — Genuinely new engine work:** 7.7.5 (auxiliary load + availability if not already modelled) + 7.7.11 (Monte Carlo P10/P50/P90) + 7.7.15 (real-options duration optimizer using existing irr_2h/irr_4h) + 7.7.16 (PPA/tolling scenario toggle — full new engine path).
+
+---
+
+### Phase 7.8 — Methodology + Glossary + Citations + Versioning
+
+**Branch:** new `phase-7-8-trust` off main.
+**Maps to:** Bankability audit §5.1 (methodology), §1.2 (glossary), §6.1 (disclaimers), §6.2 (citations), §6.4 (versioning), §6.6 (audit log).
+**Why before Phase 8:** trust foundation. The audit's #1 priority — "without methodology, the site won't be trusted by anyone in finance or energy industry."
+
+- [ ] **7.8.1 — `/methodology` page.** MDX-based with KaTeX rendering. Every formula on the site has a section: Annuity / CRF, LCOS, IRR (with timing convention), WACC, DSCR, Spread Capture Efficiency, RTE (AC-AC + auxiliaries), Degradation (calendar + cyclic), Imbalance exposure, Revenue stack allocator. Each formula has units, source citation, and a worked example. Per P3 (locked principle): commodity formulas public, proprietary analytics drawer-only.
+- [ ] **7.8.2 — `/glossary` page + `<Term>` primitive.** Every acronym (aFRR, mFRR, FCR-N, residual load, P50, WACC, LCOS, DSCR, MOIC, BESS, BTD, DA, ID, ISP, NTC, PICASSO, MARI, CRM, etc.) gets an entry. `<Term>` component wraps acronyms in dotted underline; hover/tap shows 2-line definition + link to glossary. Glossary content sourced from `content/glossary.mdx`.
+- [ ] **7.8.3 — Citation system.** `<Cite>` component with footnote `[1]` superscript inline; hover shows source; click jumps to `/sources` page. Bibliography auto-generated from `content/citations.bib` or YAML. Every external number footnoted.
+- [ ] **7.8.4 — Disclosures + disclaimers.** Footer block + per-page banner on Returns and Trading: "Not investment advice. Indicative only. Past performance not a guide." Author identification: "Built by Kastytis Kemežys, UAB KKME. Last reviewed 2026-XX-XX." Reviewer info on `/colophon`.
+- [ ] **7.8.5 — Model versioning + `/changelog`.** Footer shows `Model v2.4 — released 2026-04-12`. `/changelog` page lists every model version with date, formula changes, scope. Banks/counterparties cite the version that generated their screenshot. Worker bumps the version on any formula change.
+- [ ] **7.8.6 — `/data-revisions` audit log.** ENTSO-E and similar sources revise historical values. When a previously-displayed number changes, log it: original value, revised value, date of revision, source. Builds long-term credibility.
+- [ ] **7.8.7 — `/policy` page.** EU regulatory context: EMD reform, Net-Zero Industry Act, Innovation Fund, Modernisation Fund, RED III, AFIR, EU PICASSO/MARI platform, post-CE-sync (Feb 2025). Quarterly digest of "what changed this quarter." Auto-generated section pulled from Intel feed when items are tagged `policy`.
+- [ ] **7.8.8 — Post-CE-sync versioning marker.** Every relevant TSO procurement number on the site explicitly labelled `Post-CE-sync (Feb 2025)`. The desync from BRELL changed FCR sizing and aFRR procurement volumes materially; older numbers must be flagged or excluded.
+- [ ] **7.8.9 — Geometric vs arithmetic mean documentation.** Explicit note in /methodology: multi-period IRR uses geometric; cross-sectional snapshot averages use arithmetic. Each chart annotated.
+
+**Estimated effort:** 2–3 CC sessions. Heavy content authoring; CC writes the MDX + KaTeX scaffolding, you fill in the specific formulas/disclaimers.
+
+---
+
+### Phase 7.9 — Sharability triad + Data states
+
+**Branch:** new `phase-7-9-sharability` off main.
+**Maps to:** Bankability audit §1.4 (copy-number), §1.5 (print), §1.7 (data states), §6.3 (CSV download), §6.5 (permalink), §6.10 (share-scenario PNG with QR), §6.7 (math a11y).
+**Why now:** sharability turns visitors into propagators. Energy professionals copy numbers into models, print to PDF, send permalinks. Without these, the site can't propagate.
+
+- [ ] **7.9.1 — Permalink encoding.** Extend Phase 15.1 `useScenario()` early — every assumption (gearing, WACC, RTE, cycles, country, product, duration, capex case, COD year, scenario) encodes in URL. "Permalink" button copies a clean URL that reproduces exactly the current scenario. Bookmarkable. Shareable in Slack/email.
+- [ ] **7.9.2 — Copy-number affordance.** Click any KPI value → copies `value | unit | source | as-of | URL#anchor` to clipboard, 1-second toast confirms. Drives sharability more than any social card. Implemented as a tiny corner-triangle on every primary metric.
+- [ ] **7.9.3 — `<DataFigure>` + CSV download.** Every chart wrapped in `<DataFigure data={...}>` exposes a "Download CSV" button. Analysts paste into Excel; the data leaves the site, the brand follows.
+- [ ] **7.9.4 — `/print` route + `@media print` rules.** Clean 2-column A4 layout, page breaks at section boundaries, footer with URL + retrieved-at timestamp. Project-finance analysts print things. `styles/print.css`.
+- [ ] **7.9.5 — `<DataState>` component.** Every data component has four states: `loading` (skeleton), `ok`, `stale` (>24h, amber dot + "data is N hours old" — already in F5-lite for S1/S2), `error` (rose dot + retry). Centralised so cards don't reinvent it.
+- [ ] **7.9.6 — Share-scenario PNG with QR.** "Share scenario" button on Returns: generates 1200×630 PNG with IRR, DSCR, LCOS, payback, scenario inputs, and QR code back to the permalink. Drops the screenshot ratio in IC decks; QR brings the analyst back to the live model. Phase 13.1 daily-card infrastructure (Vercel/og) is reused.
+- [ ] **7.9.7 — Number a11y.** Every number gets `aria-label` with full unit ("twelve point four euros per megawatt-hour"). Screen readers shouldn't say "twelve point four E slash M W H." Implemented via `formatNumber()` extension.
+
+**Estimated effort:** 2 CC sessions. Tight scope, mostly UI work. Permalink + copy-number + CSV are quick wins; print + share PNG are heavier.
+
+---
+
 ### Phase 8 — Foundation Sprint (tokens, typography, primitives, microbrand)
 
 **Branch:** new `phase-8-foundation` off main.
@@ -126,8 +207,17 @@ The keystone phase. Until tokens are real, every other design fix is duct tape.
 
 - [ ] **8.1 — Complete semantic token layer.** Add `--success / --danger / --mint / --coral / --lavender / --sky / --ink / --ink-muted / --ink-subtle / --paper` as named aliases over existing primitives. Full light/dark pairs. Audit every hardcoded hex/rgba and pull through tokens. (Pending P1 decision for color grammar interpretation.)
 - [ ] **8.2 — Three-voice typography system.** Display serif (recommend Fraunces with optical-size axis), mono (JetBrains Mono or Berkeley Mono), body sans (Inter). Replace the dead Super Sans/Serif/Mono VF requests. Build the `--type-hero / --type-number-xl / --type-number-l / --type-section / --type-eyebrow / --type-body / --type-caption` ramp. Apply `font-variant-numeric: tabular-nums` globally on mono.
-- [ ] **8.3 — Core primitives.** `<MetricDisplay>` (value + unit + vintage glyph O/D/F/M + label + delta + regime + **optional P10/P50/P90 fan** + **optional sample-size N badge** + **methodology version stamp**), `<Source>` (favicon + domain + last-fetched + timezone), `<Icon>` (sprite reference), `<Eyebrow>`, `<Hairline>`, `<AnnualisedTwin>` (renders muted `× 365` companion below any €/MW/day or €/MWh number — implements 7.6.17 rule), `<HaircutToggle>` (theoretical vs realistic on annualised offer values — implements 7.6.18 rule). Storybook entry per primitive. Type the `Metric` interface so renderer can never display a unitless or unstamped number (per 10× review Tier 4 #5).
-- [ ] **8.3b — Visual atom primitives** (per visual review §1; these are the four shared visual primitives that account for ~70% of the surface): `<DistributionTick>` (1px hairline + tick mark showing where today's value sits across min / p25 / p50 / p75 / p90 / max — used 50+ times across the site), `<RegimeBarometer>` (horizontal bar tight→compressed→normal→wide→stress with vertical needle for today's reading; uses semantic palette per P1), `<VintageGlyphRow>` (16×16 pill row for O/D/F/M provenance — extracted as standalone for cards where MetricDisplay is overkill), `<CredibilityLadderBar>` (horizontal stacked bar from intention → reservation → permit → agreement → construction → operational; reusable across pipeline, project counts, asset funnel). Each is a single visual atom; reuse — not bespoke per card — drives coherence.
+- [ ] **8.3 — Extend existing primitives (don't rebuild).** Repo already has primitives at `app/components/primitives/`: `AnimatedNumber`, `ConfidenceBadge`, `DataClassBadge` (this IS the vintage O/D/F/M badge), `DetailsDrawer`, `FreshnessBadge`, `ImpactLine`, `MetricTile` (this IS the metric display primitive), `SectionHeader`, `SourceFooter`, `StatusChip`. Phase 8.3 EXTENDS them rather than replacing:
+    - **`MetricTile`** → grow to support optional P10/P50/P90 fan, optional sample-size N badge, optional methodology version stamp. Keep existing API so existing card consumers don't break.
+    - **`DataClassBadge`** → confirm O/D/F/M coverage, add color-coding tied to N-1 rule + P1 palette.
+    - **`FreshnessBadge`** → already extended by F5-lite (helper at `app/lib/freshness.ts`); apply chip pattern from F5-lite.2 thresholds globally.
+    - **`SourceFooter`** → add favicon + last-fetched timestamp + timezone per N-7.
+    - Type the `Metric` interface so the renderer can never display a unitless or unstamped number (per 10× review Tier 4 #5).
+- [ ] **8.3b — Add new visual atom primitives** (per visual review §1; the four shared visuals that account for ~70% of the new surface): `<DistributionTick>` (1px hairline + tick mark showing where today's value sits across min / p25 / p50 / p75 / p90 / max — used 50+ times across the site), `<RegimeBarometer>` (horizontal bar tight→compressed→normal→wide→stress with vertical needle for today's reading; uses semantic palette per P1), `<CredibilityLadderBar>` (horizontal stacked bar from intention → reservation → permit → agreement → construction → operational; reusable across pipeline, project counts, asset funnel), `<AnnualisedTwin>` (muted `× 365` companion implementing N-3), `<HaircutToggle>` (theoretical vs realistic toggle implementing N-8). Each a single visual atom; reuse — not bespoke per card — drives coherence.
+- [ ] **8.3c — Number formatting + a11y utility.** `lib/format.ts` exports `formatNumber(value, kind)` that enforces consistent precision: capacity in MW (no decimals < 100, 1 decimal otherwise), prices in €/MWh to 1 decimal, IRR to 0.1pp, capacity factor to whole %, MOIC to 2 decimals, ratios (DSCR) to 2 decimals. Plus `formatNumberA11y(value, kind)` for screen-reader-friendly aria-labels ("twelve point four euros per megawatt-hour"). Implements N-2 unit clarity at the renderer level.
+- [ ] **8.3d — `<DataState>` primitive.** Wraps any data-driven component with four states: `loading` (skeleton), `ok` (data present), `stale` (>24h, amber dot), `error` (rose dot + retry). Built once, used across every card. Pre-positions for Phase 11 mobile data UX (`summary stat + sparkline` mobile default → tap-to-expand).
+- [ ] **8.3e — `<Term>` primitive.** Wraps acronyms (aFRR, mFRR, FCR, P50, WACC, LCOS, DSCR, etc.) in dotted underline; on hover/tap shows 2-line definition + link to /glossary. Glossary content sourced from `content/glossary.mdx`. Implementation depends on Phase 7.8.2 having authored the glossary.
+- [ ] **8.3f — `<Cite>` primitive.** Footnote `[1]` superscript; hover shows source; click jumps to `/sources` page. Bibliography auto-generated from `content/citations.bib` or YAML. Used wherever an external number appears.
 - [ ] **8.4 — Icon sprite.** ~25-icon set on 24×24 grid, 1.5px stroke, square caps. Categories per brand review §6: energy/asset (battery, solar, wind, thermal, transformer, substation, interconnector, grid), market (arbitrage, capacity, activation, imbalance, forecast), geography (LT, LV, EE monogram tiles), vintage glyphs (O/D/F/M), UI (expand, collapse, external, copy, pin, filter, info, share).
 - [ ] **8.5 — Logo system.** Wordmark variants at multiple optical sizes, monogram, stamp, lockup-tagline. Favicon set (16/32/48/192/512), apple-touch, safari-pinned-tab.
 - [ ] **8.6 — Public design system pages.** `/brand` (logo system + clear-space rules + minimum sizes), `/style` (color palette + type ramp + token reference), `/visuals` (per visual review §17 — primitives doc with examples/props/usage rules; chart catalog with sample data and "do not use when N<7" guidance; motion timings/easing rationale; game elements catalog if P7 lands "selective"), `/colophon` (typefaces, color philosophy, data sources, build stack, person behind it). These doubled as marketing — credibility signal. Designers in adjacent industries quote them; press articles screenshot them.
@@ -162,7 +252,15 @@ The keystone phase. Until tokens are real, every other design fix is duct tape.
 **Maps to:** Brand review §10; 10× review Tier 1 #5; UX audit cards section.
 
 - [ ] **10.1 — Card variant primitives.** `<HeadlineCard>`, `<DriverCard>`, `<DeepDiveCard>`. Surface elevation, border treatment, padding scale tokens.
-- [ ] **10.2 — Migrate S1/S2/S3/S4/S5/S6/S7/S8 to variants.** Most become DriverCard; one or two get HeadlineCard treatment per section.
+- [ ] **10.2 — Migrate live cards to variants.** Actual card inventory (verified 2026-04-26 via repo audit):
+    - **Section "Revenue signals":** S1Card (DA arbitrage), S2Card (Balancing aFRR/mFRR/FCR)
+    - **Section "Build conditions":** S3Card (Installed BESS cost), S4Card (BESS pipeline & buildability ledger)
+    - **Section "Structural market drivers":** RenewableMixCard, ResidualLoadCard, PeakForecastCard, SpreadCaptureCard (replaced retired S8), S7Card (TTF gas), S9Card (EU ETS carbon)
+    - **Section "50 MW reference asset":** RevenueCard (HeadlineCard candidate)
+    - **Section "Dispatch intelligence":** TradingEngineCard
+    - **Section "Market intelligence":** IntelFeed (not strictly a card; layout primitive)
+    - **Retired / unused:** S5Card, S6Card, S8Card (replaced), SolarCard, WindCard, LoadCard. Decide per phase whether to delete or revive — default: leave alone, don't break what isn't on the page.
+    - Most cards become `DriverCard`. Heroes per section get `HeadlineCard` treatment (likely candidates: S1, S2, RevenueCard, TradingEngineCard).
 - [ ] **10.3 — Apply `<MetricDisplay>` everywhere.** Vintage glyphs (O/D/F/M) live next to numbers. Hairline rules above heroes.
 - [ ] **10.4 — Regime chip semantic colors.** Per P1: descriptive palette (mint/amber/coral/lavender) tied to data state. Document in /style.
 - [ ] **10.5 — Apply icon sprite throughout.** Section toggles, card headers, source attributions.
@@ -186,8 +284,14 @@ The keystone phase. Until tokens are real, every other design fix is duct tape.
     - **Apply N-3 (annualised twin) and N-8 (availability haircut)** rules to every primary value via `<AnnualisedTwin>` and `<HaircutToggle>` primitives from Phase 8.3.
 - [ ] **10.11 — Cross-card metric highlight.** Hovering a metric anywhere on the page subtly highlights every other surface displaying the same metric (e.g., hovering "8.6% IRR" in Returns highlights the same value in hero and ticker). Cross-card relationships made visible without click. Implemented via a global hover-key store (`metric:project_irr_unlevered`), each rendered metric subscribes.
 - [ ] **10.12 — "Today's chain" causal visualization.** Top of Structural section: a single horizontal chain `High wind → renewable share 119% → residual load -495 MW → DA spread above P90 → BESS arbitrage profitable today`. Each link tappable, opens corresponding card. Teaches the entire structural model in 30 seconds. Per visual review §9.
+- [ ] **10.13 — Reserve product nomenclature precision.** Per audit §3.1: every balancing tile carries explicit `aFRR capacity` vs `aFRR energy` distinction (these are different products with different units). Same for mFRR. FCR is symmetric, capacity-only. Add `<Term>` (Phase 8.3e) wrappers on every product abbreviation linking to glossary.
+- [ ] **10.14 — Imbalance settlement labels.** Audit §3.2: the Baltics moved to single-pricing imbalance settlement. S2 imbalance card explicitly states the mechanism. Affects when a BESS captures imbalance revenue vs DA. Documented in /methodology.
+- [ ] **10.15 — Grid connection cost split (S4 expansion).** Audit §3.6: split the single connection number into connection-point cost (€/MW), reinforcement allocation (deep vs shallow), queue length (months), and DSO vs TSO connection. Single most decision-relevant number for developers.
+- [ ] **10.16 — Permitting timeline Gantt (S4 expansion).** Audit §3.7: from PPA/site control to COD — typical 18–36 months in LT, longer in LV/EE. Render as a Gantt distribution across the 29 fleet projects. Real-vs-claimed timelines is one of the most-asked Baltic storage dynamics.
+- [ ] **10.17 — Clean Spark Spread tile (S7/S9 join).** Audit §3.9: the implied marginal-gas-plant clearing price = `(TTF / efficiency) + (ETS × emission_factor) + variable O&M`. This is the single most useful equation in EU power markets. Surface as a calc card linking S7 (gas) and S9 (carbon) into one "where does today's peak ceiling come from?" view.
+- [ ] **10.18 — Storage-need from VRE buildout (RenewableMix expansion).** Audit §3.10: connect "Renewable mix" and "Residual load" to a "storage need" call-out — GW of storage required to integrate the projected renewable additions (rule of thumb: ~10–15% of installed VRE in 4h equivalent). Drives the investment thesis instead of being decorative.
 
-**Estimated effort:** 4–5 CC sessions. Card-by-card visualization upgrade is the largest individual workstream in the plan after Phase 8.
+**Estimated effort:** 5–6 CC sessions. Card-by-card visualization upgrade + energy-industry precision items is the largest individual workstream in the plan after Phase 8.
 
 ---
 
@@ -208,6 +312,11 @@ The keystone phase. Until tokens are real, every other design fix is duct tape.
 - [ ] **10.5.9 — "Configure your project" live cost calculator.** Sliders for duration (2/4/6/8h), scope tier (developer/turnkey/institutional), grid heaviness, supplier tier, timing. Cost stack and €/kWh recompute live. Generates shareable "your KKME quote" card: `4h · turnkey · grid-heavy · Q3 2026 · €178/kWh ±€20`. Per visual review §7. The page developers send to their boards.
 - [ ] **10.5.10 — "Stress your asset" Returns interactive.** Four sliders on the Returns card: CAPEX (€110–300/kWh), WACC (5–12%), capture decay rate (0–10%/yr), aFRR clearing trajectory (-30% to +30%). Every metric on the card recomputes live. "Find my breakeven" button auto-solves for the slider value that brings IRR to 11%. Shareable URL encodes slider state — analyst sends scenario to MD with one link. Per visual review §11. This is what every IC analyst does in Excel; doing it in 5 seconds in browser is genuinely transformative.
 - [ ] **10.5.11 — 2D LCOS sensitivity heatmap on Build card.** x = cycles/yr (200–500), y = WACC (5–12%), color = LCOS €/MWh, with "your asset" position marked as a draggable circle. Teaches the LCOS sensitivity intuition in seconds.
+- [ ] **10.5.12 — Capacity Remuneration Mechanism (CRM) card.** Audit §3.5: Lithuania has a strategic reserve / capacity mechanism in development; Estonia and Latvia have different schemes. A BESS may earn capacity payments. Country-tabbed card with current scheme details + KKME's expected impact on revenue stack.
+- [ ] **10.5.13 — Counterfactual benchmark table.** Audit §4.3: investors compare BESS to alternatives — gas peaker, OCGT, demand response, transmission upgrade. €/MWh of flexibility delivered by technology. Sourced from JRC / BNEF / NREL.
+- [ ] **10.5.14 — Macroeconomic demand-driver tile.** Audit §4.6: Baltic GDP growth, industrial electrification (steel, hydrogen), datacenter load (a major emerging buyer in LT/EE), EV penetration. Each shifts demand profile and storage value.
+- [ ] **10.5.15 — Real-options duration optimizer.** Audit §4.5: given current and forward spreads, recommends 2h/4h/8h. Output: "At 2026 spreads, 2h dominates; at 2030 spreads, 4h dominates." Engine work in 7.7.15; UI surface in 10.5.15.
+- [ ] **10.5.16 — Revenue structure scenario toggle.** Audit §4.7: Merchant / Tolling / Hybrid — three IRR distributions, three risk/reward profiles. Tolling caps upside but de-risks revenue; relevant for IC committees. Engine work in 7.7.16; UI surface in 10.5.16.
 
 **Estimated effort:** 4 CC sessions (largest content phase; can split LT/LV/EE comparison work with rest of plan).
 
@@ -223,6 +332,7 @@ The keystone phase. Until tokens are real, every other design fix is duct tape.
 - [ ] **11.3 — Real designed light theme.** Per P4 brand position: paper-cream / espresso, paired map asset, retuned chart palette where every series passes 4.5:1 on cream, deeper accent (not the current near-black lavender on cream).
 - [ ] **11.4 — Theme-aware asset loading.** Don't ship 1.3MB of light-theme SVG to dark-mode users. `<link rel="preload" media="...">` per theme.
 - [ ] **11.5 — Returns card overflow.** ViewBox-driven SVG, secondary axis inset on narrow.
+- [ ] **11.6 — Mobile data UX.** Charts on a 390-px phone default to *summary stat + sparkline*; tap-to-expand opens the full chart in a modal sheet. Audit §6.8: "we only fixed layout — not data density." `<DataState>` + a mobile breakpoint variant of every chart component.
 
 **Estimated effort:** 2–3 CC sessions.
 
@@ -252,7 +362,9 @@ The keystone phase. Until tokens are real, every other design fix is duct tape.
 - [ ] **13.1b — "Year in review" retrospective card.** End of year, generate a 1200×630 image with a 365-cell regime calendar (each cell colored by daily regime), top 5 spread days, total Baltic BESS additions, KKME's forecast accuracy. The most-shared single piece of content KKME ever produces.
 - [ ] **13.2 — Snapshot share button.** Copies clean PNG of today's hero to clipboard.
 - [ ] **13.3 — `/sources` page.** Every upstream feed (ENTSO-E, BTD, energy-charts, Litgrid, AST, Elering, NVE, ECB, BNEF, NREL ATB) with logo, what KKME pulls, refresh cadence, license, last-updated.
-- [ ] **13.4 — Methodology permalinks.** Per P3: public pages for commodity formulas, drawer-only for proprietary analytics. Schema.org Dataset markup per page.
+- [ ] **13.4 — Methodology permalinks (depends on Phase 7.8.1).** Per P3: public pages for commodity formulas, drawer-only for proprietary analytics. Schema.org Dataset markup per page. The `/methodology` page itself is built in Phase 7.8.1; Phase 13.4 ensures every card's "Reading this card" drawer links to the relevant permalink section.
+- [ ] **13.5 — Share-scenario PNG generator (extends Phase 7.9.6).** Whereas 7.9.6 builds the basic share-PNG with QR, 13.5 polishes it for marketing: variant designs (Capture Day, Reserve Day, Pipeline Day, Returns Snapshot), social-platform aspect ratios (LinkedIn 1200×630, X 1200×675, Slack 1200×630), share-button-on-every-card affordance.
+- [ ] **13.6 — SEO + dynamic OG image.** Audit §6.9: title `Baltic BESS Economics & Flexibility Market Intelligence | KKME`. Meta description with `aFRR, mFRR, DA spreads, LT LV EE, project IRR`. OG image renders today's IRR + regime + headline metric — every share is an ad.
 
 **Estimated effort:** 1.5 CC sessions.
 
@@ -267,7 +379,8 @@ The keystone phase. Until tokens are real, every other design fix is duct tape.
 - [ ] **14.2 — Section reorder.** Hero → Structure → Signals → Trading → Build → Returns → Intel.
 - [ ] **14.3 — Sticky TOC ≥1280px.** IntersectionObserver progress indicator.
 - [ ] **14.4 — Keyboard layer.** `?` help overlay, vim-style `g s / g b / g r`, `[`/`]` cycles scenarios, `t` theme, `m` map focus.
-- [ ] **14.5 — Skip link, focus rings, ARIA audit.** axe-core in CI. Fix every contrast finding.
+- [ ] **14.5 — Skip link, focus rings, ARIA audit.** axe-core in CI. Fix every contrast finding. **Math accessibility:** every number `aria-label` reads the full unit out ("twelve point four euros per megawatt-hour"), not the abbreviated form. `formatNumberA11y()` from Phase 8.3c handles this.
+- [ ] **14.6 — i18n scaffolding (deferred content).** Externalize all UI strings to `messages/en.json` via `next-intl` (or similar). Even if only English ships, this unblocks future LT/LV/EE translations. Audit §1.8.
 
 **Estimated effort:** 2 CC sessions.
 
@@ -301,44 +414,109 @@ The keystone phase. Until tokens are real, every other design fix is duct tape.
 
 ---
 
-### Phase 17 — Engagement Layer (GATED on P7 decision)
+### Phase 7.10 — Lithuanian BESS regulatory feed (SHIPPED in Cowork 2026-04-26)
+
+**Branch:** TBD — work was implemented in Cowork on local working tree alongside Phase 7.6 Session 2 + 3.
+**Maps to:** External feed contract at `docs/contracts/regulatory-feed/HANDOVER.md` (schema v1.0). Producer = `lt-bess-regulatory-monitor` task; consumer = website.
+
+**Decisions locked:**
+- A: show `title_lt` as italic subtitle by default (audience is Lithuanian-speaking; English title is a translation, LT is the legal name).
+- B: render-fallback approach on schema mismatch (rest of site keeps shipping).
+- C: feed contract moved to `docs/contracts/regulatory-feed/`.
+
+**Surfaces shipped:**
+- `/regulatory` — full archive, grouped by week, filter chips for impact/category/tag, URL-encoded permalinks.
+- Homepage `#intel` section — `RegulatoryPreview` block with top 3 most-recent items + "See all updates →" link.
+- Disclaimer footer per HANDOVER §5: "Informational only. Not legal advice. Speak to qualified counsel for any specific matter."
+
+**Files added:**
+- `lib/regulatory-schema.ts` — Zod schemas pinned to `SUPPORTED_MAJOR = '1'`; refuses major-version bumps.
+- `lib/regulatory.ts` — loader, sortItems, groupByWeek, impactSentiment helpers.
+- `lib/__tests__/regulatory.test.ts` — 28 spec assertions across 8 describe blocks.
+- `data/regulatory_feed.json` — copy of upstream feed (refresh weekly via GitHub Action you'll wire separately).
+- `app/regulatory/page.tsx` — full archive route.
+- `app/components/regulatory/RegulatoryItem.tsx` — single item card.
+- `app/components/regulatory/RegulatoryFeed.tsx` — client-side filtering view.
+- `app/components/regulatory/RegulatoryFilters.tsx` — chip toggles bound to URL search params.
+- `app/components/regulatory/RegulatoryPreview.tsx` — homepage preview block.
+- `app/components/regulatory/RegulatoryEmpty.tsx` — fallback states (feed-missing, schema-major-mismatch, schema-shape-mismatch, empty-items).
+
+**Files modified:**
+- `app/page.tsx` — added `<RegulatoryPreview />` to `#intel` section above `<IntelFeed />`.
+- `package.json` — added `zod ^3.25.76` to devDependencies.
+
+**Files moved:**
+- `_feed_contract/HANDOVER.md` → `docs/contracts/regulatory-feed/HANDOVER.md`
+- `_feed_contract/regulatory_feed.json` → `docs/contracts/regulatory-feed/regulatory_feed.json`
+- Empty `_feed_contract/` directory needs `rmdir _feed_contract` (sandbox couldn't remove it).
+
+**Pending:** GitHub Action to sync `data/regulatory_feed.json` weekly from upstream. Kastytis will wire separately.
+
+**Out of scope (not built):**
+- Internationalization toggle for the regulatory section (Phase 14.6 covers site-wide i18n later).
+- StickyNav route link to `/regulatory` — would conflict with the existing hash-anchor model. Reachable via homepage preview link + direct URL.
+
+---
+
+### Phase 17 — Engagement Layer (calibration-style, fully opt-in)
 
 **Branch:** new `phase-17-engagement` off main.
-**Maps to:** Visual review §15 + per-card game elements scattered across §5–§13.
-**Status:** PENDING P7 principle decision. Do not author Phase 17 prompt until P7 is locked. If P7 lands "skip the gamification entirely," delete this phase.
+**Maps to:** Visual review §15 (refined) + audit §22 missing-numbers community-aggregate slice.
+**Status:** P7 LOCKED. Scope below is final.
 
-If P7 lands "selective adoption" (my recommendation), the scope is:
+**Hard rule:** every feature is INVISIBLE to users who don't engage. No nags, no popups, no banner growth-hacks. Default reader experience is unchanged.
 
-- [ ] **17.1 — Friday weekly quiz.** 60-second 5-question knowledge-check on the week's Baltic flexibility news. Streak counter, simple leaderboard. Email-deliverable for subscribers. Becomes the most-anticipated Friday-afternoon artifact in Baltic energy circles.
-- [ ] **17.2 — Daily ping notification (opt-in).** Single line, once per day: *"Compressed regime, day 47. Today's spread sits at P15. Click to see why."* Email or browser push. The morning-coffee read.
-- [ ] **17.3 — "Today's chain" interactivity.** Already in Phase 10.12 as a static causal visualization; in 17.3 add the tap-to-pin behavior so a user can lock the chain and watch how each link's value moves through the day. Light gamification, no streaks/levels.
+- [ ] **17.1 — Daily regime call.** Anonymous, browser-storage. Small unobtrusive "today's regime — call it" affordance somewhere on the home page (NOT a popup). User clicks one of: compressed / wide / tight / stress. Reveal at end of day. Private accuracy history visible to that user only. 5-second commitment, no streaks, no shame.
+- [ ] **17.2 — Friday digest with 5-question quiz.** Email subscription opt-in. Single email Friday afternoon: 5 multiple-choice questions on the week's Baltic flexibility news + week-in-numbers recap. User score shown immediately on submit ("you got 3/5; readers averaged 3.2/5 this week"). No public ranking, no streaks. Subscription opt-in is via a single small "subscribe to weekly digest" entry point — no popup, no modal, no growth banner.
+- [ ] **17.3 — Private accuracy ledger.** Browser-storage only. Logs every interaction with future outcome (regime call, dispatch challenge result, configure-your-project quote). User can review their own accuracy over time on a `/me` page (or wherever clean fits). Visible only to the user — no server identity, no leaderboard, no aggregate. Pure calibration training.
+- [ ] **17.4 — Anonymous aggregate community signal.**
+    - **Always-on stat (small, unobtrusive):** e.g. "today's reader regime calls so far: 64% compressed, 28% tight, 8% wide" rendered as a tiny line near the regime barometer, not a hero element. Only appears when N ≥ some threshold (say 20 calls) so noise doesn't hurt.
+    - **Quarterly published artifact:** "What KKME readers expected vs what happened in Q1 2026" — aggregate accuracy, median forecasts, summary stats. Becomes a piece of journalism that gets cited. Only ships if the daily regime call accumulates meaningful sample size (gate the quarterly post on N ≥ ~500 calls per quarter).
+- [ ] **17.5 — Educational dispatch challenge.** "Try dispatching a 50 MW asset against today's prices" — fixed-scenario interactive. User clicks discharge/charge buttons through a fast-forwarded day; algorithm scores their realized capture vs the optimal ("you captured 87% of optimal"). Private only — score logged to ledger, never shown to other users. No leaderboard. Trains intuition; doesn't gamify the audience.
 
-**Explicitly OUT of scope** (per P7 recommendation, even under selective adoption — these conflict with P4):
-- KKME Pass with browser-stored streak / level / badge profile system
-- Public weekly leaderboards for dispatch optimization or prediction accuracy
-- "Build your own day" arbitrage drag puzzle
-- "Beat the TSO" imbalance prediction game
-- "Predict 2028 fleet" public-aggregation forecasting
-- "Today's Map" daily question
-- "Dispatch champion" leaderboard
-- "Day X of regime" streak counter on hero
-- Particle effects unlocked at higher levels
-- Any feature that turns the site into a toy
+**Explicitly OUT of scope** (won't build under any framing):
+- KKME Pass / streaks / levels / XP / badges / profile system
+- Public weekly leaderboards (any kind)
+- "Build your own day" / "Beat the TSO" / "Today's Map" / "Predict 2028 fleet" / "Dispatch champion" — anything framed as a competitive game
+- "Day X of regime" cute counter at hero
+- Particle effects unlocked at any level
+- Daily browser/email push to non-subscribers
+- Any popup, modal, banner, or "haven't engaged yet?" reminder
+- Server-side user identity / accounts / login
 
-The "Configure your project" cost calculator and "Stress your asset" Returns interactive are functional features, not games — they live in Phase 10.5 (10.5.9 and 10.5.10) and are not gated on P7.
+The "Configure your project" cost calculator and "Stress your asset" Returns interactive are functional features, not engagement — they live in Phase 10.5 (10.5.9 and 10.5.10) and ship regardless.
 
-**Estimated effort:** 1.5 CC sessions if P7 says go.
+**Estimated effort:** 2 CC sessions. One for 17.1 + 17.3 + 17.4 always-on stat + 17.5. One for 17.2 (email subscription pipeline is the bigger lift). Quarterly artifact is content work, not engineering — separate from the Phase 17 scope.
+
+**Don't pre-build infrastructure for engagement we haven't observed.** If after 3 months the daily regime call has 12 total clicks, that's the signal to pull the engagement layer entirely. Phase 17 is exploratory; treat it as such.
 
 ---
 
 ## 3. Sequencing notes
 
-- **Phases run sequentially**, not in parallel. Bandwidth is the rate limiter.
-- **Phase 8 is the longest** because it's foundation work. Don't compress it.
-- **Phases 9–13 can occasionally swap order** if a particular phase's dependency lands early. Phase 11 (layout/mobile/theme) can move earlier if mobile traffic shows up.
+- **Phase 7.6 finishes first** (currently in flight; Sessions 2 + 3 still to run).
+- **After 7.6 → parallel cluster (decision B):** Phases 7.7 (financial exposure) + 8 (foundation) + 7.8 (methodology/glossary) can run in alternating CC sessions — they have minimal cross-dependencies. Solo bandwidth = "alternating" not literal-parallel.
+    - 7.7 is mostly worker payload binding to cards (low engine-build risk).
+    - Phase 8 is design system primitives (low data-binding risk).
+    - 7.8 is content-heavy (MDX authoring, formula prose).
+    - Run in any order; whichever has the cleaner CC kickoff wins next slot.
+- **Sequential after the parallel cluster:**
+    - 7.9 (sharability) needs Phase 8 primitives → after Phase 8.
+    - Phase 9 (identity, hero) needs Phase 8 → after Phase 8.
+    - Phase 10 (cards) uses both Phase 8 primitives AND Phase 7.7 engine output → after both.
+    - Phase 10.5 (Tier-S content) → after Phase 10.
+    - Phase 11 (layout/mobile/theme) → can move earlier if mobile traffic shows up.
+    - Phase 12 (intel engine) → independent; can run at any point (worker-side).
+    - Phase 13 (distribution) → after Phase 9 hero stabilises.
+    - Phase 14 (IA/A11y) → near the end.
+    - Phase 15 (eng rigor) → last technical phase.
+    - Phase 16 (press + final polish) → last.
+    - Phase 17 (engagement) → after main roadmap clears.
 - **Each phase ends with screenshots committed** to `docs/visual-audit/phase-X/`.
 - **Each phase ends with handover.md updated** with session log entry.
 - **Each phase ends by updating this file** — check off completed items, strike through superseded ones, add findings to the session log section below.
+
+**Concurrency safety:** when running parallel-cluster phases, branch each off the *most recent main*. Don't branch 7.7 off Phase 8's branch (or vice versa). Merge each PR independently. If a 7.7 fix touches a file Phase 8 also touched, expect a small conflict at merge time — resolvable in web UI.
 
 ## 4. Session log
 
@@ -354,10 +532,13 @@ The "Configure your project" cost calculator and "Stress your asset" Returns int
 
 - **Sound** (P6) — deferred indefinitely.
 - **Single-card interactivity drilldowns** (e.g. clicking a sparkline point pins detail panel) — these were partly built in F4 and may be revisited if Phase 10 surfaces a need. Not actively scoped.
-- **Subscriptions / paywall / accounts** — explicitly not in scope. KKME stays free-to-read; commercial path is consulting/data-licensing, not gated UI.
+- **Subscriptions / paywall / accounts** — KKME stays free-to-read; commercial path is consulting/data-licensing, not gated UI. Phase 17 email-digest is opt-in subscription only (no account creation, no login).
 - **i18n beyond intel auto-translate** — the site stays English-primary. Translation of the entire UI to LT/LV/EE is deferred indefinitely.
+- **F4-deferred items** (today-row, chart geometry, dotted-underline affordance) — deliberately not implemented in F5-lite; redone properly in Phase 9–10 with new design-system primitives.
+- **Phase 18 — Year-in-review annual flagship** — not scoped; added to strategic backlog (§7). Build only after Phase 17 produces measurable engagement signal (e.g., daily regime call has accumulated ≥500 calls/quarter). Don't pre-build infrastructure for traction we haven't observed.
+- **"Press mode" theme (Phase 16.1)** — keep as scoped but reconsider before building if Phase 9 light theme already covers screenshot-readiness. May be redundant.
 
-## 6. Backlog (out-of-band hotfix track)
+## 6. Backlog — out-of-band hotfix track (Phase 12.x)
 
 > Tracks small, scope-bounded fixes that ship outside the main phase roadmap.
 > Numbered Phase 12.x to keep separate from the Phase 12 Intel-engine roadmap (§2).
@@ -367,3 +548,16 @@ The "Configure your project" cost calculator and "Stress your asset" Returns int
 - **Phase 12.5 — Grid Access Live Coverage.** Queued. LV/EE grid-access scraping (AST + Elering) + APVA/TSO live updates so KKME's project pipeline view stays current beyond Lithuania. Estimated 1 CC session.
 
 - **Phase 12.6 — KV cache invalidation on worker deploy.** Queued. Surfaced during Phase 12.4: any `/endpoint` route that serves cached KV data needs explicit invalidation in the deploy step, otherwise worker code changes don't take effect until the next cron tick. The `/s8` route (`workers/fetch-s1.js:6817`) had to be manually deleted via `wrangler kv key delete --remote 's8'` post-deploy. Same pattern likely applies to `/s6 /s7 /s9 /s_wind /s_solar /s_load /genload` and any other read-through-KV signal route. Scope: a small deploy script (or extension to `scripts/diagnose.sh`) that takes a list of cache keys to invalidate, or a worker admin route that does it. Estimated 0.25 CC session.
+
+## 7. Backlog — strategic / long-term (not actively scoped)
+
+> Items that may ship eventually based on traction or future need. Not blocking any active phase. Treat as ideas-on-shelf.
+
+- **Year-in-review annual flagship** (gated on Phase 17 engagement; ≥500 daily regime-call data points per quarter as the gate)
+- **Reviving retired cards** (S5/S6/S8/SolarCard/WindCard/LoadCard) — only if Phase 10 surfaces a structural gap that one of them fills
+- **Server-side user accounts** — only if email-digest subscriber list grows beyond ~500 and needs cross-device sync; otherwise stays anonymous browser-storage
+- **Public KKME design-system NPM package** — if `/visuals` page traction warrants it, the primitives could ship as `@kkme/baltic-flex-ui` for designers/journalists who quote the language
+- **Mobile native app** — never. Browser-only product.
+- **Audience selector** (Developer / Trader / Financier persona switcher per audit §1.1) — interesting as concept but adds significant state-management complexity for unknown user-segmentation value. Defer until traction signals which audience to optimize for; the default "everyone sees everything" is fine for v1.
+- **Forward curve content** — Phase 10.5.5 is on the roadmap but depends on having forward-data sources (ICE TTF, ICE EUA, forward Litgrid auctions). If those sources prove hard to license/scrape, defer or replace with KKME's own modeled forward curves with explicit caveats.
+- **Public quarterly content artifacts** — once Phase 17.4 daily regime-call data accumulates, the quarterly aggregate post becomes content work (writing + design). Treat as content production, not engineering.
