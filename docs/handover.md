@@ -671,3 +671,44 @@ Plus `713b8b5 docs(7.6): Session 3 prompt` capturing the Session 3 plan at end-o
 - Card migrations to consume Phase 8 visual atoms (`<DataState>`, `<VintageGlyphRow>`, etc.) — Phase 10.
 - LCOS, RTE, MOIC, Monte Carlo, real/nominal indexing, PPA/tolling toggle — all deferred to 7.7b/c.
 - The pre-existing untracked tree (`.claude/skills/`, `docs/visual-audit/phase-7/`, `public/hero/map-calibration-cities.json.json`, `workers/.wrangler/`, the various phase-prompt drafts) — left as-is per the prompt's "out of scope" list. A new `docs/phases/phase-7-7b-session-1-prompt.md` showed up untracked partway through the session (user-side authoring); also left as-is.
+
+### Session 18 — 2026-04-27 — Phase 12.4 hotfix (interconnector flow direction, Claude Code)
+
+**Scope:** Out-of-band hotfix branch `phase-12-4-flow-direction-hotfix` cut off main at `cd28fb4` (post-PR #34 merge). The live KKME hero was rendering every interconnector arrow backwards — e.g. "SE → LT 429 MW" when LT was actually exporting 429 MW to Sweden. Single coordinated commit (`361b538`); single worker deploy (version `a9f90908-36c4-44aa-bef0-7d4148d67a14`); zero engine changes.
+
+**Two compounding bugs:**
+
+1. **`workers/fetch-s1.js` `flowSignal()`** — labels inverted relative to the documented API convention. `energy-charts.info` CBET says positive = country importing FROM neighbor; the worker preserved the convention in `*_avg_mw` (no negation since Phase 2A-3, commit `9317c94`) but `flowSignal` mapped `mw > 100` to `'EXPORTING'` and `mw < -100` to `'IMPORTING'`. Same inversion on the `netTotal` overall `signal`. The header comment ("We negate → positive = country exporting") was stale and misleading — the negation it described was removed in 2A-3 but the comment survived.
+
+2. **`lib/baltic-places.ts` `positiveFlowReceives`** — the four Baltic interconnectors (nordbalt, litpol, estlink-1, estlink-2) had their `positiveFlowReceives` flipped in commit `c1cefc5` (Phase 2B-1) under a misreading of 2A-3. 2A-3 *removed* a `Math.round(-avg * 1000)` negation; 2B-1 inverted the spec table as if 2A-3 had *added* one. Fenno-Skan (`positiveFlowReceives: 'FI'`, both rows) was untouched and was already correct, which is why the bug masked: any audit that compared the spec table to Fenno-Skan would conclude the Baltic ones were the odd-ones-out the wrong way around. End result: each row was wrong in *both* the worker label and the resolveFlow direction lookup, so the directions came out twice-flipped — and "twice flipped" in this resolver still nets to wrong because the two flips are on different axes (label string vs. from/to country).
+
+**Coordinated fix (single commit `361b538`, +322/−13 across 9 files):**
+
+- `workers/fetch-s1.js`: `flowSignal` labels swapped; `netTotal` signal swapped; stale "We negate" comment rewritten to match actual code path.
+- `lib/baltic-places.ts`: `positiveFlowReceives` flipped back to `LT, LT, EE, EE` for the 4 Baltic interconnectors (Fenno-Skan untouched); convention comment block rewritten with Phase 12.4 trail.
+- `app/components/S8Card.tsx`: methodology copy "Positive = LT exporting." → "Positive = LT importing." (file is retired since 2026-04-16 but the docstring was the only Pattern-C copy in the codebase outside of the resolver itself; updating for documentation accuracy).
+- `app/lib/__tests__/flowSignal.test.ts` (new, 4 cases) — pins the worker label convention.
+- `lib/__tests__/resolveFlow.direction.test.ts` (new, 4 cases) — pins the end-to-end arrow direction with the current API value patterns. Together these are the regression guards: any future re-inversion at either layer fails the suite.
+- `docs/audits/phase-12-4/` (new) — `s8-pre-hotfix.json`, `s8-post-hotfix.json`, `sign-convention-verification.md`, `frontend-audit.md`. The audits were the foundation of the Pause A / Pause B reports that surfaced the second bug; preserving them keeps the diagnostic record close to the diff.
+
+**Verification gates:**
+- Tests: 469 baseline → **473 passing** (+8 new across 2 spec files; the prompt's §6 only specced flowSignal but the bug was bilayer, so the resolveFlow direction spec was added in the same spirit).
+- `npx tsc --noEmit` clean.
+- Local `wrangler dev` `/s8` payload vs frozen production `/s8`: all 5 magnitudes (`-429, -166, +860, +607, +360`) identical, all 5 `*_signal` labels swapped consistently, `netTotal` `signal` flipped from `IMPORTING` (mislabel) to `EXPORTING` (correct: LT net-exporting -595 MW into the morning low-demand window).
+- Production `/s8` post-deploy: confirmed via `chrome-devtools` snapshot at `localhost:3000` with all 6 hero rows reading correctly: NordBalt LT → SE 429 MW, LitPol LT → PL 166 MW, EstLink 1 FI → EE 301 MW, EstLink 2 FI → EE 559 MW, Fenno-Skan 1 SE → FI 247 MW, Fenno-Skan 2 SE → FI 360 MW.
+
+**Anomaly / non-obvious finding — KV cache invalidation on deploy:**
+
+The `/s8` route at `fetch-s1.js:6817` serves cached KV unconditionally if present (no TTL check, no compute fallback when the cache is fresh — the cron is the only thing that refreshes). After `wrangler deploy`, the deployed code took effect immediately, but `/s8` kept serving the pre-deploy KV value until the next cron tick. Manual workaround: `npx wrangler kv key delete --namespace-id=323b493a50764b24b88a8b4a5687a24b 's8' --remote` — the next GET then re-computed against the deployed code. This pattern likely applies to every signal route that reads-through KV (S6, S7, S9 use the same generic loop at `:6811-6837`; `s_wind`/`s_solar`/`s_load` and `genload` are similar). Filed as Phase 12.6 in the upgrade-plan backlog: deploy step needs an explicit KV invalidation list for the signals whose code changed. Not in scope for this hotfix.
+
+**Cross-cutting notes for the next phase:**
+
+- **Phase 7.7b Session 3** (engine refinements v7.1) is still paused at Pause B awaiting the Option D synthetic-probe validation — most-urgent CC job once Kastytis green-lights direction. PR #34 (audit only, read-only) is merged; engine refinement work is the next session's scope.
+- **Phase 12.5 — Grid Access Live Coverage** (LV/EE scraping + APVA/TSO live updates) — still queued.
+- **Phase 12.6 — KV cache invalidation on worker deploy** — added to backlog as a follow-up of this session's deploy-time anomaly.
+
+**Out of scope / not touched (per scope discipline):**
+
+- Engine math (`/revenue`, financial computation) — zero changes per the hotfix's "ONLY label strings + frontend display" rule.
+- Card primitives, design system — zero edits.
+- Pre-existing untracked tree (`.claude/skills/`, `docs/visual-audit/phase-7/`, `public/hero/map-calibration-cities.json.json`, `workers/.wrangler/`, `.wrangler/tmp/`, the phase-prompt drafts including this hotfix's own prompt) — left as-is. The hotfix's own prompt at `docs/phases/phase-12-4-interconnector-hotfix-prompt.md` was authored before the session and remains untracked per the standing "out of scope" convention.

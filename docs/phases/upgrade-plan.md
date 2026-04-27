@@ -348,9 +348,22 @@ The "Configure your project" cost calculator and "Stress your asset" Returns int
 
 - **2026-04-26 — Phase 7.7a** (financial display binding) shipped on `phase-7-7a-financial-display` (commits `8c0a292` 7.7.1, `9f47ece` 7.7.2, `237dffd` 7.7.6, `d21614d` 7.7.10, `77cc85e` 7.7.12, `c18e097` 7.7.13, `8256724` 7.7.14). Project IRR vs Equity IRR split, DSCR triple panel (base + conservative + worst-month with 1.20× covenant tick), degradation curve from `years[].retention` with augmentation/EoL refs, sensitivity tornado from the 9-cell `matrix`, back-test chart from the 13-month trailing window with mean-error caption, cannibalization curve from `fleet_trajectory[].cpi` (formula coefficients drawer-only per P3), market thickness chips on TradingEngineCard + S2Card. New `financialDefinitions.ts` (N-11 vocabulary module) re-exports `irrLabels.ts` so the existing "Gross IRR" forbidden-term guard keeps applying. Zero engine changes; zero `wrangler deploy`. Tests: 257 → 333 (+76 across 6 specs). `tsc --noEmit`, `next build`, vitest all green. Live snapshot at `localhost:3000` confirmed all surfaces render with real worker payload. Anomaly: `all_scenarios.stress.project_irr` is `null` on the live request — tornado skips it; flag for 7.7b/c. Cards visibly investor-grade.
 
+- **2026-04-27 — Phase 12.4 hotfix** (interconnector flow direction) shipped on `phase-12-4-flow-direction-hotfix` (single commit `361b538`, worker deploy `a9f90908-36c4-44aa-bef0-7d4148d67a14`). Two compounding bugs caused every interconnector arrow on the hero to render backwards: (1) `flowSignal()` in `workers/fetch-s1.js` swapped the EXPORTING/IMPORTING labels relative to the documented API convention (positive = importing); (2) `positiveFlowReceives` for the four Baltic interconnectors in `lib/baltic-places.ts` was flipped in commit `c1cefc5` (Phase 2B-1) under a misreading of the Phase 2A-3 worker change. Fix touches both layers + retired `S8Card.tsx` methodology copy. Regression guards added at `app/lib/__tests__/flowSignal.test.ts` and `lib/__tests__/resolveFlow.direction.test.ts`. Tests: 469 → 473 (+8). KV cache for `/s8` had to be manually deleted post-deploy (the route serves cached KV unconditionally) — anomaly logged as Phase 12.6 backlog item. Audits at `docs/audits/phase-12-4/`.
+
 ## 5. Out-of-scope but worth noting
 
 - **Sound** (P6) — deferred indefinitely.
 - **Single-card interactivity drilldowns** (e.g. clicking a sparkline point pins detail panel) — these were partly built in F4 and may be revisited if Phase 10 surfaces a need. Not actively scoped.
 - **Subscriptions / paywall / accounts** — explicitly not in scope. KKME stays free-to-read; commercial path is consulting/data-licensing, not gated UI.
 - **i18n beyond intel auto-translate** — the site stays English-primary. Translation of the entire UI to LT/LV/EE is deferred indefinitely.
+
+## 6. Backlog (out-of-band hotfix track)
+
+> Tracks small, scope-bounded fixes that ship outside the main phase roadmap.
+> Numbered Phase 12.x to keep separate from the Phase 12 Intel-engine roadmap (§2).
+
+- **Phase 12.4 — Interconnector flow direction hotfix.** ✅ Shipped 2026-04-27 (commit `361b538`, worker deploy `a9f90908-36c4-44aa-bef0-7d4148d67a14`). Worker `flowSignal` label swap + `lib/baltic-places.ts` `positiveFlowReceives` realignment + regression specs. See Session 18 in `handover.md` and `docs/audits/phase-12-4/`.
+
+- **Phase 12.5 — Grid Access Live Coverage.** Queued. LV/EE grid-access scraping (AST + Elering) + APVA/TSO live updates so KKME's project pipeline view stays current beyond Lithuania. Estimated 1 CC session.
+
+- **Phase 12.6 — KV cache invalidation on worker deploy.** Queued. Surfaced during Phase 12.4: any `/endpoint` route that serves cached KV data needs explicit invalidation in the deploy step, otherwise worker code changes don't take effect until the next cron tick. The `/s8` route (`workers/fetch-s1.js:6817`) had to be manually deleted via `wrangler kv key delete --remote 's8'` post-deploy. Same pattern likely applies to `/s6 /s7 /s9 /s_wind /s_solar /s_load /genload` and any other read-through-KV signal route. Scope: a small deploy script (or extension to `scripts/diagnose.sh`) that takes a list of cache keys to invalidate, or a worker admin route that does it. Estimated 0.25 CC session.
