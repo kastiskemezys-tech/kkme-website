@@ -1,19 +1,19 @@
 # KKME Handover
 
 Canonical state document. Read this first in every session.
-Last updated: 2026-04-27 (Session 22 — frontend RevenueCard aligned with v7.3 response shape; SIGNAL ERROR resolved; v7.3 narrative live on kkme.eu).
+Last updated: 2026-04-27 (Session 23 — Phase 12.7 interconnector rate-limit fix shipped; UA header + persist-last-good KV fallback + per-cable freshness; worker `f8173210` deployed; branch pushed for PR review).
 
 ## Current phase
 
+Phase 12.7 **interconnector rate-limit fix** shipped on `phase-12-7-interconnector-rate-limit`. Worker version `f8173210-cb4b-493d-a1d8-0fd339ec6dac` live. Three fixes in `fetchInterconnectorFlows()`: identifying User-Agent on all three CBET fetches (reduces anonymous-bucket 429s), persist-last-good KV fallback (when current fetch returns null, reuse prior KV value), per-cable `freshness` map (`live | stale | null`) for future card UI. EstLink 1 / 2 + Fenno-Skan 1 / 2 hero cable rows now degrade to "stale" rather than `·` even when the upstream rate-limits a leg of the parallel fetch. Branch pushed; awaiting PR creation + merge.
+
 Phase 7.7d **engine v7.3** shipped end-to-end. Worker version `41978587-ddda-42f5-b975-1da0570a3b01` live; PR #40 merged to main (commit `ec9136e`). Frontend `RevenueCard` aligned with v7.3 shape via Session 22 hotfix (commit `94ca8d8`) — auto-deployed to kkme.eu via Cloudflare Pages. Returns card now surfaces v7.3 numbers (LCOS, MOIC, duration recommendation, throughput-derived cycles breakdown, warranty status) without errors.
 
-Open issue surfaced this session but not addressed: **EstLink 1, EstLink 2, Fenno-Skan 1, Fenno-Skan 2 hero cable rows show `·` (no MW value)** — energy-charts.info `cbet?country=ee/fi` endpoints rate-limit (HTTP 429) when fetched in parallel with LT in `fetchInterconnectorFlows()`. Tracked as Phase 12.7 (next CC job, ~30 min fix). NordBalt + LitPol still flow correctly.
-
-Next CC job: **Phase 12.7 (interconnector rate-limit fix)** → then Phase 7.7e UI track (RTE sparkline + cycles_breakdown chart + calibration_source footer) → then Phase 7.7e data-contract (Zod /revenue boundary) → then Phase 7.7c Session 2 (capital-structure sliders, gated on UX decision) → then Phase 7.7e engine (aux curve / terminal value / augmentation / market-physics).
+Next CC job: **Phase 7.7e UI track** (RTE sparkline + cycles_breakdown chart + calibration_source footer) → then Phase 7.7e data-contract (Zod /revenue boundary) → then Phase 7.7c Session 2 (capital-structure sliders, gated on UX decision) → then Phase 7.7e engine (aux curve / terminal value / augmentation / market-physics).
 
 Earlier ground: Phase 7.7c Session 1 shipped 2026-04-27 (engine v7.2 — LCOS, MOIC, duration optimizer, assumptions panel; worker version `e145aeb4-5570-4cdd-adcb-f79351ef33dc`; PR #38 merged). Phase 7 shipped (S1/S2 card rebuild). Phase 7.5-F shipped 2026-04-21. Phase 7.5 polish pass still queued. Phase 7.6 hero refinement prompt authored after 2026-04-21 visual audit. Roadmap re-sequencing from Session 9 still holds.
 
-Active queue order: **12.7 (interconnector 429 fix, ~30 min) → 7.7e UI track (RTE sparkline + cycles_breakdown chart + calibration_source footer, ~1.5-2h) → 7.7e data-contract (Zod at /revenue boundary, ~30-60 min) → 7.7c Session 2 (capital-structure sliders, gated on UX) → 7.7e Engine (aux curve / terminal value / augmentation / duration market-physics, ~3-4h) → 7.5 polish → 7.6 → 8 → 9 → 10 → …**
+Active queue order: **7.7e UI track (RTE sparkline + cycles_breakdown chart + calibration_source footer, ~1.5-2h) → 7.7e data-contract (Zod at /revenue boundary, ~30-60 min) → 7.7c Session 2 (capital-structure sliders, gated on UX) → 7.7e Engine (aux curve / terminal value / augmentation / duration market-physics, ~3-4h) → 7.5 polish → 7.6 → 8 → 9 → 10 → …**
 
 Reference docs:
 - `docs/visual-audit/phase-7-5-audit/DIAGNOSTIC.md` — audit findings + routing
@@ -45,11 +45,10 @@ Reference docs:
 - Phase 7.5-F (2026-04-21): S1/S2 card redesign — live-data signal row (pulse dot + relative timestamp + source chip), prose migrated into anchored drawer (data-anchor=what/how/monthly/bridge), country/product toggle bar on S2 with disabled-state for FCR, clickable hero face that auto-opens the drawer scrolled to `what`. Visual-audit PNGs persisted under `docs/visual-audit/phase-7-5-F/` (whitelist carved in .gitignore). Merged to dev.
 - **Phase 7.7c Session 1 (2026-04-27, engine v7.2)**: LCOS (€/MWh-cycled), MOIC, duration optimizer (irr_2h vs irr_4h delta), assumptions panel — all surfaced from worker into RevenueCard. Worker `e145aeb4`. PRs #38 + #39 merged. See Session 19 entry.
 - **Phase 7.7d (2026-04-27, engine v7.3)**: throughput-derived cycle accounting (per-product MWh/MW/yr from FCR/aFRR/mFRR/DA), three rate-tagged empirical SOH curves at 1 / 1.5 / 2 c/d interpolated by computed actual c/d (replacing flat SOH_CURVE_W), RTE decay 0.20pp/yr from per-duration BOL, availability normalized 0.95→0.97, `cycles_breakdown` + `warranty_status` + `engine_calibration_source` payload fields, `calcIRR` mixed-sign robustness. Worker `41978587`. PR #40 merged. Frontend `RevenueCard` aligned with v7.3 shape via Session 22 hotfix (`94ca8d8`). See Sessions 20–22 entries.
+- **Phase 12.7 (2026-04-27, interconnector rate-limit fix)**: User-Agent header on all three CBET fetches + persist-last-good KV fallback + per-cable `freshness` map. EstLink 1 / 2 + Fenno-Skan 1 / 2 hero rows now degrade gracefully when upstream rate-limits a leg of the parallel fetch. Worker `f8173210`. Branch `phase-12-7-interconnector-rate-limit` pushed. See Session 23 entry.
 - Static export to Cloudflare Pages (kkme.eu)
 
 ## What's queued
-
-**Phase 12.7 — Interconnector live-flow rate-limit fix** (Claude Code, ~30 min). EstLink 1, EstLink 2, Fenno-Skan 1, Fenno-Skan 2 currently render `·` (no MW value) on the hero. Diagnosed Session 22+: energy-charts.info `cbet?country=ee` and `cbet?country=fi` return HTTP 429 Too Many Requests when fetched in parallel with the LT endpoint. `Promise.all([lt, ee, fi])` lands LT cleanly but EE/FI hit the rate limit; `.catch(() => null)` swallows the failure silently and writes nulls to KV, where /s8 then serves them until next cron. Fix: add `User-Agent: KKME/1.0 (+https://kkme.eu)` header to identify the request source (typical 429 mitigator) + persist-last-good fallback (when fetch returns null, read prior KV record and reuse its values rather than overwriting with null). Optional: add `data_freshness` field to /s8 response so cards can render a "stale-1h" indicator instead of just hiding. Worker file `workers/fetch-s1.js:5367` `fetchInterconnectorFlows()`.
 
 **Phase 7.7e — Empirical calibration extensions + display polish + data-contract tightening** (Claude Code, ~2.5-4h depending on scope picked). Surfaced across Sessions 21+22. Three sub-tracks:
 
@@ -1009,3 +1008,57 @@ The synthesized note surfaces the per-product EFC breakdown + warranty status in
 - Surface `engine_calibration_source.last_calibrated` + `next_review` somewhere in the assumptions footer (currently only the cycle row note carries v7.3 provenance).
 - Render the `roundtrip_efficiency_curve` as a sparkline next to the RTE row (year-over-year decay is now in the payload but not visualized).
 - Render the per-product `cycles_breakdown` as a four-bar mini-chart (currently flattened into the row's italicized note).
+
+### Session 23 — 2026-04-27 — Phase 12.7 interconnector rate-limit fix (Claude Code)
+
+**Scope:** Phase 12.7 per `docs/phases/phase-12-7-interconnector-rate-limit-prompt.md`. Branch `phase-12-7-interconnector-rate-limit` cut off main at `42df8c6`. Worker is the single surface (no frontend changes per prompt scope). Single coordinated commit (`0618179`). Single `wrangler deploy` (version `f8173210-cb4b-493d-a1d8-0fd339ec6dac`). No engine version bump — hotfix.
+
+**Pre-flight bug confirmation:**
+
+- Production /s8 at session start: `nordbalt=-432, litpol=-169, estlink=null, fennoskan=599, lv_lt=360`. EstLink null confirmed the bug live; Fenno-Skan happened to be populated this cycle, illustrating the intermittent nature — `Promise.all([lt, ee, fi])` triggers anonymous-bucket exhaustion variably depending on which two of the three requests collide on the upstream rate limiter. NordBalt + LitPol survive because both are extracted from the LT response (which lands first cleanly).
+- Direct `curl -v 'https://api.energy-charts.info/cbet?country=fi'` from this machine returned HTTP 200 (single solitary request, not parallel), matching the diagnosis: rate limit triggers under parallel anonymous fetches, not on isolated requests. The fix targets the parallel-fetch shape, not the upstream availability.
+- Test baseline: 665 / 665 across 42 files. tsc clean. `bash scripts/diagnose.sh` all signals fresh, all endpoints HTTP 200, frontend up.
+
+**Three coordinated fixes (single commit `0618179`, +160 / −26 across 3 files):**
+
+1. **`workers/fetch-s1.js:5367`** — `cbetHeaders` now carries `User-Agent: 'KKME/1.0 (+https://kkme.eu) — Baltic flexibility intelligence'` on all three CBET fetches. Anonymous browsers are rate-limited more aggressively by many APIs; the polite UA typically lifts most 429s without slowing request rate. This is the *primary* fix; the persist-last-good fallback is the *durable* fix when 429s do leak through.
+
+2. **Persist-last-good KV fallback.** `fetchInterconnectorFlows()` signature becomes `(env)` so it can read prior `s8` KV. After all four fetched values land (or null), reads `env.KKME_SIGNALS.get('s8')` and merges via `safe(current, fallback)` for all five cable values (NordBalt, LitPol, LV↔LT, EstLink, Fenno-Skan). All five `*_signal` labels and `netTotal` are **re-derived from merged values** — so a stale-fallback MW yields a stale-fallback signal label rather than mismatched `null` signal next to a real number. Re-built `interpretation` string also uses merged values. Three call-sites updated to pass `env`: hourly cron @ 5938, 4-hour cron @ 6126, /s8 route @ 7236.
+
+3. **Per-cable `freshness` map.** New top-level field `freshness: { nordbalt, litpol, estlink, fennoskan, lv_lt }` — each entry `'live' | 'stale' | null`. `'live'` = this cycle's fetch landed; `'stale'` = fell back to prior KV; `null` = never had a value. Future card UI (Phase 7.7e UI track territory) can render a "stale" indicator from this field; current frontend ignores it.
+
+**Helpers + tests:**
+
+- `app/lib/interconnectorHelpers.ts` (new, 33 lines) — TS mirror exporting `safe()` + `freshnessFor()` + `Freshness` type. Mirrors the throughputCycles.ts pattern from Phase 7.7d. Worker carries inline copies (`safeInterconnector`, `freshnessForInterconnector`) so it can run without a build step; comment on both flags the requirement to keep them in sync.
+- `app/lib/__tests__/interconnectorMerge.test.ts` (new, 47 lines, 10 specs) — 6 `safe()` cases (returns current, returns fallback, both null, undefined fallback, preserves zero, preserves negative MW for LT-exporting case) + 4 `freshnessFor()` cases (live, stale, both null, zero-current still live). Pins the merge semantics so future edits to either the worker inline copies or the TS mirror surface as a test failure if they drift.
+
+**Verification gates:**
+
+- `node --check workers/fetch-s1.js`: clean parse.
+- `npx tsc --noEmit`: clean.
+- `npm test`: **665 baseline → 675 passing** across 43 files (+10 new specs; prompt projected ~8, actual 10 because zero-balance and negative-MW preservation are particularly load-bearing for this codebase — `nordbalt_avg_mw: -432` is the canonical "LT exporting" case and 0 is the "BALANCED" boundary in `flowSignal()`).
+- Existing `flowSignal.test.ts` (4 cases) and `resolveFlow.direction.test.ts` (4 cases) — both pinning Phase 12.4's label + arrow-direction conventions — still pass. The merge layer doesn't touch the label convention they pin.
+- Worker deploy: `f8173210-cb4b-493d-a1d8-0fd339ec6dac`. Triggers preserved (4 schedules, all 4 enumerated by wrangler).
+- Post-deploy /s8 at 18:29 UTC: still serves the pre-deploy KV record (no `freshness` field, EstLink still null) because the route serves cached KV unconditionally. The deployed code path will activate on the next hourly cron tick (`0 * * * *`), within ~30 minutes of deploy. Per prompt §5 this is the expected wait-for-cron state — the deploy itself is verified by the version ID.
+
+**Anomalies / non-obvious findings:**
+
+- **Initial direct `curl` returned HTTP 200, not 429.** The prompt's pre-flight check projected a `429` from a direct curl. In practice the rate limit only triggers under the parallel-three-request shape from a Cloudflare-egress worker — not from a single curl from a residential / lab IP. The fix design is unaffected (UA + persist-last-good are correct regardless of whether 429 fires on this exact request), but the pre-flight diagnostic is more informative when it's the worker-level intermittency that's the smoking gun, not direct-curl.
+- **/s8 route serves cached KV unconditionally.** Same dynamic Session 18 documented as "Phase 12.6 KV cache invalidation on worker deploy." The deployed code in Phase 12.7 doesn't take effect on /s8 reads until the next cron tick refreshes KV through the new path. Manual force-refresh via `wrangler kv key delete s8 --remote` is available (Session 18 used it) but was *not* exercised this session — destructive prod-data operation outside the prompt's authorized scope. Cron-driven recovery is fine; the prompt explicitly accepts this state.
+- **The merge re-derives every `*_signal` from merged values, not fetched values.** The prompt's §2.4 said "verify the interpretation string still reads correctly post-merge" — implementing that the strict way means the *signal labels* also need to follow merged values, otherwise a stale-fallback MW could carry a `null` signal beside a real number. Both are now derived from the same merged value, so the wire shape is internally consistent regardless of fetch outcome.
+- **Helpers are duplicated, not shared.** Worker is JS, vendored as a single file with no build step; TS mirror is for the Vitest suite. Both copies contain identical 4-line bodies (`safe`, `freshnessFor`). The cost of duplication here is two 4-line functions; the cost of unifying via a build step would be much higher. Comment on both flags the sync requirement.
+- **No engine version bump.** Per prompt rule "this is a hotfix, not a new engine version." `model_version` field in /revenue is unchanged; /s8 doesn't carry a `model_version` field at all (it's a signal endpoint, not the financial engine).
+
+**Cross-cutting notes for the next phase:**
+
+- **Phase 7.7e UI track** is the natural next CC job. With `freshness` now flowing through /s8, the card layer can render a "stale" chip on the cable rows — a small surface that lets the operator see which cables fell back to last-known data versus which are streaming live. Same template as the existing live-data signal row from Phase 7.5-F (pulse dot + relative timestamp + source chip).
+- **PR creation** for `phase-12-7-interconnector-rate-limit` deferred to operator. Branch is pushed to origin; gh PR URL surfaced by the push: `https://github.com/kastiskemezys-tech/kkme-website/pull/new/phase-12-7-interconnector-rate-limit`.
+- **Production /s8 will populate `freshness` after the next cron tick (top of the hour after 18:29 UTC, so 19:00 UTC at the latest).** EstLink + Fenno-Skan will then either show a `live` value (UA mitigated 429) or a `stale` value (persist-last-good kicked in). Either outcome is the fix working as designed.
+
+**Out of scope / not touched (per scope discipline):**
+
+- Frontend changes. The /s8 contract is populated with the right field names; persist-last-good means existing renderers see numeric values. Card UI for `freshness` is Phase 7.7e UI-track territory.
+- Other interconnector data sources (ENTSO-E direct, etc.) — much larger phase.
+- Generalizing the persist-last-good pattern across other signal fetchers (/s1, /s2, /s4, /s9). Each has its own caching dynamics.
+- Phase 12.6 (KV cache invalidation on worker deploy). Separate concern.
+- Pre-existing untracked tree (`.claude/skills/`, `docs/visual-audit/phase-7/`, `public/hero/map-calibration-cities.json.json`, `workers/.wrangler/`, `.wrangler/tmp/`, `docs/_yolo-followup-*.md`, `docs/_prep-commit-*.sh`, `docs/phases/phase-7-7c-session-1-prompt.md`) — left as-is per Session 18 + 22 convention.
