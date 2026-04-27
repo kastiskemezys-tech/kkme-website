@@ -5,6 +5,11 @@
 // Width proportional to MW within the ordered set; color gradient lavender →
 // mint (aspirational → real). Reusable across pipeline cards, project counts,
 // asset funnel.
+//
+// Phase 7.7e — per-tier hover wired through the unified ChartTooltip primitive
+// (label as headline; MW as value; % of pipeline as secondary).
+
+import { ChartTooltip, useChartTooltipState } from './ChartTooltip';
 
 export interface CredibilityLadderTier {
   label: string;
@@ -48,11 +53,13 @@ export function CredibilityLadderBar({
 }: CredibilityLadderBarProps) {
   const layout = ladderTierLayout(tiers, width);
   const total = ladderTotal(tiers);
+  const tt = useChartTooltipState();
 
   return (
     <div
       role="img"
       aria-label={`Credibility ladder: ${tiers.length} tiers, total ${total} MW`}
+      onMouseLeave={() => tt.hide()}
       style={{
         display: 'flex',
         flexDirection: 'column',
@@ -63,11 +70,17 @@ export function CredibilityLadderBar({
       }}
     >
       {layout.map(({ tier, widthPx, pct, color }) => {
-        const tooltip = `${tier.label}: ${tier.mw.toLocaleString()} MW · ${pct.toFixed(0)}% of pipeline`;
+        const showTooltip = (e: React.MouseEvent) => tt.show({
+          label: tier.label,
+          value: tier.mw,
+          unit: 'MW',
+          secondary: [{ label: 'Of pipeline', value: pct, unit: '%' }],
+        }, e.clientX, e.clientY);
         const bar = (
           <div
             data-tier={tier.label}
-            title={tooltip}
+            onMouseEnter={showTooltip}
+            onMouseMove={showTooltip}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -114,6 +127,18 @@ export function CredibilityLadderBar({
           <div key={tier.label}>{bar}</div>
         );
       })}
+      <ChartTooltip
+        visible={tt.state.visible}
+        x={tt.state.x}
+        y={tt.state.y}
+        value={tt.state.data?.value ?? 0}
+        unit={tt.state.data?.unit ?? ''}
+        date={tt.state.data?.date}
+        time={tt.state.data?.time}
+        label={tt.state.data?.label}
+        secondary={tt.state.data?.secondary}
+        source={tt.state.data?.source}
+      />
     </div>
   );
 }

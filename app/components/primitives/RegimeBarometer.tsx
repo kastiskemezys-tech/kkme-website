@@ -9,6 +9,11 @@
 //   normal      ink-subtle (text-tertiary) — baseline
 //   wide        mint      — expansive opportunity window
 //   stress      lavender  — modelled / structural deviation
+//
+// Phase 7.7e — per-zone hover wired through ChartTooltip; the active zone is
+// labelled "today" while inactive zones surface their regime label only.
+
+import { ChartTooltip, useChartTooltipState } from './ChartTooltip';
 
 export type Regime = 'tight' | 'compressed' | 'normal' | 'wide' | 'stress';
 
@@ -50,9 +55,11 @@ export function RegimeBarometer({
   const zoneWidth = width / REGIME_ORDER.length;
   const idx = regimeIndex(regime);
   const needleX = zoneWidth * idx + zoneWidth / 2;
+  const tt = useChartTooltipState();
 
   return (
     <span
+      onMouseLeave={() => tt.hide()}
       style={{
         display: 'inline-flex',
         flexDirection: 'column',
@@ -79,6 +86,18 @@ export function RegimeBarometer({
               height={height}
               fill={REGIME_COLOR[r]}
               fillOpacity={isActive ? 0.28 : 0.08}
+              onMouseEnter={(e) => tt.show({
+                label: REGIME_LABEL[r],
+                value: i + 1,
+                unit: `of ${REGIME_ORDER.length}`,
+                secondary: isActive ? [{ label: 'State', value: 'today' }] : undefined,
+              }, e.clientX, e.clientY)}
+              onMouseMove={(e) => tt.show({
+                label: REGIME_LABEL[r],
+                value: i + 1,
+                unit: `of ${REGIME_ORDER.length}`,
+                secondary: isActive ? [{ label: 'State', value: 'today' }] : undefined,
+              }, e.clientX, e.clientY)}
             />
           );
         })}
@@ -104,6 +123,18 @@ export function RegimeBarometer({
           {REGIME_LABEL[regime]}
         </span>
       )}
+      <ChartTooltip
+        visible={tt.state.visible}
+        x={tt.state.x}
+        y={tt.state.y}
+        value={tt.state.data?.value ?? 0}
+        unit={tt.state.data?.unit ?? ''}
+        date={tt.state.data?.date}
+        time={tt.state.data?.time}
+        label={tt.state.data?.label}
+        secondary={tt.state.data?.secondary}
+        source={tt.state.data?.source}
+      />
     </span>
   );
 }
