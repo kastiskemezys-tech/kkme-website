@@ -1,19 +1,15 @@
 # KKME Handover
 
 Canonical state document. Read this first in every session.
-Last updated: 2026-04-26 (Session 13 — Phase 7.6 numerical reconciliation closed).
+Last updated: 2026-04-27 (Session 20 — Tier 1 supplier consensus extraction + Phase 7.7d empirical-calibration prompt authored).
 
 ## Current phase
 
-Phase 7 shipped (S1/S2 card rebuild). Phase 7.5-F shipped 2026-04-21 (card
-redesign sub-phase — live-data signal row, prose→drawer, country/product
-toggles, clickable face). Phase 7.5 polish pass still queued. Phase 7.6
-hero refinement prompt authored after 2026-04-21 visual audit; now also
-carries two 7.5-F capture-session findings (B-029 pulse-dot colour in
-light mode, B-030 FCR hero transient). Roadmap re-sequencing from Session
-9 still holds.
+Phase 7.7c Session 1 shipped 2026-04-27 (engine v7.2 — LCOS, MOIC, duration optimizer, assumptions panel; worker version `e145aeb4-5570-4cdd-adcb-f79351ef33dc`; PR #38 open). Phase 7.7d **empirical calibration** is the next CC job — replaces three engine constants (SOH curve, RTE decay, availability) with anonymized consensus medians distilled from binding Tier 1 LFP integrator RFP responses held privately on the operator's machine. Prompt at [docs/phases/phase-7-7d-empirical-calibration-prompt.md](phases/phase-7-7d-empirical-calibration-prompt.md). Source data folder gated under `.gitignore`.
 
-Active queue order: **7.5 (polish remainder) → 7.6 → 8 → 9 → 10 → …**
+Earlier ground: Phase 7 shipped (S1/S2 card rebuild). Phase 7.5-F shipped 2026-04-21 (card redesign sub-phase — live-data signal row, prose→drawer, country/product toggles, clickable face). Phase 7.5 polish pass still queued. Phase 7.6 hero refinement prompt authored after 2026-04-21 visual audit. Roadmap re-sequencing from Session 9 still holds.
+
+Active queue order: **7.7c PR #38 review/merge → 7.7d (empirical calibration) → 7.7c Session 2 (capital-structure sliders) → 7.7e (aux curve / terminal value / augmentation / duration market-physics) → 7.5 polish → 7.6 → 8 → 9 → 10 → …**
 
 Reference docs:
 - `docs/visual-audit/phase-7-5-audit/DIAGNOSTIC.md` — audit findings + routing
@@ -46,6 +42,20 @@ Reference docs:
 - Static export to Cloudflare Pages (kkme.eu)
 
 ## What's queued
+
+**Phase 7.7d — Throughput-derived cycle accounting + empirical SOH/RTE calibration** (Claude Code, ~3-3.5h). Three structural fixes to engine v7.3:
+
+1. **Cycle accounting rebuilt from MWh throughput.** Replaces scenario `act_rate_afrr/mfrr` parameters (which silently treated "in-merit fraction" as "full-power hours" → ~1,600 MWh/MW/yr implied vs ~1,000-1,400 real) with absolute `mwh_per_mw_yr_<product>` parameters anchored on public Modo / Dexter / GEM / enspired research (cited by URL in worker constants). Total annual EFCs derived: Σ allocation × throughput ÷ capacity. Decomposition surfaced in `assumptions_panel` with `warranty_status` indicator (730 EFC/yr standard cap; 1,460 premium tier).
+
+2. **SOH curve interpolated by computed actual c/d.** Replaces `SOH_CURVE_W` (90% Y10, far too shallow) with three rate-tagged empirical curves at 1 / 1.5 / 2 c/d (cross-supplier consensus median, anonymized). Engine picks curve by computed dispatch intensity, not duration label. Connects cell aging to actual operation for the first time.
+
+3. **RTE decay + availability normalization.** RTE year-indexed, 0.20pp/yr decay from per-duration BOL (2h: 0.85; 4h: 0.86). Base availability 0.95 → 0.97. `engine_calibration_source` stamps anonymized provenance + public-research URLs. `model_version` v7.2 → v7.3.
+
+Prompt: [docs/phases/phase-7-7d-empirical-calibration-prompt.md](phases/phase-7-7d-empirical-calibration-prompt.md). Public-research throughput numbers cited by URL; private SOH/RTE anchors anonymized as "Tier 1 LFP integrator consensus, binding RFP responses (2026-Q1)". NDA-protected source documents held privately under `docs/_private/`.
+
+**Phase 7.7c Session 2 — Capital structure sliders** (Claude Code, gated on UX decision). Vertical vs horizontal layout, debounce vs blur-fire, URL persistence. Awaiting design call.
+
+**Phase 7.7e candidates — surfaced by 7.7d drill:** aux-load temperature curve (operator-region-specific effect on RTE), terminal value at SOH floor, augmentation event modeling Y8-12, duration-optimizer market-physics fix (multi-market simultaneous bidding, top-N quantile correction).
 
 **Phase 7.6 — Numerical reconciliation (upgrade-plan.md §2)** — Sessions 1+2+3 all shipped on `phase-7-6-numbers`. Branch ready for user review and merge to `dev`. Final scope: 16 commits, 107 tests across 16 files. See Session 13 entry for the closing summary; Session 11 entry covers Session 1; Session 12 covers Session 2.
 
@@ -779,3 +789,71 @@ Assumptions panel uniform across scenarios — RTE 85.2-85.5%, cycles/yr 310-548
 - Phase 10 design-system primitives migration on the new sub-components — Phase 10 owns that.
 - Stack allocator changes — already audited in 7.7b; operationally valid per the addendum.
 - Pre-existing untracked tree (`.claude/skills/`, `docs/visual-audit/phase-7/`, `public/hero/map-calibration-cities.json.json`, `workers/.wrangler/`, `.wrangler/tmp/`, the phase-prompt drafts) — left as-is.
+
+### Session 20 — 2026-04-27 — Throughput-derived cycle accounting design + Phase 7.7d prompt (Cowork)
+
+**Scope:** Kastytis pushed back on Phase 7.7c Session 1's duration optimizer output ("2h dominates 4h by ~9pp" runs against external industry consensus that flexibility markets reward longer duration as they saturate). He also flagged the LCOS stress band as potentially shallow, and asked for engine constants to be re-anchored on real Tier 1 supplier ground truth rather than industry medians.
+
+Two parallel tracks:
+
+1. **Private dataset extraction** — operator gave Claude read access to a folder of binding RFP responses from four Tier 1 LFP integrators (held in a gitignored directory on the operator's machine, NDA-protected). Claude distilled cross-supplier consensus medians for SOH (at three test rates: 1 / 1.5 / 2 c/d), RTE-vs-time, availability, and CAPEX. No supplier names, project specifics, client names, or pricing appear in any tracked file.
+
+2. **Cycle accounting audit** — Kastytis asked the right deeper question: "what is the actual annualized cycle count the engine's dispatch produces?" That surfaced a dimensional bug in the engine's activation revenue formulas (`act_rate × 8760` was being treated as "full-power hours" when it really means "in-merit fraction"). External research (Modo, Dexter, GEM, enspired, MDPI) anchored realistic per-product throughput numbers for Baltic 2h merchant batteries.
+
+**Three structural engine errors identified:**
+
+| # | Bug | What v7.2 does | What's correct |
+|---|---|---|---|
+| 1 | Activation throughput dimensional error | `act_rate=0.25 × 8760 hr` treated as full-power-equivalent → 1,376 MWh/MW/yr aFRR throughput implied | In-merit fraction × activation depth → 450-700 MWh/MW/yr (Modo/Dexter consensus) |
+| 2 | Cycle count and SOH curve decoupled | `cycles_per_year = scenario.cycles_2h × 365` (asserted), SOH ages by calendar year regardless | Cycle count derived from MWh throughput; SOH curve interpolated by computed actual c/d |
+| 3 | SOH curve far too shallow | 90% Y10 across all dispatch | 70.5% Y10 at 2 c/d empirical median; 78% Y10 at 1 c/d (anonymized supplier consensus) |
+
+**Public-research throughput anchors (citable in committed code):**
+
+| Product | MWh/MW-alloc/yr (Baltic base) | Source |
+|---|---|---|
+| FCR (incl SoC restoration) | 200 | Modo cycling research; MDPI 2023 multi-service lifetime |
+| aFRR symmetric (PICASSO) | 475 | Modo Sept 2025; Dexter PICASSO; GEM PICASSO insights |
+| mFRR (MARI, Baltic marginal user) | 125 | Dexter MARI implementation; Baltic Balancing Roadmap |
+| DA + ID arbitrage | 700 | Modo; enspired (mean 0.86 c/d, p90 1.03) |
+
+Total Baltic 2h merchant base: ~350-550 EFCs/yr median, 600-750 top quartile. Engine v7.2 silently implied ~1,600 — a 3-5× over-count of cell wear. Supplier warranties cap at 730 EFC/yr standard, 1,460 premium tier.
+
+**Anonymized empirical anchors (cross-supplier consensus median, gitignored sources):**
+
+| Year | SOH @ 1.0 c/d | SOH @ 1.5 c/d | SOH @ 2.0 c/d |
+|---|---|---|---|
+| 0 | 1.000 | 1.000 | 1.000 |
+| 5 | 0.855 | 0.830 | 0.810 |
+| 10 | 0.780 | 0.738 | 0.705 |
+| 15 | 0.730 | 0.679 | 0.620 |
+
+RTE BOL @ POI incl aux: 0.86 (median across four Tier 1 RFP responses). Decay −0.20 pp/yr. Availability operational target 0.97 (binding 98% with 1pp ops haircut).
+
+**What landed this session:**
+
+- `.gitignore` extended — generic patterns `docs/_private/` and `docs/_clients/` for NDA-protected datasets. Operator must rename existing private folder to a path matching one of these patterns before next commit so the explicit folder name doesn't leak via gitignore line.
+- `docs/phases/phase-7-7d-empirical-calibration-prompt.md` — fully rewritten Phase 7.7d prompt for Claude Code: 3-pause pattern, single coordinated deploy, ~30 new tests, synthetic-KV `--probe-v73` gate. Six engine surfaces in §2: throughput-based cycle accounting, SOH 3-curve interpolation, RTE decay, availability normalization, decomposition + warranty surface in `assumptions_panel`, calibration provenance stamp.
+- Handover updated (current phase + queued + this entry).
+
+**Predicted v7.3 IRR direction:**
+- Cycles per year drops modestly from v7.2 reported (1.5 c/d → ~1.0-1.5 c/d). 4h asset stays close to 1.0 c/d but now derived from throughput.
+- SOH at Y10 drops sharply (90% → ~70-75%) — biggest single change, drives most of the IRR move.
+- 2h IRRs drop 2-5pp from v7.2 baseline.
+- 4h IRRs drop less (gentler interpolated SOH curve at lower c/d) — partial fix to the 2h-dominates-4h concern. Full market-physics fix deferred to Phase 7.7e.
+- LCOS rises across the board.
+- Warranty status = "within" for base/conservative; possibly "premium-tier-required" for stress under aggressive activation tuning.
+
+**Two-track confidentiality discipline:**
+
+- **Public research** (Modo, Dexter, GEM, enspired, MDPI, Gridcog, ENTSO-E, Elering) — citable by URL directly in committed worker constants. Not NDA-bound.
+- **Private RFP dataset** — anonymized as "Tier 1 LFP integrator consensus, binding RFP responses (2026-Q1)" in committed code. No supplier names, no project specifics, no client names, no pricing, no document filenames in any tracked file.
+
+**Cross-cutting notes:**
+
+- Engine CAPEX €/kWh anchor tracks 2026-Q1 Tier 1 quoting closely. Don't move it in 7.7d.
+- Aux load temperature behavior captured for Phase 7.7e — operator's region runs cooler than the 25°C standard, which would lower real aux consumption and raise effective RTE BOL by ~1-2pp. Needs site weather data integration.
+- Phase 7.7d prompt runtime estimate revised 2.5h → ~3-3.5h because every `act_rate_*` call site (~6 locations across worker) needs migration.
+- Three Cowork sandbox limitations encountered this session: `request_cowork_directory` blocked in unsupervised mode; `.git/index.lock` could not be unlinked; UI mount of new folder didn't propagate to sandbox. Operator handled all three via Mac terminal or Cowork UI directly.
+
+**Verification:** No code changes this session. `git check-ignore` confirms the new private-data patterns. Phase 7.7d prompt linted via spot-read for internal consistency (3-pause structure matches 7.7c convention; line-number references match current `workers/fetch-s1.js`; test counts match Session 19's 607-test baseline; per-product throughput numbers cross-checked against Modo/Dexter/enspired source URLs). Confidentiality grep on tracked files for project, client, developer, supplier, and personnel names plus pricing terms returns zero matches.
