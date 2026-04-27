@@ -1,0 +1,15 @@
+{
+  "timestamp": "2026-04-27T20:45:00.000Z",
+  "signal": "EXPORTING",
+  "nordbalt_avg_mw": -429,
+  "litpol_avg_mw": -166,
+  "estlink_avg_mw": 860,
+  "fennoskan_avg_mw": 607,
+  "lv_lt_avg_mw": 360,
+  "nordbalt_signal": "EXPORTING",
+  "litpol_signal": "EXPORTING",
+  "estlink_signal": "IMPORTING",
+  "fennoskan_signal": "IMPORTING",
+  "lv_lt_signal": "IMPORTING",
+  "interpretation": "NordBalt: EXPORTING (-429 MW). LitPol: EXPORTING (-166 MW). LV↔LT: IMPORTING (360 MW). EstLink: IMPORTING (860 MW). Fenno-Skan: IMPORTING (607 MW)."
+}

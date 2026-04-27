@@ -151,7 +151,7 @@ export function S8Card() {
           </div>
           <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>Methodology</p>
           <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-            Net physical flows from ENTSO-E A11 document type. NordBalt (LT↔SE4) and LitPol (LT↔PL). Positive = LT exporting. Updated every 4h.
+            Net physical flows from ENTSO-E A11 document type. NordBalt (LT↔SE4) and LitPol (LT↔PL). Positive = LT importing. Updated every 4h.
           </p>
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-ghost)', letterSpacing: '0.06em', marginTop: '16px' }}>
             MODEL INPUT → Interconnector spread drag
