@@ -9,7 +9,8 @@ import {
 } from 'chart.js';
 import { Line, Bar } from 'react-chartjs-2';
 import { useChartColors, CHART_FONT, useTooltipStyle } from '@/app/lib/chartTheme';
-import { DetailsDrawer } from '@/app/components/primitives';
+import { DetailsDrawer, ChartTooltipPortal, useChartTooltipState } from '@/app/components/primitives';
+import { buildExternalTooltipHandler } from '@/app/lib/chartTooltip';
 import { RevenueSensitivityTornado } from '@/app/components/RevenueSensitivityTornado';
 import { RevenueBacktest } from '@/app/components/RevenueBacktest';
 import type { BacktestRow } from '@/app/lib/backtest';
@@ -78,7 +79,7 @@ interface AssumptionRow {
   note: string;
 }
 
-interface CyclesBreakdown {
+export interface CyclesBreakdown {
   fcr: number;
   afrr: number;
   mfrr: number;
@@ -110,6 +111,16 @@ interface DurationRecommendation {
   note: string;
 }
 
+export interface EngineCalibrationSource {
+  soh_curves?: string;
+  rte_decay?: string;
+  availability?: string;
+  throughput_per_product?: string;
+  capex_per_mw?: string;
+  last_calibrated?: string;
+  next_review?: string;
+}
+
 interface RevenueData {
   system: string; duration: number;
   capex_eur_kwh: number; capex_total: number; cod_year: number;
@@ -129,6 +140,9 @@ interface RevenueData {
   roundtrip_efficiency?: number;
   duration_recommendation?: DurationRecommendation;
   assumptions_panel?: AssumptionsPanelData;
+  // v7.3 — Phase 7.7d empirical-calibration surfaces
+  roundtrip_efficiency_curve?: number[];
+  engine_calibration_source?: EngineCalibrationSource;
   years: YearData[];
   monthly_y1: MonthlyDSCR[];
   base_year: {
@@ -318,35 +332,375 @@ function DurationOptimizer({ rec }: { rec: DurationRecommendation | undefined })
   );
 }
 
+// ═══ Phase 7.7e — RTE decay sparkline ══════════════════════════════════════
+//
+// Inline sparkline of the 18-year roundtrip-efficiency curve. Visualises the
+// engine's RTE-decay assumption (0.20 pp/yr, anchored on Tier 1 LFP integrator
+// consensus) so investors can read the curve, not just the BOL number.
+
+export function RteSparkline({ curve }: { curve: number[] | undefined }) {
+  const tt = useChartTooltipState();
+  if (!curve || curve.length < 2) return null;
+
+  const W = 96;
+  const H = 18;
+  const valid = curve.filter(v => typeof v === 'number' && isFinite(v));
+  if (valid.length < 2) return null;
+
+  // Hard-anchor y-axis to [bol_minus_a_bit, bol] so the decay reads as a curve
+  // rather than a flat line zoomed to its own range.
+  const bol = Math.max(...valid);
+  const eol = Math.min(...valid);
+  const range = bol - eol || 0.01;
+  const padTop = 1;
+  const padBot = 1;
+
+  const toY = (v: number) =>
+    H - padBot - ((v - eol) / range) * (H - padTop - padBot);
+
+  const pts = valid.map((v, i) => ({
+    x: parseFloat(((i / (valid.length - 1)) * W).toFixed(1)),
+    y: parseFloat(toY(v).toFixed(1)),
+    yr: i,
+    v,
+  }));
+  const points = pts.map(p => `${p.x},${p.y}`).join(' ');
+
+  const areaPath = [
+    `M${pts[0].x},${H}`,
+    ...pts.map(p => `L${p.x},${p.y}`),
+    `L${pts[pts.length - 1].x},${H}`,
+    'Z',
+  ].join(' ');
+
+  const gradId = 'rte-spark-grad';
+
+  return (
+    <span
+      data-testid="rte-sparkline"
+      style={{ display: 'inline-block', verticalAlign: 'middle', lineHeight: 0 }}
+      onMouseLeave={() => tt.hide()}
+    >
+      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}
+        style={{ display: 'block', overflow: 'visible' }}>
+        <defs>
+          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--text-tertiary)" stopOpacity={0.18} />
+            <stop offset="100%" stopColor="var(--text-tertiary)" stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <path d={areaPath} fill={`url(#${gradId})`} />
+        <polyline
+          points={points}
+          fill="none"
+          stroke="var(--text-tertiary)"
+          strokeWidth={1}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+        {/* Year-zero dot (BOL) and year-final dot (EOL) for legibility. */}
+        <circle cx={pts[0].x} cy={pts[0].y} r={1.2} fill="var(--text-secondary)" />
+        <circle cx={pts[pts.length - 1].x} cy={pts[pts.length - 1].y} r={1.2} fill="var(--text-secondary)" />
+        {/* Hover hit areas */}
+        {pts.map(p => {
+          const segW = W / pts.length;
+          return (
+            <rect
+              key={p.yr}
+              x={p.x - segW / 2}
+              y={0}
+              width={segW}
+              height={H}
+              fill="transparent"
+              onMouseEnter={(e) => tt.show({
+                label: `Year ${p.yr}`,
+                value: p.v * 100,
+                unit: '%',
+                secondary: [{ label: 'vs BOL', value: ((p.v - bol) * 100), unit: 'pp' }],
+              }, e.clientX, e.clientY)}
+              onMouseMove={(e) => tt.show({
+                label: `Year ${p.yr}`,
+                value: p.v * 100,
+                unit: '%',
+                secondary: [{ label: 'vs BOL', value: ((p.v - bol) * 100), unit: 'pp' }],
+              }, e.clientX, e.clientY)}
+            />
+          );
+        })}
+      </svg>
+      <ChartTooltipPortal tt={tt} />
+    </span>
+  );
+}
+
+// ═══ Phase 7.7e — cycles_breakdown 4-bar mini-chart ════════════════════════
+//
+// FCR / aFRR / mFRR / DA EFCs/yr decomposition. Replaces the v7.3 italicized
+// note with a scannable per-product split. Hues from the canonical
+// `--cycles-{fcr,afrr,mfrr,da}` palette (lavender / teal / amber / blue).
+
+const PRODUCT_LABEL: Record<'fcr' | 'afrr' | 'mfrr' | 'da', string> = {
+  fcr:  'FCR',
+  afrr: 'aFRR',
+  mfrr: 'mFRR',
+  da:   'DA',
+};
+const PRODUCT_COLOR: Record<'fcr' | 'afrr' | 'mfrr' | 'da', string> = {
+  fcr:  'var(--cycles-fcr)',
+  afrr: 'var(--cycles-afrr)',
+  mfrr: 'var(--cycles-mfrr)',
+  da:   'var(--cycles-da)',
+};
+const WARRANTY_STYLE: Record<'within' | 'premium-tier-required' | 'unwarranted', { color: string; label: string }> = {
+  'within':                  { color: 'var(--teal)',   label: 'within warranty' },
+  'premium-tier-required':   { color: 'var(--amber)',  label: 'premium tier required' },
+  'unwarranted':             { color: 'var(--coral)',  label: 'unwarranted' },
+};
+
+export function CyclesBreakdownChart({
+  breakdown,
+  warrantyStatus,
+}: {
+  breakdown: CyclesBreakdown;
+  warrantyStatus?: 'within' | 'premium-tier-required' | 'unwarranted';
+}) {
+  const tt = useChartTooltipState();
+  const total = breakdown.total_efcs_yr || 1;
+  const products: Array<{ key: 'fcr' | 'afrr' | 'mfrr' | 'da'; value: number }> = [
+    { key: 'fcr',  value: breakdown.fcr },
+    { key: 'afrr', value: breakdown.afrr },
+    { key: 'mfrr', value: breakdown.mfrr },
+    { key: 'da',   value: breakdown.da },
+  ];
+
+  const W = 240;
+  const H = 12;
+
+  // Cumulative offsets for stacked bar
+  let cum = 0;
+  const segs = products.map(p => {
+    const w = (p.value / total) * W;
+    const x = cum;
+    cum += w;
+    return { ...p, x, w };
+  });
+
+  const warrantyDef = warrantyStatus ? WARRANTY_STYLE[warrantyStatus] : null;
+
+  return (
+    <div
+      data-testid="cycles-breakdown-chart"
+      style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0, width: '100%' }}
+      onMouseLeave={() => tt.hide()}
+    >
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        preserveAspectRatio="none"
+        style={{ display: 'block', width: '100%', maxWidth: W, height: H, overflow: 'visible' }}
+      >
+        <rect x={0} y={0} width={W} height={H} rx={2} fill="var(--bg-elevated)" />
+        {segs.map(s => {
+          const showTip = (e: React.MouseEvent) => tt.show({
+            label: PRODUCT_LABEL[s.key],
+            value: s.value,
+            unit: 'EFCs/yr',
+            secondary: [
+              { label: 'Of total', value: (s.value / total) * 100, unit: '%' },
+              { label: 'Total c/d', value: breakdown.total_cd, unit: 'c/d' },
+            ],
+          }, e.clientX, e.clientY);
+          return (
+            <rect
+              key={s.key}
+              data-product={s.key}
+              x={s.x}
+              y={0}
+              width={Math.max(1, s.w - 1)}
+              height={H}
+              fill={PRODUCT_COLOR[s.key]}
+              opacity={0.78}
+              rx={1.5}
+              onMouseEnter={showTip}
+              onMouseMove={showTip}
+            />
+          );
+        })}
+      </svg>
+      {/* Legend + totals */}
+      <div style={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: 8,
+        alignItems: 'baseline',
+        fontFamily: 'var(--font-mono)',
+        fontSize: 'var(--font-xs)',
+        color: 'var(--text-muted)',
+        fontVariantNumeric: 'tabular-nums',
+      }}>
+        {products.map(p => (
+          <span key={p.key} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <span style={{
+              display: 'inline-block', width: 7, height: 7, borderRadius: 1.5,
+              background: PRODUCT_COLOR[p.key], opacity: 0.78,
+            }} />
+            <span style={{ color: 'var(--text-secondary)' }}>{PRODUCT_LABEL[p.key]}</span>
+            <span>{Math.round(p.value)}</span>
+          </span>
+        ))}
+        <span style={{ marginLeft: 'auto', color: 'var(--text-secondary)' }}>
+          <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{Math.round(total)}</span>
+          {' EFCs/yr · '}
+          <span style={{ color: 'var(--text-primary)' }}>{breakdown.total_cd.toFixed(2)}</span>
+          {' c/d'}
+        </span>
+        {warrantyDef && (
+          <span style={{
+            marginLeft: 4,
+            padding: '1px 6px',
+            border: `1px solid ${warrantyDef.color}`,
+            borderRadius: 2,
+            color: warrantyDef.color,
+            fontSize: 'var(--font-xs)',
+            letterSpacing: '0.04em',
+            textTransform: 'uppercase',
+          }}>
+            {warrantyDef.label}
+          </span>
+        )}
+      </div>
+      <ChartTooltipPortal tt={tt} />
+    </div>
+  );
+}
+
+// ═══ Phase 7.7e — Calibration source footer ════════════════════════════════
+//
+// Reassurance, not headline. Italic single-line summary with a click-to-expand
+// reveal of the per-constant provenance from `engine_calibration_source`.
+
+export function CalibrationFooter({ source }: { source: EngineCalibrationSource | undefined }) {
+  const [expanded, setExpanded] = useState(false);
+  if (!source) return null;
+  const lastCalibrated = source.last_calibrated;
+  const nextReview = source.next_review;
+  const summary = lastCalibrated
+    ? `Calibrated ${lastCalibrated} against Tier 1 LFP integrator consensus + public market research`
+    : 'Calibrated against Tier 1 LFP integrator consensus + public market research';
+  const nextSuffix = nextReview ? ` · Next review ${nextReview}` : '';
+
+  const rows: Array<[string, string | undefined]> = [
+    ['SOH curves',                source.soh_curves],
+    ['RTE decay',                 source.rte_decay],
+    ['Availability',              source.availability],
+    ['Throughput per product',    source.throughput_per_product],
+    ['CAPEX per MW',              source.capex_per_mw],
+    ['Last calibrated',           source.last_calibrated],
+    ['Next review',               source.next_review],
+  ];
+
+  return (
+    <div data-testid="calibration-footer" style={{ marginTop: 8 }}>
+      <button
+        type="button"
+        onClick={() => setExpanded(v => !v)}
+        aria-expanded={expanded}
+        style={{
+          background: 'transparent',
+          border: 'none',
+          padding: 0,
+          margin: 0,
+          textAlign: 'left',
+          cursor: 'pointer',
+          display: 'flex',
+          gap: 6,
+          alignItems: 'baseline',
+          fontFamily: "'Cormorant Garamond', serif",
+          fontStyle: 'italic',
+          fontSize: 'var(--font-sm)',
+          color: 'var(--text-muted)',
+          lineHeight: 1.4,
+          width: '100%',
+        }}
+      >
+        <span style={{ flex: 1 }}>{summary}{nextSuffix}</span>
+        <span aria-hidden style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: 10,
+          color: 'var(--text-tertiary)',
+          letterSpacing: '0.04em',
+          textTransform: 'uppercase',
+          fontStyle: 'normal',
+          padding: '1px 5px',
+          borderRadius: 2,
+          border: '1px solid var(--border-subtle)',
+          transition: 'transform 0.18s ease',
+          transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
+        }}>i</span>
+      </button>
+      {expanded && (
+        <div
+          data-testid="calibration-footer-detail"
+          style={{
+            marginTop: 8,
+            padding: '10px 12px',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: 4,
+            background: 'var(--bg-elevated)',
+            display: 'grid',
+            gridTemplateColumns: 'auto 1fr',
+            columnGap: 12,
+            rowGap: 5,
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--font-xs)',
+            color: 'var(--text-secondary)',
+            lineHeight: 1.5,
+          }}
+        >
+          {rows.map(([label, value]) =>
+            value ? (
+              <div key={label} style={{ display: 'contents' }}>
+                <span style={{
+                  color: 'var(--text-tertiary)',
+                  letterSpacing: '0.04em',
+                  textTransform: 'uppercase',
+                  fontSize: 10,
+                  whiteSpace: 'nowrap',
+                  paddingTop: 1,
+                }}>
+                  {label}
+                </span>
+                <span>{value}</span>
+              </div>
+            ) : null
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ═══ Assumptions Panel (7.7.5) ══════════════════════════════════════════════
 //
 // Read-only display of engine assumptions. NO sliders / NO interactive
 // elements (capital-structure controls land in Phase 7.7c Session 2).
 
-function AssumptionsPanel({ panel }: { panel: AssumptionsPanelData | undefined }) {
+function AssumptionsPanel({ panel, rteCurve, calibrationSource }: {
+  panel: AssumptionsPanelData | undefined;
+  rteCurve?: number[];
+  calibrationSource?: EngineCalibrationSource;
+}) {
   if (!panel) return null;
 
-  // v7.3 cycle row: derive a synthetic AssumptionRow from cycles_breakdown so
-  // the panel layout stays identical. Falls back to v7.2's flat cycles_per_year
-  // when present (back-compat).
-  const cyclesRow: AssumptionRow | null = panel.cycles_breakdown
-    ? {
-        value: Math.round(panel.cycles_breakdown.total_efcs_yr),
-        label: 'Cycles per year',
-        unit: '',
-        note: `${panel.cycles_breakdown.total_cd.toFixed(2)} c/d throughput-derived — `
-          + `FCR ${panel.cycles_breakdown.fcr} + aFRR ${panel.cycles_breakdown.afrr} + `
-          + `mFRR ${panel.cycles_breakdown.mfrr} + DA ${panel.cycles_breakdown.da} EFCs/yr`
-          + (panel.warranty_status ? ` (warranty ${panel.warranty_status})` : ''),
-      }
-    : (panel.cycles_per_year ?? null);
+  // Phase 7.7e — when v7.3 cycles_breakdown is present, the cycles row renders
+  // as a per-product mini-chart (CyclesBreakdownChart) replacing the v7.2 note.
+  // v7.2 fallback: render the flat row identically to before.
+  const useV73CyclesChart = !!panel.cycles_breakdown;
+  const v72CyclesRow = panel.cycles_per_year ?? null;
 
-  const rows: Array<{ key: string; row: AssumptionRow }> = [
-    { key: 'rte',             row: panel.rte },
-    ...(cyclesRow ? [{ key: 'cycles_per_year', row: cyclesRow }] : []),
-    { key: 'availability',    row: panel.availability },
-    { key: 'hold_period',     row: panel.hold_period },
-    { key: 'wacc',            row: panel.wacc },
+  const standardRows: Array<{ key: string; row: AssumptionRow }> = [
+    ...(panel.availability ? [{ key: 'availability', row: panel.availability }] : []),
+    ...(panel.hold_period  ? [{ key: 'hold_period',  row: panel.hold_period  }] : []),
+    ...(panel.wacc         ? [{ key: 'wacc',         row: panel.wacc         }] : []),
   ];
 
   return (
@@ -360,8 +714,74 @@ function AssumptionsPanel({ panel }: { panel: AssumptionsPanelData | undefined }
         letterSpacing: '0.08em', marginBottom: 10 }}>
         Engine assumptions
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 14, rowGap: 6 }}>
-        {rows.map(({ key, row }) => (
+      <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 14, rowGap: 8 }}>
+        {/* RTE row — value + inline RteSparkline of the 18-yr decay curve */}
+        {panel.rte && (
+          <>
+            <div style={{
+              fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+              color: 'var(--text-muted)', whiteSpace: 'nowrap',
+              display: 'flex', alignItems: 'center', gap: 8,
+            }} title={panel.rte.note}>
+              <span style={{ color: 'var(--text-primary)' }}>{panel.rte.label}</span>
+              <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
+                {panel.rte.value}{panel.rte.unit}
+              </span>
+              {rteCurve && rteCurve.length >= 2 && <RteSparkline curve={rteCurve} />}
+            </div>
+            <div style={{
+              fontFamily: "'Cormorant Garamond',serif", fontSize: 'var(--font-sm)',
+              fontStyle: 'italic', color: 'var(--text-muted)', lineHeight: 1.35,
+            }}>
+              {panel.rte.note}
+              {rteCurve && rteCurve.length >= 2 && (
+                <> · {(rteCurve[0] * 100).toFixed(1)}% Y0 → {(rteCurve[rteCurve.length - 1] * 100).toFixed(1)}% Y{rteCurve.length - 1}</>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* Cycles row — v7.3 cycles_breakdown chart, or v7.2 fallback row */}
+        {useV73CyclesChart && panel.cycles_breakdown && (
+          <>
+            <div style={{
+              fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+              color: 'var(--text-muted)', whiteSpace: 'nowrap', alignSelf: 'start',
+              paddingTop: 2,
+            }}>
+              <span style={{ color: 'var(--text-primary)' }}>Cycles per year</span>
+            </div>
+            <div>
+              <CyclesBreakdownChart
+                breakdown={panel.cycles_breakdown}
+                warrantyStatus={panel.warranty_status}
+              />
+            </div>
+          </>
+        )}
+        {!useV73CyclesChart && v72CyclesRow && (
+          <>
+            <div style={{
+              fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+              color: 'var(--text-muted)', whiteSpace: 'nowrap',
+            }} title={v72CyclesRow.note}>
+              <span style={{ color: 'var(--text-primary)' }}>{v72CyclesRow.label}</span>
+              {' '}
+              <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
+                {v72CyclesRow.value}{v72CyclesRow.unit}
+              </span>
+            </div>
+            <div style={{
+              fontFamily: "'Cormorant Garamond',serif", fontSize: 'var(--font-sm)',
+              fontStyle: 'italic', color: 'var(--text-muted)', lineHeight: 1.35,
+            }}>
+              {v72CyclesRow.note}
+            </div>
+          </>
+        )}
+
+        {/* Remaining standard rows — availability / hold / wacc */}
+        {standardRows.map(({ key, row }) => (
           <div key={key} style={{ display: 'contents' }}>
             <div style={{
               fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
@@ -382,6 +802,7 @@ function AssumptionsPanel({ panel }: { panel: AssumptionsPanelData | undefined }
           </div>
         ))}
       </div>
+      <CalibrationFooter source={calibrationSource} />
     </div>
   );
 }
@@ -392,14 +813,24 @@ function AssumptionsPanel({ panel }: { panel: AssumptionsPanelData | undefined }
 // lines at 0.80 (typical augmentation trigger) and 0.70 (typical end-of-life).
 // Engine math is unchanged — this is pure binding of a field already present.
 
-function DegradationChart({ years, CC, ts }: {
+function DegradationChart({ years, CC }: {
   years: YearData[];
   CC: ReturnType<typeof useChartColors>;
-  ts: ReturnType<typeof useTooltipStyle>;
+  /** Phase 7.7e: tooltip migrated to unified primitive; legacy prop preserved. */
+  ts?: unknown;
 }) {
   const points = projectDegradationCurve(years);
   if (!points.length) return null;
   const { min, max } = degradationAxisRange(points);
+
+  const tt = useChartTooltipState();
+  const externalTooltip = useTooltipStyle(CC, {
+    external: buildExternalTooltipHandler(tt.setState, (point, title) => ({
+      label: `Retention · ${title ?? 'Y' + (points[point.dataIndex ?? 0]?.year ?? 0)}`,
+      value: typeof point.parsed?.y === 'number' ? point.parsed.y * 100 : 0,
+      unit: '%',
+    })),
+  });
 
   const data = {
     labels: points.map(p => 'Y' + p.year),
@@ -449,13 +880,7 @@ function DegradationChart({ years, CC, ts }: {
     interaction: { mode: 'index', intersect: false },
     plugins: {
       legend: { display: false },
-      tooltip: {
-        ...ts,
-        callbacks: {
-          title: (items: any[]) => items[0]?.label ?? '',
-          label: (ctx: any) => `Retention ${(ctx.parsed.y * 100).toFixed(1)}%`,
-        },
-      },
+      tooltip: externalTooltip,
     },
     scales: {
       x: {
@@ -483,6 +908,7 @@ function DegradationChart({ years, CC, ts }: {
       <div style={{ height: 160 }}>
         <Line data={data} plugins={[refLines]} options={options} />
       </div>
+      <ChartTooltipPortal tt={tt} />
     </div>
   );
 }
@@ -494,15 +920,25 @@ function DegradationChart({ years, CC, ts }: {
 // coefficients (S/D thresholds 0.6 / 1.0, slopes 2.5 / 1.5 / 0.08 inside the
 // worker). Investor sees how the curve evolves; sponsor IP stays unpublished.
 
-function CannibalizationChart({ rows, codYear, CC, ts }: {
+function CannibalizationChart({ rows, codYear, CC }: {
   rows: FleetYearRow[];
   codYear?: number;
   CC: ReturnType<typeof useChartColors>;
-  ts: ReturnType<typeof useTooltipStyle>;
+  /** Phase 7.7e: tooltip migrated to unified primitive; legacy prop preserved. */
+  ts?: unknown;
 }) {
   const points = projectCannibalizationCurve(rows);
   if (!points.length) return null;
   const { min, max } = cannibalizationAxisRange(points);
+
+  const tt = useChartTooltipState();
+  const externalTooltip = useTooltipStyle(CC, {
+    external: buildExternalTooltipHandler(tt.setState, (point, title) => ({
+      label: `CPI · ${title ?? points[point.dataIndex ?? 0]?.year ?? ''}`,
+      value: typeof point.parsed?.y === 'number' ? point.parsed.y : 0,
+      unit: '×',
+    })),
+  });
 
   const data = {
     labels: points.map(p => String(p.year)),
@@ -545,13 +981,7 @@ function CannibalizationChart({ rows, codYear, CC, ts }: {
     interaction: { mode: 'index', intersect: false },
     plugins: {
       legend: { display: false },
-      tooltip: {
-        ...ts,
-        callbacks: {
-          title: (items: any[]) => items[0]?.label ?? '',
-          label: (ctx: any) => `CPI ${ctx.parsed.y.toFixed(2)}×`,
-        },
-      },
+      tooltip: externalTooltip,
     },
     scales: {
       x: {
@@ -589,6 +1019,7 @@ function CannibalizationChart({ rows, codYear, CC, ts }: {
         fontFamily: 'var(--font-mono)', marginTop: 4 }}>
         cpi at COD applied as multiplier on capacity + balancing revenue
       </div>
+      <ChartTooltipPortal tt={tt} />
     </div>
   );
 }
@@ -800,11 +1231,35 @@ function MonthlyHeatmap({ months }: { months: BaseMonth[] }) {
 
 // ═══ Revenue Chart ══════════════════════════════════════════════════════════
 
-function RevenueChart({ years, CC, ts }: {
+function RevenueChart({ years, CC }: {
   years: YearData[];
   CC: ReturnType<typeof useChartColors>;
-  ts: ReturnType<typeof useTooltipStyle>;
+  /** Phase 7.7e: tooltip migrated to unified primitive; legacy prop preserved. */
+  ts?: unknown;
 }) {
+  const tt = useChartTooltipState();
+  const externalTooltip = useTooltipStyle(CC, {
+    external: buildExternalTooltipHandler(tt.setState, (point, title) => {
+      const i = point.dataIndex ?? 0;
+      const y = years[i];
+      const seriesLabels = ['Total', 'Balancing', 'OPEX', 'Fleet S/D'];
+      const dsIdx = point.datasetIndex ?? 0;
+      const seriesLabel = seriesLabels[dsIdx];
+      // datasetIndex 3 = ratio; else € k figures
+      const isRatio = dsIdx === 3;
+      const value = typeof point.parsed?.y === 'number' ? point.parsed.y : 0;
+      return {
+        label: `${seriesLabel} · ${title ?? 'Y' + (y?.yr ?? 0)}`,
+        value,
+        unit: isRatio ? '×' : '€/MW-yr (k)',
+        secondary: y && dsIdx === 0 ? [
+          { label: 'Trading', value: Math.round(y.rev_trd / MW / 1000), unit: 'k' },
+          { label: 'Trading %', value: y.trading_fraction * 100, unit: '%' },
+        ] : undefined,
+      };
+    }),
+  });
+
   const chartData = {
     labels: years.map(y => 'Y' + y.yr),
     datasets: [
@@ -842,25 +1297,7 @@ function RevenueChart({ years, CC, ts }: {
     interaction: { mode: 'index', intersect: false },
     plugins: {
       legend: { display: false },
-      tooltip: {
-        ...ts,
-        callbacks: {
-          title: (items: any[]) => items[0]?.label ?? '',
-          label: (ctx: any) => {
-            const y = years[ctx.dataIndex];
-            if (!y) return '';
-            if (ctx.datasetIndex === 0) {
-              const trdK = Math.round(y.rev_trd / MW / 1000);
-              const pct = Math.round(y.trading_fraction * 100);
-              return `Trading €${trdK}k (${pct}%)`;
-            }
-            if (ctx.datasetIndex === 1) return `Balancing €${Math.round(y.rev_bal / MW / 1000)}k`;
-            if (ctx.datasetIndex === 2) return `OPEX €${Math.round(y.opex / MW / 1000)}k`;
-            if (ctx.datasetIndex === 3) return `Fleet S/D ${y.sd_ratio.toFixed(2)}×`;
-            return '';
-          },
-        },
-      },
+      tooltip: externalTooltip,
     },
     scales: {
       x: {
@@ -885,7 +1322,12 @@ function RevenueChart({ years, CC, ts }: {
     },
   };
 
-  return <div style={{ height: 280 }}><Line data={chartData} options={options} /></div>;
+  return (
+    <div style={{ height: 280, position: 'relative' }}>
+      <Line data={chartData} options={options} />
+      <ChartTooltipPortal tt={tt} />
+    </div>
+  );
 }
 
 // ═══ DSCR Chart ═════════════════════════════════════════════════════════════
@@ -1270,7 +1712,11 @@ export function RevenueCard() {
 
       {/* Assumptions panel — RTE / cycles / availability / hold / WACC (7.7.5) */}
       <div style={{ marginBottom: 20 }}>
-        <AssumptionsPanel panel={data.assumptions_panel} />
+        <AssumptionsPanel
+          panel={data.assumptions_panel}
+          rteCurve={data.roundtrip_efficiency_curve}
+          calibrationSource={data.engine_calibration_source}
+        />
       </div>
 
       {/* Main chart area */}

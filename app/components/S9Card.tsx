@@ -5,6 +5,7 @@ import { useSignal } from '@/lib/useSignal';
 import { REFRESH_COOL } from '@/lib/refresh-cadence';
 import {
   MetricTile, StatusChip, SourceFooter, DetailsDrawer,
+  ChartTooltip, useChartTooltipState,
 } from '@/app/components/primitives';
 import { Sparkline } from './Sparkline';
 import type { Sentiment } from '@/app/lib/types';
@@ -56,8 +57,8 @@ function carbonImpact(sig: string | null | undefined, price: number | null | und
 export function S9Card() {
   const { status, data } = useSignal<S9Signal>(`${WORKER_URL}/s9`, { refreshInterval: REFRESH_COOL });
   const [history, setHistory] = useState<number[]>([]);
-  const [showTip, setShowTip] = useState(false);
   const [ttfPrice, setTtfPrice] = useState<number | null>(null);
+  const tt = useChartTooltipState();
 
   useEffect(() => {
     fetch(`${WORKER_URL}/s9/history`)
@@ -124,8 +125,25 @@ export function S9Card() {
       {/* Threshold bar with hover tooltip */}
       {data.eua_eur_t != null && (
         <div style={{ position: 'relative', marginBottom: '8px', cursor: 'default' }}
-          onMouseEnter={() => setShowTip(true)}
-          onMouseLeave={() => setShowTip(false)}>
+          onMouseEnter={(e) => tt.show({
+            label: 'EUA',
+            value: data.eua_eur_t!,
+            unit: '€/t',
+            secondary: [
+              { label: 'Regime', value: regimeLabel(data.signal) },
+              ...(data.eua_eur_t! >= 55 ? [{ label: 'BESS', value: 'above breakeven' }] : []),
+            ],
+          }, e.clientX, e.clientY)}
+          onMouseMove={(e) => tt.show({
+            label: 'EUA',
+            value: data.eua_eur_t!,
+            unit: '€/t',
+            secondary: [
+              { label: 'Regime', value: regimeLabel(data.signal) },
+              ...(data.eua_eur_t! >= 55 ? [{ label: 'BESS', value: 'above breakeven' }] : []),
+            ],
+          }, e.clientX, e.clientY)}
+          onMouseLeave={() => tt.hide()}>
           <div style={{
             display: 'flex', height: '6px', borderRadius: '3px', overflow: 'hidden',
             background: 'var(--bg-elevated)',
@@ -141,22 +159,6 @@ export function S9Card() {
             left: `${Math.min(100, Math.max(0, (data.eua_eur_t / 120) * 100))}%`,
             borderRadius: '1px',
           }} />
-          {showTip && (
-            <div style={{
-              position: 'absolute', bottom: '100%', left: '50%',
-              transform: 'translateX(-50%)', marginBottom: 6,
-              background: 'var(--bg-page)',
-              border: '1px solid var(--border-highlight)',
-              padding: '4px 10px', whiteSpace: 'nowrap',
-              fontFamily: 'var(--font-mono)',
-              fontSize: 'var(--font-xs)',
-              color: 'var(--text-primary)', pointerEvents: 'none',
-              zIndex: 10,
-            }}>
-              {data.eua_eur_t.toFixed(1)} €/t · {regimeLabel(data.signal)}
-              {data.eua_eur_t >= 55 ? ' · Above BESS breakeven' : ''}
-            </div>
-          )}
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2px' }}>
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-ghost)' }}>0</span>
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-ghost)' }}>30</span>
@@ -193,6 +195,18 @@ export function S9Card() {
           </div>
         </DetailsDrawer>
       </div>
+      <ChartTooltip
+        visible={tt.state.visible}
+        x={tt.state.x}
+        y={tt.state.y}
+        value={tt.state.data?.value ?? 0}
+        unit={tt.state.data?.unit ?? ''}
+        date={tt.state.data?.date}
+        time={tt.state.data?.time}
+        label={tt.state.data?.label}
+        secondary={tt.state.data?.secondary}
+        source={tt.state.data?.source}
+      />
     </article>
   );
 }

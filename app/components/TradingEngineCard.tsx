@@ -9,7 +9,11 @@ import {
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
 import { useChartColors, CHART_FONT, useTooltipStyle } from '@/app/lib/chartTheme';
-import { DetailsDrawer, SourceFooter } from '@/app/components/primitives';
+import {
+  DetailsDrawer, SourceFooter,
+  ChartTooltipPortal, useChartTooltipState,
+} from '@/app/components/primitives';
+import { buildExternalTooltipHandler } from '@/app/lib/chartTooltip';
 import { normaliseHourlyDispatch, dailyAvgPerHour } from '@/app/lib/dispatchChart';
 import { DISPATCH_LABELS } from '@/app/lib/dispatchDefinitions';
 import { ACTIVATION_COVERAGE_LABEL, ACTIVATION_COVERAGE_FORMULA } from '@/app/lib/activationCoverage';
@@ -133,10 +137,11 @@ function Toggle({ options, value, onChange }: {
 
 // ═══ Hourly Chart ═══════════════════════════════════════════════════════════
 
-function HourlyChart({ data, CC, ts }: {
+function HourlyChart({ data, CC }: {
   data: DispatchResponse;
   CC: ReturnType<typeof useChartColors>;
-  ts: ReturnType<typeof useTooltipStyle>;
+  /** Phase 7.7e: tooltip migrated to unified primitive; legacy prop preserved. */
+  ts?: unknown;
 }) {
   const hourly = data.hourly_dispatch;
   const mwTotal = data.meta.mw_total;
@@ -144,6 +149,25 @@ function HourlyChart({ data, CC, ts }: {
   // y-axis unit matches the headline (€/MW/day = sum of these bars).
   const norm = normaliseHourlyDispatch(hourly, mwTotal);
   const avgLine = dailyAvgPerHour(data.revenue_per_mw.daily_eur);
+  const tt = useChartTooltipState();
+  const externalTooltip = useTooltipStyle(CC, {
+    external: buildExternalTooltipHandler(tt.setState, (point, title) => {
+      const i = point.dataIndex ?? 0;
+      const n = norm[i];
+      const h = hourly[i];
+      const dsLabel = ['Capacity', 'Activation', 'Arbitrage'][point.datasetIndex ?? 0] ?? '';
+      return {
+        time: `${String(h?.hour ?? 0).padStart(2, '0')}:00`,
+        label: `${dsLabel} · hour ${String(h?.hour ?? 0).padStart(2, '0')}`,
+        value: typeof point.parsed?.y === 'number' ? point.parsed.y : 0,
+        unit: '€/MW/h',
+        secondary: n && h ? [
+          { label: 'DA price', value: h.da_price_eur_mwh, unit: '€/MWh' },
+          { label: 'SoC', value: h.avg_soc_pct, unit: '%' },
+        ] : undefined,
+      };
+    }),
+  });
   const chartData = {
     labels: hourly.map(h => `${String(h.hour).padStart(2, '0')}:00`),
     datasets: [
@@ -174,24 +198,7 @@ function HourlyChart({ data, CC, ts }: {
     interaction: { mode: 'index', intersect: false },
     plugins: {
       legend: { display: false },
-      tooltip: {
-        ...ts,
-        callbacks: {
-          title: (items: any[]) => items[0]?.label ?? '',
-          label: (ctx: any) => {
-            const n = norm[ctx.dataIndex];
-            if (!n) return '';
-            if (ctx.datasetIndex === 0) return `Capacity €${n.capacity_eur_per_mw_h.toFixed(2)}/MW/h`;
-            if (ctx.datasetIndex === 1) return `Activation €${n.activation_eur_per_mw_h.toFixed(2)}/MW/h`;
-            if (ctx.datasetIndex === 2) return `Arbitrage €${n.arbitrage_eur_per_mw_h.toFixed(2)}/MW/h`;
-            return '';
-          },
-          footer: (items: any[]) => {
-            const h = hourly[items[0]?.dataIndex];
-            return h ? `DA €${h.da_price_eur_mwh}/MWh · SoC ${h.avg_soc_pct}%` : '';
-          },
-        },
-      },
+      tooltip: externalTooltip,
     },
     scales: {
       x: {
@@ -222,6 +229,7 @@ function HourlyChart({ data, CC, ts }: {
       }}>
         Daily avg: €{avgLine.toFixed(2)}/MW/h · sum = €{data.revenue_per_mw.daily_eur}/MW/day
       </div>
+      <ChartTooltipPortal tt={tt} />
     </div>
   );
 }

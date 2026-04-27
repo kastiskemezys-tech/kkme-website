@@ -63,9 +63,13 @@ describe('CredibilityLadderBar', () => {
     }
   });
 
-  it('hover tooltip carries label, MW, and percent', () => {
+  it('per-tier hover surface is wired (Phase 7.7e ChartTooltip migration)', () => {
+    // Phase 7.7e — the legacy `title="permit: 800 MW · X% of pipeline"` was
+    // replaced by a portal-mounted <ChartTooltip>. The hover shape is asserted
+    // via the data-tier attribute and the absence of the legacy attribute.
     const html = renderToStaticMarkup(<CredibilityLadderBar tiers={FIXTURE} />);
-    expect(html).toMatch(/title="permit:\s*800 MW.*?% of pipeline"/);
+    expect(html).toMatch(/data-tier="permit"/);
+    expect(html).not.toMatch(/title="permit:/);
   });
 
   it('clickable tier wraps in an anchor with the supplied href', () => {

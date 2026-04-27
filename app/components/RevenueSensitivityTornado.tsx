@@ -6,12 +6,17 @@
 // trivially geometric and we want sub-pixel control over the bar baselines.
 // Color rule (P1): positive IRR deltas in mint, negative in coral — data
 // state, not editorial valence ("more IRR" is just a data direction).
+//
+// Phase 7.7e — per-bar hover wired through the unified ChartTooltip primitive
+// (label as headline since this chart has no time axis; absolute IRR shown as
+// a secondary row).
 
 import {
   buildTornadoBars,
   tornadoAxisExtent,
   type MatrixRow,
 } from '@/app/lib/sensitivity';
+import { ChartTooltip, useChartTooltipState } from '@/app/components/primitives';
 
 interface ScenarioInput {
   project_irr?: number | null;
@@ -54,8 +59,10 @@ export function RevenueSensitivityTornado({
   const ppToPx = (chartW / 2) / extent;
   const height = rowHeight * bars.length + 24;  // header + bars
 
+  const tt = useChartTooltipState();
+
   return (
-    <div>
+    <div onMouseLeave={() => tt.hide()}>
       <div style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-xs)',
         fontFamily: 'var(--font-mono)', textTransform: 'uppercase',
         letterSpacing: '0.08em', marginBottom: 6 }}>
@@ -98,9 +105,19 @@ export function RevenueSensitivityTornado({
                 x={x} y={yTop + 2}
                 width={Math.max(0.5, barLen)} height={barH}
                 fill={fill} opacity={0.85} rx={1}
-              >
-                <title>{`${b.label}: ${b.deltaPp >= 0 ? '+' : ''}${b.deltaPp.toFixed(1)} pp (IRR ${(b.absoluteIrr * 100).toFixed(1)}%)`}</title>
-              </rect>
+                onMouseEnter={(e) => tt.show({
+                  label: b.label,
+                  value: b.deltaPp,
+                  unit: 'pp',
+                  secondary: [{ label: 'Project IRR', value: b.absoluteIrr * 100, unit: '%' }],
+                }, e.clientX, e.clientY)}
+                onMouseMove={(e) => tt.show({
+                  label: b.label,
+                  value: b.deltaPp,
+                  unit: 'pp',
+                  secondary: [{ label: 'Project IRR', value: b.absoluteIrr * 100, unit: '%' }],
+                }, e.clientX, e.clientY)}
+              />
               <text
                 x={isPos ? chartRight : chartLeft}
                 y={yTop + barH * 0.75}
@@ -118,6 +135,18 @@ export function RevenueSensitivityTornado({
         fontFamily: 'var(--font-mono)', marginTop: 4 }}>
         Base: mid CAPEX · COD 2028 · base scenario
       </div>
+      <ChartTooltip
+        visible={tt.state.visible}
+        x={tt.state.x}
+        y={tt.state.y}
+        value={tt.state.data?.value ?? 0}
+        unit={tt.state.data?.unit ?? ''}
+        date={tt.state.data?.date}
+        time={tt.state.data?.time}
+        label={tt.state.data?.label}
+        secondary={tt.state.data?.secondary}
+        source={tt.state.data?.source}
+      />
     </div>
   );
 }

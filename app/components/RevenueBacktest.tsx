@@ -12,6 +12,8 @@
 
 import { Line } from 'react-chartjs-2';
 import { useChartColors, CHART_FONT, useTooltipStyle } from '@/app/lib/chartTheme';
+import { ChartTooltipPortal, useChartTooltipState } from '@/app/components/primitives';
+import { buildExternalTooltipHandler } from '@/app/lib/chartTooltip';
 import {
   backtestStats,
   backtestAxisRange,
@@ -27,8 +29,22 @@ interface RevenueBacktestProps {
 
 export function RevenueBacktest({ rows, modeledY1Daily }: RevenueBacktestProps) {
   const CC = useChartColors();
-  const ts = useTooltipStyle(CC);
   const stats = backtestStats(rows, modeledY1Daily);
+  const tt = useChartTooltipState();
+  const externalTooltip = useTooltipStyle(CC, {
+    external: buildExternalTooltipHandler(tt.setState, (point, title) => {
+      const r = rows[point.dataIndex ?? 0];
+      return {
+        label: title ?? formatBacktestMonth(r?.month ?? ''),
+        value: typeof point.parsed?.y === 'number' ? point.parsed.y : 0,
+        unit: '€/MW/day',
+        secondary: r ? [
+          { label: 'Sample', value: `${r.days}d` },
+          { label: 'S1 capture', value: r.s1_capture, unit: '€/MWh' },
+        ] : undefined,
+      };
+    }),
+  });
 
   if (!stats.count) {
     return (
@@ -92,18 +108,7 @@ export function RevenueBacktest({ rows, modeledY1Daily }: RevenueBacktestProps) 
     interaction: { mode: 'index', intersect: false },
     plugins: {
       legend: { display: false },
-      tooltip: {
-        ...ts,
-        callbacks: {
-          title: (items: any[]) => items[0]?.label ?? '',
-          label: (ctx: any) => `€${Math.round(ctx.parsed.y)}/MW/day`,
-          afterLabel: (ctx: any) => {
-            const r = rows[ctx.dataIndex];
-            if (!r) return '';
-            return `${r.days}d sample · S1 €${r.s1_capture.toFixed(0)}/MWh`;
-          },
-        },
-      },
+      tooltip: externalTooltip,
     },
     scales: {
       x: {
@@ -148,6 +153,7 @@ export function RevenueBacktest({ rows, modeledY1Daily }: RevenueBacktestProps) 
         fontSize: 'var(--font-xs)', fontFamily: 'var(--font-mono)', marginTop: 4 }}>
         {errLabel} · months in EET
       </div>
+      <ChartTooltipPortal tt={tt} />
     </div>
   );
 }

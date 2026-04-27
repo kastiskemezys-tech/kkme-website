@@ -5,7 +5,9 @@ import { useSignal } from '@/lib/useSignal';
 import { REFRESH_WARM } from '@/lib/refresh-cadence';
 import {
   AnimatedNumber, StatusChip, SourceFooter, DetailsDrawer, DrawerSection, DataClassBadge,
+  ChartTooltipPortal, useChartTooltipState,
 } from '@/app/components/primitives';
+import { buildExternalTooltipHandler } from '@/app/lib/chartTooltip';
 import type { DrawerHandle } from '@/app/components/primitives';
 import {
   Chart as ChartJS,
@@ -518,18 +520,30 @@ function PinReadout({ prefix, pinned, onClear, fmtKey }: {
 
 // ── History line chart (FCR) ────────────────────────────────────────────────
 
-function HistoryChart({ history, prod, CC, ttStyle, pinned, onPin }: {
+function HistoryChart({ history, prod, CC, pinned, onPin }: {
   history: S2HistoryEntry[];
   prod: Product;
   CC: ReturnType<typeof useChartColors>;
-  ttStyle: ReturnType<typeof useTooltipStyle>;
+  /** Phase 7.7e: tooltip migrated to unified primitive; legacy prop preserved. */
+  ttStyle?: unknown;
   pinned: Pinned;
   onPin: (p: Pinned) => void;
 }) {
   const field = historyField(prod);
   const labels = history.map(h => fmtDate(h.date));
   const values = history.map(h => (h[field] as number | null) ?? null);
+  const isoDates = history.map(h => h.date);
   const scales = buildScales(CC);
+
+  const tt = useChartTooltipState();
+  const externalTooltip = useTooltipStyle(CC, {
+    external: buildExternalTooltipHandler(tt.setState, (point, title) => ({
+      date: isoDates[point.dataIndex ?? 0] ?? title,
+      value: typeof point.parsed?.y === 'number' ? point.parsed.y : 0,
+      unit: '€/MW/h',
+      label: prod,
+    })),
+  });
 
   return (
     <>
@@ -572,13 +586,7 @@ function HistoryChart({ history, prod, CC, ttStyle, pinned, onPin }: {
             },
             plugins: {
               legend: { display: false },
-              tooltip: {
-                ...ttStyle,
-                callbacks: {
-                  title: (items) => labels[items[0].dataIndex],
-                  label: (item) => `${fmtEuro(item.raw as number)}/MW/h`,
-                },
-              },
+              tooltip: externalTooltip,
             },
             scales: {
               ...scales,
@@ -596,18 +604,20 @@ function HistoryChart({ history, prod, CC, ttStyle, pinned, onPin }: {
           fmtKey={fmtDate}
         />
       )}
+      <ChartTooltipPortal tt={tt} />
     </>
   );
 }
 
 // ── Monthly P50 trajectory (per-country, per-product) ───────────────────────
 
-function MonthlyTrajectoryChart({ monthly, country, prod, CC, ttStyle, pinned, onPin }: {
+function MonthlyTrajectoryChart({ monthly, country, prod, CC, pinned, onPin }: {
   monthly: Record<string, MonthlyStat>;
   country: Country;
   prod: Product;
   CC: ReturnType<typeof useChartColors>;
-  ttStyle: ReturnType<typeof useTooltipStyle>;
+  /** Phase 7.7e: tooltip migrated to unified primitive; legacy prop preserved. */
+  ttStyle?: unknown;
   pinned: Pinned;
   onPin: (p: Pinned) => void;
 }) {
@@ -615,6 +625,15 @@ function MonthlyTrajectoryChart({ monthly, country, prod, CC, ttStyle, pinned, o
   const labels = months.map(fmtMonth);
   const values = months.map(m => monthly[m]?.p50 ?? null);
   const scales = buildScales(CC);
+
+  const tt = useChartTooltipState();
+  const externalTooltip = useTooltipStyle(CC, {
+    external: buildExternalTooltipHandler(tt.setState, (point, title) => ({
+      label: `${country} ${prod} P50 · ${title ?? labels[point.dataIndex ?? 0]}`,
+      value: typeof point.parsed?.y === 'number' ? point.parsed.y : 0,
+      unit: '€/MW/h',
+    })),
+  });
 
   return (
     <>
@@ -657,13 +676,7 @@ function MonthlyTrajectoryChart({ monthly, country, prod, CC, ttStyle, pinned, o
             },
             plugins: {
               legend: { display: false },
-              tooltip: {
-                ...ttStyle,
-                callbacks: {
-                  title: (items) => labels[items[0].dataIndex],
-                  label: (item) => `${country} ${prod} ${fmtEuro(item.raw as number)}/MW/h`,
-                },
-              },
+              tooltip: externalTooltip,
             },
             scales: {
               ...scales,
@@ -681,22 +694,33 @@ function MonthlyTrajectoryChart({ monthly, country, prod, CC, ttStyle, pinned, o
           fmtKey={fmtMonth}
         />
       )}
+      <ChartTooltipPortal tt={tt} />
     </>
   );
 }
 
 // ── Capacity monthly bar chart ───────────────────────────────────────────────
 
-function CapacityChart({ monthly, prod, CC, ttStyle }: {
+function CapacityChart({ monthly, prod, CC }: {
   monthly: CapacityMonth[];
   prod: Product;
   CC: ReturnType<typeof useChartColors>;
-  ttStyle: ReturnType<typeof useTooltipStyle>;
+  /** Phase 7.7e: tooltip migrated to unified primitive; legacy prop preserved. */
+  ttStyle?: unknown;
 }) {
   const field = prod === 'aFRR' ? 'afrr_avg' : prod === 'mFRR' ? 'mfrr_avg' : 'fcr_avg';
   const labels = monthly.map(m => fmtMonth(m.month));
   const values = monthly.map(m => (m[field as keyof CapacityMonth] as number | null) ?? null);
   const scales = buildScales(CC);
+
+  const tt = useChartTooltipState();
+  const externalTooltip = useTooltipStyle(CC, {
+    external: buildExternalTooltipHandler(tt.setState, (point, title) => ({
+      label: `${prod} · ${title ?? labels[point.dataIndex ?? 0]}`,
+      value: typeof point.parsed?.y === 'number' ? point.parsed.y : 0,
+      unit: '€/MW/h',
+    })),
+  });
 
   return (
     <div style={{ marginBottom: '16px' }}>
@@ -719,7 +743,7 @@ function CapacityChart({ monthly, prod, CC, ttStyle }: {
           options={{
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { display: false }, tooltip: { ...ttStyle, callbacks: { label: (item) => `${fmtEuro(item.raw as number)}/MW/h` } } },
+            plugins: { legend: { display: false }, tooltip: externalTooltip },
             scales: {
               ...scales,
               x: { ...scales.x, ticks: { ...scales.x.ticks, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 } },
@@ -728,6 +752,7 @@ function CapacityChart({ monthly, prod, CC, ttStyle }: {
           }}
         />
       </div>
+      <ChartTooltipPortal tt={tt} />
     </div>
   );
 }
