@@ -1,15 +1,15 @@
 # KKME Handover
 
 Canonical state document. Read this first in every session.
-Last updated: 2026-04-27 (Session 21 — Phase 7.7d engine v7.3 shipped after two autonomous halts and recalibration; production deploy DEFERRED).
+Last updated: 2026-04-27 (Session 22 — frontend RevenueCard aligned with v7.3 response shape; SIGNAL ERROR resolved; v7.3 narrative live on kkme.eu).
 
 ## Current phase
 
-Phase 7.7d **engine v7.3** code-complete and pushed on branch `phase-7-7d-empirical-calibration` (3 commits: HALTED.md ×2 superseded, then ship). Throughput-derived cycle accounting + empirical SOH/RTE calibration. **NOT YET DEPLOYED** — operator runs `npx wrangler deploy` after eyeballing PR diff. Next CC job is Phase 7.7c Session 2 (capital-structure sliders) once v7.3 is on production.
+Phase 7.7d **engine v7.3** shipped end-to-end. Worker version `41978587-ddda-42f5-b975-1da0570a3b01` live; PR #40 merged to main (commit `ec9136e`). Frontend `RevenueCard` aligned with v7.3 shape via Session 22 hotfix (commit `94ca8d8`) — auto-deployed to kkme.eu via Cloudflare Pages. Returns card now surfaces v7.3 numbers (LCOS, MOIC, duration recommendation, throughput-derived cycles breakdown, warranty status) without errors. Next CC job is Phase 7.7c Session 2 (capital-structure sliders).
 
 Earlier ground: Phase 7.7c Session 1 shipped 2026-04-27 (engine v7.2 — LCOS, MOIC, duration optimizer, assumptions panel; worker version `e145aeb4-5570-4cdd-adcb-f79351ef33dc`; PR #38 merged). Phase 7 shipped (S1/S2 card rebuild). Phase 7.5-F shipped 2026-04-21. Phase 7.5 polish pass still queued. Phase 7.6 hero refinement prompt authored after 2026-04-21 visual audit. Roadmap re-sequencing from Session 9 still holds.
 
-Active queue order: **7.7d v7.3 PR review/merge/deploy → 7.7c Session 2 (capital-structure sliders) → 7.7e (aux curve / terminal value / augmentation / duration market-physics) → 7.5 polish → 7.6 → 8 → 9 → 10 → …**
+Active queue order: **7.7c Session 2 (capital-structure sliders) → 7.7e (aux curve / terminal value / augmentation / duration market-physics + Zod schema tightening) → 7.5 polish → 7.6 → 8 → 9 → 10 → …**
 
 Reference docs:
 - `docs/visual-audit/phase-7-5-audit/DIAGNOSTIC.md` — audit findings + routing
@@ -932,3 +932,64 @@ Direction asserts: IRR_2h > IRR_4h in base ✓ (18.09% > 10.90%, gap narrowed fr
 - Pre-existing untracked tree (`logs/btd.log`, `.claude/skills/`, `docs/visual-audit/phase-7/`, `public/hero/map-calibration-cities.json.json`, `workers/.wrangler/`, `.wrangler/tmp/`, `docs/_*.md` operator prep docs, `docs/phases/phase-7-7c-session-1-prompt.md`) — left as-is per Session 19 convention.
 
 **Verification:** `npm test` 665/665 passing. `npx tsc --noEmit` clean. `node --check workers/fetch-s1.js` OK. `node scripts/audit-stack.mjs --probe-v73` all 8 final guardrails met. Branch pushed to origin.
+
+
+### Session 22 — 2026-04-27 — Frontend SIGNAL ERROR fix on Returns card after v7.3 worker deploy (Claude Code)
+
+**Symptom:** v7.3 worker shipped (operator merged PR #40 + ran `wrangler deploy`, version `41978587-ddda-42f5-b975-1da0570a3b01`). Returns card on kkme.eu rendered "Signal error" — generic fallback from `ErrorBoundary` (`app/components/ErrorBoundary.tsx:47`).
+
+**Verbatim console error captured from production (chrome-devtools MCP):**
+
+```
+TypeError: Cannot read properties of undefined (reading 'note')
+[KKME] Signal card runtime error: TypeError: Cannot read properties of undefined (reading 'note')
+    at z (https://kkme.eu/_next/static/chunks/680adb972f2a3612.js:1:17372)
+    ...
+```
+
+**Root cause:** `app/components/RevenueCard.tsx:316` (in `AssumptionsPanel`) built a static rows array including `panel.cycles_per_year`. v7.2 had `assumptions_panel.cycles_per_year` as `{ value, label, unit, note }`; v7.3 replaced it with `assumptions_panel.cycles_breakdown` (`{ fcr, afrr, mfrr, da, total_cd, total_efcs_yr, label }`) plus a sibling `assumptions_panel.warranty_status` string. The old field path returns `undefined` from v7.3; `row.note` access on the .map then throws `TypeError`. `ErrorBoundary` catches and renders the generic "Signal error" placeholder.
+
+Single point of failure — no Zod schema involved (frontend casts JSON via `as RevenueData`, no validation at the network boundary). The TS interface declared `cycles_per_year: AssumptionRow` as required, which masked the runtime mismatch at compile time but TS doesn't enforce shape at runtime.
+
+**Fix** (`app/components/RevenueCard.tsx`, +33 / −3 lines, no worker change):
+
+1. Extended `AssumptionsPanelData` to include optional `cycles_breakdown: CyclesBreakdown` and `warranty_status?: 'within' | 'premium-tier-required' | 'unwarranted'`. Made `cycles_per_year` optional for back-compat.
+2. `AssumptionsPanel` now synthesizes a row from `cycles_breakdown` when v7.3 shape is detected:
+   ```ts
+   const cyclesRow: AssumptionRow | null = panel.cycles_breakdown
+     ? {
+         value: Math.round(panel.cycles_breakdown.total_efcs_yr),
+         label: 'Cycles per year',
+         unit: '',
+         note: `${panel.cycles_breakdown.total_cd.toFixed(2)} c/d throughput-derived — `
+           + `FCR ${panel.cycles_breakdown.fcr} + aFRR ${panel.cycles_breakdown.afrr} + `
+           + `mFRR ${panel.cycles_breakdown.mfrr} + DA ${panel.cycles_breakdown.da} EFCs/yr`
+           + (panel.warranty_status ? ` (warranty ${panel.warranty_status})` : ''),
+       }
+     : (panel.cycles_per_year ?? null);
+   ```
+   Falls back to v7.2's flat `cycles_per_year`, then to skipping the row entirely if neither is present.
+
+The synthesized note surfaces the per-product EFC breakdown + warranty status inside the existing italicized note slot — no new card components, no layout change. v7.3's calibration provenance becomes investor-readable through this row.
+
+**Verification:**
+- `npx tsc --noEmit` clean
+- `npm run build` clean (Next.js production build)
+- 665/665 vitest specs passing
+- Local dev `http://localhost:3000/?dur=4h&capex=mid&cod=2028&scenario=base#revenue` rendered the row as: `Cycles per year 439 — 1.20 c/d throughput-derived — FCR 8 + aFRR 40.4 + mFRR 15.6 + DA 375 EFCs/yr (warranty within)`.
+- After Cloudflare Pages auto-deploy from main, kkme.eu Returns card renders cleanly with v7.3 numbers (LCOS, MOIC, duration recommendation, cycles breakdown, warranty status). v7.3 narrative now investor-readable on production.
+
+**Commit:** `94ca8d8` on main (`phase-7-7d(frontend): align RevenueCard with v7.3 response shape`).
+
+**Cross-cutting notes:**
+
+- The frontend has no Zod schema at the `/revenue` boundary — the `as RevenueData` cast at `RevenueCard.tsx:1087` lets any shape through and only fails downstream when a renderer dereferences a missing leaf. Worth tightening in a future phase (Phase 7.7e candidate or standalone), but per the operator's "fix the immediate break, don't refactor" instruction, deferred.
+- Other frontend consumers of v7.3 fields are clean: `S3Card.tsx:413` reads `a.cycles_per_year` from a different domain (assumption arrays in S3 references, not engine output) — no change needed. No other site reads the old `assumptions_panel.cycles_per_year` shape.
+- The `roundtrip_efficiency_curve` array, `engine_calibration_source` object, and top-level `cycles_per_year` / `cycles_breakdown` / `warranty_status` siblings are now exposed on the wire but not consumed by the frontend — these are clean additions and will sit as additional bind-points for future Phase 7.7e display work (e.g., RTE-curve sparkline, calibration-provenance footer, per-product cycle-decomposition chip).
+
+**Phase 7.7e backlog augmentation:**
+
+- Tighten `/revenue` schema with Zod or io-ts at the network boundary so v8 changes surface as an explicit validation error rather than a downstream `Cannot read properties of undefined`.
+- Surface `engine_calibration_source.last_calibrated` + `next_review` somewhere in the assumptions footer (currently only the cycle row note carries v7.3 provenance).
+- Render the `roundtrip_efficiency_curve` as a sparkline next to the RTE row (year-over-year decay is now in the payload but not visualized).
+- Render the per-product `cycles_breakdown` as a four-bar mini-chart (currently flattened into the row's italicized note).
