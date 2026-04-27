@@ -6,8 +6,10 @@ import { useSignal } from '@/lib/useSignal';
 import { REFRESH_HOT } from '@/lib/refresh-cadence';
 import {
   AnimatedNumber, StatusChip, SourceFooter, DetailsDrawer, DrawerSection, DataClassBadge,
+  ChartTooltipPortal, useChartTooltipState,
 } from '@/app/components/primitives';
 import type { DrawerHandle } from '@/app/components/primitives';
+import { buildExternalTooltipHandler } from '@/app/lib/chartTooltip';
 import {
   Chart as ChartJS,
   CategoryScale, LinearScale,
@@ -310,18 +312,35 @@ function DurationToggle({ value, onChange }: { value: Duration; onChange: (d: Du
 
 type Pinned = { idx: number; date: string; value: number; swing: number | null } | null;
 
-function Sparkline({ history, dur, stats, CC, ttStyle, pinned, onPin }: {
+function Sparkline({ history, dur, stats, CC, pinned, onPin }: {
   history: DailyCaptureEntry[];
   dur: Duration;
   stats: CaptureRolling | null;
   CC: ReturnType<typeof useChartColors>;
-  ttStyle: ReturnType<typeof useTooltipStyle>;
+  /** Legacy theming prop — Phase 7.7e migrated this chart to the unified
+   *  external tooltip; no longer consumed but kept on the call site for
+   *  call-shape continuity. */
+  ttStyle?: unknown;
   pinned: Pinned;
   onPin: (p: Pinned) => void;
 }) {
   const field = dur === '2h' ? 'gross_2h' : 'gross_4h';
   const labels = history.map(h => fmtDate(h.date));
   const values = history.map(h => (h[field as keyof DailyCaptureEntry] as number | null) ?? null);
+  const isoDates = history.map(h => h.date);
+
+  const tt = useChartTooltipState();
+  const externalHandler = buildExternalTooltipHandler(tt.setState, (point, title) => {
+    const i = point.dataIndex ?? 0;
+    const swing = history[i]?.swing;
+    return {
+      date: isoDates[i] ?? title,
+      value: typeof point.parsed?.y === 'number' ? point.parsed.y : 0,
+      unit: '€/MWh',
+      secondary: swing != null ? [{ label: 'Swing', value: swing, unit: '€/MWh' }] : undefined,
+    };
+  });
+  const externalTooltip = useTooltipStyle(CC, { external: externalHandler });
 
   const datasets: Array<Record<string, unknown>> = [
     {
@@ -380,13 +399,7 @@ function Sparkline({ history, dur, stats, CC, ttStyle, pinned, onPin }: {
           },
           plugins: {
             legend: { display: false },
-            tooltip: {
-              ...ttStyle,
-              callbacks: {
-                title: (items) => labels[items[0].dataIndex],
-                label: (item) => `${fmtEuro(item.raw as number)}/MWh`,
-              },
-            },
+            tooltip: externalTooltip,
           },
           scales: {
             ...scales,
@@ -436,22 +449,33 @@ function Sparkline({ history, dur, stats, CC, ttStyle, pinned, onPin }: {
         </button>
       </div>
     )}
+    <ChartTooltipPortal tt={tt} />
     </>
   );
 }
 
 // ── Monthly bar chart ────────────────────────────────────────────────────────
 
-function MonthlyChart({ monthly, dur, CC, ttStyle }: {
+function MonthlyChart({ monthly, dur, CC }: {
   monthly: MonthlyCapture[];
   dur: Duration;
   CC: ReturnType<typeof useChartColors>;
-  ttStyle: ReturnType<typeof useTooltipStyle>;
+  /** Phase 7.7e: legacy theming prop now unused; tooltip lives in this component. */
+  ttStyle?: unknown;
 }) {
   const field = dur === '2h' ? 'avg_gross_2h' : 'avg_gross_4h';
   const labels = monthly.map(m => fmtMonth(m.month));
   const values = monthly.map(m => (m[field as keyof MonthlyCapture] as number | null) ?? null);
   const scales = buildScales(CC);
+
+  const tt = useChartTooltipState();
+  const externalTooltip = useTooltipStyle(CC, {
+    external: buildExternalTooltipHandler(tt.setState, (point, title) => ({
+      label: title ?? labels[point.dataIndex ?? 0],
+      value: typeof point.parsed?.y === 'number' ? point.parsed.y : 0,
+      unit: '€/MWh',
+    })),
+  });
 
   return (
     <div style={{ marginBottom: '16px' }}>
@@ -474,7 +498,7 @@ function MonthlyChart({ monthly, dur, CC, ttStyle }: {
           options={{
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { display: false }, tooltip: { ...ttStyle, callbacks: { label: (item) => `${fmtEuro(item.raw as number)}/MWh` } } },
+            plugins: { legend: { display: false }, tooltip: externalTooltip },
             scales: {
               ...scales,
               x: { ...scales.x, ticks: { ...scales.x.ticks, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 } },
@@ -483,6 +507,7 @@ function MonthlyChart({ monthly, dur, CC, ttStyle }: {
           }}
         />
       </div>
+      <ChartTooltipPortal tt={tt} />
     </div>
   );
 }
