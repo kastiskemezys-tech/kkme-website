@@ -1,8 +1,13 @@
 #!/usr/bin/env node
-// scripts/audit-stack.mjs — TEMPORARY, delete in Phase 7.7b Session 2.
+// scripts/audit-stack.mjs — preserved per Session 2 operational reframe.
 //
-// Reconstructs Y1 base-4h fixture numbers from the raw worker formulas to
-// ground-truth the math trace in docs/audits/phase-7-7b/stack-audit.md.
+// Two modes:
+//   (1) Fixture reconstruction (original Session 1 use)
+//   (2) Synthetic-KV probe (Session 3 — verifies v7.1 engine end-to-end
+//       without depending on wrangler dev preview-KV being seeded).
+//
+// Run: node scripts/audit-stack.mjs              # mode 1 (fixture reconstruction)
+//      node scripts/audit-stack.mjs --probe-v71  # mode 2 (synthetic-KV probe)
 //
 // Inputs are taken either from the fixture's own `base_year` block or from the
 // known scenario constants in workers/fetch-s1.js (lines cited inline). The
@@ -143,4 +148,217 @@ const report = {
   },
 };
 
-console.log(JSON.stringify(report, null, 2));
+if (!process.argv.includes('--probe-v71')) {
+  console.log(JSON.stringify(report, null, 2));
+} else {
+  await runSyntheticV71Probe();
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Synthetic-KV probe (Session 3 — gating check before production deploy)
+//
+// Loads workers/fetch-s1.js into a vm sandbox with ESM syntax stripped,
+// builds a synthetic kv approximating production data (sourced from the
+// v7-final fixtures + /revenue payload inspection), and calls
+// computeRevenueV7 directly for three consensus-IRR sanity-check configs.
+//
+// Decision gate: config 1 (base/4h/€120/COD 2027) IRR must land ≥ 8%
+// (ideally 12-18% per consensus benchmark band).
+//   - < 8% → STOP, do not deploy
+//   - ≥ 8% → ship
+// ──────────────────────────────────────────────────────────────────────
+
+async function runSyntheticV71Probe() {
+  const { readFileSync } = await import('node:fs');
+  const vm = await import('node:vm');
+
+  const src = readFileSync(
+    new URL('../workers/fetch-s1.js', import.meta.url),
+    'utf8'
+  );
+
+  // Strip ESM syntax + expose the functions / constants we need on globalThis
+  const stripped = src
+    .replace(
+      /^import\s+\{([^}]+)\}\s+from\s+['"][^'"]+['"];?$/gm,
+      (_m, names) =>
+        names
+          .split(',')
+          .map((n) => `const ${n.trim()} = (...a) => undefined;`)
+          .join(' ')
+    )
+    .replace(/export\s+default\s*{[\s\S]*?\n}\s*;?\s*$/, '') +
+    `\nObject.assign(globalThis, { computeRevenueV7, computeRevenueV6, computeTradingMix, computeBaseYear, REVENUE_SCENARIOS, bidAcceptanceFactor, cpiCurve, reservePrice, marketDepthFactor });\n`;
+
+  const ctx = { console };
+  vm.createContext(ctx);
+  vm.runInContext(stripped, ctx, { filename: 'fetch-s1.js', timeout: 5000 });
+
+  const synthKV = buildSyntheticKV();
+
+  const configs = [
+    {
+      label: 'config 1 (gating): base / 4h / €120 / COD 2027',
+      params: { mw: 50, dur_h: 4, capex_kwh: 120, cod_year: 2027, scenario: 'base' },
+      expect_band: [0.12, 0.18],
+      gate_floor: 0.08,
+      prod_v7_irr: 0.1429,
+    },
+    {
+      label: 'config 2: base / 4h / €164 / COD 2028 (current default)',
+      params: { mw: 50, dur_h: 4, capex_kwh: 164, cod_year: 2028, scenario: 'base' },
+      expect_band: [0.075, 0.105], // ~8.6% production v7
+      gate_floor: 0.05,
+      prod_v7_irr: 0.0865,
+    },
+    {
+      label: 'config 3: base / 2h / €120 / COD 2027',
+      params: { mw: 50, dur_h: 2, capex_kwh: 120, cod_year: 2027, scenario: 'base' },
+      expect_band: [0.10, 0.15],
+      gate_floor: 0.05,
+      prod_v7_irr: 0.2738, // production v7 is high — v7.1 may compress
+    },
+  ];
+
+  console.log('=== Synthetic-KV probe (v7.1 engine, mocked production-realistic kv) ===\n');
+  const results = [];
+  for (const cfg of configs) {
+    const result = ctx.computeRevenueV7(cfg.params, synthKV);
+    const irr = result.project_irr;
+    const equity_irr = result.equity_irr;
+    const min_dscr = result.min_dscr;
+    const gross = result.gross_revenue_y1;
+    const model = result.model_version;
+    const cpi_per = {
+      fcr: result.cpi_fcr_at_cod,
+      afrr: result.cpi_afrr_at_cod,
+      mfrr: result.cpi_mfrr_at_cod,
+    };
+    const per_product = result.per_product_at_cod;
+    results.push({ cfg, irr, equity_irr, min_dscr, gross, model, cpi_per, per_product });
+
+    const inBand = irr >= cfg.expect_band[0] && irr <= cfg.expect_band[1];
+    const aboveGate = irr >= cfg.gate_floor;
+    console.log(`--- ${cfg.label} ---`);
+    console.log(`  model_version: ${model}`);
+    console.log(`  project_irr:   ${(irr * 100).toFixed(2)}%   (prod v7: ${(cfg.prod_v7_irr * 100).toFixed(2)}%, expect band ${(cfg.expect_band[0] * 100).toFixed(0)}–${(cfg.expect_band[1] * 100).toFixed(0)}%)`);
+    console.log(`  equity_irr:    ${(equity_irr * 100).toFixed(2)}%`);
+    console.log(`  min_dscr:      ${min_dscr}`);
+    console.log(`  gross_y1:      ${gross.toLocaleString()}`);
+    console.log(`  cpi_at_cod:    fcr=${cpi_per.fcr}  afrr=${cpi_per.afrr}  mfrr=${cpi_per.mfrr}`);
+    console.log(`  per_product_at_cod.afrr: sd=${per_product?.afrr?.sd_ratio} acc=${per_product?.afrr?.bid_acceptance}`);
+    console.log(`  per_product_at_cod.mfrr: sd=${per_product?.mfrr?.sd_ratio} acc=${per_product?.mfrr?.bid_acceptance}`);
+    console.log(`  per_product_at_cod.fcr:  sd=${per_product?.fcr?.sd_ratio} acc=${per_product?.fcr?.bid_acceptance}`);
+    if (process.env.DEBUG) {
+      console.log(`  base_year.annual_totals: ${JSON.stringify(result.base_year?.annual_totals)}`);
+      console.log(`  base_year.data_coverage: ${JSON.stringify(result.base_year?.data_coverage)}`);
+      console.log(`  Y1: rev_bal=${result.years?.[0]?.rev_bal} rev_trd=${result.years?.[0]?.rev_trd} R=${result.years?.[0]?.R} T=${result.years?.[0]?.T} tf=${result.years?.[0]?.trading_fraction}`);
+      console.log(`  Y3: rev_bal=${result.years?.[2]?.rev_bal} rev_trd=${result.years?.[2]?.rev_trd} R=${result.years?.[2]?.R}`);
+      console.log(`  Y10: rev_bal=${result.years?.[9]?.rev_bal} rev_trd=${result.years?.[9]?.rev_trd} R=${result.years?.[9]?.R}`);
+    }
+    console.log(`  in expected band: ${inBand ? '✓' : '✗'}    above gate floor (${cfg.gate_floor * 100}%): ${aboveGate ? '✓' : '✗'}`);
+    console.log();
+  }
+
+  // ── Decision gate ──
+  const gating = results[0]; // config 1 is the gating one
+  console.log('=== DECISION GATE ===');
+  if (gating.irr < gating.cfg.gate_floor) {
+    console.log(`✗ STOP. config 1 IRR ${(gating.irr * 100).toFixed(2)}% < gate floor ${gating.cfg.gate_floor * 100}%.`);
+    console.log('  Re-tune bidAcceptanceFactor floor [0.30, 0.95] → [0.50, 0.95]');
+    console.log('  OR investigate multiplicative compression (bidAcceptance × reservePrice) double-counting.');
+    process.exit(1);
+  } else if (gating.irr < gating.cfg.expect_band[0] || gating.irr > gating.cfg.expect_band[1]) {
+    console.log(`⚠ ABOVE GATE but OUT OF BAND. config 1 IRR ${(gating.irr * 100).toFixed(2)}% — outside ${(gating.cfg.expect_band[0] * 100).toFixed(0)}–${(gating.cfg.expect_band[1] * 100).toFixed(0)}%.`);
+    console.log('  Above floor → safe to deploy, but worth investigating direction before shipping.');
+  } else {
+    console.log(`✓ SHIP. config 1 IRR ${(gating.irr * 100).toFixed(2)}% inside expected band ${(gating.cfg.expect_band[0] * 100).toFixed(0)}–${(gating.cfg.expect_band[1] * 100).toFixed(0)}%.`);
+  }
+}
+
+// Synthetic kv approximating production. Sourced from:
+//   - docs/audits/phase-7-7b/baseline-base-4h-v7-final.json (signal_inputs)
+//   - /revenue?scenario=base&dur=4h fleet_trajectory inspection (2026-04-27)
+function buildSyntheticKV() {
+  // 12 monthly s1_capture entries (trailing 12 months ending 2026-03)
+  // Captures approximate the fixture's monthly avg_gross_4h
+  const monthlyCaptures = [
+    { month: '2025-04', avg_gross_4h: 146,   avg_gross_2h: 156, days: 30 },
+    { month: '2025-05', avg_gross_4h: 129.4, avg_gross_2h: 138, days: 31 },
+    { month: '2025-06', avg_gross_4h: 94,    avg_gross_2h: 100, days: 30 },
+    { month: '2025-07', avg_gross_4h: 82.4,  avg_gross_2h: 88,  days: 31 },
+    { month: '2025-08', avg_gross_4h: 120.2, avg_gross_2h: 128, days: 31 },
+    { month: '2025-09', avg_gross_4h: 153.2, avg_gross_2h: 164, days: 30 },
+    { month: '2025-10', avg_gross_4h: 266.5, avg_gross_2h: 285, days: 31 },
+    { month: '2025-11', avg_gross_4h: 195.5, avg_gross_2h: 208, days: 30 },
+    { month: '2025-12', avg_gross_4h: 120.3, avg_gross_2h: 128, days: 31 },
+    { month: '2026-01', avg_gross_4h: 149.5, avg_gross_2h: 160, days: 31 },
+    { month: '2026-02', avg_gross_4h: 146.9, avg_gross_2h: 156, days: 28 },
+    { month: '2026-03', avg_gross_4h: 126.5, avg_gross_2h: 135, days: 29 },
+  ];
+
+  // Fleet trajectory matches production /revenue payload inspection
+  const trajectory = [
+    { year: 2026, sd_ratio: 1.81, phase: 'MATURE', cpi: 0.34 },
+    { year: 2027, sd_ratio: 1.96, phase: 'MATURE', cpi: 0.32 },
+    { year: 2028, sd_ratio: 2.11, phase: 'MATURE', cpi: 0.31 },
+    { year: 2029, sd_ratio: 2.26, phase: 'MATURE', cpi: 0.30 },
+    { year: 2030, sd_ratio: 2.41, phase: 'MATURE', cpi: 0.30 },
+    { year: 2031, sd_ratio: 2.56, phase: 'MATURE', cpi: 0.30 },
+  ];
+
+  return {
+    fleet: {
+      baltic_weighted_mw: 1361, // 1.81 × 752
+      baltic_operational_mw: 822,
+      baltic_pipeline_mw: 1083,
+      eff_demand_mw: 752,
+      sd_ratio: 1.81,
+      cpi: 0.34,
+      phase: 'MATURE',
+      product_sd: {
+        fcr:  { demand_mw: 28,  supply_mw: 1361, ratio: 48.61, sd_ratio: 48.61, phase: 'MATURE' },
+        afrr: { demand_mw: 120, supply_mw: 1361, ratio: 11.34, sd_ratio: 11.34, phase: 'MATURE' },
+        mfrr: { demand_mw: 604, supply_mw: 1361, ratio: 2.25,  sd_ratio: 2.25,  phase: 'MATURE' },
+      },
+      trajectory,
+    },
+    s2: {
+      afrr_cap_avg: 5.64,
+      mfrr_cap_avg: 11.63,
+      fcr_cap_avg: 0.36,
+      afrr_up_avg: 5.64,
+      mfrr_up_avg: 11.63,
+    },
+    s2_activation_parsed: {
+      lt: { afrr_p50: 13.5, mfrr_p50: 14.5 },
+      lt_monthly_afrr: {},
+      lt_monthly_mfrr: {},
+    },
+    s1: {
+      capture_4h_gross: 32.09,
+      capture_2h_gross: 35,
+    },
+    s1_capture: {
+      monthly: monthlyCaptures,
+      // Recent spot capture (signal_inputs.s1_capture) — different field from
+      // rolling_30d.stats_*.mean which the projection loop reads at line 1034.
+      capture_2h: { gross_eur_mwh: 35 },
+      capture_4h: { gross_eur_mwh: 32.09 },
+      // Rolling 30-day means — what computeTradingMix and projection loop use.
+      // Average of monthlyCaptures above (~145 €/MWh).
+      rolling_30d: {
+        stats_2h: { mean: 156 },
+        stats_4h: { mean: 144 },
+      },
+    },
+    s3: {
+      euribor_nominal_3m: 2.11,
+    },
+    euribor: {
+      euribor_nominal_3m: 2.11,
+    },
+    capacity_monthly: [],
+    dispatch_metrics: null, // engine uses 0.75/0.80 defaults → effective_arb_pct ≈ 0.115
+  };
+}
