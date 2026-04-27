@@ -1,15 +1,15 @@
 # KKME Handover
 
 Canonical state document. Read this first in every session.
-Last updated: 2026-04-27 (Session 20 — Tier 1 supplier consensus extraction + Phase 7.7d empirical-calibration prompt authored).
+Last updated: 2026-04-27 (Session 21 — Phase 7.7d engine v7.3 shipped after two autonomous halts and recalibration; production deploy DEFERRED).
 
 ## Current phase
 
-Phase 7.7c Session 1 shipped 2026-04-27 (engine v7.2 — LCOS, MOIC, duration optimizer, assumptions panel; worker version `e145aeb4-5570-4cdd-adcb-f79351ef33dc`; PR #38 open). Phase 7.7d **empirical calibration** is the next CC job — replaces three engine constants (SOH curve, RTE decay, availability) with anonymized consensus medians distilled from binding Tier 1 LFP integrator RFP responses held privately on the operator's machine. Prompt at [docs/phases/phase-7-7d-empirical-calibration-prompt.md](phases/phase-7-7d-empirical-calibration-prompt.md). Source data folder gated under `.gitignore`.
+Phase 7.7d **engine v7.3** code-complete and pushed on branch `phase-7-7d-empirical-calibration` (3 commits: HALTED.md ×2 superseded, then ship). Throughput-derived cycle accounting + empirical SOH/RTE calibration. **NOT YET DEPLOYED** — operator runs `npx wrangler deploy` after eyeballing PR diff. Next CC job is Phase 7.7c Session 2 (capital-structure sliders) once v7.3 is on production.
 
-Earlier ground: Phase 7 shipped (S1/S2 card rebuild). Phase 7.5-F shipped 2026-04-21 (card redesign sub-phase — live-data signal row, prose→drawer, country/product toggles, clickable face). Phase 7.5 polish pass still queued. Phase 7.6 hero refinement prompt authored after 2026-04-21 visual audit. Roadmap re-sequencing from Session 9 still holds.
+Earlier ground: Phase 7.7c Session 1 shipped 2026-04-27 (engine v7.2 — LCOS, MOIC, duration optimizer, assumptions panel; worker version `e145aeb4-5570-4cdd-adcb-f79351ef33dc`; PR #38 merged). Phase 7 shipped (S1/S2 card rebuild). Phase 7.5-F shipped 2026-04-21. Phase 7.5 polish pass still queued. Phase 7.6 hero refinement prompt authored after 2026-04-21 visual audit. Roadmap re-sequencing from Session 9 still holds.
 
-Active queue order: **7.7c PR #38 review/merge → 7.7d (empirical calibration) → 7.7c Session 2 (capital-structure sliders) → 7.7e (aux curve / terminal value / augmentation / duration market-physics) → 7.5 polish → 7.6 → 8 → 9 → 10 → …**
+Active queue order: **7.7d v7.3 PR review/merge/deploy → 7.7c Session 2 (capital-structure sliders) → 7.7e (aux curve / terminal value / augmentation / duration market-physics) → 7.5 polish → 7.6 → 8 → 9 → 10 → …**
 
 Reference docs:
 - `docs/visual-audit/phase-7-5-audit/DIAGNOSTIC.md` — audit findings + routing
@@ -857,3 +857,78 @@ RTE BOL @ POI incl aux: 0.86 (median across four Tier 1 RFP responses). Decay �
 - Three Cowork sandbox limitations encountered this session: `request_cowork_directory` blocked in unsupervised mode; `.git/index.lock` could not be unlinked; UI mount of new folder didn't propagate to sandbox. Operator handled all three via Mac terminal or Cowork UI directly.
 
 **Verification:** No code changes this session. `git check-ignore` confirms the new private-data patterns. Phase 7.7d prompt linted via spot-read for internal consistency (3-pause structure matches 7.7c convention; line-number references match current `workers/fetch-s1.js`; test counts match Session 19's 607-test baseline; per-product throughput numbers cross-checked against Modo/Dexter/enspired source URLs). Confidentiality grep on tracked files for project, client, developer, supplier, and personnel names plus pricing terms returns zero matches.
+
+
+### Session 21 — 2026-04-27 — Phase 7.7d engine v7.3 ship (Claude Code, two halts + recalibration)
+
+**Scope:** Execute the Phase 7.7d empirical-calibration prompt autonomously while operator was away ~3h. Run encountered two ABORT halts before shipping; the third autonomous instruction (drop the bad guardrails) closed it out cleanly.
+
+**Run 1 — initial autonomous execution (HALTED at §4 MOIC band 0.30).**
+
+- §0–§3 cleanly: 6 v7.2-pre fixtures captured, 49 new tests added (657 → 656 passing, tsc clean), worker rewrite with throughput-based cycle accounting, three rate-tagged SOH curves + `sohYr` interpolation, year-indexed RTE decay, availability normalization, decomposition + warranty surface in `assumptions_panel`, `engine_calibration_source` stamp, `model_version` v7.3.
+- §4 synthetic-KV probe revealed two structural problems:
+  1. Literal §2.1 rewrite (act_rate_* removed → mwh_per_mw_yr_* used in activation revenue) cascaded ~−24pp on base/2h IRR via `bal_calibration` (computeBaseYear's monthly path drops 80% on activation when it switches from `act_rate × 8760 × clearing` to `mwh_per_mw_yr × clearing` — the empirical 475 MWh/MW/yr is much smaller than the implicit 0.25 × 8760 = 2,190).
+  2. After surgical revert (keep act_rate_* as activation calibration anchors; use mwh_per_mw_yr_* for cycle-accounting + trading-energy budget only), stress MOIC still landed at 0.04 / 0.14 — below the §4 [0.3, 5.5] band.
+- HALTED.md committed and pushed (commit `a4fbaf1`); v7.3 work uncommitted.
+
+**Run 2 — recalibration follow-up (HALTED at three new symptoms).**
+
+Diagnosis: `mwh_per_mw_yr_da` was anchored on EU portfolio mean (700 MWh/MW/yr, enspired 0.86 c/d) when it should have matched v7.2's existing active-trader calibration. The `dur_scale_da = dur_h / 2` formula compounded the asymmetry: −36% trading throughput on 2h, ~unchanged on 4h. Fix: split into per-duration anchors `mwh_per_mw_yr_da_2h` / `_4h` mirroring v7.2's `cycles_{2h,4h} × duration × 365` (base 1100/1500, conservative 1000/1400, stress 800/1240).
+
+Recalibration ran cleanly (656 → 665 tests, tsc clean) and was a strict improvement on Run 1: stress MOIC 0.04 → 0.36 / 0.14 → 0.58, base/2h IRR 6.41% → 18.09%, base/4h IRR 9.63% → 10.90%, cycles up across all combos. But three of the revised guardrails still failed — all guardrail-prediction errors, not engine bugs:
+
+1. `MOIC_4h > MOIC_2h` direction assert (3.21× < 4.67×) — structurally wrong because MOIC normalizes by `equity_initial` which scales linearly with capex (and so with duration). 4h has more *absolute* equity (~€47M vs €34M) but lower *ratio* MOIC. v7.2-pre had the same direction (4.86× vs 2.69×).
+2. base/2h IRR 18.09% vs upper bound 18% — 0.09pp overshoot, operationally indistinguishable.
+3. stress/4h cycles 349 vs lower bound 400 — mathematically forced by the operator's prescribed `mwh_per_mw_yr_da_4h: 1240`.
+
+HALTED.md superseded with the new diagnosis (commit `801e627`); v7.3 work still uncommitted.
+
+**Run 3 — final ship (drop bad guardrails, commit, push).**
+
+Operator returned with explicit instruction: drop the `MOIC_4h > MOIC_2h` direction assert (structurally wrong), relax `IRR_2h base` upper to 19%, relax `stress/4h cycles_per_year` lower to 300. Re-probe verified all FINAL guardrails pass. v7.3 committed (`071dfc1`), HALTED.md removed (`497757c`).
+
+**Final v7.3 vs v7.2-pre deltas (per scenario × duration, from local probe):**
+
+| combo | LCOS €/MWh | MOIC | IRR | cycles/yr | warranty |
+|---|---|---|---|---|---|
+| base/2h | 69.5 → 96.2 (+€26.7) | 4.86× → 4.67× (−0.19) | 18.86% → 18.09% (−0.77pp) | 548 → 678 (+24%) | within |
+| base/4h | 76.3 → 97.0 (+€20.7) | 2.69× → 3.21× (+0.52) | 9.11% → 10.90% (+1.79pp) | 365 → 439 (+20%) | within |
+| conservative/2h | 76.3 → 104.6 | 3.43× → 2.98× | 14.03% → 12.22% | 511 → 603 | within |
+| conservative/4h | 81.9 → 104.1 | 1.87× → 2.23× | 6.01% → 7.37% | 347 → 402 | within |
+| stress/2h | 103.3 → 126.1 | 0.52× → 0.36× | null → null | 401 → 478 | within |
+| stress/4h | 96.1 → 118.5 | 0.48× → 0.58× | null → null | 310 → 349 | within |
+
+Direction asserts: IRR_2h > IRR_4h in base ✓ (18.09% > 10.90%, gap narrowed from ~10pp v7.2 to ~7pp v7.3 — partial fix to the duration-optimizer concern from Session 20). MOIC ranking 2h > 4h is the correct mathematical outcome for linear-capex assets and matches v7.2 precedent.
+
+**Worker deploy version ID:** N/A — **Production deploy DEFERRED per safe-YOLO protocol. Operator runs `npx wrangler deploy` after eyeballing PR diff.** No production v7.3 fixtures captured; the local synthetic-KV probe fixtures in `docs/audits/phase-7-7d/` are the v7.3 reference until production deploys.
+
+**Test count:** 607 (Session 19 baseline) → 656 (after first run's 49 new tests) → 665 (after recalibration's 9 additional per-duration DA asserts).
+
+**Engineering refinements vs prompt's literal §2:**
+
+1. `act_rate_{afrr,mfrr}` retained as activation-revenue calibration constants (literal removal cascaded −24pp on base/2h IRR via `bal_calibration` — the empirical mwh_per_mw_yr_afrr=475 is 22% of v7.2's implicit 2190; the cascade was unwarranted). The throughput parameters are used for cycle-accounting + trading-energy budget; activation revenue stays calibrated against BTD-observed dispatch.
+2. `mwh_per_mw_yr_da` replaced with per-duration anchors `_2h` / `_4h` (the single-anchor + `dur_scale_da = dur_h/2` formula was anchored on the EU portfolio mean rather than active-trader median, asymmetrically cutting 2h trading throughput by 36%).
+3. `calcIRR` upgraded with bracket-search to handle mixed-sign cash flow streams. BESS late-mothball years can flip EBITDA negative, giving NPV(rate) two zero crossings; the new search prefers the meaningful positive→negative crossing in [0%, 200%] over the artifact crossing in the negative-rate region. v7.2's calcIRR was returning null for many stress combos due to this; v7.3 still returns null for genuinely uneconomic streams (NPV(0%) ≤ 0) but extracts meaningful IRRs from late-mothball-degraded base/conservative streams.
+
+**Anomalies discovered:**
+
+- v7 main path's `bal_calibration = by_balancing_per_mw / R_now` ratio creates a feedback loop: changing `act_rate_*` shifts both numerator (via `computeBaseYear` monthly rev_act) and denominator (via `R_act_*_base` in `computeTradingMix`). The mid-tier surgery preserved both v7.2 anchors so balancing stays in calibration; the new throughput model only enters in cycle-accounting and trading-energy paths.
+- `equity_irr` for base scenarios hovered near `project_irr` ± debt service drag — financing structure is not the bottleneck on returns. Capital structure sliders (Phase 7.7c Session 2) will let the operator probe this directly.
+- Synthetic-KV vs production-KV gap is real (~30% on `by_balancing_per_mw`). Production deploy fixtures may show stress MOIC closer to v7.2's 0.46–0.52 than the probe's 0.36–0.58. Worth a re-probe against production after deploy.
+
+**Phase 7.7e backlog candidates surfaced (operator should review before next CC plan):**
+
+1. **Aux load temperature curve.** Operator-region cooler than 25°C standard → real aux consumption lower → effective RTE BOL +1–2pp. Needs site weather data integration.
+2. **Terminal value at SOH floor.** Augmentation event modeling at Y8–Y12 when capacity hits supplier-stated floor; current engine assumes Y10 augmentation at fixed cost without modeling the trigger condition.
+3. **Augmentation modeling (Y8–Y12 capex injection).** v7.3 has `aug_cost_pct` and `aug_restore` constants in scenarios but the augmentation event is hard-coded at Y10. Empirical practice: augment when SOH crosses 70% trigger (now hits earlier under v7.3's steeper curves).
+4. **Duration optimizer market-physics fix.** v7.3 narrows the 2h vs 4h IRR gap from ~10pp to ~7pp via the gentler 4h SOH curve, but the underlying multi-market-simultaneous-bidding sophistication (top-N quantile correction, mFRR vs aFRR cascade in 4h+ assets) is still missing.
+5. **calcIRR mixed-sign handling.** v7.3 fix is a coarse bracket search; a Newton-Raphson refinement with multi-root detection would tighten convergence and surface the multiple-IRR diagnostic to the payload (currently the engine just picks one).
+6. **Synthetic-KV calibration drift.** `scripts/audit-stack.mjs::buildSyntheticKV` is sourced from the Phase 7.7b v7-final fixtures and has drifted ~30% below current production KV state. Refresh from current production fixtures before next CC probe-driven phase.
+
+**Cross-cutting notes:**
+
+- Three commits on `phase-7-7d-empirical-calibration` branch (`a4fbaf1` HALTED v1, `801e627` HALTED v2, `071dfc1` ship, `497757c` HALTED.md remove). Branch ready for PR + manual deploy.
+- All confidentiality discipline preserved: no supplier names, project specifics, client names, pricing, or filenames from private documents in any tracked file. Anonymized as "Tier 1 LFP integrator consensus, binding RFP responses (2026-Q1)" per Session 20 convention.
+- Pre-existing untracked tree (`logs/btd.log`, `.claude/skills/`, `docs/visual-audit/phase-7/`, `public/hero/map-calibration-cities.json.json`, `workers/.wrangler/`, `.wrangler/tmp/`, `docs/_*.md` operator prep docs, `docs/phases/phase-7-7c-session-1-prompt.md`) — left as-is per Session 19 convention.
+
+**Verification:** `npm test` 665/665 passing. `npx tsc --noEmit` clean. `node --check workers/fetch-s1.js` OK. `node scripts/audit-stack.mjs --probe-v73` all 8 final guardrails met. Branch pushed to origin.

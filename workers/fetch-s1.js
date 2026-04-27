@@ -854,39 +854,140 @@ const COMPRESSION_SCENARIO_MULT = {
   base: 1.0, conservative: 2.0, stress: 3.5
 };
 
+// v7.3 — Two-track parameterization for activation:
+//
+//  (1) act_rate_{afrr,mfrr} are RETAINED as activation-revenue calibration
+//      constants. They are tuned to match BTD-observed activation revenue
+//      and feed the activation-revenue formulas in computeRevenueV6,
+//      computeBaseYear, computeLiveRate, computeTradingMix, and the
+//      backtest path. Treating them strictly as "in-merit fraction × 8760"
+//      is dimensionally loose, but the constant is calibrated against
+//      observed market revenue, so removing it would un-calibrate
+//      bal_calibration → cascade-drop forward rev_bal. Preserved.
+//
+//  (2) mwh_per_mw_yr_{fcr,afrr,mfrr} + mwh_per_mw_yr_da_{2h,4h} are NEW
+//      per-product throughput anchors used for cycle-accounting
+//      (total_efcs_yr / total_cd / warranty_status) AND for the trading-
+//      revenue energy budget (replacing dur_h × cycles_{2h,4h} × 365).
+//      DA arbitrage uses per-duration anchors (the original single
+//      `mwh_per_mw_yr_da` + dur_scale_da=dur_h/2 formula was anchored on
+//      the EU portfolio mean rather than the active-trader median, which
+//      asymmetrically cut 2h trading throughput by 36% — see HALTED.md
+//      diagnosis from the prior CC run). Per-duration anchors mirror
+//      v7.2's existing cycles_{2h,4h} × duration × 365 calibration so
+//      trading throughput stays at v7.2 levels; the SOH steepening alone
+//      produces the empirical IRR drop, which is the intended physics.
+//      Anchored on Baltic 2h merchant-battery research from Modo /
+//      Dexter / GEM / enspired (2025-Q3-Q4 publications):
+//
+//   FCR (incl SoC restoration around the deadband) — Modo cycling research +
+//     MDPI 2023 multi-service lifetime study (M5BAT 0.278 EFC/d, 84% participation):
+//       https://www.mdpi.com/1996-1073/16/7/3003
+//       https://modoenergy.com/research/en/battery-energy-storage-cycling-rates-value-wholesale-frequency-response
+//   aFRR symmetric (PICASSO 4-sec resolution; in-merit × depth ~5-8% of
+//     nameplate hours/yr for active assets):
+//       https://modoenergy.com/research/en/germany-september-2025-afrr-explained-ancillary-services-opportunity-grid-frequency-service
+//       https://gemenergyanalytics.substack.com/p/picasso-insights-and-data
+//   mFRR (MARI 12.5-min, Baltic marginal user — Iberia is the heavy MARI market):
+//       https://dexterenergy.ai/news/mari-implementation-across-european-tsos/
+//   DA + ID arbitrage — Modo cycling research; enspired EU portfolio (mean
+//     0.86 c/d, p90 1.03 for active traders); active-trader median uplift:
+//       https://www.enspired-trading.com/blog/dimensions-of-a-battery
+//
+// The legacy cycles_{2h,4h} parameters remain on the scenario object only as
+// a fallback for the non-engine `computeRevenueWorker` quick-comparison path.
+// They are no longer the source of truth for cycles_per_year (now derived
+// from throughput) or for cell-wear curves (now interpolated by total_cd).
 const REVENUE_SCENARIOS = {
   base: {
     real_factor: 0.90, trd_real: TRADING_REALISATION.base, bal_mult: 1.0, spread_mult: 1.0,
-    act_rate_afrr: 0.25, act_rate_mfrr: 0.10,
+    act_rate_afrr: 0.25, act_rate_mfrr: 0.10,  // calibration constants for activation revenue
+    mwh_per_mw_yr_fcr:  200,   // cycle-accounting + trading-energy throughput
+    mwh_per_mw_yr_afrr: 475,
+    mwh_per_mw_yr_mfrr: 125,
+    mwh_per_mw_yr_da_2h: 1100, // 1.5 c/d × 2 MWh × 365 ≈ 1095 — matches v7.2 cycles_2h=1.5 active-trader calibration
+    mwh_per_mw_yr_da_4h: 1500, // 1.03 c/d × 4 MWh × 365 ≈ 1500 — v7.2 cycles_4h=1.0 + slight 4h spread-capture uplift
     bal_compress_yr: 0.03, spread_compress_yr: 0.02,
     rtm_fee_pct: 0.10, brp_fee_yr: 180000,
     opex_per_kw_yr: 39, opex_esc: 0.025,
     debt_margin_bp: 250, aug_cost_pct: 0.12, aug_restore: 0.90,
-    avail: 0.95, cycles_2h: 1.5, cycles_4h: 1.0, stack_factor: 0.70,
+    avail: 0.97, cycles_2h: 1.5, cycles_4h: 1.0, stack_factor: 0.70,
   },
   conservative: {
     // Each parameter ~5-10% worse than base. Compounding of small drags = 3-5pp IRR gap.
     real_factor: 0.88, trd_real: TRADING_REALISATION.conservative, bal_mult: 0.95, spread_mult: 0.95,
     act_rate_afrr: 0.22, act_rate_mfrr: 0.09,
+    mwh_per_mw_yr_fcr:  170,   // ~85% of base
+    mwh_per_mw_yr_afrr: 380,   // ~80% of base — lower utilization rate
+    mwh_per_mw_yr_mfrr: 100,
+    mwh_per_mw_yr_da_2h: 1000, // 1.4 c/d × 2 MWh × 365 ≈ 1022 — matches v7.2 cycles_2h=1.4
+    mwh_per_mw_yr_da_4h: 1400, // 0.95 c/d × 4 MWh × 365 ≈ 1387 — matches v7.2 cycles_4h=0.95
     bal_compress_yr: 0.035, spread_compress_yr: 0.025,
     rtm_fee_pct: 0.11, brp_fee_yr: 185000,
     opex_per_kw_yr: 40, opex_esc: 0.026,
     debt_margin_bp: 270, aug_cost_pct: 0.12, aug_restore: 0.88,
-    avail: 0.94, cycles_2h: 1.4, cycles_4h: 0.95, stack_factor: 0.65,
+    avail: 0.96, cycles_2h: 1.4, cycles_4h: 0.95, stack_factor: 0.65,
     demand_growth: 0.02,  // same as base — demand is structural
   },
   stress: {
     // ~20% worse than base across parameters. Tests: everything goes wrong.
     real_factor: 0.78, trd_real: TRADING_REALISATION.stress, bal_mult: 0.85, spread_mult: 0.85,
     act_rate_afrr: 0.19, act_rate_mfrr: 0.07,
+    mwh_per_mw_yr_fcr:  140,   // ~70%
+    mwh_per_mw_yr_afrr: 285,   // ~60%
+    mwh_per_mw_yr_mfrr:  75,
+    mwh_per_mw_yr_da_2h:  800, // 1.1 c/d × 2 MWh × 365 ≈ 803 — matches v7.2 cycles_2h=1.1
+    mwh_per_mw_yr_da_4h: 1240, // 0.85 c/d × 4 MWh × 365 ≈ 1241 — matches v7.2 cycles_4h=0.85
     bal_compress_yr: 0.05, spread_compress_yr: 0.04,
     rtm_fee_pct: 0.13, brp_fee_yr: 210000,
     opex_per_kw_yr: 43, opex_esc: 0.032,
     debt_margin_bp: 320, aug_cost_pct: 0.14, aug_restore: 0.83,
-    avail: 0.92, cycles_2h: 1.1, cycles_4h: 0.85, stack_factor: 0.55,
+    avail: 0.94, cycles_2h: 1.1, cycles_4h: 0.85, stack_factor: 0.55,
     demand_growth: 0.015,
   },
 };
+
+// Throughput-derived cycle accounting — cross-product helper.
+// Returns total_mwh_yr and per-product MWh through the cells per MW installed.
+// DA arbitrage uses per-duration anchors (mwh_per_mw_yr_da_{2h,4h}) that
+// mirror v7.2's cycles_{2h,4h} × duration × 365 calibration. Balancing
+// products are service-window-bound and do not scale with duration.
+// Allocation fractions match RESERVE_PRODUCTS (FCR 0.16, aFRR 0.34,
+// mFRR 0.50) so cycle accounting tracks the same MW allocation the
+// revenue formulas use; DA uses full nameplate.
+function computeThroughputBreakdown(MW, dur_h, sc) {
+  const fcr_alloc_MW   = MW * 0.16;  // RESERVE_PRODUCTS.fcr.share
+  const afrr_alloc_MW  = MW * 0.34;  // RESERVE_PRODUCTS.afrr.share
+  const mfrr_alloc_MW  = MW * 0.50;  // RESERVE_PRODUCTS.mfrr.share
+
+  const fcr_mwh   = fcr_alloc_MW  * sc.mwh_per_mw_yr_fcr;
+  const afrr_mwh  = afrr_alloc_MW * sc.mwh_per_mw_yr_afrr;
+  const mfrr_mwh  = mfrr_alloc_MW * sc.mwh_per_mw_yr_mfrr;
+  const da_mwh    = MW            * (dur_h <= 2 ? sc.mwh_per_mw_yr_da_2h : sc.mwh_per_mw_yr_da_4h);
+
+  const total_mwh_yr = fcr_mwh + afrr_mwh + mfrr_mwh + da_mwh;
+  const capacity_mwh = MW * dur_h;
+  const total_efcs_yr = capacity_mwh > 0 ? total_mwh_yr / capacity_mwh : 0;
+  const total_cd      = total_efcs_yr / 365;
+
+  return {
+    fcr_mwh, afrr_mwh, mfrr_mwh, da_mwh,
+    total_mwh_yr, capacity_mwh,
+    fcr_efcs:  capacity_mwh > 0 ? fcr_mwh  / capacity_mwh : 0,
+    afrr_efcs: capacity_mwh > 0 ? afrr_mwh / capacity_mwh : 0,
+    mfrr_efcs: capacity_mwh > 0 ? mfrr_mwh / capacity_mwh : 0,
+    da_efcs:   capacity_mwh > 0 ? da_mwh   / capacity_mwh : 0,
+    total_efcs_yr,
+    total_cd,
+  };
+}
+
+// Warranty status indicator: standard cap 730 EFC/yr, premium tier 1,460 EFC/yr.
+function warrantyStatusFor(total_efcs_yr) {
+  if (total_efcs_yr <= 730)  return 'within';
+  if (total_efcs_yr <= 1460) return 'premium-tier-required';
+  return 'unwarranted';
+}
 
 const RESERVE_PRODUCTS = {
   fcr:  { share: 0.16, dur_req_h: 0.5, cap_fallback: 45 },
@@ -895,10 +996,49 @@ const RESERVE_PRODUCTS = {
 };
 
 function calcIRR(cf) {
-  let lo = -0.99, hi = 2.0;
+  // Robust IRR for mixed-sign cash flows. Many BESS PF streams turn slightly
+  // negative in mothball years (Y17-20) when compression × degradation pulls
+  // EBITDA below 0, which gives NPV(rate) two zero crossings: an artifact
+  // crossing in the very-negative-rate region (where late negatives blow up)
+  // and the meaningful financial IRR in the moderate-rate region. Coarse
+  // scan from positive-rate side to find the FIRST positive→negative
+  // crossing — that's the meaningful root.
+  function npvAt(rate) {
+    return cf.reduce((s, c, t) => s + c / Math.pow(1 + rate, t), 0);
+  }
+  // Scan from 0% upward to find the meaningful zero crossing (positive→negative).
+  const scanRates = [0.0, 0.02, 0.04, 0.06, 0.08, 0.10, 0.12, 0.15, 0.18, 0.22, 0.26, 0.30, 0.40, 0.55, 0.75, 1.00, 1.50, 2.00];
+  let bracketLo = null, bracketHi = null;
+  let prev = npvAt(scanRates[0]);
+  for (let i = 1; i < scanRates.length; i++) {
+    const cur = npvAt(scanRates[i]);
+    // Prefer positive→negative crossing (meaningful IRR root).
+    if (prev > 0 && cur <= 0) {
+      bracketLo = scanRates[i - 1];
+      bracketHi = scanRates[i];
+      break;
+    }
+    prev = cur;
+  }
+  let lo, hi;
+  if (bracketLo !== null) {
+    lo = bracketLo;
+    hi = bracketHi;
+  } else {
+    // Either NPV stays positive across the scan (very profitable — IRR > 200%)
+    // or NPV starts negative (uneconomic — IRR < 0). Fall back to the original
+    // wide-bracket bisection to characterize either case.
+    if (npvAt(0) <= 0) {
+      lo = -0.99;
+      hi = 0.0;
+    } else {
+      lo = scanRates[scanRates.length - 1];
+      hi = 2.0;
+    }
+  }
   for (let i = 0; i < 100; i++) {
     const mid = (lo + hi) / 2;
-    const npv = cf.reduce((s, c, t) => s + c / Math.pow(1 + mid, t), 0);
+    const npv = npvAt(mid);
     if (npv > 0) lo = mid; else hi = mid;
   }
   return Math.round((lo + hi) / 2 * 10000) / 10000;
@@ -920,8 +1060,16 @@ function computeRevenueV7(params, kv) {
   const sc = REVENUE_SCENARIOS[params.scenario || 'base'] || REVENUE_SCENARIOS.base;
   const capex_kwh = params.capex_kwh || 164;
   const cod_year = params.cod_year || 2028;
-  const cycles = dur_h <= 2 ? sc.cycles_2h : sc.cycles_4h;
-  const rte = cycles <= 1.2 ? 0.855 : 0.852;
+
+  // Throughput-derived cycle accounting (per MW installed). total_cd is the
+  // computed actual cycling rate (cycles/day) summed across all stacked
+  // products — fed to getDegradation so cell aging tracks real operation
+  // rather than a duration-label assumption (sc.cycles_{2h,4h} is now legacy).
+  const tp = computeThroughputBreakdown(1, dur_h, sc);
+  const total_cd     = tp.total_cd;
+  const da_mwh_per_mw_yr = tp.da_mwh;        // for 1 MW: MWh/yr from DA arbitrage
+  const rte_curve    = rteCurveFor(dur_h);  // year-indexed RTE curve
+  const rte          = rte_curve[0];        // BOL value used by single-value consumers
 
   // ── Observed base year (always computed with base params — observed data is scenario-independent) ──
   const base_year = computeBaseYear(kv, dur_h, REVENUE_SCENARIOS.base);
@@ -969,8 +1117,8 @@ function computeRevenueV7(params, kv) {
   let crossover_year = null;
   let revenue_crossover_year = null;
   for (let yr = 1; yr <= 20; yr++) {
-    // C1. Degradation
-    const retention = getDegradation(yr, cycles);
+    // C1. Degradation — keyed off throughput-derived total_cd, not duration label.
+    const retention = getDegradation(yr, total_cd);
     let usable_mwh_per_mw = dur_h * retention;
 
     // C2. Augmentation at year 10
@@ -983,7 +1131,7 @@ function computeRevenueV7(params, kv) {
       usable_mwh_per_mw = Math.min(target, pre_aug + added);
     }
     if (yr > 10) {
-      const ret_at_10 = getDegradation(10, cycles);
+      const ret_at_10 = getDegradation(10, total_cd);
       const target_10 = dur_h * sc.aug_restore;
       const restored = Math.min(target_10, dur_h * ret_at_10 + Math.max(0, target_10 - dur_h * ret_at_10));
       usable_mwh_per_mw = restored * (retention / ret_at_10);
@@ -1015,10 +1163,10 @@ function computeRevenueV7(params, kv) {
     const R_yr = mix.R;
 
     // C5. Degradation effect on trading
-    const deg_ratio_vs_y1 = retention / getDegradation(1, cycles);
+    const deg_ratio_vs_y1 = retention / getDegradation(1, total_cd);
 
     // C6. Revenue: balancing from R elasticity, trading from capture × MWh
-    const bal_scale = scale_energy / Math.min(1.0, (dur_h * getDegradation(1, cycles)) / total_energy_req);
+    const bal_scale = scale_energy / Math.min(1.0, (dur_h * getDegradation(1, total_cd)) / total_energy_req);
 
     // Balancing: split into capacity (follows R) and activation (additional S/D compression)
     const R_now = mix_now.R;
@@ -1033,12 +1181,17 @@ function computeRevenueV7(params, kv) {
       ? (s1_cap.rolling_30d?.stats_2h?.mean ?? s1_cap.capture_2h?.gross_eur_mwh ?? 140)
       : (s1_cap.rolling_30d?.stats_4h?.mean ?? s1_cap.capture_4h?.gross_eur_mwh ?? 125);
     const trading_real = sc.trd_real || 0.85;
-    const rte_yr = dur_h <= 2 ? 0.855 : 0.852;
+    const rte_yr = rte_curve[Math.min(yr - 1, rte_curve.length - 1)];
     const depth = marketDepthFactor(mix.sd_ratio);
     // Capture grows with renewable-driven spread widening (same multiplier as T)
     const spread_mult = mix.spread_mult || 1.0;
+    // Throughput-derived DA arbitrage energy: da_mwh_per_mw_yr is the annual MWh
+    // through the cells from DA arbitrage per MW installed. Replaces the legacy
+    // `dur_h × cycles × 365` (which assumed cycles_2h/4h scenario constants).
+    // This is per-product DA throughput, not total throughput — capture × MWh
+    // formula is for arbitrage specifically.
     const rev_trd = yr_capture * spread_mult * depth * rte_yr * trading_real
-                  * dur_h * cycles * 365
+                  * da_mwh_per_mw_yr
                   * mix.trading_fraction * sc.avail * deg_ratio_vs_y1 * mw;
 
     // C7. Gross → Net
@@ -1212,13 +1365,25 @@ function computeRevenueV7(params, kv) {
   const cpi_afrr_at_cod = Math.round(cpiCurve(cod_mix.per_product.afrr.sd_ratio) * 100) / 100;
   const cpi_mfrr_at_cod = Math.round(cpiCurve(cod_mix.per_product.mfrr.sd_ratio) * 100) / 100;
 
+  // ── v7.3 — Throughput-derived cycle accounting + empirical SOH/RTE ──────
+  // Per-product breakdown for assumptions_panel + warranty status surface.
+  const efc_breakdown = {
+    fcr:  Math.round(tp.fcr_efcs  * 10) / 10,
+    afrr: Math.round(tp.afrr_efcs * 10) / 10,
+    mfrr: Math.round(tp.mfrr_efcs * 10) / 10,
+    da:   Math.round(tp.da_efcs   * 10) / 10,
+  };
+  const total_efcs_yr = Math.round(tp.total_efcs_yr);
+  const warranty_status = warrantyStatusFor(tp.total_efcs_yr);
+
   // ── v7.2 — Phase 7.7c Session 1 derived metrics ─────────────────────────
   // LCOS (€/MWh-cycled) — cross-tech comparator.
   // Formula: (CAPEX·CRF + Fixed O&M + Charging cost) / annual MWh discharged
   //   CRF = r(1+r)^n / ((1+r)^n − 1); r = WACC (0.08, matches NPV at line 1143)
   //   n = 20 yr (matches years[].length)
   //   Charging cost = avg charge price × MWh charged annually × (1/RTE)
-  //   Annual MWh discharged = cycles × duration × MW × 365 × availability
+  //   Annual MWh discharged = total_efcs_yr × dur_h × MW × availability
+  //   (throughput-derived; replaces sc.cycles_{2h,4h} × 365 assumption).
   // Variable O&M is folded into Fixed O&M (opex_y1 already covers per-cycle wear in BESS PF practice).
   const LCOS_LIFETIME_YRS = 20;
   const LCOS_WACC = 0.08;
@@ -1229,7 +1394,7 @@ function computeRevenueV7(params, kv) {
   const lcos_charge_price = dur_h <= 2
     ? (s1_cap.capture_2h?.avg_charge ?? 35)
     : (s1_cap.capture_4h?.avg_charge ?? 30);
-  const lcos_mwh_discharged_yr = cycles * dur_h * mw * 365 * sc.avail;
+  const lcos_mwh_discharged_yr = tp.total_efcs_yr * dur_h * mw * sc.avail;
   const lcos_mwh_charged_yr = rte > 0 ? lcos_mwh_discharged_yr / rte : 0;
   const lcos_charging_cost = lcos_charge_price * lcos_mwh_charged_yr;
   const lcos_eur_mwh = lcos_mwh_discharged_yr > 0
@@ -1243,10 +1408,31 @@ function computeRevenueV7(params, kv) {
     : null;
 
   // Assumptions panel — read-only display of engine constants. NO sliders (Session 2).
+  // v7.3: replaced flat cycles_per_year with cycles_breakdown + warranty_status.
   const assumptions_panel = {
-    rte: { value: Math.round(rte * 1000) / 10, label: 'Round-trip efficiency', unit: '%', note: 'AC-AC; declines through cumulative degradation' },
-    cycles_per_year: { value: Math.round(cycles * 365), label: 'Cycles per year', unit: '', note: dur_h <= 2 ? '2h asset; ~1.5 cycles/day base' : '4h asset; ~1 cycle/day base' },
-    availability: { value: Math.round(sc.avail * 1000) / 10, label: 'Availability factor', unit: '%', note: 'Forced-outage + scheduled-maintenance haircut' },
+    rte: {
+      value: Math.round(rte_curve[0] * 1000) / 10,
+      decay_pp_per_yr: 0.20,
+      label: 'RTE BOL @ POI incl aux',
+      unit: '%',
+      note: 'Decays 0.20pp/yr per cross-supplier consensus; floor at -4pp from BOL',
+    },
+    cycles_breakdown: {
+      fcr:  efc_breakdown.fcr,
+      afrr: efc_breakdown.afrr,
+      mfrr: efc_breakdown.mfrr,
+      da:   efc_breakdown.da,
+      total_cd: Math.round(tp.total_cd * 100) / 100,
+      total_efcs_yr: total_efcs_yr,
+      label: 'Cycles per year (throughput-derived)',
+    },
+    warranty_status: warranty_status,
+    availability: {
+      value: Math.round(sc.avail * 1000) / 10,
+      label: 'Availability factor',
+      unit: '%',
+      note: 'Forced-outage + scheduled-maintenance haircut',
+    },
     hold_period: { value: LCOS_LIFETIME_YRS, label: 'Hold period', unit: 'years', note: '20-year DCF; matches typical PF assumption' },
     wacc: { value: Math.round(LCOS_WACC * 1000) / 10, label: 'WACC', unit: '%', note: `Weighted average cost of capital; debt EURIBOR + ${sc.debt_margin_bp}bps, equity hurdle ~12%` },
   };
@@ -1264,7 +1450,7 @@ function computeRevenueV7(params, kv) {
     net_capex: capex_net_total,
     cod_year,
     scenario: params.scenario || 'base',
-    model_version: 'v7.2',
+    model_version: 'v7.3',
     engine_changelog: {
       v7_to_v7_1: [
         'Per-product cannibalization (cpi) replaces aggregate cpi for FCR / aFRR / mFRR',
@@ -1277,6 +1463,24 @@ function computeRevenueV7(params, kv) {
         'Duration optimizer hint (irr_2h vs irr_4h comparison)',
         'Assumptions panel — RTE, cycles/yr, availability, hold period, WACC made visible',
       ],
+      v7_2_to_v7_3: [
+        'Cycle accounting rebuilt from throughput: act_rate_* parameters → mwh_per_mw_yr_* with public research provenance',
+        'SOH_CURVE_W replaced with three rate-tagged empirical curves; engine interpolates by computed total c/d',
+        'roundtrip_efficiency now decays 0.20pp/yr from per-duration BOL',
+        'Base availability normalized 0.95 → 0.97',
+        'assumptions_panel exposes EFC breakdown by product + warranty_status indicator',
+        'engine_calibration_source field added',
+      ],
+    },
+    // v7.3 calibration provenance — anonymized.
+    engine_calibration_source: {
+      throughput_per_product: 'Modo / Dexter / GEM / enspired research (Q3-Q4 2025) — see worker comments for URLs',
+      soh_curves: 'Tier 1 LFP integrator consensus, binding RFP responses (2026-Q1) — source documents held privately',
+      rte_decay: '0.20 pp/yr — cross-supplier POI-level binding curves (anonymized)',
+      availability: 'Operational target with 1pp haircut from binding 98% floor',
+      capex_per_mw: '2026-Q1 Tier 1 quoting, broad market consensus (no change in this phase)',
+      last_calibrated: '2026-04-27',
+      next_review: '2026-Q3 (post-Litgrid 6-month PICASSO data; next supplier price refresh)',
     },
 
     // Market context
@@ -1292,6 +1496,10 @@ function computeRevenueV7(params, kv) {
     lcos_eur_mwh,
     moic,
     roundtrip_efficiency: rte,
+    roundtrip_efficiency_curve: rte_curve,
+    cycles_per_year: total_efcs_yr,
+    cycles_breakdown: efc_breakdown,
+    warranty_status,
     assumptions_panel,
 
     // Headline metrics
@@ -1361,8 +1569,8 @@ function computeRevenueV7(params, kv) {
     // Signal inputs used
     signal_inputs: {
       s1_capture: dur_h <= 2
-        ? (s1_cap.capture_2h?.gross_eur_mwh ?? (by_trading_per_mw > 0 ? by_trading_per_mw / (rte * dur_h * cycles * (base_year.time_model?.effective_arb_pct || 0.115) * sc.trd_real * 365) : 0))
-        : (s1_cap.capture_4h?.gross_eur_mwh ?? (by_trading_per_mw > 0 ? by_trading_per_mw / (rte * dur_h * cycles * (base_year.time_model?.effective_arb_pct || 0.115) * sc.trd_real * 365) : 0)),
+        ? (s1_cap.capture_2h?.gross_eur_mwh ?? (by_trading_per_mw > 0 ? by_trading_per_mw / (rte * da_mwh_per_mw_yr * (base_year.time_model?.effective_arb_pct || 0.115) * sc.trd_real) : 0))
+        : (s1_cap.capture_4h?.gross_eur_mwh ?? (by_trading_per_mw > 0 ? by_trading_per_mw / (rte * da_mwh_per_mw_yr * (base_year.time_model?.effective_arb_pct || 0.115) * sc.trd_real) : 0)),
       afrr_clearing: act_parsed?.lt?.afrr_p50 ?? s2.afrr_up_avg ?? 170,
       mfrr_clearing: act_parsed?.lt?.mfrr_p50 ?? s2.mfrr_up_avg ?? 110,
       afrr_cap: s2.afrr_cap_avg ?? s2.afrr_up_avg ?? 7.7,
@@ -1408,8 +1616,13 @@ function computeRevenueV6(params, kv) {
   const capex_kwh = params.capex_kwh || 164;
   const capex_total = capex_kwh * dur_h * 1000; // per MW → total uses mw later
   const cod_year = params.cod_year || 2028;
-  const cycles = dur_h <= 2 ? sc.cycles_2h : sc.cycles_4h;
-  const rte = cycles <= 1.2 ? 0.855 : 0.852;
+
+  // v7.3 throughput-derived cycle accounting.
+  const tp = computeThroughputBreakdown(1, dur_h, sc);
+  const total_cd     = tp.total_cd;
+  const da_mwh_per_mw_yr = tp.da_mwh;
+  const rte_curve    = rteCurveFor(dur_h);
+  const rte          = rte_curve[0];
 
   const fleet = kv?.fleet;
   const s2 = kv?.s2;
@@ -1457,8 +1670,8 @@ function computeRevenueV6(params, kv) {
   let crossover_year = null;
 
   for (let yr = 1; yr <= 20; yr++) {
-    // C1. Degradation
-    const retention = getDegradation(yr, cycles);
+    // C1. Degradation — keyed off throughput-derived total_cd (v7.3).
+    const retention = getDegradation(yr, total_cd);
     let usable_mwh_per_mw = dur_h * retention;
 
     // C2. Augmentation at year 10
@@ -1472,7 +1685,7 @@ function computeRevenueV6(params, kv) {
     }
     // Post-augmentation: use restored baseline
     if (yr > 10) {
-      const ret_at_10 = getDegradation(10, cycles);
+      const ret_at_10 = getDegradation(10, total_cd);
       const target_10 = dur_h * sc.aug_restore;
       const restored = Math.min(target_10, dur_h * ret_at_10 + Math.max(0, target_10 - dur_h * ret_at_10));
       usable_mwh_per_mw = restored * (retention / ret_at_10);
@@ -1510,15 +1723,22 @@ function computeRevenueV6(params, kv) {
     const rev_cap_mfrr = products.mfrr.eff * mfrr_cap  * 8760 * sc.bal_mult * bal_comp;
     const rev_cap = (rev_cap_fcr + rev_cap_afrr + rev_cap_mfrr) * mw;
 
+    // Activation revenue uses act_rate_* calibration constants (tuned to BTD-observed).
+    // Cell-wear accounting from these is captured separately by the throughput model
+    // (see total_efcs_yr / cycles_breakdown surface).
     const rev_act_afrr = products.afrr.eff * sc.act_rate_afrr * 8760 * afrr_clearing * 0.55 * sc.bal_mult * bal_comp;
     const rev_act_mfrr = products.mfrr.eff * sc.act_rate_mfrr * 8760 * mfrr_clearing * 0.75 * sc.bal_mult * bal_comp;
     const rev_act = (rev_act_afrr + rev_act_mfrr) * mw;
 
     const rev_bal = (rev_cap + rev_act) * sc.real_factor;
 
-    // C6. Trading revenue (DA spread capture)
+    // C6. Trading revenue (DA spread capture) — throughput-derived DA energy.
+    // arb_power × dur_h is per-cycle MWh ceiling. da_mwh_per_mw_yr is the
+    // throughput-derived annual MWh from DA per MW. Use da_mwh as the
+    // primary energy budget, capped by usable per-cycle storage capacity.
+    const cycles_implied = da_mwh_per_mw_yr / Math.max(0.01, dur_h);  // EFCs from DA
     const e_out_cycle = Math.min(usable_mwh_per_mw, arb_power * dur_h);
-    const e_out = e_out_cycle * cycles * 365 * mw;
+    const e_out = e_out_cycle * cycles_implied * mw;
     const capture = s1_capture * sc.spread_mult * spread_comp;
     const rev_trd = e_out * capture * rte;
 
@@ -1914,6 +2134,9 @@ function computeTradingMix(kv, dur_h, cal_year, scenario, sc, yr = 1) {
 
   const R_cap_afrr_base = afrr_share * afrr_cap;
   const R_cap_mfrr_base = mfrr_share * mfrr_cap;
+  // R activation calibration anchors — preserved as v7.2 act_rate-based
+  // for elasticity model continuity (cycle-accounting goes through the
+  // throughput surface separately).
   const R_act_afrr_base = afrr_share * sc.act_rate_afrr * afrr_clearing * 0.55;
   const R_act_mfrr_base = mfrr_share * sc.act_rate_mfrr * mfrr_clearing * 0.75;
 
@@ -2082,8 +2305,11 @@ function computeEffectiveArbPctForYear(kv, sc, reserve_shift) {
  * Time-sliced: arb only earns in ISPs where reserves aren't procured.
  */
 function computeBaseYear(kv, duration_h, sc) {
-  const rte = duration_h <= 2 ? 0.855 : 0.852;
-  const cycles = duration_h <= 2 ? sc.cycles_2h : sc.cycles_4h;
+  const rte_curve = rteCurveFor(duration_h);
+  const rte = rte_curve[0];
+  // v7.3: throughput-derived DA daily MWh per MW (replaces dur_h × cycles).
+  const tp = computeThroughputBreakdown(1, duration_h, sc);
+  const da_mwh_per_mw_day = tp.da_mwh / 365;
 
   // ── S1 monthly captures (observed DA capture in €/MWh) ──
   const s1_capture = kv.s1_capture || {};
@@ -2217,16 +2443,13 @@ function computeBaseYear(kv, duration_h, sc) {
     const afrr_clearing = afrr_act_m?.p50 ?? fb_afrr_clearing;
     const mfrr_clearing = mfrr_act_m?.p50 ?? fb_mfrr_clearing;
 
-    // Activation dispatch rates — use SCENARIO rates, not raw BTD activation rates.
-    // BTD activation_rate (0.85) = fraction of ISPs with TSO call — NOT BESS dispatch revenue rate.
-    // Scenario rates (0.18 aFRR, 0.10 mFRR) = modelled BESS energy dispatch fraction.
+    // Activation calibration anchors — preserved as v7.2 act_rate-based.
     const afrr_rate = sc.act_rate_afrr;
     const mfrr_rate = sc.act_rate_mfrr;
 
     const hours = days * 24;
 
-    // Per MW installed: 0.5 MW allocated per product × share
-    // Same stacking logic as v6 RESERVE_PRODUCTS
+    // Per MW installed: capacity revenue is per share × cap-price × hours.
     const rev_cap = (
       RESERVE_PRODUCTS.fcr.share  * sc.avail * fcr_cap_h +
       RESERVE_PRODUCTS.afrr.share * sc.avail * afrr_cap_h +
@@ -2240,9 +2463,9 @@ function computeBaseYear(kv, duration_h, sc) {
 
     const bal_monthly = (rev_cap + rev_act) * sc.bal_mult * sc.real_factor;
 
-    // ── Trading: capture × RTE × realisation × dur_h × cycles × fraction × days ──
-    // Scales with MWh per cycle (dur_h × cycles), not as ratio of balancing
-    const trd_monthly = capture * rte * (sc.trd_real || 0.85) * duration_h * cycles
+    // ── Trading: capture × RTE × realisation × DA-MWh × fraction × days ──
+    // v7.3 throughput-derived: DA daily MWh per MW × days = monthly DA MWh.
+    const trd_monthly = capture * rte * (sc.trd_real || 0.85) * da_mwh_per_mw_day
                       * y1_mix.trading_fraction * days;
 
     // ── Gross / Net ──
@@ -2374,8 +2597,10 @@ function computeLiveRate(kv, base_year, duration_h, sc) {
   const s1 = kv.s1 || {};
   const s2 = kv.s2 || {};
   const act = kv.s2_activation_parsed || {};
-  const rte = duration_h <= 2 ? 0.855 : 0.852;
-  const cycles = duration_h <= 2 ? sc.cycles_2h : sc.cycles_4h;
+  const rte = rteCurveFor(duration_h)[0];
+  // v7.3: throughput-derived DA daily MWh per MW.
+  const tp_lr = computeThroughputBreakdown(1, duration_h, sc);
+  const da_mwh_per_mw_day_lr = tp_lr.da_mwh / 365;
 
   // Today's capture from S1 (use the capture endpoint data first, then spread-based)
   const s1_cap = kv.s1_capture || {};
@@ -2403,12 +2628,12 @@ function computeLiveRate(kv, base_year, duration_h, sc) {
     RESERVE_PRODUCTS.mfrr.share * sc.avail * sc.act_rate_mfrr * mfrr_clearing * 0.75
   ) * 24 * sc.bal_mult * sc.real_factor;
 
-  // Trading: capture × RTE × realisation × dur_h × cycles × fraction (per MW per day)
+  // Trading: capture × RTE × realisation × DA-MWh × fraction (per MW per day)
   const lr_mix = base_year?.time_model?.trading_fraction != null
     ? { trading_fraction: base_year.time_model.trading_fraction }
     : computeTradingMix(kv, duration_h, 2026, 'base', sc);
   const trading_real = sc.trd_real || 0.85;
-  const today_trading = capture * rte * trading_real * duration_h * cycles * lr_mix.trading_fraction;
+  const today_trading = capture * rte * trading_real * da_mwh_per_mw_day_lr * lr_mix.trading_fraction;
 
   const today_total = today_trading + today_balancing;
   const base_daily = base_year?.annual_totals?.gross > 0
@@ -4258,13 +4483,62 @@ const BESS_WORKER = {
   ],
 };
 
-// Battery SOH fade — mirrors revenueModel.ts
-const SOH_CURVE_W = [
-  1.000, 0.989, 0.978, 0.967, 0.956,
-  0.945, 0.934, 0.923, 0.912, 0.900,
-  0.893, 0.886, 0.879, 0.872, 0.865,
-  0.858, 0.851, 0.844,
+// Empirical SOH fade — three rate-tagged curves at 1.0 / 1.5 / 2.0 c/d test
+// rates. Cross-supplier consensus median across binding Tier 1 LFP integrator
+// RFP responses (2026-Q1 reference, 25°C, 0.5P). Convex-down (LFP).
+// Source documents held privately; no supplier names appear in this repo.
+const SOH_CURVE_1CD = [
+  1.000, 0.967, 0.935, 0.908, 0.882,  // Y0–Y4
+  0.855, 0.830, 0.806, 0.785, 0.764,  // Y5–Y9
+  0.745, 0.728, 0.713, 0.700, 0.689,  // Y10–Y14
+  0.679, 0.671, 0.665,                 // Y15–Y17
 ];
+const SOH_CURVE_15CD = [
+  1.000, 0.955, 0.915, 0.880, 0.852,
+  0.830, 0.805, 0.780, 0.758, 0.738,
+  0.720, 0.703, 0.687, 0.671, 0.658,
+  0.645, 0.632, 0.620,
+];
+const SOH_CURVE_2CD = [
+  1.000, 0.945, 0.900, 0.864, 0.830,
+  0.810, 0.785, 0.760, 0.738, 0.717,
+  0.700, 0.682, 0.665, 0.648, 0.632,
+  0.617, 0.602, 0.588,
+];
+
+// Interpolate SOH curve by computed actual cycling rate.
+// Above 2 c/d: linearly extrapolate from 1.5→2 slope (suppliers don't certify above 2).
+// Below 1 c/d: clamp at 1 c/d (suppliers don't characterize slower than 1).
+// Floor at 0.40 to keep the engine from going negative on aggressive extrapolation.
+function sohYr(t, cd_total) {
+  const tIdx = Math.max(0, Math.min(t, SOH_CURVE_1CD.length - 1));
+  const cd = Math.max(cd_total ?? 1.0, 1.0);
+  if (cd <= 1.5) {
+    const f = (cd - 1.0) / 0.5;
+    return SOH_CURVE_1CD[tIdx] * (1 - f) + SOH_CURVE_15CD[tIdx] * f;
+  }
+  if (cd <= 2.0) {
+    const f = (cd - 1.5) / 0.5;
+    return SOH_CURVE_15CD[tIdx] * (1 - f) + SOH_CURVE_2CD[tIdx] * f;
+  }
+  const slope = SOH_CURVE_2CD[tIdx] - SOH_CURVE_15CD[tIdx];
+  return Math.max(0.40, SOH_CURVE_2CD[tIdx] + slope * ((cd - 2.0) / 0.5));
+}
+
+// RTE decay — cross-supplier consensus from binding RFP submissions, anonymized.
+// BOL per duration: 2h 0.85; 4h 0.86 (4h benefits from lower C-rate stress on
+// the PCS). Decay 0.20 pp/yr; floor at -4pp from BOL.
+const RTE_BOL = { h2: 0.85, h4: 0.86 };
+const RTE_DECAY_PP_PER_YEAR = 0.0020;
+const RTE_FLOOR_DROP = 0.04;
+
+function rteCurveFor(dur_h, lifetime_yrs) {
+  const yrs = lifetime_yrs ?? 18;
+  const bol = (dur_h ?? 4) >= 3 ? RTE_BOL.h4 : RTE_BOL.h2;
+  return Array.from({ length: yrs }, (_, t) =>
+    Math.round(Math.max(bol - RTE_DECAY_PP_PER_YEAR * t, bol - RTE_FLOOR_DROP) * 10000) / 10000
+  );
+}
 
 // Market saturation — CH S1 2025 central scenario (steep aFRR compression)
 const MARKET_DECAY_W = [
@@ -4312,11 +4586,16 @@ function computeRevenueWorker(prices, duration_h) {
   const net_annual      = gross_annual - opex_total;
   const payback         = net_annual > 0 ? capex / net_annual : Infinity;
 
-  // IRR via NPV=0 binary search (18yr life, CH central scenario decay)
+  // IRR via NPV=0 binary search (18yr life, CH central scenario decay).
+  // SOH interpolated by computed actual c/d (not duration label) — pull a
+  // representative dispatch intensity for each duration: 2h → ~1.3 c/d
+  // (active merchant), 4h → ~1.0 c/d (gentler cycling). Connects cell
+  // aging to operation rather than treating all dispatch identically.
+  const cd_for_soh = duration_h <= 2 ? 1.3 : 1.0;
   function npv(rate) {
     let n = -capex;
     for (let t = 1; t <= B.project_life_years; t++) {
-      const soh   = SOH_CURVE_W[Math.min(t - 1, SOH_CURVE_W.length - 1)];
+      const soh   = sohYr(Math.min(t - 1, SOH_CURVE_1CD.length - 1), cd_for_soh);
       const mkt   = marketDecayW(t);
       const annual = net_annual * (
         CAPACITY_FRACTION_W * mkt.capacity +
@@ -7555,10 +7834,11 @@ export default {
           0.50 * sc_cfg.avail * sc_cfg.act_rate_mfrr * (si.mfrr_clearing || 81) * 0.75
         ) * 24 * sc_cfg.bal_mult * sc_cfg.real_factor * (1 - sc_cfg.rtm_fee_pct);
 
-        // Trading: capture × RTE × realisation × dur_h × cycles × fraction (per MW per day)
-        const bt_rte = dur_h <= 2 ? 0.855 : 0.852;
-        const bt_cycles = dur_h <= 2 ? sc_cfg.cycles_2h : sc_cfg.cycles_4h;
-        const trd_daily = capture * bt_rte * (sc_cfg.trd_real || 0.85) * dur_h * bt_cycles * bt_mix.trading_fraction;
+        // Trading: capture × RTE × realisation × DA-MWh × fraction (per MW per day)
+        // v7.3 throughput-derived: DA daily MWh per MW from mwh_per_mw_yr_da.
+        const bt_rte = rteCurveFor(dur_h)[0];
+        const bt_da_mwh_per_mw_day = computeThroughputBreakdown(1, dur_h, sc_cfg).da_mwh / 365;
+        const trd_daily = capture * bt_rte * (sc_cfg.trd_real || 0.85) * bt_da_mwh_per_mw_day * bt_mix.trading_fraction;
 
         return {
           month: m.month,
