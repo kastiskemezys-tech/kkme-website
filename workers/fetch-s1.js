@@ -857,7 +857,7 @@ const COMPRESSION_SCENARIO_MULT = {
 const REVENUE_SCENARIOS = {
   base: {
     real_factor: 0.90, trd_real: TRADING_REALISATION.base, bal_mult: 1.0, spread_mult: 1.0,
-    act_rate_afrr: 0.18, act_rate_mfrr: 0.10,
+    act_rate_afrr: 0.25, act_rate_mfrr: 0.10,
     bal_compress_yr: 0.03, spread_compress_yr: 0.02,
     rtm_fee_pct: 0.10, brp_fee_yr: 180000,
     opex_per_kw_yr: 39, opex_esc: 0.025,
@@ -867,7 +867,7 @@ const REVENUE_SCENARIOS = {
   conservative: {
     // Each parameter ~5-10% worse than base. Compounding of small drags = 3-5pp IRR gap.
     real_factor: 0.88, trd_real: TRADING_REALISATION.conservative, bal_mult: 0.95, spread_mult: 0.95,
-    act_rate_afrr: 0.16, act_rate_mfrr: 0.09,
+    act_rate_afrr: 0.22, act_rate_mfrr: 0.09,
     bal_compress_yr: 0.035, spread_compress_yr: 0.025,
     rtm_fee_pct: 0.11, brp_fee_yr: 185000,
     opex_per_kw_yr: 40, opex_esc: 0.026,
@@ -878,7 +878,7 @@ const REVENUE_SCENARIOS = {
   stress: {
     // ~20% worse than base across parameters. Tests: everything goes wrong.
     real_factor: 0.78, trd_real: TRADING_REALISATION.stress, bal_mult: 0.85, spread_mult: 0.85,
-    act_rate_afrr: 0.14, act_rate_mfrr: 0.07,
+    act_rate_afrr: 0.19, act_rate_mfrr: 0.07,
     bal_compress_yr: 0.05, spread_compress_yr: 0.04,
     rtm_fee_pct: 0.13, brp_fee_yr: 210000,
     opex_per_kw_yr: 43, opex_esc: 0.032,
@@ -1206,6 +1206,12 @@ function computeRevenueV7(params, kv) {
   const s1_cap = kv?.s1_capture || {};
   const prices_source = s2.afrr_cap_avg != null ? 'BTD measured' : (s2.afrr_up_avg != null ? 'BTD partial' : 'proxy');
 
+  // v7.1 — per-product compression at COD year (cpi formula on per-product S/D)
+  const cod_mix = computeTradingMix(kv, dur_h, cod_year, scenario_name, sc, 0);
+  const cpi_fcr_at_cod  = Math.round(cpiCurve(cod_mix.per_product.fcr.sd_ratio)  * 100) / 100;
+  const cpi_afrr_at_cod = Math.round(cpiCurve(cod_mix.per_product.afrr.sd_ratio) * 100) / 100;
+  const cpi_mfrr_at_cod = Math.round(cpiCurve(cod_mix.per_product.mfrr.sd_ratio) * 100) / 100;
+
   return {
     // Config
     system: `${mw} MW / ${mwh} MWh (${dur_h}H)`,
@@ -1219,12 +1225,23 @@ function computeRevenueV7(params, kv) {
     net_capex: capex_net_total,
     cod_year,
     scenario: params.scenario || 'base',
-    model_version: 'v7',
+    model_version: 'v7.1',
+    engine_changelog: {
+      v7_to_v7_1: [
+        'Per-product cannibalization (cpi) replaces aggregate cpi for FCR / aFRR / mFRR',
+        'Bid-acceptance saturation modeled in computeTradingMix',
+        'aFRR activation rate tuned to 0.25 (Baltic operational baseline)',
+      ],
+    },
 
     // Market context
     sd_ratio: cod_sd?.sd_ratio ?? null,
     phase: cod_sd?.phase ?? null,
     cpi_at_cod: cod_sd?.cpi ?? null,
+    cpi_fcr_at_cod,
+    cpi_afrr_at_cod,
+    cpi_mfrr_at_cod,
+    per_product_at_cod: cod_mix.per_product,
 
     // Headline metrics
     project_irr: project_irr < -0.50 ? null : project_irr,
@@ -1710,6 +1727,29 @@ function marketDepthFactor(sd_ratio) {
   return 1.0 / (1.0 + 0.15 * excess);
 }
 
+// Bid-acceptance multiplier on per-product capacity + activation revenue.
+// Smooth exponential decay calibrated for share-weighted per-product S/D.
+// Output bounded [0.50, 0.95]. The reservePrice curve already handles aggregate
+// market-tightness compression; this captures the additional per-product
+// effect (FCR saturates faster than mFRR because TSO procurement depth differs
+// AND each product's share of fleet bid varies).
+// Calibrated to KKME's market view; coefficients live in code only.
+function bidAcceptanceFactor(sd_ratio, _product) {
+  const HIGH = 0.95;
+  const FLOOR = 0.50;
+  if (sd_ratio <= 1.0) return HIGH;
+  return Math.max(FLOOR, HIGH * Math.exp(-0.04 * (sd_ratio - 1)));
+}
+
+// Compression curve (cpi shape) — same formula used by processFleet at the
+// aggregate-trajectory site. Extracted as a helper so per-product variants
+// can re-use the same curve shape with product-specific S/D inputs.
+function cpiCurve(sd_ratio) {
+  if (sd_ratio < 0.6) return Math.min(1.0 + (0.6 - sd_ratio) * 2.5, 2.0);
+  if (sd_ratio < 1.0) return Math.max(0.30, 1.0 - (sd_ratio - 0.6) * 1.5);
+  return Math.max(0.30, 0.40 - (sd_ratio - 1.0) * 0.08);
+}
+
 /**
  * projectFleet: fleet supply projection per calendar year.
  * Uses S4 weighted_supply (confidence-weighted current fleet), applies
@@ -1813,16 +1853,21 @@ function computeTradingMix(kv, dur_h, cal_year, scenario, sc, yr = 1) {
   const act = kv.s2_activation_parsed || {};
   const s1_cap = kv.s1_capture || {};
 
-  // R base: reserve value per MW-hour (weighted capacity + expected activation)
+  // R base: per-product capacity + activation per MW-hour. Decomposed so each
+  // product can carry its own forward S/D and bid-acceptance compression.
   const afrr_share = 0.40, mfrr_share = 0.60;
   const afrr_cap = s2.afrr_cap_avg ?? s2.afrr_up_avg ?? 7.06;
   const mfrr_cap = s2.mfrr_cap_avg ?? s2.mfrr_up_avg ?? 19.74;
   const afrr_clearing = act.lt?.afrr_p50 ?? 171;
   const mfrr_clearing = act.lt?.mfrr_p50 ?? 81;
 
-  const R_cap_base = afrr_share * afrr_cap + mfrr_share * mfrr_cap;
-  const R_act_base = afrr_share * sc.act_rate_afrr * afrr_clearing * 0.55
-                   + mfrr_share * sc.act_rate_mfrr * mfrr_clearing * 0.75;
+  const R_cap_afrr_base = afrr_share * afrr_cap;
+  const R_cap_mfrr_base = mfrr_share * mfrr_cap;
+  const R_act_afrr_base = afrr_share * sc.act_rate_afrr * afrr_clearing * 0.55;
+  const R_act_mfrr_base = mfrr_share * sc.act_rate_mfrr * mfrr_clearing * 0.75;
+
+  const R_cap_base = R_cap_afrr_base + R_cap_mfrr_base;
+  const R_act_base = R_act_afrr_base + R_act_mfrr_base;
   const R_base = R_cap_base + R_act_base;
 
   // T base: market-level trading signal (same for all durations)
@@ -1833,15 +1878,43 @@ function computeTradingMix(kv, dur_h, cal_year, scenario, sc, yr = 1) {
     ?? s1_cap.capture_4h?.gross_eur_mwh ?? 125;
   const T_base = s1_capture_ref * rte * trading_real / (2 * REFERENCE_CYCLE_H);
 
-  // S/D ratio for this calendar year
+  // Aggregate S/D (kept for trading_fraction price-ratio + payload reporting)
   const supply = projectFleet(cal_year, kv, scenario);
   const demand_growth = sc.demand_growth ?? 0.02;
   const demand = projectDemand(cal_year, kv, demand_growth);
   const sd_yr = supply / demand;
 
-  // R via elasticity: capacity follows S/D, activation 15% steeper
-  const R_cap_yr = reservePrice(sd_yr, R_cap_base);
-  const R_act_yr = reservePrice(sd_yr * 1.15, R_act_base);
+  // Per-product S/D — share-weighted: each operator only bids the product's
+  // RESERVE_PRODUCTS share into that product (hierarchy-driven SoC allocation),
+  // not full nameplate. So sd = (fleet × share) / TSO procurement.
+  // FCR exposed as diagnostic; aFRR + mFRR drive the actual R formula.
+  const PRODUCT_DEMAND_FALLBACK = { fcr: 28, afrr: 120, mfrr: 604 };
+  const yrs_from_2026 = Math.max(0, cal_year - 2026);
+  const dem_growth_factor = Math.pow(1 + demand_growth, yrs_from_2026);
+  const product_demand = (p) =>
+    (kv.fleet?.product_sd?.[p]?.demand_mw ?? PRODUCT_DEMAND_FALLBACK[p]) * dem_growth_factor;
+  const fcr_sd_yr  = (supply * RESERVE_PRODUCTS.fcr.share)  / product_demand('fcr');
+  const afrr_sd_yr = (supply * RESERVE_PRODUCTS.afrr.share) / product_demand('afrr');
+  const mfrr_sd_yr = (supply * RESERVE_PRODUCTS.mfrr.share) / product_demand('mfrr');
+
+  // Bid-acceptance is binary at the product level: if a product's bid doesn't
+  // clear, neither capacity nor activation revenue from that product is earned.
+  // Mirrors the dispatch endpoint pattern at line 305 (cleared MW, not bid MW).
+  const fcr_acc  = bidAcceptanceFactor(fcr_sd_yr,  'fcr');
+  const afrr_acc = bidAcceptanceFactor(afrr_sd_yr, 'afrr');
+  const mfrr_acc = bidAcceptanceFactor(mfrr_sd_yr, 'mfrr');
+
+  // Compression: aggregate-sd reservePrice (preserves v7 curve calibration)
+  // × per-product bid-acceptance (the v7.1 refinement — FCR saturates faster
+  // than mFRR because TSO procurement depth differs by product). Activation
+  // uses 1.15× steeper S/D curve as in v7.
+  const R_cap_afrr_yr = reservePrice(sd_yr,        R_cap_afrr_base) * afrr_acc;
+  const R_cap_mfrr_yr = reservePrice(sd_yr,        R_cap_mfrr_base) * mfrr_acc;
+  const R_act_afrr_yr = reservePrice(sd_yr * 1.15, R_act_afrr_base) * afrr_acc;
+  const R_act_mfrr_yr = reservePrice(sd_yr * 1.15, R_act_mfrr_base) * mfrr_acc;
+
+  const R_cap_yr = R_cap_afrr_yr + R_cap_mfrr_yr;
+  const R_act_yr = R_act_afrr_yr + R_act_mfrr_yr;
   const R_yr = R_cap_yr + R_act_yr;
 
   // T: grows with renewable penetration (more RES → more volatility → wider spreads)
@@ -1850,8 +1923,7 @@ function computeTradingMix(kv, dur_h, cal_year, scenario, sc, yr = 1) {
   const spread_mult = spreadMultiplierYr(cal_year);
   // Scenario adjustment: conservative = no additional RES boost, stress = negative
   const scenario_spread_adj = SPREAD_GROWTH[scenario] ?? 0.02;
-  const years_from_now = Math.max(0, cal_year - 2026);
-  const scenario_factor = Math.pow(1 + scenario_spread_adj, years_from_now);
+  const scenario_factor = Math.pow(1 + scenario_spread_adj, yrs_from_2026);
   const T_yr = Math.max(T_floor, T_base * spread_mult * scenario_factor);
 
   const raw = T_yr / (T_yr + R_yr);
@@ -1872,6 +1944,26 @@ function computeTradingMix(kv, dur_h, cal_year, scenario, sc, yr = 1) {
     demand_mw: Math.round(demand),
     spread_mult: Math.round(spread_mult * 1000) / 1000,
     renewable_share: Math.round(renewableShareYr(cal_year) * 1000) / 1000,
+    // v7.1 per-product breakdown — input to per-product compression + bid acceptance.
+    // FCR diagnostic-only (not in R formula; matches v7 architectural treatment).
+    per_product: {
+      fcr: {
+        sd_ratio:       Math.round(fcr_sd_yr * 100) / 100,
+        bid_acceptance: Math.round(fcr_acc * 100) / 100,
+      },
+      afrr: {
+        sd_ratio:       Math.round(afrr_sd_yr * 100) / 100,
+        bid_acceptance: Math.round(afrr_acc * 100) / 100,
+        R_cap_yr:       Math.round(R_cap_afrr_yr * 100) / 100,
+        R_act_yr:       Math.round(R_act_afrr_yr * 100) / 100,
+      },
+      mfrr: {
+        sd_ratio:       Math.round(mfrr_sd_yr * 100) / 100,
+        bid_acceptance: Math.round(mfrr_acc * 100) / 100,
+        R_cap_yr:       Math.round(R_cap_mfrr_yr * 100) / 100,
+        R_act_yr:       Math.round(R_act_mfrr_yr * 100) / 100,
+      },
+    },
   };
 }
 
