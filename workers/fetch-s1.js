@@ -1212,6 +1212,45 @@ function computeRevenueV7(params, kv) {
   const cpi_afrr_at_cod = Math.round(cpiCurve(cod_mix.per_product.afrr.sd_ratio) * 100) / 100;
   const cpi_mfrr_at_cod = Math.round(cpiCurve(cod_mix.per_product.mfrr.sd_ratio) * 100) / 100;
 
+  // ── v7.2 — Phase 7.7c Session 1 derived metrics ─────────────────────────
+  // LCOS (€/MWh-cycled) — cross-tech comparator.
+  // Formula: (CAPEX·CRF + Fixed O&M + Charging cost) / annual MWh discharged
+  //   CRF = r(1+r)^n / ((1+r)^n − 1); r = WACC (0.08, matches NPV at line 1143)
+  //   n = 20 yr (matches years[].length)
+  //   Charging cost = avg charge price × MWh charged annually × (1/RTE)
+  //   Annual MWh discharged = cycles × duration × MW × 365 × availability
+  // Variable O&M is folded into Fixed O&M (opex_y1 already covers per-cycle wear in BESS PF practice).
+  const LCOS_LIFETIME_YRS = 20;
+  const LCOS_WACC = 0.08;
+  const lcos_crf = LCOS_WACC * Math.pow(1 + LCOS_WACC, LCOS_LIFETIME_YRS)
+    / (Math.pow(1 + LCOS_WACC, LCOS_LIFETIME_YRS) - 1);
+  const lcos_capex_recovery = gross_capex_total * lcos_crf;
+  const lcos_fixed_om = y1 ? y1.opex : 0;
+  const lcos_charge_price = dur_h <= 2
+    ? (s1_cap.capture_2h?.avg_charge ?? 35)
+    : (s1_cap.capture_4h?.avg_charge ?? 30);
+  const lcos_mwh_discharged_yr = cycles * dur_h * mw * 365 * sc.avail;
+  const lcos_mwh_charged_yr = rte > 0 ? lcos_mwh_discharged_yr / rte : 0;
+  const lcos_charging_cost = lcos_charge_price * lcos_mwh_charged_yr;
+  const lcos_eur_mwh = lcos_mwh_discharged_yr > 0
+    ? Math.round((lcos_capex_recovery + lcos_fixed_om + lcos_charging_cost) / lcos_mwh_discharged_yr * 10) / 10
+    : null;
+
+  // MOIC (multiple of money) — total positive equity cash returned ÷ equity invested.
+  const moic_positive_cfs = years.reduce((s, yr_) => s + Math.max(0, yr_.equity_cf), 0);
+  const moic = equity_initial > 0
+    ? Math.round((moic_positive_cfs / equity_initial) * 100) / 100
+    : null;
+
+  // Assumptions panel — read-only display of engine constants. NO sliders (Session 2).
+  const assumptions_panel = {
+    rte: { value: Math.round(rte * 1000) / 10, label: 'Round-trip efficiency', unit: '%', note: 'AC-AC; declines through cumulative degradation' },
+    cycles_per_year: { value: Math.round(cycles * 365), label: 'Cycles per year', unit: '', note: dur_h <= 2 ? '2h asset; ~1.5 cycles/day base' : '4h asset; ~1 cycle/day base' },
+    availability: { value: Math.round(sc.avail * 1000) / 10, label: 'Availability factor', unit: '%', note: 'Forced-outage + scheduled-maintenance haircut' },
+    hold_period: { value: LCOS_LIFETIME_YRS, label: 'Hold period', unit: 'years', note: '20-year DCF; matches typical PF assumption' },
+    wacc: { value: Math.round(LCOS_WACC * 1000) / 10, label: 'WACC', unit: '%', note: `Weighted average cost of capital; debt EURIBOR + ${sc.debt_margin_bp}bps, equity hurdle ~12%` },
+  };
+
   return {
     // Config
     system: `${mw} MW / ${mwh} MWh (${dur_h}H)`,
@@ -1225,12 +1264,18 @@ function computeRevenueV7(params, kv) {
     net_capex: capex_net_total,
     cod_year,
     scenario: params.scenario || 'base',
-    model_version: 'v7.1',
+    model_version: 'v7.2',
     engine_changelog: {
       v7_to_v7_1: [
         'Per-product cannibalization (cpi) replaces aggregate cpi for FCR / aFRR / mFRR',
         'Bid-acceptance saturation modeled in computeTradingMix',
         'aFRR activation rate tuned to 0.25 (Baltic operational baseline)',
+      ],
+      v7_1_to_v7_2: [
+        'LCOS (€/MWh-cycled) computed and surfaced',
+        'MOIC (multiple of money) computed and surfaced',
+        'Duration optimizer hint (irr_2h vs irr_4h comparison)',
+        'Assumptions panel — RTE, cycles/yr, availability, hold period, WACC made visible',
       ],
     },
 
@@ -1242,6 +1287,12 @@ function computeRevenueV7(params, kv) {
     cpi_afrr_at_cod,
     cpi_mfrr_at_cod,
     per_product_at_cod: cod_mix.per_product,
+
+    // v7.2 derived metrics + assumptions
+    lcos_eur_mwh,
+    moic,
+    roundtrip_efficiency: rte,
+    assumptions_panel,
 
     // Headline metrics
     project_irr: project_irr < -0.50 ? null : project_irr,
@@ -7419,6 +7470,35 @@ export default {
       result.net_mw_yr_2h = r2h.net_mw_yr;
       result.irr_4h       = r4h.project_irr;
       result.net_mw_yr_4h = r4h.net_mw_yr;
+
+      // ── v7.2 — Phase 7.7c Session 1 — duration optimizer hint ──
+      // Thin derived field: compares irr_2h / irr_4h already computed above. No new math.
+      const dur_2 = r2h.project_irr;
+      const dur_4 = r4h.project_irr;
+      if (dur_2 != null && dur_4 != null) {
+        const dur_optimal = dur_4 > dur_2 ? 4 : 2;
+        const dur_delta_pp = Math.round(Math.abs(dur_4 - dur_2) * 10000) / 100;
+        result.duration_recommendation = {
+          current_default: dur_h,
+          optimal: dur_optimal,
+          delta_pp: dur_delta_pp,
+          irr_2h: dur_2,
+          irr_4h: dur_4,
+          note: dur_optimal === 4
+            ? `4h dominates by +${dur_delta_pp}pp at current spreads; 2h recovers if spread compression slows.`
+            : `2h dominates by +${dur_delta_pp}pp at current spreads; 4h recovers as forward spreads compress.`,
+        };
+      } else {
+        result.duration_recommendation = {
+          current_default: dur_h,
+          optimal: null,
+          delta_pp: null,
+          irr_2h: dur_2,
+          irr_4h: dur_4,
+          note: 'Insufficient IRR data to compare durations.',
+        };
+      }
+
       result.h2 = {
         capex_per_mw: r2h.gross_capex / 50, irr_approx_pct: Math.round(r2h.project_irr * 1000) / 10,
         simple_payback_years: r2h.simple_payback_years,

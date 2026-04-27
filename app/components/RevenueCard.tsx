@@ -16,7 +16,9 @@ import type { BacktestRow } from '@/app/lib/backtest';
 import { findMatrixCell, type MatrixCell as SensMatrixCell } from '@/app/lib/sensitivityMatrix';
 import { DISPATCH_LABELS, vsCanonicalDispatchFootnote } from '@/app/lib/dispatchDefinitions';
 import { IRR_LABELS } from '@/app/lib/irrLabels';
-import { IRR_TILES, DSCR_LABELS, DEFAULT_DSCR_COVENANT } from '@/app/lib/financialDefinitions';
+import {
+  IRR_TILES, DSCR_LABELS, DEFAULT_DSCR_COVENANT, STORAGE_METRICS,
+} from '@/app/lib/financialDefinitions';
 import { formatNumber } from '@/app/lib/format';
 import {
   projectDegradationCurve,
@@ -69,6 +71,30 @@ interface ScenarioSummary {
   net_mw_yr?: number; bankability?: string;
 }
 
+interface AssumptionRow {
+  value: number;
+  label: string;
+  unit: string;
+  note: string;
+}
+
+interface AssumptionsPanelData {
+  rte: AssumptionRow;
+  cycles_per_year: AssumptionRow;
+  availability: AssumptionRow;
+  hold_period: AssumptionRow;
+  wacc: AssumptionRow;
+}
+
+interface DurationRecommendation {
+  current_default: number;
+  optimal: number | null;
+  delta_pp: number | null;
+  irr_2h: number | null;
+  irr_4h: number | null;
+  note: string;
+}
+
 interface RevenueData {
   system: string; duration: number;
   capex_eur_kwh: number; capex_total: number; cod_year: number;
@@ -82,6 +108,12 @@ interface RevenueData {
   revenue_crossover_year: number | null;
   worst_month_dscr: number;
   timestamp: string;
+  // v7.2 — Phase 7.7c Session 1 derived metrics
+  lcos_eur_mwh?: number | null;
+  moic?: number | null;
+  roundtrip_efficiency?: number;
+  duration_recommendation?: DurationRecommendation;
+  assumptions_panel?: AssumptionsPanelData;
   years: YearData[];
   monthly_y1: MonthlyDSCR[];
   base_year: {
@@ -202,6 +234,124 @@ function MetricCell({ label, value, sub, color, title, methodVersion }: {
         fontWeight: 500, lineHeight: 1.1 }}>{value}</div>
       {sub && <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
         fontFamily: "var(--font-mono)", marginTop: 4 }}>{sub}</div>}
+    </div>
+  );
+}
+
+// ═══ Duration Optimizer (7.7.15) ════════════════════════════════════════════
+//
+// Real-options duration hint. Renders the engine's `duration_recommendation`
+// derived field — the engine already ran the dual-duration projection so the
+// surface is just chips + a one-sentence interpretation.
+
+function DurationOptimizer({ rec }: { rec: DurationRecommendation | undefined }) {
+  if (!rec || rec.optimal == null || rec.irr_2h == null || rec.irr_4h == null) return null;
+
+  const dominantIs = (h: 2 | 4) => rec.optimal === h;
+
+  const Chip = ({ hours, irr }: { hours: 2 | 4; irr: number }) => (
+    <div style={{
+      flex: 1,
+      padding: '8px 12px',
+      border: `1px solid ${dominantIs(hours) ? 'var(--mint)' : 'var(--border-card)'}`,
+      borderRadius: 4,
+      background: dominantIs(hours) ? 'color-mix(in srgb, var(--mint) 8%, transparent)' : 'transparent',
+    }}>
+      <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
+        fontFamily: 'var(--font-mono)', textTransform: 'uppercase',
+        letterSpacing: '0.08em', marginBottom: 2 }}>
+        {hours}h IRR
+      </div>
+      <div style={{ fontFamily: "'Unbounded',sans-serif", fontSize: '1rem',
+        fontWeight: 500, lineHeight: 1.1,
+        color: dominantIs(hours) ? 'var(--mint)' : 'var(--text-primary)' }}>
+        {formatNumber(irr, 'irr')}
+      </div>
+    </div>
+  );
+
+  return (
+    <div data-testid="duration-optimizer" style={{
+      padding: '10px 14px',
+      border: '1px solid var(--border-card)',
+      borderRadius: 6,
+    }} title={STORAGE_METRICS.DURATION_RECOMMENDATION.tooltip}>
+      <div style={{ display: 'flex', justifyContent: 'space-between',
+        alignItems: 'baseline', marginBottom: 8 }}>
+        <div style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-xs)',
+          fontFamily: 'var(--font-mono)', textTransform: 'uppercase',
+          letterSpacing: '0.08em' }}>
+          {STORAGE_METRICS.DURATION_RECOMMENDATION.short} · {STORAGE_METRICS.DURATION_RECOMMENDATION.long}
+        </div>
+        {rec.delta_pp != null && (
+          <div style={{ color: 'var(--mint)', fontSize: 'var(--font-xs)',
+            fontFamily: 'var(--font-mono)' }}>
+            {rec.optimal}h optimal · +{rec.delta_pp.toFixed(1)}pp
+          </div>
+        )}
+      </div>
+      <div style={{ display: 'flex', gap: 10 }}>
+        <Chip hours={2} irr={rec.irr_2h} />
+        <Chip hours={4} irr={rec.irr_4h} />
+      </div>
+      <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
+        fontFamily: "'Cormorant Garamond',serif", fontStyle: 'italic',
+        marginTop: 8, lineHeight: 1.35 }}>
+        {rec.note}
+      </div>
+    </div>
+  );
+}
+
+// ═══ Assumptions Panel (7.7.5) ══════════════════════════════════════════════
+//
+// Read-only display of engine assumptions. NO sliders / NO interactive
+// elements (capital-structure controls land in Phase 7.7c Session 2).
+
+function AssumptionsPanel({ panel }: { panel: AssumptionsPanelData | undefined }) {
+  if (!panel) return null;
+
+  const rows: Array<{ key: keyof AssumptionsPanelData; row: AssumptionRow }> = [
+    { key: 'rte',             row: panel.rte },
+    { key: 'cycles_per_year', row: panel.cycles_per_year },
+    { key: 'availability',    row: panel.availability },
+    { key: 'hold_period',     row: panel.hold_period },
+    { key: 'wacc',            row: panel.wacc },
+  ];
+
+  return (
+    <div data-testid="assumptions-panel" style={{
+      padding: '12px 16px',
+      border: '1px solid var(--border-card)',
+      borderRadius: 6,
+    }}>
+      <div style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-xs)',
+        fontFamily: 'var(--font-mono)', textTransform: 'uppercase',
+        letterSpacing: '0.08em', marginBottom: 10 }}>
+        Engine assumptions
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 14, rowGap: 6 }}>
+        {rows.map(({ key, row }) => (
+          <div key={key} style={{ display: 'contents' }}>
+            <div style={{
+              fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+              color: 'var(--text-muted)', whiteSpace: 'nowrap',
+            }} title={row.note}>
+              <span style={{ color: 'var(--text-primary)' }}>{row.label}</span>
+              {' '}
+              <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
+                {row.value}{row.unit}
+              </span>
+            </div>
+            <div style={{
+              fontFamily: "'Cormorant Garamond',serif", fontSize: 'var(--font-sm)',
+              fontStyle: 'italic', color: 'var(--text-muted)', lineHeight: 1.35,
+            }}>
+              {row.note}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -1049,7 +1199,7 @@ export function RevenueCard() {
           onChange={v => setScenario(v)} />
       </div>
 
-      {/* Returns metrics — Project IRR + Equity IRR (split per 7.7.1) + CFADS + Payback */}
+      {/* Returns metrics — Project IRR + Equity IRR (7.7.1) + CFADS + Payback + LCOS + MOIC (7.7c) */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginBottom: 16 }}>
         <MetricCell label={IRR_TILES.unlevered.label}
           value={formatNumber(data.project_irr, 'irr')}
@@ -1069,12 +1219,28 @@ export function RevenueCard() {
         <MetricCell label="Payback"
           value={data.payback_years != null ? data.payback_years + ' yr' : '—'}
           sub={`€${fmtK(data.capex_total / MW)}/MW capex · debt ${(data.rate_allin * 100).toFixed(1)}%`} />
+        <MetricCell label={STORAGE_METRICS.LCOS.short}
+          value={data.lcos_eur_mwh != null ? '€' + data.lcos_eur_mwh.toFixed(0) : '—'}
+          methodVersion={data.model_version}
+          title={STORAGE_METRICS.LCOS.tooltip}
+          sub={STORAGE_METRICS.LCOS.unit} />
+        <MetricCell label={STORAGE_METRICS.MOIC.short}
+          value={data.moic != null ? formatNumber(data.moic, 'multiple') : '—'}
+          methodVersion={data.model_version}
+          title={STORAGE_METRICS.MOIC.tooltip}
+          sub={STORAGE_METRICS.MOIC.long.toLowerCase()} />
       </div>
 
-      {/* DSCR triple panel — base, conservative, worst-month (7.7.2) */}
-      <div style={{ marginBottom: 20 }}>
+      {/* Duration optimizer + DSCR triple panel (7.7c + 7.7.2) */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+        <DurationOptimizer rec={data.duration_recommendation} />
         <DSCRPanel base={data.min_dscr} conservative={data.min_dscr_conservative}
           worstMonth={data.worst_month_dscr} covenant={DEFAULT_DSCR_COVENANT} />
+      </div>
+
+      {/* Assumptions panel — RTE / cycles / availability / hold / WACC (7.7.5) */}
+      <div style={{ marginBottom: 20 }}>
+        <AssumptionsPanel panel={data.assumptions_panel} />
       </div>
 
       {/* Main chart area */}

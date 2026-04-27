@@ -80,6 +80,42 @@ describe('RETURNS_METRICS — auxiliary returns labels', () => {
   });
 });
 
+describe('STORAGE_METRICS — Phase 7.7c vocabulary (LCOS / MOIC / Duration)', async () => {
+  const { STORAGE_METRICS } = await import('../financialDefinitions');
+
+  it('exposes LCOS / MOIC / DURATION_RECOMMENDATION', () => {
+    expect(STORAGE_METRICS.LCOS).toBeDefined();
+    expect(STORAGE_METRICS.MOIC).toBeDefined();
+    expect(STORAGE_METRICS.DURATION_RECOMMENDATION).toBeDefined();
+  });
+
+  it('every short label fits the MetricTile budget (≤ 14 chars)', () => {
+    for (const m of Object.values(STORAGE_METRICS)) {
+      expect(m.short.length).toBeLessThanOrEqual(14);
+    }
+  });
+
+  it('every tooltip is non-trivial (>= 30 chars)', () => {
+    for (const m of Object.values(STORAGE_METRICS)) {
+      expect(m.tooltip.length).toBeGreaterThanOrEqual(30);
+    }
+  });
+
+  it('LCOS unit is €/MWh-cycled (not €/MWh — distinct from energy price)', () => {
+    expect(STORAGE_METRICS.LCOS.unit).toBe('€/MWh-cycled');
+  });
+
+  it('MOIC unit is the multiplication sign (×)', () => {
+    expect(STORAGE_METRICS.MOIC.unit).toBe('×');
+  });
+
+  it('Duration tooltip mentions both 2h and 4h', () => {
+    const t = STORAGE_METRICS.DURATION_RECOMMENDATION.tooltip.toLowerCase();
+    expect(t).toContain('2h');
+    expect(t).toContain('4h');
+  });
+});
+
 describe('MARKET_THICKNESS — chip vocabulary for balancing tiles', () => {
   it('aFRR is thick, mFRR is medium, FCR is thin', () => {
     expect(MARKET_THICKNESS.afrr.level).toBe('thick');
