@@ -5,11 +5,15 @@ Last updated: 2026-04-27 (Session 22 — frontend RevenueCard aligned with v7.3 
 
 ## Current phase
 
-Phase 7.7d **engine v7.3** shipped end-to-end. Worker version `41978587-ddda-42f5-b975-1da0570a3b01` live; PR #40 merged to main (commit `ec9136e`). Frontend `RevenueCard` aligned with v7.3 shape via Session 22 hotfix (commit `94ca8d8`) — auto-deployed to kkme.eu via Cloudflare Pages. Returns card now surfaces v7.3 numbers (LCOS, MOIC, duration recommendation, throughput-derived cycles breakdown, warranty status) without errors. Next CC job is Phase 7.7c Session 2 (capital-structure sliders).
+Phase 7.7d **engine v7.3** shipped end-to-end. Worker version `41978587-ddda-42f5-b975-1da0570a3b01` live; PR #40 merged to main (commit `ec9136e`). Frontend `RevenueCard` aligned with v7.3 shape via Session 22 hotfix (commit `94ca8d8`) — auto-deployed to kkme.eu via Cloudflare Pages. Returns card now surfaces v7.3 numbers (LCOS, MOIC, duration recommendation, throughput-derived cycles breakdown, warranty status) without errors.
+
+Open issue surfaced this session but not addressed: **EstLink 1, EstLink 2, Fenno-Skan 1, Fenno-Skan 2 hero cable rows show `·` (no MW value)** — energy-charts.info `cbet?country=ee/fi` endpoints rate-limit (HTTP 429) when fetched in parallel with LT in `fetchInterconnectorFlows()`. Tracked as Phase 12.7 (next CC job, ~30 min fix). NordBalt + LitPol still flow correctly.
+
+Next CC job: **Phase 12.7 (interconnector rate-limit fix)** → then Phase 7.7e UI track (RTE sparkline + cycles_breakdown chart + calibration_source footer) → then Phase 7.7e data-contract (Zod /revenue boundary) → then Phase 7.7c Session 2 (capital-structure sliders, gated on UX decision) → then Phase 7.7e engine (aux curve / terminal value / augmentation / market-physics).
 
 Earlier ground: Phase 7.7c Session 1 shipped 2026-04-27 (engine v7.2 — LCOS, MOIC, duration optimizer, assumptions panel; worker version `e145aeb4-5570-4cdd-adcb-f79351ef33dc`; PR #38 merged). Phase 7 shipped (S1/S2 card rebuild). Phase 7.5-F shipped 2026-04-21. Phase 7.5 polish pass still queued. Phase 7.6 hero refinement prompt authored after 2026-04-21 visual audit. Roadmap re-sequencing from Session 9 still holds.
 
-Active queue order: **7.7c Session 2 (capital-structure sliders) → 7.7e (aux curve / terminal value / augmentation / duration market-physics + Zod schema tightening) → 7.5 polish → 7.6 → 8 → 9 → 10 → …**
+Active queue order: **12.7 (interconnector 429 fix, ~30 min) → 7.7e UI track (RTE sparkline + cycles_breakdown chart + calibration_source footer, ~1.5-2h) → 7.7e data-contract (Zod at /revenue boundary, ~30-60 min) → 7.7c Session 2 (capital-structure sliders, gated on UX) → 7.7e Engine (aux curve / terminal value / augmentation / duration market-physics, ~3-4h) → 7.5 polish → 7.6 → 8 → 9 → 10 → …**
 
 Reference docs:
 - `docs/visual-audit/phase-7-5-audit/DIAGNOSTIC.md` — audit findings + routing
@@ -39,23 +43,35 @@ Reference docs:
 - Phase 4D (2026-04-16): Hero map rebuild — layered SVG base (background-black + countries + interconnect-lines), cable waypoints v2 recalibrated, hero logo text→designed PNG, opaque --nav-bg token, scroll-padding-top 96px.
 - Design tokens: full dark/light theme system with anti-flash script
 - Phase 7.5-F (2026-04-21): S1/S2 card redesign — live-data signal row (pulse dot + relative timestamp + source chip), prose migrated into anchored drawer (data-anchor=what/how/monthly/bridge), country/product toggle bar on S2 with disabled-state for FCR, clickable hero face that auto-opens the drawer scrolled to `what`. Visual-audit PNGs persisted under `docs/visual-audit/phase-7-5-F/` (whitelist carved in .gitignore). Merged to dev.
+- **Phase 7.7c Session 1 (2026-04-27, engine v7.2)**: LCOS (€/MWh-cycled), MOIC, duration optimizer (irr_2h vs irr_4h delta), assumptions panel — all surfaced from worker into RevenueCard. Worker `e145aeb4`. PRs #38 + #39 merged. See Session 19 entry.
+- **Phase 7.7d (2026-04-27, engine v7.3)**: throughput-derived cycle accounting (per-product MWh/MW/yr from FCR/aFRR/mFRR/DA), three rate-tagged empirical SOH curves at 1 / 1.5 / 2 c/d interpolated by computed actual c/d (replacing flat SOH_CURVE_W), RTE decay 0.20pp/yr from per-duration BOL, availability normalized 0.95→0.97, `cycles_breakdown` + `warranty_status` + `engine_calibration_source` payload fields, `calcIRR` mixed-sign robustness. Worker `41978587`. PR #40 merged. Frontend `RevenueCard` aligned with v7.3 shape via Session 22 hotfix (`94ca8d8`). See Sessions 20–22 entries.
 - Static export to Cloudflare Pages (kkme.eu)
 
 ## What's queued
 
-**Phase 7.7d — Throughput-derived cycle accounting + empirical SOH/RTE calibration** (Claude Code, ~3-3.5h). Three structural fixes to engine v7.3:
+**Phase 12.7 — Interconnector live-flow rate-limit fix** (Claude Code, ~30 min). EstLink 1, EstLink 2, Fenno-Skan 1, Fenno-Skan 2 currently render `·` (no MW value) on the hero. Diagnosed Session 22+: energy-charts.info `cbet?country=ee` and `cbet?country=fi` return HTTP 429 Too Many Requests when fetched in parallel with the LT endpoint. `Promise.all([lt, ee, fi])` lands LT cleanly but EE/FI hit the rate limit; `.catch(() => null)` swallows the failure silently and writes nulls to KV, where /s8 then serves them until next cron. Fix: add `User-Agent: KKME/1.0 (+https://kkme.eu)` header to identify the request source (typical 429 mitigator) + persist-last-good fallback (when fetch returns null, read prior KV record and reuse its values rather than overwriting with null). Optional: add `data_freshness` field to /s8 response so cards can render a "stale-1h" indicator instead of just hiding. Worker file `workers/fetch-s1.js:5367` `fetchInterconnectorFlows()`.
 
-1. **Cycle accounting rebuilt from MWh throughput.** Replaces scenario `act_rate_afrr/mfrr` parameters (which silently treated "in-merit fraction" as "full-power hours" → ~1,600 MWh/MW/yr implied vs ~1,000-1,400 real) with absolute `mwh_per_mw_yr_<product>` parameters anchored on public Modo / Dexter / GEM / enspired research (cited by URL in worker constants). Total annual EFCs derived: Σ allocation × throughput ÷ capacity. Decomposition surfaced in `assumptions_panel` with `warranty_status` indicator (730 EFC/yr standard cap; 1,460 premium tier).
+**Phase 7.7e — Empirical calibration extensions + display polish + data-contract tightening** (Claude Code, ~2.5-4h depending on scope picked). Surfaced across Sessions 21+22. Three sub-tracks:
 
-2. **SOH curve interpolated by computed actual c/d.** Replaces `SOH_CURVE_W` (90% Y10, far too shallow) with three rate-tagged empirical curves at 1 / 1.5 / 2 c/d (cross-supplier consensus median, anonymized). Engine picks curve by computed dispatch intensity, not duration label. Connects cell aging to actual operation for the first time.
+*Engine track* (~3-4h):
+1. Aux-load temperature curve. Operator-region cooler than 25°C standard → real aux consumption lower → effective RTE BOL +1-2pp. Needs site weather data integration.
+2. Terminal value at SOH floor. Augmentation event modeling at Y8-Y12 when capacity hits supplier-stated floor; current engine assumes Y10 augmentation at fixed cost without modeling the trigger condition.
+3. Augmentation modeling (Y8-Y12 capex injection). v7.3 has `aug_cost_pct` and `aug_restore` constants in scenarios but the augmentation event is hard-coded at Y10. Empirical practice: augment when SOH crosses 70% trigger (now hits earlier under v7.3's steeper curves).
+4. Duration optimizer market-physics fix. v7.3 narrows the 2h vs 4h IRR gap from ~10pp to ~7pp via the gentler 4h SOH curve, but multi-market-simultaneous-bidding sophistication (top-N quantile correction, mFRR vs aFRR cascade in 4h+ assets) still missing.
+5. `calcIRR` Newton-Raphson refinement with multi-root detection (current bracket search is coarse).
+6. Synthetic-KV calibration drift. `scripts/audit-stack.mjs::buildSyntheticKV` is sourced from Phase 7.7b v7-final fixtures and runs ~30% below current production KV state. Refresh from current production fixtures before next probe-driven phase.
 
-3. **RTE decay + availability normalization.** RTE year-indexed, 0.20pp/yr decay from per-duration BOL (2h: 0.85; 4h: 0.86). Base availability 0.95 → 0.97. `engine_calibration_source` stamps anonymized provenance + public-research URLs. `model_version` v7.2 → v7.3.
+*UI / display track* (~1.5-2h):
+7. Render `roundtrip_efficiency_curve` array as a sparkline next to the RTE row in the Assumptions panel.
+8. Render `cycles_breakdown` (FCR / aFRR / mFRR / DA EFCs/yr) as a four-bar mini-chart instead of flattened into the row's italicized note.
+9. Surface `engine_calibration_source.last_calibrated` + `next_review` somewhere in the assumptions footer (currently only carried in the cycle row note).
 
-Prompt: [docs/phases/phase-7-7d-empirical-calibration-prompt.md](phases/phase-7-7d-empirical-calibration-prompt.md). Public-research throughput numbers cited by URL; private SOH/RTE anchors anonymized as "Tier 1 LFP integrator consensus, binding RFP responses (2026-Q1)". NDA-protected source documents held privately under `docs/_private/`.
+*Data-contract track* (~30-60 min):
+10. Tighten `/revenue` boundary with Zod or io-ts at the network layer. Currently `as RevenueData` cast at `RevenueCard.tsx:1087` lets any shape through; only fails downstream when a renderer dereferences a missing leaf (was the Session 22 incident). v8 changes should surface as an explicit validation error at the boundary.
 
 **Phase 7.7c Session 2 — Capital structure sliders** (Claude Code, gated on UX decision). Vertical vs horizontal layout, debounce vs blur-fire, URL persistence. Awaiting design call.
 
-**Phase 7.7e candidates — surfaced by 7.7d drill:** aux-load temperature curve (operator-region-specific effect on RTE), terminal value at SOH floor, augmentation event modeling Y8-12, duration-optimizer market-physics fix (multi-market simultaneous bidding, top-N quantile correction).
+**LCOS production-vs-synthetic gap (open question, deferred):** v7.3 production stamps LCOS €55 base/2h vs synthetic-KV probe €96.2. Difference traces to production KV producing more cycles than synthetic (~30% gap noted Session 21). Worth a diagnostic curl before next engine phase to confirm cycles_per_year is reasonable on real-KV (target: 600-900 EFCs/yr base/2h per Modo top-quartile). If production cycles > 1000, likely an engine over-count; if 600-900, the calibration is sound and synthetic-KV needs refresh (Phase 7.7e item #6).
 
 **Phase 7.6 — Numerical reconciliation (upgrade-plan.md §2)** — Sessions 1+2+3 all shipped on `phase-7-6-numbers`. Branch ready for user review and merge to `dev`. Final scope: 16 commits, 107 tests across 16 files. See Session 13 entry for the closing summary; Session 11 entry covers Session 1; Session 12 covers Session 2.
 
@@ -865,7 +881,7 @@ RTE BOL @ POI incl aux: 0.86 (median across four Tier 1 RFP responses). Decay �
 
 **Run 1 — initial autonomous execution (HALTED at §4 MOIC band 0.30).**
 
-- §0–§3 cleanly: 6 v7.2-pre fixtures captured, 49 new tests added (657 → 656 passing, tsc clean), worker rewrite with throughput-based cycle accounting, three rate-tagged SOH curves + `sohYr` interpolation, year-indexed RTE decay, availability normalization, decomposition + warranty surface in `assumptions_panel`, `engine_calibration_source` stamp, `model_version` v7.3.
+- §0–§3 cleanly: 6 v7.2-pre fixtures captured, 49 new tests added (607 baseline → 656 passing, tsc clean), worker rewrite with throughput-based cycle accounting, three rate-tagged SOH curves + `sohYr` interpolation, year-indexed RTE decay, availability normalization, decomposition + warranty surface in `assumptions_panel`, `engine_calibration_source` stamp, `model_version` v7.3.
 - §4 synthetic-KV probe revealed two structural problems:
   1. Literal §2.1 rewrite (act_rate_* removed → mwh_per_mw_yr_* used in activation revenue) cascaded ~−24pp on base/2h IRR via `bal_calibration` (computeBaseYear's monthly path drops 80% on activation when it switches from `act_rate × 8760 × clearing` to `mwh_per_mw_yr × clearing` — the empirical 475 MWh/MW/yr is much smaller than the implicit 0.25 × 8760 = 2,190).
   2. After surgical revert (keep act_rate_* as activation calibration anchors; use mwh_per_mw_yr_* for cycle-accounting + trading-energy budget only), stress MOIC still landed at 0.04 / 0.14 — below the §4 [0.3, 5.5] band.
