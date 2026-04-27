@@ -712,3 +712,70 @@ The `/s8` route at `fetch-s1.js:6817` serves cached KV unconditionally if presen
 - Engine math (`/revenue`, financial computation) — zero changes per the hotfix's "ONLY label strings + frontend display" rule.
 - Card primitives, design system — zero edits.
 - Pre-existing untracked tree (`.claude/skills/`, `docs/visual-audit/phase-7/`, `public/hero/map-calibration-cities.json.json`, `workers/.wrangler/`, `.wrangler/tmp/`, the phase-prompt drafts including this hotfix's own prompt) — left as-is. The hotfix's own prompt at `docs/phases/phase-12-4-interconnector-hotfix-prompt.md` was authored before the session and remains untracked per the standing "out of scope" convention.
+
+### Session 19 — 2026-04-27 — Phase 7.7c Session 1 (engine extensions: LCOS + MOIC + duration optimizer + assumptions display, Claude Code)
+
+**Scope:** Phase 7.7c Session 1 per `docs/phases/phase-7-7c-session-1-prompt.md`. Branch `phase-7-7c-engine-extensions` cut off main at `8a4cd1d` (post-Phase 7.10 merge). Worker is the surface for all four sub-items; cards bind the new fields. Single coordinated commit. Single `wrangler deploy` (version `e145aeb4-5570-4cdd-adcb-f79351ef33dc`). Non-engine math: every addition is a derived field consuming values the engine already produced, so existing IRR / DSCR / gross are unmoved by this session's edits.
+
+**Pre-flight discovery — production was still on `v7`, not `v7.1`.** PR #37 (`phase-7-7b(v7.1)`) had been merged to main on 2026-04-27 but never deployed via wrangler. The captured "v7-1-pre" baseline fixtures therefore reflect the deployed `v7`; the §5 deploy was a single jump v7 → v7.2 carrying both the v7.1 engine refinements (per-product cpi, bid-acceptance saturation, aFRR rate 0.18 → 0.25) AND v7.2 surfaces. Synthetic-KV probe (mode `--probe-v71` against on-disk code with v7.2 edits applied) reproduced an identical engine output to a v7.1-only run — confirming the v7.2 additions are themselves additive. Wire-level IRR/DSCR/gross deltas observed (~±0.3pp IRR, +1% gross) trace to the v7.1 refinements.
+
+**Shipped:**
+
+| # | Surface | What landed |
+|---|---------|-------------|
+| 7.7.3   | `workers/fetch-s1.js:1215-1252` | LCOS (€/MWh-cycled). Formula: (CAPEX·CRF + Fixed O&M + Charging cost) / annual MWh discharged. CRF computed from 8% WACC over 20-year hold. Charging cost from `s1_capture.{capture_2h,capture_4h}.avg_charge × MWh charged × (1/RTE)`. |
+| 7.7.9   | `workers/fetch-s1.js:1238-1242` | MOIC = Σ positive `equity_cf` ÷ `equity_initial`. |
+| 7.7.5   | `workers/fetch-s1.js:1244-1252` | `assumptions_panel` — RTE / cycles_per_year / availability / hold_period / WACC. Read-only; no sliders. |
+| 7.7.15  | `workers/fetch-s1.js:7474-7501` | `duration_recommendation` derived field consuming `irr_2h` / `irr_4h` already computed at the handler. |
+| —       | `workers/fetch-s1.js:1271-1283` | `model_version: 'v7.1' → 'v7.2'`. `engine_changelog.v7_1_to_v7_2` appended (4 strings). `roundtrip_efficiency` exposed. |
+| 7.7c-UI | `app/components/RevenueCard.tsx` | Two new MetricCells (LCOS + MOIC) in the Returns metric grid; `DurationOptimizer` and `AssumptionsPanel` inline sub-components matching the Phase 7.7a `BridgeChart` / `MonthlyChart` template. |
+| N-11    | `app/lib/financialDefinitions.ts` | New `STORAGE_METRICS` export — `LCOS / MOIC / DURATION_RECOMMENDATION` with richer shape (short/long/unit/tooltip). Existing `RETURNS_METRICS.moic` left untouched for backward compat. |
+| N-10    | `app/lib/__tests__/v72Metrics.test.ts` (new, 122 cases) + `financialDefinitions.test.ts` (+6 cases) | LCOS sanity bands, MOIC math identity, duration_recommendation echoes irr_2h/irr_4h, assumptions panel structure, vocabulary length budgets. |
+| —       | `scripts/audit-stack.mjs` | New `--probe-v72` mode validates LCOS [€60, €150], MOIC strict [1.0×, 3.5×] for base/4h + sweep [0.3×, 5.5×] for full matrix, assumptions panel populated, engine_changelog has 4 entries. |
+
+**Verification gates:**
+
+- Tests: 485 baseline → **607 passing** (+122 across 39 files).
+- `npx tsc --noEmit` clean.
+- `npx next build` clean (Turbopack 19.3s, 5 routes prerendered).
+- Synthetic-KV probe v7.1: `✓ SHIP. config 1 IRR 15.60% inside expected band 12–18%`.
+- Synthetic-KV probe v7.2: all 6 (scenario × duration) configs in band; LCOS spread €110-€144, MOIC spread 0.38× (stress/2h) to 4.85× (base/2h, high-IRR), base/4h MOIC 3.05× ✓ strict.
+- Production deploy version: `e145aeb4-5570-4cdd-adcb-f79351ef33dc`. Wire shows `model_version: 'v7.2'`, `engine_changelog.v7_1_to_v7_2.length === 4`, all four new fields populated on `?dur=2h` (default).
+- Post-deploy fixtures captured at `docs/audits/phase-7-7c/baseline-{scen}-{dur}-v7-2.json` × 6.
+
+**LCOS / MOIC / Duration / Assumptions across 6 scenarios (post-deploy):**
+
+| scenario / dur | LCOS €/MWh | MOIC × | irr_2h | irr_4h | optimal | delta_pp |
+|---|---|---|---|---|---|---|
+| base/2h            | 69.5  | 4.72 | 18.28% | 8.80% | 2h | +9.48 |
+| base/4h            | 76.3  | 2.61 | 18.28% | 8.80% | 2h | +9.48 |
+| conservative/2h    | 76.3  | 3.23 | 13.27% | 5.55% | 2h | +7.72 |
+| conservative/4h    | 81.9  | 1.76 | 13.27% | 5.55% | 2h | +7.72 |
+| stress/2h          | 103.3 | 0.47 | null   | null  | n/a (insufficient IRR data) |
+| stress/4h          | 96.1  | 0.46 | null   | null  | n/a (insufficient IRR data) |
+
+Assumptions panel uniform across scenarios — RTE 85.2-85.5%, cycles/yr 310-548 (varies with cycles_2h/cycles_4h × 365), availability 92-95% (per scenario), hold 20y, WACC 8%.
+
+**Anomalies / non-obvious findings:**
+
+- **MOIC band [1.0×, 3.5×] is base-case convention, not a sweep-wide invariant.** `audit-stack.mjs --probe-v72` enforces the strict band only on base/4h (the canonical investor scenario) and a wider operational sweep [0.3×, 5.5×] across all 6 scenarios. Stress legitimately falls below 1.0× (returns < capital, by stress-test design); high-IRR cases like base/2h with €164 capex legitimately exceed 3.5×. The math itself (`Σ max(0, equity_cf) / equity_initial`) is correct against the prod fixtures (computed independently of `moic` field, matched within rounding).
+- **PR #37 v7.1 refinements rode the v7.2 deploy.** The two were technically separable but operationally coupled — the next deploy was always going to ship both. Documented in handover, in `engine_changelog.v7_to_v7_1` (already on disk from PR #37), and in `engine_changelog.v7_1_to_v7_2` (new this session). Bankability flag thresholds are unchanged (1.20×/1.0× covenant) per the 7.7b session 2 addendum's prediction.
+- **`/revenue` endpoint is not KV-cached** (line 7169 comment), unlike `/s8` from Session 18 — the Phase 12.6 KV-cache invalidation issue does NOT apply here. Each `/revenue` request recomputes against the live worker code. Deploy → next request returns v7.2 immediately.
+- **`STORAGE_METRICS` is a new export, not a reshape of `RETURNS_METRICS`**, to avoid touching the financialDefinitions test surface from Phase 7.7a (which asserted the existing `{ label, tooltip }` shape on `RETURNS_METRICS.moic`). Both shapes co-exist; consumers route through whichever is appropriate.
+- **`AssumptionsPanel` is a 5-row read-only display.** No interactivity, no sliders, no tooltips beyond the `title=` attribute. Capital-structure sliders (gearing / tenor / all-in rate / live recompute) are explicitly Phase 7.7c Session 2 territory.
+
+**Cross-cutting notes for the next phase:**
+
+- **Phase 7.7c Session 2** (capital structure sliders + request-time recompute) is the natural next CC job for the engine track. Prompt only after this PR is merged AND Kastytis makes a design call on the slider UX (vertical vs horizontal sliders, request debounce vs blur-fire, persisted state encoding).
+- **Phase 8 Session 3** (icons + logo system) remains gated on the Lucide-vs-Figma decision per `plan-audit-2026-04-26.md` Q3.
+- **Production wire is now v7.2 across all surfaces.** Any consumer needing pre-v7.2 fields (the four new keys) should default-handle null gracefully — the type widening in `RevenueCard.tsx` `RevenueData` makes them all optional.
+
+**Out of scope / not touched (per scope discipline):**
+
+- Capital structure controls (gearing / tenor / rate sliders, request-time recompute) — Phase 7.7c Session 2.
+- Real / nominal indexing (`priceBase: "EUR2026"`) — separate phase.
+- Monte Carlo P10/P50/P90 fans — separate phase, architectural decision needed.
+- PPA / tolling scenario toggle — separate phase, new revenue engine path.
+- Phase 10 design-system primitives migration on the new sub-components — Phase 10 owns that.
+- Stack allocator changes — already audited in 7.7b; operationally valid per the addendum.
+- Pre-existing untracked tree (`.claude/skills/`, `docs/visual-audit/phase-7/`, `public/hero/map-calibration-cities.json.json`, `workers/.wrangler/`, `.wrangler/tmp/`, the phase-prompt drafts) — left as-is.

@@ -122,6 +122,49 @@ export const RETURNS_METRICS = Object.freeze({
   } satisfies MetricLabel,
 });
 
+// ─── Storage-layer metrics — Phase 7.7c Session 1 (N-11) ──────────────────
+//
+// Richer shape than RETURNS_METRICS: short / long / unit / tooltip. Covers
+// the cross-tech comparator (LCOS), the equity-multiple metric (MOIC), and
+// the real-options duration optimizer hint surfaced from the engine's
+// dual-duration computation. Consumers route everything through this module
+// — never inline string literals.
+
+export interface StorageMetricSpec {
+  /** ≤ 14 chars — fits a MetricTile label. */
+  short: string;
+  /** Long-form name (used in tooltips, drawer copy, glossary). */
+  long: string;
+  /** Display unit ("€/MWh-cycled", "×", "h"). */
+  unit: string;
+  /** title=… tooltip; self-contained. */
+  tooltip: string;
+}
+
+export const STORAGE_METRICS = Object.freeze({
+  LCOS: {
+    short: 'LCOS',
+    long: 'Levelized Cost of Storage',
+    unit: '€/MWh-cycled',
+    tooltip:
+      'Total lifetime cost (CAPEX recovery + O&M + charging) divided by lifetime MWh discharged. The cross-technology comparator for storage assets.',
+  } satisfies StorageMetricSpec,
+  MOIC: {
+    short: 'MOIC',
+    long: 'Multiple of Money',
+    unit: '×',
+    tooltip:
+      'Total cash returned to equity divided by equity invested over the hold period. Equity-investor metric — time-blind, unlike IRR.',
+  } satisfies StorageMetricSpec,
+  DURATION_RECOMMENDATION: {
+    short: 'Duration',
+    long: 'Real-options duration optimizer',
+    unit: 'h',
+    tooltip:
+      'Compares 2h vs 4h IRR at the current spread regime. Shifts as forward spreads compress — 2h favours frequent cycling at wide spreads, 4h favours longer holds in compressed markets.',
+  } satisfies StorageMetricSpec,
+});
+
 // ─── Market thickness on balancing tiles (7.7.14) ──────────────────────────
 //
 // Per the engine audit §4.2, mFRR is thin in the Baltics (a 50 MW asset is

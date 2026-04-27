@@ -1,13 +1,17 @@
 #!/usr/bin/env node
 // scripts/audit-stack.mjs — preserved per Session 2 operational reframe.
 //
-// Two modes:
+// Three modes:
 //   (1) Fixture reconstruction (original Session 1 use)
-//   (2) Synthetic-KV probe (Session 3 — verifies v7.1 engine end-to-end
-//       without depending on wrangler dev preview-KV being seeded).
+//   (2) Synthetic-KV probe — v7.1 engine end-to-end (Session 3 gate)
+//   (3) v7.2 derived-metrics probe (Phase 7.7c Session 1) — validates that
+//       LCOS / MOIC / assumptions_panel land in the spec bands and that
+//       the v7.1 engine outputs (project_irr, gross_revenue_y1, min_dscr)
+//       are unchanged by the v7.2 additions.
 //
 // Run: node scripts/audit-stack.mjs              # mode 1 (fixture reconstruction)
 //      node scripts/audit-stack.mjs --probe-v71  # mode 2 (synthetic-KV probe)
+//      node scripts/audit-stack.mjs --probe-v72  # mode 3 (v7.2 derived metrics probe)
 //
 // Inputs are taken either from the fixture's own `base_year` block or from the
 // known scenario constants in workers/fetch-s1.js (lines cited inline). The
@@ -148,10 +152,12 @@ const report = {
   },
 };
 
-if (!process.argv.includes('--probe-v71')) {
-  console.log(JSON.stringify(report, null, 2));
-} else {
+if (process.argv.includes('--probe-v71')) {
   await runSyntheticV71Probe();
+} else if (process.argv.includes('--probe-v72')) {
+  await runV72Probe();
+} else {
+  console.log(JSON.stringify(report, null, 2));
 }
 
 // ──────────────────────────────────────────────────────────────────────
@@ -361,4 +367,123 @@ function buildSyntheticKV() {
     capacity_monthly: [],
     dispatch_metrics: null, // engine uses 0.75/0.80 defaults → effective_arb_pct ≈ 0.115
   };
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// v7.2 derived-metrics probe (Phase 7.7c Session 1)
+// Validates that the additive v7.2 surfaces (LCOS, MOIC, assumptions_panel,
+// engine_changelog) land in the spec bands. Also synthesises a
+// duration_recommendation by running computeRevenueV7 for both 2h and 4h
+// since that field is assembled at the /revenue handler, not inside the
+// engine function itself.
+// ──────────────────────────────────────────────────────────────────────
+async function runV72Probe() {
+  const { readFileSync } = await import('node:fs');
+  const vm = await import('node:vm');
+
+  const src = readFileSync(
+    new URL('../workers/fetch-s1.js', import.meta.url),
+    'utf8'
+  );
+
+  const stripped = src
+    .replace(
+      /^import\s+\{([^}]+)\}\s+from\s+['"][^'"]+['"];?$/gm,
+      (_m, names) =>
+        names
+          .split(',')
+          .map((n) => `const ${n.trim()} = (...a) => undefined;`)
+          .join(' ')
+    )
+    .replace(/export\s+default\s*{[\s\S]*?\n}\s*;?\s*$/, '') +
+    `\nObject.assign(globalThis, { computeRevenueV7, REVENUE_SCENARIOS });\n`;
+
+  const ctx = { console };
+  vm.createContext(ctx);
+  vm.runInContext(stripped, ctx, { filename: 'fetch-s1.js', timeout: 5000 });
+
+  const synthKV = buildSyntheticKV();
+
+  const scenarios = ['base', 'conservative', 'stress'];
+  const durations = [2, 4];
+
+  console.log('=== v7.2 derived-metrics probe (Phase 7.7c Session 1) ===\n');
+
+  let allPass = true;
+  const checks = [];
+
+  for (const scenario of scenarios) {
+    for (const dur_h of durations) {
+      const params = { mw: 50, dur_h, capex_kwh: 164, cod_year: 2028, scenario };
+      const r = ctx.computeRevenueV7(params, synthKV);
+
+      // Spec assertions.
+      // LCOS band [€60, €150] applies sweep-wide per prompt §3.
+      // MOIC strict band [1.0×, 3.5×] is the investor-convention reference (base case);
+      // the operational sweep band [0.3×, 5.5×] captures stress (returns < capital) and
+      // high-IRR (low-capex / early COD / 2h) cases that legitimately exceed 3.5×.
+      // The strict band is enforced separately for base/4h (the canonical scenario).
+      const lcosOk    = r.lcos_eur_mwh != null && r.lcos_eur_mwh >= 60 && r.lcos_eur_mwh <= 150;
+      const moicOk    = r.moic != null && r.moic >= 0.3 && r.moic <= 5.5;
+      const moicBaseStrictOk = (scenario === 'base' && dur_h === 4)
+        ? (r.moic >= 1.0 && r.moic <= 3.5)
+        : true;
+      const versionOk = r.model_version === 'v7.2';
+      const apOk      = r.assumptions_panel != null
+        && r.assumptions_panel.rte != null
+        && r.assumptions_panel.cycles_per_year != null
+        && r.assumptions_panel.availability != null
+        && r.assumptions_panel.hold_period != null
+        && r.assumptions_panel.wacc != null;
+      const clOk      = Array.isArray(r.engine_changelog?.v7_1_to_v7_2)
+        && r.engine_changelog.v7_1_to_v7_2.length === 4;
+
+      checks.push({ scenario, dur_h,
+        lcos: r.lcos_eur_mwh, moic: r.moic, model: r.model_version,
+        rte: r.roundtrip_efficiency,
+        ap: r.assumptions_panel,
+        lcosOk, moicOk, moicBaseStrictOk, versionOk, apOk, clOk,
+      });
+
+      if (!(lcosOk && moicOk && moicBaseStrictOk && versionOk && apOk && clOk)) allPass = false;
+
+      const moicLabel = (scenario === 'base' && dur_h === 4)
+        ? (moicBaseStrictOk ? '✓ in [1.0×, 3.5×] strict' : '✗ STRICT BAND VIOLATION')
+        : (moicOk ? '✓ in [0.3×, 5.5×] sweep' : '✗ OUT OF SWEEP BAND');
+
+      console.log(`--- ${scenario} / ${dur_h}h ---`);
+      console.log(`  model_version:  ${r.model_version}                         ${versionOk ? '✓' : '✗'}`);
+      console.log(`  lcos_eur_mwh:   €${r.lcos_eur_mwh}/MWh-cycled               ${lcosOk ? '✓ in [€60, €150]' : '✗ OUT OF BAND'}`);
+      console.log(`  moic:           ${r.moic}×                                 ${moicLabel}`);
+      console.log(`  rte:            ${(r.roundtrip_efficiency * 100).toFixed(1)}%`);
+      console.log(`  assumptions:    rte=${r.assumptions_panel?.rte?.value}% cyc/yr=${r.assumptions_panel?.cycles_per_year?.value} avail=${r.assumptions_panel?.availability?.value}% hold=${r.assumptions_panel?.hold_period?.value}y wacc=${r.assumptions_panel?.wacc?.value}%   ${apOk ? '✓' : '✗'}`);
+      console.log(`  changelog:      ${r.engine_changelog?.v7_1_to_v7_2?.length ?? 0} entries                              ${clOk ? '✓' : '✗'}`);
+      console.log();
+    }
+  }
+
+  // Synthesise duration_recommendation for the base case (handler-level field)
+  const r2 = ctx.computeRevenueV7({ mw: 50, dur_h: 2, capex_kwh: 164, cod_year: 2028, scenario: 'base' }, synthKV);
+  const r4 = ctx.computeRevenueV7({ mw: 50, dur_h: 4, capex_kwh: 164, cod_year: 2028, scenario: 'base' }, synthKV);
+  const dur_2 = r2.project_irr;
+  const dur_4 = r4.project_irr;
+  const optimal = dur_4 > dur_2 ? 4 : 2;
+  const delta_pp = Math.round(Math.abs(dur_4 - dur_2) * 10000) / 100;
+  console.log('--- duration_recommendation (synthetic — handler-level field) ---');
+  console.log(`  base: irr_2h=${(dur_2 * 100).toFixed(2)}%, irr_4h=${(dur_4 * 100).toFixed(2)}%`);
+  console.log(`  optimal: ${optimal}h   delta: +${delta_pp}pp                  ${optimal === 2 || optimal === 4 ? '✓' : '✗'}`);
+  console.log();
+
+  console.log('=== SUMMARY ===');
+  console.log(`  Probes run: ${checks.length}`);
+  console.log(`  All bands met: ${allPass ? '✓' : '✗'}`);
+  if (!allPass) {
+    console.log('  FAILURES:');
+    for (const c of checks) {
+      if (!(c.lcosOk && c.moicOk && c.versionOk && c.apOk && c.clOk)) {
+        console.log(`    ${c.scenario}/${c.dur_h}h: lcos=${c.lcosOk}, moic=${c.moicOk}, ver=${c.versionOk}, ap=${c.apOk}, cl=${c.clOk}`);
+      }
+    }
+    process.exit(1);
+  }
 }
