@@ -16,6 +16,8 @@ import { REFRESH_HOT } from '@/lib/refresh-cadence';
 import { formatTickerItem } from '@/app/lib/ticker';
 import { IRR_LABELS } from '@/app/lib/irrLabels';
 import { ThemeToggle } from './ThemeToggle';
+import { Sparkline as SharedSparkline } from './Sparkline';
+import { ChartTooltipPortal, useChartTooltipState } from '@/app/components/primitives';
 
 gsap.registerPlugin(MotionPathPlugin);
 
@@ -80,21 +82,10 @@ function formatPower(mw: number | null | undefined): string {
 
 const dotRadius = (mw: number) => 3 + Math.sqrt(mw / 10) * 1.2;
 
-function Sparkline({ data, w = 200, h = 30 }: { data: number[]; w?: number; h?: number }) {
-  if (data.length < 3) return null;
-  const min = Math.min(...data), max = Math.max(...data), range = max - min || 1;
-  const pts = data.map((v, i) =>
-    `${(i / (data.length - 1)) * w},${h - ((v - min) / range) * (h - 4) - 2}`
-  ).join(' ');
-  const lastY = h - ((data[data.length - 1] - min) / range) * (h - 4) - 2;
-  return (
-    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ display: 'block' }}>
-      <polyline points={pts} fill="none" stroke="var(--teal)" strokeWidth="1.5"
-        strokeLinejoin="round" strokeLinecap="round" />
-      <circle cx={w - 1} cy={lastY} r="2.5" fill="var(--teal)" />
-    </svg>
-  );
-}
+// Phase 7.7e — replaced inline Sparkline definition with shared component import
+// (top of file). The shared Sparkline carries the unified ChartTooltip primitive
+// so the 30D capture trend mini-chart now hovers consistently with every other
+// chart on the site.
 
 // ═══ Component ═══════════════════════════════════════════════════════════════
 
@@ -114,6 +105,7 @@ export function HeroBalticMap() {
   const [hoveredProject, setHoveredProject] = useState<MappedProject | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const cableTip = useChartTooltipState();
 
   const fetchAll = useCallback(() => {
     return Promise.all([
@@ -415,6 +407,43 @@ export function HeroBalticMap() {
               )}
             </g>
 
+            {/* Phase 7.7e — invisible wide-stroke hit targets for cable hover.
+              * Each cable surfaces a unified ChartTooltip with name, MW, freshness. */}
+            <g data-layer="cable-hover-targets" style={{ pointerEvents: 'auto' }}>
+              {Object.entries(CABLE_PATHS).map(([id, d]) => {
+                if (!d) return null;
+                const flow = resolved.find(r => r.id === id);
+                if (!flow) return null;
+                const freshnessRecord = (s8 as unknown as { freshness?: Record<string, string | null> } | null)?.freshness;
+                const freshness = freshnessRecord?.[id];
+                const showTip = (e: React.MouseEvent) => cableTip.show({
+                  label: flow.displayName,
+                  value: flow.mw,
+                  unit: 'MW',
+                  secondary: [
+                    { label: 'Direction', value: `${flow.fromCountry} → ${flow.toCountry}` },
+                    ...(typeof flow.utilization === 'number' ? [{ label: 'Utilisation', value: flow.utilization * 100, unit: '%' }] : []),
+                    ...(freshness ? [{ label: 'Freshness', value: freshness }] : []),
+                  ],
+                  source: 'energy-charts.info',
+                }, e.clientX, e.clientY);
+                return (
+                  <path
+                    key={`hit-${id}`}
+                    d={d}
+                    fill="none"
+                    stroke="transparent"
+                    strokeWidth="14"
+                    strokeLinecap="round"
+                    style={{ cursor: 'crosshair' }}
+                    onMouseEnter={showTip}
+                    onMouseMove={showTip}
+                    onMouseLeave={() => cableTip.hide()}
+                  />
+                );
+              })}
+            </g>
+
             {/* City labels with halo stroke — collision-resolved */}
             <g data-layer="cities">
               {Object.entries(CITY_LABEL_PIXELS).map(([id, city]) => {
@@ -652,7 +681,7 @@ export function HeroBalticMap() {
           </div>
           {sparkData.length > 3 && (
             <div style={{ marginTop: '10px' }}>
-              <Sparkline data={sparkData} />
+              <SharedSparkline values={sparkData} width={200} height={30} unit="€/MW/day" rangeUnit="€/MW/day" />
               <div style={{
                 fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-tertiary)',
                 textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: '2px',
@@ -780,6 +809,7 @@ export function HeroBalticMap() {
           [style*="tickerScroll"] { animation: none !important; }
         }
       `}</style>
+      <ChartTooltipPortal tt={cableTip} />
     </section>
   );
 }
