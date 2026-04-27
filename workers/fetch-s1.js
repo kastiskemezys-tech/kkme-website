@@ -5364,12 +5364,18 @@ async function fetchTTFGas() {
 
 // ─── S8 — Interconnector Flows (NordBalt + LitPol + EstLink + Fenno-Skan) ─────
 
-async function fetchInterconnectorFlows() {
+async function fetchInterconnectorFlows(env) {
   // energy-charts.info CBET: cross-border electricity trading
   // Sign convention per endpoint: positive = country importing FROM neighbor.
   // Preserved as-is downstream (no negation): *_avg_mw and *_signal both
   // follow the API convention. See lib/baltic-places.ts for arrow rendering.
-  const cbetHeaders = { Accept: 'application/json' };
+  //
+  // Phase 12.7: identifying User-Agent reduces HTTP 429 from anonymous-bucket
+  // rate-limiting when EE + FI requests fire in parallel with LT.
+  const cbetHeaders = {
+    Accept: 'application/json',
+    'User-Agent': 'KKME/1.0 (+https://kkme.eu) — Baltic flexibility intelligence',
+  };
 
   // Fetch LT, EE, and FI CBET data in parallel
   const [ltRes, eeRes, fiRes] = await Promise.all([
@@ -5401,33 +5407,57 @@ async function fetchInterconnectorFlows() {
   const lv_lt_avg_mw = latestFromList(ltCountries, 'Latvia');
 
   // EstLink (EE ↔ FI): from EE CBET, Finland column
-  let estlink_avg_mw = null;
+  let estlink_fetched = null;
   if (eeRes && eeRes.ok) {
     try {
       const eeData = await eeRes.json();
       const eeCountries = Array.isArray(eeData.countries) ? eeData.countries : [];
-      estlink_avg_mw = latestFromList(eeCountries, 'Finland');
+      estlink_fetched = latestFromList(eeCountries, 'Finland');
     } catch (e) {
       console.error('[S8] EE CBET parse error:', String(e));
     }
+  } else if (eeRes && !eeRes.ok) {
+    console.error(`[S8] EE CBET HTTP ${eeRes.status} (likely rate limit)`);
   }
 
   // Fenno-Skan (SE ↔ FI): from FI CBET, Sweden column
-  let fennoskan_avg_mw = null;
+  let fennoskan_fetched = null;
   if (fiRes && fiRes.ok) {
     try {
       const fiData = await fiRes.json();
       const fiCountries = Array.isArray(fiData.countries) ? fiData.countries : [];
-      fennoskan_avg_mw = latestFromList(fiCountries, 'Sweden');
+      fennoskan_fetched = latestFromList(fiCountries, 'Sweden');
     } catch (e) {
       console.error('[S8] FI CBET parse error:', String(e));
     }
+  } else if (fiRes && !fiRes.ok) {
+    console.error(`[S8] FI CBET HTTP ${fiRes.status} (likely rate limit)`);
   }
 
   if (nordbalt_avg_mw == null && litpol_avg_mw == null) {
     console.error('[S8] LT countries not found, names:', ltCountries.map(c => c.name).join(','));
     throw new Error('CBET: no Sweden or Poland data in LT response');
   }
+
+  // Persist-last-good: when a cable couldn't be fetched (rate limit, parse error,
+  // data array all-null, etc.), prefer the prior KV value over emitting null.
+  // Visitors see the last-known cable flow rather than a "no data" placeholder.
+  // The cron-stale path degrades to "stale data" instead of "no data."
+  let prior = null;
+  if (env && env.KKME_SIGNALS) {
+    try {
+      const cached = await env.KKME_SIGNALS.get('s8');
+      if (cached) prior = JSON.parse(cached);
+    } catch (e) {
+      console.error('[S8] prior KV read failed:', String(e));
+    }
+  }
+
+  const nordbalt_avg_mw_merged  = safeInterconnector(nordbalt_avg_mw,  prior?.nordbalt_avg_mw);
+  const litpol_avg_mw_merged    = safeInterconnector(litpol_avg_mw,    prior?.litpol_avg_mw);
+  const estlink_avg_mw_merged   = safeInterconnector(estlink_fetched,  prior?.estlink_avg_mw);
+  const fennoskan_avg_mw_merged = safeInterconnector(fennoskan_fetched, prior?.fennoskan_avg_mw);
+  const lv_lt_avg_mw_merged     = safeInterconnector(lv_lt_avg_mw,     prior?.lv_lt_avg_mw);
 
   function flowSignal(mw) {
     if (mw == null) return null;
@@ -5436,12 +5466,14 @@ async function fetchInterconnectorFlows() {
     return 'BALANCED';
   }
 
-  const nordbalt_signal  = flowSignal(nordbalt_avg_mw);
-  const litpol_signal    = flowSignal(litpol_avg_mw);
-  const estlink_signal   = flowSignal(estlink_avg_mw);
-  const fennoskan_signal = flowSignal(fennoskan_avg_mw);
-  const lv_lt_signal     = flowSignal(lv_lt_avg_mw);
-  const netTotal = (nordbalt_avg_mw ?? 0) + (litpol_avg_mw ?? 0);
+  // Re-derive *_signal + netTotal from merged values so a fallback'd MW yields
+  // a fallback'd signal label rather than a stale signal next to a fresh number.
+  const nordbalt_signal  = flowSignal(nordbalt_avg_mw_merged);
+  const litpol_signal    = flowSignal(litpol_avg_mw_merged);
+  const estlink_signal   = flowSignal(estlink_avg_mw_merged);
+  const fennoskan_signal = flowSignal(fennoskan_avg_mw_merged);
+  const lv_lt_signal     = flowSignal(lv_lt_avg_mw_merged);
+  const netTotal = (nordbalt_avg_mw_merged ?? 0) + (litpol_avg_mw_merged ?? 0);
   const signal   = netTotal > 100 ? 'IMPORTING' : netTotal < -100 ? 'EXPORTING' : 'NEUTRAL';
 
   // Extract data timestamp from energy-charts unix_seconds (Bug 5 fix)
@@ -5455,24 +5487,43 @@ async function fetchInterconnectorFlows() {
   return {
     timestamp:        dataTimestamp,
     signal,
-    nordbalt_avg_mw,
-    litpol_avg_mw,
-    estlink_avg_mw,
-    fennoskan_avg_mw,
-    lv_lt_avg_mw,
+    nordbalt_avg_mw:  nordbalt_avg_mw_merged,
+    litpol_avg_mw:    litpol_avg_mw_merged,
+    estlink_avg_mw:   estlink_avg_mw_merged,
+    fennoskan_avg_mw: fennoskan_avg_mw_merged,
+    lv_lt_avg_mw:     lv_lt_avg_mw_merged,
     nordbalt_signal,
     litpol_signal,
     estlink_signal,
     fennoskan_signal,
     lv_lt_signal,
+    freshness: {
+      nordbalt:  freshnessForInterconnector(nordbalt_avg_mw,  prior?.nordbalt_avg_mw),
+      litpol:    freshnessForInterconnector(litpol_avg_mw,    prior?.litpol_avg_mw),
+      estlink:   freshnessForInterconnector(estlink_fetched,  prior?.estlink_avg_mw),
+      fennoskan: freshnessForInterconnector(fennoskan_fetched, prior?.fennoskan_avg_mw),
+      lv_lt:     freshnessForInterconnector(lv_lt_avg_mw,     prior?.lv_lt_avg_mw),
+    },
     interpretation: [
-      fmtFlow('NordBalt', nordbalt_signal, nordbalt_avg_mw),
-      fmtFlow('LitPol', litpol_signal, litpol_avg_mw),
-      fmtFlow('LV↔LT', lv_lt_signal, lv_lt_avg_mw),
-      fmtFlow('EstLink', estlink_signal, estlink_avg_mw),
-      fmtFlow('Fenno-Skan', fennoskan_signal, fennoskan_avg_mw),
+      fmtFlow('NordBalt', nordbalt_signal, nordbalt_avg_mw_merged),
+      fmtFlow('LitPol', litpol_signal, litpol_avg_mw_merged),
+      fmtFlow('LV↔LT', lv_lt_signal, lv_lt_avg_mw_merged),
+      fmtFlow('EstLink', estlink_signal, estlink_avg_mw_merged),
+      fmtFlow('Fenno-Skan', fennoskan_signal, fennoskan_avg_mw_merged),
     ].join('. ') + '.',
   };
+}
+
+// Phase 12.7 — interconnector merge helpers.
+// Inline copies of the TS mirror at app/lib/interconnectorHelpers.ts so the
+// worker can run without a build step. Keep both in sync.
+function safeInterconnector(current, fallback) {
+  return current != null ? current : (fallback != null ? fallback : null);
+}
+function freshnessForInterconnector(current, fallback) {
+  if (current != null) return 'live';
+  if (fallback != null) return 'stale';
+  return null;
 }
 
 // ─── S9 — EU ETS Carbon Price ──────────────────────────────────────────────────
@@ -5935,8 +5986,8 @@ export default {
     if (event.cron === '0 * * * *') {
       console.log('[Hourly] refreshing time-sensitive signals...');
       const [s8Res, genRes, genloadRes] = await Promise.allSettled([
-        withTimeout(fetchInterconnectorFlows(), 30000),
-        withTimeout(fetchBalticGeneration(),    25000),
+        withTimeout(fetchInterconnectorFlows(env), 30000),
+        withTimeout(fetchBalticGeneration(),       25000),
         withTimeout(fetchGenLoad(env.ENTSOE_API_KEY), 30000),
       ]);
 
@@ -6123,7 +6174,7 @@ export default {
     const [s6Res, s7Res, s8Res, s9Res, genRes, genloadRes] = await Promise.allSettled([
       withTimeout(fetchNordicHydro(),           20000),
       withTimeout(fetchTTFGas(),                20000),
-      withTimeout(fetchInterconnectorFlows(), 30000),
+      withTimeout(fetchInterconnectorFlows(env), 30000),
       withTimeout(fetchEUCarbon(),              20000),
       withTimeout(fetchBalticGeneration(),      25000),
       withTimeout(fetchGenLoad(env.ENTSOE_API_KEY), 30000),
@@ -7233,7 +7284,7 @@ export default {
     for (const [sig, computeFn, def] of [
       ['s6', () => fetchNordicHydro(),             DEFAULTS.s6],
       ['s7', () => fetchTTFGas(),                  DEFAULTS.s7],
-      ['s8', () => fetchInterconnectorFlows(),  DEFAULTS.s8],
+      ['s8', () => fetchInterconnectorFlows(env),  DEFAULTS.s8],
       ['s9', () => fetchEUCarbon(),                DEFAULTS.s9],
     ]) {
       if (request.method === 'GET' && url.pathname === `/${sig}`) {
