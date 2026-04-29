@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useLayoutEffect, useRef } from 'react';
+import { useCallback, useEffect, useState, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import {
@@ -244,19 +244,69 @@ export interface ChartTooltipState {
 
 const HIDDEN: ChartTooltipState = { data: null, visible: false, x: 0, y: 0 };
 
+// Value-equality compare for the bits of ChartTooltipData that drive the
+// tooltip render. Used by the dedupe in setState below.
+export function tooltipDataEqual(a: ChartTooltipData | null | undefined, b: ChartTooltipData | null | undefined): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  if (a.value !== b.value) return false;
+  if (a.unit !== b.unit) return false;
+  // `date` is `Date | string | undefined` — normalize Date instances to epoch
+  // millis so two equivalent Date objects compare equal across renders.
+  const aDate = a.date instanceof Date ? a.date.getTime() : a.date;
+  const bDate = b.date instanceof Date ? b.date.getTime() : b.date;
+  if (aDate !== bDate) return false;
+  if (a.time !== b.time) return false;
+  if (a.label !== b.label) return false;
+  if (a.source !== b.source) return false;
+  const sa = a.secondary;
+  const sb = b.secondary;
+  if (sa !== sb) {
+    if (!sa || !sb) return false;
+    if (sa.length !== sb.length) return false;
+    for (let i = 0; i < sa.length; i++) {
+      if (sa[i].label !== sb[i].label || sa[i].value !== sb[i].value || sa[i].unit !== sb[i].unit) return false;
+    }
+  }
+  return true;
+}
+
+export function tooltipStateEqual(a: ChartTooltipState, b: ChartTooltipState): boolean {
+  if (a === b) return true;
+  if (a.visible !== b.visible) return false;
+  // Both hidden: x/y/data are irrelevant — treat as equal regardless. This
+  // matters when chart.js fires repeated "hide" pulses with stale caret coords.
+  if (!a.visible && !b.visible) return true;
+  if (a.x !== b.x || a.y !== b.y) return false;
+  return tooltipDataEqual(a.data, b.data);
+}
+
 export function useChartTooltipState(): {
   state: ChartTooltipState;
   show: (data: ChartTooltipData, x: number, y: number) => void;
   hide: () => void;
   setState: (state: ChartTooltipState) => void;
 } {
-  const [state, setState] = useState<ChartTooltipState>(HIDDEN);
-  return {
-    state,
-    show: (data, x, y) => setState({ data, visible: true, x, y }),
-    hide: () => setState(HIDDEN),
-    setState,
-  };
+  const [state, setStateRaw] = useState<ChartTooltipState>(HIDDEN);
+  // Dedupe by value-equality. chart.js's `external` callback can fire
+  // synchronously inside chart.update() (which react-chartjs-2 calls from a
+  // useEffect on options/data ref change) — and chart.update() with an active
+  // tooltip retriggers external with the same caret/data. Without dedupe, the
+  // resulting setState→re-render→options-fresh→update→external loop bails at
+  // React error #185. Dedupe here is the load-bearing loop-breaker; useMemo
+  // on useTooltipStyle and on per-site external handlers reduces the surface
+  // but doesn't on its own stop the cascade because the chart's `options` and
+  // `data` literals are still fresh refs each render.
+  const setState = useCallback((next: ChartTooltipState) => {
+    setStateRaw(prev => (tooltipStateEqual(prev, next) ? prev : next));
+  }, []);
+  const show = useCallback((data: ChartTooltipData, x: number, y: number) => {
+    setState({ data, visible: true, x, y });
+  }, [setState]);
+  const hide = useCallback(() => {
+    setState(HIDDEN);
+  }, [setState]);
+  return { state, show, hide, setState };
 }
 
 /**

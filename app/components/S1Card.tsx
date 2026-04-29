@@ -327,19 +327,24 @@ function Sparkline({ history, dur, stats, CC, pinned, onPin }: {
   const field = dur === '2h' ? 'gross_2h' : 'gross_4h';
   const labels = history.map(h => fmtDate(h.date));
   const values = history.map(h => (h[field as keyof DailyCaptureEntry] as number | null) ?? null);
-  const isoDates = history.map(h => h.date);
 
   const tt = useChartTooltipState();
-  const externalHandler = buildExternalTooltipHandler(tt.setState, (point, title) => {
-    const i = point.dataIndex ?? 0;
-    const swing = history[i]?.swing;
-    return {
-      date: isoDates[i] ?? title,
-      value: typeof point.parsed?.y === 'number' ? point.parsed.y : 0,
-      unit: '€/MWh',
-      secondary: swing != null ? [{ label: 'Swing', value: swing, unit: '€/MWh' }] : undefined,
-    };
-  });
+  // Memo dep is the upstream `history` only — derived arrays (labels, values)
+  // would be fresh references every render and bust the memo, so the closure
+  // indexes back into `history[i]` which is the actual upstream dep.
+  const externalHandler = useMemo(
+    () => buildExternalTooltipHandler(tt.setState, (point, title) => {
+      const i = point.dataIndex ?? 0;
+      const entry = history[i];
+      return {
+        date: entry?.date ?? title,
+        value: typeof point.parsed?.y === 'number' ? point.parsed.y : 0,
+        unit: '€/MWh',
+        secondary: entry?.swing != null ? [{ label: 'Swing', value: entry.swing, unit: '€/MWh' }] : undefined,
+      };
+    }),
+    [tt.setState, history],
+  );
   const externalTooltip = useTooltipStyle(CC, { external: externalHandler });
 
   const datasets: Array<Record<string, unknown>> = [
@@ -358,8 +363,6 @@ function Sparkline({ history, dur, stats, CC, pinned, onPin }: {
       spanGaps: true,
     },
   ];
-
-  // P50 reference line
   if (stats?.p50 != null) {
     datasets.push({
       label: 'p50',
@@ -469,13 +472,21 @@ function MonthlyChart({ monthly, dur, CC }: {
   const scales = buildScales(CC);
 
   const tt = useChartTooltipState();
-  const externalTooltip = useTooltipStyle(CC, {
-    external: buildExternalTooltipHandler(tt.setState, (point, title) => ({
+  // Memo dep is the upstream `monthly` only — `labels` is derived from
+  // `monthly.map(...)` and is a fresh reference every render, so listing it
+  // would bust the memo on every render. The closure captures `labels` from
+  // its creation render; subsequent renders that don't change `monthly` reuse
+  // the cached closure with its (value-equal) cached `labels`.
+  const externalHandler = useMemo(
+    () => buildExternalTooltipHandler(tt.setState, (point, title) => ({
       label: title ?? labels[point.dataIndex ?? 0],
       value: typeof point.parsed?.y === 'number' ? point.parsed.y : 0,
       unit: '€/MWh',
     })),
-  });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- see note above
+    [tt.setState, monthly],
+  );
+  const externalTooltip = useTooltipStyle(CC, { external: externalHandler });
 
   return (
     <div style={{ marginBottom: '16px' }}>

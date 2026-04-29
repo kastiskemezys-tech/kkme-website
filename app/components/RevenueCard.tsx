@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   Chart as ChartJS,
   CategoryScale, LinearScale,
@@ -819,18 +819,22 @@ function DegradationChart({ years, CC }: {
   /** Phase 7.7e: tooltip migrated to unified primitive; legacy prop preserved. */
   ts?: unknown;
 }) {
-  const points = projectDegradationCurve(years);
-  if (!points.length) return null;
-  const { min, max } = degradationAxisRange(points);
-
+  // Memoize the derived points array so its identity is stable across renders
+  // when `years` doesn't change. Required for the externalHandler memo below
+  // (chart `dataIndex` maps to the filtered points, not raw years).
+  const points = useMemo(() => projectDegradationCurve(years), [years]);
   const tt = useChartTooltipState();
-  const externalTooltip = useTooltipStyle(CC, {
-    external: buildExternalTooltipHandler(tt.setState, (point, title) => ({
+  const externalHandler = useMemo(
+    () => buildExternalTooltipHandler(tt.setState, (point, title) => ({
       label: `Retention · ${title ?? 'Y' + (points[point.dataIndex ?? 0]?.year ?? 0)}`,
       value: typeof point.parsed?.y === 'number' ? point.parsed.y * 100 : 0,
       unit: '%',
     })),
-  });
+    [tt.setState, points],
+  );
+  const externalTooltip = useTooltipStyle(CC, { external: externalHandler });
+  if (!points.length) return null;
+  const { min, max } = degradationAxisRange(points);
 
   const data = {
     labels: points.map(p => 'Y' + p.year),
@@ -927,18 +931,19 @@ function CannibalizationChart({ rows, codYear, CC }: {
   /** Phase 7.7e: tooltip migrated to unified primitive; legacy prop preserved. */
   ts?: unknown;
 }) {
-  const points = projectCannibalizationCurve(rows);
-  if (!points.length) return null;
-  const { min, max } = cannibalizationAxisRange(points);
-
+  const points = useMemo(() => projectCannibalizationCurve(rows), [rows]);
   const tt = useChartTooltipState();
-  const externalTooltip = useTooltipStyle(CC, {
-    external: buildExternalTooltipHandler(tt.setState, (point, title) => ({
+  const externalHandler = useMemo(
+    () => buildExternalTooltipHandler(tt.setState, (point, title) => ({
       label: `CPI · ${title ?? points[point.dataIndex ?? 0]?.year ?? ''}`,
       value: typeof point.parsed?.y === 'number' ? point.parsed.y : 0,
       unit: '×',
     })),
-  });
+    [tt.setState, points],
+  );
+  const externalTooltip = useTooltipStyle(CC, { external: externalHandler });
+  if (!points.length) return null;
+  const { min, max } = cannibalizationAxisRange(points);
 
   const data = {
     labels: points.map(p => String(p.year)),
@@ -1238,8 +1243,8 @@ function RevenueChart({ years, CC }: {
   ts?: unknown;
 }) {
   const tt = useChartTooltipState();
-  const externalTooltip = useTooltipStyle(CC, {
-    external: buildExternalTooltipHandler(tt.setState, (point, title) => {
+  const externalHandler = useMemo(
+    () => buildExternalTooltipHandler(tt.setState, (point, title) => {
       const i = point.dataIndex ?? 0;
       const y = years[i];
       const seriesLabels = ['Total', 'Balancing', 'OPEX', 'Fleet S/D'];
@@ -1258,7 +1263,9 @@ function RevenueChart({ years, CC }: {
         ] : undefined,
       };
     }),
-  });
+    [tt.setState, years],
+  );
+  const externalTooltip = useTooltipStyle(CC, { external: externalHandler });
 
   const chartData = {
     labels: years.map(y => 'Y' + y.yr),

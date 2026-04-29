@@ -2,7 +2,7 @@
 // Chart.js renders to <canvas> — CSS variables don't work in Canvas 2D context.
 // This module resolves CSS custom properties to actual color strings at runtime.
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 
 // Map of semantic name → CSS variable name
 const DATA_VAR_MAP = {
@@ -117,27 +117,45 @@ export function useTooltipStyle<T = unknown>(
   colors: ChartColors,
   opts?: { external?: (ctx: T) => void },
 ) {
-  if (opts?.external) {
+  // Memoize the returned options object. react-chartjs-2 reconciles options on
+  // every render; if this returns a fresh literal each call, chart.js treats
+  // it as an options change and (when a tooltip is active) re-fires the
+  // `external` callback inside its update path, which lives in
+  // componentDidUpdate — i.e. the React commit phase. setState in the commit
+  // phase + fresh options every render = React error #185.
+  // Keying on primitive color fields (not the wrapper object) so theme-equal
+  // re-renders that produce a new `colors` reference don't bust this memo.
+  const external = opts?.external;
+  return useMemo(() => {
+    if (external) {
+      return {
+        enabled: false,
+        external,
+      };
+    }
     return {
-      enabled: false,
-      external: opts.external,
+      enabled: true,
+      backgroundColor: colors.tooltipBg,
+      borderColor: colors.tooltipBorder,
+      borderWidth: 1,
+      titleFont: { family: CHART_FONT.family, size: 12, weight: 'bold' as const },
+      bodyFont: { family: CHART_FONT.family, size: 11 },
+      footerFont: { family: CHART_FONT.family, size: 11, weight: 'bold' as const },
+      titleColor: colors.textPrimary,
+      bodyColor: colors.textSecondary,
+      footerColor: colors.teal,
+      padding: { top: 8, bottom: 8, left: 12, right: 12 },
+      displayColors: false,
+      cornerRadius: 2,
     };
-  }
-  return {
-    enabled: true,
-    backgroundColor: colors.tooltipBg,
-    borderColor: colors.tooltipBorder,
-    borderWidth: 1,
-    titleFont: { family: CHART_FONT.family, size: 12, weight: 'bold' as const },
-    bodyFont: { family: CHART_FONT.family, size: 11 },
-    footerFont: { family: CHART_FONT.family, size: 11, weight: 'bold' as const },
-    titleColor: colors.textPrimary,
-    bodyColor: colors.textSecondary,
-    footerColor: colors.teal,
-    padding: { top: 8, bottom: 8, left: 12, right: 12 },
-    displayColors: false,
-    cornerRadius: 2,
-  };
+  }, [
+    external,
+    colors.tooltipBg,
+    colors.tooltipBorder,
+    colors.textPrimary,
+    colors.textSecondary,
+    colors.teal,
+  ]);
 }
 
 // Shared axis/scale options factory — call with resolved colors

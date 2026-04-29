@@ -536,14 +536,22 @@ function HistoryChart({ history, prod, CC, pinned, onPin }: {
   const scales = buildScales(CC);
 
   const tt = useChartTooltipState();
-  const externalTooltip = useTooltipStyle(CC, {
-    external: buildExternalTooltipHandler(tt.setState, (point, title) => ({
-      date: isoDates[point.dataIndex ?? 0] ?? title,
-      value: typeof point.parsed?.y === 'number' ? point.parsed.y : 0,
-      unit: '€/MW/h',
-      label: prod,
-    })),
-  });
+  // Memo dep is the upstream `history` only — `isoDates` is derived via
+  // `history.map(...)` and would be a fresh ref every render; the closure
+  // indexes back into `history[i].date` instead.
+  const externalHandler = useMemo(
+    () => buildExternalTooltipHandler(tt.setState, (point, title) => {
+      const i = point.dataIndex ?? 0;
+      return {
+        date: history[i]?.date ?? title,
+        value: typeof point.parsed?.y === 'number' ? point.parsed.y : 0,
+        unit: '€/MW/h',
+        label: prod,
+      };
+    }),
+    [tt.setState, history, prod],
+  );
+  const externalTooltip = useTooltipStyle(CC, { external: externalHandler });
 
   return (
     <>
@@ -627,13 +635,21 @@ function MonthlyTrajectoryChart({ monthly, country, prod, CC, pinned, onPin }: {
   const scales = buildScales(CC);
 
   const tt = useChartTooltipState();
-  const externalTooltip = useTooltipStyle(CC, {
-    external: buildExternalTooltipHandler(tt.setState, (point, title) => ({
-      label: `${country} ${prod} P50 · ${title ?? labels[point.dataIndex ?? 0]}`,
-      value: typeof point.parsed?.y === 'number' ? point.parsed.y : 0,
-      unit: '€/MW/h',
-    })),
-  });
+  // Memo dep is the upstream `monthly` + per-render `country`/`prod`. Derived
+  // arrays (`months`, `labels`) are fresh refs each render and would bust the
+  // memo, so the closure rebuilds the month key from `monthly` when needed.
+  const externalHandler = useMemo(
+    () => buildExternalTooltipHandler(tt.setState, (point, title) => {
+      const monthKey = title ?? Object.keys(monthly).sort()[point.dataIndex ?? 0] ?? '';
+      return {
+        label: `${country} ${prod} P50 · ${title ? monthKey : fmtMonth(monthKey)}`,
+        value: typeof point.parsed?.y === 'number' ? point.parsed.y : 0,
+        unit: '€/MW/h',
+      };
+    }),
+    [tt.setState, monthly, country, prod],
+  );
+  const externalTooltip = useTooltipStyle(CC, { external: externalHandler });
 
   return (
     <>
@@ -714,13 +730,22 @@ function CapacityChart({ monthly, prod, CC }: {
   const scales = buildScales(CC);
 
   const tt = useChartTooltipState();
-  const externalTooltip = useTooltipStyle(CC, {
-    external: buildExternalTooltipHandler(tt.setState, (point, title) => ({
-      label: `${prod} · ${title ?? labels[point.dataIndex ?? 0]}`,
-      value: typeof point.parsed?.y === 'number' ? point.parsed.y : 0,
-      unit: '€/MW/h',
-    })),
-  });
+  // Memo dep is upstream `monthly` + `prod` only — `labels` is derived via
+  // `monthly.map(...)` and would be a fresh ref every render. The closure
+  // recomputes the label string from the source month when title is absent.
+  const externalHandler = useMemo(
+    () => buildExternalTooltipHandler(tt.setState, (point, title) => {
+      const i = point.dataIndex ?? 0;
+      const month = monthly[i]?.month;
+      return {
+        label: `${prod} · ${title ?? (month ? fmtMonth(month) : '')}`,
+        value: typeof point.parsed?.y === 'number' ? point.parsed.y : 0,
+        unit: '€/MW/h',
+      };
+    }),
+    [tt.setState, monthly, prod],
+  );
+  const externalTooltip = useTooltipStyle(CC, { external: externalHandler });
 
   return (
     <div style={{ marginBottom: '16px' }}>

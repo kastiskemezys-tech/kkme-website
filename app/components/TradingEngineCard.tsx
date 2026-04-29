@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Chart as ChartJS,
   CategoryScale, LinearScale,
@@ -150,8 +150,11 @@ function HourlyChart({ data, CC }: {
   const norm = normaliseHourlyDispatch(hourly, mwTotal);
   const avgLine = dailyAvgPerHour(data.revenue_per_mw.daily_eur);
   const tt = useChartTooltipState();
-  const externalTooltip = useTooltipStyle(CC, {
-    external: buildExternalTooltipHandler(tt.setState, (point, title) => {
+  // Memo dep is upstream `hourly` and derived `norm` (from `normaliseHourlyDispatch`).
+  // `norm` is recomputed on every render but its identity changes only when
+  // `hourly` or `mwTotal` change — including `hourly` is the right dep gate.
+  const externalHandler = useMemo(
+    () => buildExternalTooltipHandler(tt.setState, (point) => {
       const i = point.dataIndex ?? 0;
       const n = norm[i];
       const h = hourly[i];
@@ -167,7 +170,10 @@ function HourlyChart({ data, CC }: {
         ] : undefined,
       };
     }),
-  });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- norm is derived from hourly+mwTotal; gating on hourly is sufficient
+    [tt.setState, hourly],
+  );
+  const externalTooltip = useTooltipStyle(CC, { external: externalHandler });
   const chartData = {
     labels: hourly.map(h => `${String(h.hour).padStart(2, '0')}:00`),
     datasets: [
