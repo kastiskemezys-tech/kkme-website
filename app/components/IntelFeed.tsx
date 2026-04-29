@@ -481,10 +481,11 @@ function PinnedStrip({ items }: { items: IntelItem[] }) {
 
 // ─── Intelligence row ─────────────────────────────────────────────────────────
 
-function IntelRow({ item, isExpanded, onToggle }: {
+function IntelRow({ item, isExpanded, onToggle, isOlder = false }: {
   item: IntelItem;
   isExpanded: boolean;
   onToggle: () => void;
+  isOlder?: boolean;
 }) {
   const sourceType = classifySource(item.sourceName, item.sourceUrl, item.source_quality);
   const domain = extractDomain(item.sourceUrl);
@@ -545,7 +546,25 @@ function IntelRow({ item, isExpanded, onToggle }: {
             fontSize: 'var(--font-xs)',
             color: 'var(--text-ghost)',
             flexShrink: 0,
+            display: 'inline-flex',
+            alignItems: 'baseline',
+            gap: '6px',
           }}>
+            {isOlder && (
+              <span
+                title="More than 7 days old"
+                style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 'var(--font-2xs, 10px)',
+                  color: 'var(--text-muted)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em',
+                  opacity: 0.7,
+                }}
+              >
+                older
+              </span>
+            )}
             {relDate ?? formatDate(item.publishedAt) ?? '—'}
           </span>
         </div>
@@ -904,7 +923,22 @@ function FeaturedRow({ item }: { item: IntelItem }) {
 
 type CountryFilter = 'all' | 'LT' | 'LV' | 'EE';
 
-export function IntelFeed() {
+export type IntelFeedMode = 'homepage' | 'full';
+
+export interface IntelFeedProps {
+  mode?: IntelFeedMode;
+}
+
+// Phase 4F homepage rules:
+//   - cap to 5 most-recent items
+//   - exclude items older than 30 days
+//   - tag items 7-30 days old with a muted "older" chip
+const HOMEPAGE_ITEM_CAP = 5;
+const HOMEPAGE_MAX_AGE_DAYS = 30;
+const OLDER_CHIP_DAYS = 7;
+const DAY_MS = 86_400_000;
+
+export function IntelFeed({ mode = 'homepage' }: IntelFeedProps = {}) {
   const [liveItems, setLiveItems] = useState<IntelItem[]>([]);
   const [activeFilter, setActiveFilter] = useState<Category | 'all'>('all');
   const [countryFilter, setCountryFilter] = useState<CountryFilter>('all');
@@ -1028,6 +1062,39 @@ export function IntelFeed() {
     }
     return items;
   }, [countryScopedItems, activeFilter, pinned, featuredItem]);
+
+  // Homepage view: most-recent first, drop items older than 30 days, cap at 5.
+  // Full view (/intel): no cap, no age filter — operator wants the whole list.
+  const homepageVisibleItems = useMemo(() => {
+    if (mode !== 'homepage') return filteredItems;
+    const now = Date.now();
+    const maxAgeMs = HOMEPAGE_MAX_AGE_DAYS * DAY_MS;
+    return filteredItems
+      .filter(i => {
+        const d = parseDate(i.publishedAt);
+        if (!d) return false;
+        return now - d.getTime() <= maxAgeMs;
+      })
+      .sort((a, b) => {
+        const da = parseDate(a.publishedAt)?.getTime() ?? 0;
+        const db = parseDate(b.publishedAt)?.getTime() ?? 0;
+        return db - da;
+      })
+      .slice(0, HOMEPAGE_ITEM_CAP);
+  }, [filteredItems, mode]);
+
+  const visibleItems = mode === 'homepage' ? homepageVisibleItems : filteredItems;
+
+  // Total older items (>14d but <30d) is the count we'd show if the homepage
+  // didn't cap. The /intel link copy uses filteredItems.length so the operator
+  // sees the full available set, not just the homepage-windowed count.
+  const totalAvailable = filteredItems.length;
+  const isOlderItem = (item: IntelItem): boolean => {
+    const d = parseDate(item.publishedAt);
+    if (!d) return false;
+    const ageDays = (Date.now() - d.getTime()) / DAY_MS;
+    return ageDays >= OLDER_CHIP_DAYS;
+  };
 
   const hasActiveFilters = activeFilter !== 'all' || countryFilter !== 'all';
 
@@ -1216,15 +1283,35 @@ export function IntelFeed() {
           </div>
         )}
 
-        {filteredItems.map(item => (
+        {visibleItems.map(item => (
           <IntelRow
             key={item.id}
             item={item}
             isExpanded={expandedId === item.id}
             onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)}
+            isOlder={mode === 'homepage' && isOlderItem(item)}
           />
         ))}
       </div>
+
+      {/* View all link — homepage only, only when there's more than the cap */}
+      {mode === 'homepage' && totalAvailable > visibleItems.length && (
+        <div style={{ marginTop: '14px', paddingTop: '10px' }}>
+          <a
+            href="/intel"
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 'var(--font-xs)',
+              color: 'var(--teal)',
+              textDecoration: 'none',
+              letterSpacing: '0.04em',
+              opacity: 0.85,
+            }}
+          >
+            View all {totalAvailable} items →
+          </a>
+        </div>
+      )}
 
       {/* Provenance note */}
       {isUsingSeeds && (
