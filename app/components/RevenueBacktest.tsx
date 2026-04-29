@@ -10,6 +10,7 @@
 // X-axis convention: months in EET (Baltic local time), as the worker's
 // trailing window aligns to local-calendar months.
 
+import { useMemo } from 'react';
 import { Line } from 'react-chartjs-2';
 import { useChartColors, CHART_FONT, useTooltipStyle } from '@/app/lib/chartTheme';
 import { ChartTooltipPortal, useChartTooltipState } from '@/app/components/primitives';
@@ -31,8 +32,9 @@ export function RevenueBacktest({ rows, modeledY1Daily }: RevenueBacktestProps) 
   const CC = useChartColors();
   const stats = backtestStats(rows, modeledY1Daily);
   const tt = useChartTooltipState();
-  const externalTooltip = useTooltipStyle(CC, {
-    external: buildExternalTooltipHandler(tt.setState, (point, title) => {
+  // Memo dep is upstream `rows` only.
+  const externalHandler = useMemo(
+    () => buildExternalTooltipHandler(tt.setState, (point, title) => {
       const r = rows[point.dataIndex ?? 0];
       return {
         label: title ?? formatBacktestMonth(r?.month ?? ''),
@@ -44,7 +46,9 @@ export function RevenueBacktest({ rows, modeledY1Daily }: RevenueBacktestProps) 
         ] : undefined,
       };
     }),
-  });
+    [tt.setState, rows],
+  );
+  const externalTooltip = useTooltipStyle(CC, { external: externalHandler });
 
   if (!stats.count) {
     return (
