@@ -5027,6 +5027,139 @@ const FEED_TRADE_PRESS_HINTS = [
   'energy-storage.news', 'pv-magazine', 'reneweconomy', 'offshorewind.biz',
   'energymonitor', 'rechargenews', 'windpowermonthly', 'bnef', 'mckinsey.com',
 ];
+
+// ─── Phase 4F: BESS quality gates (mirrored from app/lib/feedSourceQuality.ts) ──
+// First-deployment of the gate Phase 4B-5 wrote but never merged (see
+// docs/investigations/phase-4f-intel-feed-regression.md). Three layers of
+// filtering are applied at projection time AND at read time:
+//   1. FEED_SOURCE_DENYLIST       — hard-deny social/blog/academic noise
+//   2. tier-keyed topic threshold — tier1 auto-pass, tier2 ≥1, outside ≥2
+//   3. soft-delete on rejection   — items appended with status='rejected' so
+//                                   /feed/rejections can audit; /feed reads
+//                                   filter status==='published' only
+
+const FEED_SOURCE_DENYLIST = new Set([
+  'facebook.com', 'instagram.com', 'twitter.com', 'x.com', 'tiktok.com',
+  'youtube.com', 'reddit.com', 'quora.com',
+  'medium.com', 'wordpress.com', 'blogspot.com', 'substack.com',
+  'researchgate.net', 'academia.edu',
+]);
+
+const FEED_SOURCE_TSO_REGULATOR = new Set([
+  'litgrid.lt', 'litgrid.eu', 'ast.lv', 'elering.ee', 'entsoe.eu',
+  'apva.lt', 'apva.lrv.lt', 'vert.lt', 'am.lrv.lt', 'rrt.lt', 'em.gov.lv',
+  'ec.europa.eu', 'acer.europa.eu',
+]);
+
+const FEED_SOURCE_TRADE_PRESS = new Set([
+  'nordpoolgroup.com', 'montelnews.com', 'energy-storage.news',
+  'pv-magazine.com', 'reuters.com', 'bloomberg.com',
+  's-and-p.com', 'spglobal.com',
+]);
+
+const BESS_TOPIC_KEYWORDS = [
+  'bess', 'battery storage', 'energy storage', 'akumuliator', 'akumuliuoja',
+  'kaupimo paj', 'storage capacity',
+  'balancing', 'afrr', 'mfrr', 'fcr', 'frr', 'reserve', 'rezerv',
+  'capacity market', 'capacity mechanism', 'cmu', 'capacity remunerat',
+  'lithuani', 'latvi', 'estoni', 'lietuv', 'baltic', 'baltij',
+  'litgrid', 'apva', 'vert', 'nordpool', 'nord pool', 'ast.lv', 'elering',
+  'entso', 'entso-e', 'entsoe',
+  'intention protocol', 'pajėgumai',
+  'transformer', 'substation', 'pcs', 'inverter',
+  'energy bill', 'energy policy', 'renewables target', 'grid code',
+];
+
+const BALTIC_CONTEXT_KEYWORDS = [
+  'lithuani', 'latvi', 'estoni', 'lietuv', 'baltic', 'baltij',
+  'litgrid', 'apva', 'vert', 'ast.lv', 'elering',
+];
+
+function feedExtractDomain(urlOrSource) {
+  if (!urlOrSource) return '';
+  const s = String(urlOrSource).toLowerCase().trim();
+  const u = s.replace(/^https?:\/\//, '').replace(/^www\./, '');
+  return u.split('/')[0].split('?')[0];
+}
+
+function feedDomainMatches(domain, target) {
+  if (!domain) return false;
+  return domain === target || domain.endsWith('.' + target);
+}
+
+function isDeniedFeedSource(source, url) {
+  const sourceDomain = feedExtractDomain(source);
+  const urlDomain = feedExtractDomain(url);
+  for (const blocked of FEED_SOURCE_DENYLIST) {
+    if (feedDomainMatches(sourceDomain, blocked)) return blocked;
+    if (feedDomainMatches(urlDomain, blocked)) return blocked;
+  }
+  if (feedDomainMatches(urlDomain, 'linkedin.com')) {
+    const path = String(url || '').toLowerCase();
+    if (path.includes('/posts/')) return 'linkedin/posts';
+    if (path.includes('/pulse/')) return 'linkedin/pulse';
+  }
+  return null;
+}
+
+function isAllowedFeedSource(source, url) {
+  return isDeniedFeedSource(source, url) === null;
+}
+
+function feedSourceTier(source, url) {
+  const sourceDomain = feedExtractDomain(source);
+  const urlDomain = feedExtractDomain(url);
+  for (const d of FEED_SOURCE_TSO_REGULATOR) {
+    if (feedDomainMatches(sourceDomain, d) || feedDomainMatches(urlDomain, d)) return 'tier1';
+  }
+  for (const d of FEED_SOURCE_TRADE_PRESS) {
+    if (feedDomainMatches(sourceDomain, d) || feedDomainMatches(urlDomain, d)) return 'tier2';
+  }
+  const nameLc = (source || '').toLowerCase();
+  if (['litgrid', 'ast.lv', 'elering', 'vert', 'apva', 'entso'].some(n => nameLc.includes(n))) {
+    return 'tier1';
+  }
+  return 'outside';
+}
+
+function topicThresholdForTier(tier) {
+  if (tier === 'tier1') return 0;
+  if (tier === 'tier2') return 1;
+  return 2;
+}
+
+function bessTopicScore(title, consequenceText) {
+  const haystack = `${title || ''} ${(consequenceText || '').slice(0, 400)}`.toLowerCase();
+  let score = 0;
+  let baltic = false;
+  for (const kw of BESS_TOPIC_KEYWORDS) {
+    if (haystack.includes(kw)) {
+      score++;
+      if (BALTIC_CONTEXT_KEYWORDS.some(b => kw.includes(b))) baltic = true;
+    }
+  }
+  if (baltic && /\b\d+\s*m?wh?\b/.test(haystack)) score++;
+  return score;
+}
+
+function evaluateFeedItemGates(source, url, title, consequence) {
+  const denied = isDeniedFeedSource(source, url);
+  const tier = feedSourceTier(source, url);
+  const score = bessTopicScore(title, consequence);
+  if (denied) {
+    return { ok: false, reason: `source_denylist:${denied}`, tier, score };
+  }
+  const threshold = topicThresholdForTier(tier);
+  if (score < threshold) {
+    return {
+      ok: false,
+      reason: `topic_below_threshold(tier=${tier},score=${score},threshold=${threshold})`,
+      tier,
+      score,
+    };
+  }
+  return { ok: true, tier, score };
+}
 const FEED_TAG_CATEGORY = {
   BESS: 'project_stage',
   GRID: 'project_stage',
@@ -5068,12 +5201,20 @@ function curationFeedScore(relevance) {
 
 function projectCurationToFeedItem(entry) {
   const title = (entry.title || '').trim().replace(/^\[PDF\]\s*/i, '');
+  // Hard-format rejection: items without a title or URL-shaped titles are
+  // dropped entirely (no audit trail — they never had usable shape).
   if (!title || title.length < 15 || title.startsWith('http')) return null;
   const pubDate = entry.created_at || new Date().toISOString();
-  return {
+  const consequence = (entry.raw_text || title).slice(0, 240);
+  // Phase 4F: soft-delete on quality-gate fail. Item is still appended to
+  // feed_index so /feed/rejections can audit the rejection reason and
+  // operator can tune the keyword set / domain lists. Read-time path filters
+  // to status==='published' so rejected items never reach the homepage.
+  const gate = evaluateFeedItemGates(entry.source, entry.url, title, entry.raw_text);
+  const item = {
     id: `cur_${entry.id}`,
     title,
-    consequence: (entry.raw_text || title).slice(0, 240),
+    consequence,
     event_type: null,
     category: curationCategory(entry.tags),
     geography: 'Baltic',
@@ -5086,11 +5227,15 @@ function projectCurationToFeedItem(entry) {
     impact_direction: null,
     affected_modules: [],
     affected_cod_windows: [],
-    feed_score: curationFeedScore(entry.relevance),
+    feed_score: gate.ok ? curationFeedScore(entry.relevance) : 0,
     expires_at: new Date(new Date(pubDate).getTime() + 30 * 86400000).toISOString(),
-    status: 'published',
+    status: gate.ok ? 'published' : 'rejected',
     origin: 'curation',
+    source_tier: gate.tier,
+    topic_score: gate.score,
   };
+  if (!gate.ok) item.rejection_reason = gate.reason;
+  return item;
 }
 
 async function appendCurationToFeedIndex(kv, curationEntry) {
@@ -5114,6 +5259,14 @@ function isValidFeedItem(i) {
   if (i.title.startsWith('/') || i.title.startsWith('http')) return false;
   if (i.title.length < 15) return false;
   if (!i.source || !i.category) return false;
+  // Phase 4F: exclude soft-deleted items. status is absent on legacy items;
+  // treat absence as 'published' so back-compat reads do not over-filter.
+  if (i.status === 'rejected') return false;
+  // Phase 4F: belt-and-braces — re-run the quality gates at read time so any
+  // future ingestion path that bypasses projectCurationToFeedItem cannot
+  // smuggle garbage into /feed.
+  const gate = evaluateFeedItemGates(i.source, i.source_url, i.title, i.consequence);
+  if (!gate.ok) return false;
   return true;
 }
 
@@ -6432,6 +6585,7 @@ export default {
       const existingTitles = new Set(idx.map(i => (i.title || '').toLowerCase().trim()));
 
       let added = 0;
+      let rejected = 0;
       for (const item of items) {
         if (!item.title || !item.consequence) continue;
         // Deduplicate by URL or exact title match
@@ -6442,8 +6596,11 @@ export default {
         const pubDate = item.published_at || new Date().toISOString();
         const expiryDays = EXPIRY_DAYS[item.category] || 60;
         const expiresAt = item.expires_at || new Date(new Date(pubDate).getTime() + expiryDays * 86400000).toISOString();
-
-        idx.push({
+        // Phase 4F: gate at KV-write time. Rejected items are still appended
+        // with status='rejected' so /feed/rejections can audit, but they are
+        // filtered out at /feed read time and never appear on the homepage.
+        const gate = evaluateFeedItemGates(item.source, item.source_url, item.title, item.consequence);
+        const entry = {
           id: item.event_id || makeId(),
           title: item.title,
           consequence: item.consequence,
@@ -6459,13 +6616,19 @@ export default {
           impact_direction: item.impact_direction || null,
           affected_modules: item.affected_modules || [],
           affected_cod_windows: item.affected_cod_windows || [],
-          feed_score: typeof item.feed_score === 'number' ? item.feed_score : 0.5,
+          feed_score: gate.ok
+            ? (typeof item.feed_score === 'number' ? item.feed_score : 0.5)
+            : 0,
           expires_at: expiresAt,
-          status: item.status || 'published',
-        });
+          status: gate.ok ? (item.status || 'published') : 'rejected',
+          source_tier: gate.tier,
+          topic_score: gate.score,
+        };
+        if (!gate.ok) entry.rejection_reason = gate.reason;
+        idx.push(entry);
         existingUrls.add(item.source_url);
         existingTitles.add((item.title || '').toLowerCase().trim());
-        added++;
+        if (gate.ok) added++; else rejected++;
       }
 
       // Sort by feed_score descending
@@ -6474,7 +6637,7 @@ export default {
       if (idx.length > 100) idx = idx.slice(0, 100);
 
       await env.KKME_SIGNALS.put('feed_index', JSON.stringify(idx));
-      return jsonResp({ ok: true, added, total: idx.length });
+      return jsonResp({ ok: true, added, rejected, total: idx.length });
     }
 
     // ── POST /feed/backfill-curations — one-time migration: write-time merge ─
@@ -6505,6 +6668,101 @@ export default {
       return jsonResp({ backfilled, total: idx.length });
     }
 
+    // ── POST /feed/purge-irrelevant — Phase 4F backfill: re-evaluate feed_index ─
+    // Soft-delete sweep. Items failing the new quality gates are flipped to
+    // status='rejected' + rejection_reason and stay in feed_index for audit
+    // (visible at GET /feed/rejections). Read path filters status==='published'
+    // so this purge produces the cleaning effect on /feed without losing the
+    // audit trail. Operator-triggered post-deploy with x-update-secret.
+    if (request.method === 'POST' && url.pathname === '/feed/purge-irrelevant') {
+      if (request.headers.get('x-update-secret') !== env.UPDATE_SECRET) {
+        return jsonResp({ error: 'unauthorized' }, 401);
+      }
+      const rawIdx = await env.KKME_SIGNALS.get('feed_index').catch(() => null);
+      const idx = rawIdx ? JSON.parse(rawIdx) : [];
+      const before = idx.length;
+      const purgedSample = [];
+      let purgedCount = 0;
+      let alreadyRejected = 0;
+      const updated = idx.map(item => {
+        if (item.status === 'rejected') { alreadyRejected++; return item; }
+        const gate = evaluateFeedItemGates(item.source, item.source_url, item.title, item.consequence);
+        if (gate.ok) {
+          // Annotate published items with tier/score for telemetry — purely additive.
+          return { ...item, status: 'published', source_tier: gate.tier, topic_score: gate.score };
+        }
+        purgedCount++;
+        if (purgedSample.length < 30) {
+          purgedSample.push({
+            title: (item.title || '').slice(0, 200),
+            source: item.source || null,
+            url: item.source_url || null,
+            reason: gate.reason,
+          });
+        }
+        return {
+          ...item,
+          status: 'rejected',
+          rejection_reason: gate.reason,
+          source_tier: gate.tier,
+          topic_score: gate.score,
+          feed_score: 0,
+        };
+      });
+      // Sort: published first (by feed_score desc), rejected last.
+      updated.sort((a, b) => {
+        const aPub = (a.status || 'published') === 'published' ? 1 : 0;
+        const bPub = (b.status || 'published') === 'published' ? 1 : 0;
+        if (aPub !== bPub) return bPub - aPub;
+        return (b.feed_score ?? 0) - (a.feed_score ?? 0);
+      });
+      await env.KKME_SIGNALS.put('feed_index', JSON.stringify(updated));
+      const remainingPublished = updated.filter(i => (i.status || 'published') === 'published').length;
+      return jsonResp({
+        ok: true,
+        before,
+        after: updated.length,
+        purged_count: purgedCount,
+        already_rejected: alreadyRejected,
+        remaining_published: remainingPublished,
+        purged_sample: purgedSample,
+      });
+    }
+
+    // ── GET /feed/rejections — Phase 4F audit trail of soft-deleted items ─────
+    // UPDATE_SECRET-gated: rejection records may include source URLs that are
+    // not yet publishable. Returns the most recent N rejected items with
+    // reason, source, title, logged_at. Operator curls weekly to tune the
+    // keyword set and denylist.
+    if (request.method === 'GET' && url.pathname === '/feed/rejections') {
+      if (request.headers.get('x-update-secret') !== env.UPDATE_SECRET) {
+        return jsonResp({ error: 'unauthorized' }, 401);
+      }
+      const limit = Math.min(200, Math.max(1, parseInt(url.searchParams.get('limit') || '50', 10) || 50));
+      const rawIdx = await env.KKME_SIGNALS.get('feed_index').catch(() => null);
+      const idx = rawIdx ? JSON.parse(rawIdx) : [];
+      const rejected = idx
+        .filter(i => i && i.status === 'rejected')
+        .map(i => ({
+          id: i.id || null,
+          title: (i.title || '').slice(0, 200),
+          source: i.source || null,
+          source_url: i.source_url || null,
+          source_tier: i.source_tier || null,
+          topic_score: i.topic_score ?? null,
+          rejection_reason: i.rejection_reason || null,
+          published_at: i.published_at || null,
+        }))
+        .sort((a, b) => (b.published_at || '').localeCompare(a.published_at || ''))
+        .slice(0, limit);
+      const reasonCounts = {};
+      for (const r of rejected) {
+        const key = (r.rejection_reason || 'unknown').split('(')[0];
+        reasonCounts[key] = (reasonCounts[key] ?? 0) + 1;
+      }
+      return jsonResp({ rejected, total_rejected: rejected.length, reason_counts: reasonCounts });
+    }
+
     // ── POST /feed/clean — remove expired/old + low-quality items ───────────
     if (request.method === 'POST' && url.pathname === '/feed/clean') {
       let body = {};
@@ -6531,6 +6789,8 @@ export default {
       let idx = rawIdx ? JSON.parse(rawIdx) : [];
       const now = new Date().toISOString();
       idx = idx.filter(i => !i.expires_at || i.expires_at > now);
+      // Phase 4F: exclude soft-deleted items from signal-scoped feed too.
+      idx = idx.filter(i => i && i.status !== 'rejected');
       const sigUpper = signal.toUpperCase();
       const matched = idx.filter(i =>
         Array.isArray(i.affected_modules) &&
