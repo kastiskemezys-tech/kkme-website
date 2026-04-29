@@ -1,7 +1,7 @@
 # KKME Handover
 
 Canonical state document. Read this first in every session.
-Last updated: 2026-04-29 (Session 25 — Phase 7.7e UI render-loop fix shipped on `phase-7-7e-ui`; chart.js hover cascade broken via central dedupe in `useChartTooltipState.setState` + memoization audit across 10 chart.js call sites; 766/766 tests; PR draft at `docs/phases/phase-7-7e-ui-pr.md`).
+Last updated: 2026-04-29 (Session 26 — Phase 4F Intel feed BESS quality gate first-deployed on `phase-4f-intel-feed-regression`; worker `f8411968`; live `/feed` 25→9 items via read-time gate self-heal at deploy; soft-delete audit trail + tier-keyed thresholds + `/feed/rejections` audit endpoint; 837/837 tests; backfill purge deferred (UPDATE_SECRET not local, optional). Phase 4B-5's "Merged" claim was forensically confirmed false — orphan commit `6f6d2d7` never reached `main`. See `docs/investigations/phase-4f-intel-feed-regression.md`).
 
 ## Current phase
 
@@ -33,7 +33,7 @@ Reference docs:
 - TradingEngineCard (dispatch intelligence)
 - IntelFeed (market intelligence board) — rebuilt in Phase 3C+3D with featured item, source credibility chips, magnitude extraction, pull-quote treatment, filter UX
 - Phase 3A (2026-04-16): Intel feed data quality cleanup — Invalid Date, HTML entities, bare URLs, missing sources
-- Phase 4B (2026-04-16): Intel pipeline depth fix — discovered 209 curations stuck in /curate KV never reaching /feed. Write-time merge (31s→0.24s). BESS quality gate + relevance scoring (computeBessRelevanceScore). Homepage 8-item cap with "View all" expander. Feed: 9→33 clean items, zero garbage.
+- Phase 4B (2026-04-16): Intel pipeline depth fix — discovered 209 curations stuck in /curate KV never reaching /feed. Write-time merge (31s→0.24s). BESS quality gate + relevance scoring (computeBessRelevanceScore). Homepage 8-item cap with "View all" expander. Feed: 9→33 clean items, zero garbage. **2026-04-29 forensic finding (Session 26 / Phase 4F):** the BESS quality gate + relevance scoring + homepage cap were authored on `phase-4b-intel-pipeline` at commit `6f6d2d7` 26 minutes after PR #15 closed; that commit was orphaned and never reached `main`. The "9→33 clean items" curl reflected a local side-branch deploy, not production. Production ran with title-length-only filtering for 13 days until Phase 4F first-deployed the gate (2026-04-29, worker `f8411968`). See `docs/investigations/phase-4f-intel-feed-regression.md`.
 - Phase 3E (2026-04-16): Model Risk Register + Data Confidence retired from homepage. 7 risks analyzed (3 materially reduced by BTD/revenue engine work, 2 structural unknowns unchanged). Content archived in docs/archive/.
 - ContactForm with Resend email delivery
 - Shared primitives library (SectionHeader, MetricTile, StatusChip, etc.)
@@ -256,7 +256,7 @@ See [docs/map.md](map.md) for the full concept-to-file lookup table.
 - **Phase 3A** — Intel feed data quality cleanup. Fixed Invalid Date, HTML entity decoding, bare URL filtering, missing source rejection. Merged.
 - **Phase 3C+3D** — Intel feed visual rebuild. Featured item with scoring algorithm (recency × impact × source quality), Google s2 favicons, source type chips + OFFICIAL badge, magnitude extraction via regex, Cormorant pull-quote whyItMatters treatment, relative dates, filter UX with counts + removable active chips. 7 workstreams in one session. Merged.
 - **Phase 4B** — Intel pipeline depth investigation + fix. Root cause: NOT narrow sources but plumbing mismatch — 209 curations in /curate KV never reaching /feed. Built read-time merge first (worked but 31s response), then converted to write-time merge (0.24s). Added `appendCurationToFeedIndex()` and `POST /feed/rebuild-curations` endpoint. Volume: 9→569→54 (after dedup). Merged.
-- **Phase 4B-5** — BESS quality gate + relevance scoring + homepage cap. Added BESS_SIGNALS keyword gate (rejects non-energy items), `computeBessRelevanceScore()` with signal-weighted scoring (BESS_CORE +0.35, BALTIC +0.20, quantity +0.15, market +0.10, source +0.10, recency +0.10), 0.25 score floor, homepage 8-item cap with "View all N items →" expander. Result: 52→33 items, zero garbage, score range 0.25–0.94. Merged.
+- **Phase 4B-5** — BESS quality gate + relevance scoring + homepage cap. Added BESS_SIGNALS keyword gate (rejects non-energy items), `computeBessRelevanceScore()` with signal-weighted scoring (BESS_CORE +0.35, BALTIC +0.20, quantity +0.15, market +0.10, source +0.10, recency +0.10), 0.25 score floor, homepage 8-item cap with "View all N items →" expander. Result: 52→33 items, zero garbage, score range 0.25–0.94. ~~Merged.~~ **NOT MERGED** (corrected 2026-04-29). Phase 4F forensics (`docs/investigations/phase-4f-intel-feed-regression.md`) confirm commit `6f6d2d7` was orphaned on `origin/phase-4b-intel-pipeline` after PR #15 closed; production never received this code. Phase 4F (Session 26) first-deployed an equivalent gate to production with operator-amended denylist + tier-keyed thresholds + soft-delete audit trail.
 - **Phase 3E** — Model Risk Register + Data Confidence retirement. Analyzed 7 risks: MR-01 HIGH→MED (BTD mitigation), MR-03 HIGH→MED (observed prices), MR-04 HIGH→LOW (BTD activation data now observed), MR-02/05/06 unchanged (structural). Archived analysis to docs/archive/. Removed both sections from page.tsx. Added retirement comment to ConfidencePanel.tsx. Merged.
 
 **Authored (prompts for Claude Code, not yet executed):**
@@ -1245,3 +1245,65 @@ The dedupe gets its own commit because it's a behavioural change to a primitive 
 - Approach B (memoize chart.js `options` + `data` at every call site) — logged as backlog above.
 - The lint debt at `RevenueSensitivityTornado.tsx:62` (conditional `useChartTooltipState`) and similar pre-existing lint errors elsewhere — pre-existing on `phase-7-7e-ui`, not introduced by this session.
 - Pre-existing untracked tree (`.claude/skills/`, `docs/visual-audit/phase-7/`, `public/hero/map-calibration-cities.json.json`, `workers/.wrangler/`, `.wrangler/tmp/`, `docs/_yolo-followup-*.md`, `docs/_prep-commit-*.sh`, `docs/phases/phase-7-7c-session-1-prompt.md`, `docs/phases/phase-7-7e-ui-prompt.md`, `docs/phases/phase-7-7e-ui-render-fix-*.md`, `docs/phases/phase-7-7e-ui-s1-render-fix-prompt.md`) — left as-is per Session 18/22/23/24 convention.
+
+---
+
+### Session 26 — 2026-04-29 — Phase 4F — BESS quality gate first-deployment + IntelFeed homepage tightening (Claude Code)
+
+**Scope:** Address external 2026-04-29 design audit finding that the live `/feed` surfaced clearly-irrelevant content on the homepage (5 explicit garbage examples: facebook.com US grocery + ice-cream posts ×2, facebook.com Avion Express airline post, researchgate.net NILM academic paper, latvenergo.lv consolidated financial report). Branch off `main` post-merge of `phase-7-7e-ui` PR #43.
+
+**Forensic finding (load-bearing):**
+The Phase 4B-5 entry in this handover (originally claiming "Feed: 9→33 clean items, zero garbage" and "Merged") was wrong. Phase 4B-5's BESS quality gate (`computeBessRelevanceScore`, `BESS_SIGNALS`, score floor, homepage 8-item cap) was authored at commit `6f6d2d7` 26 minutes after PR #15 closed (`e795d51`, 2026-04-16 09:21:47 UTC). The commit sat on `phase-4b-intel-pipeline` and was never re-PR'd. Production has run with title-length-only filtering for 13 days. The "9→33 clean items" curl reflected a local side-branch deploy. Both the backlog "What's shipped" entry (line 36) and the Phase 4B-5 backlog entry (~line 259) have been corrected with this session's footnote. Full forensic write-up in `docs/investigations/phase-4f-intel-feed-regression.md`.
+
+**Shipped (4 commits, branch `phase-4f-intel-feed-regression` pushed to origin):**
+
+1. **Investigation report** (`docs/investigations/phase-4f-intel-feed-regression.md`, 280 lines + post-deploy evidence) — pipeline map (5 gates → admit garbage), per-item trace for all 25 live items (15 caught by new gates), Phase 4B-5 archaeology, denylist + keyword + tier-keyed-threshold proposal, post-deploy before/after curl evidence.
+2. **Worker fix** (`workers/fetch-s1.js` +282 / -14, `app/lib/feedSourceQuality.ts` 236-line TS mirror, `app/lib/__tests__/feedSourceQuality.test.ts` 71 tests). Three layers of filtering:
+   - `FEED_SOURCE_DENYLIST` (14 social/blog/academic domains + LinkedIn `/posts/` + `/pulse/` patterns) at projection time *and* read time.
+   - **Tier-keyed topic threshold:** Tier-1 (TSO/regulator: litgrid, ast, elering, apva, vert, am.lrv.lt, ec.europa.eu, etc.) auto-pass; Tier-2 (trade press: montelnews, reuters, energy-storage.news, nordpoolgroup) require ≥1 BESS keyword; outside both lists require ≥2.
+   - **Soft-delete on rejection:** items failing gates land in `feed_index` with `status:'rejected'` + `rejection_reason` + `source_tier` + `topic_score` for audit. Read-time `isValidFeedItem` excludes them and re-runs the gates as belt-and-braces backstop.
+   - New `POST /feed/purge-irrelevant` (UPDATE_SECRET-gated) re-evaluates existing KV items; `GET /feed/rejections?limit=N` (UPDATE_SECRET-gated) returns audit log with reason histogram.
+3. **Frontend** (`app/components/IntelFeed.tsx` +93 / -2, `app/intel/page.tsx` new 60 lines) — `mode` prop ('homepage' | 'full'). Homepage: 5-item cap, 30-day max-age, "older" chip on items ≥7 days, "View all N items →" link to `/intel`. Full mode: no cap, no age filter. New `/intel` page renders `<IntelFeed mode="full" />` with minimal page chrome.
+4. **Handover update** — this entry, the Session 8 / Phase 4B-5 footnote corrections, and the backlog additions below.
+
+**Worker deploy:** version `f8411968-a69c-4e4a-a9de-d79565a5c007`, deployed 2026-04-29 ~19:55 UTC. KV namespace `KKME_SIGNALS` (323b493a50764b24b88a8b4a5687a24b), single binding.
+
+**Empirical evidence (post-deploy curl `/feed`):**
+- **Before:** 25 items including 5 facebook.com posts, 4 linkedin.com `/posts/` items, 1 instagram.com, 1 researchgate.net, 1 latvenergo.lv financial report, 1 lsta heating bulletin, etc.
+- **After:** 9 items, all Tier-1 (litgrid×4, apva, vert×2, am.lrv.lt) plus 1 outside (solarplaza.com Baltics summit, score≥2). All 5 audit-explicit garbage items absent.
+- **No KV write was needed for the user-visible fix.** The read-time `isValidFeedItem` gate self-heals at deploy time. This is a **structural finding worth carrying forward** — belt-and-braces filtering means the homepage cleans on deploy; the soft-delete/purge path is pure data hygiene, not user-visible cleanup. Useful pattern for similar future fixes.
+
+**Verification gates:**
+- `node --check workers/fetch-s1.js` clean.
+- `npx tsc --noEmit` clean.
+- `npm run build` clean (5 static routes including new `/intel`).
+- `npm test` 766 → 837 (+71 new tests, 71/71 green). Test set covers: denylist matching with subdomain edge cases, LinkedIn pattern-block (admits `/company/`, `/in/`, blocks `/posts/` + `/pulse/`), tier classification, all three threshold tiers, all 5 audit-garbage items rejected, all five Tier-1 examples admitted, the lsta heating bulletin (outside, score 1) rejected by tier-2 promotion threshold of 2, the solarplaza Baltics summit (outside, score≥2) admitted, Reuters energy admitted vs. Reuters general news rejected.
+- Live `/feed` post-deploy curl confirms 25→9 reduction with all 5 audit-garbage items absent.
+
+**Acknowledged deviations from prompt:**
+- **Backfill purge run skipped.** `UPDATE_SECRET` not located locally at deploy time. Endpoint is shipped and functioning; running it later only re-annotates KV records with `status:'rejected'` for audit. No user-visible delta — read path already filters them.
+- **Homepage age window: 30-day exclusion + 7-day "older" chip, not strict 14-day.** §What-Ships had contradictory specs (#4 said 14-day, #5 said 30-day exclusion). Under current feed sparsity (~5 Tier-1 items in past 30 days), strict 14-day would render the homepage near-empty. Operator approved the 30-day reading; tighten to 14-day in a follow-up if feed density grows post-purge.
+- **Wrangler dev smoke test skipped** in favor of 71 unit tests + node syntax check + deploy-time bundle validation. Operator approved.
+
+**Backlog discovered this session:**
+
+- **Branch hygiene — commits authored after a branch's PR closes need a separate follow-up PR.** *Priority: P3 Low.* Notion: Area=Infrastructure, Type=Tech Debt. PR #15 closed at 2026-04-16 09:21:47 UTC; commit `6f6d2d7` was authored 26 minutes later onto the same branch and was orphaned — production never received the Phase 4B-5 quality gate. Investigate whether a git hook on `git commit` (warn if HEAD is on a branch whose tracking remote is ahead of the named PR) or a branch-naming convention can prevent this class of error. Two-week real-world cost: 13 days of garbage on the homepage that the operator only spotted via external audit.
+- **`UPDATE_SECRET` not located locally during Phase 4F deploy; backfill purge deferred.** *Priority: P3 Low.* Notion: Area=Infrastructure, Type=Tech Debt. The read-time gate is already enforcing the cleanup; `feed_rejections` will populate from new ingestions only. Operator to either locate the secret and run `POST /feed/purge-irrelevant` for retro-annotation, or rotate the secret via `wrangler secret put UPDATE_SECRET` (requires updating GitHub repo Actions secret to keep cron-write paths working). Rotation path: `cd ~/kkme && npx wrangler secret put UPDATE_SECRET` → paste new value (e.g. `openssl rand -hex 32`) → update github.com/kastiskemezys-tech/kkme-website/settings/secrets/actions to match. Optional — homepage is already clean.
+- **48h-window title-normalization dedup.** *Priority: P3 Medium.* Notion: Area=IntelFeed, Type=Enhancement. Auditor's design-audit P2 #6: "hash normalize(title) and drop near-duplicates within a 48h window so the same press release from two outlets only appears once." Existing dedup checks current-batch + full-history URL/title equality, not 48h-window normalized-title fuzzy dedup. Likely a small change once `feed_rejections` data reveals duplicate-content patterns that a normalized-title hash would catch.
+- **`feed_rejections` review cadence + tuning loop.** *Priority: P3 Low.* Notion: Area=IntelFeed, Type=Process. Operator should curl `GET /feed/rejections?limit=50` weekly with `UPDATE_SECRET` to inspect what's getting filtered. Reasons to amend: (a) Tier-1 source typo'd (e.g. URL contains `litgrid.lt/api/x` but source is `transmission system operator` — would be classified outside if domain match fails); (b) keyword set misses an obvious BESS-adjacent pattern (e.g. Polish balancing market news using only Polish keywords). The `reason_counts` histogram in the response highlights tuning opportunities.
+- **Re-audit `/feed` two weeks post-deploy.** *Priority: P3 Medium.* Run the same external-audit prompt that surfaced this regression on 2026-04-29. Specifically check: (a) ratio of Tier-1 to Tier-2 to outside survivors (target Tier-1 ≥60%); (b) any new garbage that slipped past the tier-2 ≥1 threshold; (c) homepage feed density — if <3 visible items consistently, broaden allowlist or relax age window before tightening anything else.
+
+**Out of scope / not touched (per scope discipline):**
+- `/curate` POST endpoint (operator-gated by UPDATE_SECRET; out per §What's-Out).
+- `editorial_status` manual featured/normal/hidden override (deferred per prompt).
+- Embedding-based topic relevance (deferred per prompt; keyword + tier model is the 80% solution).
+- `model_version` bump (this is the Intel feed, not the revenue engine).
+- Mobile responsiveness (Phase 11.2 covers).
+- `/feed/clean` semantics — kept legacy hard-delete behavior; the soft-delete audit trail is on `/feed/purge-irrelevant`.
+- `S/Sx/Trading/Revenue` cards or any chart/UI not under `app/components/IntelFeed.tsx`.
+- Pre-existing untracked tree from prior sessions (`.claude/skills/`, `docs/visual-audit/phase-7/`, `public/hero/map-calibration-cities.json.json`, `workers/.wrangler/`, `.wrangler/tmp/`, `_handover_s1_s2_rebuild.md`, `docs/_yolo-*.md`, `docs/_prep-commit-*.sh`, `docs/phases/phase-7-7c-session-1-prompt.md`, `docs/phases/phase-7-7e-ui-*.md`, `docs/phases/phase-4f-intel-feed-regression-prompt.md`) — left as-is per Session 18/22/23/24/25 convention.
+
+**Next session:**
+- Operator opens PR via GitHub web UI (base `main`, title `Phase 4F — Intel feed BESS quality gate first-deployment + homepage tightening`). Don't `gh pr create` per CLAUDE.md.
+- Optional immediate follow-up: locate or rotate `UPDATE_SECRET` and run `POST /feed/purge-irrelevant` to populate audit annotations in KV.
+- Notion board sync: add Phase 4F entry, mark shipped; add the 5 backlog items above.
