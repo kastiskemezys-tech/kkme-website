@@ -1,17 +1,17 @@
 # KKME Handover
 
 Canonical state document. Read this first in every session.
-Last updated: 2026-04-27 (Session 24 — Phase 7.7e UI track shipped; sitewide ChartTooltip primitive + 24 chart-bearing surface migration + RTE sparkline / cycles_breakdown chart / calibration footer in RevenueCard; canonical `--cycles-{fcr,afrr,mfrr,da}` palette tokens; 731/731 tests; branch `phase-7-7e-ui` pushed for PR review).
+Last updated: 2026-04-29 (Session 25 — Phase 7.7e UI render-loop fix shipped on `phase-7-7e-ui`; chart.js hover cascade broken via central dedupe in `useChartTooltipState.setState` + memoization audit across 10 chart.js call sites; 766/766 tests; PR draft at `docs/phases/phase-7-7e-ui-pr.md`).
 
 ## Current phase
 
-Phase 7.7e **UI track** shipped on `phase-7-7e-ui` (Session 24). Sitewide ChartTooltip primitive + data contract; 24 chart-bearing surfaces migrated; three new RevenueCard sub-components surfacing the v7.3 calibration narrative; canonical per-product palette tokens; 675 → 731 tests; branch pushed for PR. No worker changes — this is a frontend-only track.
+Phase 7.7e **UI track** shipped on `phase-7-7e-ui` (Sessions 24 + 25). Sitewide ChartTooltip primitive + data contract; 24 chart-bearing surfaces migrated; three new RevenueCard sub-components surfacing the v7.3 calibration narrative; canonical per-product palette tokens. **Session 25 (2026-04-29)** fixed the chart.js hover render-loop that bailed at React error #185 in the Cloudflare Pages preview deploy: central dedupe in `useChartTooltipState.setState` (load-bearing loop-breaker) + memoization audit across 10 chart.js call sites + `useTooltipStyle` memo. 675 → 766 tests. Branch pushed for PR. No worker changes.
 
 Phase 12.7 **interconnector rate-limit fix** shipped on `phase-12-7-interconnector-rate-limit` (Session 23). Worker version `f8173210-cb4b-493d-a1d8-0fd339ec6dac` live. Three fixes in `fetchInterconnectorFlows()`: identifying User-Agent on all three CBET fetches (reduces anonymous-bucket 429s), persist-last-good KV fallback (when current fetch returns null, reuse prior KV value), per-cable `freshness` map (`live | stale | null`) for future card UI. EstLink 1 / 2 + Fenno-Skan 1 / 2 hero cable rows now degrade to "stale" rather than `·` even when the upstream rate-limits a leg of the parallel fetch. Phase 7.7e Session 24 wires this `freshness` field into the cable hover tooltip as a secondary row.
 
 Phase 7.7d **engine v7.3** shipped end-to-end. Worker version `41978587-ddda-42f5-b975-1da0570a3b01` live; PR #40 merged to main (commit `ec9136e`). Frontend `RevenueCard` aligned with v7.3 shape via Session 22 hotfix (commit `94ca8d8`) — auto-deployed to kkme.eu via Cloudflare Pages. Returns card now surfaces v7.3 numbers (LCOS, MOIC, duration recommendation, throughput-derived cycles breakdown, warranty status) without errors.
 
-Next CC job: **Phase 7.7e UI track** (RTE sparkline + cycles_breakdown chart + calibration_source footer) → then Phase 7.7e data-contract (Zod /revenue boundary) → then Phase 7.7c Session 2 (capital-structure sliders, gated on UX decision) → then Phase 7.7e engine (aux curve / terminal value / augmentation / market-physics).
+Next CC job: **operator merges `phase-7-7e-ui` to `dev`/`main` via GitHub web UI** (PR draft at `docs/phases/phase-7-7e-ui-pr.md`) → then Phase 7.7e data-contract (Zod /revenue boundary) → then Phase 7.7c Session 2 (capital-structure sliders, gated on UX decision) → then Phase 7.7e engine (aux curve / terminal value / augmentation / market-physics).
 
 Earlier ground: Phase 7.7c Session 1 shipped 2026-04-27 (engine v7.2 — LCOS, MOIC, duration optimizer, assumptions panel; worker version `e145aeb4-5570-4cdd-adcb-f79351ef33dc`; PR #38 merged). Phase 7 shipped (S1/S2 card rebuild). Phase 7.5-F shipped 2026-04-21. Phase 7.5 polish pass still queued. Phase 7.6 hero refinement prompt authored after 2026-04-21 visual audit. Roadmap re-sequencing from Session 9 still holds.
 
@@ -1146,3 +1146,102 @@ Lives in `app/globals.css` alongside the other semantic tokens. Any future compo
 - Pre-existing untracked tree (`.claude/skills/`, `docs/visual-audit/phase-7/`, `public/hero/map-calibration-cities.json.json`, `workers/.wrangler/`, `.wrangler/tmp/`, `docs/_yolo-followup-*.md`, `docs/_prep-commit-*.sh`, `docs/phases/phase-7-7c-session-1-prompt.md`, `docs/phases/phase-7-7e-ui-prompt.md`) — left as-is per Session 18/22/23 convention.
 
 **Verification:** `git log --oneline phase-7-7e-ui ^main` shows 6 commits totalling +1,906 / −320 lines. `npm test` 731/731 passing. `npx tsc --noEmit` clean. `npx next build` clean. Branch pushed to origin; PR creation deferred to operator.
+
+### Session 25 — 2026-04-29 — Phase 7.7e UI render-loop fix + memoization audit (Claude Code)
+
+**Scope:** Defect fix on top of Session 24's `phase-7-7e-ui` branch. The Cloudflare Pages preview deploy on 2026-04-28 rendered S1Card's `<CardBoundary>` fallback with `Minified React error #185` ("Maximum update depth exceeded") after a real cursor hovered the sparkline canvas. Three commits land the fix on the same branch (no sub-branch); a fourth carries the handover, visual audit, and PR draft.
+
+**Trigger refinement (deviation from original prompt's §3 mechanism):** the bug is **hover-driven, not paint-driven**. chart.js's `external` callback only fires when a real pointer is on the canvas. Page mounts cleanly; the loop only chains in once a cursor lands on a chart.js consumer with the migration pattern. The operator's pre-fix screenshot was post-hover.
+
+**Empirical render-count comparison (S1 Sparkline, 30 mousemoves, 40ms apart, dev):**
+
+```
+Build                                         Sparkline renders   React #185?
+-----                                         -----------------   -----------
+Baseline (no fix)                             108                 yes — caught by <CardBoundary>
+§1 only — useTooltipStyle memoized            108                 yes
+§1 + §2 — handler memoized at S1 sites        108                 yes — handler stable, loop still cascades
+§1 + §2 + central dedupe (this commit)        10                  no
+```
+
+**Actual root cause (refines the original prompt):** `react-chartjs-2`'s internal `useEffect` runs with deps `[redraw, options, data.labels, data.datasets, updateMode]` and calls `chart.update()` whenever any dep ref changes. The migration pattern at every chart.js consumer feeds fresh literal `options` and `data.{labels,datasets}` into `<Line>`/`<Bar>` on every parent render, so the effect fires every commit. With an active tooltip, `chart.update()` retriggers chart.js's tooltip-plugin `afterDraw` path, which calls the registered `external` callback synchronously inside `componentDidUpdate` — i.e. inside React's commit phase. `external → setState → re-render → fresh options → useEffect → chart.update() → external → …` until React #185.
+
+The §1/§2 memoizations of `useTooltipStyle` and per-site handlers are necessary referential-stability guarantees so chart.js's plugin/options reconciliation holds across renders, but they don't on their own break the cascade because the outer `options` and `data` literals fed to `<Line>`/`<Bar>` remain fresh refs each render. The actual loop-breaker is **§3 — central dedupe in `useChartTooltipState.setState`** using React's functional-updater bail-out: `setStateRaw(prev => tooltipStateEqual(prev, next) ? prev : next)`. When the updater returns the same reference as `prev`, React skips the re-render entirely.
+
+**Equality helper choice:** `tooltipDataEqual` does deep equality on the value-driving fields (`value`, `unit`, `date`, `time`, `label`, `source`, `secondary[]`). Two extra normalizations:
+- **Date instances** normalize via `.getTime()` so two equivalent `new Date('…')` references compare equal across renders.
+- **Both-hidden states** short-circuit to equal regardless of `x`/`y`/`data` — chart.js fires hide pulses with stale caret coords during transitions, and treating those as equal avoids spurious re-renders.
+
+The hook's `setState` / `show` / `hide` are wrapped in `useCallback` so consumer memo deps (`useTooltipStyle`, per-site handlers) keep stable refs across renders.
+
+**Fixes shipped:**
+1. `app/lib/chartTheme.ts` — wrapped `useTooltipStyle()` returned options in `useMemo` keyed on the primitive color fields (`tooltipBg`, `tooltipBorder`, `textPrimary`, `textSecondary`, `teal`) plus the external handler reference. Reads `opts?.external` once into a local so the dep is a plain identifier (exhaustive-deps clean).
+2. Per-site memoization at all 10 chart.js consumer sites in `app/components/{S1Card,S2Card,TradingEngineCard,RevenueBacktest,RevenueCard}.tsx`. Memo deps key on the upstream collection (`history`/`monthly`/`years`/`rows`); closures index back into the upstream data instead of derived `.map(...)` arrays. Two `RevenueCard` sub-charts also memoize the derived `points` array (`useMemo(() => projectXxxCurve(deps), [deps])`) so chart `dataIndex → points[i]` stays correct after row-filtering.
+3. `app/components/primitives/ChartTooltip.tsx` — added `tooltipDataEqual` + `tooltipStateEqual` (exported) and wrapped `useChartTooltipState.setState` in the functional-updater bail-out. `show`/`hide` migrated to `useCallback`.
+
+**SVG-primitive audit log (no code changes — confirmed structurally safe):**
+
+> Browser events go through React's synthetic event system and don't fire during reconciliation; the chart.js external callback fires inside `chart.update()` which is called from `componentDidUpdate` — that's the difference.
+
+The 7 SVG-tooltip consumers all set tooltip state from synthetic event handlers (`onMouseMove`/`onMouseLeave`/`onMouseEnter`/`onFocus`/`onBlur`), which React batches outside the commit phase and cannot trigger the chart.js-style cascade. None call `tt.setState`/`tt.show`/`tt.hide` from a `useEffect`/`useLayoutEffect`.
+
+| File | Audit verdict |
+|---|---|
+| `app/components/Sparkline.tsx` | `tt.show`/`tt.hide` fire from `onMouseEnter`/`onMouseMove`/`onMouseLeave`. Mount-only `useEffect` doesn't touch `tt`. Safe. |
+| `app/components/BulletChart.tsx` | `tt.hide` from `onMouseLeave`; `tt.show` via `onMouseMove`. Safe. |
+| `app/components/RevenueSensitivityTornado.tsx` | `tt.show`/`tt.hide` from per-bar `onMouseMove`/`onMouseLeave`. Safe. (Pre-existing lint error at L62 about conditional `useChartTooltipState` — not new in this session.) |
+| `app/components/primitives/CredibilityLadderBar.tsx` | `tt.show`/`tt.hide` from `onMouseMove`/`onMouseLeave`. Safe. |
+| `app/components/primitives/RegimeBarometer.tsx` | `tt.show`/`tt.hide` from `onMouseMove`/`onMouseLeave`. Safe. |
+| `app/components/primitives/DistributionTick.tsx` | `tt.show`/`tt.hide` from per-percentile `onMouseEnter`/`onMouseMove`. Safe. |
+| `app/components/HeroBalticMap.tsx` cable hover | `cableTip.show`/`cableTip.hide` from `onMouseMove`/`onMouseLeave`. The four `useEffect`s here drive GSAP particles + cable freshness state; none touch `cableTip`. Safe. |
+
+**Tests:** baseline 731 → **766 passing** (+35 across two new test files, no specs modified).
+- `app/lib/__tests__/chartThemeMemo.test.ts` (4 specs) — source-text canary on `useTooltipStyle`'s `useMemo` wrapper, dep-array shape, and the `const external = opts?.external` snapshot pattern.
+- `app/lib/__tests__/chartHandlerMemo.test.ts` (5 specs, one per chart.js card file) — asserts every `buildExternalTooltipHandler` call across the migrated card files is wrapped in `useMemo`.
+- `app/components/primitives/__tests__/chartTooltipDedupe.test.ts` (26 specs) — exhaustive equality helper coverage (null-handling, fresh-ref equality, value differences, Date normalization, secondary array length + entry mismatches, both-hidden short-circuit), functional-updater bail-out simulation (4 dedupe-contract specs), source-text canary on the `setStateRaw(prev => …)` pattern + `useCallback` wrappers.
+
+The project doesn't ship `@testing-library/react`, and adding a heavy dev dep mid-defect-fix wasn't justified. The dedupe-contract specs simulate the hook's bail-out predicate directly without React, which is sufficient to catch a regression of the helper code (the part this PR owns). The bail-out behavior itself relies on documented React `useState` semantics.
+
+**Verification gates:**
+- `npx tsc --noEmit`: clean (0 errors).
+- `npm run lint`: 38 errors, 128 warnings — all pre-existing. Pre-fix baseline was 42 errors; my edits reduced 4 errors and introduced none.
+- `npm test`: 766/766 passing.
+- `npm run build`: exits 0, 5 routes prerendered to `./out`.
+- Visual audit (dev `localhost:3000` + prod static `localhost:3001`, real Chrome): 30-mousemove sweep on S1 sparkline plus 10–15 events across all 12 chart canvases. Zero error boundaries, zero `Maximum update depth` text, zero new console errors after every sweep. Console only carries pre-existing 404 + THREE.js deprecation warnings.
+
+**Visual audit screenshots (`docs/visual-audit/phase-7-7e-fix/`):**
+- `01-pre-fix-prod-error-boundary.png` (preserved from Session 24's prep — the original ErrorBoundary fallback)
+- `02-post-fix-dev-s1-hover.png` (dev mode, 30-mousemove sweep, post-fix)
+- `03-post-fix-prod-s1-hover.png` (prod build, S1 hover, post-fix)
+- `04-post-fix-prod-s2-hover.png` (prod, S2 capacity chart hover)
+- `05-post-fix-prod-revenue-hover.png` (prod, RevenueCard chart hover)
+- `06-post-push-preview-s1-hover.png` (captured against `https://phase-7-7e-ui.kastis-kkme.pages.dev` after push, Pause C — same 30-mousemove sweep on the S1 sparkline canvas, errBoundaries=0, hasS185Text=false)
+
+**Commits:** four atomic, in this order on `phase-7-7e-ui` (no sub-branch):
+1. `chart-tooltip-memo: memoize useTooltipStyle returned options` — `chartTheme.ts` + `chartThemeMemo.test.ts`.
+2. `chart-tooltip-memo: memoize external handlers at chart.js call sites` — 5 card files + `chartHandlerMemo.test.ts`.
+3. `chart-tooltip-dedupe: dedupe useChartTooltipState setState to break hover render-loop` — `ChartTooltip.tsx` + `chartTooltipDedupe.test.ts`. **Body embeds the empirical render-count table verbatim** plus the root-cause paragraph; this commit is the load-bearing loop-breaker.
+4. `handover: Session 25 — render-loop fix + audit + PR draft` — this entry, visual audit screenshots, and `docs/phases/phase-7-7e-ui-pr.md`.
+
+The dedupe gets its own commit because it's a behavioural change to a primitive that other code depends on; future bisect should land on commit 3 specifically when probing the dedupe.
+
+**PR draft:** `docs/phases/phase-7-7e-ui-pr.md`. Operator opens via GitHub web UI per `CLAUDE.md`.
+
+**Process finding:** vitest jsdom doesn't drive chart.js's paint/effect cycle. The 731-test suite passed clean before this defect surfaced in production. Future migrations involving paint- or effect-callback hooks need a real-browser smoke test before merge — the chrome-devtools MCP path used for verification in this session is the de-facto pattern.
+
+#### Backlog discovered this session
+
+(Notion MCP was disconnected during this CC session, so these are written here as plain markdown for the operator to sync to Notion separately. Both go under Area=Cards, Type=Tech Debt.)
+
+- **Memoize chart.js options + data at every call site (perf optimization)** — *Priority: P3 Medium.* Every parent re-render of a chart.js consumer currently triggers `chart.update()` across all 12 chart.js consumers because the outer `options` and `data` literals are fresh refs every render. Memoizing `data` and `options` at each call site (Approach B from Session 25's pre-fix triage) eliminates the spurious chart updates and reduces canvas redraw work. Deferred from Session 25 because the dedupe-driven loop-breaker (§3 of the fix) unblocks the PR without it, and there is no empirical perf complaint — the redraws are cheap enough that operator's hover felt fluid in post-fix testing. Approach C (this session's dedupe) was the right scope-disciplined fix; Approach B is the perf-purity follow-up.
+- **Playwright (or chrome-devtools-MCP-driven) smoke test for chart.js hover** — *Priority: P3 Medium.* The 2026-04-28 production failure passed the entire vitest suite because vitest's jsdom doesn't run chart.js's effect-driven update cycle. A real-browser test that mounts the homepage, hovers each chart.js canvas, and asserts no `<CardBoundary>` fallback rendered would catch a future regression of this class. Backlog because it requires CI infra for headless Chrome and isn't blocking the current PR.
+- **Cloudflare Pages project name (`kastis-kkme`) is undocumented at the repo level** — *Priority: P3 Low.* Notion: Area=Infrastructure, Type=Tech Debt. The preview-deploy URL pattern `<branch>.kastis-kkme.pages.dev` was only carried in `.claude/settings.local.json` historical curls (gitignored), so a fresh CC session cannot derive it from the repo. Cost this session ~5 min of preview-URL probing before the operator surfaced it manually. Add to `docs/principles/decisions.md` (new ADR-008 or extend an existing infrastructure ADR) or to `docs/handover.md`'s reference section in the next docs maintenance pass.
+- **Cloudflare Pages preview deploy CSP blocks IntelFeed favicon loads** — *Priority: P3 Low.* Notion: Area=IntelFeed, Type=Bug. Observed on the post-push preview-deploy sweep on 2026-04-29: ~50 console errors per page load of the form `Loading the image 'https://www.google.com/s2/favicons?sz=32&domain=…' violates the following Content Security Policy directive: "img-src 'self' data:"`. The preview deploy enforces a stricter CSP than local dev/prod-static (so the errors don't surface in `npm run dev` or `npx serve out`). Pre-existing — not introduced by Session 25 — and orthogonal to the render-loop fix. Either widen the CSP (`img-src 'self' data: https://www.google.com`) or proxy the favicons through `/api/favicon?domain=…` so they load same-origin.
+
+**Out of scope / not touched (per scope discipline):**
+- No engine changes; no worker changes; no `model_version` bump.
+- No new features — pure defect fix on top of Session 24's deliverables.
+- No `gh pr create` (operator opens PRs via GitHub web UI per `CLAUDE.md`).
+- Approach B (memoize chart.js `options` + `data` at every call site) — logged as backlog above.
+- The lint debt at `RevenueSensitivityTornado.tsx:62` (conditional `useChartTooltipState`) and similar pre-existing lint errors elsewhere — pre-existing on `phase-7-7e-ui`, not introduced by this session.
+- Pre-existing untracked tree (`.claude/skills/`, `docs/visual-audit/phase-7/`, `public/hero/map-calibration-cities.json.json`, `workers/.wrangler/`, `.wrangler/tmp/`, `docs/_yolo-followup-*.md`, `docs/_prep-commit-*.sh`, `docs/phases/phase-7-7c-session-1-prompt.md`, `docs/phases/phase-7-7e-ui-prompt.md`, `docs/phases/phase-7-7e-ui-render-fix-*.md`, `docs/phases/phase-7-7e-ui-s1-render-fix-prompt.md`) — left as-is per Session 18/22/23/24 convention.
