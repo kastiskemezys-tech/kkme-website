@@ -72,27 +72,58 @@ About / contact = quiet coda paragraph at the foot. No bio.
 #### Phase 12.8 — Dispatch render-error fix [IN FLIGHT]
 **Status:** Pause B complete. Commits queued. Defensive guards + CardBoundary upgrade. Ships preventive hardening (audit's transient SIGNAL ERROR doesn't currently reproduce).
 
-#### Phase 12.10 — Data discrepancy hot-fix bundle [NEXT — URGENT, NEW]
-**Why:** A 2026-05-03 fact-check audit cross-checked KKME numbers against primary sources (Litgrid, Energy-Charts, BTD) and found three primary-source-contradicted values + one likely 2× revenue overstatement. For a market-intelligence product whose positioning IS data accuracy, wrong numbers bounce every domain expert who fact-checks — that's the audience that pays. Higher priority than light-mode rebuild for the institutional audience.
+#### Phase 12.10.0 — Emergency hallucinated-entity purge [SAME-DAY, NEW]
+**Why:** A second 2026-05-03 fact-check audit (independent of the first) cross-checked KKME against Lithuanian commercial registry, Litgrid press, VERT, AST, Evecon, EBRD. **"UAB Saulėtas Pasaulis (500 MW)" appears to be a fabricated entity.** No company by that name in Lithuanian commercial registry; no Litgrid press release names it. A 500 MW pipeline removal would be the largest single Baltic storage-pipeline exit on record — would have made trade press if real. Cowork-verified: entry IS on production right now (id `cur_<...>`, source attributed to "litgrid" with generic URL `https://www.litgrid.eu/`, body language "If confirmed, eases competition pressure" is the LLM-hallucination tell). Phase 4F's `/feed/purge-irrelevant` won't catch it (passes all gates: Tier 1 source, BESS keywords).
+
+**Scope (~1 hour, single small commit):**
+1. **Locate the entry.** `curl /feed | jq '.items[] | select(.title | test("Saulėtas Pasaulis"; "i"))'` — capture id + raw KV record.
+2. **Remove from feed_index.** New `POST /feed/delete-by-id` endpoint (UPDATE_SECRET-gated). Direct KV write, removes the entry from `feed_index` array.
+3. **Audit all "Pipeline exit" entries** in current /feed for similar fabrications. For each: verify the named entity exists in Lithuanian commercial registry OR cite the Litgrid/VERT document referencing it. Flag-or-purge any that fail.
+4. **Audit all entries with `source: 'litgrid'` and a generic source_url** (`https://www.litgrid.eu/` without specific path). Generic URLs are a hallucination marker — real Litgrid press releases have specific paths like `/index.php/naujienos/naujienos/litgrid-per-3-menesius-...`. For each: verify or remove.
+5. **Trace ingestion path.** Search `git log -S "Saulėtas Pasaulis"` and grep daily_intel.py / VPS scripts for the entity. Determine: operator-pushed? curated → projected? LLM-drafted during digest composition? Document in handover so Phase 12.12 can tighten the ingestion path.
+6. **Handover note** documenting the entity, the cross-checks performed, the removal action, and what other entries need similar verification in Phase 12.10.
+**Worker deploy required** (for new endpoint).
+**Acceptance:** `/feed` no longer surfaces Saulėtas Pasaulis; all "Pipeline exit" entries verified; all "litgrid" entries with generic URLs verified or removed.
+**Critical:** ship before Phase 12.10. The entry is on production homepage; every hour it stays is one more reader who could spot it.
+
+#### Phase 12.10 — Data discrepancy hot-fix bundle [URGENT, EXPANDED 2026-05-03]
+**Why:** Two independent 2026-05-03 fact-check audits both cross-checked KKME numbers against primary sources (Litgrid, AST, Elering/Evecon, Energy-Charts, BTD, Trading Economics). Multiple primary-source-contradicted values + cross-card internal contradictions + a 2× revenue methodology mislabel. For a market-intelligence product whose positioning IS data accuracy, wrong numbers bounce every domain expert who fact-checks.
 
 **Verified findings (Cowork-side curl confirms):**
-- LT installed storage worker returns 484 MW from "Litgrid, 2026-03-23" — 41 days stale. Litgrid's current value is 506 MW (353 transmission + 153 distribution).
+- LT installed storage `s4_buildability` 484 MW (Litgrid 2026-03-23) — 41 days stale; Litgrid current 506 MW (353 transmission + 153 distribution).
+- LT cross-card contradiction: `storage_by_country.LT.installed_mw: 484` vs `fleet.countries.LT.operational_mw: 596` (the fleet tracker includes Kruonis PSP 205 + 7 Litgrid Kaupikliai 331 + E energija 60 = 596 MW operational; without Kruonis = 391 MW BESS-only). **Both KKME numbers disagree with Litgrid 506.** Gap of ~115 MW vs Litgrid suggests the fleet tracker is missing distribution-grid storage Litgrid counts.
+- LV cross-card contradiction: `storage_by_country.LV.installed_mw: 40` vs `fleet.countries.LV.operational_mw: 99`. Fleet tracker sums Utilitas Targale (10) + AST Rēzekne+Tume (80) + AJ Power portfolio (9) = 99. Buildability hardcode 40 is stale.
+- EE 127 MW likely stale per audit — Hertz 1 may be 100 vs 200 MW per Evecon press (sources conflict).
+- Quarantine flags ignored: fleet tracker flags Hertz 1, Eesti Energia BESS, Utilitas Targale, AJ Power, Kruonis PSP as `_quarantine: true` ("Operational status without TSO/operational evidence") but they're STILL counted in `operational_mw` totals.
 - aFRR P50 headline €13.5/MW/h ≈ afrr_up_avg (7.98) + afrr_down_avg (5.15). Card describes one-direction product. 2× overstatement risk for downstream readers.
-- baltic_total (651 BESS-only) vs fleet.baltic_operational_mw (822 incl. Kruonis pumped hydro) labeled as same metric without disclosure.
+- Peak/trough cards inconsistent: Peak Forecast card "Peak h10 EET €158.8 / Trough h3 EET €98.8" vs 2h Capture card "Peak h21 EET €140 / Trough h14 EET €5". Same instant, same day, totally different numbers. Energy-Charts confirms today's actual LT max was h22 EEST at €158.81 — Peak Forecast has the right value but wrong hour label; 2h Capture has wrong values entirely.
+- DA capture marquee "€133/MWh" vs 2h card "Net capture (2h) +€140" — two captures, two values, no explanation.
+- EUA carbon: KKME €73.9/t vs Energy-Charts €71.80/t (~3% off — borderline, may be fresher quote).
 
-**Scope (categories A–D):**
-1. **Worker-side: refresh stale buildability assertions.** Update `installed_storage_lt_mw` 484 → 506 (per Litgrid 2026-04-23). Audit `installed_storage_lv_mw`, `installed_storage_ee_mw`, `under_construction_storage_ee_mw` for similar staleness. Refresh via `POST /s4/buildability` with current values + new `last_verified_at` timestamp.
-2. **Frontend: rename Baltic fleet metrics to disclose composition.** Rename / footnote so that `baltic_total.installed_mw` is clearly "Baltic BESS installed" and `fleet.baltic_operational_mw` is clearly "Baltic flexibility fleet (BESS + Kruonis PSP + construction-phase)". Tooltip explanation on hover.
-3. **Frontend: compute peak/trough hour-of-day from hourly data.** Replace hardcoded "Peak h10 EET / Trough h3 EET" labels with computed `Math.argmax(hourly_lt)`. Fix DA swing trough display to use actual day's min, not whatever `€98.8` was computing.
-4. **Frontend: fix "7.0% Project IRR" caption mislabel** under 30D capture sparkline. The sparkline shows capture trend, not IRR.
-5. **Methodology disclosure: aFRR direction.** Either label headline as "aFRR up+down combined" + add halved one-direction sub-line, OR halve the headline to one-direction P50 and explain.
-6. **Sanitize unsourced model-confidence language:**
-   - "Calibrated against Tier 1 LFP integrator consensus" → either source it (cite the consensus document) or weaken to "operator estimate calibrated against public market research"
+**Scope (categories A–F):**
+1. **Worker-side — refresh stale buildability assertions.** Update `installed_storage_lt_mw` 484 → 506 (per Litgrid 2026-04-23). Update `installed_storage_lv_mw` 40 → 80 (AST commissioned utility-scale per Oct 2025 press). Audit `installed_storage_ee_mw`, `under_construction_storage_ee_mw` against Evecon Hertz press releases. Refresh via `POST /s4/buildability` with current values + new `last_verified_at` timestamp.
+2. **Worker-side — enforce quarantine flag in totals.** Items with `_quarantine: true` MUST be excluded from `operational_mw` totals (or include with a `_quarantined_excluded_mw` companion field showing what's held back). Currently flag is decorative.
+3. **Worker-side — reconcile fleet tracker against Litgrid.** Investigate the ~115 MW gap between KKME's LT BESS sum (391 MW excl. Kruonis) and Litgrid's official 506 MW. Likely missing distribution-grid sites. Either add the missing entries to the fleet tracker OR document the gap explicitly in `storage_reference.coverage_note`.
+4. **Frontend — rename Baltic fleet metrics to disclose composition.** Rename so `baltic_total.installed_mw` reads "Baltic BESS installed (TSO sources)" and `fleet.baltic_operational_mw` reads "Baltic flexibility fleet (BESS + Kruonis PSP)". Tooltip explanation on hover. Add `as-of` date next to each figure.
+5. **Frontend — compute peak/trough hour-of-day from hourly data.** Replace hardcoded "Peak h10 EET / Trough h3 EET" with computed `Math.argmax(hourly_today)`. Both Peak Forecast card AND 2h Capture card need fix. Scope to "today" hourly slice, not the full 187-hour `hourly_lt` array. Apply same fix to DA swing trough display (use actual day's min, not whatever the €98.8 figure was computing).
+6. **Frontend — reconcile DA capture marquee vs 2h card.** Either show both with explicit labels (marquee = "DA spread €133", card = "Net 2h capture €140") or display from one source.
+7. **Frontend — fix "7.0% Project IRR" caption mislabel** under 30D capture sparkline. The sparkline shows capture trend, not IRR.
+8. **Methodology disclosure — aFRR direction.** Either label headline as "aFRR up+down combined" + add halved one-direction sub-line, OR halve the headline to one-direction P50 and explain.
+9. **Sanitize unsourced model-confidence language:**
+   - "Calibrated against Tier 1 LFP integrator consensus" → either source (cite the consensus document) or weaken to "operator estimate calibrated against public market research"
    - "Cross-supplier consensus" 0.20pp/yr RTE decay → cite or weaken
    - "Canonical" dispatch model → remove the word
    - "KKME proprietary supply-stack model" → cite the methodology page or weaken
-**Estimate:** ~3-5h. Worker deploy required (for buildability refresh).
-**Acceptance:** every cross-checked KKME number reconciles with its cited primary source within ±5% (or has a documented definitional difference); aFRR headline methodology is unambiguous; no unsourced "consensus" claims remain in copy.
+10. **Verify-or-remove unverifiable claims** flagged by audit #5, using authoritative APIs (audit #6 inventory):
+    - Connection guarantee €25/kW proposed reduction → search VERT decisions feed (vert.lt) and Energetikos ministerija public consultations OR remove the "proposed" line
+    - APVA "1,545 MW / 3,232 MWh / €45M budget" → fetch from apva.lt grant-call summary structured page OR remove
+    - "Effective demand 752 MW / Free grid 3,600 MW" marquee → cite Litgrid/VERT methodology OR remove
+    - Three legal references (XV-779, XV-687, VERT O3-189) → auto-verify against **e-tar.lt** RSS/search API; replace operator-curated text with API-fetched canonical title + effective date + URL
+    - Replace "Tier 1 LFP integrator consensus" calibration claim with cited **NREL Annual Technology Baseline** anchor (open, free, authoritative). Reframes from "uncited consensus" to "calibrated against NREL ATB 2026 + operator overlay."
+11. **Add IRR/DSCR/CAPEX assumptions footnote** with discount rate, debt fraction, debt cost, Euribor reference. Make model outputs replicable.
+12. **NEW positive datapoint** (audit #5 recommends): surface Elering's €74M Baltic frequency-reserve cost for 2025 (per 4 Feb 2026 press release) somewhere on the page. Strongest macro anchor available.
+**Estimate:** ~6-8h (was 3-5h before audit #5 expanded scope). Worker deploy required.
+**Acceptance:** every cross-checked KKME number reconciles with its cited primary source within ±5% (or has documented definitional difference); aFRR methodology unambiguous; no unsourced "consensus"/"canonical"/"proprietary" claims; cross-card internal contradictions resolved (LT installed = one number; LV installed = one number; peak hour = one value); all "looks-authentic-but-unverified" claims either verified-with-link or removed.
 
 #### Phase 12.8.0 — Audit-first percentile/keyboard + ticker + light-mode investigation [REVISED 2026-05-03 SESSION 28]
 **Why:** Three Tier 0 fixes plus a mandatory writeup of why light mode does NOT need the rebuild the audit asserted.
@@ -125,22 +156,50 @@ About / contact = quiet coda paragraph at the foot. No bio.
 
 ### Tier 1 — Foundation (~2-3 weeks)
 
-#### Phase 12.12 — Data integrity infrastructure [NEW, PARALLEL TO 7.7g]
-**Why:** Phase 12.10 fixes specific discrepancies the audit found. Phase 12.12 prevents the next class. The 41-day-stale Litgrid assertion shipped to production silently — that's a process failure, not just a data failure. Without infrastructure, the audit findings recur.
-**Scope:**
+#### Phase 12.12 — Data integrity infrastructure [EXPANDED, PARALLEL TO 7.7g]
+**Why:** Phase 12.10 fixes specific discrepancies. Phase 12.12 prevents the next class. The 41-day-stale Litgrid assertion shipped to production silently. The "Saulėtas Pasaulis" hallucinated entity passed every existing gate. The fleet tracker's `_quarantine: true` flags are decorative. Multiple cross-card contradictions persist because there's no consistency-checking layer. Without infrastructure, audit findings recur.
+
+**Scope (expanded after audit #5):**
 1. **Schema validation at fetch boundary.** Zod schemas for every upstream API response (`fetchLitgridFleet`, `fetchBTDActivation`, ENTSO-E A44 / A75 / A65, `fetchEnergyCharts`, ECB Euribor). On schema drift, fail-loud (worker logs + Telegram alert) instead of silently degrading.
 2. **Hardcoded-assertion freshness gates.** Every operator-curated value in `s4_buildability` gets a `last_verified_against_source_at` field. Frontend cards display "Source: Litgrid, verified 41 days ago" with amber chip if > 14 days, red chip if > 30 days. Forces operator to refresh.
-3. **Daily reconciliation cron.** New worker function `reconcileAssertionsToSources()` that scrapes Litgrid + AST + Elering + APVA + VERT + ETS once daily, compares to hardcoded `s4_buildability` values, alerts (Telegram) on > 5% drift. Output to KV `reconciliation_log` + a `/reconciliation` endpoint for operator inspection.
-4. **Per-metric provenance footer.** Every displayed number gets a hover-tooltip showing source + last-verified-at + computation chain. Example: "486 MW = Litgrid TSO-grid 353 + Litgrid distribution 153, scraped 2026-05-03 09:00 UTC; verified against Litgrid Įrengtoji galia page". Single primitive `<MetricProvenance>` for consistent application.
-5. **Reconciliation test suite.** Vitest specs that pull live worker payloads + assert internal consistency:
-   - `baltic_total.installed_mw === sum(country installed_mw)`
+3. **Daily reconciliation cron.** Worker function `reconcileAssertionsToSources()` scrapes Litgrid + AST + Elering + APVA + VERT + ETS once daily, compares to hardcoded `s4_buildability` values, alerts (Telegram) on > 5% drift. Output to KV `reconciliation_log` + `/reconciliation` endpoint for operator inspection.
+4. **Per-metric provenance footer.** Every displayed number gets hover-tooltip showing source + last-verified-at + computation chain. Example: "506 MW = Litgrid TSO-grid 353 + Litgrid distribution 153, scraped 2026-05-03 09:00 UTC; verified against Litgrid Įrengtoji galia page". Single primitive `<MetricProvenance>` for consistent application.
+5. **Reconciliation test suite (vitest, nightly via GitHub Actions cron):**
+   - `baltic_total.installed_mw === sum(country installed_mw)` (currently passes — 651 = 484+40+127)
    - `fleet.baltic_operational_mw >= baltic_total.installed_mw` (fleet must include all BESS plus pumped hydro)
    - `aFRR P50 documented direction matches text description in IntelFeed`
-   - For each card showing a "Source: X" attribution, the displayed value must match the worker payload field declared in `chart-inventory.md`
-   - Run nightly via GitHub Actions cron; alert on failure
-6. **Methodology version banner.** Worker `model_version` already exists; surface it on every revenue-derived number with a "v7.3 · methodology" link to the full methodology page (or drawer pending Phase A restructure).
-**Estimate:** ~5-7 days. Significant worker work + frontend primitive + CI integration.
-**Acceptance:** schema-drift detection live; staleness chips visible; daily reconciliation log populated; all reconciliation tests passing nightly.
+   - For each card showing "Source: X" attribution, displayed value matches worker payload field
+   - **Same-metric cross-card consistency** (NEW per audit #5): if LT installed storage appears in N places, alert when displays diverge. Declare ONE canonical source per metric in a registry; rendering must read from that.
+   - Alert on failure to operator's Telegram.
+6. **Methodology version banner.** Surface `model_version` on every revenue-derived number with link to methodology drawer.
+7. **NEW — Quarantine flag enforcement.** Items in fleet tracker with `_quarantine: true` MUST be excluded from `operational_mw` totals at the worker level. Currently the flag is decorative; engine reads through it. Either (a) honor the flag and drop quarantined items from totals, OR (b) include them with a `_quarantined_excluded_mw` companion field showing what's held back from the headline. Pick (a) — simpler invariant; if an entry is quarantined, it's effectively "not counted" until operator confirms.
+8. **NEW — Named-entity verification at intel-feed ingestion** (audit #6 specifies the APIs):
+   - Resolve the entity name against:
+     - **Lithuania:** `registrucentras.lt` (Centre of Registers) or `rekvizitai.lt` API
+     - **Latvia:** Lursoft commercial registry
+     - **Estonia:** `inforegister.ee`
+   - If not found in any registry, mark `_entity_unverified: true` and exclude from default `/feed` GET response (move to `/feed/unverified` queue for operator review).
+   - Tightens against the Saulėtas Pasaulis class structurally — the operator wouldn't have been the line of defense; the registry would.
+
+9b. **NEW — Cross-source TSO capacity reconciliation** (audit #6 finding):
+   - Fetch ENTSO-E "Installed Capacity per Production Type [14.1.A]" for LT/LV/EE on a daily cron
+   - Cross-check against `s4_buildability` operator-curated values
+   - Add to the `/reconciliation` log
+   - Resolves the 484 vs 506 vs 596 MW LT mess via independent third source — gives the operator an authoritative anchor not just for "current" but historical comparison
+
+9c. **NEW — Legal references auto-fetch:**
+   - **e-tar.lt** RSS for Lithuanian primary legislation (laws + amendments)
+   - **vert.lt** decisions feed for regulator decisions
+   - **likumi.lv** for Latvia
+   - **Riigi Teataja** API for Estonia
+   - **EUR-Lex** for EU directives
+   - Replaces operator-curated legal references with API-fetched canonical titles + effective dates + URLs. Catches the "looks-authentic-but-unverified" XV-779 / XV-687 / O3-189 class.
+9. **NEW — Generic-source-URL detection.** Feed items where source_url matches `^https?://(www\.)?<source_domain>/?$` (i.e. just the homepage, no specific path) get `_generic_source: true` flag. Filtered from default /feed response. Real Litgrid press has specific paths; homepage URLs are a hallucination marker.
+10. **NEW — Time-of-day label discipline.** ESLint rule + CI gate forbidding hardcoded "h<digit>" or "hour <digit>" string patterns in TSX components rendering time-series data. Forces derivation from data.
+11. **NEW — Same-instant cross-source value consistency.** When two cards display "DA capture" (or any same-meaning metric), CI test asserts they pull from the same worker field. Currently marquee €133 vs 2h card €140 because they read from different fields with different methodologies.
+
+**Estimate:** ~7-10 days (was 5-7d before audit #5 added items 7-11). Significant worker + frontend + CI integration.
+**Acceptance:** schema-drift detection live; staleness chips visible; reconciliation cron running nightly; quarantine flag enforced in totals; named-entity verification active; generic-source filter active; CI gates failing on time-of-day hardcodes + cross-card metric divergence.
 
 #### Phase 7.7g — Token rebuild + 5-primitive system [RE-SCOPED, NARROWER THAN PRIOR]
 **Why:** Foundation that everything else sits on. Consolidated revision is more disciplined than my prior version: explicit small numbers, no aspirational tokens.
