@@ -1,7 +1,7 @@
 # KKME Handover
 
 Canonical state document. Read this first in every session.
-Last updated: 2026-04-29 (Session 26 — Phase 4F Intel feed BESS quality gate first-deployed on `phase-4f-intel-feed-regression`; worker `f8411968`; live `/feed` 25→9 items via read-time gate self-heal at deploy; soft-delete audit trail + tier-keyed thresholds + `/feed/rejections` audit endpoint; 837/837 tests; backfill purge deferred (UPDATE_SECRET not local, optional). Phase 4B-5's "Merged" claim was forensically confirmed false — orphan commit `6f6d2d7` never reached `main`. See `docs/investigations/phase-4f-intel-feed-regression.md`).
+Last updated: 2026-05-03 (Session 27 — Phase 12.8 Dispatch render-error fix + boundary upgrade on `phase-12-8-dispatch-render-error`. `<ErrorBoundary>` bare "SIGNAL ERROR" → `<CardBoundary signal="trading">`. Defensive guards at 4 throw-eligible candidates with empirical fail-then-pass tests (12 specs failed pre-fix → 12 pass post-fix; 2 candidates passed pre-fix → no production change). 837 → 866 tests. Audit's transient symptom does not currently reproduce on the live worker payload; this PR is preventive hardening, not retroactive proof-of-fix. Branch pushed for PR. See `docs/investigations/phase-12-8-dispatch-render-error.md`. Previously Session 26 — Phase 4F Intel feed BESS quality gate first-deployed; see `docs/investigations/phase-4f-intel-feed-regression.md`).
 
 ## Current phase
 
@@ -1307,3 +1307,79 @@ The Phase 4B-5 entry in this handover (originally claiming "Feed: 9→33 clean i
 - Operator opens PR via GitHub web UI (base `main`, title `Phase 4F — Intel feed BESS quality gate first-deployment + homepage tightening`). Don't `gh pr create` per CLAUDE.md.
 - Optional immediate follow-up: locate or rotate `UPDATE_SECRET` and run `POST /feed/purge-irrelevant` to populate audit annotations in KV.
 - Notion board sync: add Phase 4F entry, mark shipped; add the 5 backlog items above.
+
+
+---
+
+### Session 27 — 2026-05-03 — Phase 12.8 — Dispatch render-error fix + boundary upgrade (Claude Code)
+
+**Scope:** Address external 2026-04-29 design audit finding that the live "Dispatch intelligence" section on kkme.eu surfaced a bare `SIGNAL ERROR` placeholder — the fallback rendered by `<ErrorBoundary>` at `app/components/ErrorBoundary.tsx:47` when its `componentDidCatch` traps a render exception inside `<TradingEngineCard>`. Branch off `main` post-merge of `phase-4f-intel-feed-regression` PR #45 (commit `1f4a057`).
+
+**Investigation finding (load-bearing):**
+The audit's `SIGNAL ERROR` does not currently reproduce on 2026-05-03. Live kkme.eu, `npm run dev`, and `npx serve out` all render `<TradingEngineCard>` cleanly with today's `/api/dispatch?dur=4h&mode=realised` payload (daily_eur=526, annual_eur=191990, capture_quality_label='high', da_avg=104.3, all 12 keys non-null). Worker `/api/dispatch` is healthy.
+
+The audit's symptom was therefore a **transient data-shape-driven render exception** that depended on the specific upstream payload at audit time — Cowork-side capture 2026-04-29 17:00 UTC showed `daily_eur=335`, `annual_eur=122275`, `capture_quality_label='low'`, and **all three `market_context.da_*_eur_mwh` fields zero**. The all-zero DA context fields are independent corroboration of an empty A44 day-ahead fetch at audit time — the most plausible upstream condition that would simultaneously zero the DA fields and propagate a degraded shape (likely `hourly_dispatch: null` / non-array) downstream.
+
+This is **not retroactive proof-of-fix.** This phase is preventive hardening: defensive guards at every render-time field access in the dispatch render path that would throw under a degraded payload, paired with empirical fail-then-pass tests that prove the bug class exists for each candidate.
+
+**Shipped (4 commits, branch `phase-12-8-dispatch-render-error` pushed to origin):**
+
+1. **Investigation report** (`docs/investigations/phase-12-8-dispatch-render-error.md`, 211 lines) — repro-paths table (A/B/C with results), audit-vs-current worker payload comparison, full 9-candidate throw-site enumeration with priority ranking + classification, fix plan, future-engineer repro recipe.
+
+2. **Throw-site fix + tests** — `app/lib/dispatchChart.ts` + `app/components/TradingEngineCard.tsx` + 21 vitest specs across two new test files. Each of the 6 throw-eligible candidates has a fail-then-pass spec; commit body embeds the empirical result table verbatim. Candidates 1, 2, 3, 4, 6 (helper) failed pre-fix → pass post-fix; Candidate 5 (`qualityColor` unexpected string) and Candidate 6 (`dailyAvgPerHour` edge cases) **passed pre-fix → no production change** per scope discipline (don't add guards for hypothetical throws). Throw-eligible inline JSX expressions hoisted to two named exports (`formatHeadlineAnnualLabel`, `formatSourceFooterLabel`) so the tests can probe them directly. `HourlyChart` and `ISPTable` exported at module scope for the same reason. Net source delta: ~30 lines.
+
+3. **Boundary upgrade** — `app/page.tsx:140` `<ErrorBoundary>` → `<CardBoundary signal="trading">`. The bare "SIGNAL ERROR" placeholder is gone; the same retry-bearing fallback pattern S1/S2/S3/S4/etc. all already use takes its place. `<CardBoundary>` itself: fallback markup extracted into a named `<CardBoundaryFallback>` export (testable via `react-dom/server`'s `renderToStaticMarkup` — class-component error boundaries don't trap throws under the static renderer, so behavioural test of catch-then-render is impossible without jsdom + `@testing-library/react`, which the project intentionally doesn't ship per Session 25). `role="status"` + `aria-live="polite"` on the fallback container. NODE_ENV-gated dev hint pointing at the `[Card crash — <signal>]` browser-console log emitted by `componentDidCatch`. 8 boundary specs.
+
+4. **This handover entry** + visual-audit screenshots + PR draft.
+
+**Empirical fail-then-pass results (commit 2 body):**
+
+| # | Candidate                              | Pre-fix test result                                                                        | Outcome                                                                |
+|---|----------------------------------------|--------------------------------------------------------------------------------------------|------------------------------------------------------------------------|
+| 1 | hourly_dispatch null/non-array         | FAILED  (TypeError: null.map @ dispatchChart.ts:31; HourlyChart renderToStaticMarkup throws) | Fixed at helper + component (Array.isArray guards).                    |
+| 2 | revenue_per_mw.annual_eur null/undef   | FAILED  (TypeError: null.toLocaleString)                                                    | Fixed via formatHeadlineAnnualLabel(annualEur ?? 0).                   |
+| 3 | meta.sources null/undef/non-array      | FAILED  (TypeError: undefined.join, sources.join is not a function)                         | Fixed via formatSourceFooterLabel (Array.isArray + fallback "—").      |
+| 4 | isp_dispatch null/undefined            | FAILED  (TypeError: null.map @ ISPTable; drawer renders children even when collapsed)        | Fixed via Array.isArray(isps) ? isps : [].                             |
+| 5 | capture_quality_label unexpected str   | PASSED  (qualityColor returns "var(--text-muted)" default)                                  | No production change. Spec locks against future regression.            |
+| 6 | dispatchChart helpers edge inputs      | FAILED  for normaliseHourlyDispatch null/undef/non-array; PASSED for dailyAvgPerHour (NaN)   | Same fix as Candidate 1. dailyAvgPerHour left unchanged.               |
+
+**Verification gates:**
+- `npx tsc --noEmit`: clean (0 errors).
+- `npm run lint`: 169 problems (40 errors, 129 warnings) — **identical to baseline `main` count**, verified by stash + re-lint.
+- `npm test`: 837 → 866 (+29: 21 guard specs + 8 boundary specs). All passing.
+- `npm run build`: exits 0, 6 routes prerendered to `./out`.
+- `grep -rnE "console\.count|\[diag\]|test throw|phase128_test_throw" app/`: zero diagnostic leftovers.
+
+**Visual audit (`docs/visual-audit/phase-12-8-fix/`):**
+- `01-pre-fix-prod-state.png` — kkme.eu live (today): renders cleanly. Audit's transient `SIGNAL ERROR` does not currently reproduce against the live worker.
+- `02-pre-fix-dev-clean.png` — `localhost:3000` dev pre-fix: renders cleanly.
+- `03-post-fix-dev-clean.png` — `localhost:3000` dev post-fix: renders cleanly. Control toggles (2H / 4H / Today / Tomorrow) + 30-mousemove canvas hover sweep produce zero boundary fallback, zero new console errors. Phase 7.7e Session 25 chart-tooltip dedupe still holding.
+- `04-post-fix-dev-boundary-triggered.png` — synthetic `?phase128_test_throw=1` query trigger: new `CardBoundaryFallback` renders with `"trading render error"` line, the synthetic message, retry button, dev-mode console hint, `role="status" aria-live="polite"`. Synthetic throw removed before commit (verified clean post-removal render).
+- `05-post-fix-prod-clean.png` — `npx serve out` prod static at `localhost:3001`: renders cleanly, identical behavior to dev.
+
+**Acknowledged scope choice (deviation from prompt §3 test template):**
+Prompt §3 used `import { render, screen, fireEvent } from '@testing-library/react'` — not installed in the project (Session 25 documented the deliberate omission). Tests use `react-dom/server`'s `renderToStaticMarkup` (existing project pattern, see `app/components/__tests__/CalibrationFooter.test.tsx`). For the throw-then-fallback flow a behavioural test is impossible under the static renderer; the boundary tests therefore probe `<CardBoundaryFallback>` directly + carry source-text canaries on the `app/page.tsx` wrapper swap. 8 specs total in commit 3.
+
+**Backlog discovered this session:**
+
+- **`market_context.da_avg_eur_mwh: 0` worker-side bug.** *Priority: P3 Medium.* Notion: Area=Worker, Type=Bug. ENTSOE A44 ingestion path occasionally returns empty/null arrays that propagate through `computeDispatchV2` as all-zero `da_avg/min/max` fields despite the dispatch endpoint computing a non-zero `daily_eur` from BTD reserves alone. Worth investigating the next time the dispatch worker code is touched. Was the most plausible upstream root cause of the audit's transient render failure (an empty A44 fetch zeroes the DA fields *and* can null `hourly_dispatch[].da_price_eur_mwh` cascading downstream).
+- **Sentry / Cloudflare-Logpush integration for `componentDidCatch` errors.** *Priority: P3 Low.* Notion: Area=Infrastructure, Type=Enhancement. Auditor's #4 finding (P5 list). Currently the boundary writes to `console.error` only; without Logpush, the operator never sees these errors unless they happen to be inspecting the browser console. Phase 12.8 narrows the affected render path so future occurrences are rarer; observability is the long-game complement.
+- **CardBoundary polish (last-successful-fetch line, signal-keyed dev URL).** *Priority: P3 Low.* Notion: Area=Cards, Type=Enhancement. Deferred from §2.2 of the Phase 12.8 prompt. The dev hint became a signal-generic `[Card crash — <signal>]` console-trace pointer rather than a dispatch-specific `/api/dispatch?dur=4h&mode=realised` URL because `<CardBoundary>` is shared across S1/S2/S3/S4/etc. A signal-keyed lookup table mapping signal → diagnostic URL plus a "last successful render NN minutes ago" line (computed from a parent-held timestamp ref) would deliver the prompt's full vision; out of scope this session due to the cross-card surface.
+- **RevenueBacktest credibility issue.** *Priority: P1 Critical.* Notion: Area=Cards, Type=Bug (credibility). Auditor's 2026-05-03 second-pass found that `RevenueBacktest` shows a flat amber "Y1 model €368" line vs varying realised €500–790 with a self-reported +70.9% mean error, presented as a "backtest" — a credibility-corrosive surface. Out of Phase 12.8 scope but **authored as Phase 12.8.1 hot-fix immediately after 12.8 ships.**
+- **Remaining `<ErrorBoundary>` consumers.** *Priority: P3 Medium.* Notion: Area=Cards, Type=Tech Debt. `<ErrorBoundary>` is still used at `app/page.tsx:121` for `<RevenueCard>`; same bare "SIGNAL ERROR" risk applies to that consumer. Out of scope this phase per OUT-of-scope rule. Follow-up sweep should swap every remaining `<ErrorBoundary>` consumer to `<CardBoundary signal="...">`. Cheap and mechanical.
+
+**Out of scope / not touched (per scope discipline):**
+- Worker-side `computeDispatchV2` or any `/api/dispatch` logic. Worker is healthy.
+- Replacing the entire `<ErrorBoundary>` component sitewide. Narrowed to the dispatch wrapper only — `<RevenueCard>` at `:121` retains `<ErrorBoundary>` per prompt's "narrow to the dispatch wrapper only".
+- Migrating `TradingEngineCard` to a different chart library or restructuring its render tree.
+- Adding loading-skeleton shimmer (auditor's #2). Existing `Loading dispatch intelligence…` text state at `TradingEngineCard.tsx:347` is sufficient; shimmer is a polish-bundle item.
+- Adding a "Coming soon" state (auditor's #3). N/A — dispatch IS built and live.
+- Sentry SDK integration. `console.error` in `componentDidCatch` already exists; full observability is a separate infrastructure phase.
+- Phase 7.7e Engine track, Phase 7.7c Session 2 sliders, Phase 11.2 mobile, Phase 7.7g thresholds — queued elsewhere.
+- `gh pr create`. Operator opens PRs via GitHub web UI per `CLAUDE.md`.
+- Pre-existing untracked tree from prior sessions (`.claude/skills/`, `docs/visual-audit/phase-7/`, `public/hero/map-calibration-cities.json.json`, `workers/.wrangler/`, `.wrangler/tmp/`, `_handover_s1_s2_rebuild.md`, `docs/_yolo-*.md`, `docs/_prep-commit-*.sh`, `docs/phases/phase-7-7c-session-1-prompt.md`, `docs/phases/phase-7-7e-ui-*.md`, `docs/phases/phase-4f-intel-feed-regression-prompt.md`, `docs/phases/_post-12-8-roadmap.md`) — left as-is per Session 18/22/23/24/25/26 convention.
+
+**Next session:**
+- Operator opens PR via GitHub web UI (base `main`, title `Phase 12.8 — Dispatch render-error fix + boundary upgrade`). PR body at `docs/phases/phase-12-8-pr.md`. Don't `gh pr create` per CLAUDE.md.
+- Phase 12.8.1 hot-fix on `RevenueBacktest` credibility issue (P1 Critical, separate phase prompt to be authored post-PR-merge).
+- Notion board sync: add Phase 12.8 entry, mark shipped; add the 5 backlog items above.
