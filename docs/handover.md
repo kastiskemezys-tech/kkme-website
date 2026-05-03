@@ -1,7 +1,7 @@
 # KKME Handover
 
 Canonical state document. Read this first in every session.
-Last updated: 2026-05-03 (Session 27 — Phase 12.8 Dispatch render-error fix + boundary upgrade on `phase-12-8-dispatch-render-error`. `<ErrorBoundary>` bare "SIGNAL ERROR" → `<CardBoundary signal="trading">`. Defensive guards at 4 throw-eligible candidates with empirical fail-then-pass tests (12 specs failed pre-fix → 12 pass post-fix; 2 candidates passed pre-fix → no production change). 837 → 866 tests. Audit's transient symptom does not currently reproduce on the live worker payload; this PR is preventive hardening, not retroactive proof-of-fix. Branch pushed for PR. See `docs/investigations/phase-12-8-dispatch-render-error.md`. Previously Session 26 — Phase 4F Intel feed BESS quality gate first-deployed; see `docs/investigations/phase-4f-intel-feed-regression.md`).
+Last updated: 2026-05-03 (Session 28 — Phase 12.8.0 Tier 0 hot-fix bundle on `phase-12-8-0-tier0-hotfix`. Audit-investigated: the prompt's "highest-priority light-mode bug" was empirically false (152 root tokens, 114 light overrides, HeroBalticMap fully tokenized; visual screenshots confirm parity). Light-mode commit reduced to a single `ContactForm` chevron fix + investigation writeup. Three other sub-items shipped per Pause A decisions: percentile tiles → static stat-summary strip; keyboard shortcuts → SOT + outline flash + `?` overlay (fixes 2 dead bindings); ticker → pause-on-hover + edge fade + robustified reduced-motion selector. 866 → 882 tests. **Process finding: 3 of 4 audit-#2 visual claims confirmed hallucinated this session — see audit-credibility taxonomy in Session 28 entry + `docs/investigations/phase-12-8-0-light-mode-audit-vs-reality.md`.** Branch pushed for PR; PR draft at `docs/phases/phase-12-8-0-pr.md`. Cloudflare Pages preview verified. Previously Session 27 — Phase 12.8 Dispatch render-error fix + boundary upgrade; see `docs/investigations/phase-12-8-dispatch-render-error.md`.)
 
 ## Current phase
 
@@ -1383,3 +1383,100 @@ Prompt §3 used `import { render, screen, fireEvent } from '@testing-library/rea
 - Operator opens PR via GitHub web UI (base `main`, title `Phase 12.8 — Dispatch render-error fix + boundary upgrade`). PR body at `docs/phases/phase-12-8-pr.md`. Don't `gh pr create` per CLAUDE.md.
 - Phase 12.8.1 hot-fix on `RevenueBacktest` credibility issue (P1 Critical, separate phase prompt to be authored post-PR-merge).
 - Notion board sync: add Phase 12.8 entry, mark shipped; add the 5 backlog items above.
+
+### Session 28 — 2026-05-03 — Phase 12.8.0 — Tier 0 hot-fix bundle (audit-investigated, materially smaller than scoped) (Claude Code)
+
+**Headline:** the audit was wrong about the "highest-priority bug." This phase is the third confirmation that audit #2's visual-inference claims hallucinate at high rate (3 of 4 visual claims confirmed false this session: light-mode, percentile, keyboard; only ticker held up). Phase 12.8.0 ships materially smaller than the prompt scoped — light-mode rebuild dropped to a single chevron fix + investigation writeup; percentile / keyboard / ticker fixes all shipped per Pause A decisions.
+
+**Branch:** `phase-12-8-0-tier0-hotfix` off `main` post-merge of `phase-12-8-dispatch-render-error` PR #46 (commit `1b2d803`). 5 commits pushed to origin (4 features + 1 fixup; this handover entry is the 6th and ships in the merge). PR draft at `docs/phases/phase-12-8-0-pr.md`. Cloudflare Pages preview verified: https://phase-12-8-0-tier0-hotfix.kastis-kkme.pages.dev/.
+
+**Investigation findings (Pause A + A.5 — most important takeaway from this session):**
+
+The Phase 12.8.0 prompt restated audit #2's claim: light mode is broken at the structural-token-coverage level — *"only 6 of ~50 light overrides … near-black bg, white text, white country labels on a white map … highest-priority bug on the site."* Empirical verification:
+
+| Audit claim | Measured reality |
+|---|---|
+| ~50 root tokens | **152** unique `:root` tokens |
+| 6 `[data-theme="light"]` overrides | **114** light overrides |
+| ~44 missing overrides | **38** — and **all 38 are intentionally theme-agnostic** (font families, type ramp, space scale, opacity scale, chart series colors marked "data-semantic, consistent across themes", cycles palette aliases that resolve via the `var()` chain, three Tailwind `@theme inline` aliases) |
+| HeroBalticMap "white country labels on white map" | Fully tokenized — labels resolve via `var(--text-*)` → dark charcoal on cream. **Visual screenshots in dev (`03-light-hero-localhost.png`) AND production (`04-light-hero-LIVE.png`, `05-light-revenue-LIVE.png`, `07-light-contact-LIVE.png`) confirm clean readable rendering.** No white-on-white. No bounce-trigger. |
+| "Highest-priority bug, five-second bounce-trigger" | Not a bug. |
+
+`git log --since="2026-04-29" -- app/globals.css HeroBalticMap.tsx` returned empty — no theme-relevant code shipped between the 2026-04-29 audit and 2026-05-03, so option (c) "audit was right historically but recent code fixed it" is **ruled out**. The audit was wrong at the time it was written.
+
+Lone real component-level color hardcode found in the entire `app/components/` tree: `ContactForm.tsx:114` Select dropdown chevron painted with `rgba(232,226,217,0.3)` inside an inline `data:` SVG — dark-mode-tuned, near-invisible on cream. Replaced with sibling `<svg fill="currentColor">` resolving via `var(--text-muted)`.
+
+Full investigation: [`docs/investigations/phase-12-8-0-light-mode-audit-vs-reality.md`](investigations/phase-12-8-0-light-mode-audit-vs-reality.md). Read this together with the present session log entry — they are mutually-reinforcing process artifacts.
+
+**Audit-credibility taxonomy (process finding — load-bearing for future audit triage):**
+
+Two distinct audit categories now have empirical track records on KKME:
+
+- **Visual-inference audits (audits #2, #3)** — describe what the auditor saw on the live site, often without screenshots backing the claim. **3 of 4 visual claims from audit #2 confirmed hallucinated** this session (light-mode, percentile, keyboard). Only the ticker claim empirically held up. Hit rate: **25%** for unscreenshotted visual claims. Future pattern: any unverified visual-audit claim is a *hypothesis to investigate*, not a *bug to fix*. Investigation-first discipline (screenshot + code-level grep + git-log historical check) is mandatory before committing fix scope.
+- **Primary-source cross-check audits (the 2026-05-03 data audit, audit #5)** — directly cross-checked KKME numbers against Litgrid / AST / Elering / Energy-Charts / BTD / commercial registries. Findings empirically verified by Cowork-side curl (LT 484 vs Litgrid 506; aFRR P50 ≈ up+down sum; "UAB Saulėtas Pasaulis" not in Lithuanian commercial registry, etc.). All findings stand. Different methodology, different reliability tier.
+
+**Implication for Phase 12.10 / 12.10.0:** the data audit's findings remain authoritative. Phase 12.10 ships them as scheduled. The visual-audit hallucination pattern does not bleed credibility into the data-audit findings — they are empirically grounded.
+
+A standing CLAUDE.md "audit triage" rule will land as a separate follow-up branch after Phase 12.10 ships, bundling all four new discipline rules:
+1. Visual-inference audit claims (no screenshot, no code-level grep, no primary-source check) are hypotheses, not bugs.
+2. No hardcoded label asserting where/when a value comes from without computing it (e.g. "Peak h10 EET" must derive from hourly array).
+3. No named entity in published content without verifiable source URL (the Saulėtas Pasaulis class).
+4. Same metric in N display locations must derive from one canonical worker field (cross-card consistency).
+
+**Shipped (5 commits — sub-item summary):**
+
+| # | SHA | Sub-item | What ships |
+|---|---|---|---|
+| 1 | `8c79907` | Light mode (Path D) | `ContactForm.tsx` chevron fix + investigation writeup + `_post-12-8-roadmap.md` Phase 12.8.0 entry rewrite + 7 pre/post screenshots. **No `globals.css` changes. No `HeroBalticMap.tsx` changes. No new tokens introduced.** |
+| 2 | `cf6ad2b` | Percentile (Path C) | `S1Card.tsx` 6 `<TileButton>` instances → static `PercentileTile` + "30-DAY TRAILING DISTRIBUTION" caption. 3 anti-regression tests. S2Card has the same anti-pattern but was scoped out per operator decision (see Backlog §7 below). |
+| 3 | `40be723` | Keyboard | `app/lib/keyboard-shortcuts.ts` SOT (8 entries: S/B/T/R/D/I/C + ?). `PageInteractions.tsx` rewrite — handler reads from SOT, fixes 2 dead bindings (`s → revenue-drivers`, `t → structural` replacing `m → context`), adds 200ms `var(--teal)` outline flash + `?`-help overlay. `app/page.tsx` footer hint maps over SOT. 8 tests including a section-id-existence parity check that catches the exact drift mode this commit fixes. |
+| 4 | `a2bec07` | Ticker | `HeroBalticMap.tsx` — `.hero-ticker` + `.hero-ticker-strip` class hooks, pause-on-hover/focus-within (`animation-play-state: paused`), edge-fade `mask-image`, robust class-based `prefers-reduced-motion` selector replacing prior brittle `[style*="…"]` attribute selector. 5 source-grep guard tests. |
+| 5 | `0b837db` | Fixup | `HeroTicker.test.tsx` regex `s` flag → `[\s\S]*?` (pre-ES2018 tsc target). Operator's mid-session roadmap edits (Phase 12.10.0 + expanded 12.10) committed so they survive the branch. |
+
+**Verification gates (all green):**
+- `npx tsc --noEmit` → 0 errors
+- `npx vitest run` → 882 / 882 passed (866 → 882, **+16 new tests** across 3 new test files)
+- `npm run lint` → 40 errors / 129 warnings — **identical to main baseline (40 errors)**, no new errors introduced
+- `npm run build` → compiled in 7.4s, 8 static pages
+- Cloudflare Pages preview → live at https://phase-12-8-0-tier0-hotfix.kastis-kkme.pages.dev/, all 4 sub-items re-tested (see screenshots `13-PREVIEW-light-hero.png` through `17-PREVIEW-light-contact-chevron.png`)
+- 17 visual-audit screenshots in `docs/visual-audit/phase-12-8-0-fix/`
+
+**Backlog discovered this session:**
+
+1. **S2Card imbalance tiles** (`app/components/S2Card.tsx:243-258`) use the same TileButton anti-pattern as the S1 percentile tiles — three buttons (`imb. mean / imb. p90 / % >100 MWh`) all wired to `openDrawer('what')` with no per-tile parameter. Out of scope for Phase 12.8.0 (operator scoped Path C to S1 percentile only). Follow-up: extend Path C to S2 once operator confirms — single-commit fix using the same `PercentileTile` pattern.
+2. **Roadmap edit-conflict protocol** (PROCESS QUESTION FOR OPERATOR). `_post-12-8-roadmap.md` was edited by both CC (during this session, Path D writeup at line ~158) AND operator (Cowork-side, mid-session, prepending Phase 12.10.0 + expanding 12.10 + adding sections 12.13 + 12.14 + 27 + 28 + backlog appendix). Worked out via the fixup commit (`0b837db`) but is fragile — a different ordering could have produced a merge conflict. **Pick one and document in CLAUDE.md:** (a) CC pulls before any roadmap commit, OR (b) CC NEVER commits roadmap changes — only operator/Cowork does, and CC instead writes deltas to a scratch file the operator merges in. Default recommendation: (b), because the roadmap is a planning artifact owned by the operator's strategic layer; CC's role is to surface findings into the handover (which IS CC-owned), and let the operator weave them into the roadmap.
+3. **Standing CLAUDE.md "audit triage" rule** — separate follow-up branch after Phase 12.10 ships. Will bundle the 4 discipline rules listed in the Audit-credibility taxonomy section above.
+4. **CLAUDE.md cross-link** to this Session 28 entry + the investigation doc, so future-self triaging audits finds them via `docs/handover.md`'s "Read this first in every session" header rather than only via deep navigation.
+
+**Out of scope / not touched (per scope discipline):**
+- Worker-side anything. Worker untouched. No `model_version` bump.
+- `app/globals.css` (the supposed "load-bearing file for this phase" per the prompt) — not modified, because the investigation found no defects.
+- `HeroBalticMap.tsx` country-label code (the audit's "worst offender") — not modified, because the labels were already tokenized.
+- S2Card imbalance tiles (parallel anti-pattern, scoped out — see Backlog #1).
+- Backtest chart credibility issue (Phase 12.8.1, separate prompt).
+- Worker endpoints, header KPI fixes, `/da_tomorrow` (Phase 12.9).
+- Intel feed mojibake / count consistency (Phase 4G).
+- Phase 7.7g token rebuild (the rebuild that supersedes ad-hoc theme work — un-needed by this phase).
+- Mobile pass (Phase 11.2).
+- `gh pr create`. Operator opens PRs via GitHub web UI per `CLAUDE.md`.
+- Pre-existing untracked tree from prior sessions — left as-is per Session 18/22/23/24/25/26/27 convention.
+
+**Next CC job: Phase 12.10.0 — emergency hallucinated-entity purge (URGENT, ~1h)**
+
+Per the updated `_post-12-8-roadmap.md` line 75 (`#### Phase 12.10.0 — Emergency hallucinated-entity purge [SAME-DAY, NEW]`), the next CC session ships the purge of "UAB Saulėtas Pasaulis (500 MW)" from the production `/feed` — a fabricated entity (no Lithuanian commercial registry record, no Litgrid press release naming it) currently surfaced on the kkme.eu homepage. Every additional hour the entity stays live is one more domain-expert reader who could spot it. Prompt is in the roadmap entry; scope is single-commit + worker deploy required (new `POST /feed/delete-by-id` endpoint).
+
+**Tier 0 sequence after Phase 12.10.0:**
+1. ✅ Phase 12.8 (this PR's predecessor, merged `1b2d803`)
+2. ✅ Phase 12.8.0 (this PR, awaiting merge)
+3. ⏳ **Phase 12.10.0** (URGENT, ~1h) — Saulėtas Pasaulis purge
+4. Phase 12.10 (data discrepancy bundle, expanded to ~6-8h)
+5. Phase 12.8.1 (backtest caption clarification, ~30-60 min)
+6. Phase 12.9 (worker + header KPI bundle, ~1.5-2h)
+7. Phase 4G (intel encoding, ~1.5h)
+
+Then Tier 1 (12.12 + 12.14 + 7.7g).
+
+**Next operator action:**
+- Open PR via GitHub web UI (base `main`, title `Phase 12.8.0 — Tier 0 hot-fix bundle (audit-investigated)`). PR body at `docs/phases/phase-12-8-0-pr.md`.
+- Decide the roadmap-edit-conflict protocol (Backlog #2) and document in CLAUDE.md.
+- Notion board sync: mark Phase 12.8.0 shipped; add the 4 backlog items above.

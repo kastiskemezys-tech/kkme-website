@@ -152,6 +152,16 @@ About / contact = quiet coda paragraph at the foot. No bio.
 **Scope:** Python URL-decode encoding fix (cp1257/latin-1 → UTF-8); one-shot mojibake backfill purge; IntelFeed badge denominator alignment.
 **Estimate:** ~1.5h.
 
+#### Phase 12.14 — Forward-looking platform integration tracker [NEW, FROM AUDIT #7]
+**Why:** Audit #7 lists three forward-looking signals that change the storage thesis when they shift: Harmony Link timeline (PL→LT subsea HVDC, planned 2030), PICASSO/MARI/IGCC platform integration status per country, capacity-mechanism watch (Lithuania in consultation; the moment one launches the storage thesis changes). All three are concrete with public sources (ENTSO-E platform reports + Energetikos ministerija consultations). Currently absent from the page.
+**Scope:**
+1. Worker route `GET /forward-tracker` returning `{harmony_link: {expected_cod, last_milestone, source_url}, picasso: {LT, LV, EE: status + integration_date + volume_cap}, mari: {same}, igcc: {same}, capacity_mechanism: {LT, LV, EE: status + consultation_url}}`.
+2. Worker fetches ENTSO-E monthly platform reports + scrapes Energetikos ministerija for capacity-mechanism updates (low-frequency cron, daily is enough).
+3. Frontend: small footer card in Chapter 5 ("What's moving") titled "Forward calendar" — three rows, each with status badge + next-milestone-date + source link.
+4. No daily content; this updates when official sources publish, which is rare (monthly at most). Low operator burden.
+**Estimate:** ~3-4h.
+**Acceptance:** a reader can see at a glance when Harmony Link COD shifts, when LT joins MARI, or when a capacity-mechanism consultation closes.
+
 ---
 
 ### Tier 1 — Foundation (~2-3 weeks)
@@ -240,7 +250,7 @@ About / contact = quiet coda paragraph at the foot. No bio.
 
 ### Tier 3 — Two moments of presence (~2 weeks)
 
-#### Phase B — Composed hero visualization [NEW, "WOW" MOMENT #1]
+#### Phase B — Composed hero visualization [NEW, "WOW" MOMENT #1] [ENRICHED FROM AUDIT #7]
 **Why:** Auditor: *"the kind of thing the FT and Bloomberg invest a designer-week in and use for years."* Replaces current multi-widget arrangement (separate map + tickers + side-rail metrics) with one unified scene.
 **Scope:**
 1. Map as canvas (existing HeroBalticMap as base).
@@ -249,8 +259,10 @@ About / contact = quiet coda paragraph at the foot. No bio.
 4. Side-rail metrics tied to specific points on the map by faint connecting lines (e.g. FCR demand metric → connects to a point near Vilnius; aFRR clearing → connects to LT TSO icon).
 5. Live status dot pulses at 1Hz with 60% opacity ring.
 6. Reader sees in three seconds: real-time view of a specific market.
-**Estimate:** ~1 designer-week (5-7 days).
-**Acceptance:** single composed scene reads as one visual unit, not five widgets.
+7. **NEW (audit #7):** Live frequency clock element — small `50.000 Hz · ±X mHz` reading at one corner of the map. Available from Elering/Litgrid live SCADA. Striking + unique to the post-Baltic-sync (Feb 2025) story. Not a separate card — a detail in the hero scene.
+8. **NEW (audit #7):** Realised-vs-scheduled interconnector flow delta visible on cables. Existing /s8 has the flow data; add `scheduled_mw` field, render the gap as a stress-indicator stripe on each cable. Where the system is stressed becomes visible at a glance.
+**Estimate:** ~1 designer-week (5-7 days), expanded to ~6-8 days with audit #7 additions.
+**Acceptance:** single composed scene reads as one visual unit, not five widgets; live frequency visible; cable stress visible.
 
 #### Phase 12 — IRR sensitivity slider on Returns card [REVISED — ONLY ONE SLIDER]
 **Why:** Auditor: *"only one slider, only on this card. Adding interactivity everywhere dilutes it."* Demonstrates what KKME does in a way no static chart can. Power users screenshot it; casual users play with it.
@@ -270,7 +282,7 @@ About / contact = quiet coda paragraph at the foot. No bio.
 
 ### Tier 4 — Connection + content layer (~2 weeks)
 
-#### Phase 7.7f — Chart insight upgrade [TIGHTENED FROM PRIOR]
+#### Phase 7.7f — Chart insight upgrade [TIGHTENED FROM PRIOR + AUDIT #7 ENRICHMENTS]
 **Scope:**
 1. **DA Arbitrage chart (S1)** — add P25–P75 percentile band as translucent fill (drawn from existing P-numbers in card header), mark median as dashed line, mark today's value as labeled dot.
 2. **aFRR chart (S2)** — add 12-month rolling-average overlay so "stable" claim is visually verifiable.
@@ -278,8 +290,25 @@ About / contact = quiet coda paragraph at the foot. No bio.
 4. **IRR sensitivity (RevenueCard)** — replace yellow-blob area chart with **tornado bar chart** ranked by absolute impact. Canonical project-finance affordance.
 5. **Sparkline + delta beneath every hero number** — universal HeroDelta primitive applied to ~30 sites (S1, S2, S5, S4, TradingEngineCard, RevenueCard).
 6. **Per-chart methodology checklist applied before merge:** task stated in one sentence above chart; today/now marked; reference context (band/baseline/peer); accessible data table for screen readers.
-**Estimate:** ~1 week.
+7. **NEW (audit #7) — Weather overlay on DA price chart.** Optional toggle. Wind speed at 100m + GHI from a public weather API (Open-Meteo is free, no key). Storage spreads ARE basically a weather product; explains anomalies inline. Single derived line on the DA chart.
+8. **NEW (audit #7) — "Today vs same day last year" toggle on every chart.** One toggle, applies to all charts via the `<Chart>` primitive (Phase 7.7g). Cheapest possible context-giver. Requires worker to retain 365+ days of /s1 + /s2 + capture history (probably already has this — verify).
+9. **NEW (audit #7) — Capture rate per RES technology** (wind capture price ÷ baseload, solar capture ÷ baseload). Single derived numbers added to S6/Wind/Solar cards. Tells reader if storage is cannibalising itself.
+10. **NEW (audit #7) — Negative-price hours per month counter.** Single derived number added to Chapter 4 economics. Currently rare in Baltics but growing.
+11. **NEW (audit #7) — Fleet card shows MWh alongside MW.** Duration is the actual constraint on what revenue stack a project can chase. 1-line frontend change once Phase 12.10 fixes the underlying numbers.
+**Estimate:** ~1 week (was 1 week; audit #7 items add ~1-2 days).
 **Note:** Backtest chart fix moved to Phase 12.8.1 (caption clarification, separate Tier 0).
+
+#### Phase 12.13 — Outage data + price-anomaly chart annotations [NEW, FROM AUDIT #6]
+**Why:** Audit #6 (2026-05-03 data-source inventory) catalogued public Baltic flexibility data sources with API endpoints. ENTSO-E **"Unavailability of Production / Consumption Units"** and **"Unavailability of Transmission Infrastructure"** feeds publish scheduled and unplanned outages on every Baltic generator + interconnector. Auditor: *"huge price drivers."* Currently KKME shows price spikes with no explanation. Overlaying outage events on price/dispatch charts explains anomalies that look unexplained today + gives the site a unique edge over generic dashboards. **Resurrects the chart-annotations idea** the consolidated revision had me remove — but with a concrete data source backing it instead of speculative event lines.
+**Scope:**
+1. Worker function `fetchEntsoeOutages()` polling ENTSO-E Unavailability endpoints daily; stores in KV `outages:scheduled` and `outages:unplanned`.
+2. New endpoint `GET /events?from=<date>&to=<date>&type=outage|interconnector|regulatory`.
+3. `<EventAnnotation>` primitive (extends Phase 7.7g `Chart` wrapper): vertical dashed line + tooltip overlay on time-series charts. Tooltip shows: outage start/end, asset (e.g. "EstLink 2 unplanned outage"), MW affected, source URL.
+4. Wire into S1 DA chart, dispatch chart, capture chart.
+5. Editorial extension: events of type `regulatory` operator-pushed via `POST /events` (UPDATE_SECRET-gated) for non-outage events (FCR market opens, Litgrid intention round results, etc).
+**Estimate:** ~6-8h. Worker deploy required.
+**Acceptance:** Today's price chart shows vertical line for any Baltic interconnector/generator outage in last 7 days; hovering shows the outage detail. No more unexplained spikes.
+**Sequence:** after Phase A chapter restructure (uses Phase A's `<Chart>` primitive). Tier 4-priority but ship as soon as Phase A lands.
 
 #### Phase D — Related-card hover layer [NEW]
 **Why:** Auditor: *"the navigation that works best is the one the reader does not need to use."* Solves "I'm looking at IRR and want to see what depends on it" without adding pages or nav.
@@ -298,11 +327,11 @@ About / contact = quiet coda paragraph at the foot. No bio.
 4. Sync with existing `docs/glossary.md`.
 **Estimate:** ~2-3 days.
 
-#### Phase C — Custom illustrations [NEW]
-**Why:** Auditor walked back data-ink doctrine for page-level work. *"More visuals would help, not fewer."*
+#### Phase C — Custom illustrations [NEW + AUDIT #7 EMPHASIS ON FUNNEL]
+**Why:** Auditor walked back data-ink doctrine for page-level work. *"More visuals would help, not fewer."* Audit #7 specifically endorses the **credibility-ladder funnel** as one of the most useful illustrative moments.
 **Scope (three illustration moments):**
 1. **Dispatch decision schematic** in Chapter 3 — small SVG showing battery cycling through a day with revenue building up by source. Half explainer, half live data.
-2. **Credibility ladder illustration** in Chapter 4 — illustrated diagram showing how pipeline MW are filtered down to operational MW (operational → construction → agreement → application). Visual metaphor for the existing `flexibilityFleetMw()` weighting.
+2. **Credibility ladder funnel** in Chapter 4 — illustrated **funnel diagram** showing how pipeline MW drop at each stage: speculative → intention → reservation → permit → financial close → construction → operational. Visual metaphor for the existing `flexibilityFleetMw()` weighting. Per audit #7 framing — funnel form makes the attrition visible at a glance.
 3. **Map-derived country icon system** — small consistent icons used for country-specific facts site-wide.
 **Estimate:** ~1 week if commissioned; ~3-4 days if adapted from existing assets.
 **Acceptance:** three illustrative moments shipped; each communicates a concept that prose alone couldn't.
@@ -334,6 +363,25 @@ About / contact = quiet coda paragraph at the foot. No bio.
 **Why:** Auditor: *"unique value proposition the site is hiding."*
 **Scope:** move CTA from buried footer to inline card in Chapter 5 ("What's moving"). Add Credits page listing data sources (no contributor names unless contributors consent).
 **Estimate:** ~2h.
+
+#### Phase 27 — "What we got wrong" log [NEW, FROM AUDIT #7]
+**Why:** Audit #7 counter-positioning: *"A 'what we got wrong' log — list of past calls, what happened, what the model said. Most sites won't do this; the ones that do are trusted."* Trust-building counter-positioning. Differentiates from competitors who never admit miss.
+**Scope:**
+1. `docs/wrongs.md` — version-controlled markdown file. Each entry: date, claim, what-happened, what-model-said, lesson.
+2. Surfaced via the Methodology drawer (Phase A consolidates methodology there). Linked from any "Reading this card" affordance that points to model-derived numbers.
+3. Operator commitment: ~5 min when a forecast misses materially (3-4 entries/quarter likely).
+**Estimate:** ~1h infrastructure + ongoing editorial.
+**Acceptance:** at least one entry shipped at launch (the v7.3 conservative-bias note from Phase 12.8.1 backtest reframing makes a natural first entry).
+
+#### Phase 28 — Weekly column [NEW, FROM AUDIT #7]
+**Why:** Audit #7: *"a short, opinionated weekly column — three paragraphs, signed, with a single chart."* Editorial extension of Phase 9 daily-signal. Daily for habit, weekly for analysis depth.
+**Scope:**
+1. Worker `/column/latest` endpoint returning `{date, slug, title, body_md, chart_id?, source_url?}`.
+2. Operator hand-writes via `POST /column/publish` Friday afternoon (UPDATE_SECRET-gated).
+3. Surfaces in Chapter 2 (Today's signal) on Mon-Fri as supplement; replaces "Today's signal" panel on Sat-Sun.
+4. Archive accessible via `/column/<slug>` permalink.
+**Estimate:** ~1 day build + ongoing weekly composition (~30-60 min/Friday).
+**Note:** Operator decision required — if Phase 9 daily commitment isn't sustainable, do Phase 28 weekly-only and skip Phase 9. Pick one.
 
 ---
 
@@ -456,6 +504,89 @@ This document is the planning layer; `docs/handover.md` is the canonical state-o
 
 ## Shipped appendix
 
-(populated as phases close)
+- **Phase 12.8.0 — Tier 0 hot-fix bundle (audit-investigated)** — branch `phase-12-8-0-tier0-hotfix`, awaiting PR merge as of 2026-05-03 (Session 28). 5 commits: light-mode Path D (`8c79907`, audit's "highest-priority bug" claim empirically false — see `docs/investigations/phase-12-8-0-light-mode-audit-vs-reality.md`); percentile Path C (`cf6ad2b`); keyboard SOT + outline flash + ?-overlay (`40be723`); ticker pause/fade/reduced-motion (`a2bec07`); fixup (`0b837db`). 866 → 882 tests. PR draft: `docs/phases/phase-12-8-0-pr.md`. Process finding: 3 of 4 audit-#2 visual claims hallucinated; standing CLAUDE.md "audit triage" rule queued for follow-up branch after Phase 12.10.
+
+(populated as further phases close)
+
+---
+
+## Audit #7 backlog (deferred — not in current 8-10 week plan)
+
+Audit #7 (2026-05-03 data-source inventory) catalogued ~30 features across 13 categories. The high-leverage subset was incorporated into Phase B / Phase 7.7f / Phase C / Phase 11 / Phase 12.13 / Phase 12.14 / Phase 27 / Phase 28 above. Everything below is deferred — captured here so it doesn't fall out of the plan, but explicitly NOT scoped for the current 8-10 week sequence per the consolidated revision's "stay single-page, denser-not-broader" principle.
+
+**Data enrichments (defer — could fold into existing cards in a future polish pass):**
+- BTD activated bids per MTU (granular detail; needs workspace tier the consolidated revision deferred)
+- NVE Nordic reservoir levels — already partially in S6 Nordic Hydro signal; could be enriched
+- Polish coal-fleet generation + PL→LT flow detail (extends /s8 — small addition for a future phase)
+- ENTSO-E "Total Commercial Schedules [12.1.F]" for richer cross-border data
+- Industrial load flexibility (cement, steel, ammonia) DSR potential
+- Heat-pump installation pace per country
+- EV penetration + V2G addressable fleet
+- Hydrogen-electrolyser pipeline
+- District-heating power-to-heat
+- Behind-the-meter solar growth
+
+**Reframings of existing cards (defer — interesting but adds complexity):**
+- €/MW/day card as probability distribution (10/50/90 fan instead of point estimate)
+- IRR card as Monte Carlo with multiple sliders (consolidated revision said ONE slider only — Monte Carlo overlay would dilute single-slider clarity)
+- Live curtailment estimate (RES production minus what system can absorb)
+
+**Feature categories not in current scope:**
+- Comparisons LT vs UK / ERCOT / Nordic / Iberia / Poland (Phase 10 in earlier draft; consolidated revision deferred all comparison views; UK as canonical reference benchmark is the lowest-effort first if/when this resurfaces)
+- M&A ticker for Baltic flexibility (Sumitomo–Mirova, Ignitis acquisitions, Eesti Energia divestments)
+- Equity raises + project-finance closings tracker (EBRD disclosures public)
+- LCOS curves per country
+- Negative-price hours study (one-off piece, not infrastructure)
+
+**One-off pieces (interesting essays, require dedicated content effort):**
+- Sync-day retrospective: "What actually happened the day Baltic sync went live, hour by hour"
+- Backtest of simple BESS strategy 2020-2026 per Baltic country
+- Olkiluoto-3 Finnish price effect on Estonia
+- Saltholm cable counterfactual using SE4 prices
+- Study of four largest negative-price hours since sync
+
+**Format / engineering ideas (defer — operational burden too high or audience expansion):**
+- Scrollytelling Baltic 2019 → 2026 sequence
+- Small multiples grid (12 mini-charts per month)
+- Today vs same-day-last-year toggle (KEPT — folded into Phase 7.7f #8)
+- Embeds / iframe widget for third-party sites (audience expansion)
+- Printable monthly PDF (Phase 21 print stylesheet covers basic print)
+- Daily one-tweet auto-post (audience expansion)
+
+**Counter-positioning ideas (some KEPT, others deferred):**
+- "What we got wrong" log — KEPT as Phase 27
+- Useful glossary with examples — KEPT as Phase 11 enrichment
+- URL-calculator (paste CAPEX, get IRR, share link) — overlaps with Phase 12 sensitivity slider
+- User submission feature for project sightings (moderation infra; defer)
+
+**Slightly weird (defer — niche, operationally heavy):**
+- Sentinel-2 satellite-imagery diff for known BESS sites
+- "BESS visible from space" gallery
+- Hard-hat photo essays per site (operator commitment too high)
+- Audio explainers (60-second clips)
+- Weekly podcast (operator commitment too high)
+- Interactive timeline of every TSO press release since sync
+- Developer leaderboard by MW pipeline + commissioned (already partially in /s4 fleet)
+- Leaked-document analysis (legal risk)
+- "What your project would have earned yesterday" calculator with size+duration inputs
+
+**Adjacent reader pools (defer — explicit audience expansion against current focus):**
+- Journalists (one-chart-screenshot widget)
+- Lawyers / policy advisers (regulatory-change clean page with redline)
+- Academics (CSV downloads with proper citations / DOIs)
+- Equipment vendors (project pipeline tracker)
+- Lenders / ECAs (back-test page for DSCR sensitivity)
+
+**Non-visual matters (some KEPT, others deferred):**
+- Unique URL per scenario — KEPT as Phase 13
+- Version history on every chart — KEPT as Phase 12.12 extension
+- Data freshness green/amber/red dot per source — KEPT as Phase 12.12 staleness chips
+- Short opinionated weekly column — KEPT as Phase 28
+- Reading list quarterly (small editorial commitment) — defer; can fold into Methodology drawer later
+- List of who's cited the site (build authority by visible adoption) — defer; needs adoption first
+
+**Cross-domain inspiration mappings** (sportradar / flightradar / epexspot / Bloomberg cards / Stripe status) — these are framing reminders, not phases. Hold in mind during Phase B + Phase 7.7g design work; don't operationalize directly.
+
+---
 
 **End of roadmap.**
