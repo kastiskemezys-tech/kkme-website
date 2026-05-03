@@ -28,6 +28,7 @@ export function normaliseHourlyDispatch(
   mwTotal: number,
 ): NormalisedHour[] {
   if (mwTotal <= 0) return [];
+  if (!Array.isArray(hourly) || hourly.length === 0) return [];
   return hourly.map(h => ({
     hour: h.hour,
     capacity_eur_per_mw_h: h.revenue_eur.capacity / mwTotal,

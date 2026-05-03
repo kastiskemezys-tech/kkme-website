@@ -111,6 +111,18 @@ function qualityColor(q: string): string {
   return 'var(--text-muted)';
 }
 
+// Throw-eligible inline expressions, hoisted to addressable helpers so the
+// Phase 12.8 fail-then-pass tests can probe the headline + source-footer
+// strings directly. Both crashed pre-fix when fed null/undefined from a
+// degraded `/api/dispatch` payload — the audit's transient render failure.
+export function formatHeadlineAnnualLabel(annualEur: number | null | undefined): string {
+  return `€${(annualEur ?? 0).toLocaleString()}`;
+}
+
+export function formatSourceFooterLabel(sources: ReadonlyArray<string> | null | undefined): string {
+  return Array.isArray(sources) && sources.length > 0 ? sources.join(' + ') : '—';
+}
+
 // ═══ Toggle Button ══════════════════════════════════════════════════════════
 
 function Toggle({ options, value, onChange }: {
@@ -137,13 +149,16 @@ function Toggle({ options, value, onChange }: {
 
 // ═══ Hourly Chart ═══════════════════════════════════════════════════════════
 
-function HourlyChart({ data, CC }: {
+export function HourlyChart({ data, CC }: {
   data: DispatchResponse;
   CC: ReturnType<typeof useChartColors>;
   /** Phase 7.7e: tooltip migrated to unified primitive; legacy prop preserved. */
   ts?: unknown;
 }) {
-  const hourly = data.hourly_dispatch;
+  // Phase 12.8: degraded `/api/dispatch` payloads occasionally surfaced
+  // `hourly_dispatch: null` (or absent), which crashed `normaliseHourlyDispatch`
+  // and the inline `.map(...)` calls below. Treat any non-array as empty.
+  const hourly = Array.isArray(data.hourly_dispatch) ? data.hourly_dispatch : [];
   const mwTotal = data.meta.mw_total;
   // Normalise raw € (absolute, for the reference asset) to €/MW/h so the
   // y-axis unit matches the headline (€/MW/day = sum of these bars).
@@ -242,7 +257,11 @@ function HourlyChart({ data, CC }: {
 
 // ═══ ISP Drawer Table ═══════════════════════════════════════════════════════
 
-function ISPTable({ isps }: { isps: DispatchResponse['isp_dispatch'] }) {
+export function ISPTable({ isps }: { isps: DispatchResponse['isp_dispatch'] }) {
+  // Phase 12.8: degraded payloads sometimes surfaced `isp_dispatch: null`,
+  // which crashed `.map(...)` even when the parent drawer was collapsed
+  // (DetailsDrawer renders children regardless of open state).
+  const list = Array.isArray(isps) ? isps : [];
   const th: React.CSSProperties = {
     padding: '3px 6px', fontSize: 'var(--font-xs)', color: 'var(--text-muted)',
     fontFamily: "var(--font-mono)", fontWeight: 400, textAlign: 'right',
@@ -267,7 +286,7 @@ function ISPTable({ isps }: { isps: DispatchResponse['isp_dispatch'] }) {
           </tr>
         </thead>
         <tbody>
-          {isps.map(p => (
+          {list.map(p => (
             <tr key={p.isp} style={{ borderBottom: p.isp % 4 === 3 ? '1px solid var(--border-card)' : 'none' }}>
               <td style={{ ...td, textAlign: 'left' }}>{p.time}</td>
               <td style={td}>{p.da_price}</td>
@@ -408,7 +427,7 @@ export function TradingEngineCard() {
               </div>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
                 color: 'var(--text-muted)', marginTop: 4 }}>
-                €{data.revenue_per_mw.annual_eur.toLocaleString()}/MW/yr annualised · {data.meta.mw_total}MW · {data.meta.dur_h}H · {data.meta.mode} · {fmtDate(data.meta.date_iso)}
+                {formatHeadlineAnnualLabel(data.revenue_per_mw.annual_eur)}/MW/yr annualised · {data.meta.mw_total}MW · {data.meta.dur_h}H · {data.meta.mode} · {fmtDate(data.meta.date_iso)}
               </div>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: '0.5625rem',
                 color: 'var(--text-ghost)', marginTop: 4, letterSpacing: '0.04em' }}>
@@ -536,7 +555,7 @@ export function TradingEngineCard() {
           {/* ── Source footer ── */}
           <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
             color: 'var(--text-muted)', marginTop: 8, opacity: 0.7 }}>
-            v2 · {data.meta.sources.join(' + ')} · {data.meta.data_class} · {fmtDate(data.meta.as_of_iso)}
+            v2 · {formatSourceFooterLabel(data.meta.sources)} · {data.meta.data_class} · {fmtDate(data.meta.as_of_iso)}
           </div>
 
           {/* ── 96-ISP Drawer ── */}
