@@ -102,26 +102,45 @@ export function ContactForm() {
       {/* Type selector */}
       <div>
         <label htmlFor="contact-type" style={labelStyle}>What are you reaching out about?</label>
-        <select
-          id="contact-type"
-          value={type}
-          onChange={e => setType(e.target.value as ContactType)}
-          required
-          style={{
-            ...fieldStyle,
-            appearance: 'none',
-            cursor: 'pointer',
-            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='rgba(232,226,217,0.3)' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E")`,
-            backgroundRepeat: 'no-repeat',
-            backgroundPosition: 'right 12px center',
-            paddingRight: '32px',
-          }}
-        >
-          <option value="" disabled>Select...</option>
-          {TYPE_OPTIONS.map(opt => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
-        </select>
+        <div style={{ position: 'relative' }}>
+          <select
+            id="contact-type"
+            value={type}
+            onChange={e => setType(e.target.value as ContactType)}
+            required
+            style={{
+              ...fieldStyle,
+              appearance: 'none',
+              cursor: 'pointer',
+              paddingRight: '32px',
+            }}
+          >
+            <option value="" disabled>Select...</option>
+            {TYPE_OPTIONS.map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+          {/* Theme-resolving chevron — currentColor inherits the field's text color
+              so it reads on both cream and near-black backgrounds. Replaces a
+              previously dark-mode-tuned rgba(232,226,217,0.3) data-URL chevron
+              that rendered near-invisible in light mode. */}
+          <svg
+            aria-hidden="true"
+            width="10"
+            height="6"
+            viewBox="0 0 10 6"
+            style={{
+              position: 'absolute',
+              right: '12px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              pointerEvents: 'none',
+              color: 'var(--text-muted)',
+            }}
+          >
+            <path d="M0 0l5 6 5-6z" fill="currentColor" />
+          </svg>
+        </div>
       </div>
 
       {/* Name + Email side by side */}

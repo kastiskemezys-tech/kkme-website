@@ -1,0 +1,592 @@
+# KKME execution roadmap — consolidated final revision
+
+**Authored:** 2026-05-03 from Cowork after four external audits + endpoint sweep + CC investigation + consolidated final revision.
+**Branch state at authoring:** `phase-12-8-dispatch-render-error` in flight (Pause B passed, commits queued).
+**Source documents:**
+- 2026-04-29 audit (P0–P6 visual)
+- 2026-05-03 audit #1 (deeper structural)
+- 2026-05-03 audit #2 (execution-ready 6-tier plan)
+- 2026-05-03 architecture proposal (4-layer hub-and-spoke) + operator pushback + **consolidated final revision** (the canonical document — auditor walked back overreach, removed hallucinations, kept what holds up)
+- Cowork-side endpoint sweep 2026-05-03
+- CC investigation 2026-05-03 (Phase 12.8 — bug is data-shape transient)
+
+**This document supersedes prior versions of `_post-12-8-roadmap.md`.** Prior versions over-built around the multi-surface architecture proposal that the consolidated revision walked back. The plan below reflects the consolidated revision's framing: **stay single-page, make it more confident, two visual moments, one quiet relationship layer, daily editorial habit.**
+
+---
+
+## What was removed from the prior roadmap (and why)
+
+| Removed | Reason |
+|---|---|
+| Phase 14 — ⌘K command palette | Auditor: overkill at current scale; pre-login site doesn't justify it |
+| Phase 16 — Alerts layer | Auditor: defer until login + paying users; "natural pricing tier" framing was premature |
+| Phase 17 — Historical scrubber | Auditor: demo feature without an audience yet; defer |
+| Phase 18 — Methodology page (separate destination) | Auditor: keep inline as drawer; promotion dilutes the front page |
+| Phase 13 (full scope) — Export + PDF + email | Auditor narrows to "Copy link to view" + email digest signup only |
+| Phase 15 — Chart annotations as event lines | Not in consolidated revision; drop unless evidence emerges |
+| Phase 12 (full scope) — Scenario explorer with multiple sliders | Auditor: only ONE slider on IRR card; multiple dilutes |
+| Phase 10 — Comparison views (LT/LV/EE + 2H/4H + peer benchmarks) | Partial: 2H/4H already exists; LT/LV/EE side-by-side stays as later nice-to-have; peer benchmarks deferred |
+| Hub-and-spoke multi-surface architecture | Auditor: enterprise-product thinking applied to single-author niche site; would worsen experience for current audience |
+
+## What was added that the prior roadmap missed
+
+| Added | Why |
+|---|---|
+| **Phase A — Five-chapter restructure** with right-edge dot indicator | Biggest single architectural change in consolidated revision |
+| **Phase B — Composed hero visualization** | One of two "wow" moments; designer-week investment |
+| **Phase C — Custom illustrations** (dispatch schematic + credibility ladder + country icons) | Auditor walked back data-ink doctrine for page-level work |
+| **Phase D — Related-card hover layer** | Solves navigation problem without splitting pages |
+| About-section strip | Operator confirmed: drop founder bio, keep quiet coda |
+| Sparkline + delta on every hero (was Phase 8) | Confirmed as highest-leverage micro-pattern |
+
+## Hallucinations / overreach corrected
+
+| Earlier claim | Corrected framing |
+|---|---|
+| "Backtest chart shows 70% mean error against flat line" → credibility crisis | Caption clarification — the dashed line may be deliberate Y1 anchor; verify intent before reframing |
+| "Percentile toggles do nothing" → wire to chart overlay | Audit-first — controls may drive non-visible state, may be intentionally subtle, or may need stronger affordance for "click for details" |
+| "Keyboard shortcuts broken" → full nav-sync | Audit-first — some shortcuts work; the load-bearing fix is visible feedback (200ms outline flash on destination) |
+
+---
+
+## The consolidated framing
+
+Five visually-distinct chapters on one URL, navigated by right-edge dot indicator. Two "wow" moments. One quiet relationship layer. Daily editorial habit. No multi-surface architecture, no command palette, no workspace, no alerts, no founder bio.
+
+| Chapter | Position | Density register | Purpose |
+|---|---|---|---|
+| 1. Live state | Hero | Composed (single scene) | Three-second visual proof: this is real-time Baltic flexibility |
+| 2. Today's signal | New editorial band | Lowest density, generous whitespace | Daily one-sentence + supporting chart; "wow" moment + retention engine |
+| 3. Dispatch story | Merged Revenue + Dispatch | Medium density, illustrated | Composed visualization showing battery cycle through the day |
+| 4. Economics | Merged Build + Returns | Highest density, table-like | Analyst working area; IRR sensitivity slider lives here |
+| 5. What's moving | Merged Structure + Intel | Feed-style, chronological | Weekly scan-for-what's-new |
+
+About / contact = quiet coda paragraph at the foot. No bio.
+
+---
+
+## Sequence (8-10 weeks total)
+
+### Tier 0 — Bug fixes (this week, ~13-18h)
+
+#### Phase 12.8 — Dispatch render-error fix [IN FLIGHT]
+**Status:** Pause B complete. Commits queued. Defensive guards + CardBoundary upgrade. Ships preventive hardening (audit's transient SIGNAL ERROR doesn't currently reproduce).
+
+#### Phase 12.10.0 — Emergency hallucinated-entity purge [SAME-DAY, NEW]
+**Why:** A second 2026-05-03 fact-check audit (independent of the first) cross-checked KKME against Lithuanian commercial registry, Litgrid press, VERT, AST, Evecon, EBRD. **"UAB Saulėtas Pasaulis (500 MW)" appears to be a fabricated entity.** No company by that name in Lithuanian commercial registry; no Litgrid press release names it. A 500 MW pipeline removal would be the largest single Baltic storage-pipeline exit on record — would have made trade press if real. Cowork-verified: entry IS on production right now (id `cur_<...>`, source attributed to "litgrid" with generic URL `https://www.litgrid.eu/`, body language "If confirmed, eases competition pressure" is the LLM-hallucination tell). Phase 4F's `/feed/purge-irrelevant` won't catch it (passes all gates: Tier 1 source, BESS keywords).
+
+**Scope (~1 hour, single small commit):**
+1. **Locate the entry.** `curl /feed | jq '.items[] | select(.title | test("Saulėtas Pasaulis"; "i"))'` — capture id + raw KV record.
+2. **Remove from feed_index.** New `POST /feed/delete-by-id` endpoint (UPDATE_SECRET-gated). Direct KV write, removes the entry from `feed_index` array.
+3. **Audit all "Pipeline exit" entries** in current /feed for similar fabrications. For each: verify the named entity exists in Lithuanian commercial registry OR cite the Litgrid/VERT document referencing it. Flag-or-purge any that fail.
+4. **Audit all entries with `source: 'litgrid'` and a generic source_url** (`https://www.litgrid.eu/` without specific path). Generic URLs are a hallucination marker — real Litgrid press releases have specific paths like `/index.php/naujienos/naujienos/litgrid-per-3-menesius-...`. For each: verify or remove.
+5. **Trace ingestion path.** Search `git log -S "Saulėtas Pasaulis"` and grep daily_intel.py / VPS scripts for the entity. Determine: operator-pushed? curated → projected? LLM-drafted during digest composition? Document in handover so Phase 12.12 can tighten the ingestion path.
+6. **Handover note** documenting the entity, the cross-checks performed, the removal action, and what other entries need similar verification in Phase 12.10.
+**Worker deploy required** (for new endpoint).
+**Acceptance:** `/feed` no longer surfaces Saulėtas Pasaulis; all "Pipeline exit" entries verified; all "litgrid" entries with generic URLs verified or removed.
+**Critical:** ship before Phase 12.10. The entry is on production homepage; every hour it stays is one more reader who could spot it.
+
+#### Phase 12.10 — Data discrepancy hot-fix bundle [URGENT, EXPANDED 2026-05-03]
+**Why:** Two independent 2026-05-03 fact-check audits both cross-checked KKME numbers against primary sources (Litgrid, AST, Elering/Evecon, Energy-Charts, BTD, Trading Economics). Multiple primary-source-contradicted values + cross-card internal contradictions + a 2× revenue methodology mislabel. For a market-intelligence product whose positioning IS data accuracy, wrong numbers bounce every domain expert who fact-checks.
+
+**Verified findings (Cowork-side curl confirms):**
+- LT installed storage `s4_buildability` 484 MW (Litgrid 2026-03-23) — 41 days stale; Litgrid current 506 MW (353 transmission + 153 distribution).
+- LT cross-card contradiction: `storage_by_country.LT.installed_mw: 484` vs `fleet.countries.LT.operational_mw: 596` (the fleet tracker includes Kruonis PSP 205 + 7 Litgrid Kaupikliai 331 + E energija 60 = 596 MW operational; without Kruonis = 391 MW BESS-only). **Both KKME numbers disagree with Litgrid 506.** Gap of ~115 MW vs Litgrid suggests the fleet tracker is missing distribution-grid storage Litgrid counts.
+- LV cross-card contradiction: `storage_by_country.LV.installed_mw: 40` vs `fleet.countries.LV.operational_mw: 99`. Fleet tracker sums Utilitas Targale (10) + AST Rēzekne+Tume (80) + AJ Power portfolio (9) = 99. Buildability hardcode 40 is stale.
+- EE 127 MW likely stale per audit — Hertz 1 may be 100 vs 200 MW per Evecon press (sources conflict).
+- Quarantine flags ignored: fleet tracker flags Hertz 1, Eesti Energia BESS, Utilitas Targale, AJ Power, Kruonis PSP as `_quarantine: true` ("Operational status without TSO/operational evidence") but they're STILL counted in `operational_mw` totals.
+- aFRR P50 headline €13.5/MW/h ≈ afrr_up_avg (7.98) + afrr_down_avg (5.15). Card describes one-direction product. 2× overstatement risk for downstream readers.
+- Peak/trough cards inconsistent: Peak Forecast card "Peak h10 EET €158.8 / Trough h3 EET €98.8" vs 2h Capture card "Peak h21 EET €140 / Trough h14 EET €5". Same instant, same day, totally different numbers. Energy-Charts confirms today's actual LT max was h22 EEST at €158.81 — Peak Forecast has the right value but wrong hour label; 2h Capture has wrong values entirely.
+- DA capture marquee "€133/MWh" vs 2h card "Net capture (2h) +€140" — two captures, two values, no explanation.
+- EUA carbon: KKME €73.9/t vs Energy-Charts €71.80/t (~3% off — borderline, may be fresher quote).
+
+**Scope (categories A–F):**
+1. **Worker-side — refresh stale buildability assertions.** Update `installed_storage_lt_mw` 484 → 506 (per Litgrid 2026-04-23). Update `installed_storage_lv_mw` 40 → 80 (AST commissioned utility-scale per Oct 2025 press). Audit `installed_storage_ee_mw`, `under_construction_storage_ee_mw` against Evecon Hertz press releases. Refresh via `POST /s4/buildability` with current values + new `last_verified_at` timestamp.
+2. **Worker-side — enforce quarantine flag in totals.** Items with `_quarantine: true` MUST be excluded from `operational_mw` totals (or include with a `_quarantined_excluded_mw` companion field showing what's held back). Currently flag is decorative.
+3. **Worker-side — reconcile fleet tracker against Litgrid.** Investigate the ~115 MW gap between KKME's LT BESS sum (391 MW excl. Kruonis) and Litgrid's official 506 MW. Likely missing distribution-grid sites. Either add the missing entries to the fleet tracker OR document the gap explicitly in `storage_reference.coverage_note`.
+4. **Frontend — rename Baltic fleet metrics to disclose composition.** Rename so `baltic_total.installed_mw` reads "Baltic BESS installed (TSO sources)" and `fleet.baltic_operational_mw` reads "Baltic flexibility fleet (BESS + Kruonis PSP)". Tooltip explanation on hover. Add `as-of` date next to each figure.
+5. **Frontend — compute peak/trough hour-of-day from hourly data.** Replace hardcoded "Peak h10 EET / Trough h3 EET" with computed `Math.argmax(hourly_today)`. Both Peak Forecast card AND 2h Capture card need fix. Scope to "today" hourly slice, not the full 187-hour `hourly_lt` array. Apply same fix to DA swing trough display (use actual day's min, not whatever the €98.8 figure was computing).
+6. **Frontend — reconcile DA capture marquee vs 2h card.** Either show both with explicit labels (marquee = "DA spread €133", card = "Net 2h capture €140") or display from one source.
+7. **Frontend — fix "7.0% Project IRR" caption mislabel** under 30D capture sparkline. The sparkline shows capture trend, not IRR.
+8. **Methodology disclosure — aFRR direction.** Either label headline as "aFRR up+down combined" + add halved one-direction sub-line, OR halve the headline to one-direction P50 and explain.
+9. **Sanitize unsourced model-confidence language:**
+   - "Calibrated against Tier 1 LFP integrator consensus" → either source (cite the consensus document) or weaken to "operator estimate calibrated against public market research"
+   - "Cross-supplier consensus" 0.20pp/yr RTE decay → cite or weaken
+   - "Canonical" dispatch model → remove the word
+   - "KKME proprietary supply-stack model" → cite the methodology page or weaken
+10. **Verify-or-remove unverifiable claims** flagged by audit #5, using authoritative APIs (audit #6 inventory):
+    - Connection guarantee €25/kW proposed reduction → search VERT decisions feed (vert.lt) and Energetikos ministerija public consultations OR remove the "proposed" line
+    - APVA "1,545 MW / 3,232 MWh / €45M budget" → fetch from apva.lt grant-call summary structured page OR remove
+    - "Effective demand 752 MW / Free grid 3,600 MW" marquee → cite Litgrid/VERT methodology OR remove
+    - Three legal references (XV-779, XV-687, VERT O3-189) → auto-verify against **e-tar.lt** RSS/search API; replace operator-curated text with API-fetched canonical title + effective date + URL
+    - Replace "Tier 1 LFP integrator consensus" calibration claim with cited **NREL Annual Technology Baseline** anchor (open, free, authoritative). Reframes from "uncited consensus" to "calibrated against NREL ATB 2026 + operator overlay."
+11. **Add IRR/DSCR/CAPEX assumptions footnote** with discount rate, debt fraction, debt cost, Euribor reference. Make model outputs replicable.
+12. **NEW positive datapoint** (audit #5 recommends): surface Elering's €74M Baltic frequency-reserve cost for 2025 (per 4 Feb 2026 press release) somewhere on the page. Strongest macro anchor available.
+**Estimate:** ~6-8h (was 3-5h before audit #5 expanded scope). Worker deploy required.
+**Acceptance:** every cross-checked KKME number reconciles with its cited primary source within ±5% (or has documented definitional difference); aFRR methodology unambiguous; no unsourced "consensus"/"canonical"/"proprietary" claims; cross-card internal contradictions resolved (LT installed = one number; LV installed = one number; peak hour = one value); all "looks-authentic-but-unverified" claims either verified-with-link or removed.
+
+#### Phase 12.8.0 — Audit-first percentile/keyboard + ticker + light-mode investigation [REVISED 2026-05-03 SESSION 28]
+**Why:** Three Tier 0 fixes plus a mandatory writeup of why light mode does NOT need the rebuild the audit asserted.
+**Scope:**
+1. **Light mode** — investigation only (Path D). The audit's "highest-priority bug, only 6 of ~50 light overrides, white-on-white country labels" claim was empirically false: 152 root tokens, 114 light overrides, 38 intentionally theme-agnostic; HeroBalticMap fully tokenized; visual screenshots confirm parity with dark mode in dev + production. One unrelated cosmetic fix (`ContactForm` dropdown chevron). Full writeup: [docs/investigations/phase-12-8-0-light-mode-audit-vs-reality.md](../investigations/phase-12-8-0-light-mode-audit-vs-reality.md).
+2. **Percentile tiles** — Path C (static labels, drop click handler). Tiles called `openDrawer('what')` with no per-tile parameter; drawer content was generic. Standard dashboard stat-strip pattern.
+3. **Keyboard shortcuts** — single-source-of-truth `app/lib/keyboard-shortcuts.ts`, S/B/T/R/D/I/C + `?` mapping, fix `s → revenue-drivers` (was `signals`, missing id) and `t → structural` (was `m → context`, missing id), 200ms teal outline flash on every shortcut, simple `?` help overlay (Phase A will rebind to chapter numbers 1-5 anyway).
+4. **Ticker** — pause-on-hover + edge-fade mask + robustified `prefers-reduced-motion` selector (was a brittle `[style*="tickerScroll"]` attribute selector).
+**Estimate:** ~2-3h actual (down from prompt's 4-6h after light-mode rebuild dropped to investigation-only).
+**Process finding:** 3 of 4 visual-inference audit claims from audit #2 confirmed hallucinated. Audit-credibility taxonomy and triage rule documented in handover Session 28.
+
+#### Phase 12.8.1 — Backtest dashed-line caption clarification [REVISED]
+**Why:** Auditor walked back the credibility-crisis framing. The dashed line may be a deliberate Y1 anchor, not a failed model prediction. Don't reframe — clarify.
+**Scope:**
+1. Read the chart code; identify what the dashed line actually represents
+2. If it's a deliberate Y1 anchor: update caption to say so explicitly. *"Y1 model anchor (€368/MW/day, scenario base, conservative). Realised has tracked +70.9% above this anchor — model is intentionally conservative."*
+3. If it's intended as a per-period model prediction but currently rendered flat: that's a real bug; replace with time-varying line OR hide chart with placeholder ("Per-period backtest in progress") until reimplemented.
+4. Add MAE alongside mean error in caption per audit recommendation.
+**Estimate:** ~30-60 min depending on which path applies.
+
+#### Phase 12.9 — Worker + header KPI hot-fix bundle
+**Scope:** SignalBar S/D RATIO migration (1 line); /da_tomorrow upstream-error handling; /health endpoint expansion to all 16 KV keys; /extreme/latest TTL backstop; /s9.eua_trend regeneration.
+**Estimate:** ~1.5-2h. Worker deploy required.
+
+#### Phase 4G — Intel feed encoding + count cleanup
+**Scope:** Python URL-decode encoding fix (cp1257/latin-1 → UTF-8); one-shot mojibake backfill purge; IntelFeed badge denominator alignment.
+**Estimate:** ~1.5h.
+
+#### Phase 12.14 — Forward-looking platform integration tracker [NEW, FROM AUDIT #7]
+**Why:** Audit #7 lists three forward-looking signals that change the storage thesis when they shift: Harmony Link timeline (PL→LT subsea HVDC, planned 2030), PICASSO/MARI/IGCC platform integration status per country, capacity-mechanism watch (Lithuania in consultation; the moment one launches the storage thesis changes). All three are concrete with public sources (ENTSO-E platform reports + Energetikos ministerija consultations). Currently absent from the page.
+**Scope:**
+1. Worker route `GET /forward-tracker` returning `{harmony_link: {expected_cod, last_milestone, source_url}, picasso: {LT, LV, EE: status + integration_date + volume_cap}, mari: {same}, igcc: {same}, capacity_mechanism: {LT, LV, EE: status + consultation_url}}`.
+2. Worker fetches ENTSO-E monthly platform reports + scrapes Energetikos ministerija for capacity-mechanism updates (low-frequency cron, daily is enough).
+3. Frontend: small footer card in Chapter 5 ("What's moving") titled "Forward calendar" — three rows, each with status badge + next-milestone-date + source link.
+4. No daily content; this updates when official sources publish, which is rare (monthly at most). Low operator burden.
+**Estimate:** ~3-4h.
+**Acceptance:** a reader can see at a glance when Harmony Link COD shifts, when LT joins MARI, or when a capacity-mechanism consultation closes.
+
+---
+
+### Tier 1 — Foundation (~2-3 weeks)
+
+#### Phase 12.12 — Data integrity infrastructure [EXPANDED, PARALLEL TO 7.7g]
+**Why:** Phase 12.10 fixes specific discrepancies. Phase 12.12 prevents the next class. The 41-day-stale Litgrid assertion shipped to production silently. The "Saulėtas Pasaulis" hallucinated entity passed every existing gate. The fleet tracker's `_quarantine: true` flags are decorative. Multiple cross-card contradictions persist because there's no consistency-checking layer. Without infrastructure, audit findings recur.
+
+**Scope (expanded after audit #5):**
+1. **Schema validation at fetch boundary.** Zod schemas for every upstream API response (`fetchLitgridFleet`, `fetchBTDActivation`, ENTSO-E A44 / A75 / A65, `fetchEnergyCharts`, ECB Euribor). On schema drift, fail-loud (worker logs + Telegram alert) instead of silently degrading.
+2. **Hardcoded-assertion freshness gates.** Every operator-curated value in `s4_buildability` gets a `last_verified_against_source_at` field. Frontend cards display "Source: Litgrid, verified 41 days ago" with amber chip if > 14 days, red chip if > 30 days. Forces operator to refresh.
+3. **Daily reconciliation cron.** Worker function `reconcileAssertionsToSources()` scrapes Litgrid + AST + Elering + APVA + VERT + ETS once daily, compares to hardcoded `s4_buildability` values, alerts (Telegram) on > 5% drift. Output to KV `reconciliation_log` + `/reconciliation` endpoint for operator inspection.
+4. **Per-metric provenance footer.** Every displayed number gets hover-tooltip showing source + last-verified-at + computation chain. Example: "506 MW = Litgrid TSO-grid 353 + Litgrid distribution 153, scraped 2026-05-03 09:00 UTC; verified against Litgrid Įrengtoji galia page". Single primitive `<MetricProvenance>` for consistent application.
+5. **Reconciliation test suite (vitest, nightly via GitHub Actions cron):**
+   - `baltic_total.installed_mw === sum(country installed_mw)` (currently passes — 651 = 484+40+127)
+   - `fleet.baltic_operational_mw >= baltic_total.installed_mw` (fleet must include all BESS plus pumped hydro)
+   - `aFRR P50 documented direction matches text description in IntelFeed`
+   - For each card showing "Source: X" attribution, displayed value matches worker payload field
+   - **Same-metric cross-card consistency** (NEW per audit #5): if LT installed storage appears in N places, alert when displays diverge. Declare ONE canonical source per metric in a registry; rendering must read from that.
+   - Alert on failure to operator's Telegram.
+6. **Methodology version banner.** Surface `model_version` on every revenue-derived number with link to methodology drawer.
+7. **NEW — Quarantine flag enforcement.** Items in fleet tracker with `_quarantine: true` MUST be excluded from `operational_mw` totals at the worker level. Currently the flag is decorative; engine reads through it. Either (a) honor the flag and drop quarantined items from totals, OR (b) include them with a `_quarantined_excluded_mw` companion field showing what's held back from the headline. Pick (a) — simpler invariant; if an entry is quarantined, it's effectively "not counted" until operator confirms.
+8. **NEW — Named-entity verification at intel-feed ingestion** (audit #6 specifies the APIs):
+   - Resolve the entity name against:
+     - **Lithuania:** `registrucentras.lt` (Centre of Registers) or `rekvizitai.lt` API
+     - **Latvia:** Lursoft commercial registry
+     - **Estonia:** `inforegister.ee`
+   - If not found in any registry, mark `_entity_unverified: true` and exclude from default `/feed` GET response (move to `/feed/unverified` queue for operator review).
+   - Tightens against the Saulėtas Pasaulis class structurally — the operator wouldn't have been the line of defense; the registry would.
+
+9b. **NEW — Cross-source TSO capacity reconciliation** (audit #6 finding):
+   - Fetch ENTSO-E "Installed Capacity per Production Type [14.1.A]" for LT/LV/EE on a daily cron
+   - Cross-check against `s4_buildability` operator-curated values
+   - Add to the `/reconciliation` log
+   - Resolves the 484 vs 506 vs 596 MW LT mess via independent third source — gives the operator an authoritative anchor not just for "current" but historical comparison
+
+9c. **NEW — Legal references auto-fetch:**
+   - **e-tar.lt** RSS for Lithuanian primary legislation (laws + amendments)
+   - **vert.lt** decisions feed for regulator decisions
+   - **likumi.lv** for Latvia
+   - **Riigi Teataja** API for Estonia
+   - **EUR-Lex** for EU directives
+   - Replaces operator-curated legal references with API-fetched canonical titles + effective dates + URLs. Catches the "looks-authentic-but-unverified" XV-779 / XV-687 / O3-189 class.
+9. **NEW — Generic-source-URL detection.** Feed items where source_url matches `^https?://(www\.)?<source_domain>/?$` (i.e. just the homepage, no specific path) get `_generic_source: true` flag. Filtered from default /feed response. Real Litgrid press has specific paths; homepage URLs are a hallucination marker.
+10. **NEW — Time-of-day label discipline.** ESLint rule + CI gate forbidding hardcoded "h<digit>" or "hour <digit>" string patterns in TSX components rendering time-series data. Forces derivation from data.
+11. **NEW — Same-instant cross-source value consistency.** When two cards display "DA capture" (or any same-meaning metric), CI test asserts they pull from the same worker field. Currently marquee €133 vs 2h card €140 because they read from different fields with different methodologies.
+
+**Estimate:** ~7-10 days (was 5-7d before audit #5 added items 7-11). Significant worker + frontend + CI integration.
+**Acceptance:** schema-drift detection live; staleness chips visible; reconciliation cron running nightly; quarantine flag enforced in totals; named-entity verification active; generic-source filter active; CI gates failing on time-of-day hardcodes + cross-card metric divergence.
+
+#### Phase 7.7g — Token rebuild + 5-primitive system [RE-SCOPED, NARROWER THAN PRIOR]
+**Why:** Foundation that everything else sits on. Consolidated revision is more disciplined than my prior version: explicit small numbers, no aspirational tokens.
+**Scope:**
+1. **Typography:** 5 sizes only (hero, section, card-title, body, caption). 2 weights only (regular, medium). Drop Cormorant serif treatment for prose; single sans-serif throughout. Mono only for tabular numerals + labels. Pixel KKME mark for wordmark only. **OPERATOR DECISION REQUIRED:** drop serif (auditor) or hold the line on three-typeface principle (locked).
+2. **Spacing:** 8 values (4, 8, 16, 24, 32, 48, 64, 96 px). Nothing else.
+3. **Accent colors:** 3 semantic (positive, warning, negative). The current teal does 4 jobs (live, good, selected, primary action) — one job needs to move to a different treatment (underline or solid fill).
+4. **5 primitive components,** every card rebuilt from these:
+   - **`Stat`** — eyebrow label + hero number + delta + sparkline + footer
+   - **`Card`** — consistent padding + border
+   - **`Badge`** — three variants (status, severity, neutral)
+   - **`Chart`** wrapper — consistent title + source row + controls
+   - **`Drawer`** — named, counted, expandable
+5. **`numberFormat.ts`** — integers for MW; 1 decimal for ratios; no decimals for %; thin-space before unit; comma thousands separators.
+6. **rgba/hex regression cleanup** — fix 213 rgba violations. Add CI grep gate.
+7. **Worker URL centralization** — single `app/lib/worker-url.ts`; migrate 16 sites.
+**Estimate:** ~2 weeks. May split into 7.7g-a (tokens + utility), 7.7g-b (primitives + card migration), 7.7g-c (regression cleanup + CI gate).
+**Acceptance:** every page element expressible as one of the 5 primitives; CI fails on new rgba/hex/hardcoded URL.
+
+---
+
+### Tier 2 — Chapter restructure (~1 week)
+
+#### Phase A — Five-chapter restructure + dot indicator [NEW, BIGGEST PERCEIVED-QUALITY CHANGE]
+**Why:** Auditor's central architectural recommendation. Same total scroll length, but eye gets reset between chapters, brain registers progress, returning analyst can jump to chapter 4 by recognizing its silhouette.
+**Scope:**
+1. Re-group existing sections into 5 chapters per the framing table above.
+2. Each chapter gets a visibly different layout register (proportions, density, rhythm).
+3. **Right-edge floating dot indicator** — 5 dots, fixed position right-middle of viewport, current chapter filled, others outlined. Click dot → smooth scroll to chapter. Hover dot → tooltip with chapter name.
+4. Replace top nav labels with chapter names (Live · Today · Dispatch · Economics · Moving). Anchor scrolling, smooth behavior.
+5. Re-bind keyboard shortcuts to 1-5 (chapter numbers) per consolidated revision.
+6. Remove existing top nav clutter — no breadcrumb, no left rail, no command palette. The dot indicator IS the navigation system.
+7. **About section** — strip founder bio entirely. Replace with one paragraph: what KKME tracks, who it's for, how to get in touch. No name, no photo. Quiet coda.
+**Estimate:** ~1 week.
+**Acceptance:** scroll progress visible at all times via dot indicator; pressing 1-5 jumps to chapters with 200ms outline flash on destination header.
+
+---
+
+### Tier 3 — Two moments of presence (~2 weeks)
+
+#### Phase B — Composed hero visualization [NEW, "WOW" MOMENT #1] [ENRICHED FROM AUDIT #7]
+**Why:** Auditor: *"the kind of thing the FT and Bloomberg invest a designer-week in and use for years."* Replaces current multi-widget arrangement (separate map + tickers + side-rail metrics) with one unified scene.
+**Scope:**
+1. Map as canvas (existing HeroBalticMap as base).
+2. Animated interconnector flow particles, speed proportional to live MW from `/s8` `freshness` data.
+3. Hero capture number sits beside map, ticks visibly when /s1 polls and value changes (digit-flash green/amber for 400ms — Bloomberg signature).
+4. Side-rail metrics tied to specific points on the map by faint connecting lines (e.g. FCR demand metric → connects to a point near Vilnius; aFRR clearing → connects to LT TSO icon).
+5. Live status dot pulses at 1Hz with 60% opacity ring.
+6. Reader sees in three seconds: real-time view of a specific market.
+7. **NEW (audit #7):** Live frequency clock element — small `50.000 Hz · ±X mHz` reading at one corner of the map. Available from Elering/Litgrid live SCADA. Striking + unique to the post-Baltic-sync (Feb 2025) story. Not a separate card — a detail in the hero scene.
+8. **NEW (audit #7):** Realised-vs-scheduled interconnector flow delta visible on cables. Existing /s8 has the flow data; add `scheduled_mw` field, render the gap as a stress-indicator stripe on each cable. Where the system is stressed becomes visible at a glance.
+**Estimate:** ~1 designer-week (5-7 days), expanded to ~6-8 days with audit #7 additions.
+**Acceptance:** single composed scene reads as one visual unit, not five widgets; live frequency visible; cable stress visible.
+
+#### Phase 12 — IRR sensitivity slider on Returns card [REVISED — ONLY ONE SLIDER]
+**Why:** Auditor: *"only one slider, only on this card. Adding interactivity everywhere dilutes it."* Demonstrates what KKME does in a way no static chart can. Power users screenshot it; casual users play with it.
+**Scope:**
+1. ONE slider on the Returns card: drag CAPEX from €120 to €262 per kWh.
+2. IRR / payback / LCOS reflow live as the slider moves.
+3. Visible tick marks at the three scenario points (low / mid / high) with labels.
+4. URL persistence (`?capex=164`) — shareable.
+5. "Reset to base" button.
+6. Mobile: vertical layout.
+**Estimate:** ~1 designer-week.
+**Acceptance:** dragging the CAPEX slider visibly reflows the three downstream numbers without a page reload.
+
+**Replaces / supersedes:** Phase 7.7c Session 2 (capital-structure sliders).
+
+---
+
+### Tier 4 — Connection + content layer (~2 weeks)
+
+#### Phase 7.7f — Chart insight upgrade [TIGHTENED FROM PRIOR + AUDIT #7 ENRICHMENTS]
+**Scope:**
+1. **DA Arbitrage chart (S1)** — add P25–P75 percentile band as translucent fill (drawn from existing P-numbers in card header), mark median as dashed line, mark today's value as labeled dot.
+2. **aFRR chart (S2)** — add 12-month rolling-average overlay so "stable" claim is visually verifiable.
+3. **Dispatch stacked bar (TradingEngineCard)** — overlay DA price line on secondary axis. The interaction between price spikes and revenue allocation is the actual story.
+4. **IRR sensitivity (RevenueCard)** — replace yellow-blob area chart with **tornado bar chart** ranked by absolute impact. Canonical project-finance affordance.
+5. **Sparkline + delta beneath every hero number** — universal HeroDelta primitive applied to ~30 sites (S1, S2, S5, S4, TradingEngineCard, RevenueCard).
+6. **Per-chart methodology checklist applied before merge:** task stated in one sentence above chart; today/now marked; reference context (band/baseline/peer); accessible data table for screen readers.
+7. **NEW (audit #7) — Weather overlay on DA price chart.** Optional toggle. Wind speed at 100m + GHI from a public weather API (Open-Meteo is free, no key). Storage spreads ARE basically a weather product; explains anomalies inline. Single derived line on the DA chart.
+8. **NEW (audit #7) — "Today vs same day last year" toggle on every chart.** One toggle, applies to all charts via the `<Chart>` primitive (Phase 7.7g). Cheapest possible context-giver. Requires worker to retain 365+ days of /s1 + /s2 + capture history (probably already has this — verify).
+9. **NEW (audit #7) — Capture rate per RES technology** (wind capture price ÷ baseload, solar capture ÷ baseload). Single derived numbers added to S6/Wind/Solar cards. Tells reader if storage is cannibalising itself.
+10. **NEW (audit #7) — Negative-price hours per month counter.** Single derived number added to Chapter 4 economics. Currently rare in Baltics but growing.
+11. **NEW (audit #7) — Fleet card shows MWh alongside MW.** Duration is the actual constraint on what revenue stack a project can chase. 1-line frontend change once Phase 12.10 fixes the underlying numbers.
+**Estimate:** ~1 week (was 1 week; audit #7 items add ~1-2 days).
+**Note:** Backtest chart fix moved to Phase 12.8.1 (caption clarification, separate Tier 0).
+
+#### Phase 12.13 — Outage data + price-anomaly chart annotations [NEW, FROM AUDIT #6]
+**Why:** Audit #6 (2026-05-03 data-source inventory) catalogued public Baltic flexibility data sources with API endpoints. ENTSO-E **"Unavailability of Production / Consumption Units"** and **"Unavailability of Transmission Infrastructure"** feeds publish scheduled and unplanned outages on every Baltic generator + interconnector. Auditor: *"huge price drivers."* Currently KKME shows price spikes with no explanation. Overlaying outage events on price/dispatch charts explains anomalies that look unexplained today + gives the site a unique edge over generic dashboards. **Resurrects the chart-annotations idea** the consolidated revision had me remove — but with a concrete data source backing it instead of speculative event lines.
+**Scope:**
+1. Worker function `fetchEntsoeOutages()` polling ENTSO-E Unavailability endpoints daily; stores in KV `outages:scheduled` and `outages:unplanned`.
+2. New endpoint `GET /events?from=<date>&to=<date>&type=outage|interconnector|regulatory`.
+3. `<EventAnnotation>` primitive (extends Phase 7.7g `Chart` wrapper): vertical dashed line + tooltip overlay on time-series charts. Tooltip shows: outage start/end, asset (e.g. "EstLink 2 unplanned outage"), MW affected, source URL.
+4. Wire into S1 DA chart, dispatch chart, capture chart.
+5. Editorial extension: events of type `regulatory` operator-pushed via `POST /events` (UPDATE_SECRET-gated) for non-outage events (FCR market opens, Litgrid intention round results, etc).
+**Estimate:** ~6-8h. Worker deploy required.
+**Acceptance:** Today's price chart shows vertical line for any Baltic interconnector/generator outage in last 7 days; hovering shows the outage detail. No more unexplained spikes.
+**Sequence:** after Phase A chapter restructure (uses Phase A's `<Chart>` primitive). Tier 4-priority but ship as soon as Phase A lands.
+
+#### Phase D — Related-card hover layer [NEW]
+**Why:** Auditor: *"the navigation that works best is the one the reader does not need to use."* Solves "I'm looking at IRR and want to see what depends on it" without adding pages or nav.
+**Scope:**
+1. `app/lib/card-relationships.ts` — pre-defined lookup table mapping each metric to its 2-3 connected metrics.
+2. On hover any metric, related metrics elsewhere on page receive subtle outline (1px teal at 0.4 opacity, smooth fade-in).
+3. Invisible until hover; never required.
+**Estimate:** ~2 days.
+**Acceptance:** hovering capture number lights up DA arbitrage chart + renewable mix card; hovering IRR lights up CAPEX card + capture sparkline.
+
+#### Phase 11 — Glossary acronym tooltips
+**Scope:**
+1. `app/lib/glossary.ts` — `{ acronym: { full, definition, link?, formula? } }`. ~25 terms.
+2. `<Acronym term="DSCR">DSCR</Acronym>` primitive — dotted underline + hover tooltip with definition + canonical formula + source link.
+3. Replace plain-text acronyms across cards (start with worst offenders: RevenueCard, TradingEngineCard, S1Card, S2Card).
+4. Sync with existing `docs/glossary.md`.
+**Estimate:** ~2-3 days.
+
+#### Phase C — Custom illustrations [NEW + AUDIT #7 EMPHASIS ON FUNNEL]
+**Why:** Auditor walked back data-ink doctrine for page-level work. *"More visuals would help, not fewer."* Audit #7 specifically endorses the **credibility-ladder funnel** as one of the most useful illustrative moments.
+**Scope (three illustration moments):**
+1. **Dispatch decision schematic** in Chapter 3 — small SVG showing battery cycling through a day with revenue building up by source. Half explainer, half live data.
+2. **Credibility ladder funnel** in Chapter 4 — illustrated **funnel diagram** showing how pipeline MW drop at each stage: speculative → intention → reservation → permit → financial close → construction → operational. Visual metaphor for the existing `flexibilityFleetMw()` weighting. Per audit #7 framing — funnel form makes the attrition visible at a glance.
+3. **Map-derived country icon system** — small consistent icons used for country-specific facts site-wide.
+**Estimate:** ~1 week if commissioned; ~3-4 days if adapted from existing assets.
+**Acceptance:** three illustrative moments shipped; each communicates a concept that prose alone couldn't.
+
+---
+
+### Tier 5 — Editorial layer (~3 days build + ongoing)
+
+#### Phase 9 — "Today's signal" editorial band (= Chapter 2 content)
+**Scope:**
+1. Worker `/digest/today` endpoint returning `{date, headline, supporting_chart_id?, source_url?}`.
+2. Operator hand-writes via `POST /digest/update` (UPDATE_SECRET-gated).
+3. `<TodaysSignal>` component reads /digest/today, renders one big sentence + one chart sized to fill the chapter.
+4. Archive accessible via small "previous days" link beneath the chapter.
+**Estimate:** ~3 days build.
+**Editorial commitment:** ~5 min/day (consider daily as a habit, weekly as a minimum).
+**Acceptance:** populated daily by 10:00 UTC weekdays.
+
+#### Phase 13 — Email digest signup [NARROWED FROM PRIOR]
+**Scope:**
+1. Single signup field on the page (footer + Chapter 5).
+2. Resend API (already used by ContactForm).
+3. Weekly digest auto-composed Friday morning summarizing week's "Today's signals" + key intel items + one chart.
+4. Track signup count anonymously (no PII).
+**Estimate:** ~2 days build + ongoing weekly composition (~30 min/week).
+**Note:** Removed from prior plan: PNG export, PDF export, daily digest variant. Auditor narrows scope.
+
+#### Phase 19 — "Submit market lead" promotion (small)
+**Why:** Auditor: *"unique value proposition the site is hiding."*
+**Scope:** move CTA from buried footer to inline card in Chapter 5 ("What's moving"). Add Credits page listing data sources (no contributor names unless contributors consent).
+**Estimate:** ~2h.
+
+#### Phase 27 — "What we got wrong" log [NEW, FROM AUDIT #7]
+**Why:** Audit #7 counter-positioning: *"A 'what we got wrong' log — list of past calls, what happened, what the model said. Most sites won't do this; the ones that do are trusted."* Trust-building counter-positioning. Differentiates from competitors who never admit miss.
+**Scope:**
+1. `docs/wrongs.md` — version-controlled markdown file. Each entry: date, claim, what-happened, what-model-said, lesson.
+2. Surfaced via the Methodology drawer (Phase A consolidates methodology there). Linked from any "Reading this card" affordance that points to model-derived numbers.
+3. Operator commitment: ~5 min when a forecast misses materially (3-4 entries/quarter likely).
+**Estimate:** ~1h infrastructure + ongoing editorial.
+**Acceptance:** at least one entry shipped at launch (the v7.3 conservative-bias note from Phase 12.8.1 backtest reframing makes a natural first entry).
+
+#### Phase 28 — Weekly column [NEW, FROM AUDIT #7]
+**Why:** Audit #7: *"a short, opinionated weekly column — three paragraphs, signed, with a single chart."* Editorial extension of Phase 9 daily-signal. Daily for habit, weekly for analysis depth.
+**Scope:**
+1. Worker `/column/latest` endpoint returning `{date, slug, title, body_md, chart_id?, source_url?}`.
+2. Operator hand-writes via `POST /column/publish` Friday afternoon (UPDATE_SECRET-gated).
+3. Surfaces in Chapter 2 (Today's signal) on Mon-Fri as supplement; replaces "Today's signal" panel on Sat-Sun.
+4. Archive accessible via `/column/<slug>` permalink.
+**Estimate:** ~1 day build + ongoing weekly composition (~30-60 min/Friday).
+**Note:** Operator decision required — if Phase 9 daily commitment isn't sustainable, do Phase 28 weekly-only and skip Phase 9. Pick one.
+
+---
+
+### Tier 6 — Mobile + accessibility + polish (~1-2 weeks)
+
+#### Phase 11.2 — Mobile pass
+**Scope:** per 2026-04-29 audit P3 — render hero map portrait crop, CSS grid hero reorder, topbar metrics scroll-snap, marquee ticker overflow containment, fluid type via clamp(), logo max-width, Playwright snapshot regression at 390×844 + 768×1024. Chapter restructure (Phase A) needs mobile-aware layout where dots become bottom-of-viewport horizontal swipe-aware dots.
+**Estimate:** ~1 week.
+
+#### Phase 20 — WCAG AA + axe-core formal audit
+**Scope:**
+- Run axe-core against every route, fix every violation.
+- Particular attention: tertiary text contrast (currently <4.5:1 for source/footer lines).
+- Keyboard navigation: every interactive element reachable by Tab in logical order, focus rings visible.
+- Screen-reader audit: chart `<figure>` + `<figcaption>` + hidden data table per chart.
+**Estimate:** ~1-2 days.
+**Acceptance:** 100% axe-core clean on top routes; zero violations.
+
+#### Phase 21 — Print stylesheet
+**Scope:** `@media print` switches to white bg + black text + removes nav/tickers; one chapter per page.
+**Estimate:** ~3-4h.
+
+#### Phase 22 — OG image generation
+**Scope:** worker `/og?dur=4h&capex=mid` returns 1200×630 PNG with hero state rendered server-side; meta tags wired.
+**Estimate:** ~4-6h.
+
+#### Phase 23 — Animated SVG favicon
+**Scope:** pixel KKME mark static favicon + animated variant with live-status-dot pulse for browsers that support.
+**Estimate:** ~1-2h.
+
+#### Phase 25 — Empty state design
+**Scope:** explicit "Quiet hour" / "Source unavailable" / "Awaiting first publication" states for each signal card.
+**Estimate:** ~3-4h.
+
+#### Phase 26 — Polish bundle [REMAINING SMALL ITEMS]
+**Scope:** items from earlier audits that don't fit elsewhere —
+- Audit #1 — duplicated "Dispatch intelligence" eyebrow + section heading
+- Audit #3 — hand-drawn arrow in Engine assumptions linking RTE 85% to paragraph (looks like leftover Figma annotation)
+- Audit #4 — FCR-reopens callout demote (over-saturated)
+- Audit #5 — `v7.3` superscripts removed (move to single footer)
+- Audit #12 — duplicate "Start the conversation" CTA dedup
+- Audit #14 — top progress bar audit
+- "Reading this card" rename → `Methodology (3 paragraphs)` pattern + chevron
+- `▸▸` double-chevron typo fix
+- External link `↗` standardization via `<ExternalLink>` component
+- Bottom marquee KPI dedup vs above
+- HeroMarketNow.tsx delete decision (B-009)
+- ColorTuner.tsx:60 console.log cleanup
+- Map background seam (P4)
+- Color semantics conflation (red = COMPRESSED + red = OUTDATED)
+- Navigation labels contrast bump (now obsolete after Phase A nav replacement, but check anyway)
+- "Get in touch" button visual integration (same — Phase A may resolve)
+**Estimate:** ~4-6h.
+
+---
+
+## Operator decisions still required
+
+These don't block the next 4-5 phases but become blockers further down. Answer when ready.
+
+1. **Typography overhaul** — drop Cormorant serif (auditor directive — confirmed in consolidated revision) or hold the line on three-typeface principle (locked design principle)? **My recommendation: drop the serif for prose, retain mono for tabular numerals + labels. The auditor is right that the serif feels out of register against the terminal aesthetic. Locked principles are guidelines, not vows.**
+2. **Light-mode rebuild path** (Phase 12.8.0 #1) — full rebuild (~3-4h), constrained rebuild (~2h), or remove toggle (~30 min)? **Default to constrained if override gap > 30 vars at investigation.**
+3. **Phase 9 daily digest cadence** — daily commitment (~5 min/day) or weekly minimum?
+4. **Phase B composed hero visualization** — designer-week investment (~5-7 days). Confirm scope before launching.
+5. **Phase C custom illustrations** — commissioned (~1 week, costs design budget) or adapted from existing assets (~3-4 days, in-CC scope)?
+
+---
+
+## Total estimate (consolidated final)
+
+| Tier | Phases | Days |
+|---|---|---|
+| 0 — Bug fixes | 12.8 + **12.10** + 12.8.0 + 12.8.1 + 12.9 + 4G | ~3-4 days |
+| 1 — Foundation | **12.12 (data integrity)** + 7.7g (tokens + 5 primitives) | ~12-15 days |
+| 2 — Chapter restructure | Phase A (5 chapters + dot indicator + about strip) | ~5 days |
+| 3 — Two moments of presence | Phase B (hero viz) + Phase 12 (IRR slider) | ~10 days |
+| 4 — Connection + content | 7.7f (charts + sparklines) + Phase D (hover) + Phase 11 (glossary) + Phase C (illustrations) | ~12 days |
+| 5 — Editorial | Phase 9 (digest) + Phase 13 (email) + Phase 19 (lead promo) | ~3 days build |
+| 6 — Mobile + a11y + polish | 11.2 + 20 + 21 + 22 + 23 + 25 + 26 | ~6-8 days |
+| **Total** | 20 phases | **~55-65 focused days ≈ 9-11 weeks** |
+
+Adds Phase 12.10 (Tier 0 data hot-fix, ~3-5h) and Phase 12.12 (Tier 1 data integrity infrastructure, ~5-7d) on top of the prior consolidated estimate. The 1-week add reflects the data-accuracy work the third audit surfaced as critical.
+
+---
+
+## Dependencies + sequencing notes
+
+- **Tier 0 ships this week** (~2-3 days). Highest impact-per-hour. Closes the worst bounce-triggers.
+- **Tier 1 (7.7g) is the foundation** but unlocks every subsequent phase via the 5 primitives. Don't skip.
+- **Tier 2 (Phase A) depends on Tier 1's `Chart`, `Stat`, `Card` primitives.** Sequence after.
+- **Tier 3 phases run parallel to each other** but both depend on Tier 1's `Chart` primitive.
+- **Tier 4 phases run parallel** — chart upgrades, hover layer, glossary, illustrations are independent of each other.
+- **Tier 5 is editorial-commitment-heavy.** Build is small; sustaining the daily digest is the operator's ongoing work.
+- **Tier 6 is the polish-and-correctness pass.** Mobile is the largest single item.
+
+**Deferred / un-queued (per consolidated revision):**
+- ⌘K command palette (overkill at scale)
+- Alerts layer (no login, no paying users yet)
+- Historical scrubber (no audience)
+- Methodology as separate destination (keep inline as drawer)
+- Multi-page architecture (worsens current audience experience)
+- Workspace / paid tier (no audience to justify)
+- Founder bio in About (mystery is brand asset)
+- Comparison views with peer benchmarks (defer; LT/LV/EE side-by-side stays as later nice-to-have)
+- Chart annotations / event lines (no clear evidence of need)
+
+---
+
+## Update protocol
+
+When a phase ships:
+1. Mark its entry above with `[SHIPPED <date>]` and merged PR number.
+2. Re-rank remaining phases if priorities shifted.
+3. Move shipped entry to "Shipped" appendix below.
+4. Sync canonical state into `docs/handover.md` Session log.
+
+This document is the planning layer; `docs/handover.md` is the canonical state-of-the-world layer. When they diverge, handover wins (per `CLAUDE.md`).
+
+---
+
+## Shipped appendix
+
+- **Phase 12.8.0 — Tier 0 hot-fix bundle (audit-investigated)** — branch `phase-12-8-0-tier0-hotfix`, awaiting PR merge as of 2026-05-03 (Session 28). 5 commits: light-mode Path D (`8c79907`, audit's "highest-priority bug" claim empirically false — see `docs/investigations/phase-12-8-0-light-mode-audit-vs-reality.md`); percentile Path C (`cf6ad2b`); keyboard SOT + outline flash + ?-overlay (`40be723`); ticker pause/fade/reduced-motion (`a2bec07`); fixup (`0b837db`). 866 → 882 tests. PR draft: `docs/phases/phase-12-8-0-pr.md`. Process finding: 3 of 4 audit-#2 visual claims hallucinated; standing CLAUDE.md "audit triage" rule queued for follow-up branch after Phase 12.10.
+
+(populated as further phases close)
+
+---
+
+## Audit #7 backlog (deferred — not in current 8-10 week plan)
+
+Audit #7 (2026-05-03 data-source inventory) catalogued ~30 features across 13 categories. The high-leverage subset was incorporated into Phase B / Phase 7.7f / Phase C / Phase 11 / Phase 12.13 / Phase 12.14 / Phase 27 / Phase 28 above. Everything below is deferred — captured here so it doesn't fall out of the plan, but explicitly NOT scoped for the current 8-10 week sequence per the consolidated revision's "stay single-page, denser-not-broader" principle.
+
+**Data enrichments (defer — could fold into existing cards in a future polish pass):**
+- BTD activated bids per MTU (granular detail; needs workspace tier the consolidated revision deferred)
+- NVE Nordic reservoir levels — already partially in S6 Nordic Hydro signal; could be enriched
+- Polish coal-fleet generation + PL→LT flow detail (extends /s8 — small addition for a future phase)
+- ENTSO-E "Total Commercial Schedules [12.1.F]" for richer cross-border data
+- Industrial load flexibility (cement, steel, ammonia) DSR potential
+- Heat-pump installation pace per country
+- EV penetration + V2G addressable fleet
+- Hydrogen-electrolyser pipeline
+- District-heating power-to-heat
+- Behind-the-meter solar growth
+
+**Reframings of existing cards (defer — interesting but adds complexity):**
+- €/MW/day card as probability distribution (10/50/90 fan instead of point estimate)
+- IRR card as Monte Carlo with multiple sliders (consolidated revision said ONE slider only — Monte Carlo overlay would dilute single-slider clarity)
+- Live curtailment estimate (RES production minus what system can absorb)
+
+**Feature categories not in current scope:**
+- Comparisons LT vs UK / ERCOT / Nordic / Iberia / Poland (Phase 10 in earlier draft; consolidated revision deferred all comparison views; UK as canonical reference benchmark is the lowest-effort first if/when this resurfaces)
+- M&A ticker for Baltic flexibility (Sumitomo–Mirova, Ignitis acquisitions, Eesti Energia divestments)
+- Equity raises + project-finance closings tracker (EBRD disclosures public)
+- LCOS curves per country
+- Negative-price hours study (one-off piece, not infrastructure)
+
+**One-off pieces (interesting essays, require dedicated content effort):**
+- Sync-day retrospective: "What actually happened the day Baltic sync went live, hour by hour"
+- Backtest of simple BESS strategy 2020-2026 per Baltic country
+- Olkiluoto-3 Finnish price effect on Estonia
+- Saltholm cable counterfactual using SE4 prices
+- Study of four largest negative-price hours since sync
+
+**Format / engineering ideas (defer — operational burden too high or audience expansion):**
+- Scrollytelling Baltic 2019 → 2026 sequence
+- Small multiples grid (12 mini-charts per month)
+- Today vs same-day-last-year toggle (KEPT — folded into Phase 7.7f #8)
+- Embeds / iframe widget for third-party sites (audience expansion)
+- Printable monthly PDF (Phase 21 print stylesheet covers basic print)
+- Daily one-tweet auto-post (audience expansion)
+
+**Counter-positioning ideas (some KEPT, others deferred):**
+- "What we got wrong" log — KEPT as Phase 27
+- Useful glossary with examples — KEPT as Phase 11 enrichment
+- URL-calculator (paste CAPEX, get IRR, share link) — overlaps with Phase 12 sensitivity slider
+- User submission feature for project sightings (moderation infra; defer)
+
+**Slightly weird (defer — niche, operationally heavy):**
+- Sentinel-2 satellite-imagery diff for known BESS sites
+- "BESS visible from space" gallery
+- Hard-hat photo essays per site (operator commitment too high)
+- Audio explainers (60-second clips)
+- Weekly podcast (operator commitment too high)
+- Interactive timeline of every TSO press release since sync
+- Developer leaderboard by MW pipeline + commissioned (already partially in /s4 fleet)
+- Leaked-document analysis (legal risk)
+- "What your project would have earned yesterday" calculator with size+duration inputs
+
+**Adjacent reader pools (defer — explicit audience expansion against current focus):**
+- Journalists (one-chart-screenshot widget)
+- Lawyers / policy advisers (regulatory-change clean page with redline)
+- Academics (CSV downloads with proper citations / DOIs)
+- Equipment vendors (project pipeline tracker)
+- Lenders / ECAs (back-test page for DSCR sensitivity)
+
+**Non-visual matters (some KEPT, others deferred):**
+- Unique URL per scenario — KEPT as Phase 13
+- Version history on every chart — KEPT as Phase 12.12 extension
+- Data freshness green/amber/red dot per source — KEPT as Phase 12.12 staleness chips
+- Short opinionated weekly column — KEPT as Phase 28
+- Reading list quarterly (small editorial commitment) — defer; can fold into Methodology drawer later
+- List of who's cited the site (build authority by visible adoption) — defer; needs adoption first
+
+**Cross-domain inspiration mappings** (sportradar / flightradar / epexspot / Bloomberg cards / Stripe status) — these are framing reminders, not phases. Hold in mind during Phase B + Phase 7.7g design work; don't operationalize directly.
+
+---
+
+**End of roadmap.**

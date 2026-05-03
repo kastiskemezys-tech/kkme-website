@@ -1,4 +1,5 @@
 import dynamic from 'next/dynamic';
+import { Fragment } from 'react';
 import { S1Card } from '@/app/components/S1Card';
 import { S2Card } from '@/app/components/S2Card';
 import { CardBoundary } from '@/app/components/CardBoundary';
@@ -8,6 +9,7 @@ import StickyNav from '@/app/components/StickyNav';
 import { PageInteractions } from '@/app/components/PageInteractions';
 import { SignalDrawerPanel } from '@/app/components/SignalDrawerPanel';
 import { ScrollReveal } from '@/app/components/ScrollReveal';
+import { KEYBOARD_SHORTCUTS } from '@/app/lib/keyboard-shortcuts';
 
 // Below-fold: lazy-loaded via dynamic import to reduce initial bundle
 const S3Card = dynamic(() => import('@/app/components/S3Card').then(m => m.S3Card));
@@ -260,11 +262,27 @@ export default function Home() {
           <div style={{
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-xs)',
-            color: 'var(--text-ghost)',
+            color: 'var(--text-tertiary)',
             marginTop: '8px',
             letterSpacing: '0.06em',
           }}>
-            Keyboard: R revenue · S signals · B build · M market · I intel · C contact
+            Keyboard:{' '}
+            {KEYBOARD_SHORTCUTS.map((s, i) => (
+              <Fragment key={s.key}>
+                {i > 0 && ' · '}
+                <kbd style={{
+                  fontFamily: 'inherit',
+                  fontSize: 'inherit',
+                  color: 'var(--text-secondary)',
+                  background: 'transparent',
+                  border: 0,
+                  padding: 0,
+                  letterSpacing: 'inherit',
+                }}>{s.key.toUpperCase()}</kbd>
+                {' '}
+                {s.key === '?' ? 'help' : s.navLabel.toLowerCase()}
+              </Fragment>
+            ))}
           </div>
         </footer>
 
