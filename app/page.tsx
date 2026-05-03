@@ -136,9 +136,9 @@ export default function Home() {
               <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-base)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>How the KKME dispatch algorithm allocates a reference BESS across Baltic balancing and arbitrage.</p>
             </div>
             <div className="card card-tier1">
-              <ErrorBoundary>
+              <CardBoundary signal="trading">
                 <TradingEngineCard />
-              </ErrorBoundary>
+              </CardBoundary>
             </div>
           </div>
         </ScrollReveal>
