@@ -774,22 +774,22 @@ export function HeroBalticMap() {
 
       </div>
 
-      {/* ═══ TICKER — seamless loop ═══ */}
-      <div style={{
+      {/* ═══ TICKER — seamless loop, pause-on-hover, edge-fade, reduced-motion ═══ */}
+      <div className="hero-ticker" style={{
         gridColumn: '1 / -1', overflow: 'hidden', display: 'flex', alignItems: 'center',
         borderRadius: '6px',
         background: 'var(--overlay-heavy)',
         backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
         borderTop: '1px solid var(--border-card)', zIndex: 10,
       }}>
-        <div style={{
+        <div className="hero-ticker-strip" style={{
           display: 'flex', whiteSpace: 'nowrap',
-          animation: 'tickerScroll 60s linear infinite',
         }}>
-          <span style={{
+          <span tabIndex={0} style={{
             fontFamily: 'var(--font-mono)', fontSize: '11px',
             color: 'var(--text-muted)', letterSpacing: '0.04em',
             paddingRight: '24px',
+            outline: 'none',
           }}>{tickerText}</span>
           <span aria-hidden="true" style={{
             fontFamily: 'var(--font-mono)', fontSize: '11px',
@@ -804,9 +804,39 @@ export function HeroBalticMap() {
           from { transform: translateX(0); }
           to { transform: translateX(-50%); }
         }
+        /* Edge-fade mask so half-words at the cut-off don't appear chopped. */
+        .hero-ticker {
+          -webkit-mask-image: linear-gradient(
+            to right,
+            transparent 0,
+            black 32px,
+            black calc(100% - 32px),
+            transparent 100%
+          );
+          mask-image: linear-gradient(
+            to right,
+            transparent 0,
+            black 32px,
+            black calc(100% - 32px),
+            transparent 100%
+          );
+        }
+        .hero-ticker-strip {
+          animation: tickerScroll 60s linear infinite;
+        }
+        /* Pause-on-hover and on focus-within (keyboard users + screen readers
+           landing inside the strip get the same control as mouse users). */
+        .hero-ticker:hover .hero-ticker-strip,
+        .hero-ticker:focus-within .hero-ticker-strip {
+          animation-play-state: paused;
+        }
         @media (prefers-reduced-motion: reduce) {
           [class*="particle-"] { display: none; }
-          [style*="tickerScroll"] { animation: none !important; }
+          /* Stable class-based selector — replaces the prior brittle
+             attribute-substring selector on the inline style that
+             depended on serialization order. */
+          .hero-ticker-strip { animation: none !important; }
+          .hero-ticker { overflow-x: auto; }
         }
       `}</style>
       <ChartTooltipPortal tt={cableTip} />
