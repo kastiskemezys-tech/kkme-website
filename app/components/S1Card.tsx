@@ -123,24 +123,36 @@ export function S1Card() {
         <StatusChip status={phase} sentiment={sentiment} />
       </div>
 
-      {/* ── 4. Rolling context strip (tiles → `what` drawer) ────── */}
+      {/* ── 4. Rolling context strip — static distribution band above the
+                 sparkline. Previously rendered as TileButton instances all
+                 wired to openDrawer('what'); the drawer content was generic
+                 ('what this card means') and did not vary per percentile, so
+                 the click affordance promised interactivity it did not
+                 deliver. Now a stat-summary strip — standard dashboard
+                 pattern. The chart below carries the interactive workload. */}
       {stats && (
         <>
           <div style={{
-            display: 'flex', gap: '16px', flexWrap: 'wrap',
             padding: '10px 0', marginBottom: '4px',
             borderTop: '1px solid var(--border-subtle)', borderBottom: '1px solid var(--border-subtle)',
           }}>
-            {([
-              ['mean', stats.mean],
-              ['p25', stats.p25],
-              ['p50', stats.p50],
-              ['p75', stats.p75],
-              ['p90', stats.p90],
-            ] as const).map(([label, val]) => (
-              <TileButton key={label} onClick={() => openDrawer('what')} label={label} value={fmtEuro(val)} />
-            ))}
-            <TileButton onClick={() => openDrawer('what')} label="days" value={String(stats.days)} />
+            <div style={{
+              fontFamily: 'var(--font-mono)', fontSize: '0.5625rem',
+              color: 'var(--text-muted)', textTransform: 'uppercase',
+              letterSpacing: '0.10em', marginBottom: '6px',
+            }}>30-day trailing distribution</div>
+            <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+              {([
+                ['mean', stats.mean],
+                ['p25', stats.p25],
+                ['p50', stats.p50],
+                ['p75', stats.p75],
+                ['p90', stats.p90],
+              ] as const).map(([label, val]) => (
+                <PercentileTile key={label} label={label} value={fmtEuro(val)} />
+              ))}
+              <PercentileTile label="days" value={String(stats.days)} />
+            </div>
           </div>
           {(() => {
             const note = leftSkewFootnote({
@@ -638,43 +650,24 @@ function HeroButton({ children, onClick, ariaLabel }: {
   );
 }
 
-// ── Tile button (percentile / imbalance tiles → drawer) ──────────────────────
+// ── Percentile tile (static distribution label, no click) ────────────────────
+// Replaces the prior TileButton anti-pattern that rendered each percentile as
+// an interactive button wired to openDrawer('what'). The drawer content was
+// generic and did not vary per tile, so the click affordance was misleading.
 
-function TileButton({ label, value, onClick }: { label: string; value: string; onClick: () => void }) {
-  const [hover, setHover] = useState(false);
+export function PercentileTile({ label, value }: { label: string; value: string }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      onFocus={() => setHover(true)}
-      onBlur={() => setHover(false)}
-      style={{
-        background: 'none',
-        border: 'none',
-        padding: 0,
-        margin: 0,
-        minWidth: '48px',
-        textAlign: 'left',
-        cursor: 'pointer',
-        color: 'inherit',
-      }}
-    >
+    <div style={{ minWidth: '48px' }}>
       <div style={{
         fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
-        color: hover ? 'var(--text-secondary)' : 'var(--text-muted)',
+        color: 'var(--text-muted)',
         textTransform: 'uppercase', letterSpacing: '0.04em',
-        transition: 'color 0.12s',
       }}>{label}</div>
       <div style={{
         fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)',
         color: 'var(--text-primary)',
-        textDecoration: hover ? 'underline' : 'none',
-        textDecorationColor: 'var(--text-muted)',
-        textUnderlineOffset: '3px',
       }}>{value}</div>
-    </button>
+    </div>
   );
 }
 
