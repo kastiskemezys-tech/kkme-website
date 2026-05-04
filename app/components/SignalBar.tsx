@@ -2,6 +2,16 @@
 import { useState, useEffect } from 'react';
 import { flexibilityFleetMw } from '@/app/lib/fleet';
 
+interface S4FleetExtras {
+  baltic_operational_mw?: number | null;
+  baltic_operational_mw_strict?: number | null;
+  baltic_quarantined_mw?: number | null;
+}
+interface S4ForSignalBar {
+  fleet?: S4FleetExtras | null;
+  baltic_total?: { installed_mw?: number | null } | null;
+}
+
 const BASE = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
 const SECTION_MAP: Record<string, string> = {
@@ -58,10 +68,11 @@ export default function SignalBar() {
       // "Baltic Fleet 822 MW" as ambiguous because it sums BESS + pumped
       // hydro; readers thought 822 MW was BESS-only.
       tooltip: (() => {
-        const flex = (data.s4 as any)?.fleet?.baltic_operational_mw;
-        const strict = (data.s4 as any)?.fleet?.baltic_operational_mw_strict;
-        const quar = (data.s4 as any)?.fleet?.baltic_quarantined_mw;
-        const bess = (data.s4 as any)?.baltic_total?.installed_mw;
+        const s4 = data.s4 as S4ForSignalBar | undefined;
+        const flex = s4?.fleet?.baltic_operational_mw;
+        const strict = s4?.fleet?.baltic_operational_mw_strict;
+        const quar = s4?.fleet?.baltic_quarantined_mw;
+        const bess = s4?.baltic_total?.installed_mw;
         const parts = [
           'Baltic flexibility fleet · BESS + pumped hydro (Kruonis 205 MW).',
           flex != null ? `Inclusive total: ${Math.round(flex)} MW.` : null,
