@@ -61,8 +61,12 @@ BZN_EIC = {
 PSR_BATTERY_STORAGE = "B25"  # ENTSO-E production type for batteries
 ENTSOE_API = "https://web-api.tp.entsoe.eu/api"
 
-# A68 namespace; namespace string must match the tag prefix returned in the XML.
-NS = {"ns": "urn:iec62325.351:tc57wg16:451-6:installedcapacityperproductiontypedocument:1:0"}
+# A68 namespace — the actual namespace returned for ProductionType A68 documents
+# is the GL_MarketDocument schema (verified empirically 2026-05-04 via curl on
+# LT/LV/EE BZNs). Confusingly, A68 is published under the
+# `generationloaddocument` schema, NOT the
+# `installedcapacityperproductiontypedocument` name one might guess.
+NS = {"ns": "urn:iec62325.351:tc57wg16:451-6:generationloaddocument:3:0"}
 
 
 # ─── Data classes ────────────────────────────────────────────────────────────
@@ -130,14 +134,16 @@ def parse_a68(xml: str) -> tuple[float | None, dict[str, float], list[str]]:
         return None, {}, warnings
 
     for ts in ts_iter:
-        psr_el = (
-            ts.find(".//ns:MktPSRType/ns:psrType", ns)
-            or ts.find(".//MktPSRType/psrType")
-        )
-        qty_el = (
-            ts.find(".//ns:Point/ns:quantity", ns)
-            or ts.find(".//Point/quantity")
-        )
+        # Note: do not use `or` to chain Element lookups — xml.etree Element
+        # is falsy when childless (leaf with text only), so `a or b` would
+        # fall through to the unprefixed alternative even when `a` matched
+        # a real leaf like <psrType>B01</psrType>. Use explicit is-None checks.
+        psr_el = ts.find(".//ns:MktPSRType/ns:psrType", ns)
+        if psr_el is None:
+            psr_el = ts.find(".//MktPSRType/psrType")
+        qty_el = ts.find(".//ns:Point/ns:quantity", ns)
+        if qty_el is None:
+            qty_el = ts.find(".//Point/quantity")
         if psr_el is None or qty_el is None:
             continue
         try:
