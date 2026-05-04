@@ -8,8 +8,10 @@ import {
   evaluateFeedItemGates,
   extractDomain,
   feedSourceTier,
+  hasHallucinationHedgeLanguage,
   isAllowedFeedSource,
   isDeniedFeedSource,
+  isGenericSourceUrl,
   topicThresholdForTier,
 } from '../feedSourceQuality';
 
@@ -288,6 +290,77 @@ describe('evaluateFeedItemGates — full pipeline', () => {
       expect(r.tier).toBe('outside');
       expect(r.score).toBeGreaterThanOrEqual(2);
     }
+  });
+});
+
+describe('hallucination markers (Phase 12.10.0)', () => {
+  // The Saulėtas Pasaulis purge surfaced two heuristics that distinguish
+  // LLM-fabricated entries from real news. These tests pin the heuristics
+  // for Phase 12.12 to wire structurally into evaluateFeedItemGates().
+  describe('isGenericSourceUrl', () => {
+    it('flags litgrid.eu homepage (the Saulėtas Pasaulis marker)', () => {
+      expect(isGenericSourceUrl('https://www.litgrid.eu/')).toBe(true);
+    });
+    it('flags vert.lt homepage', () => {
+      expect(isGenericSourceUrl('https://www.vert.lt/')).toBe(true);
+    });
+    it('does not flag a specific Litgrid press release path', () => {
+      expect(
+        isGenericSourceUrl(
+          'https://www.litgrid.eu/index.php/naujienos/naujienos/litgrid-per-3-menesius-preliminariai-rezervavo-17-gw-galios-saules-ir-vejo-elektrinems-bei-kaupimo-irenginiams/36506',
+        ),
+      ).toBe(false);
+    });
+    it('does not flag a deep regulator path', () => {
+      expect(isGenericSourceUrl('https://apva.lrv.lt/lt/naujienos-24316/uzbaigtas-...')).toBe(
+        false,
+      );
+    });
+    it('handles empty / null / whitespace input', () => {
+      expect(isGenericSourceUrl(null)).toBe(false);
+      expect(isGenericSourceUrl(undefined)).toBe(false);
+      expect(isGenericSourceUrl('')).toBe(false);
+      expect(isGenericSourceUrl('   ')).toBe(false);
+    });
+    it('treats bare domain (no protocol, no path) as generic', () => {
+      expect(isGenericSourceUrl('litgrid.eu')).toBe(true);
+      expect(isGenericSourceUrl('www.vert.lt')).toBe(true);
+    });
+  });
+
+  describe('hasHallucinationHedgeLanguage', () => {
+    it('detects "if confirmed" (the Saulėtas Pasaulis consequence marker)', () => {
+      expect(
+        hasHallucinationHedgeLanguage(
+          'UAB X (500 MW) removed from litgrid pipeline. If confirmed, eases competition pressure.',
+        ),
+      ).toBe(true);
+    });
+    it('detects "allegedly" and "rumored to"', () => {
+      expect(hasHallucinationHedgeLanguage('Allegedly, the project secured EBRD financing.')).toBe(
+        true,
+      );
+      expect(hasHallucinationHedgeLanguage('The developer is rumored to exit Q4.')).toBe(true);
+    });
+    it('does not flag direct attribution to a specific source', () => {
+      expect(
+        hasHallucinationHedgeLanguage(
+          'UAB X (500 MW) removed per Litgrid press release dated 2026-04-15.',
+        ),
+      ).toBe(false);
+    });
+    it('does not flag sober technical prose', () => {
+      expect(
+        hasHallucinationHedgeLanguage(
+          'Storage operators bear 30% of system balancing costs from Jan 2026.',
+        ),
+      ).toBe(false);
+    });
+    it('handles empty / null input', () => {
+      expect(hasHallucinationHedgeLanguage(null)).toBe(false);
+      expect(hasHallucinationHedgeLanguage(undefined)).toBe(false);
+      expect(hasHallucinationHedgeLanguage('')).toBe(false);
+    });
   });
 });
 
