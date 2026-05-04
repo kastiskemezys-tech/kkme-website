@@ -1,7 +1,7 @@
 # KKME Handover
 
 Canonical state document. Read this first in every session.
-Last updated: 2026-05-03 (Session 28 — Phase 12.8.0 Tier 0 hot-fix bundle on `phase-12-8-0-tier0-hotfix`. Audit-investigated: the prompt's "highest-priority light-mode bug" was empirically false (152 root tokens, 114 light overrides, HeroBalticMap fully tokenized; visual screenshots confirm parity). Light-mode commit reduced to a single `ContactForm` chevron fix + investigation writeup. Three other sub-items shipped per Pause A decisions: percentile tiles → static stat-summary strip; keyboard shortcuts → SOT + outline flash + `?` overlay (fixes 2 dead bindings); ticker → pause-on-hover + edge fade + robustified reduced-motion selector. 866 → 882 tests. **Process finding: 3 of 4 audit-#2 visual claims confirmed hallucinated this session — see audit-credibility taxonomy in Session 28 entry + `docs/investigations/phase-12-8-0-light-mode-audit-vs-reality.md`.** Branch pushed for PR; PR draft at `docs/phases/phase-12-8-0-pr.md`. Cloudflare Pages preview verified. Previously Session 27 — Phase 12.8 Dispatch render-error fix + boundary upgrade; see `docs/investigations/phase-12-8-dispatch-render-error.md`.)
+Last updated: 2026-05-04 (Session 29 — Phase 12.10.0 emergency hallucinated-entity purge on `phase-12-10-0-entity-purge` off post-merge `main`. New `POST /feed/delete-by-id` worker endpoint shipped (UPDATE_SECRET-gated, ~50 lines). `isGenericSourceUrl` + `hasHallucinationHedgeLanguage` helpers exported from `app/lib/feedSourceQuality.ts` for Phase 12.12 to wire into `evaluateFeedItemGates()` at worker line ~6602. Investigation traced the Saulėtas Pasaulis ingestion path: entry came in via `POST /feed/events` (id `mna2ne4x-xfri25` matches `makeId()` + typed-event field shape, no `cur_` prefix, no repo source) — operator hand-pushed via curl with LLM-drafted content from an external chat. Phase 12.12 #8's structural gate target is the typed-event endpoint, not curation. Worker deploy `043fd2cb-1146-4d96-95c2-0ecb2864f5d7` live; delete-call deferred to operator (UPDATE_SECRET not in this session's shell — endpoint deploys regardless, fire later). 882 → 893 tests. Branch pushed for PR; PR draft at `docs/phases/phase-12-10-0-pr.md`. Previously Session 28 — Phase 12.8.0 Tier 0 hot-fix bundle on `phase-12-8-0-tier0-hotfix`. Audit-investigated: the prompt's "highest-priority light-mode bug" was empirically false (152 root tokens, 114 light overrides, HeroBalticMap fully tokenized; visual screenshots confirm parity). Light-mode commit reduced to a single `ContactForm` chevron fix + investigation writeup. Three other sub-items shipped per Pause A decisions: percentile tiles → static stat-summary strip; keyboard shortcuts → SOT + outline flash + `?` overlay (fixes 2 dead bindings); ticker → pause-on-hover + edge fade + robustified reduced-motion selector. 866 → 882 tests. **Process finding: 3 of 4 audit-#2 visual claims confirmed hallucinated this session — see audit-credibility taxonomy in Session 28 entry + `docs/investigations/phase-12-8-0-light-mode-audit-vs-reality.md`.** Branch pushed for PR; PR draft at `docs/phases/phase-12-8-0-pr.md`. Cloudflare Pages preview verified. Previously Session 27 — Phase 12.8 Dispatch render-error fix + boundary upgrade; see `docs/investigations/phase-12-8-dispatch-render-error.md`.)
 
 ## Current phase
 
@@ -1480,3 +1480,124 @@ Then Tier 1 (12.12 + 12.14 + 7.7g).
 - Open PR via GitHub web UI (base `main`, title `Phase 12.8.0 — Tier 0 hot-fix bundle (audit-investigated)`). PR body at `docs/phases/phase-12-8-0-pr.md`.
 - Decide the roadmap-edit-conflict protocol (Backlog #2) and document in CLAUDE.md.
 - Notion board sync: mark Phase 12.8.0 shipped; add the 4 backlog items above.
+
+### Session 29 — 2026-05-04 — Phase 12.10.0 — Emergency hallucinated-entity purge (Saulėtas Pasaulis) (Claude Code)
+
+**Headline:** Audit #5 (2026-05-03) flagged "UAB Saulėtas Pasaulis (500 MW)" pipeline-exit entry as fabricated. Confirmed live on production `/feed`, traced its ingestion path, shipped a `POST /feed/delete-by-id` worker endpoint to remove it, and seeded two hallucination-marker helpers for Phase 12.12 to wire structurally. Worker deployed; operator fires the delete call (UPDATE_SECRET not in this session's shell). Materially smaller scope than the prompt allowed (5+ entries would have triggered broader purge) — only one entry needed removal.
+
+**Branch:** `phase-12-10-0-entity-purge` off `origin/main` (post-merge of Phase 12.8.0 PRs #47 + #48; commits `652b551` + `67c0d96`). Two commits pushed to origin (worker fix + this handover entry). PR draft at `docs/phases/phase-12-10-0-pr.md`.
+
+**Investigation findings (Pause A — load-bearing for Phase 12.12 scoping):**
+
+| Marker | Saulėtas Pasaulis evidence |
+|---|---|
+| No matching entity in Lithuanian commercial registry | Confirmed by audit #5; a 500 MW Baltic storage-pipeline exit would have made trade press if real, none did |
+| Generic source URL (homepage, no path) | `https://www.litgrid.eu/` — vs real Litgrid press releases at `/index.php/naujienos/naujienos/.../36506` |
+| Hedge language betraying model uncertainty | `…removed from litgrid pipeline. If confirmed, eases competition pressure on remaining projects.` |
+
+**Ingestion-path trace (the structurally important answer):**
+
+| Field | Saulėtas Pasaulis | Indicates |
+|---|---|---|
+| id | `mna2ne4x-xfri25` | Matches `makeId()` format `{base36-Date.now()}-{6 random}` (worker line 4977). **No `cur_` prefix** → not from `appendCurationToFeedIndex`. |
+| Field shape | `event_type`, `source_quality`, `confidence`, `horizon`, `impact_direction`, `affected_modules`, `affected_cod_windows` all present | Exact schema written by `POST /feed/events` (worker line 6603). Curation projection produces `origin: 'curation'` + `source_tier` + `topic_score` instead. |
+| `git log -S "Saulėtas Pasaulis"` | Only doc commits (`aa8c1ff`, `61c88d4`, `0b837db`, `2eaba5e`) | **No code path in repo creates the entity** — no script, no LLM curation prompt, no operator-curated JSON. |
+
+**Conclusion:** entry was hand-pushed via `curl POST /feed/events` from operator's terminal. Body content was LLM-drafted externally (in a Cowork / CC chat that emitted curl commands without verifying the named entity). The fabrication entered KV via the typed-event API; no committed script or scheduled job authored it.
+
+**Implication for Phase 12.12:** the structural named-entity verification gate must wire into **`POST /feed/events`** at the existing `evaluateFeedItemGates(...)` call (`workers/fetch-s1.js` ~line 6602), **not** into `POST /curate` / `appendCurationToFeedIndex`. The two helpers shipped in this phase (`isGenericSourceUrl`, `hasHallucinationHedgeLanguage` in `app/lib/feedSourceQuality.ts`) are the import-side of that wire-up — Phase 12.12 #8 calls them from inside the gate alongside the new commercial-registry API check.
+
+**Shipped (2 commits):**
+
+| # | Sub-item | What ships |
+|---|---|---|
+| 1 | Worker endpoint + helpers + investigation | `workers/fetch-s1.js` `POST /feed/delete-by-id` (~50 lines, UPDATE_SECRET-gated, returns removed titles for audit-trail). `app/lib/feedSourceQuality.ts` exports `isGenericSourceUrl` + `hasHallucinationHedgeLanguage`. `app/lib/__tests__/feedSourceQuality.test.ts` adds 11 test cases pinning both heuristics. `docs/investigations/phase-12-10-0-saiuletas-pasaulis.md` documents the trace. |
+| 2 | Handover Session 29 | This entry. |
+
+**Verification gates (all green):**
+- `npx tsc --noEmit` → 0 errors
+- `node --check workers/fetch-s1.js` → 0 errors
+- `npx vitest run` → 893 / 893 passed (882 → 893, **+11 new tests** in the existing `feedSourceQuality.test.ts` file under a new `describe('hallucination markers (Phase 12.10.0)')` block)
+- `npm run lint` → 40 errors / 129 warnings — **identical to main baseline**, no new errors introduced
+- `npm run build` → compiled in 3.4s, 8 static pages
+- Worker deploy → version `043fd2cb-1146-4d96-95c2-0ecb2864f5d7` live; `POST /feed/delete-by-id` returns `401 {"error":"unauthorized"}` (correct gate behavior)
+
+**Operator-fire instructions for the delete call** (UPDATE_SECRET not in this session's shell; endpoint is live, fire when ready):
+
+```bash
+# Option A — pull from local .env file
+export UPDATE_SECRET=$(grep -h '^UPDATE_SECRET' ~/kkme/.env* workers/.env* 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
+# Option B — macOS Keychain
+# export UPDATE_SECRET=$(security find-generic-password -a UPDATE_SECRET -w)
+
+curl -s -X POST https://kkme-fetch-s1.kastis-kemezys.workers.dev/feed/delete-by-id \
+  -H "Content-Type: application/json" \
+  -H "x-update-secret: ${UPDATE_SECRET}" \
+  -d '{"id":"mna2ne4x-xfri25","reason":"hallucinated-entity-not-in-LT-commercial-registry"}' \
+  | python3 -m json.tool
+
+# Verify removal:
+curl -s https://kkme-fetch-s1.kastis-kemezys.workers.dev/feed | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+items = d.get('items', [])
+hits = [i for i in items if 'Saulėtas Pasaulis' in (i.get('title','') or '')]
+print(f'Total: {len(items)}  Saulėtas Pasaulis hits: {len(hits)}')
+print('SUCCESSFULLY REMOVED' if not hits else 'STILL PRESENT — purge failed')
+"
+```
+
+Expected response: `{"ok":true,"removed_count":1,"removed_titles":["Pipeline exit: UAB \"Saulėtas Pasaulis\" (500 MW) (LT)"],"before":9,"after":8,"reason":"hallucinated-entity-not-in-LT-commercial-registry"}`.
+
+**Backlog discovered this session:**
+
+1. **VERT.lt item #3 — verify-or-remove in Phase 12.10.** /feed item with `source: 'VERT.lt'`, `source_url: 'https://www.vert.lt/'` (generic homepage, same marker as Saulėtas Pasaulis), title "Lithuanian balancing cost allocation shifts — producers cover 30%". Content claim (Jan 2026 producers bearing 30% of system balancing costs) is plausible Lithuanian regulatory news but lacks a specific source URL. **Operator decision (Pause A):** keep, do not auto-purge — generic URL is a flag, not proof. Carries into **Phase 12.10's audit #5 unverifiable-claims category** for verify-or-remove disposition with the rest of the broader data discrepancy bundle.
+
+2. **Roadmap delta needed — operator to apply Cowork-side after merge** (per Session 28 backlog #2 protocol: CC does not commit roadmap edits). Two edits to `docs/phases/_post-12-8-roadmap.md`:
+   - **Move Phase 12.10.0 entry from "Currently active" to a Shipped appendix** (mirror the format used for previously-shipped Tier 0 phases). Update the "Currently active" `Next CC job:` line to point to **Phase 12.10** (broader data discrepancy hot-fix bundle, ~6-8h).
+   - **Append to Phase 12.12 #8 (named-entity verification) entry** — paste this delta exactly:
+
+   ```markdown
+   **Ingestion-path target (per Phase 12.10.0 Session 29 finding):** the structural
+   named-entity verification gate must wire into **`POST /feed/events`** at the
+   existing `evaluateFeedItemGates(...)` call in `workers/fetch-s1.js` (~line 6602),
+   **not** into `POST /curate` / `appendCurationToFeedIndex`. Saulėtas Pasaulis was
+   confirmed to have entered via the typed-event API (id `mna2ne4x-xfri25` matches
+   `makeId()` format, has the typed-event field shape, no `cur_` prefix, no repo
+   source). The two helpers already exported from `app/lib/feedSourceQuality.ts`
+   (`isGenericSourceUrl`, `hasHallucinationHedgeLanguage`) plug straight into that
+   gate alongside the commercial-registry API check that 12.12 #8 adds.
+   ```
+
+3. **Confirm operator-side ingestion discipline.** The hand-push via `curl POST /feed/events` with externally-LLM-drafted content is a recurring failure mode (the entire reason this entity entered). Two non-exclusive mitigations to consider Cowork-side:
+   - Wrap the curl pattern in a script that requires a `--verified-source-url` flag with a non-homepage URL.
+   - Until 12.12 #8 ships, treat any LLM-drafted `POST /feed/events` body as suspect — at minimum, eyeball the source_url and require a registry-verifiable name before firing.
+
+**Out of scope / not touched (per scope discipline):**
+- Wiring `isGenericSourceUrl` / `hasHallucinationHedgeLanguage` into `evaluateFeedItemGates()` at write-time. Doing so would have rejected the legitimate VERT.lt item #3 too. Phase 12.12 wires them in conjunction with the registry check so generic-URL items can still enter when the named entity verifies.
+- Frontend changes. The next `/feed` GET after the operator fires the delete call returns the cleaned data; `IntelFeed.tsx` renders it transparently.
+- Roadmap edits (per Session 28 backlog #2 default rule). Operator applies the delta above Cowork-side after merge.
+- `model_version` bump. Endpoint is purely additive; bundle delta negligible.
+- `gh pr create`. Operator opens PR via GitHub web UI per `CLAUDE.md`.
+- The ~14 untracked files in the working tree (carried forward from prior sessions per Sessions 18/22/23/24/25/26/27/28 convention) — left as-is.
+
+**Next CC job: Phase 12.10 — broader data discrepancy hot-fix bundle (~6-8h).**
+
+Per the updated `_post-12-8-roadmap.md` Phase 12.10 entry. Bundles audit #5's remaining findings: LT/LV/EE installed reconciliation, peak-hour labels, aFRR direction disclosure, the verify-or-remove pass for the unverifiable-claims category (which now includes the VERT.lt item #3 carried forward from this session), etc.
+
+**Tier 0 sequence after Phase 12.10.0:**
+1. ✅ Phase 12.8 (merged `1b2d803`)
+2. ✅ Phase 12.8.0 (merged PRs #47 + #48 → `652b551` + `67c0d96`)
+3. ✅ **Phase 12.10.0** (this PR, awaiting merge)
+4. ⏳ Phase 12.10 (broader data discrepancy bundle, ~6-8h) — **next**
+5. Phase 12.8.1 (backtest caption clarification, ~30-60 min)
+6. Phase 12.9 (worker + header KPI bundle, ~1.5-2h)
+7. Phase 4G (intel encoding, ~1.5h)
+
+Then Tier 1 (12.12 + 12.14 + 7.7g). The Phase 12.12 wire-up of this session's helpers is the long-term prevention for the Saulėtas Pasaulis class.
+
+**Next operator action:**
+- Open PR via GitHub web UI (base `main`, title `Phase 12.10.0 — Emergency hallucinated-entity purge (Saulėtas Pasaulis)`). PR body at `docs/phases/phase-12-10-0-pr.md`.
+- Fire the operator delete-call (curl block above) when UPDATE_SECRET is in shell. Expected before the PR merges so production is clean ahead of the merge — but acceptable to fire after merge if the secret isn't immediately to hand.
+- Apply the roadmap delta from Backlog #2 above to `docs/phases/_post-12-8-roadmap.md` Cowork-side after merge.
+- Notion board sync: mark Phase 12.10.0 shipped; add Backlog #1 (VERT.lt item #3 verify-or-remove) to the Phase 12.10 backlog.
