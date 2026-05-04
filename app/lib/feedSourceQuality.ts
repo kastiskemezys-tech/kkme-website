@@ -208,6 +208,40 @@ export function bessTopicScore(
   return score;
 }
 
+// Phase 12.10.0 — hallucination heuristics, exported for Phase 12.12 to wire
+// into evaluateFeedItemGates() at the ingestion gate. Surface them here so
+// audit tooling and the gate share one source of truth.
+
+// Generic source URL = the homepage of a domain with no path beyond it.
+// Real press releases / regulator announcements live at specific paths;
+// LLM-fabricated entries default to the homepage when the model doesn't
+// know the actual source URL. The Saulėtas Pasaulis entry was caught by
+// this marker (https://www.litgrid.eu/ vs the real /index.php/naujienos/...).
+export function isGenericSourceUrl(url: string | null | undefined): boolean {
+  if (!url) return false;
+  const u = String(url).toLowerCase().trim();
+  if (!u) return false;
+  const stripped = u.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/+$/, '');
+  return !stripped.includes('/');
+}
+
+// Hedge phrases that betray model uncertainty about a published claim.
+// Real news doesn't write "if confirmed" — it confirms or it doesn't print.
+const HALLUCINATION_HEDGE_PHRASES: readonly string[] = [
+  'if confirmed',
+  'if accurate',
+  'pending verification',
+  'unconfirmed report',
+  'rumored to',
+  'allegedly',
+];
+
+export function hasHallucinationHedgeLanguage(text: string | null | undefined): boolean {
+  if (!text) return false;
+  const haystack = String(text).toLowerCase();
+  return HALLUCINATION_HEDGE_PHRASES.some(phrase => haystack.includes(phrase));
+}
+
 // Single entry point for ingestion-time and read-time gating. Returns a
 // structured pass/fail with the reason string suitable for logging or
 // surfacing in the rejected-items audit trail.

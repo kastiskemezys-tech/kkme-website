@@ -6729,6 +6729,53 @@ export default {
       });
     }
 
+    // ── POST /feed/delete-by-id ──────────────────────────────────────────────
+    // Operator-triggered hard removal of a specific feed_index entry by id.
+    // Sister of /feed/purge-irrelevant: that one re-runs the gates as a sweep;
+    // this one targets a single id for one-off removal of items that pass
+    // every existing gate but are still wrong (e.g. hallucinated entities a
+    // human verifier identifies). UPDATE_SECRET-gated. Removed titles are
+    // returned in the response so the caller can preserve an audit trail.
+    if (request.method === 'POST' && url.pathname === '/feed/delete-by-id') {
+      if (request.headers.get('x-update-secret') !== env.UPDATE_SECRET) {
+        return jsonResp({ error: 'unauthorized' }, 401);
+      }
+      let body;
+      try { body = await request.json(); } catch {
+        return jsonResp({ error: 'invalid JSON body' }, 400);
+      }
+      const targetId = body.id;
+      if (!targetId || typeof targetId !== 'string') {
+        return jsonResp({ error: 'id (string) required in body' }, 400);
+      }
+      const reason = typeof body.reason === 'string' && body.reason.trim()
+        ? body.reason.trim()
+        : 'operator-removed';
+
+      const rawIdx = await env.KKME_SIGNALS.get('feed_index').catch(() => null);
+      if (!rawIdx) return jsonResp({ error: 'feed_index empty' }, 404);
+      const idx = JSON.parse(rawIdx);
+      const before = idx.length;
+      const removed = idx.filter(item => item && item.id === targetId);
+      const kept = idx.filter(item => !item || item.id !== targetId);
+
+      if (removed.length === 0) {
+        return jsonResp({ error: `no entry with id '${targetId}'`, before, after: kept.length }, 404);
+      }
+
+      await env.KKME_SIGNALS.put('feed_index', JSON.stringify(kept));
+      console.log(`[Feed/delete] removed ${removed.length} entry/entries with id '${targetId}', reason: ${reason}`);
+
+      return jsonResp({
+        ok: true,
+        removed_count: removed.length,
+        removed_titles: removed.map(r => (r.title || '').slice(0, 200) || null),
+        before,
+        after: kept.length,
+        reason,
+      });
+    }
+
     // ── GET /feed/rejections — Phase 4F audit trail of soft-deleted items ─────
     // UPDATE_SECRET-gated: rejection records may include source URLs that are
     // not yet publishable. Returns the most recent N rejected items with
