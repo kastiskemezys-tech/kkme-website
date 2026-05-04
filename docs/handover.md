@@ -1880,3 +1880,75 @@ Then Tier 1 (12.12 + 12.14 + 7.7g). Phase 12.12 picks up:
 - Fire `POST /s4/sync-layer3` if quarantine fields desired before next 4-hourly cron.
 - Notion board sync: mark Phase 12.10 shipped; add the 7 backlog items above.
 - After merge to main → Phase 30 §6 (three commits + push to `phase-30-methodology-research` branch) resumes from the same working tree per operator's latest message.
+### Session 31 — 2026-05-04 — Phase 30 — Clean Horizon methodology research + KKME methodology paper (Cowork, parallel to CC's Phase 12.10)
+
+**Headline:** Phase 30 research deliverables shipped — three docs (methodology comparison, engine gap backlog, public-facing KKME methodology paper) covering 12 methodology dimensions with 16 Clean Horizon public sources cited. **Load-bearing finding (P1 critical):** Gap #5 — KKME's published aFRR-down €5.03/MW/h is order-of-magnitude lower than Clean Horizon's published Baltic average ~€340/MW/h. Either KKME is reporting realised €/MWh-activated rather than reservation €/MW/h, OR the engine is computing a different product. Folds into next Phase 12.10 follow-up commit (NOT a new phase). Phase 30 ran in parallel to CC's Phase 12.10; no code touched, no tests added, no worker deploy. Branch `phase-30-methodology-research` off `02a64ea` (post-Phase-12.10 main).
+
+**Branch:** `phase-30-methodology-research` off `origin/main` (post-merge of Phase 12.10 PR #50 → `02a64ea`). Three commits pushed to origin.
+
+**Pause A defaults (operator-baked into prompt; Cowork executed without re-asking):**
+
+| Decision | Disposition |
+|---|---|
+| Position vs Clean Horizon | **(c) — independent Baltic flexibility platform with own methodology.** NOT (a) "free version of Clean Horizon" (positions as discount product) and NOT (b) "Lithuanian-deep complement to Clean Horizon" (anchors identity to competitor). |
+| Clean Horizon data ingestion | **No.** Legal + IP risk per operator's prior decision. Methodology framework cited only; no published numbers redistributed. |
+| Methodology paper destination | **Standalone `/methodology` route recommended** (mirrors how cleanhorizon.com publishes methodology). Markdown landed at `docs/methodology.md` for now; rendering destination is operator decision before Phase A consolidates. |
+| Source acquisition target | 13 Clean Horizon public sources minimum (per prompt §0.2). **Achieved 16.** WebFetch hit token-cap on 3 longer Storage Index PDFs; documented as research limitation in §1.3 of comparison doc. Coverage sufficient for all 12 dimensions. |
+| Side-by-side numerical comparison on public site | **Withheld pending Gap #5 reconciliation.** Methodology paper as written stays silent on the specific aFRR-down number. |
+
+**Shipped (3 commits):**
+
+| # | Commit subject | What ships |
+|---|---|---|
+| 1 | `phase-30(research): Clean Horizon methodology comparison + KKME engine gap analysis` | `docs/research/clean-horizon-methodology-vs-kkme-v7.3.md` (217 lines, 12 methodology dimensions, side-by-side comparison with verdict per dimension, source bibliography of 16 Clean Horizon items). `docs/research/kkme-engine-improvements-from-clean-horizon-comparison.md` (240 lines, 5 gaps prioritized: Gap #5 P1 critical aFRR/FCR cap reservation reconciliation; Gap #1 P2 explicit cannibalization curve; Gaps #2/3/4 P3 medium for dynamic priority allocation, multi-market simultaneous bidding, 15-min DA optimization). `docs/phases/phase-30-clean-horizon-methodology-research-prompt.md` (424 lines, the original Cowork research prompt — committed for traceability). |
+| 2 | `phase-30(methodology): public-facing KKME methodology paper at Clean-Horizon-comparable rigor` | `docs/methodology.md` (350 lines, institutional-sober voice, covers: scope + geography, data sources table, revenue model decomposition per product (capacity reservation / activation energy / DA arbitrage formulas), cycle accounting + warranty status, RTE curves, three SOH degradation curves, augmentation, cannibalization (with explicit disclosure that KKME is less precise than Clean Horizon's January 2026 framing), revenue floor, gross→net, project finance, comparison to Clean Horizon, intentional differences, what we got wrong, engine version history, calibration vs NREL ATB). |
+| 3 | `phase-30(handover): Session 31 — Clean Horizon methodology research shipped; Phase 29 unblocked on Gap #5 resolution` | This entry. |
+
+**12 methodology dimensions documented in comparison doc:**
+scope/geography · data sources · revenue model decomposition · cycle accounting · RTE · SOH/degradation · augmentation · cannibalization · project finance · calibration approach · output granularity · governance.
+
+**5 gaps identified (priority order):**
+
+| # | Priority | Gap | Estimated remediation |
+|---|---|---|---|
+| 5 | **P1 critical** | aFRR/FCR capacity-reservation reconciliation. KKME aFRR-down €5.03/MW/h vs Clean Horizon Baltic average ~€340/MW/h — order-of-magnitude mismatch. Likely a unit/product-definition issue, not a methodology gap, but unverified until investigation. | Phase 12.10 follow-up commit (not a new phase) |
+| 1 | P2 | Explicit cannibalization curve as `installed_capacity_mw` input (Clean Horizon's January 2026 framing). KKME has implicit cannibalization via scenario compression multipliers (1×/2×/3.5×) but no installed-capacity elasticity. | Tier 5 (methodology depth) |
+| 2 | P3 medium | Dynamic priority allocation across products by hour. Clean Horizon's COSMOS does this; KKME uses static 16/34/50 split. | Tier 5 |
+| 3 | P3 medium | Multi-market simultaneous bidding logic. Currently revenue-additive; operationally valid per Baltic operator confirmation but mathematically un-modelled. | Tier 5 |
+| 4 | P3 low-medium | 15-min DA arbitrage optimisation. Baltic DA is 60-min today; gap becomes material if Nord Pool moves to 15-min in 2027 as planned. | Tier 5 (deferred until 15-min DA confirmed) |
+
+**Significant non-deliverable finding from research process** (also in roadmap "Currently active" section): the EE installed-capacity definitional gap CC documented in Session 30 (A68 218 MW vs fleet 126.5 MW) compounds Gap #5. When Phase 30 follow-up does the reconciliation, it has to declare upfront which installed-capacity definition the denominator uses — Clean Horizon almost certainly uses commissioned-only (because that's what generates revenue today), which means KKME would have to use the same definition for the comparison to be valid. Cross-link with CC's Phase 12.12 #15 sub-item (A68/fleet boundary review).
+
+**Pre-commit gates (research-only phase, no code):**
+- No `tsc` / `vitest` / `lint` runs needed (no code changes)
+- Markdown lint not enforced repo-side; manual proofread done
+- All internal cross-references verified (gap doc → comparison doc → methodology doc → roadmap Phase 30 entry)
+- Source bibliography links verified accessible (16/16) at time of research
+
+**Backlog discovered this session (in priority order):**
+
+1. **Gap #5 reconciliation work** — adds to Phase 12.10 follow-up scope. NOT a new phase. Investigation: read worker `RESERVE_PRODUCTS` constants (lines 1009-1013), `computeRevenueV7` aFRR branch (~line 1200-1300), confirm whether the published €/MW/h is reservation-priced or activation-priced. Cross-check against Elering's published aFRR-down market clearing prices for a sample week (2026-04 should have public data). If mislabel: relabel + re-test calibration. If genuine difference: investigate engine logic for missing cap reservation revenue stream.
+
+2. **Methodology paper rendering destination decision** — operator. Options: (a) standalone `/methodology` route in the Next.js app (recommended; mirrors cleanhorizon.com pattern); (b) inline drawer (Phase A consolidates methodology there). Recommendation (a). File at `docs/methodology.md` is render-ready either way.
+
+3. **Phase 12.10 follow-up scope expansion** — fold Gap #5 reconciliation + EE A68/fleet boundary policy decision (CC's Phase 12.12 #15) into next Phase 12.10 follow-up commit. Both are interdependent and small enough to bundle.
+
+4. **WebFetch token-cap as a research limitation** — three longer Clean Horizon Storage Index PDFs returned 60-87k tokens, exceeding tool capacity. Fell back to WebSearch result summaries. Documented in research deliverable §1.3. If Phase 29 needs deeper Clean Horizon methodology references, may need a different acquisition strategy (manual download + local read).
+
+**Out of scope / not touched (per scope discipline):**
+- No worker code changes; no engine modifications; no tests added.
+- Phase 29 implementation (KKME Baltic Storage Index) — explicitly blocked on Gap #5 resolution.
+- Direct numerical comparison vs Clean Horizon on the live site — withheld pending Gap #5.
+- Roadmap edits applied directly to main as a separate Cowork commit pre-Phase-30-branch (per Session 28 backlog #2 protocol — Cowork-owned). Not part of this branch.
+- `gh pr create`. Operator opens PR via GitHub web UI per `CLAUDE.md`.
+- Pre-existing untracked files in working tree carried forward as-is.
+
+**Tier 7 sequence:**
+1. ✅ **Phase 30** (this PR, awaiting merge) — research deliverables only
+2. ⏳ Phase 12.10 follow-up (Gap #5 reconciliation + EE A68/fleet boundary policy) — bundled into next CC Phase 12.10 follow-up commit
+3. ⏳ Phase 29 (KKME Baltic Storage Index, ~4-6h) — blocked on #2
+
+**Next operator action:**
+- Open PR via GitHub web UI: base `main`, head `phase-30-methodology-research`, title `Phase 30 — Clean Horizon methodology research + KKME methodology paper`. PR body: copy this Session 31 entry's headline + shipped table.
+- Decide methodology paper rendering destination (standalone `/methodology` route recommended).
+- Notion board sync: mark Phase 30 shipped; add Gap #5 reconciliation to Phase 12.10 follow-up scope; mark Phase 29 blocked-on-Gap-5.
