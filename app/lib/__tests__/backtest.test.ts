@@ -66,6 +66,32 @@ describe('backtestStats — summary computation', () => {
     expect(backtestStats(FIXTURE, 0).meanErrorPct).toBeNull();
   });
 
+  it('mae is sign-stripped magnitude that meanErrorPct hides', () => {
+    // 3 rows around modeled=300: realised=[330, 270, 360], days=[30,30,30].
+    // meanTotalDaily = 320 → meanErrorPct = +6.67% (hides the down-shot at 270);
+    // mae = (|330-300| + |270-300| + |360-300|) / 3 = (30 + 30 + 60) / 3 = 40.
+    const symFixture: BacktestRow[] = [
+      { month: '2025-04', trading_daily: 0, balancing_daily: 0, total_daily: 330, s1_capture: 0, days: 30 },
+      { month: '2025-05', trading_daily: 0, balancing_daily: 0, total_daily: 270, s1_capture: 0, days: 30 },
+      { month: '2025-06', trading_daily: 0, balancing_daily: 0, total_daily: 360, s1_capture: 0, days: 30 },
+    ];
+    const stats = backtestStats(symFixture, 300);
+    expect(stats.meanErrorPct).toBeCloseTo(6.667, 2);
+    expect(stats.mae).toBeCloseTo(40, 5);
+  });
+
+  it('returns null mae when no modeled reference passed', () => {
+    expect(backtestStats(FIXTURE).mae).toBeNull();
+  });
+
+  it('returns null mae if modeled reference is zero', () => {
+    expect(backtestStats(FIXTURE, 0).mae).toBeNull();
+  });
+
+  it('returns null mae on empty input', () => {
+    expect(backtestStats([], 300).mae).toBeNull();
+  });
+
   it('drops rows with non-finite total_daily or zero days', () => {
     const dirty: BacktestRow[] = [
       { month: '2025-04', trading_daily: 0, balancing_daily: 0, total_daily: NaN, s1_capture: 0, days: 30 },
