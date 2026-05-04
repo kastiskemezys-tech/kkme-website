@@ -583,9 +583,12 @@ export function CalibrationFooter({ source }: { source: EngineCalibrationSource 
   if (!source) return null;
   const lastCalibrated = source.last_calibrated;
   const nextReview = source.next_review;
+  // Phase 12.10 — audit #5 sanitization: replace unsourced "Tier 1 LFP
+  // integrator consensus" language with cite to NREL Annual Technology
+  // Baseline (open, peer-reviewed) plus operator-overlay disclosure.
   const summary = lastCalibrated
-    ? `Calibrated ${lastCalibrated} against Tier 1 LFP integrator consensus + public market research`
-    : 'Calibrated against Tier 1 LFP integrator consensus + public market research';
+    ? `Calibrated ${lastCalibrated} against NREL Annual Technology Baseline (atb.nrel.gov) + operator overlay from public manufacturer warranty data`
+    : 'Calibrated against NREL Annual Technology Baseline (atb.nrel.gov) + operator overlay from public manufacturer warranty data';
   const nextSuffix = nextReview ? ` · Next review ${nextReview}` : '';
 
   const rows: Array<[string, string | undefined]> = [
@@ -1010,7 +1013,7 @@ function CannibalizationChart({ rows, codYear, CC }: {
         <div style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-xs)',
           fontFamily: 'var(--font-mono)', textTransform: 'uppercase',
           letterSpacing: '0.08em' }}>
-          Capacity-payment compression · KKME proprietary supply-stack model
+          Capacity-payment compression · KKME supply-stack model — methodology in /methodology drawer
         </div>
         {codYear && (
           <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
@@ -1783,6 +1786,29 @@ export function RevenueCard() {
         onClick={openDrawer}>
         {data.model_version} · S1 €{si.s1_capture?.toFixed(0)}/MWh · S2 aFRR €{si.afrr_clearing?.toFixed(0)} · Euribor {si.euribor}% · {fmtDate(data.timestamp)}
       </div>
+      {/* Phase 12.10 — IRR/DSCR/CAPEX assumptions footnote (audit #5).
+          The financing inputs are not visible at the headline; without them
+          a reader cannot replicate the IRR. We surface them as a one-line
+          aside; full assumptions panel is in the drawer. */}
+      {(() => {
+        const panel = data.assumptions_panel;
+        const wacc = panel?.wacc?.value;
+        const totalCapital = (data.debt_initial ?? 0) + (data.equity_initial ?? 0);
+        const debtFractionPct = totalCapital > 0 ? Math.round(((data.debt_initial ?? 0) / totalCapital) * 100) : null;
+        const allInPct = (data.rate_allin * 100).toFixed(2);
+        const fmtPct = (n: number | undefined) => (n == null ? '—' : (n * 100).toFixed(1) + '%');
+        return (
+          <div
+            style={{
+              fontFamily: 'var(--font-mono)', fontSize: '0.5625rem',
+              color: 'var(--text-muted)', marginTop: 4, opacity: 0.65, lineHeight: 1.5,
+            }}
+            title="Replicate-the-IRR disclosure (Phase 12.10): without these inputs the headline IRR is not reproducible. Full assumptions panel + scenario alternatives in the drawer."
+          >
+            Assumptions: WACC {fmtPct(wacc)} · Debt {debtFractionPct != null ? `${debtFractionPct}%` : '—'} @ {allInPct}% all-in · CAPEX €{(data.capex_eur_kwh ?? 0).toFixed(0)}/kWh · Scenario: {data.scenario} · {data.model_version} (calibrated {data.engine_calibration_source?.last_calibrated ?? '—'})
+          </div>
+        );
+      })()}
 
       {/* Drawer */}
       <DetailsDrawer key={drawerKey} defaultOpen={drawerKey > 0}

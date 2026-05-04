@@ -225,6 +225,17 @@ export function S2Card() {
           {hero != null ? <AnimatedNumber value={hero} prefix={'€'} decimals={prod === 'FCR' ? 2 : 1} /> : '—'}
         </HeroButton>
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>/MW/h</span>
+        {prod === 'aFRR' && (
+          <span
+            style={{
+              fontFamily: 'var(--font-mono)', fontSize: 'var(--font-2xs, 10px)',
+              color: 'var(--text-tertiary)', letterSpacing: '0.04em', textTransform: 'uppercase',
+            }}
+            title="aFRR P50 from BTD activation feed clears as up+down combined per ENTSO-E balancing methodology. One-direction P50 (up only) is available below; downstream readers sizing a one-direction BESS offer should halve, or use afrr_up_avg / afrr_down_avg directly."
+          >
+            up+down combined
+          </span>
+        )}
         {/* ── 3. Status chip ─────────────────────────────────── */}
         <StatusChip status={phase} sentiment={sentiment} />
         {/* Activation-rate chiplet (muted n/a when upstream null) */}
@@ -232,6 +243,20 @@ export function S2Card() {
         {/* Market thickness chip (7.7.14) — discloses depth for the active product */}
         <MarketThicknessChip product={prod.toLowerCase() as ThicknessProduct} showCaption />
       </div>
+      {/* Phase 12.10 — aFRR direction disclosure (audit #5 finding):
+          headline is up+down combined; expose one-direction P50 in a sub-line
+          so downstream readers sizing a one-direction BESS offer cannot
+          accidentally double-count. */}
+      {prod === 'aFRR' && (data.afrr_up_avg != null || data.afrr_down_avg != null) && (
+        <p style={{
+          fontFamily: 'var(--font-mono)', fontSize: 'var(--font-2xs, 10px)',
+          color: 'var(--text-muted)', letterSpacing: '0.04em',
+          marginTop: '-2px', marginBottom: '8px',
+        }}>
+          One-direction (up only, Baltic avg): {data.afrr_up_avg != null ? `€${data.afrr_up_avg.toFixed(2)}/MW/h` : '—'}
+          {data.afrr_down_avg != null && ` · down: €${data.afrr_down_avg.toFixed(2)}/MW/h`}
+        </p>
+      )}
 
       {/* ── 4. Imbalance context tiles (→ `what` drawer) ────────── */}
       {(data.imbalance_mean != null || data.imbalance_p90 != null || data.pct_above_100 != null) && (

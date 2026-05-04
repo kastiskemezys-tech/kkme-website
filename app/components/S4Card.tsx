@@ -521,7 +521,7 @@ export function S4Card() {
           )}
         </div>
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-          APVA grant call: {formatMW(pipe?.apva_applied_mw ?? 1545)} MW applied
+          APVA grant call: ~{formatMW(pipe?.apva_applied_mw ?? 1545)} MW applied (operator estimate, pending APVA refresh)
           {pipe?.apva_source_url && (
             <> · <SourceLink href={pipe.apva_source_url}>APVA</SourceLink></>
           )}
@@ -542,7 +542,7 @@ export function S4Card() {
         <div style={{ opacity: 0.7 }}><span style={{ color: 'var(--text-tertiary)' }}>●</span> Grid agreement + tech project: ~700 MW</div>
         <div style={{ opacity: 0.5 }}><span style={{ color: 'var(--text-tertiary)' }}>●</span> Development permit only: ~3,600 MW</div>
         <div style={{ opacity: 0.4 }}><span style={{ color: 'var(--text-tertiary)' }}>●</span> TSO reservation / protocol: {formatMW(tsoReservedMw)} MW</div>
-        <div style={{ opacity: 0.35, fontStyle: 'italic' }}><span style={{ color: 'var(--text-tertiary)' }}>○</span> APVA applied: {formatMW(pipe?.apva_applied_mw ?? 1545)} MW</div>
+        <div style={{ opacity: 0.35, fontStyle: 'italic' }}><span style={{ color: 'var(--text-tertiary)' }}>○</span> APVA applied: ~{formatMW(pipe?.apva_applied_mw ?? 1545)} MW (operator estimate)</div>
       </div>
           </>
         )}
@@ -643,7 +643,7 @@ export function S4Card() {
           lineHeight: 1.6,
         }}>
           Policy watch · Connection guarantee currently €50/kW (<SourceLink href={urls?.vert_arcgis ?? 'https://atviri-litgrid.hub.arcgis.com/'}>VERT</SourceLink>).
-          Proposed reduction to €25/kW under discussion. If enacted, may lower entry barriers but accelerate queue depletion.
+          Operator estimate: a guarantee reduction toward ~€25/kW is plausible from the 2026 VERT methodology cycle (pending decision). If enacted, would lower entry barriers but accelerate queue depletion.
         </p>
       </div>
 
@@ -752,7 +752,12 @@ export function S4Card() {
             <span style={{ color: 'var(--text-muted)' }}>Intention protocols</span>
             <span style={{ color: 'var(--text-secondary)' }}>{(intentionMw / 1000).toFixed(1)} GW / {((pipe?.intention_protocols_mwh ?? 9000) / 1000).toFixed(0)} GWh</span>
             <span style={{ color: 'var(--text-muted)' }}>APVA applications</span>
-            <span style={{ color: 'var(--text-secondary)' }}>{formatMW(pipe?.apva_applied_mw ?? 1545)} MW / {formatMW(pipe?.apva_applied_mwh ?? 3232)} MWh (against €{((pipe?.apva_budget_eur ?? 45000000) / 1000000).toFixed(0)}M budget)</span>
+            <span
+              style={{ color: 'var(--text-secondary)' }}
+              title="APVA 2025-10 large-power BESS support call (€44.97M budget per APVIS portal). MW/MWh totals reflect operator estimate from prior APVA briefings; exact paraiškų rezultatai pending publication. Source: https://apvis.apva.lt/paskelbti_kvietimai/dideles-galios-elektros-energijos-kaupimo-irenginiu-irengimas-siekiant-subalansuoti-elektros-energetikos-sistema-2025-10"
+            >
+              ~{formatMW(pipe?.apva_applied_mw ?? 1545)} MW / ~{formatMW(pipe?.apva_applied_mwh ?? 3232)} MWh (against ~€{((pipe?.apva_budget_eur ?? 45000000) / 1000000).toFixed(0)}M budget · operator estimate)
+            </span>
             <span style={{ color: 'var(--text-muted)' }}>Pipeline-to-installed</span>
             <span style={{ color: 'var(--text-secondary)' }}>{(tsoReservedMw / installedMw).toFixed(1)}× (TSO reserved / installed)</span>
           </div>

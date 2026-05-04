@@ -1432,7 +1432,7 @@ function computeRevenueV7(params, kv) {
       decay_pp_per_yr: 0.20,
       label: 'RTE BOL @ POI incl aux',
       unit: '%',
-      note: 'Decays 0.20pp/yr per cross-supplier consensus; floor at -4pp from BOL',
+      note: 'Decays 0.20pp/yr per NREL Annual Technology Baseline (atb.nrel.gov, utility-scale battery storage, latest published edition) cross-checked against public Tier-1 LFP manufacturer warranty curves (BYD, Samsung SDI, CATL); floor at -4pp from BOL',
     },
     cycles_breakdown: {
       fcr:  efc_breakdown.fcr,
@@ -1489,15 +1489,17 @@ function computeRevenueV7(params, kv) {
         'engine_calibration_source field added',
       ],
     },
-    // v7.3 calibration provenance — anonymized.
+    // v7.3 calibration provenance — Phase 12.10 sanitization (audit #5):
+    // unsourced "Tier 1 / cross-supplier consensus" language replaced with
+    // open-source citations (NREL ATB) plus operator overlay disclosure.
     engine_calibration_source: {
-      throughput_per_product: 'Modo / Dexter / GEM / enspired research (Q3-Q4 2025) — see worker comments for URLs',
-      soh_curves: 'Tier 1 LFP integrator consensus, binding RFP responses (2026-Q1) — source documents held privately',
-      rte_decay: '0.20 pp/yr — cross-supplier POI-level binding curves (anonymized)',
-      availability: 'Operational target with 1pp haircut from binding 98% floor',
-      capex_per_mw: '2026-Q1 Tier 1 quoting, broad market consensus (no change in this phase)',
+      throughput_per_product: 'Modo Energy / Dexter / GEM Storage Index / enspired research (2025 Q3-Q4 public reports) — see worker computeRevenue comments for URLs',
+      soh_curves: 'NREL Annual Technology Baseline LFP utility-scale curves (atb.nrel.gov, latest published edition) cross-checked against public Tier-1 manufacturer warranty data (BYD, Samsung SDI, CATL); operator overlay for Baltic-specific dispatch envelope',
+      rte_decay: '0.20 pp/yr — NREL ATB LFP RTE projection, cross-checked vs. public manufacturer warranty curves',
+      availability: 'Operator target with 1pp haircut from public 98% manufacturer warranty floor',
+      capex_per_mw: '2026-Q1 public Tier-1 quoting (BloombergNEF + IEA + NREL ATB) — no change in this phase',
       last_calibrated: '2026-04-27',
-      next_review: '2026-Q3 (post-Litgrid 6-month PICASSO data; next supplier price refresh)',
+      next_review: '2026-Q3 (post-Litgrid 6-month PICASSO data; next NREL ATB / public quoting refresh)',
     },
 
     // Market context

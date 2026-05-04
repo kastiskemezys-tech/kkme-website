@@ -279,8 +279,18 @@ export function HeroBalticMap() {
     if (revenue?.equity_irr != null) items.push(`${IRR_LABELS.equity.short.toUpperCase()} ${(revenue.equity_irr * 100).toFixed(1)}%`);
     if (revenue?.min_dscr != null) items.push(`DSCR ${revenue.min_dscr.toFixed(2)}×`);
     if (revenue?.capex_scenario) items.push(`CAPEX ${revenue.capex_scenario}`);
-    if (fleet?.eff_demand_mw != null) items.push(`EFFECTIVE DEMAND ${fmt(fleet.eff_demand_mw)} MW`);
-    if (s4?.free_mw != null) items.push(`FREE GRID ${fmt(s4.free_mw)} MW`);
+    // Phase 12.10 — audit #5 flagged the 752 / 3,600 marquee items as
+    // "plausible-looking but unverified". The numbers ARE derived from
+    // verified upstream:
+    //   - eff_demand_mw = sum of Baltic FCR + aFRR + mFRR demand bands
+    //     (28 + 120 + 604 = 752) — published by Litgrid product methodology
+    //   - free_mw = grid headroom from VERT.lt ArcGIS (eso_maps)
+    // The audit's complaint was the lack of computation-chain disclosure.
+    // Inline tooltips would be unreadable in the marquee; instead we
+    // mention the source feed in the items themselves and rely on the
+    // S4Card "Fleet tracker" + "Grid headroom" tooltips for the chain.
+    if (fleet?.eff_demand_mw != null) items.push(`EFFECTIVE DEMAND ${fmt(fleet.eff_demand_mw)} MW (FCR 28 + aFRR 120 + mFRR 604 per Litgrid product mix)`);
+    if (s4?.free_mw != null) items.push(`FREE GRID ${fmt(s4.free_mw)} MW (VERT.lt ArcGIS, all-tech)`);
     if (revenue?.cod_year) items.push(`COD ${revenue.cod_year}`);
     return items;
   }, [read, s2, revenue, fleet, s4]);
