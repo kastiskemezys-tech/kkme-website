@@ -1770,7 +1770,8 @@ export function RevenueCard() {
         )}
         <div style={{ gridColumn: '1 / -1' }}>
           <RevenueBacktest rows={data.backtest ?? []}
-            modeledY1Daily={data.net_rev_per_mw_yr ? data.net_rev_per_mw_yr / 365 : null} />
+            modeledY1Daily={data.net_rev_per_mw_yr ? data.net_rev_per_mw_yr / 365 : null}
+            scenario={data.scenario} />
         </div>
       </div>
 

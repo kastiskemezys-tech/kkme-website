@@ -1880,6 +1880,108 @@ Then Tier 1 (12.12 + 12.14 + 7.7g). Phase 12.12 picks up:
 - Fire `POST /s4/sync-layer3` if quarantine fields desired before next 4-hourly cron.
 - Notion board sync: mark Phase 12.10 shipped; add the 7 backlog items above.
 - After merge to main → Phase 30 §6 (three commits + push to `phase-30-methodology-research` branch) resumes from the same working tree per operator's latest message.
+ phase-12-8-1-backtest-caption
+
+### Session 32 — 2026-05-04 — Phase 12.8.1 — Backtest dashed-line caption clarification (Claude Code)
+
+**Headline:** audit-#1's "ambiguous dashed line" finding closed via caption rewrite — not a reframe. The dashed line stays as the deliberate Y1 model anchor (verified via plugin read at `RevenueBacktest.tsx:87`); a new two-line caption beneath the chart now names it explicitly + reports realised tracking with sign-bearing % AND MAE. Backend ships `mae` alongside existing `meanErrorPct` on `BacktestStats` so over/under-shoot magnitude is no longer hidden by sign-cancellation. Path-1 (in-place edit in `RevenueBacktest.tsx`) chosen over the prompt's literal Path-2 (move-to-RevenueCard.tsx) — §10 contradiction surfaced + resolved with operator before scoping. Single PR, 2 commits.
+
+**Branch:** `phase-12-8-1-backtest-caption` off `origin/main` at `9ce134f`. Pushed to origin. PR-creation URL: `https://github.com/kastiskemezys-tech/kkme-website/pull/new/phase-12-8-1-backtest-caption`.
+
+**§10 contradictions surfaced before scoping** (audit-#1 visual-inference-as-bug discipline):
+
+| Prompt assumption | Production reality | Resolution |
+|---|---|---|
+| `modeledY1Daily` is a top-level field on `/revenue` (audit cited "€368/MW/day") | Computed client-side: `data.net_rev_per_mw_yr / 365` (`RevenueCard.tsx:1773`); not in worker payload | No code change to wiring; numbers cited in prompt were stale audit-time computation |
+| Caption JSX lives in `RevenueCard.tsx` beneath `<RevenueBacktest>` | Caption lives inside `RevenueBacktest.tsx:155-159` (component owns its footer) | Operator chose Path-1 (in-place edit) over Path-2 (move). Smallest diff; honours intent |
+
+**Pause A defaults applied** (operator decisions, no re-asking required during execution):
+- Path-1 (in-place edit in `RevenueBacktest.tsx` with `scenario?: string` prop) — confirmed before §1
+- MAE field name: `mae` on `BacktestStats` (sign-stripped magnitude); computed simple-mean over `valid` rows using verified field name `r.total_daily` (NOT `realisedDaily` as prompt guessed)
+- Conservative-tail rephrase to surface realised €/MW/day pair: **declined** — chart already shows realised vs dashed model; adding €605 vs €348 in prose duplicates the visual. Memory `feedback_drawer_prose.md` discipline applied
+- Trend-claim framing: **flagged as uncontrolled** — calibration drift (€368 +70.9% audit → €309 +78.6% §0.3 curl → €348 +74.0% Pause A page) cannot be ascertained without controlled-param comparison (different CAPEX/COD/scenario between samples). Deferred. No claim made in any user-visible surface
+
+**Shipped (2 commits):**
+
+| # | SHA | Sub-item | What ships |
+|---|---|---|---|
+| 1 | `2ce2992` | Backend MAE | `app/lib/backtest.ts`: `mae: number \| null` field on `BacktestStats`; computed via `valid.reduce((s,r) => s + Math.abs(r.total_daily - modeledY1Daily), 0) / valid.length` inside the same null-guard branch as `meanErrorPct`. `app/lib/__tests__/backtest.test.ts`: +4 cases (sign-stripped magnitude assertion, null-on-no-ref, null-on-zero-ref, null-on-empty-input). 914 → 918 total tests |
+| 2 | `4ab9c45` | Frontend caption | `app/components/RevenueBacktest.tsx`: `scenario?: string` prop added; existing `errLabel` ternary replaced with two-line caption block (L1 names dashed line as Y1 model anchor with €/MW/day + scenario + bias direction; L2 reports realised tracking with sign-bearing % + MAE + tail). Tail flips between regular `var(--text-secondary)` ("Model intentionally conservative.") and `var(--warning)` amber ("Model overshooting realised — recalibration triggered.") based on sign of `meanErrorPct`. Fallback "Backtest data not yet available." renders when `modeledY1Daily` / `meanErrorPct` / `mae` null. `app/components/RevenueCard.tsx`: `scenario={data.scenario}` wired into `<RevenueBacktest>` at line 1772-1774 |
+
+**Verification gates (all green):**
+- `npx tsc --noEmit` → 0 errors
+- `npx vitest run` → **918 / 918 passed** (60 files; 914 → 918, **+4 new MAE test cases**)
+- `npx eslint app/lib/backtest.ts app/components/RevenueBacktest.tsx app/components/RevenueCard.tsx app/lib/__tests__/backtest.test.ts` → 11 errors, **all pre-existing on unmodified lines** (`@typescript-eslint/no-explicit-any` at lines 858/885/966/987/1305/1366; `react-hooks/rules-of-hooks` at 1410; `react-hooks/static-components` at 281). Zero new errors on changed files
+- `npm run build` → compiled, 8 static pages
+- Live dev server (localhost:3000, page params `dur=4h&capex=mid&cod=2028&scenario=base`) DOM inspection: caption rendered correctly in dark + light mode; tokens resolved per-theme (`var(--text-muted)` 0.45/0.6 alpha; `var(--text-secondary)` 0.65 alpha; `var(--warning)` resolves to `rgb(212,160,60)` dark / `#8a6620` light); no raw rgba/hex in JSX
+
+**Rendered caption (Pause A page snapshot):**
+```
+Dashed: Y1 model anchor — €348/MW/day, scenario "base", conservative bias.
+Realised tracked +74.0% above model · MAE €254/MW/day over 13 months · Model intentionally conservative.
+```
+
+Realised tracks above model (sign positive) → conservative-branch tail rendering, no amber. Recalibration-branch (`var(--warning)` amber) verified by code-read at the ternary; no production data currently exercises it.
+
+**Numbers — production curl vs page render (uncontrolled samples — NOT a calibration trend):**
+
+| Source | scenario | capex | cod | `net_rev_per_mw_yr` | modeled €/MW/day | meanErrorPct | MAE €/MW/day |
+|---|---|---|---|---|---|---|---|
+| Audit baseline (2026-05-03) | base | unspec | unspec | ≈134k | €368 | +70.9% | (not surfaced) |
+| §0.3 worker curl | base | (default) | (default) | 112,864 | €309 | +78.6% | (not surfaced) |
+| Pause A page | base | mid | 2028 | ≈127,020 | €348 | +74.0% | €254 |
+
+CAPEX/COD differences between samples mean the +70.9 → +78.6 → +74.0 sequence cannot ground a calibration-drift claim — deferred to a future controlled-param calibration phase if wanted. Direction is consistent with engine v7.3's intentional conservative bias from Phase 7.7d, but that's a code-archaeology observation, not a measurement.
+
+**MAE magnitude observation:** at €254 MAE on a €348 anchor (~73% of anchor), the MAE is close to the +74.0% sign-bearing mean — meaning over- and under-shoots are NOT cancelling much; almost all months are above model. Exactly what the new MAE field was supposed to expose. Caption is intentionally terse on this — chart already shows realised vs dashed model; numbers in prose would duplicate the visual.
+
+**Visual-audit dir:** `docs/visual-audit/phase-12-8-1/`
+- `backtest-caption-dark.png` (2.13 MB, 1440×900, scrolled to backtest section, dark theme)
+- `backtest-caption-light.png` (2.40 MB, 1440×900, same scroll, `data-theme="light"`)
+
+Both screenshots show: dashed Y1 reference line + in-chart label "Y1 model €348" (unchanged from prior); new two-line caption beneath. No layout overflow. Conservative-branch tail only — no amber visible.
+
+**Backlog discovered this session:**
+
+1. **Recalibration-branch (amber tail) lacks production data exercise.** Verified by code-read of the ternary at `RevenueBacktest.tsx`. Can be exercised either by (a) operator manually setting a synthetic `net_rev_per_mw_yr` higher than realised mean × 1.0 in a dev fixture, or (b) the engine drifting overshoot-side over time. Defer to a future visual-regression test phase if wanted; not blocking.
+
+2. **Calibration trend across params is unmeasured.** The €368 / €309 / €348 modeled-anchor sequence + +70.9% / +78.6% / +74.0% mean-error sequence is across uncontrolled CAPEX/COD/scenario samples. A controlled comparison (fix CAPEX/COD/scenario, snapshot quarterly) would be needed to claim drift. Track as follow-up if engine calibration becomes a roadmap item.
+
+**Out of scope / not touched (per scope discipline):**
+- Worker change. Frontend-only phase per prompt
+- Dashed-line replacement. Stays as deliberate Y1 anchor (audit-#1 revised scope)
+- Chart shape, tooltip, surrounding card layout
+- Phase 12.10 inline-computation marquee (already shipped Session 30)
+- Design-token churn. Reuses `var(--text-muted)`, `var(--text-secondary)`, `var(--warning)`, `var(--font-xs)`, `var(--font-mono)`
+- New font sizes, bold, icons. Per memory `feedback_drawer_prose.md` — sparse, data speaks
+- Roadmap edits. Per Session 28 backlog #2 default rule. Delta reported below; operator applies Cowork-side after merge
+- `gh pr create`. Operator opens PR via GitHub web UI per `CLAUDE.md`
+- 14+ pre-existing untracked files in working tree (`_handover_s1_s2_rebuild.md`, `docs/_yolo-followup-*`, `.claude/skills/`, `docs/visual-audit/phase-7/`, etc.) — left as-is per Sessions 18-31 convention
+- Negative-branch synthetic screenshot capture — recalibration tail logic verified by code-read; production data renders only conservative branch
+
+**Roadmap delta needed — operator to apply Cowork-side after merge** (per Session 28 backlog #2 protocol — CC does NOT commit roadmap edits):
+
+1. **Move Phase 12.8.1 from "Currently active" to a Shipped appendix.** Update the "Currently active → Next CC job:" line to point to **Phase 12.9** (worker + header KPI bundle, ~1.5-2h).
+
+**Tier 0 sequence after Phase 12.8.1:**
+1. ✅ Phase 12.8 (`1b2d803`)
+2. ✅ Phase 12.8.0 (`652b551` + `67c0d96`)
+3. ✅ Phase 12.10.0 (`85ec7f8`)
+4. ✅ Phase 12.10 (`02a64ea`, merged via PR #50)
+5. ✅ **Phase 12.8.1** (this PR, awaiting merge)
+6. ⏳ Phase 12.9 (worker + header KPI bundle, ~1.5-2h) — **next CC job**
+7. Phase 4G (intel encoding, ~1.5h)
+
+Then Tier 1 (12.12 + 12.14 + 7.7g).
+
+**§6 Pause B — N/A.** Frontend-only, no worker deploy. Cloudflare Pages rebuilds automatically on PR merge to `main`. Post-deploy verification = curl + screenshot of `https://kkme.eu` once Pages finishes building (operator-fire post-merge if desired).
+
+**Next operator action:**
+- Open PR via GitHub web UI (base `main`, title `Phase 12.8.1 — Backtest dashed-line caption clarification`).
+- Apply roadmap delta above to `docs/phases/_post-12-8-roadmap.md` Cowork-side after merge.
+- Post-merge: smoke-test `https://kkme.eu` Returns card backtest section in dark + light mode (operator's preference) once Cloudflare Pages rebuild completes.
+- Notion board sync: mark Phase 12.8.1 shipped; advance "Next CC job" to Phase 12.9.
+
 ### Session 31 — 2026-05-04 — Phase 30 — Clean Horizon methodology research + KKME methodology paper (Cowork, parallel to CC's Phase 12.10)
 
 **Headline:** Phase 30 research deliverables shipped — three docs (methodology comparison, engine gap backlog, public-facing KKME methodology paper) covering 12 methodology dimensions with 16 Clean Horizon public sources cited. **Load-bearing finding (P1 critical):** Gap #5 — KKME's published aFRR-down €5.03/MW/h is order-of-magnitude lower than Clean Horizon's published Baltic average ~€340/MW/h. Either KKME is reporting realised €/MWh-activated rather than reservation €/MW/h, OR the engine is computing a different product. Folds into next Phase 12.10 follow-up commit (NOT a new phase). Phase 30 ran in parallel to CC's Phase 12.10; no code touched, no tests added, no worker deploy. Branch `phase-30-methodology-research` off `02a64ea` (post-Phase-12.10 main).
@@ -1952,3 +2054,4 @@ scope/geography · data sources · revenue model decomposition · cycle accounti
 - Open PR via GitHub web UI: base `main`, head `phase-30-methodology-research`, title `Phase 30 — Clean Horizon methodology research + KKME methodology paper`. PR body: copy this Session 31 entry's headline + shipped table.
 - Decide methodology paper rendering destination (standalone `/methodology` route recommended).
 - Notion board sync: mark Phase 30 shipped; add Gap #5 reconciliation to Phase 12.10 follow-up scope; mark Phase 29 blocked-on-Gap-5.
+main

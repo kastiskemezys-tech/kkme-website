@@ -26,9 +26,11 @@ interface RevenueBacktestProps {
   rows: ReadonlyArray<BacktestRow>;
   /** Modeled Y1 daily revenue in €/MW/day; rendered as a horizontal reference. */
   modeledY1Daily?: number | null;
+  /** Active engine scenario (e.g. "base", "conservative"); named in caption. */
+  scenario?: string;
 }
 
-export function RevenueBacktest({ rows, modeledY1Daily }: RevenueBacktestProps) {
+export function RevenueBacktest({ rows, modeledY1Daily, scenario }: RevenueBacktestProps) {
   const CC = useChartColors();
   const stats = backtestStats(rows, modeledY1Daily);
   const tt = useChartTooltipState();
@@ -130,10 +132,20 @@ export function RevenueBacktest({ rows, modeledY1Daily }: RevenueBacktestProps) 
     },
   };
 
-  const errLabel =
-    stats.meanErrorPct != null
-      ? `Mean error: ${stats.meanErrorPct >= 0 ? '+' : ''}${stats.meanErrorPct.toFixed(1)}%`
-      : `Mean: €${Math.round(stats.meanTotalDaily)}/MW/day`;
+  // Two-line caption: line 1 names the dashed line as the Y1 model anchor;
+  // line 2 reports realised tracking with sign-bearing % AND MAE (magnitude),
+  // with a tail that flips between "intentionally conservative" (realised >
+  // model) and amber-styled "recalibration triggered" (realised < model).
+  const haveStats =
+    modeledY1Daily != null &&
+    Number.isFinite(modeledY1Daily) &&
+    stats.meanErrorPct != null &&
+    stats.mae != null;
+  const aboveModel = haveStats && (stats.meanErrorPct as number) >= 0;
+  const signedPct = haveStats
+    ? `${(stats.meanErrorPct as number) >= 0 ? '+' : ''}${(stats.meanErrorPct as number).toFixed(1)}`
+    : '';
+  const scenarioLabel = scenario ?? 'base';
 
   return (
     <div>
@@ -152,11 +164,30 @@ export function RevenueBacktest({ rows, modeledY1Daily }: RevenueBacktestProps) 
       <div style={{ height: 160 }}>
         <Line data={data} plugins={[refLine]} options={options} />
       </div>
-      <div style={{ color: stats.meanErrorPct != null && Math.abs(stats.meanErrorPct) < 5
-          ? 'var(--teal)' : 'var(--text-secondary)',
-        fontSize: 'var(--font-xs)', fontFamily: 'var(--font-mono)', marginTop: 4 }}>
-        {errLabel} · months in EET
-      </div>
+      {haveStats ? (
+        <div style={{ marginTop: 4, fontSize: 'var(--font-xs)', fontFamily: 'var(--font-mono)' }}>
+          <div style={{ color: 'var(--text-muted)' }}>
+            Dashed: Y1 model anchor — €{Math.round(modeledY1Daily as number)}/MW/day,
+            scenario &ldquo;{scenarioLabel}&rdquo;, conservative bias.
+          </div>
+          <div style={{ color: 'var(--text-secondary)' }}>
+            Realised tracked {signedPct}% {aboveModel ? 'above' : 'below'} model · MAE €
+            {Math.round(stats.mae as number)}/MW/day over {stats.count} months ·{' '}
+            {aboveModel ? (
+              <span>Model intentionally conservative.</span>
+            ) : (
+              <span style={{ color: 'var(--warning)' }}>
+                Model overshooting realised — recalibration triggered.
+              </span>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
+          fontFamily: 'var(--font-mono)', marginTop: 4 }}>
+          Backtest data not yet available.
+        </div>
+      )}
       <ChartTooltipPortal tt={tt} />
     </div>
   );

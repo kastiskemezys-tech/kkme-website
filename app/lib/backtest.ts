@@ -25,6 +25,10 @@ export interface BacktestStats {
   maxTotalDaily: number;
   /** Mean error vs the modeled reference, in % (signed). null if no reference. */
   meanErrorPct: number | null;
+  /** Mean absolute error in €/MW/day. Sign-stripped magnitude that
+   * meanErrorPct hides; high MAE with low |meanErrorPct| means over- and
+   * under-shoots cancelled. null if no reference. */
+  mae: number | null;
   /** Total observation days across the window. */
   totalDays: number;
 }
@@ -47,7 +51,7 @@ export function backtestStats(
     return {
       count: 0, meanTotalDaily: 0,
       minTotalDaily: 0, maxTotalDaily: 0,
-      meanErrorPct: null, totalDays: 0,
+      meanErrorPct: null, mae: null, totalDays: 0,
     };
   }
   const totalDays = valid.reduce((s, r) => s + r.days, 0);
@@ -56,8 +60,10 @@ export function backtestStats(
   const min = Math.min(...valid.map(r => r.total_daily));
   const max = Math.max(...valid.map(r => r.total_daily));
   let meanErrorPct: number | null = null;
+  let mae: number | null = null;
   if (modeledY1Daily != null && Number.isFinite(modeledY1Daily) && modeledY1Daily !== 0) {
     meanErrorPct = ((meanTotalDaily - modeledY1Daily) / modeledY1Daily) * 100;
+    mae = valid.reduce((s, r) => s + Math.abs(r.total_daily - modeledY1Daily), 0) / valid.length;
   }
   return {
     count: valid.length,
@@ -65,6 +71,7 @@ export function backtestStats(
     minTotalDaily: min,
     maxTotalDaily: max,
     meanErrorPct,
+    mae,
     totalDays,
   };
 }
