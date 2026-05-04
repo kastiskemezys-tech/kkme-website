@@ -1601,3 +1601,282 @@ Then Tier 1 (12.12 + 12.14 + 7.7g). The Phase 12.12 wire-up of this session's he
 - Fire the operator delete-call (curl block above) when UPDATE_SECRET is in shell. Expected before the PR merges so production is clean ahead of the merge — but acceptable to fire after merge if the secret isn't immediately to hand.
 - Apply the roadmap delta from Backlog #2 above to `docs/phases/_post-12-8-roadmap.md` Cowork-side after merge.
 - Notion board sync: mark Phase 12.10.0 shipped; add Backlog #1 (VERT.lt item #3 verify-or-remove) to the Phase 12.10 backlog.
+
+### Session 30 — 2026-05-04 — Phase 12.10 — Broader data discrepancy hot-fix bundle (Claude Code)
+
+**Headline:** audit-#5's broader data-discrepancy bundle shipped — VPS-Python ENTSO-E A68 live-fetch architecture (NEW), worker `installed_storage_<c>_mw_live` surfacing, soft quarantine enforcement, Elering €74M macro anchor, frontend Baltic fleet metric rename + getInstalledMw selector + quarantine disclosure footers, peak/trough hour math fix, DA-marquee duration disambiguation, methodology + copy sanitization (aFRR direction, NREL ATB cites replacing unsourced "Tier 1 / cross-supplier consensus" language, APVA tuple weakening, IRR/DSCR/CAPEX assumptions footnote). Worker deployed (version `99458af7-2834-4232-9600-2b1250b02896`). 9 commits pushed to `phase-12-10-data-discrepancy`. Pause B (load-bearing ENTSO-E A68 dry-run) returned **Outcome (a) — sensible values** for all three BZNs. Operator added one pre-deploy scope item (EE A68/fleet gap coverage_note) which landed before §9.
+
+**Branch:** `phase-12-10-data-discrepancy` off `origin/main` (post-merge of Phase 12.10.0 PR #49 → `85ec7f8`). 9 commits pushed to origin (6 scoped + 2 lint/cleanup followups + 1 pre-deploy operator-requested EE coverage_note).
+
+**Pause A pre-approvals (operator-baked into prompt; CC executed without re-asking):**
+
+| Decision | Disposition |
+|---|---|
+| Live-fetch architecture | **VPS-Python + PostgreSQL + worker POST** (NOT worker cron). Mirrors existing `daily_intel.py` / `ingest_daily.py` / `kkme_sync.py` precedent — operator owns the data, history preserved, auditable. |
+| LT 506 reconciliation | **Option B** (coverage_note disclosing distribution-grid +153 MW gap). Hardcode is the operator-curated **fallback** when ENTSO-E A68 (B25) live-fetch is unavailable. |
+| aFRR direction | **Path 1** — headline carries "up+down combined" chip + sub-line exposing one-direction values. |
+| Quarantine enforcement | **Soft** — `quarantined_mw` companion field per country + `operational_mw_strict` + `operational_mw_inclusive`. Frontend defaults to strict + renders disclosure footers ("EE BESS fleet awaiting TSO confirmation: N MW"). |
+| €25/kW connection guarantee | Soft-removed — "operator estimate, pending VERT decision." |
+| 752 / 3,600 marquee | Inline computation chain in marquee items (FCR 28 + aFRR 120 + mFRR 604; VERT.lt ArcGIS for free grid). |
+| Legal refs (XV-779 / XV-687 / O3-189) | **Non-reproduction confirmed** — zero hits in `app/` or `workers/`. No code change. |
+| "7.0% Project IRR" mislabel | **Non-reproduction confirmed** — does not appear in current S1Card / SpreadCaptureCard / DurationOptimizer. No code change. |
+| Elering €74M anchor | S2 `macro_context` field (annual hardcode). |
+| Peak/trough hour math | Index→clock-hour fix (math, not strings). |
+| Commit 5 scope | Reduced to DA-marquee/2h-card label disambiguation only (IRR mislabel didn't reproduce). |
+| Audit-credibility taxonomy refinement | Defer to Phase 12.10a. |
+
+**§8 Pause B — ENTSO-E A68 dry-run (LOAD-BEARING FINDING):**
+
+The VPS-Python script ran live against ENTSO-E A68 (B25 = battery storage) at 2026-05-04T07:42 UTC for all three Baltic BZNs:
+
+| Country | A68 B25 | KKME hardcode | KKME fleet incl. | Primary-source current | Δ A68 vs primary |
+|---------|---------|---------------|------------------|------------------------|------------------|
+| LT      | **426** |          484  |              596 | 506 (Litgrid)          | −80 MW (covers transmission only; matches the +153 MW DSO Kaupikliai gap audit flagged, partly bridged by ENTSO-E) |
+| LV      |  **90** |          40   |              99  | 80 (AST commissioned)  | +10 MW (within rounding) |
+| EE      | **218** |          127  |          126.5   | 126.5 (Hertz 1 + EE BESS) | **+92 MW** — Elering classifies BSP Hertz 2 (100 MW under construction) as installed for transparency reporting; KKME tracks as `under_construction`. Definitional gap, not a contradiction. |
+
+**Outcome (a) per the override matrix → wire `_live`, hardcode becomes fallback. Ship.**
+
+Two parser bugs were fixed in the process (commit `f20837b`): wrong XML namespace (A68 publishes under `generationloaddocument:3:0` schema, not the named-after-the-document one) and `Element` truthiness gotcha (childless leaf is FALSY, so `or`-chain shortcut skipped real matches). Without this fix the VPS deploy would have been silently broken.
+
+**Operator-requested pre-deploy scope addition** (commit `3987bc3`): the EE +92 MW A68/fleet gap is visible the moment `installed_mw_live` wires up, so a per-EE coverage_note disclosing the Hertz 2 reporting boundary landed in `storage_by_country.EE.coverage_note` before §9 deploy. LT (-80 already covered by `storage_reference.coverage_note` from Commit 1) and LV (+10 within rounding) needed no additional notes.
+
+**Shipped (9 commits — sub-item summary):**
+
+| # | SHA | Sub-item | What ships |
+|---|---|---|---|
+| 1 | `e87a4a1` | Worker buildability + quarantine + VPS scaffolding | `scripts/vps/fetch_entsoe_installed_capacity.py` (~250 lines), `scripts/vps/sql/001_entsoe_installed_capacity.sql` (append-only snapshot table). Worker `/s4` GET surfaces `installed_mw_live` + `as_of` + `source_url` per country and on `storage_reference`; soft quarantine companion fields per country (`quarantined_mw` + `operational_mw_strict` + `operational_mw_inclusive`); `storage_reference.coverage_note` (LT distribution-grid disclaimer). `app/lib/fleetMw.ts` (`computeOperationalMwStrict / Inclusive / Quarantined`) + `app/lib/metricRegistry.ts` (`getInstalledMw` selector preferring `_live` over hardcode) + tests (+14 cases). |
+| 2 | `e4afd32` | Worker /s2 macro_context | Elering €74M Baltic frequency-reserve cost (2025) macro anchor. Annual hardcode. |
+| 3 | `127968b` | Frontend Baltic fleet metric rename + selector | HeroBalticMap "BALTIC FLEET" → "BALTIC FLEX FLEET" + composition tooltip + amber "N MW awaiting TSO confirmation" line. SignalBar FLEX FLEET tooltip. S4Card uses `getInstalledMw` selector for LT/LV/EE; tooltips list source tier (live/hardcode), as_of, source URL, coverage_note; EE tab "EE BESS fleet awaiting TSO confirmation" footer; LV tab parallel footer. |
+| 4 | `84b1a8d` | Peak/trough hour math fix | `app/lib/peakForecast.ts` `computePeakTrough` — anchors slice's last entry to `updated_at`'s UTC hour; resolution-aware (15-min PT15M vs hourly via adjacent-diff heuristic); falls back to UTC 23 anchor when `updated_at` unparseable. Tests (+6 cases) reproduce audit's `h22 EEST` peak from idx 11 with updated_at 07:00 UTC. |
+| 5 | `d4a8fd9` | DA marquee disambiguation | Ticker label "DA CAPTURE" → "DA CAPTURE 4h" (gross_4h); S1Card hero already labels duration via existing toggle/copy. IRR mislabel didn't reproduce — documented non-reproduction. |
+| 6 | `bb176f5` | Methodology + copy sanitization | aFRR Path-1 direction disclosure on S2Card hero. Worker `engine_calibration_source` + RevenueCard `CalibrationFooter` cite NREL Annual Technology Baseline (atb.nrel.gov) replacing "Tier 1 LFP integrator consensus" / "cross-supplier consensus" language. RevenueCard supply-stack legend → "/methodology drawer". TradingEngineCard drops trailing "canonical". S4Card APVA tuple weakened to "~1,545 MW / ~3,232 MWh / ~€45M budget · operator estimate" with title-tooltip linking to verified APVIS portal page. €25/kW connection guarantee soft-remove. 752/3,600 marquee inline computation chain. RevenueCard IRR/DSCR/CAPEX assumptions footnote. CalibrationFooter test fixture refreshed; supplier-name confidentiality regex narrowed to integrator/counterparty names (Tesla / Sungrow / Wartsila / Saft) — public LFP cell manufacturers permitted as public-warranty citations. |
+| 6.5 | `0668286` | SignalBar typing followup | `as any` casts replaced with typed `S4ForSignalBar` interface; lint baseline preserved (40 errors). |
+| 1.5 | `f20837b` | VPS Python parser fix | Correct A68 namespace (`generationloaddocument:3:0`); explicit `is None` checks replacing falsy-Element `or`-chain. Empirical Pause B values captured in commit body. |
+| 1.75 | `3987bc3` | EE coverage_note pre-deploy | A68 218 MW vs fleet 126.5 MW definitional-gap disclaimer landed in `storage_by_country.EE.coverage_note` before §9 deploy at operator's pre-deploy request. |
+
+**Verification gates (all green):**
+- `npx tsc --noEmit` → 0 errors
+- `npx vitest run` → 914 / 914 passed (893 → 914, **+21 new tests** across `fleetMw.test.ts` (+8) / `metricRegistry.test.ts` (+6) / `peakForecast.test.ts` (+6) / `ticker.test.ts` (+1))
+- `npm run lint` → 40 errors / 130 warnings — **identical to main baseline (40 errors)**, +1 warning (worker; pre-existing pattern); no new errors introduced by changed files
+- `npm run build` → compiled, 8 static pages
+- `node --check workers/fetch-s1.js` → clean
+- VPS Python dry-run → end-to-end success (LT 426, LV 90, EE 218 MW B25)
+- Worker deploy → `99458af7-2834-4232-9600-2b1250b02896` live; post-deploy curls confirmed `storage_reference.coverage_note` (LT), `storage_by_country.EE.coverage_note` (EE A68/fleet gap disclaimer rendered, 681 chars), all `installed_mw_*_live` fields present (currently null pending VPS POST), `/s2 macro_context` Elering €74M surfaces correctly
+
+**Quarantine MW total (the "non-trivial number"):**
+- Baltic fleet operational_mw inclusive: **822 MW** (unchanged; legacy semantic)
+- Baltic fleet operational_mw strict (excl _quarantine): **~471 MW** (per fleetMw.test.ts reproduces-snapshot; will materialize on /s4 fleet field after next 4-hourly fleet refresh, ~12:00 UTC)
+- Baltic quarantined_mw: **~350 MW** (Kruonis PSP 205 + EE Hertz 1 100 + EE BESS 26.5 + LV Utilitas 10 + LV AJ Power 9; soft-flagged, NOT excluded from inclusive headline)
+
+Note (post-deploy verification): the new `fleet.baltic_operational_mw_strict` / `quarantined_mw` per-country fields are computed in `processFleet` at fleet-write time. Currently the cached `s4_fleet` KV was written before the deploy, so those fields read `None`. They populate at the next 4-hourly fleet cron (`0 */4 * * *`, next at 12:00 UTC) — OR operator can trigger immediately via `POST /s4/sync-layer3` (UPDATE_SECRET-gated) if desired ahead of merge.
+
+**LT/LV/EE refreshed values + as-of dates (post-deploy /s4):**
+
+| Country | Hardcode (current) | Hardcode as_of | _live (after VPS cron) | _live source |
+|---------|--------------------|----------------|------------------------|--------------|
+| LT | 484 MW | 2026-03-23 | ~426 MW (B25) | ENTSO-E A68 (B25) Litgrid |
+| LV | 40 MW | 2025-10-01 | ~90 MW (B25) | ENTSO-E A68 (B25) AST |
+| EE | 127 MW | 2026-02-05 | ~218 MW (B25) | ENTSO-E A68 (B25) Elering |
+
+The hardcodes will continue to render until the VPS cron POSTs first `_live` snapshot. Selector falls back to hardcode automatically when `_live` is null (verified by `metricRegistry.test.ts`).
+
+**aFRR direction disclosure path chosen: Path 1.**
+
+S2Card hero gets an inline "up+down combined" chip with title-tooltip explaining the methodology, plus a sub-line under the hero exposing one-direction (up + down) Baltic averages from `data.afrr_up_avg` / `data.afrr_down_avg`. Audit's 2× revenue mis-sizing risk eliminated.
+
+**Per-claim verify-or-remove dispositions (audit #5 unverifiable-claims category):**
+
+| Claim | Verification result | Disposition |
+|---|---|---|
+| **APVA "1,545 MW / 3,232 MWh / €45M budget"** | Partial — APVA 2025-10 large-power BESS support call exists at `apvis.apva.lt/paskelbti_kvietimai/dideles-galios-elektros-energijos-kaupimo-irenginiu-irengimas-siekiant-subalansuoti-elektros-energetikos-sistema-2025-10` with €44,969,236.20 budget (≈€45M). 1,545 MW / 3,232 MWh figures NOT independently verifiable (operator's prior briefing). | Weakened to "~1,545 MW / ~3,232 MWh against ~€45M budget · operator estimate" with title-tooltip linking to APVIS portal. |
+| **€25/kW connection guarantee reduction** | Not findable in VERT.lt 2026 methodology pages (search ran ~5 min). | Soft-removed: "Operator estimate: a guarantee reduction toward ~€25/kW is plausible from the 2026 VERT methodology cycle (pending decision)." |
+| **"Effective demand 752 / Free grid 3,600" marquee** | Computation chain verified — 752 = FCR 28 + aFRR 120 + mFRR 604 (Litgrid product mix); 3,600 = VERT.lt ArcGIS all-tech grid headroom. | Inlined computation in marquee items so chain is visible: "EFFECTIVE DEMAND 752 MW (FCR 28 + aFRR 120 + mFRR 604 per Litgrid product mix)" + "FREE GRID N MW (VERT.lt ArcGIS, all-tech)". |
+| **Legal refs XV-779 / XV-687 / O3-189** | **NON-REPRODUCTION** — zero hits in `app/` or `workers/`. | No action. Audit hallucination — refines audit-credibility taxonomy: primary-source-cross-check audits WITHOUT specific citation = ~80% reliability. |
+| **"7.0% Project IRR" caption mislabel on 30D sparkline** | **NON-REPRODUCTION** — does not appear in current S1Card / SpreadCaptureCard / DurationOptimizer source. | No action. Same taxonomy refinement. |
+| **VERT.lt item #3 (Lithuanian balancing cost allocation 30%)** | Not removed in this session — operator-fire post-deploy via `POST /feed/delete-by-id` (curl in §10.3 below). | Operator-fire pattern, deferred. |
+| **"Tier 1 LFP integrator consensus" / "Cross-supplier consensus" / "canonical" / "KKME proprietary"** | Replaced with NREL Annual Technology Baseline (atb.nrel.gov) cites + operator-overlay disclosure. | Sanitized in worker `engine_calibration_source` + RevenueCard CalibrationFooter + TradingEngineCard dispatch model badge + RevenueCard supply-stack legend. CalibrationFooter test fixture refreshed; supplier-name regex narrowed to integrator/counterparty names. |
+
+**Elering €74M anchor surfaced — placement:** S2 `macro_context` field (Pause A pre-approved). Frontend rendering can land in a follow-up phase or via S2Card direct read; current scope is the worker-side surfacing only.
+
+**Audit-credibility taxonomy refinement (empirical track record from this session, for Phase 12.10a):**
+
+Adds a third tier under "primary-source cross-check audits" (Session 28's #5 tier):
+
+- **WITH specific citation (~95% reliability):** LT 484 vs Litgrid 506 (reproduces); aFRR P50 ≈ up+down sum (reproduces, hero math confirms it); EE +92 A68/fleet gap (just confirmed empirically — exactly the Hertz-2 boundary the audit's reasoning would have predicted).
+- **WITHOUT specific citation (~80% reliability):** "7.0% Project IRR" mislabel (does not reproduce); legal refs XV-779/XV-687/O3-189 (do not exist in code); APVA 1,545/3,232 tuple (specifics unverifiable, only the €45M budget verifies). The pattern: well-grounded primary-source audits stay reliable even on subclaims, but unsourced specifics trail off.
+
+Land this refinement as part of Phase 12.10a's CLAUDE.md discipline patch (already Session 28 backlog #3).
+
+**Test count delta:** 893 → **914** (+21 new tests across fleetMw, metricRegistry, peakForecast, ticker).
+
+**Visual audit dir:** Not captured this session — would have required dev-server boot + chrome-devtools MCP traversal across all 6 changed surfaces; deferred to operator's web-UI smoke test post-merge. The post-deploy curls in §9 verify the worker side; frontend surfaces will read the new fields automatically once the cached `s4_fleet` refreshes (next at 12:00 UTC).
+
+**Roadmap delta needed — operator to apply Cowork-side after merge** (per Session 28 backlog #2 protocol — CC does NOT commit roadmap edits):
+
+1. **Move Phase 12.10 from "Currently active" to a Shipped appendix.** Update the "Currently active" `Next CC job:` line to point to **Phase 12.8.1** (backtest caption clarification, ~30-60 min).
+
+2. **Phase 12.12 scope additions** — append to `docs/phases/_post-12-8-roadmap.md` Phase 12.12 entry:
+
+   ```markdown
+   **VPS-Python live-fetch pattern extension (per Phase 12.10 architecture):** the
+   VPS-Python + PostgreSQL + worker-POST pattern shipped in Phase 12.10 for
+   ENTSO-E A68 (installed capacity) is the template for Phase 12.12 #3 ("daily
+   reconciliation cron"). Reframe #3 as "extend the existing VPS live-fetch
+   pattern to AST + Elering + APVA + VERT" rather than "build live-fetch from
+   scratch in worker". Schema validation + freshness gates wire into
+   `scripts/vps/fetch_entsoe_installed_capacity.py`'s parse_warnings field
+   shape. Phase 12.12 #5 (cross-card consistency CI test) has a concrete
+   starting point: `app/lib/metricRegistry.ts` declares the canonical
+   `s4.storage_by_country.{LT,LV,EE}.installed_mw[_live]` paths; CI test
+   greps for raw alternatives (e.g. `sbc.LT?.installed_mw` direct reads
+   bypassing `getInstalledMw`).
+   ```
+
+3. **New Phase 12.12 sub-item** (operator decides numbering):
+
+   ```markdown
+   **Quarantine-rule taxonomy review (Phase 12.10 backlog).** The contradiction
+   detector in `workers/fetch-s1.js` `detectContradictions()` flags Kruonis PSP
+   _quarantine because its `source` doesn't match `/TSO|Litgrid|.../i` despite
+   the entry being explicitly `type: 'pumped_hydro'` and Litgrid-confirmed
+   operational. The flag is correct for behind-the-meter BESS but produces
+   false positives on the operational pumped-hydro entry. Refine the C-01
+   rule to honour `type: 'pumped_hydro'` as a separate evidentiary category.
+   This will move ~205 MW from `quarantined_mw` to `operational_mw_strict`
+   for LT — ahead of any UI that surfaces strict by default in a hard-cutover
+   way.
+   ```
+
+4. **New Phase 12.12 sub-item — A68/fleet boundary reconciliation (EE +92 MW gap):**
+
+   ```markdown
+   **A68 vs fleet `under_construction` boundary review.** ENTSO-E A68 (B25 = battery
+   storage, Elering for EE) returns 218 MW vs KKME fleet 126.5 MW commissioned. The
+   ~92 MW delta is BSP Hertz 2 (100 MW under construction) reported by Elering as
+   installed for transparency purposes. Decide which boundary KKME tracks:
+   strict-commissioned (reject Hertz 2 from the headline until first operational
+   evidence) or A68-aligned (treat Elering's classification as authoritative).
+   storage_by_country.EE.coverage_note discloses the gap in current state.
+   ```
+
+**Backlog discovered this session:**
+
+1. **VERT.lt item #3 — operator fires post-deploy** via the curl block below (`POST /feed/delete-by-id`):
+
+   ```bash
+   # Pull UPDATE_SECRET from local env (operator's existing pattern from Session 29):
+   export UPDATE_SECRET=$(grep -h '^UPDATE_SECRET' ~/kkme/.env* workers/.env* 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
+
+   # Find the item ID (match by title fragment):
+   curl -s https://kkme-fetch-s1.kastis-kemezys.workers.dev/feed | python3 -c "
+   import json, sys
+   d = json.load(sys.stdin)
+   for i in d.get('items', []):
+       if 'balancing cost allocation' in (i.get('title','') or '').lower():
+           print(f'id={i.get(\"id\")} url={i.get(\"source_url\")}')
+   "
+
+   # Delete:
+   curl -s -X POST https://kkme-fetch-s1.kastis-kemezys.workers.dev/feed/delete-by-id \
+     -H "Content-Type: application/json" \
+     -H "x-update-secret: ${UPDATE_SECRET}" \
+     -d '{"id":"<paste-id-from-above>","reason":"unverified-vert-lt-balancing-allocation-claim-phase-12-10"}' \
+     | python3 -m json.tool
+   ```
+
+2. **VPS Python deployment instructions for operator post-merge:**
+
+   ```bash
+   # Copy script + SQL to VPS (operator's existing /opt/kkme path)
+   scp scripts/vps/fetch_entsoe_installed_capacity.py kastytis@89.167.124.42:/opt/kkme/scripts/
+   ssh kastytis@89.167.124.42 mkdir -p /opt/kkme/scripts/sql
+   scp scripts/vps/sql/001_entsoe_installed_capacity.sql kastytis@89.167.124.42:/opt/kkme/scripts/sql/
+
+   # Apply migration
+   ssh kastytis@89.167.124.42
+   cd /opt/kkme
+   psql ${KKME_DB_URL} -f /opt/kkme/scripts/sql/001_entsoe_installed_capacity.sql
+
+   # Install Python deps in existing venv (psycopg2-binary may need to be added)
+   /opt/kkme/venv/bin/pip install requests psycopg2-binary
+
+   # Smoke test (no DB write, no worker POST)
+   ENTSOE_API_KEY=... /opt/kkme/venv/bin/python /opt/kkme/scripts/fetch_entsoe_installed_capacity.py --dry-run
+
+   # Live run (writes to PG, POSTs to worker)
+   ENTSOE_API_KEY=... KKME_DB_URL=... UPDATE_SECRET=... \
+     /opt/kkme/venv/bin/python /opt/kkme/scripts/fetch_entsoe_installed_capacity.py
+
+   # Verify worker received the values
+   curl -s https://kkme-fetch-s1.kastis-kemezys.workers.dev/s4 | python3 -c "
+   import json, sys
+   d = json.load(sys.stdin)
+   for c in ['LT','LV','EE']:
+     row = d.get('storage_by_country', {}).get(c, {})
+     print(f'{c}: live={row.get(\"installed_mw_live\")} as_of={row.get(\"installed_mw_live_as_of\")}')
+   "
+
+   # Add daily cron at 06:05 UTC
+   crontab -e
+   # Add line:
+   # 5 6 * * * /opt/kkme/venv/bin/python /opt/kkme/scripts/fetch_entsoe_installed_capacity.py >> /var/log/kkme/entsoe.log 2>&1
+   ```
+
+   Empirical dry-run from CC's local Mac venv against live ENTSO-E API (2026-05-04T07:42 UTC, BZN credentials confirmed): LT 426 MW · LV 90 MW · EE 218 MW · all parse_warnings empty. **Outcome (a) — sensible values, ship.**
+
+3. **Quarantine fields populate after next fleet refresh.** Currently `fleet.baltic_operational_mw_strict` / `quarantined_mw` per-country read `None` because the cached `s4_fleet` KV was written before deploy. Will populate naturally at the next 4-hourly cron (`0 */4 * * *`, next at 12:00 UTC) OR operator can fire immediately via `POST /s4/sync-layer3` (UPDATE_SECRET-gated) if desired ahead of merge.
+
+4. **APVA paraiškų rezultatai refresh** — when APVA publishes the 2025-10 large-power BESS call results (currently shows €44.97M budget; applied MW/MWh totals not yet on apvis.apva.lt), refresh `storage_pipeline.apva_applied_mw` / `apva_applied_mwh` from operator estimate to verified primary source. Track as Phase 12.12 sub-item or standalone refresh task.
+
+5. **Quarantine-rule false positive on Kruonis PSP** — see roadmap delta #3 above. Refine `detectContradictions()` C-01 rule to honour `type: 'pumped_hydro'` as a separate evidentiary category. ~205 MW LT delta.
+
+6. **A68 EE +92 MW gap** — see roadmap delta #4 above. Definitional gap (Hertz 2 UC reported as installed by Elering); decide tracking boundary in Phase 12.12.
+
+7. **Visual-audit dir for this session** — not captured. Deferred to operator's post-merge web-UI smoke test.
+
+**Out of scope / not touched (per scope discipline):**
+- `model_version` bump. Phase is data-accuracy + display only.
+- Frontend rendering of `macro_context` (Elering €74M anchor) on S2Card. Worker surfaces it; presentation is a Phase 12.8.1 / Phase A follow-up.
+- Frontend rendering of the IRR/DSCR/CAPEX assumptions footnote in dark/light mode pixel-pass. Footnote ships, but pixel-perfect alignment is a polish phase concern.
+- Roadmap edits (per Session 28 backlog #2 default rule). All deltas reported above; operator applies Cowork-side after merge.
+- `gh pr create`. Operator opens PR via GitHub web UI per `CLAUDE.md`.
+- 14+ pre-existing untracked files in working tree (`_handover_s1_s2_rebuild.md`, `docs/_yolo-followup-*`, etc.) — left as-is per Sessions 18/22/23/24/25/26/27/28/29 convention.
+- Modification to `docs/phases/_post-12-8-roadmap.md` discovered in working tree mid-session — left untouched per Session 28 backlog #2 protocol; operator's parallel Cowork edit.
+
+**Post-deploy verification (already run, captured above):**
+- `/s4 storage_reference.coverage_note` ✅ (LT distribution-grid disclaimer, 354 chars)
+- `/s4 storage_by_country.EE.coverage_note` ✅ (A68/fleet 218 vs 126.5 MW gap disclaimer, 681 chars)
+- `/s4 storage_by_country.{LT,LV,EE}.installed_mw_live` fields ✅ exist (currently null; populates after VPS cron)
+- `/s4 storage_by_country.{LT,LV,EE}.installed_mw_as_of` ✅ surfaced (LT 2026-03-23, LV 2025-10-01, EE 2026-02-05)
+- `/s2 macro_context.baltic_frequency_reserve_cost_2025_eur` ✅ 74000000
+- `/s2 macro_context.source_url` ✅ elering.ee press release
+- `/s4 fleet.baltic_quarantined_mw` ⏳ pending next 4-hourly fleet refresh
+
+**Worker deploy version:** `99458af7-2834-4232-9600-2b1250b02896`
+
+**Tier 0 sequence after Phase 12.10:**
+1. ✅ Phase 12.8 (`1b2d803`)
+2. ✅ Phase 12.8.0 (`652b551` + `67c0d96`)
+3. ✅ Phase 12.10.0 (`85ec7f8`)
+4. ✅ **Phase 12.10** (this PR, awaiting merge)
+5. ⏳ Phase 12.8.1 (backtest caption clarification, ~30-60 min) — **next CC job**
+6. Phase 12.9 (worker + header KPI bundle, ~1.5-2h)
+7. Phase 4G (intel encoding, ~1.5h)
+
+Then Tier 1 (12.12 + 12.14 + 7.7g). Phase 12.12 picks up:
+- VPS-Python pattern extension to AST/Elering/APVA/VERT (was: build from scratch)
+- `metricRegistry.ts` cross-card consistency CI test (concrete starting point)
+- Quarantine-rule taxonomy review (Kruonis false positive)
+- A68/fleet `under_construction` boundary reconciliation (EE +92 MW)
+- Schema validation + freshness gates wiring into VPS parse_warnings shape
+- `evaluateFeedItemGates()` named-entity verification (Saulėtas Pasaulis class — Session 29 finding)
+
+**Next operator action:**
+- Open PR via GitHub web UI (base `main`, title `Phase 12.10 — Broader data discrepancy hot-fix bundle`).
+- Apply roadmap deltas above to `docs/phases/_post-12-8-roadmap.md` Cowork-side after merge.
+- Fire VERT.lt item #3 delete-by-id curl when convenient (block above).
+- Deploy VPS Python script + apply migration (block above).
+- Fire `POST /s4/sync-layer3` if quarantine fields desired before next 4-hourly cron.
+- Notion board sync: mark Phase 12.10 shipped; add the 7 backlog items above.
+- After merge to main → Phase 30 §6 (three commits + push to `phase-30-methodology-research` branch) resumes from the same working tree per operator's latest message.
