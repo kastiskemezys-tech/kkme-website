@@ -9,10 +9,10 @@
 
 ## Currently active
 
-- **In flight:** Phase 12.8.0 — Tier 0 hot-fix bundle (5 commits ready, Pause B awaiting push)
-- **Next CC job:** Phase 12.10.0 — Emergency hallucinated-entity purge (~1h, **IMMEDIATELY** after 12.8.0 merges; entry on production homepage every additional hour is one more reader who could spot it)
-- **Then:** Phase 12.10 → 12.8.1 → 12.9 → 4G → 12.10a (discipline-rules CLAUDE.md patch)
-- **Roadmap last updated:** 2026-05-03 by Cowork
+- **In flight:** none — operator at clean main, ready to launch next CC session
+- **Next CC job:** Phase 12.10 — Broader data discrepancy hot-fix bundle (~6-8h). Bundles audit #5's remaining findings: LT/LV/EE installed reconciliation, peak-hour labels computed from data, aFRR direction disclosure, sanitize unsourced model-confidence claims, verify-or-remove unverifiable claims (now incl. VERT.lt item #3 carried forward from Phase 12.10.0), Elering €74M anchor surfaced.
+- **Then:** Phase 12.8.1 (backtest caption, ~30-60 min) → Phase 12.9 (worker + header KPI bundle, ~1.5-2h) → Phase 4G (intel encoding, ~1.5h) → Phase 12.10a (discipline-rules CLAUDE.md patch, ~30 min) → Tier 1
+- **Roadmap last updated:** 2026-05-04 by Cowork (Phase 12.10.0 shipped + delta applied)
 
 ---
 
@@ -217,6 +217,16 @@ Defensive guards + CardBoundary upgrade. Ships preventive hardening (audit's tra
    - **Latvia:** Lursoft commercial registry
    - **Estonia:** `inforegister.ee`
    - Not-found entries marked `_entity_unverified: true` and excluded from default `/feed` GET (move to `/feed/unverified` queue)
+
+   **Ingestion-path target (per Phase 12.10.0 Session 29 finding):** the structural
+   named-entity verification gate must wire into **`POST /feed/events`** at the
+   existing `evaluateFeedItemGates(...)` call in `workers/fetch-s1.js` (~line 6602),
+   **not** into `POST /curate` / `appendCurationToFeedIndex`. Saulėtas Pasaulis was
+   confirmed to have entered via the typed-event API (id `mna2ne4x-xfri25` matches
+   `makeId()` format, has the typed-event field shape, no `cur_` prefix, no repo
+   source). The two helpers already exported from `app/lib/feedSourceQuality.ts`
+   (`isGenericSourceUrl`, `hasHallucinationHedgeLanguage`) plug straight into that
+   gate alongside the commercial-registry API check that 12.12 #8 adds.
 9. **Cross-source TSO capacity reconciliation.** Fetch ENTSO-E "Installed Capacity per Production Type [14.1.A]" daily; cross-check against `s4_buildability`; resolves the 484 vs 506 vs 596 LT mess via independent third source.
 10. **Legal references auto-fetch:**
     - **e-tar.lt** RSS for Lithuanian primary legislation
@@ -545,7 +555,8 @@ This document is the planning layer; `docs/handover.md` is the canonical state-o
 ## Shipped appendix
 
 - **Phase 12.8** — Dispatch render-error fix [SHIPPED 2026-05-03 PR #46] — defensive guards + CardBoundary upgrade; preventive hardening; 6 throw-eligible candidates fail-then-pass verified; 837 → 866 tests
-- **Phase 12.8.0** — Tier 0 hot-fix bundle [IN FLIGHT 2026-05-03 — at Pause B awaiting push] — 866 → 882 tests; light-mode investigation (audit hallucination), percentile static labels, keyboard SOT + outline flash + ?-overlay, ticker pause+fade
+- **Phase 12.8.0** — Tier 0 hot-fix bundle [SHIPPED 2026-05-03 PRs #47 + #48 → commits `652b551` + `67c0d96`] — 866 → 882 tests; light-mode investigation (audit hallucination), percentile static labels, keyboard SOT + outline flash + ?-overlay, ticker pause+fade. Process artifact: `docs/investigations/phase-12-8-0-light-mode-audit-vs-reality.md` documents the 3-of-4 visual-audit-#2 hallucination tally.
+- **Phase 12.10.0** — Emergency hallucinated-entity purge (Saulėtas Pasaulis) [SHIPPED 2026-05-04 PR #49 → commit `85ec7f8`] — 882 → 893 tests; new `POST /feed/delete-by-id` worker endpoint (UPDATE_SECRET-gated); two hallucination-marker helpers exported (`isGenericSourceUrl`, `hasHallucinationHedgeLanguage`) for Phase 12.12 #8 to wire structurally; ingestion-path traced to operator hand-pushed `POST /feed/events` with externally-LLM-drafted content; entity removed from production `/feed` (`mna2ne4x-xfri25`, before:9 → after:8). Worker version `043fd2cb-1146-4d96-95c2-0ecb2864f5d7`.
 
 (more populated as phases close)
 
