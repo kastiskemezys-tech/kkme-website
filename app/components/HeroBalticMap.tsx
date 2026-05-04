@@ -25,10 +25,20 @@ const W = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
 // ═══ Types ═══════════════════════════════════════════════════════════════════
 
-interface FleetCountry { operational_mw: number; pipeline_mw: number; weighted_mw: number }
+interface FleetCountry {
+  operational_mw: number;
+  operational_mw_strict?: number | null;
+  operational_mw_inclusive?: number | null;
+  quarantined_mw?: number | null;
+  pipeline_mw: number;
+  weighted_mw: number;
+}
 interface FleetData {
   sd_ratio?: number | null; phase?: string | null; cpi?: number | null;
-  baltic_operational_mw?: number | null; baltic_pipeline_mw?: number | null;
+  baltic_operational_mw?: number | null;
+  baltic_operational_mw_strict?: number | null;
+  baltic_quarantined_mw?: number | null;
+  baltic_pipeline_mw?: number | null;
   eff_demand_mw?: number | null;
   countries?: Record<string, FleetCountry>;
 }
@@ -258,15 +268,29 @@ export function HeroBalticMap() {
   // Ticker
   const tickerItems = useMemo(() => {
     const items: string[] = [];
-    if (read?.capture?.gross_4h != null) items.push(formatTickerItem('da_capture', 'DA CAPTURE', read.capture.gross_4h, 0));
+    // Phase 12.10 — duration-explicit label to disambiguate from S1 2h Capture card.
+    // Audit #5: "DA capture marquee €133 vs 2h card €140 — same metric two values."
+    // They were never the same metric: gross_4h here vs gross_2h in S1Card. Both
+    // are real, both useful; the bug was the shared "DA CAPTURE" noun.
+    if (read?.capture?.gross_4h != null) items.push(formatTickerItem('da_capture', 'DA CAPTURE 4h', read.capture.gross_4h, 0));
     if (s2?.afrr_up_avg != null) items.push(formatTickerItem('afrr', 'AFRR', s2.afrr_up_avg, 2));
     if (s2?.mfrr_up_avg != null) items.push(formatTickerItem('mfrr', 'MFRR', s2.mfrr_up_avg, 1));
     if (revenue?.project_irr != null) items.push(`${IRR_LABELS.unlevered.short.toUpperCase()} ${(revenue.project_irr * 100).toFixed(1)}%`);
     if (revenue?.equity_irr != null) items.push(`${IRR_LABELS.equity.short.toUpperCase()} ${(revenue.equity_irr * 100).toFixed(1)}%`);
     if (revenue?.min_dscr != null) items.push(`DSCR ${revenue.min_dscr.toFixed(2)}×`);
     if (revenue?.capex_scenario) items.push(`CAPEX ${revenue.capex_scenario}`);
-    if (fleet?.eff_demand_mw != null) items.push(`EFFECTIVE DEMAND ${fmt(fleet.eff_demand_mw)} MW`);
-    if (s4?.free_mw != null) items.push(`FREE GRID ${fmt(s4.free_mw)} MW`);
+    // Phase 12.10 — audit #5 flagged the 752 / 3,600 marquee items as
+    // "plausible-looking but unverified". The numbers ARE derived from
+    // verified upstream:
+    //   - eff_demand_mw = sum of Baltic FCR + aFRR + mFRR demand bands
+    //     (28 + 120 + 604 = 752) — published by Litgrid product methodology
+    //   - free_mw = grid headroom from VERT.lt ArcGIS (eso_maps)
+    // The audit's complaint was the lack of computation-chain disclosure.
+    // Inline tooltips would be unreadable in the marquee; instead we
+    // mention the source feed in the items themselves and rely on the
+    // S4Card "Fleet tracker" + "Grid headroom" tooltips for the chain.
+    if (fleet?.eff_demand_mw != null) items.push(`EFFECTIVE DEMAND ${fmt(fleet.eff_demand_mw)} MW (FCR 28 + aFRR 120 + mFRR 604 per Litgrid product mix)`);
+    if (s4?.free_mw != null) items.push(`FREE GRID ${fmt(s4.free_mw)} MW (VERT.lt ArcGIS, all-tech)`);
     if (revenue?.cod_year) items.push(`COD ${revenue.cod_year}`);
     return items;
   }, [read, s2, revenue, fleet, s4]);
@@ -702,11 +726,14 @@ export function HeroBalticMap() {
         </div>
 
         {/* Block 2 — Fleet composition */}
-        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '12px 16px' }}>
+        <div
+          style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '12px 16px' }}
+          title={`Baltic flexibility fleet · BESS + pumped hydro (Kruonis 205 MW). Includes ${fmt(fleet?.baltic_quarantined_mw ?? 0)} MW flagged _quarantine pending TSO operational evidence (Kruonis PSP, BSP Hertz 1, Eesti Energia BESS, Utilitas Targale, AJ Power). Strict-verified count: ${fmt(fleet?.baltic_operational_mw_strict ?? null)} MW. For BESS-only registry total see S4 "Grid access and buildability" card.`}
+        >
           <div style={{
             fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-tertiary)',
             textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px',
-          }}>BALTIC FLEET</div>
+          }}>BALTIC FLEX FLEET</div>
           <div style={{
             fontFamily: 'var(--font-display)', fontSize: '24px', fontWeight: 500,
             color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums',
@@ -746,6 +773,14 @@ export function HeroBalticMap() {
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', textTransform: 'uppercase' }}>
             + {fmt(fleet?.baltic_pipeline_mw)} MW PIPELINE
           </div>
+          {(fleet?.baltic_quarantined_mw ?? 0) > 0 && (
+            <div style={{
+              fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--amber)',
+              marginTop: '6px', letterSpacing: '0.04em',
+            }}>
+              {fmt(fleet?.baltic_quarantined_mw)} MW awaiting TSO confirmation
+            </div>
+          )}
         </div>
 
         {/* Block 3 — Key ratios */}

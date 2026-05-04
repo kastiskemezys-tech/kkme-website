@@ -2,6 +2,16 @@
 import { useState, useEffect } from 'react';
 import { flexibilityFleetMw } from '@/app/lib/fleet';
 
+interface S4FleetExtras {
+  baltic_operational_mw?: number | null;
+  baltic_operational_mw_strict?: number | null;
+  baltic_quarantined_mw?: number | null;
+}
+interface S4ForSignalBar {
+  fleet?: S4FleetExtras | null;
+  baltic_total?: { installed_mw?: number | null } | null;
+}
+
 const BASE = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
 const SECTION_MAP: Record<string, string> = {
@@ -54,6 +64,24 @@ export default function SignalBar() {
         const v = flexibilityFleetMw(data.s4);
         return v != null ? `${Math.round(v)} MW` : '—';
       })(),
+      // Phase 12.10 — composition disclosure on hover. Audit #5 flagged
+      // "Baltic Fleet 822 MW" as ambiguous because it sums BESS + pumped
+      // hydro; readers thought 822 MW was BESS-only.
+      tooltip: (() => {
+        const s4 = data.s4 as S4ForSignalBar | undefined;
+        const flex = s4?.fleet?.baltic_operational_mw;
+        const strict = s4?.fleet?.baltic_operational_mw_strict;
+        const quar = s4?.fleet?.baltic_quarantined_mw;
+        const bess = s4?.baltic_total?.installed_mw;
+        const parts = [
+          'Baltic flexibility fleet · BESS + pumped hydro (Kruonis 205 MW).',
+          flex != null ? `Inclusive total: ${Math.round(flex)} MW.` : null,
+          strict != null ? `Strict verified (excludes _quarantine): ${Math.round(strict)} MW.` : null,
+          quar != null && quar > 0 ? `${Math.round(quar)} MW awaiting TSO confirmation.` : null,
+          bess != null ? `BESS-only registry: ${Math.round(bess)} MW (separate from flex fleet).` : null,
+        ].filter(Boolean);
+        return parts.join(' ');
+      })(),
     },
     {
       label: 'DISPATCH',
@@ -81,6 +109,7 @@ export default function SignalBar() {
           key={s.label}
           type="button"
           onClick={() => scrollTo(s.label)}
+          title={(s as { tooltip?: string }).tooltip}
           style={{
             all: 'unset',
             display: 'flex',

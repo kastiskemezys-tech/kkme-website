@@ -3,7 +3,7 @@
 import { useSignal } from '@/lib/useSignal';
 import { REFRESH_HOT } from '@/lib/refresh-cadence';
 import { SourceFooter } from '@/app/components/primitives';
-import { formatTomorrowLine } from '@/app/lib/peakForecast';
+import { computePeakTrough, formatTomorrowLine } from '@/app/lib/peakForecast';
 import { formatHourEET } from '@/app/lib/hourLabels';
 import { formatTimestamp } from '@/app/lib/freshness';
 
@@ -29,17 +29,6 @@ interface S1Signal {
     p90?: number | null;
   } | null;
   updated_at?: string | null;
-}
-
-function computePeakTrough(hourly: number[]): { peakHour: number; peakPrice: number; troughHour: number; troughPrice: number } {
-  // Use last 24 hours of data
-  const slice = hourly.length > 24 ? hourly.slice(-24) : hourly;
-  let peakHour = 0, peakPrice = -Infinity, troughHour = 0, troughPrice = Infinity;
-  for (let i = 0; i < slice.length; i++) {
-    if (slice[i] > peakPrice) { peakPrice = slice[i]; peakHour = i; }
-    if (slice[i] < troughPrice) { troughPrice = slice[i]; troughHour = i; }
-  }
-  return { peakHour, peakPrice, troughHour, troughPrice };
 }
 
 function dotColor(swing: number, stats: S1Signal['swing_stats_90d']): string {
@@ -76,7 +65,7 @@ export function PeakForecastCard() {
   const swing = data.lt_daily_swing_eur_mwh ?? 0;
   const stats = data.swing_stats_90d;
   const hourly = data.hourly_lt;
-  const pt = hourly && hourly.length >= 24 ? computePeakTrough(hourly) : null;
+  const pt = computePeakTrough(hourly ?? null, data.updated_at ?? null);
   const tomorrow = data.da_tomorrow;
 
   return (

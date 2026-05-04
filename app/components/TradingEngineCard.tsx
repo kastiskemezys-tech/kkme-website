@@ -431,7 +431,7 @@ export function TradingEngineCard() {
               </div>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: '0.5625rem',
                 color: 'var(--text-ghost)', marginTop: 4, letterSpacing: '0.04em' }}>
-                {DISPATCH_LABELS.dispatch_model.short.toUpperCase()} · {DISPATCH_LABELS.dispatch_model.detail} · canonical
+                {DISPATCH_LABELS.dispatch_model.short.toUpperCase()} · {DISPATCH_LABELS.dispatch_model.detail}
               </div>
             </div>
           </div>
