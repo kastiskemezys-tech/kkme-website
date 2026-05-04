@@ -9,10 +9,12 @@
 
 ## Currently active
 
-- **In flight:** none — operator at clean main, ready to launch next CC session
-- **Next CC job:** Phase 12.10 — Broader data discrepancy hot-fix bundle (~6-8h). Bundles audit #5's remaining findings: LT/LV/EE installed reconciliation, peak-hour labels computed from data, aFRR direction disclosure, sanitize unsourced model-confidence claims, verify-or-remove unverifiable claims (now incl. VERT.lt item #3 carried forward from Phase 12.10.0), Elering €74M anchor surfaced.
-- **Then:** Phase 12.8.1 (backtest caption, ~30-60 min) → Phase 12.9 (worker + header KPI bundle, ~1.5-2h) → Phase 4G (intel encoding, ~1.5h) → Phase 12.10a (discipline-rules CLAUDE.md patch, ~30 min) → Tier 1
-- **Roadmap last updated:** 2026-05-04 by Cowork (Phase 12.10.0 shipped + delta applied)
+- **In flight:** Phase 30 (Cowork research-deliverables branch `phase-30-methodology-research`, three commits queued for PR)
+- **Next CC job:** Phase 12.8.1 — backtest caption clarification (~30-60 min). Audit-#1 finding that the 752/3,600 backtest annotation lacks duration/period framing.
+- **Then:** Phase 12.9 (worker + header KPI bundle, ~1.5-2h) → Phase 4G (intel encoding, ~1.5h) → Phase 12.10a (discipline-rules CLAUDE.md patch, ~30 min) → Tier 1
+- **Parallel research track:** Phase 30 research deliverables shipped (3 docs in `phase-30-methodology-research`); Phase 29 (KKME Baltic Storage Index, ~4-6h) ships after Tier 0 closes — informed by Phase 30 findings (esp. Gap #5 aFRR/FCR cap reservation reconciliation)
+- **Phase 12.10 follow-up (NOT a new phase):** Gap #5 — KKME's published aFRR-down €5.03/MW/h is order-of-magnitude lower than Clean Horizon's €340/MW/h Baltic average. Per Phase 30 research finding, investigate whether KKME is reporting realised €/MWh-activated rather than reservation €/MW/h. Folds into next Phase 12.10 follow-up commit, not a standalone phase.
+- **Roadmap last updated:** 2026-05-04 by Cowork (Phase 12.10 shipped → appendix; Phase 12.12 reframed for VPS-Python pattern + 2 sub-items added; Phase 30 research-deliverables shipped to dedicated branch)
 
 ---
 
@@ -201,9 +203,10 @@ Defensive guards + CardBoundary upgrade. Ships preventive hardening (audit's tra
 **Scope (~7-10 days):**
 1. **Schema validation at fetch boundary.** Zod schemas for every upstream API response (`fetchLitgridFleet`, `fetchBTDActivation`, ENTSO-E A44/A75/A65, `fetchEnergyCharts`, ECB Euribor). On schema drift: fail-loud (worker logs + Telegram alert).
 2. **Hardcoded-assertion freshness gates.** Every operator-curated value in `s4_buildability` gets `last_verified_against_source_at`. Frontend cards display "Source: Litgrid, verified 41 days ago" with amber chip > 14 days, red > 30 days.
-3. **Daily reconciliation cron.** Worker function `reconcileAssertionsToSources()` scrapes Litgrid + AST + Elering + APVA + VERT + ETS daily; alerts on > 5% drift. Output to KV `reconciliation_log` + `/reconciliation` endpoint.
+3. **Daily reconciliation cron** [REFRAMED per Phase 12.10 architecture]. The VPS-Python + PostgreSQL + worker-POST pattern shipped in Phase 12.10 for ENTSO-E A68 (installed capacity) is the **template**, not a parallel build. Reframe this item as "extend the existing VPS live-fetch pattern (`scripts/vps/fetch_entsoe_installed_capacity.py`) to AST + Elering + APVA + VERT + ETS" rather than "build live-fetch from scratch in worker". Schema validation + freshness gates (item #1 + #2) wire into the parser's `parse_warnings` field shape. Alerts on > 5% drift; output to KV `reconciliation_log` + `/reconciliation` endpoint.
 4. **Per-metric provenance footer.** `<MetricProvenance>` primitive renders source + last-verified-at + computation chain on hover.
-5. **Reconciliation test suite (vitest, nightly via GitHub Actions cron):**
+5. **Reconciliation test suite (vitest, nightly via GitHub Actions cron)** [CONCRETE STARTING POINT per Phase 12.10]:
+   - `app/lib/metricRegistry.ts` declares the canonical `s4.storage_by_country.{LT,LV,EE}.installed_mw[_live]` paths via the `getInstalledMw` selector. CI test greps for raw alternatives (e.g. `sbc.LT?.installed_mw` direct reads bypassing the selector) and fails on bypass.
    - `baltic_total.installed_mw === sum(country installed_mw)`
    - `fleet.baltic_operational_mw >= baltic_total.installed_mw`
    - aFRR P50 documented direction matches text description
@@ -238,8 +241,10 @@ Defensive guards + CardBoundary upgrade. Ships preventive hardening (audit's tra
 11. **Generic-source-URL detection.** Feed items where source_url matches `^https?://(www\.)?<domain>/?$` (homepage only, no path) get `_generic_source: true` flag; filtered from default /feed.
 12. **Time-of-day label discipline.** ESLint rule + CI gate forbidding hardcoded `h<digit>` patterns in TSX components rendering time-series data.
 13. **Same-instant cross-source value consistency.** When two cards display same-meaning metric, CI asserts they pull from same worker field.
+14. **Quarantine-rule taxonomy review** [Phase 12.10 backlog]. The contradiction detector in `workers/fetch-s1.js` `detectContradictions()` flags Kruonis PSP `_quarantine` because its `source` doesn't match `/TSO|Litgrid|.../i` despite the entry being explicitly `type: 'pumped_hydro'` and Litgrid-confirmed operational. The flag is correct for behind-the-meter BESS but produces false positives on the operational pumped-hydro entry. Refine the C-01 rule to honour `type: 'pumped_hydro'` as a separate evidentiary category. This will move ~205 MW from `quarantined_mw` to `operational_mw_strict` for LT — ahead of any UI that surfaces strict by default in a hard-cutover way.
+15. **A68 vs fleet `under_construction` boundary review (EE +92 MW gap)** [Phase 12.10 backlog]. ENTSO-E A68 (B25 = battery storage, Elering for EE) returns 218 MW vs KKME fleet 126.5 MW commissioned. The ~92 MW delta is BSP Hertz 2 (100 MW under construction) reported by Elering as installed for transparency purposes. Decide which boundary KKME tracks: strict-commissioned (reject Hertz 2 from the headline until first operational evidence) or A68-aligned (treat Elering's classification as authoritative). `storage_by_country.EE.coverage_note` discloses the gap in current state.
 
-**Acceptance:** schema-drift detection live; staleness chips visible; reconciliation cron running nightly; quarantine flag enforced; named-entity verification active; generic-source filter active; CI gates failing on time-of-day hardcodes + cross-card metric divergence.
+**Acceptance:** schema-drift detection live; staleness chips visible; reconciliation cron running nightly; quarantine flag enforced (incl. pumped-hydro carve-out from C-01); named-entity verification active; generic-source filter active; CI gates failing on time-of-day hardcodes + cross-card metric divergence; A68/fleet boundary policy chosen + documented.
 
 #### Phase 7.7g — Token rebuild + 5-primitive system
 **Why:** Foundation that everything else sits on. Consolidated revision is more disciplined than my prior version: explicit small numbers, no aspirational tokens.
@@ -510,7 +515,8 @@ Defensive guards + CardBoundary upgrade. Ships preventive hardening (audit's tra
 | 4 — Connection + content | 7.7f · 12.13 · D · 11 · C | ~12-14 days |
 | 5 — Editorial + content | 9 · 28 · 13 · 19 · 27 · 12.14 | ~6 days build |
 | 6 — Mobile + a11y + polish | 11.2 · 20 · 21 · 22 · 23 · 25 · 26 | ~6-8 days |
-| **Total** | **30 phases** | **~55-65 focused days ≈ 9-11 weeks** |
+| 7 — Methodology depth + comparable index | 30 (research) · 29 (index card) | ~3-4 days |
+| **Total** | **32 phases** | **~58-69 focused days ≈ 10-12 weeks** |
 
 ---
 
@@ -557,8 +563,97 @@ This document is the planning layer; `docs/handover.md` is the canonical state-o
 - **Phase 12.8** — Dispatch render-error fix [SHIPPED 2026-05-03 PR #46] — defensive guards + CardBoundary upgrade; preventive hardening; 6 throw-eligible candidates fail-then-pass verified; 837 → 866 tests
 - **Phase 12.8.0** — Tier 0 hot-fix bundle [SHIPPED 2026-05-03 PRs #47 + #48 → commits `652b551` + `67c0d96`] — 866 → 882 tests; light-mode investigation (audit hallucination), percentile static labels, keyboard SOT + outline flash + ?-overlay, ticker pause+fade. Process artifact: `docs/investigations/phase-12-8-0-light-mode-audit-vs-reality.md` documents the 3-of-4 visual-audit-#2 hallucination tally.
 - **Phase 12.10.0** — Emergency hallucinated-entity purge (Saulėtas Pasaulis) [SHIPPED 2026-05-04 PR #49 → commit `85ec7f8`] — 882 → 893 tests; new `POST /feed/delete-by-id` worker endpoint (UPDATE_SECRET-gated); two hallucination-marker helpers exported (`isGenericSourceUrl`, `hasHallucinationHedgeLanguage`) for Phase 12.12 #8 to wire structurally; ingestion-path traced to operator hand-pushed `POST /feed/events` with externally-LLM-drafted content; entity removed from production `/feed` (`mna2ne4x-xfri25`, before:9 → after:8). Worker version `043fd2cb-1146-4d96-95c2-0ecb2864f5d7`.
+- **Phase 12.10** — Broader data discrepancy hot-fix bundle [SHIPPED 2026-05-04 PR #50 → commit `02a64ea`] — 893 → 914 tests (+21); ENTSO-E A68 (B25) live-fetch architecture via VPS-Python + PostgreSQL + worker POST (NEW, template for Phase 12.12 #3); `installed_storage_<c>_mw_live` surfacing in `/s4` with `getInstalledMw` selector preferring `_live` over hardcode; soft quarantine companion fields per country; LT distribution-grid + EE A68/fleet 218 vs 126.5 gap coverage_notes; Elering €74M `macro_context` on `/s2`; HeroBalticMap "BALTIC FLEX FLEET" rename + tooltips + amber quarantine disclosure; S4Card uses selector + EE/LV "awaiting TSO confirmation" footers; computePeakTrough slice-idx → UTC clock-hour fix; "DA CAPTURE 4h" marquee disambiguation; aFRR Path-1 direction disclosure on S2Card; NREL ATB cite swap (worker + RevenueCard); APVA tuple weakened with verified APVIS portal link; €25/kW soft-removed; 752/3,600 marquee inline computation chain; IRR/DSCR/CAPEX assumptions footnote on RevenueCard. Pause B load-bearing finding: A68 returns LT 426 / LV 90 / EE 218 MW; two parser bugs caught + fixed pre-deploy (wrong XML namespace, Element-truthiness gotcha). Worker version `99458af7-2834-4232-9600-2b1250b02896`.
 
 (more populated as phases close)
+
+---
+
+## Tier 7 — Methodology depth + comparable-index publication (~2 weeks)
+
+Added 2026-05-04 after operator's Clean Horizon competitive-positioning question. Position chosen: **(c) independent Baltic flexibility platform with own methodology** — not "free version of Clean Horizon" (positions as discount product) and not "Lithuanian-deep complement to Clean Horizon" (anchors identity to competitor). Independent peer requires matching their methodology rigor + publishing equivalent benchmark.
+
+#### Phase 30 — Clean Horizon methodology reverse-engineering + KKME engine gap analysis (research, ~2-3 days) [RESEARCH DELIVERABLES SHIPPED 2026-05-04 — branch `phase-30-methodology-research`]
+
+**Shipped artifacts:** `docs/research/clean-horizon-methodology-vs-kkme-v7.3.md` (12-dimension comparison), `docs/research/kkme-engine-improvements-from-clean-horizon-comparison.md` (5 gaps prioritized), `docs/methodology.md` (public-facing KKME methodology paper at Clean-Horizon-comparable rigor). 16 Clean Horizon public sources cited.
+
+**Headline finding (P1 critical, folded into Phase 12.10 follow-up scope above):** Gap #5 — KKME's published aFRR-down €5.03/MW/h is order-of-magnitude lower than Clean Horizon's published Baltic average ~€340/MW/h. Either KKME is reporting realised €/MWh-activated rather than reservation €/MW/h, OR the engine is computing a different product. Reconciliation needed before any side-by-side numerical comparison is published on the live site.
+
+**Why:** Clean Horizon's Storage Index is the institutional benchmark KKME would be measured against by sophisticated readers. Their COSMOS simulation is paywalled (delivered via Nord Pool subscription) but their methodology is partially public — Intersolar 2025 talk, October 2025 + January 2026 update notes, monthly market updates. Reverse-engineering as much as the public material allows lets KKME (a) confirm its v7.3 engine is methodologically comparable on the dimensions COSMOS exposes; (b) identify gaps where KKME is genuinely behind (cannibalization, multi-market simultaneous bidding, etc.); (c) publish KKME's own methodology paper at comparable rigor.
+
+**Scope (research deliverable, not code):**
+1. **Read all public Clean Horizon material:**
+   - Intersolar 2025 Michael Salomon talk on BESS revenue models
+   - PVTP article ("Unlocking BESS revenues in Europe's key markets", Storage & Smart Power 86, May 2025)
+   - October 2025 European BESS market update (their first explicit methodology summary)
+   - November 2025 + December 2025 + monthly Storage Index posts (track update cadence + framing changes)
+   - January 2026 methodology update (the cannibalization extension — "actual volumes available on capacity reservation and energy activation markets, as well as installed storage capacity")
+   - Baltics-specific announcement + per-country revenue-stream disclosures
+   - Energy-Storage.News Clean Horizon-bylined articles
+2. **Extract methodology assumptions** into a structured comparison document at `docs/research/clean-horizon-methodology-vs-kkme-v7.3.md`:
+   - Per-product participation logic (which markets each MWh visits in priority order)
+   - SoC management + cycling discipline
+   - Activation rate modeling per product per country
+   - Cannibalization model (installed_storage_capacity × actual market volume)
+   - Cross-product allocation (FCR + aFRR + mFRR + DA simultaneous bidding when SoC permits)
+   - Annualization assumption ("year = 12 repetitions of same month")
+   - RTE / degradation / availability assumptions
+   - CAPEX / OPEX / financing assumptions (where disclosed)
+3. **Side-by-side comparison vs KKME v7.3 engine** (read `workers/fetch-s1.js` `computeRevenueV7` + sub-functions, document each assumption + parameter):
+   - Direct reads of throughput cycle calculation, RTE decay curves, augmentation modeling, dispatch logic
+   - Where KKME matches Clean Horizon: confirm + add citation in KKME methodology copy
+   - Where KKME is more sophisticated: highlight (e.g., live sub-daily data vs Clean Horizon's monthly aggregate)
+   - Where KKME is less sophisticated: log as engine improvement backlog (likely items: cannibalization model refinement, multi-market simultaneous-bidding cascade, activation-rate quantile correction)
+4. **Gap closure backlog** in `docs/research/kkme-engine-improvements-from-clean-horizon-comparison.md`: each gap as a discrete engine improvement Phase 7.7e+ items can pull from. Estimate per item.
+5. **KKME methodology paper** in `docs/methodology.md` (or `app/methodology/page.tsx` if Phase A's inline methodology drawer isn't yet built): public-facing explanation of KKME's revenue model at the rigor Clean Horizon publishes — written for institutional reader, not for casual visitor. Cites Clean Horizon's framework where KKME aligns; explains where KKME diverges and why (live data, project-finance lens, Baltic-deep specifics).
+
+**Deliverables:** 3 docs (methodology comparison, gap backlog, KKME methodology paper). No code changes in this phase.
+
+**Estimate:** ~2-3 days research + writing. Best done as a Cowork session (research-heavy, web-fetch-heavy) or CC session with WebSearch.
+
+**Sequence:** runs in parallel to Tier 0 / Tier 1 (no code dependencies). Ship before Phase 29 — its findings inform what the index card should compute.
+
+**Operator decision required:** publish the methodology paper as inline drawer (Phase A consolidates methodology there) OR as standalone `/methodology` route. Auditor's consolidated revision walked back standalone methodology destination; this is the one case worth re-considering since methodology depth IS the credibility play vs Clean Horizon. **Recommendation:** standalone `/methodology` route. Clean Horizon publishes monthly methodology updates as standalone blog posts; KKME needs a comparable destination to be linkable in trade press / cited externally.
+
+#### Phase 29 — KKME Baltic Storage Index (~4-6h) [BLOCKED on Phase 30 Gap #5 reconciliation]
+
+**Phase 30 finding informs:** Position C confirmed; Clean Horizon ingestion legal/IP risk documented in research deliverable; comparable-index framing validated. **Blocker:** Gap #5 (aFRR-down magnitude reconciliation) must resolve before this phase ships, otherwise published index would contradict Clean Horizon's published numbers without methodological explanation. Gap #5 work folds into next Phase 12.10 follow-up commit.
+
+**Why:** Position (c) requires KKME to publish a comparable monthly benchmark, not just live current-day data. Clean Horizon's Storage Index is monthly per country per duration; KKME currently has no monthly aggregate suitable for cross-period or cross-country comparison. This phase ships KKME's own equivalent — methodologically separate, computed from KKME's live primary-source ingestion (not COSMOS sim), free, public, monthly cadence.
+
+**Scope:**
+1. **Worker route `GET /index/baltic`** returning:
+   ```json
+   {
+     "month": "2026-04",
+     "lt": { "1h": 12345, "2h": 18234, "4h": 22456 },
+     "lv": { "1h": ..., "2h": ..., "4h": ... },
+     "ee": { "1h": ..., "2h": ..., "4h": ... },
+     "methodology_url": "https://kkme.eu/methodology",
+     "comparable_clean_horizon_published": true,
+     "last_updated_at": "2026-05-01T00:00:00Z"
+   }
+   ```
+   Values in €/MW/month annualized to match Clean Horizon's framing (assumes month conditions repeat for 12 months).
+
+2. **Computation:** monthly aggregate from existing engine output. Cron daily computes month-to-date + previous-month-final. Stored in PostgreSQL `kkme_baltic_storage_index` table on VPS (history preserved per Phase 12.10 architecture pattern); snapshot POSTed to worker via `/index/update` (UPDATE_SECRET-gated).
+
+3. **Frontend:** new card in Chapter 4 (Economics) or Chapter 5 (What's moving). Renders monthly index with trailing 6-month sparkline per country per duration. Tooltip: "Per Phase 30 methodology paper; comparable framing to Clean Horizon Storage Index (Nord Pool); KKME values computed from primary-source ingestion."
+
+4. **Methodology link** prominent on the card — clicking opens Phase 30's methodology paper at the section explaining the index calculation specifically.
+
+5. **Comparison framing on the card** (NOT data ingestion): one line citing Clean Horizon as the institutional reference: *"For cross-European context: Clean Horizon Storage Index (Nord Pool subscription) covers 15+ countries with COSMOS simulation methodology. KKME's index is independent + Baltic-deep + free."*
+
+6. **Non-goals explicitly:**
+   - Don't ingest Clean Horizon's data (legal + brand risk per operator's prior decision)
+   - Don't display Clean Horizon's published numbers (paywall + IP)
+   - Cite their methodology framework only
+
+**Estimate:** ~4-6h (worker route + Python script for monthly aggregate + frontend card). Depends on Phase 30 (methodology paper informs computation).
+
+**Sequence:** ships AFTER Phase 30. Both run after Tier 0 closes.
+
+**Acceptance:** monthly index published per country per duration; methodology paper linked from card; trailing 6-month sparkline rendering; comparable framing to Clean Horizon without data redistribution.
 
 ---
 
