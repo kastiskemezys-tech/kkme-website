@@ -25,10 +25,20 @@ const W = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
 // ═══ Types ═══════════════════════════════════════════════════════════════════
 
-interface FleetCountry { operational_mw: number; pipeline_mw: number; weighted_mw: number }
+interface FleetCountry {
+  operational_mw: number;
+  operational_mw_strict?: number | null;
+  operational_mw_inclusive?: number | null;
+  quarantined_mw?: number | null;
+  pipeline_mw: number;
+  weighted_mw: number;
+}
 interface FleetData {
   sd_ratio?: number | null; phase?: string | null; cpi?: number | null;
-  baltic_operational_mw?: number | null; baltic_pipeline_mw?: number | null;
+  baltic_operational_mw?: number | null;
+  baltic_operational_mw_strict?: number | null;
+  baltic_quarantined_mw?: number | null;
+  baltic_pipeline_mw?: number | null;
   eff_demand_mw?: number | null;
   countries?: Record<string, FleetCountry>;
 }
@@ -702,11 +712,14 @@ export function HeroBalticMap() {
         </div>
 
         {/* Block 2 — Fleet composition */}
-        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '12px 16px' }}>
+        <div
+          style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '12px 16px' }}
+          title={`Baltic flexibility fleet · BESS + pumped hydro (Kruonis 205 MW). Includes ${fmt(fleet?.baltic_quarantined_mw ?? 0)} MW flagged _quarantine pending TSO operational evidence (Kruonis PSP, BSP Hertz 1, Eesti Energia BESS, Utilitas Targale, AJ Power). Strict-verified count: ${fmt(fleet?.baltic_operational_mw_strict ?? null)} MW. For BESS-only registry total see S4 "Grid access and buildability" card.`}
+        >
           <div style={{
             fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-tertiary)',
             textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px',
-          }}>BALTIC FLEET</div>
+          }}>BALTIC FLEX FLEET</div>
           <div style={{
             fontFamily: 'var(--font-display)', fontSize: '24px', fontWeight: 500,
             color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums',
@@ -746,6 +759,14 @@ export function HeroBalticMap() {
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', textTransform: 'uppercase' }}>
             + {fmt(fleet?.baltic_pipeline_mw)} MW PIPELINE
           </div>
+          {(fleet?.baltic_quarantined_mw ?? 0) > 0 && (
+            <div style={{
+              fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--amber)',
+              marginTop: '6px', letterSpacing: '0.04em',
+            }}>
+              {fmt(fleet?.baltic_quarantined_mw)} MW awaiting TSO confirmation
+            </div>
+          )}
         </div>
 
         {/* Block 3 — Key ratios */}

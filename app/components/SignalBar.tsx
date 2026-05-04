@@ -54,6 +54,23 @@ export default function SignalBar() {
         const v = flexibilityFleetMw(data.s4);
         return v != null ? `${Math.round(v)} MW` : '—';
       })(),
+      // Phase 12.10 — composition disclosure on hover. Audit #5 flagged
+      // "Baltic Fleet 822 MW" as ambiguous because it sums BESS + pumped
+      // hydro; readers thought 822 MW was BESS-only.
+      tooltip: (() => {
+        const flex = (data.s4 as any)?.fleet?.baltic_operational_mw;
+        const strict = (data.s4 as any)?.fleet?.baltic_operational_mw_strict;
+        const quar = (data.s4 as any)?.fleet?.baltic_quarantined_mw;
+        const bess = (data.s4 as any)?.baltic_total?.installed_mw;
+        const parts = [
+          'Baltic flexibility fleet · BESS + pumped hydro (Kruonis 205 MW).',
+          flex != null ? `Inclusive total: ${Math.round(flex)} MW.` : null,
+          strict != null ? `Strict verified (excludes _quarantine): ${Math.round(strict)} MW.` : null,
+          quar != null && quar > 0 ? `${Math.round(quar)} MW awaiting TSO confirmation.` : null,
+          bess != null ? `BESS-only registry: ${Math.round(bess)} MW (separate from flex fleet).` : null,
+        ].filter(Boolean);
+        return parts.join(' ');
+      })(),
     },
     {
       label: 'DISPATCH',
@@ -81,6 +98,7 @@ export default function SignalBar() {
           key={s.label}
           type="button"
           onClick={() => scrollTo(s.label)}
+          title={(s as { tooltip?: string }).tooltip}
           style={{
             all: 'unset',
             display: 'flex',

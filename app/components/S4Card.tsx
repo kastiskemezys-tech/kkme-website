@@ -13,6 +13,7 @@ import type { ImpactState, Sentiment } from '@/app/lib/types';
 import { sdFormulaCaption } from '@/app/lib/sdRatio';
 import { PIPELINE_TIER_LABELS } from '@/app/lib/pipelineDefinitions';
 import { formatTimestamp } from '@/app/lib/freshness';
+import { getInstalledMw, type InstalledMwResult } from '@/app/lib/metricRegistry';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
@@ -28,9 +29,14 @@ interface StorageReference {
   source:           string;
   source_url:       string;
   installed_mw:     number;
+  installed_mw_live?: number | null;
+  installed_mw_live_as_of?: string | null;
+  installed_mw_live_source_url?: string | null;
+  installed_mw_as_of?: string | null;
   installed_gen_mw: number;
   installed_mwh:    number;
   note:             string;
+  coverage_note?:   string;
 }
 
 interface StoragePipeline {
@@ -69,6 +75,11 @@ interface CountryAsset {
 
 interface CountryData {
   installed_mw?: number;
+  installed_mw_live?: number | null;
+  installed_mw_live_as_of?: string | null;
+  installed_mw_live_source_url?: string | null;
+  installed_mw_as_of?: string | null;
+  installed_mw_source_url?: string | null;
   installed_gen_mw?: number;
   installed_mwh?: number;
   under_construction_mw?: number;
@@ -93,11 +104,23 @@ interface FleetEntry {
   country?: string;
 }
 
+interface FleetCountrySummary {
+  operational_mw?: number | null;
+  operational_mw_strict?: number | null;
+  operational_mw_inclusive?: number | null;
+  quarantined_mw?: number | null;
+  pipeline_mw?: number | null;
+  weighted_mw?: number | null;
+  entries?: FleetEntry[];
+}
+
 interface FleetData {
-  countries?:            Record<string, { entries?: FleetEntry[] }> | null;
+  countries?:            Record<string, FleetCountrySummary> | null;
   sd_ratio?:             number | null;
   phase?:                string | null;
   baltic_operational_mw?: number | null;
+  baltic_operational_mw_strict?: number | null;
+  baltic_quarantined_mw?: number | null;
   baltic_pipeline_mw?:   number | null;
   baltic_weighted_mw?:    number | null;
   eff_demand_mw?:        number | null;
@@ -276,14 +299,33 @@ export function S4Card() {
   const urls = data.source_urls;
   const sbc = data.storage_by_country || {};
   const bt = data.baltic_total;
-  const ltMw = sbc.LT?.installed_mw ?? ref?.installed_mw ?? 484;
-  const lvMw = sbc.LV?.installed_mw ?? 40;
-  const eeMw = sbc.EE?.installed_mw ?? 127;
+  // Phase 12.10 — single canonical lookup per country via getInstalledMw
+  // selector. Prefers `_live` (VPS-Python A68 ingest) over hardcode; the
+  // returned tier ('live' | 'hardcode' | 'fallback') drives the as-of label.
+  const ltLookup = getInstalledMw(data, 'LT');
+  const lvLookup = getInstalledMw(data, 'LV');
+  const eeLookup = getInstalledMw(data, 'EE');
+  const ltMw = ltLookup.value ?? sbc.LT?.installed_mw ?? ref?.installed_mw ?? 484;
+  const lvMw = lvLookup.value ?? sbc.LV?.installed_mw ?? 40;
+  const eeMw = eeLookup.value ?? sbc.EE?.installed_mw ?? 127;
   const balticInstalledMw = bt?.installed_mw ?? (ltMw + lvMw + eeMw);
   const balticUcMw = bt?.under_construction_mw ?? 705;
   const installedMw = ltMw; // LT-specific for pipeline bar
   const tsoReservedMw = pipe?.tso_reserved_mw ?? 1395;
   const intentionMw = pipe?.intention_protocols_mw ?? 3700;
+  // Phase 12.10 — quarantine disclosure: companion `quarantined_mw` per
+  // country surfaces "X MW awaiting TSO confirmation" footers. Defaults to
+  // strict view (quarantined excluded from headline operational counts).
+  const fleetCountries = data.fleet?.countries ?? {};
+  const eeQuarantinedMw = fleetCountries.EE?.quarantined_mw ?? 0;
+  const lvQuarantinedMw = fleetCountries.LV?.quarantined_mw ?? 0;
+  const ltQuarantinedMw = fleetCountries.LT?.quarantined_mw ?? 0;
+  const verifiedLabel = (lookup: InstalledMwResult): string | null => {
+    if (!lookup.as_of) return null;
+    if (lookup.source === 'live') return `live ${lookup.as_of}`;
+    if (lookup.source === 'hardcode') return `verified ${lookup.as_of}`;
+    return null;
+  };
 
   // Grid headroom (all-tech, for drawer)
   const free = data.free_mw ?? null;
@@ -342,7 +384,7 @@ export function S4Card() {
       <div style={{ marginBottom: '4px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
           <MetricTile
-            label="Baltic installed storage"
+            label="Baltic BESS installed (TSO-tracked)"
             value={formatMW(balticInstalledMw)}
             unit="MW"
             size="hero"
@@ -370,36 +412,47 @@ export function S4Card() {
             );
           })()}
         </div>
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '4px' }}>
+        <p
+          style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '4px' }}
+          title={[
+            ltLookup.as_of ? `LT ${formatMW(ltMw)} MW (${verifiedLabel(ltLookup) ?? 'unverified'})${ltLookup.source_url ? ` · ${ltLookup.source_url}` : ''}` : null,
+            lvLookup.as_of ? `LV ${formatMW(lvMw)} MW (${verifiedLabel(lvLookup) ?? 'unverified'})${lvLookup.source_url ? ` · ${lvLookup.source_url}` : ''}` : null,
+            eeLookup.as_of ? `EE ${formatMW(eeMw)} MW (${verifiedLabel(eeLookup) ?? 'unverified'})${eeLookup.source_url ? ` · ${eeLookup.source_url}` : ''}` : null,
+            ref?.coverage_note ?? null,
+          ].filter(Boolean).join(' · ')}
+        >
           LT {formatMW(ltMw)} · LV {formatMW(lvMw)} · EE {formatMW(eeMw)} + {formatMW(sbc.EE?.under_construction_mw ?? 255)} MW construction
         </p>
       </div>
 
       {/* COUNTRY TABS */}
       <div style={{ display: 'flex', gap: '2px', marginBottom: '16px' }}>
-        {(['LT', 'LV', 'EE'] as CountryTab[]).map(c => (
-          <button
-            key={c}
-            onClick={() => setActiveTab(c)}
-            style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: 'var(--font-xs)',
-              letterSpacing: '0.06em',
-              padding: '5px 12px',
-              border: `1px solid ${activeTab === c ? 'var(--border-highlight)' : 'var(--border-card)'}`,
-              background: activeTab === c ? 'var(--bg-elevated)' : 'transparent',
-              color: activeTab === c ? 'var(--text-secondary)' : 'var(--text-tertiary)',
-              cursor: 'pointer',
-              borderRadius: '2px',
-              transition: 'border-color 150ms, color 150ms',
-            }}
-          >
-            {TAB_LABELS[c]}
-            <span style={{ marginLeft: '5px', opacity: 0.5 }}>
-              {formatMW(sbc[c]?.installed_mw ?? (c === 'LT' ? ltMw : c === 'LV' ? lvMw : eeMw))}
-            </span>
-          </button>
-        ))}
+        {(['LT', 'LV', 'EE'] as CountryTab[]).map(c => {
+          const tabMw = c === 'LT' ? ltMw : c === 'LV' ? lvMw : eeMw;
+          return (
+            <button
+              key={c}
+              onClick={() => setActiveTab(c)}
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 'var(--font-xs)',
+                letterSpacing: '0.06em',
+                padding: '5px 12px',
+                border: `1px solid ${activeTab === c ? 'var(--border-highlight)' : 'var(--border-card)'}`,
+                background: activeTab === c ? 'var(--bg-elevated)' : 'transparent',
+                color: activeTab === c ? 'var(--text-secondary)' : 'var(--text-tertiary)',
+                cursor: 'pointer',
+                borderRadius: '2px',
+                transition: 'border-color 150ms, color 150ms',
+              }}
+            >
+              {TAB_LABELS[c]}
+              <span style={{ marginLeft: '5px', opacity: 0.5 }}>
+                {formatMW(tabMw)}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {/* TAB CONTENT — min height to prevent layout shift */}
@@ -508,6 +561,15 @@ export function S4Card() {
             <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 0 12px' }}>
               {sbc.EE?.coverage_note || `${eeMw} MW operational since Feb 2026, ${sbc.EE?.under_construction_mw ?? 255} MW under construction. Estonia BESS market emerging fast.`}
             </p>
+            {eeQuarantinedMw > 0 && (
+              <p style={{
+                fontFamily: 'var(--font-serif)', fontSize: 'var(--font-xs)', color: 'var(--amber)',
+                lineHeight: 1.5, margin: '0 0 10px', padding: '6px 10px',
+                borderLeft: '2px solid var(--amber-subtle)',
+              }}>
+                EE BESS fleet awaiting TSO confirmation: {formatMW(eeQuarantinedMw)} MW (BSP Hertz 1 + Eesti Energia BESS) flagged operational without Elering operational evidence. Strict count: {formatMW(Math.max(eeMw - eeQuarantinedMw, 0))} MW verified.
+              </p>
+            )}
             {sbc.EE?.assets?.map((a: CountryAsset) => <AssetRow key={a.id} asset={a} />) || (
               <p style={{ color: 'var(--text-muted)' }}>No asset data available</p>
             )}
@@ -520,6 +582,15 @@ export function S4Card() {
               <span style={{ color: 'var(--teal)', fontWeight: 600 }}>{formatMW(lvMw)} MW operational</span>
               {' · TSO-owned'}
             </div>
+            {lvQuarantinedMw > 0 && (
+              <p style={{
+                fontFamily: 'var(--font-serif)', fontSize: 'var(--font-xs)', color: 'var(--amber)',
+                lineHeight: 1.5, margin: '4px 0 10px', padding: '6px 10px',
+                borderLeft: '2px solid var(--amber-subtle)',
+              }}>
+                LV commercial BESS awaiting TSO confirmation: {formatMW(lvQuarantinedMw)} MW (Utilitas Targale, AJ Power) flagged operational without AST operational evidence. Headline {formatMW(lvMw)} MW = AST-owned Rēzekne + Tume only.
+              </p>
+            )}
             {sbc.LV?.assets?.map((a: CountryAsset) => <AssetRow key={a.id} asset={a} />) || (
               <p style={{ color: 'var(--text-muted)' }}>No asset data available</p>
             )}
