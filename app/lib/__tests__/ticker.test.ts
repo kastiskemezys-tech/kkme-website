@@ -26,4 +26,13 @@ describe('ticker units', () => {
       expect(out).toContain('/MW/h');
     }
   });
+
+  // Phase 12.10 — Audit #5 reported "DA capture marquee €133 vs 2h card €140"
+  // as a contradiction. The marquee was gross_4h, the card was gross_2h —
+  // both real, both useful, but the shared "DA CAPTURE" noun read as one
+  // metric with two values. Caller now labels with explicit duration.
+  it('DA capture supports duration-explicit labels for marquee/card disambiguation (Phase 12.10)', () => {
+    expect(formatTickerItem('da_capture', 'DA CAPTURE 4h', 133, 0)).toBe('DA CAPTURE 4h €133/MWh');
+    expect(formatTickerItem('da_capture', 'DA CAPTURE 2h', 140, 0)).toBe('DA CAPTURE 2h €140/MWh');
+  });
 });

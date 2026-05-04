@@ -268,7 +268,11 @@ export function HeroBalticMap() {
   // Ticker
   const tickerItems = useMemo(() => {
     const items: string[] = [];
-    if (read?.capture?.gross_4h != null) items.push(formatTickerItem('da_capture', 'DA CAPTURE', read.capture.gross_4h, 0));
+    // Phase 12.10 — duration-explicit label to disambiguate from S1 2h Capture card.
+    // Audit #5: "DA capture marquee €133 vs 2h card €140 — same metric two values."
+    // They were never the same metric: gross_4h here vs gross_2h in S1Card. Both
+    // are real, both useful; the bug was the shared "DA CAPTURE" noun.
+    if (read?.capture?.gross_4h != null) items.push(formatTickerItem('da_capture', 'DA CAPTURE 4h', read.capture.gross_4h, 0));
     if (s2?.afrr_up_avg != null) items.push(formatTickerItem('afrr', 'AFRR', s2.afrr_up_avg, 2));
     if (s2?.mfrr_up_avg != null) items.push(formatTickerItem('mfrr', 'MFRR', s2.mfrr_up_avg, 1));
     if (revenue?.project_irr != null) items.push(`${IRR_LABELS.unlevered.short.toUpperCase()} ${(revenue.project_irr * 100).toFixed(1)}%`);
