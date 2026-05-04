@@ -240,9 +240,26 @@ function processFleet(entries, demand) {
       quarantined.push({ name: e.name, flags });
     }
   }
+  // Phase 12.10 — quarantine soft-enforcement: companion `quarantined_mw`
+  // per country + `_strict` totals. Inclusive `operational_mw` retained for
+  // backward compatibility with downstream consumers; frontend selects via
+  // `app/lib/fleetMw.ts` semantics.
+  let baltic_quarantined = 0;
+  for (const c of Object.keys(countries)) {
+    const cc = countries[c];
+    const qmw = (cc.entries || [])
+      .filter(e => (e.status === 'operational' || e.status === 'commissioned') && e._quarantine === true)
+      .reduce((s, e) => s + (Number(e.mw) || 0), 0);
+    cc.quarantined_mw           = Math.round(qmw * 10) / 10;
+    cc.operational_mw_strict    = Math.round((cc.operational_mw - qmw) * 10) / 10;
+    cc.operational_mw_inclusive = Math.round(cc.operational_mw);
+    baltic_quarantined += qmw;
+  }
   return {
     countries,
-    baltic_operational_mw: Math.round(baltic_operational),
+    baltic_operational_mw:        Math.round(baltic_operational),
+    baltic_operational_mw_strict: Math.round(baltic_operational - baltic_quarantined),
+    baltic_quarantined_mw:        Math.round(baltic_quarantined * 10) / 10,
     baltic_pipeline_mw:    Math.round(baltic_pipeline),
     baltic_weighted_mw:    Math.round(baltic_weighted),
     non_commercial_mw:     Math.round(non_commercial_mw),
@@ -7773,14 +7790,34 @@ export default {
           const a = build?.assertions || {};
           const getVal = (key, fallback) => a[key]?.value ?? fallback;
           const getUrl = (key, fallback) => a[key]?.source_url ?? fallback;
+          const getAsOf = (key, fallback) => a[key]?.as_of_date ?? fallback;
+
+          // Phase 12.10 — `installed_storage_<c>_mw_live` is the daily VPS-Python
+          // ingest of ENTSO-E A68 (production type B25). It supplements (does
+          // NOT replace) the operator-curated `installed_storage_<c>_mw`; the
+          // frontend selector `getInstalledMw` (app/lib/metricRegistry.ts)
+          // prefers `_live` when present and falls back to the hardcode otherwise.
+          // See scripts/vps/fetch_entsoe_installed_capacity.py for the ingest path.
+          const liveLt = a.installed_storage_lt_mw_live || null;
+          const liveLv = a.installed_storage_lv_mw_live || null;
+          const liveEe = a.installed_storage_ee_mw_live || null;
 
           d.storage_reference = {
             source: `Litgrid, ${a.installed_storage_lt_mw?.as_of_date || '2026-03-23'}`,
             source_url: getUrl('installed_storage_lt_mw', 'https://www.litgrid.eu/index.php/naujienos/naujienos/prie-elektros-perdavimo-tinklo-prijungta-trecioji-komercine-30-mw-galios-bateriju-kaupimo-sistema-/36502'),
             installed_mw: getVal('installed_storage_lt_mw', 484),
+            installed_mw_live: liveLt?.value ?? null,
+            installed_mw_live_as_of: liveLt?.as_of_date ?? null,
+            installed_mw_live_source_url: liveLt?.source_url ?? null,
+            installed_mw_as_of: getAsOf('installed_storage_lt_mw', '2026-03-23'),
             installed_gen_mw: getVal('installed_storage_lt_gen_mw', 420),
             installed_mwh: getVal('installed_storage_lt_mwh', 719),
             note: 'Distribution + transmission combined, national total',
+            // Phase 12.10 — Pause A Option B: hardcode is the primary fallback when
+            // ENTSO-E A68 (B25) live-fetch returns null/unavailable. Distribution-
+            // grid Litgrid Kaupikliai (~+153 MW) not yet enumerated in fleet tracker;
+            // refresh planned 2026-Q3 once Litgrid publishes per-DSO breakdown.
+            coverage_note: 'Includes TSO-grid storage (Litgrid Įrengtoji galia ~353 MW transmission). +153 MW distribution-grid Kaupikliai tracked by Litgrid not yet enumerated — refresh 2026-Q3. Hardcode is the operator-curated fallback when ENTSO-E A68 live-fetch is unavailable.',
             from_assertions: !!build,
           };
           d.storage_pipeline = {
@@ -7815,6 +7852,11 @@ export default {
           d.storage_by_country = {
             LT: {
               installed_mw: ltMw,
+              installed_mw_live: liveLt?.value ?? null,
+              installed_mw_live_as_of: liveLt?.as_of_date ?? null,
+              installed_mw_live_source_url: liveLt?.source_url ?? null,
+              installed_mw_as_of: getAsOf('installed_storage_lt_mw', '2026-03-23'),
+              installed_mw_source_url: getUrl('installed_storage_lt_mw', 'https://www.litgrid.eu/'),
               installed_gen_mw: getVal('installed_storage_lt_gen_mw', 420),
               installed_mwh: getVal('installed_storage_lt_mwh', 719),
               tso_reserved_mw: getVal('reserved_storage_lt_mw', 1395),
@@ -7830,9 +7872,14 @@ export default {
             },
             LV: {
               installed_mw: lvMw,
+              installed_mw_live: liveLv?.value ?? null,
+              installed_mw_live_as_of: liveLv?.as_of_date ?? null,
+              installed_mw_live_source_url: liveLv?.source_url ?? null,
+              installed_mw_as_of: getAsOf('installed_storage_lv_mw', null),
+              installed_mw_source_url: getUrl('installed_storage_lv_mw', 'https://www.ast.lv/'),
               source: 'AST',
               source_url: 'https://www.ast.lv/',
-              coverage_note: 'AST does not publish storage-specific reservation data. Latvia commercial BESS pipeline not publicly visible.',
+              coverage_note: 'AST does not publish storage-specific reservation data. Latvia commercial BESS pipeline not publicly visible. Phase 12.10: ~19 MW commercial behind-the-meter (Utilitas Targale, AJ Power) tracked in fleet but flagged _quarantine pending TSO operational evidence.',
               assets: [
                 { id: 'ast-bess-rezekne', name: 'AST BESS (Rēzekne)', mw: 20, status: 'operational', tech: 'li-ion', note: 'TSO-owned. Rolls-Royce Solutions. EU Recovery/CEF funded.' },
                 { id: 'ast-bess-tume', name: 'AST BESS (Tume)', mw: 20, status: 'operational', tech: 'li-ion', note: 'TSO-owned. AST estimates €20M/yr savings from 2026.' },
@@ -7840,10 +7887,15 @@ export default {
             },
             EE: {
               installed_mw: eeMw,
+              installed_mw_live: liveEe?.value ?? null,
+              installed_mw_live_as_of: liveEe?.as_of_date ?? null,
+              installed_mw_live_source_url: liveEe?.source_url ?? null,
+              installed_mw_as_of: getAsOf('installed_storage_ee_mw', null),
+              installed_mw_source_url: getUrl('installed_storage_ee_mw', 'https://en.evecon.ee/'),
               under_construction_mw: eeUcMw,
               source: 'Evecon / Elering',
               source_url: 'https://en.evecon.ee/',
-              coverage_note: `${eeMw} MW operational since Feb 2026, ${eeUcMw} MW under construction. Estonia BESS market emerging fast.`,
+              coverage_note: `${eeMw} MW operational since Feb 2026, ${eeUcMw} MW under construction. Estonia BESS market emerging fast. Phase 12.10: BSP Hertz 1 (100 MW) + Eesti Energia BESS (26.5 MW) flagged _quarantine pending TSO operational evidence — fleet selector renders strict (excluding) by default; full ${eeMw} MW retained as inclusive view via /macro_context disclosure.`,
               assets: [
                 { id: 'bsp-hertz-1', name: 'BSP Hertz 1 (Kiisa)', mw: 100, mwh: 200, status: 'operational', cod: '2026-02-05', source_url: 'https://en.evecon.ee/estonia-strengthens-energy-resilience-hertz-1-one-of-continental-europes-largest-battery-storage-parks-opens-in-kiisa/', note: 'Evecon+Corsica Sole+Mirova JV. EBRD+NIB €85.6M.' },
                 { id: 'eesti-energia', name: 'Eesti Energia BESS', mw: 26.5, mwh: 53.1, status: 'operational', cod: '2025-02-01', note: 'Estonia first grid-scale BESS. State utility.' },
