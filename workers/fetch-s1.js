@@ -7082,6 +7082,17 @@ export default {
         base.afrr_demand_mw  = 120;
         base.mfrr_demand_mw  = 604;
         base.fcr_demand_mw   = 28;
+        // Phase 12.10 — Elering €74M Baltic frequency-reserve cost (2025) macro
+        // anchor. Annual figure published once/year by Elering (TSO transparency
+        // press release); annual hardcode is fine — no staleness risk before the
+        // next annual publication. Audit #5 explicitly recommended surfacing.
+        base.macro_context = {
+          baltic_frequency_reserve_cost_2025_eur: 74_000_000,
+          source: 'Elering 2026-02-04 press release',
+          source_url: 'https://elering.ee/en/news/baltic-frequency-reserve-cost-74m-2025',
+          coverage_period: '2025 calendar year (synchronous-area-wide aFRR + mFRR + FCR procurement)',
+          interpretation: 'Strongest macro anchor for Baltic balancing-market spend size. KKME revenue projections sized at single-MW level scale linearly against this number (€74M ÷ ~752 MW eff demand → ≈ €98k/MW/yr Baltic-aggregated balancing spend, before TSO margin and product-level allocation).',
+        };
         if (activationRaw) {
           try {
             const act = JSON.parse(activationRaw);
