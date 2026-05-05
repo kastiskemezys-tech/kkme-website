@@ -8700,9 +8700,11 @@ export default {
     }
 
     // ── GET /health ──────────────────────────────────────────────────────────
-    // Returns structured health of all signal KV keys. All fetches run on Workers cron.
+    // Returns structured health of all signal + data KV keys. Source of truth for
+    // monitored keys is `STALE_THRESHOLDS_HOURS` in workers/lib/defaults.js — adding
+    // a key there auto-includes it in /health (no edit here required).
     if (request.method === 'GET' && url.pathname === '/health') {
-      const keys = ['s1', 's2', 's3', 's4', 'euribor', 's4_pipeline'];
+      const keys = Object.keys(STALE_THRESHOLDS_HOURS);
       const signals = {};
 
       await Promise.all(keys.map(async (key) => {
