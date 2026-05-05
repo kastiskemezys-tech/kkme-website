@@ -9,12 +9,12 @@
 
 ## Currently active
 
-- **In flight:** none — operator at clean main, ready to launch next CC session
-- **Next CC job:** Phase 12.10a — CLAUDE.md discipline patch (~30 min). Bakes the six discipline rules (audit-triage, no-hardcoded-temporal-label, named-entity verification, cross-card consistency, roadmap edit-conflict, no-editorial-state-label) into CLAUDE.md so they don't drift back. **Last Tier 0 item.**
-- **Then:** Tier 1 begins — Phase 12.12 (data integrity infrastructure) + 7.7g (token rebuild + 5-primitive system) run in parallel, both unlock Tier 2+.
-- **Parallel research track:** Phase 30 research deliverables shipped (3 docs merged to main); Phase 29 (KKME Baltic Storage Index, ~4-6h) ships after Tier 0 closes — informed by Phase 30 findings (esp. Gap #5 aFRR/FCR cap reservation reconciliation)
-- **Phase 12.10 follow-up (NOT a new phase):** Gap #5 — KKME's published aFRR-down €5.03/MW/h is order-of-magnitude lower than Clean Horizon's €340/MW/h Baltic average. **Operator live-site review 2026-05-05 reinforced: actual market is at €13.5/MW/h post Baltic-Continental integration Nov 2025; Clean Horizon's €340 likely measures something else.** Investigation re-framed: not "fix KKME numerator" but "decode Clean Horizon denominator." Folds into next Phase 12.10 follow-up commit.
-- **Roadmap last updated:** 2026-05-05 by Cowork (post-Phase-4G-merge: Phase 12.9.3 + 4G → Shipped appendix; Phase 12.12 #16 added — curation ingestion encoding-passthrough audit; Phase 4G annotated audit-vs-reality finding; Currently-active advances Next CC job to Phase 12.10a — last Tier 0 item)
+- **In flight:** none — operator at clean main. **TIER 0 CLOSED 2026-05-05.**
+- **Next CC job:** Tier 1 begins. Phase 12.12 (data integrity infrastructure, 16 sub-items, ~7-10 days) and Phase 7.7g (token rebuild + 5-primitive system, ~12-15 days, splits into 7.7g-a / 7.7g-b / 7.7g-c) run in parallel — different files, different concerns. Both unlock Tier 2+. Author the Phase 12.12 prompt OR the Phase 7.7g-a prompt next (operator decision: which thread starts first; recommend 7.7g-a since the 5-primitive system unblocks card-rebuild work that Tier 2's chapter restructure depends on).
+- **Then:** Tier 2 (Phase A — five-chapter restructure) → Tier 3 (Phase B + 12) → Tier 4 (charts + connection) → Tier 5 (editorial) → Tier 6 (mobile + a11y) → Tier 7 (Phase 29 — KKME Baltic Storage Index, after Tier 0 closes per original sequencing).
+- **Parallel research track:** Phase 30 research deliverables shipped; Phase 29 (KKME Baltic Storage Index, ~4-6h) **now unblocked** by Tier 0 closure — informed by Phase 30 findings (esp. Gap #5 aFRR/FCR cap reservation reconciliation, which folds into Tier 1's first Phase 12.10 follow-up commit).
+- **Phase 12.10 follow-up (NOT a new phase):** Gap #5 — KKME's published aFRR-down €5.03/MW/h is order-of-magnitude lower than Clean Horizon's €340/MW/h Baltic average. **Operator live-site review 2026-05-05 reinforced: actual market is at €13.5/MW/h post Baltic-Continental integration Nov 2025; Clean Horizon's €340 likely measures something else.** Investigation re-framed: not "fix KKME numerator" but "decode Clean Horizon denominator." Folds into Tier 1's early Phase 12.10 follow-up commit.
+- **Roadmap last updated:** 2026-05-05 by Cowork (post-Phase-12.10a-merge: Phase 12.10a → Shipped appendix; **Tier 0 CLOSED**; Currently-active flips to Tier 1 starting state)
 
 ---
 
@@ -555,7 +555,7 @@ Defensive guards + CardBoundary upgrade. Ships preventive hardening (audit's tra
 
 | Tier | Phases | Days |
 |---|---|---|
-| 0 — Bug fixes + data integrity | 12.8 [SHIPPED] · 12.8.0 [SHIPPED] · 12.10.0 [SHIPPED] · 12.10 [SHIPPED] · 12.8.1 [SHIPPED] · 12.9 [SHIPPED] · 12.9.1 [SHIPPED] · 12.9.2 [SHIPPED] · 12.9.3 [SHIPPED] · 4G [SHIPPED] · 12.10a | ~3-5 days |
+| 0 — Bug fixes + data integrity | 12.8 [SHIPPED] · 12.8.0 [SHIPPED] · 12.10.0 [SHIPPED] · 12.10 [SHIPPED] · 12.8.1 [SHIPPED] · 12.9 [SHIPPED] · 12.9.1 [SHIPPED] · 12.9.2 [SHIPPED] · 12.9.3 [SHIPPED] · 4G [SHIPPED] · 12.10a [SHIPPED] | **TIER CLOSED 2026-05-05** |
 | 1 — Foundation | 12.12 · 7.7g (a/b/c) | ~12-15 days |
 | 2 — Chapter restructure | A | ~5 days |
 | 3 — Two moments of presence | B · 12 | ~10 days |
@@ -618,6 +618,7 @@ This document is the planning layer; `docs/handover.md` is the canonical state-o
 - **Phase 12.9.2** — s8 timestamp fix [SHIPPED 2026-05-05 → commit `e8c2654`] — 927 tests (no new); `fetchInterconnectorFlows()` `timestamp` field reset to `new Date().toISOString()` (canonical "as-of-write"); ENTSO-E forward-looking slot-end value preserved as new `data_slot_end` field. Resolves Session 34 backlog #1 (`/health.signals.s8.age_hours = -5.1`). CC's §10 halt caught a prompt assumption: upstream is `energy-charts.info` CBET, not ENTSO-E (same fix shape, different upstream attribution). Worker version `456cf230-10fd-4135-9270-beade824a2b4`.
 - **Phase 12.9.3** — Default duration 4h → 2h [SHIPPED 2026-05-05 → commits `ec85338` + `6d4922c`] — 927 tests (no new); 3-line frontend flip across `RevenueCard.tsx:1528`, `S3Card.tsx:180`, `HeroBalticMap.tsx:123`. KKME audience defaults to 2h economics (most contracted Baltic BESS is 2h; financing assumptions converge faster on 2h). 4h remains as toggle option. No worker deploy.
 - **Phase 4G** — Intel feed encoding + count cleanup [SHIPPED 2026-05-05 → commits `8e14a5f` + `72f8379`] — 927 tests (no new); IntelFeed badge + View-all link converged on `allItems.length` denominator (option (a)) at `IntelFeed.tsx:1311`; defensive `resp.encoding = 'utf-8'` added to 3 `requests.get` sites in VPS `daily_intel.py` (scp'd, not mirrored to repo); 1 production mojibake item purged via `POST /feed/delete-by-id` (cur_mo87wkt8-65w5pc). **Audit-vs-reality finding (load-bearing):** Phase 4G's premise — that `daily_intel.py` URL-decodes as cp1257/latin-1 — was empirically false. Repo + VPS grep for `unquote | cp1257 | latin-1` → zero matches. Live litgrid scrape returns charset=utf-8 and decodes correctly. The 1 mojibake item came via `POST /curate` (operator-pasted), with `\xc4\x97` (UTF-8 ė) interpreted as cp1257 → ÄŠ upstream of KKME entirely. Same audit-vs-reality pattern as Phase 12.8.0 light-mode investigation. **Actual scope ~20 min vs estimate ~1.5h.** Curation-encoding investigation queued as Phase 12.12 #16.
+- **Phase 12.10a** — CLAUDE.md discipline patch [SHIPPED 2026-05-05 → commits `f15a371` + `68ef9ba`] — 927 tests (no new); CLAUDE.md +19 / -2 added "Discipline rules" section codifying six rules (audit-triage, no-hardcoded-temporal-label, named-entity verification, cross-card consistency, roadmap edit-conflict, no-editorial-state-label) with origin-incident traces; "Current phase" section refreshed from stale Phase-2B-1 reference to Tier-0-closing state. Documentation-only, no code/worker change. **Closes Tier 0.**
 
 (more populated as phases close)
 
