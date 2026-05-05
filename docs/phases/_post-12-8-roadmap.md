@@ -9,9 +9,9 @@
 
 ## Currently active
 
-- **In flight:** Phase 12.9.1 (PR awaiting merge — worker live `ff9ed839`, frontend pending Cloudflare Pages auto-deploy on merge)
-- **Next CC job:** Phase 12.9.2 — s8 timestamp fix (~5-15 min). Negative `age_hours` on `/health.signals.s8`; bug surfaced during 12.9.1 verification. Worker deploy required. Then Phase 4G (intel encoding, ~1-1.5h, prompt at `docs/phases/phase-4g-prompt.md`).
-- **Then:** Phase 12.10a (discipline-rules CLAUDE.md patch, ~30 min, NOW including no-editorial-state-label rule per 12.9.1 finding) → Tier 1
+- **In flight:** none — operator at clean main, ready to launch next CC session
+- **Next CC job:** Phase 12.9.3 — default duration 4h → 2h (~5-10 min). Operator-surfaced 2026-05-05: KKME audience defaults to 2h economics; 4h was the global frontier-market default but most contracted Baltic BESS is 2h. Frontend-only, 3-line flip, no worker deploy. Prompt at `docs/phases/phase-12-9-3-prompt.md`.
+- **Then:** Phase 4G (intel encoding, ~1-1.5h, prompt at `docs/phases/phase-4g-prompt.md`) → Phase 12.10a (CLAUDE.md discipline patch, ~30 min, NOW including no-editorial-state-label rule per 12.9.1 finding) → Tier 1
 - **Parallel research track:** Phase 30 research deliverables shipped (3 docs merged to main); Phase 29 (KKME Baltic Storage Index, ~4-6h) ships after Tier 0 closes — informed by Phase 30 findings (esp. Gap #5 aFRR/FCR cap reservation reconciliation)
 - **Phase 12.10 follow-up (NOT a new phase):** Gap #5 — KKME's published aFRR-down €5.03/MW/h is order-of-magnitude lower than Clean Horizon's €340/MW/h Baltic average. **Operator live-site review 2026-05-05 reinforced: actual market is at €13.5/MW/h post Baltic-Continental integration Nov 2025; Clean Horizon's €340 likely measures something else.** Investigation re-framed: not "fix KKME numerator" but "decode Clean Horizon denominator." Folds into next Phase 12.10 follow-up commit.
 - **Roadmap last updated:** 2026-05-05 by Cowork (Phase 12.9.1 added — brand discipline pass; Phase 12.13 +#6 hover granularity sub-item; Phase 12.10a +#6 no-editorial-state-label rule; Phase 30 Gap #5 reframing per live-site evidence)
@@ -209,6 +209,17 @@ Defensive guards + CardBoundary upgrade. Ships preventive hardening (audit's tra
 
 **Estimate:** ~5-15 min. Worker deploy required.
 **Sequencing:** ships AFTER Phase 12.9.1 merges. Independent of Phase 4G; can run before or after.
+
+#### Phase 12.9.3 — Default duration 4h → 2h [NEW — operator surfaced 2026-05-05]
+**Why:** Site default duration is currently `4h` across three card surfaces (RevenueCard, S3Card, HeroBalticMap). KKME audience cares more about 2h economics — most contracted Baltic BESS today is 2h (older fleet); financing assumptions converge faster on 2h. 4h is the global frontier-market default; 2h is the local-fleet default. Switch the visible default, keep 4h as toggle option.
+
+**Scope (~5-10 min, single PR):**
+1. `app/components/RevenueCard.tsx:1528` — `useState<'2h' | '4h'>('4h')` → `'2h'`
+2. `app/components/S3Card.tsx:180` — `useState<Duration>('4h')` → `'2h'`
+3. `app/components/HeroBalticMap.tsx:123` — `fetch(\`${W}/revenue?dur=4h\`)` → `dur=2h`
+
+**Estimate:** ~5-10 min. Frontend-only, no worker deploy, no test churn.
+**Sequencing:** ships AFTER Phase 12.9.2 merges.
 
 #### Phase 4G — Intel feed encoding + count cleanup
 **Scope:** Python URL-decode encoding fix in `scripts/daily_intel.py` (cp1257/latin-1 → UTF-8); one-shot mojibake backfill purge (scan `feed_index` for `Ä[ŠŽ]`/`Å[ĄĮ]`/`Ã[€¶]` patterns); IntelFeed badge `${allItems.length}` vs View-all `${totalAvailable}` denominator alignment.
@@ -543,7 +554,7 @@ Defensive guards + CardBoundary upgrade. Ships preventive hardening (audit's tra
 
 | Tier | Phases | Days |
 |---|---|---|
-| 0 — Bug fixes + data integrity | 12.8 [SHIPPED] · 12.8.0 [SHIPPED] · 12.10.0 [SHIPPED] · 12.10 [SHIPPED] · 12.8.1 [SHIPPED] · 12.9 [SHIPPED] · 12.9.1 [IN FLIGHT] · 12.9.2 · 4G · 12.10a | ~3-5 days |
+| 0 — Bug fixes + data integrity | 12.8 [SHIPPED] · 12.8.0 [SHIPPED] · 12.10.0 [SHIPPED] · 12.10 [SHIPPED] · 12.8.1 [SHIPPED] · 12.9 [SHIPPED] · 12.9.1 [SHIPPED] · 12.9.2 [SHIPPED] · 12.9.3 · 4G · 12.10a | ~3-5 days |
 | 1 — Foundation | 12.12 · 7.7g (a/b/c) | ~12-15 days |
 | 2 — Chapter restructure | A | ~5 days |
 | 3 — Two moments of presence | B · 12 | ~10 days |
@@ -601,6 +612,9 @@ This document is the planning layer; `docs/handover.md` is the canonical state-o
 - **Phase 12.10** — Broader data discrepancy hot-fix bundle [SHIPPED 2026-05-04 PR #50 → commit `02a64ea`] — 893 → 914 tests (+21); ENTSO-E A68 (B25) live-fetch architecture via VPS-Python + PostgreSQL + worker POST (NEW, template for Phase 12.12 #3); `installed_storage_<c>_mw_live` surfacing in `/s4` with `getInstalledMw` selector preferring `_live` over hardcode; soft quarantine companion fields per country; LT distribution-grid + EE A68/fleet 218 vs 126.5 gap coverage_notes; Elering €74M `macro_context` on `/s2`; HeroBalticMap "BALTIC FLEX FLEET" rename + tooltips + amber quarantine disclosure; S4Card uses selector + EE/LV "awaiting TSO confirmation" footers; computePeakTrough slice-idx → UTC clock-hour fix; "DA CAPTURE 4h" marquee disambiguation; aFRR Path-1 direction disclosure on S2Card; NREL ATB cite swap (worker + RevenueCard); APVA tuple weakened with verified APVIS portal link; €25/kW soft-removed; 752/3,600 marquee inline computation chain; IRR/DSCR/CAPEX assumptions footnote on RevenueCard. Pause B load-bearing finding: A68 returns LT 426 / LV 90 / EE 218 MW; two parser bugs caught + fixed pre-deploy (wrong XML namespace, Element-truthiness gotcha). Worker version `99458af7-2834-4232-9600-2b1250b02896`.
 - **Phase 30** — Clean Horizon methodology research + KKME methodology paper [SHIPPED 2026-05-04 PR #51] — research-only, no code/tests/deploy. 3 docs across `phase-30-methodology-research` branch: `docs/research/clean-horizon-methodology-vs-kkme-v7.3.md` (217 lines, 12 dimensions, 16 Clean Horizon sources cited), `docs/research/kkme-engine-improvements-from-clean-horizon-comparison.md` (240 lines, 5 gaps prioritized), `docs/methodology.md` (350 lines, public-facing methodology paper at Clean-Horizon-comparable rigor). Headline finding: Gap #5 — KKME aFRR-down €5.03/MW/h vs Clean Horizon Baltic ~€340/MW/h order-of-magnitude mismatch; folds into next Phase 12.10 follow-up scope (NOT a new phase). Methodology paper rendering destination decision deferred (recommended `/methodology` route). Position C confirmed: independent Baltic flexibility platform with own methodology.
 - **Phase 12.8.1** — Backtest dashed-line caption clarification [SHIPPED 2026-05-04 PR #52] — 914 → 918 tests (+4 MAE cases); MAE field added to `backtestStats` (sign-stripped magnitude alongside sign-bearing meanErrorPct in `app/lib/backtest.ts`); two-line caption in `RevenueBacktest.tsx` explicitly names dashed-line as Y1 model anchor (€/MW/day, scenario, conservative bias) + reports realised vs model with sign-bearing % AND MAE; tail flips between "intentionally conservative" (realised > model) and "recalibration triggered" (realised < model, amber sentiment-warning token); `scenario?: string` prop wired from RevenueCard. Path-1 in-place edit per CC's §10 halt (prompt assumed caption was in RevenueCard.tsx; actually inside RevenueBacktest.tsx — discipline rule honored). Pause A captured production numbers €348/MW/day modeled, +74.0% mean realised, MAE €254/MW/day over 13 months — confirms engine v7.3's intentional conservative bias. Frontend-only, no worker change.
+- **Phase 12.9** — Worker + header KPI hot-fix bundle [SHIPPED 2026-05-04 PR #53 → commit `82474cc`] — 918 → 927 tests (+9 EUA trend cases); SignalBar S/D RATIO migration s2.sd_ratio → s4.fleet.sd_ratio; `/da_tomorrow` last-good fallback (`da_tomorrow:lastgood` KV mirror, X-Stale header on stale serve); `/health` endpoint expansion 6 → 14 keys (11 canonical signals + 3 data: `da_tomorrow`, `da_tomorrow:lastgood`, `extreme:latest`); `/extreme/latest` is_stale flag for cached events > 24h old; `/s9.eua_trend` regenerated from `s9_history` via pure `computeEUATrend(history, currentValue)` in `workers/lib/eua_trend.js`. Worker version `8320c11c-8bec-4b9b-92d8-30afafbdf24d`. `all_fresh` flipped true → false meaningfully (vacuous over 6 keys → honest over 14).
+- **Phase 12.9.1** — Brand discipline pass [SHIPPED 2026-05-05 PR #55 → commit `96cc677`] — 927 tests (no new); editorial state-name chips stripped from S1, S2, S4, S7, S9 cards (TIGHTENING / STABLE / HIGH / ELEVATED / etc. → quantitative micro-descriptors like `≥P90 / 30d`, `+45% / P50`, `1.04× / 70 €/t threshold`); engine `derivePhase()` retained for sentiment-color drive only; `STALE_THRESHOLDS_HOURS` tightened (s1: 36→24, s4: 36→24); CI grep gate `lint:no-editorial-chips` blocks future re-introduction. Worker version `ff9ed839-f609-462c-bb80-5cf2bcac6a4e`. Operator-framing as "extremely unprofessional"; same-day fix.
+- **Phase 12.9.2** — s8 timestamp fix [SHIPPED 2026-05-05 PR awaiting merge → commit `e8c2654`] — 927 tests (no new); `fetchInterconnectorFlows()` `timestamp` field reset to `new Date().toISOString()` (canonical "as-of-write"); ENTSO-E forward-looking slot-end value preserved as new `data_slot_end` field. Resolves Session 34 backlog #1 (`/health.signals.s8.age_hours = -5.1`). CC's §10 halt caught a prompt assumption: upstream is `energy-charts.info` CBET, not ENTSO-E (same fix shape, different upstream attribution). Worker version `456cf230-10fd-4135-9270-beade824a2b4`.
 
 (more populated as phases close)
 
