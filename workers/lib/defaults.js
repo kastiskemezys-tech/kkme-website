@@ -183,7 +183,7 @@ export const SANITY_BOUNDS = {
   },
 };
 
-// How old is too old per signal key.
+// How old is too old per signal/data key. Single source of truth for /health.
 export const STALE_THRESHOLDS_HOURS = {
   s1:          36,    // DA prices: daily 06:00 UTC
   s2:          48,    // BTD: daily cron
@@ -196,4 +196,8 @@ export const STALE_THRESHOLDS_HOURS = {
   s7:          12,    // TTF: daily market data
   s8:          12,    // Cross-border flows: daily
   s9:          12,    // EU ETS: daily market data
+  // Non-signal data feeds consumed by frontend. Tracked in /health alongside signals.
+  'da_tomorrow':           36,   // Nord Pool DA: daily ~13:00 CET / 06:00 UTC publish
+  'da_tomorrow:lastgood': 168,   // backstop mirror; only matters after a week of upstream failures
+  'extreme:latest':       168,   // events are sparse — "missing" is normal, only flag after a week
 };

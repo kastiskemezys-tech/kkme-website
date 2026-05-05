@@ -1882,6 +1882,114 @@ Then Tier 1 (12.12 + 12.14 + 7.7g). Phase 12.12 picks up:
 - After merge to main → Phase 30 §6 (three commits + push to `phase-30-methodology-research` branch) resumes from the same working tree per operator's latest message.
  phase-12-8-1-backtest-caption
 
+### Session 33 — 2026-05-05 — Phase 12.9 — Worker + header KPI hot-fix bundle (Claude Code)
+
+**Headline:** five sub-items shipped on `phase-12-9-worker-kpi-bundle` off `main@1ad5952`. Worker deployed at version `8320c11c-8bec-4b9b-92d8-30afafbdf24d` (10:25 UTC). `/health` now monitors 14 keys (11 canonical signals + 3 data feeds) instead of 6 — `STALE_THRESHOLDS_HOURS` in `workers/lib/defaults.js` is the single source of truth, so adding a key there auto-includes it. `/da_tomorrow` gains a `:lastgood` mirror with `X-Stale` headers in the catch path so transient Nord Pool failures stop returning 500. `/extreme/latest` flags `is_stale` + `age_hours` once the cached event crosses 24h (WRITE TTL stays 7d). `/s9.eua_trend` no longer hardcoded null — pure helper `computeEUATrend(history, currentValue)` extracted to `workers/lib/eua_trend.js`, computes 7-day trend symbol from `s9_history`, threaded through `fetchEUCarbon(env)` (2 callers updated). Frontend SignalBar S/D RATIO migrates from deprecated `s2.sd_ratio` (always null) to canonical `s4.fleet.sd_ratio` (1.81 live). `model_version` does NOT bump — these are infra/UX fixes, not engine changes.
+
+**Branch:** `phase-12-9-worker-kpi-bundle` off `origin/main` at `1ad5952`. Six commits pushed to origin. PR-creation URL: `https://github.com/kastiskemezys-tech/kkme-website/pull/new/phase-12-9-worker-kpi-bundle`.
+
+**`all_fresh` framing — IMPORTANT for ops/monitoring readers:** pre-deploy `/health.all_fresh: true` was **vacuous over 6 keys** (only signals known to be cron-fresh were ever sampled). Post-deploy it is **honest over 14 keys**, and currently `false` because at least one of the newly-monitored signals (s5/s6/s7/s8/s9) is outside its `STALE_THRESHOLDS_HOURS` threshold at deploy time. **This is correct behavior, not a regression** — the boolean is now meaningful. Future-you seeing `all_fresh: false` in monitoring should not panic; should diagnose which key is stale via the `/health.signals` per-key sub-objects.
+
+**§13 contradictions — none surfaced.** All file:line citations and worker code shapes in the prompt matched production at session start (`workers/fetch-s1.js:7973-7985` /da_tomorrow GET, `:8682` /health keys array, `:8663-8666` /extreme/latest GET, `:5731` `fetchEUCarbon`, `:6350` cron caller, `:7625` route registry caller, `:3444` `appendSignalHistory` shape, `app/components/SignalBar.tsx:45-47` S/D RATIO read, `workers/lib/defaults.js:187-199` `STALE_THRESHOLDS_HOURS`). Pre-flight `s2.sd_ratio` (null) vs `s4.fleet.sd_ratio` (1.81) guard from §2 STOP rule cleared cleanly — null vs real-number is a clean migration target, not the dual-real-number diff the rule guards against.
+
+**Pause A defaults applied** (operator decisions, no re-asking required during execution):
+- §10 commit structure followed prompt's 6-commit suggestion exactly. SignalBar / da_tomorrow / health / extreme / s9 / handover.
+- Vitest coverage for `computeEUATrend`: 9 cases instead of 3 minimum (rising / stable / falling / null + edge-case branches: empty history, non-array, missing currentValue, all-invalid past entries, short history fallback to oldest valid, invalid-entry skipping).
+- Single source of truth for `/health` keys: extended `STALE_THRESHOLDS_HOURS` with the 3 data keys instead of hardcoding a separate `dataKeys` array in `fetch-s1.js` (per prompt §4 step 2 "don't hardcode in fetch-s1.js"). Cleaner final form: `Object.keys(STALE_THRESHOLDS_HOURS)` is the iterated set.
+- SignalBar visual screenshot: produced via `npm run dev` + chrome-devtools at localhost:3007 (frontend not yet deployed; auto-deploys on PR merge via Cloudflare Pages). Screenshot uses JS-inflated typography for label legibility — production CSS unchanged. Saved to `docs/visual-audit/phase-12-9/signalbar-sd-ratio.png` (820 KB, shows all 6 SignalBar labels including `S/D RATIO 1.81×`).
+- Live verification of /s9 trend + /da_tomorrow lastgood: **deferred to operator** — both code paths are deployed but cached/dormant; concrete evidence requires next cron tick (12:00 UTC) and next operator push respectively. See backlog below for explicit follow-up curls.
+
+**Shipped (6 commits):**
+
+| # | SHA | Sub-item | What ships |
+|---|---|---|---|
+| 1 | `7ba1a53` | SignalBar S/D RATIO migration | `app/components/SignalBar.tsx:45-47`: `data.s2?.sd_ratio` → `data.s4?.fleet?.sd_ratio`. Pre-deploy values cited in commit body (s2.sd_ratio=null deprecated path, s4.fleet.sd_ratio=1.81 canonical fleet path written by `computeS4()` via `KKME_SIGNALS.put('s4_fleet')`) |
+| 2 | `0c7b4cc` | /da_tomorrow lastgood fallback | `workers/fetch-s1.js`: GET dual-writes `da_tomorrow` + `da_tomorrow:lastgood` on success; catch path reads `:lastgood` and serves with `X-Stale: true` + `X-Stale-Reason: upstream-fetch-failed` + 600s Cache-Control instead of 500. POST `/da_tomorrow/update` mirrors the same dual-write |
+| 3 | `fec8c96` | /health expansion to 14 keys | `workers/fetch-s1.js:8702-8706`: `keys` array → `Object.keys(STALE_THRESHOLDS_HOURS)`. `workers/lib/defaults.js`: extends thresholds map with `da_tomorrow:36`, `da_tomorrow:lastgood:168`, `extreme:latest:168`. Single source of truth — adding a key in `defaults.js` auto-monitors it |
+| 4 | `b17b46d` | /extreme/latest 24h backstop | `workers/fetch-s1.js`: GET decorates response with `is_stale: true` + `age_hours: <N>` when cached event > 24h old. WRITE TTL on `POST /extreme/seed` unchanged (7d). Frontend consumer absent today — flag is wired-but-unused (Phase 12.13 will surface in card UI) |
+| 5 | `995ac9c` | S9 eua_trend regeneration | `workers/lib/eua_trend.js` (NEW, pure ESM): `computeEUATrend(history, currentValue)` — 7-day window, ±1% bands, robust to invalid past entries, returns null on empty/all-invalid. `workers/fetch-s1.js`: import added; `fetchEUCarbon(env)` reads `s9_history` KV before returning; both callers (cron line 6350, route registry line 7625) updated to pass `env`. `app/lib/__tests__/eua_trend.test.ts` (NEW): 9 vitest cases. Vitest 918 → 927 |
+| 6 | `<this entry>` | Handover Session 33 + visual audit | `docs/handover.md`: this entry. `docs/visual-audit/phase-12-9/signalbar-sd-ratio.png`: visual proof of S/D RATIO 1.81× rendering |
+
+**Verification gates (all green; baseline preserved):**
+
+| Gate | Pre-deploy baseline | Post-deploy / final | Δ |
+|---|---|---|---|
+| `npx tsc --noEmit` | 0 errors | 0 errors | 0 |
+| `npx vitest run` | 918 / 918 (60 files) | **927 / 927** (61 files) | +9 EUA trend cases |
+| `npm run lint` (full) | 170 problems (40 errors / 130 warnings) | 170 problems (40 errors / 130 warnings) | **0** — baseline preserved |
+| `npm run lint` (changed files only) | n/a | New files (`workers/lib/eua_trend.js`, `app/lib/__tests__/eua_trend.test.ts`, `workers/lib/defaults.js`): 0 errors / 0 warnings | clean |
+| `npm run build` | 8 static pages | 8 static pages | clean (3.2s compile) |
+| `npx wrangler dev workers/fetch-s1.js --local --port 8997` | n/a | Boots clean; local `GET /health` returns HTTP 200 in 8ms with new 14-key shape | ✓ |
+| `npx wrangler deploy` | n/a | Version `8320c11c-8bec-4b9b-92d8-30afafbdf24d` deployed in 14.71s upload + 8.37s deploy; 4 cron triggers preserved (`0 */4 * * *`, `0 * * * *`, `30 9 * * *`, `0 8 * * *`) | ✓ |
+
+The 4 pre-existing lint errors on `app/components/SignalBar.tsx:27` (`@typescript-eslint/no-explicit-any` on `useState<{ s1?: any; s2?: any; ...}>`) and 1 pre-existing warning on `workers/fetch-s1.js:7604` (`'err' is defined but never used`) are unrelated to this phase and were already in main at `1ad5952`. Confirmed by verifying full-project totals match pre-change baseline.
+
+**Pause B post-deploy curl deltas (production):**
+
+| Endpoint | Pre-deploy | Post-deploy | Status |
+|---|---|---|---|
+| `/health.signals` keys | 6: `[euribor, s1, s2, s3, s4, s4_pipeline]` | **14**: 11 canonical signals + 3 data keys (`da_tomorrow`, `da_tomorrow:lastgood`, `extreme:latest`) | ✅ matches expected delta |
+| `/health.all_fresh` | `true` (vacuous over 6 keys) | `false` (honest over 14 keys; at least one signal is outside its threshold at deploy time) | ✅ correct upgrade — see framing note above |
+| `/extreme/latest` | `null` | `null` (no event seeded; is_stale code path dormant by design) | ✅ same — frontend consumer absent (Phase 12.13) |
+| `/s9.eua_trend` | `null` (cache from `04:01:04Z`) | `null` (same cache; deploy was `~10:25Z` — new `fetchEUCarbon(env)` runs on next cron `0 */4 * * *` → 12:00 UTC) | ⏳ code deployed but cache pre-dates deploy; deferred to operator follow-up curl |
+| `/da_tomorrow` GET | HTTP 500 (cache empty + lastgood empty + upstream failing) | HTTP 500 (same end-state — no lastgood to fall back on yet) | ⏳ lastgood mirror wired but inactive until next operator push populates both keys |
+| `/s4.fleet.sd_ratio` | `1.81` | `1.81` (no worker change to this path; SignalBar pivots which worker field it reads) | ✅ |
+
+**SignalBar visual proof:** `docs/visual-audit/phase-12-9/signalbar-sd-ratio.png` (1440×280 viewport, dark theme, scrolled past 300px so StickyNav mounts). All 6 KPI tiles render: BESS CAPTURE 143 €/MWh · **S/D RATIO 1.81×** · AFRR 7 €/MW/h · GRID FREE 3.6 GW · FLEX FLEET 822 MW · DISPATCH €210/MW. Migration verified live against `data.s4?.fleet?.sd_ratio` rather than the deprecated `data.s2?.sd_ratio` (which was returning null on production prior to this change). Note: typography in screenshot is JS-inflated for label legibility (production renders SignalBar labels at 0.5625rem ghost text) — values and label text are the actual production render.
+
+**Backlog discovered this session (operator follow-up actions):**
+
+1. **Deferred verification — /s9 EUA trend (next 4h cron tick).** At ~12:00 UTC (the next `0 */4 * * *` cron firing after the 10:25 UTC deploy), curl:
+   ```
+   curl -s https://kkme-fetch-s1.kastis-kemezys.workers.dev/s9 | jq .eua_trend
+   ```
+   Expected: result is one of `'↑ rising'` | `'→ stable'` | `'↓ falling'` (not null). If null AND `s9_history` has ≥2 valid entries (`curl /s9/history | jq 'length'`), the trend computation didn't fire as designed → file **Phase 12.9.1** follow-up. If null AND `s9_history` has < 2 valid entries, that's the documented null fallback (not a regression).
+
+2. **Deferred verification — /da_tomorrow lastgood mirror (next operator push).** After the next operator `POST /da_tomorrow/update` push, curl:
+   ```
+   curl -s https://kkme-fetch-s1.kastis-kemezys.workers.dev/health | jq '.signals."da_tomorrow:lastgood"'
+   ```
+   Expected: status transitions from `"missing"` to `"present"` with `age_hours` matching the push time. If still `"missing"` despite the POST, the lastgood mirror write didn't fire (Promise.all failed silently or KV binding missed the second key) → file **Phase 12.9.1** follow-up.
+
+3. **Frontend consumer of `/extreme/latest is_stale` flag.** No card today reads `event.is_stale` or `event.age_hours`. Phase 12.13 (or whichever frontend phase next touches extreme-event surfacing) should wire stale-disclosure rendering — e.g. dim the "Last extreme: 38h ago" line or replace with "Last extreme >24h ago" badge. Backend is ready; flag is wired-but-unused.
+
+4. **`computeEUATrend` lookback constants are file-local.** `RISING_BAND_PCT = 1`, `FALLING_BAND_PCT = -1`, `TARGET_LOOKBACK_DAYS = 7` are hardcoded in `workers/lib/eua_trend.js`. If S6/S7 history-based trends ever get extracted similarly, consider hoisting these to `workers/lib/defaults.js` or a `trends.js` shared module. Out of scope for this phase.
+
+**Out of scope / not touched (per scope discipline):**
+- Engine math changes; no `model_version` bump
+- Adding new KV keys beyond `da_tomorrow:lastgood`
+- Frontend redesign of S9 eua_trend display — `app/components/S9Card.tsx` already consumes `eua_trend?: string | null` per its existing prop type; backend just produces the data
+- Refactoring `appendSignalHistory` shape (line 3444) — read it as-is per prompt §1
+- Phase 12.10's VPS-Python live-fetch pattern extension (Phase 12.12 #3 territory)
+- Roadmap edits — `_post-12-8-roadmap.md` is operator/Cowork-owned per Session 28 backlog #2; report delta below, operator applies Cowork-side after merge
+- `gh pr create` — operator opens PR via GitHub web UI per `CLAUDE.md`
+- 14+ pre-existing untracked files in working tree (`_handover_s1_s2_rebuild.md`, `docs/_yolo-followup-*`, `.claude/skills/`, `docs/visual-audit/phase-7/`, etc.) — left as-is per Sessions 18-32 convention
+
+**Roadmap delta needed — operator to apply Cowork-side after merge** (per Session 28 backlog #2 protocol — CC does NOT commit roadmap edits):
+
+1. **Move Phase 12.9 from "Currently active" to a Shipped appendix.** Update the "Currently active → Next CC job:" line to point to **Phase 4G** (intel encoding, ~1.5h).
+
+**Tier 0 sequence after Phase 12.9:**
+1. ✅ Phase 12.8 (`1b2d803`)
+2. ✅ Phase 12.8.0 (`652b551` + `67c0d96`)
+3. ✅ Phase 12.10.0 (`85ec7f8`)
+4. ✅ Phase 12.10 (`02a64ea`, merged via PR #50)
+5. ✅ Phase 12.8.1 (merged via PR #52, `c1aa44e`)
+6. ✅ **Phase 12.9** (this PR, awaiting merge — worker `8320c11c` already live)
+7. ⏳ Phase 4G (intel encoding, ~1.5h) — **next CC job**
+
+Then Tier 1 (12.12 + 12.14 + 7.7g).
+
+**§9 Pause B — worker live, frontend pending.** Worker deploy completed pre-merge (Cloudflare Workers deploy via `wrangler deploy`, independent of git push). The 14-key `/health` is already serving production. The SignalBar S/D RATIO migration is frontend-only and auto-deploys on PR merge to `main` via Cloudflare Pages — kkme.eu will flip from "S/D RATIO —" to "S/D RATIO 1.81×" once Pages rebuilds.
+
+**Next operator action:**
+- Open PR via GitHub web UI (base `main`, title `Phase 12.9 — Worker + header KPI hot-fix bundle`).
+- Apply roadmap delta above to `docs/phases/_post-12-8-roadmap.md` Cowork-side after merge.
+- Post-merge: smoke-test https://kkme.eu header KPI strip — confirm S/D RATIO renders 1.81× (or current real number) instead of em-dash.
+- ~12:00 UTC: fire deferred-verification curl #1 (s9 eua_trend turnover). If null with ≥2 history entries, file Phase 12.9.1.
+- After next operator `POST /da_tomorrow/update` push: fire deferred-verification curl #2 (lastgood mirror present). If still missing, file Phase 12.9.1.
+- Notion board sync: mark Phase 12.9 shipped; advance "Next CC job" to Phase 4G.
+
 ### Session 32 — 2026-05-04 — Phase 12.8.1 — Backtest dashed-line caption clarification (Claude Code)
 
 **Headline:** audit-#1's "ambiguous dashed line" finding closed via caption rewrite — not a reframe. The dashed line stays as the deliberate Y1 model anchor (verified via plugin read at `RevenueBacktest.tsx:87`); a new two-line caption beneath the chart now names it explicitly + reports realised tracking with sign-bearing % AND MAE. Backend ships `mae` alongside existing `meanErrorPct` on `BacktestStats` so over/under-shoot magnitude is no longer hidden by sign-cancellation. Path-1 (in-place edit in `RevenueBacktest.tsx`) chosen over the prompt's literal Path-2 (move-to-RevenueCard.tsx) — §10 contradiction surfaced + resolved with operator before scoping. Single PR, 2 commits.

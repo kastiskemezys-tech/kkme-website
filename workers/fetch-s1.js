@@ -24,6 +24,7 @@
 import { DEFAULTS, STALE_THRESHOLDS_HOURS } from './lib/defaults.js';
 import { kvWrite, checkBounds, checkRequired } from './lib/kv.js';
 import { notifyTelegram } from './lib/notify.js';
+import { computeEUATrend } from './lib/eua_trend.js';
 
 const ENTSOE_API    = 'https://web-api.tp.entsoe.eu/api';
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
@@ -5728,7 +5729,7 @@ function parseEUAPrice(html) {
   return null;
 }
 
-async function fetchEUCarbon() {
+async function fetchEUCarbon(env) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 20000);
   try {
@@ -5747,11 +5748,22 @@ async function fetchEUCarbon() {
     if (eua_eur_t > 70)      signal = 'HIGH';
     else if (eua_eur_t > 50) signal = 'ELEVATED';
     else if (eua_eur_t < 30) signal = 'LOW';
+    const eua_eur_t_rounded = Math.round(eua_eur_t * 100) / 100;
+    let eua_trend = null;
+    if (env && env.KKME_SIGNALS) {
+      try {
+        const rawHist = await env.KKME_SIGNALS.get('s9_history');
+        const history = rawHist ? JSON.parse(rawHist) : [];
+        eua_trend = computeEUATrend(history, eua_eur_t_rounded);
+      } catch (e) {
+        console.error('[S9/trend] history read failed:', String(e));
+      }
+    }
     return {
       timestamp:   new Date().toISOString(),
       signal,
-      eua_eur_t:   Math.round(eua_eur_t * 100) / 100,
-      eua_trend:   null,
+      eua_eur_t:   eua_eur_t_rounded,
+      eua_trend,
       interpretation: signal === 'HIGH'
         ? 'High carbon price — strong incentive to displace gas peakers with BESS.'
         : signal === 'LOW'
@@ -6347,7 +6359,7 @@ export default {
       withTimeout(fetchNordicHydro(),           20000),
       withTimeout(fetchTTFGas(),                20000),
       withTimeout(fetchInterconnectorFlows(env), 30000),
-      withTimeout(fetchEUCarbon(),              20000),
+      withTimeout(fetchEUCarbon(env),           20000),
       withTimeout(fetchBalticGeneration(),      25000),
       withTimeout(fetchGenLoad(env.ENTSOE_API_KEY), 30000),
     ]);
@@ -7622,7 +7634,7 @@ export default {
       ['s6', () => fetchNordicHydro(),             DEFAULTS.s6],
       ['s7', () => fetchTTFGas(),                  DEFAULTS.s7],
       ['s8', () => fetchInterconnectorFlows(env),  DEFAULTS.s8],
-      ['s9', () => fetchEUCarbon(),                DEFAULTS.s9],
+      ['s9', () => fetchEUCarbon(env),             DEFAULTS.s9],
     ]) {
       if (request.method === 'GET' && url.pathname === `/${sig}`) {
         const cached = await env.KKME_SIGNALS.get(sig).catch(() => null);
@@ -7969,7 +7981,10 @@ export default {
     }
 
     // ── GET /da_tomorrow ─────────────────────────────────────────────────────
-    // Cached DA prices for LT+SE4; populated by cron or POST /da_tomorrow/update
+    // Cached DA prices for LT+SE4; populated by cron or POST /da_tomorrow/update.
+    // `da_tomorrow:lastgood` mirrors every successful write so a transient upstream
+    // failure can still serve a previous-day payload (with X-Stale headers) instead
+    // of returning 500.
     if (request.method === 'GET' && url.pathname === '/da_tomorrow') {
       const cached = await env.KKME_SIGNALS.get('da_tomorrow');
       if (cached) {
@@ -7977,9 +7992,25 @@ export default {
       }
       try {
         const data = await fetchNordPoolDA();
-        await env.KKME_SIGNALS.put('da_tomorrow', JSON.stringify(data));
-        return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json', ...CORS } });
+        const body = JSON.stringify(data);
+        await Promise.all([
+          env.KKME_SIGNALS.put('da_tomorrow', body),
+          env.KKME_SIGNALS.put('da_tomorrow:lastgood', body),
+        ]);
+        return new Response(body, { headers: { 'Content-Type': 'application/json', ...CORS } });
       } catch (err) {
+        const stale = await env.KKME_SIGNALS.get('da_tomorrow:lastgood').catch(() => null);
+        if (stale) {
+          return new Response(stale, {
+            headers: {
+              'Content-Type':   'application/json',
+              'Cache-Control':  'public, max-age=600',
+              'X-Stale':        'true',
+              'X-Stale-Reason': 'upstream-fetch-failed',
+              ...CORS,
+            },
+          });
+        }
         return new Response(JSON.stringify({ error: String(err) }), { status: 500, headers: { 'Content-Type': 'application/json', ...CORS } });
       }
     }
@@ -8003,7 +8034,11 @@ export default {
         metrics = { lt_peak: body.lt_peak ?? null, lt_trough: body.lt_trough ?? null, lt_avg: body.lt_avg ?? null, se4_avg: body.se4_avg ?? null, spread_pct: body.spread_pct ?? null };
       }
       const payload = { ...metrics, delivery_date: body.delivery_date ?? null, timestamp: new Date().toISOString() };
-      await env.KKME_SIGNALS.put('da_tomorrow', JSON.stringify(payload));
+      const payloadBody = JSON.stringify(payload);
+      await Promise.all([
+        env.KKME_SIGNALS.put('da_tomorrow', payloadBody),
+        env.KKME_SIGNALS.put('da_tomorrow:lastgood', payloadBody),
+      ]);
       console.log(`[NP/DA/update] lt_avg=${payload.lt_avg} lt_peak=${payload.lt_peak} spread=${payload.spread_pct}%`);
       return new Response(JSON.stringify(payload), { status: 200, headers: { 'Content-Type': 'application/json', ...CORS } });
     }
@@ -8660,9 +8695,20 @@ export default {
 
     // ── GET /extreme/latest ─────────────────────────────────────────────────
     // Returns the most recent extreme market event (DA spike or activation extreme).
+    // WRITE TTL is 7d (POST /extreme/seed); READ flags is_stale once event > 24h old
+    // so frontends can soften the "Last extreme: 38h ago" presentation if desired.
     if (request.method === 'GET' && url.pathname === '/extreme/latest') {
       const raw = await env.KKME_SIGNALS.get('extreme:latest').catch(() => null);
-      return jsonResp(raw ? JSON.parse(raw) : null);
+      if (!raw) return jsonResp(null);
+      const event = JSON.parse(raw);
+      if (event && event.timestamp) {
+        const ageH = (Date.now() - new Date(event.timestamp).getTime()) / 3600000;
+        if (Number.isFinite(ageH) && ageH > 24) {
+          event.is_stale  = true;
+          event.age_hours = parseFloat(ageH.toFixed(1));
+        }
+      }
+      return jsonResp(event);
     }
 
     // ── POST /extreme/seed — seed an extreme event (requires update secret) ──
@@ -8677,9 +8723,11 @@ export default {
     }
 
     // ── GET /health ──────────────────────────────────────────────────────────
-    // Returns structured health of all signal KV keys. All fetches run on Workers cron.
+    // Returns structured health of all signal + data KV keys. Source of truth for
+    // monitored keys is `STALE_THRESHOLDS_HOURS` in workers/lib/defaults.js — adding
+    // a key there auto-includes it in /health (no edit here required).
     if (request.method === 'GET' && url.pathname === '/health') {
-      const keys = ['s1', 's2', 's3', 's4', 'euribor', 's4_pipeline'];
+      const keys = Object.keys(STALE_THRESHOLDS_HOURS);
       const signals = {};
 
       await Promise.all(keys.map(async (key) => {
