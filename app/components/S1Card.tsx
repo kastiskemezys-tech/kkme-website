@@ -41,13 +41,20 @@ function rollingStats(cap: S1CaptureData | null, dur: Duration): CaptureRolling 
   return dur === '2h' ? cap?.rolling_30d?.stats_2h ?? null : cap?.rolling_30d?.stats_4h ?? null;
 }
 
-type Phase = 'OPEN' | 'TIGHTENING' | 'COMPRESSED';
-
-function derivePhase(hero: number, stats: CaptureRolling | null): { phase: Phase; sentiment: 'positive' | 'caution' | 'negative' } {
-  if (!stats) return { phase: 'TIGHTENING', sentiment: 'caution' };
-  if (hero >= stats.p75) return { phase: 'OPEN', sentiment: 'positive' };
-  if (hero >= stats.p25) return { phase: 'TIGHTENING', sentiment: 'caution' };
-  return { phase: 'COMPRESSED', sentiment: 'negative' };
+function deriveChip(hero: number, stats: CaptureRolling | null): { chipLabel: string; sentiment: 'positive' | 'caution' | 'negative' } {
+  if (!stats) return { chipLabel: '—', sentiment: 'caution' };
+  let chipLabel: string;
+  if (hero >= stats.p90)      chipLabel = '≥P90 / 30d';
+  else if (hero >= stats.p75) chipLabel = 'P75–P90 / 30d';
+  else if (hero >= stats.p50) chipLabel = 'P50–P75 / 30d';
+  else if (hero >= stats.p25) chipLabel = 'P25–P50 / 30d';
+  else                        chipLabel = '<P25 / 30d';
+  // Sentiment palette unchanged: ≥P75 positive, P25–P75 caution, <P25 negative.
+  const sentiment: 'positive' | 'caution' | 'negative' =
+    hero >= stats.p75 ? 'positive'
+    : hero >= stats.p25 ? 'caution'
+    : 'negative';
+  return { chipLabel, sentiment };
 }
 
 function fmtEuro(v: number | null | undefined): string {
@@ -82,7 +89,7 @@ export function S1Card() {
 
   const heroVal = gross(cap, dur);
   const stats = rollingStats(cap, dur);
-  const { phase, sentiment } = useMemo(() => derivePhase(heroVal ?? 0, stats), [heroVal, stats]);
+  const { chipLabel, sentiment } = useMemo(() => deriveChip(heroVal ?? 0, stats), [heroVal, stats]);
 
   // Loading / error state
   if (status === 'loading' && !cap) {
@@ -120,7 +127,7 @@ export function S1Card() {
         </HeroButton>
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>/MWh</span>
         {/* ── 3. Status chip ─────────────────────────────────── */}
-        <StatusChip status={phase} sentiment={sentiment} />
+        <StatusChip status={chipLabel} sentiment={sentiment} />
       </div>
 
       {/* ── 4. Rolling context strip — static distribution band above the

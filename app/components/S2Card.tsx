@@ -126,15 +126,19 @@ function historyField(prod: Product): keyof S2HistoryEntry {
   return 'fcr';
 }
 
-type Phase = 'HIGH' | 'STABLE' | 'LOW';
-
-function derivePhase(hero: number, act: ActivationCountry | undefined, prod: Product): { phase: Phase; sentiment: 'positive' | 'caution' | 'negative' } {
+function deriveChip(hero: number, act: ActivationCountry | undefined, prod: Product): { chipLabel: string; sentiment: 'positive' | 'caution' | 'negative' } {
   // Compare today's clearing to activation P50 (a longer-term benchmark)
   const p50 = prod === 'mFRR' ? act?.mfrr_p50 : act?.afrr_p50;
-  if (p50 == null) return { phase: 'STABLE', sentiment: 'caution' };
-  if (hero > p50 * 1.3) return { phase: 'HIGH', sentiment: 'positive' };
-  if (hero < p50 * 0.7) return { phase: 'LOW', sentiment: 'negative' };
-  return { phase: 'STABLE', sentiment: 'caution' };
+  if (p50 == null || p50 === 0) return { chipLabel: '—', sentiment: 'caution' };
+  const deltaPct = ((hero - p50) / p50) * 100;
+  const sign = deltaPct >= 0 ? '+' : '';
+  const chipLabel = `${sign}${deltaPct.toFixed(0)}% / P50`;
+  // Sentiment palette unchanged: >+30% positive, <–30% negative, else caution.
+  const sentiment: 'positive' | 'caution' | 'negative' =
+    hero > p50 * 1.3 ? 'positive'
+    : hero < p50 * 0.7 ? 'negative'
+    : 'caution';
+  return { chipLabel, sentiment };
 }
 
 function fmtEuro(v: number | null | undefined): string {
@@ -185,7 +189,7 @@ export function S2Card() {
   const hero = data ? heroValue(data, prod, country) : null;
   const rate = data ? activationRate(data, prod, country) : null;
   const activeAct = data?.activation?.[COUNTRY_KEY[country]];
-  const { phase, sentiment } = useMemo(() => derivePhase(hero ?? 0, activeAct, prod), [hero, activeAct, prod]);
+  const { chipLabel, sentiment } = useMemo(() => deriveChip(hero ?? 0, activeAct, prod), [hero, activeAct, prod]);
   const monthly = data ? monthlySeries(data, prod, country) : null;
 
   if (status === 'loading' && !data) {
@@ -237,7 +241,7 @@ export function S2Card() {
           </span>
         )}
         {/* ── 3. Status chip ─────────────────────────────────── */}
-        <StatusChip status={phase} sentiment={sentiment} />
+        <StatusChip status={chipLabel} sentiment={sentiment} />
         {/* Activation-rate chiplet (muted n/a when upstream null) */}
         {prod !== 'FCR' && <RateChip rate={rate} onClick={() => openDrawer('what')} />}
         {/* Market thickness chip (7.7.14) — discloses depth for the active product */}

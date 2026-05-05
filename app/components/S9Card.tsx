@@ -25,11 +25,10 @@ interface S9Signal {
   _age_hours?:    number | null;
 }
 
-function regimeLabel(sig: string | null | undefined): string {
-  if (sig === 'HIGH') return 'High';
-  if (sig === 'ELEVATED') return 'Elevated';
-  if (sig === 'LOW') return 'Low';
-  return 'Normal';
+// Quantitative chip: ratio against the 70 €/t threshold reference.
+function regimeLabel(price: number | null | undefined): string {
+  if (price == null) return '—';
+  return `${(price / 70).toFixed(2)}× / 70 €/t threshold`;
 }
 
 function regimeSentiment(sig: string | null | undefined): Sentiment {
@@ -95,7 +94,7 @@ export function S9Card() {
         <div style={{ marginBottom: '4px' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
             <MetricTile label="EUA carbon price" value={data.eua_eur_t.toFixed(1)} unit="€/t" size="hero" dataClass="observed" />
-            <StatusChip status={regimeLabel(data.signal)} sentiment={regimeSentiment(data.signal)} />
+            <StatusChip status={regimeLabel(data.eua_eur_t)} sentiment={regimeSentiment(data.signal)} />
           </div>
         </div>
       )}
@@ -130,7 +129,7 @@ export function S9Card() {
             value: data.eua_eur_t!,
             unit: '€/t',
             secondary: [
-              { label: 'Regime', value: regimeLabel(data.signal) },
+              { label: 'Regime', value: regimeLabel(data.eua_eur_t) },
               ...(data.eua_eur_t! >= 55 ? [{ label: 'BESS', value: 'above breakeven' }] : []),
             ],
           }, e.clientX, e.clientY)}
@@ -139,7 +138,7 @@ export function S9Card() {
             value: data.eua_eur_t!,
             unit: '€/t',
             secondary: [
-              { label: 'Regime', value: regimeLabel(data.signal) },
+              { label: 'Regime', value: regimeLabel(data.eua_eur_t) },
               ...(data.eua_eur_t! >= 55 ? [{ label: 'BESS', value: 'above breakeven' }] : []),
             ],
           }, e.clientX, e.clientY)}
