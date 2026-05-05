@@ -8683,9 +8683,20 @@ export default {
 
     // ── GET /extreme/latest ─────────────────────────────────────────────────
     // Returns the most recent extreme market event (DA spike or activation extreme).
+    // WRITE TTL is 7d (POST /extreme/seed); READ flags is_stale once event > 24h old
+    // so frontends can soften the "Last extreme: 38h ago" presentation if desired.
     if (request.method === 'GET' && url.pathname === '/extreme/latest') {
       const raw = await env.KKME_SIGNALS.get('extreme:latest').catch(() => null);
-      return jsonResp(raw ? JSON.parse(raw) : null);
+      if (!raw) return jsonResp(null);
+      const event = JSON.parse(raw);
+      if (event && event.timestamp) {
+        const ageH = (Date.now() - new Date(event.timestamp).getTime()) / 3600000;
+        if (Number.isFinite(ageH) && ageH > 24) {
+          event.is_stale  = true;
+          event.age_hours = parseFloat(ageH.toFixed(1));
+        }
+      }
+      return jsonResp(event);
     }
 
     // ── POST /extreme/seed — seed an extreme event (requires update secret) ──
