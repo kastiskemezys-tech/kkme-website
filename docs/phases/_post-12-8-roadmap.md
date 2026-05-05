@@ -9,9 +9,9 @@
 
 ## Currently active
 
-- **In flight:** Phase 12.9 (PR #53 awaiting merge — worker live, frontend pending Cloudflare Pages auto-deploy on merge)
-- **Next CC job:** Phase 12.9.1 — Brand discipline pass (~45-60 min). **HIGHEST PRIORITY** per operator review 2026-05-05: strip editorial state labels site-wide (TIGHTENING / STABLE / RISING / etc.); tighten S1 stale threshold 36h → 24h. Frontend + worker config; worker deploy required.
-- **Then:** Phase 4G (intel encoding, ~1.5h) → Phase 12.10a (discipline-rules CLAUDE.md patch, ~30 min, NOW including no-editorial-state-label rule per 12.9.1 finding) → Tier 1
+- **In flight:** Phase 12.9.1 (PR awaiting merge — worker live `ff9ed839`, frontend pending Cloudflare Pages auto-deploy on merge)
+- **Next CC job:** Phase 12.9.2 — s8 timestamp fix (~5-15 min). Negative `age_hours` on `/health.signals.s8`; bug surfaced during 12.9.1 verification. Worker deploy required. Then Phase 4G (intel encoding, ~1-1.5h, prompt at `docs/phases/phase-4g-prompt.md`).
+- **Then:** Phase 12.10a (discipline-rules CLAUDE.md patch, ~30 min, NOW including no-editorial-state-label rule per 12.9.1 finding) → Tier 1
 - **Parallel research track:** Phase 30 research deliverables shipped (3 docs merged to main); Phase 29 (KKME Baltic Storage Index, ~4-6h) ships after Tier 0 closes — informed by Phase 30 findings (esp. Gap #5 aFRR/FCR cap reservation reconciliation)
 - **Phase 12.10 follow-up (NOT a new phase):** Gap #5 — KKME's published aFRR-down €5.03/MW/h is order-of-magnitude lower than Clean Horizon's €340/MW/h Baltic average. **Operator live-site review 2026-05-05 reinforced: actual market is at €13.5/MW/h post Baltic-Continental integration Nov 2025; Clean Horizon's €340 likely measures something else.** Investigation re-framed: not "fix KKME numerator" but "decode Clean Horizon denominator." Folds into next Phase 12.10 follow-up commit.
 - **Roadmap last updated:** 2026-05-05 by Cowork (Phase 12.9.1 added — brand discipline pass; Phase 12.13 +#6 hover granularity sub-item; Phase 12.10a +#6 no-editorial-state-label rule; Phase 30 Gap #5 reframing per live-site evidence)
@@ -198,6 +198,17 @@ Defensive guards + CardBoundary upgrade. Ships preventive hardening (audit's tra
 **Estimate:** ~45-60 min. Frontend + worker config; worker deploy required for stale-threshold change.
 
 **Sequencing:** ships AFTER Phase 12.9 merges (or in parallel — no overlap). **Highest immediate priority** per operator framing.
+
+#### Phase 12.9.2 — s8 timestamp fix [NEW — surfaced 2026-05-05 during Phase 12.9.1 verification]
+**Why:** `/health.signals.s8.age_hours` reads negative (-5.1 observed). Root cause: `fetchInterconnectorFlows()` in `workers/fetch-s1.js:5540` writes ENTSO-E forward-looking slot-end timestamp (`2026-05-05T20:45:00.000Z` for ~15:39 UTC fetch) into the `timestamp` field; `/health` at line 8693 reads `data.timestamp` for age computation, gets a future value, returns negative. Surgical fix: separate write-time from data-slot-end timestamp.
+
+**Scope (~5-15 min, single PR):**
+1. **Move slot-end timestamp to a new field** (`data_slot_end` or `interval_end`); set `timestamp = new Date().toISOString()` to match every other signal fetcher's convention in the same file.
+2. **Verify no consumer breaks** — grep `s8.timestamp` / `data.timestamp` against frontend + worker. Likely no consumer expects the slot-end semantics.
+3. **No tests added** — bug fix has no existing test coverage to touch; in-deploy + curl verification is sufficient.
+
+**Estimate:** ~5-15 min. Worker deploy required.
+**Sequencing:** ships AFTER Phase 12.9.1 merges. Independent of Phase 4G; can run before or after.
 
 #### Phase 4G — Intel feed encoding + count cleanup
 **Scope:** Python URL-decode encoding fix in `scripts/daily_intel.py` (cp1257/latin-1 → UTF-8); one-shot mojibake backfill purge (scan `feed_index` for `Ä[ŠŽ]`/`Å[ĄĮ]`/`Ã[€¶]` patterns); IntelFeed badge `${allItems.length}` vs View-all `${totalAvailable}` denominator alignment.
@@ -532,7 +543,7 @@ Defensive guards + CardBoundary upgrade. Ships preventive hardening (audit's tra
 
 | Tier | Phases | Days |
 |---|---|---|
-| 0 — Bug fixes + data integrity | 12.8 [SHIPPED] · 12.8.0 [SHIPPED] · 12.10.0 [SHIPPED] · 12.10 [SHIPPED] · 12.8.1 [SHIPPED] · 12.9 [IN FLIGHT] · 12.9.1 · 4G · 12.10a | ~3-5 days |
+| 0 — Bug fixes + data integrity | 12.8 [SHIPPED] · 12.8.0 [SHIPPED] · 12.10.0 [SHIPPED] · 12.10 [SHIPPED] · 12.8.1 [SHIPPED] · 12.9 [SHIPPED] · 12.9.1 [IN FLIGHT] · 12.9.2 · 4G · 12.10a | ~3-5 days |
 | 1 — Foundation | 12.12 · 7.7g (a/b/c) | ~12-15 days |
 | 2 — Chapter restructure | A | ~5 days |
 | 3 — Two moments of presence | B · 12 | ~10 days |
