@@ -1882,6 +1882,121 @@ Then Tier 1 (12.12 + 12.14 + 7.7g). Phase 12.12 picks up:
 - After merge to main → Phase 30 §6 (three commits + push to `phase-30-methodology-research` branch) resumes from the same working tree per operator's latest message.
  phase-12-8-1-backtest-caption
 
+### Session 34 — 2026-05-05 — Phase 12.9.1 — Brand discipline pass (Claude Code)
+
+**Headline:** three sub-items shipped on `phase-12-9-1-brand-discipline` off `main@82474cc`. Editorial state-name chips ("OPEN" / "TIGHTENING" / "COMPRESSED" / "HIGH" / "STABLE" / "LOW" / "Elevated" / "Normal" / "High pipeline pressure" / "Pipeline building") replaced with pure quantitative micro-descriptors on the 5 LIVE homepage cards (S1, S2, S4, S7, S9). `STALE_THRESHOLDS_HOURS` tightened on s1 (36→24) + s4 (36→24) to match daily upstream publication cadence; s7/s8/s9 audit corrected the prompt's anticipation (cron is every-4h, not daily — 12h threshold = 3-miss buffer is correct, left as-is). CI grep gate added in `package.json` to prevent re-introduction of `phase: 'X'` editorial literals. Worker deployed at version `ff9ed839-f609-462c-bb80-5cf2bcac6a4e` (18:36 UTC). `model_version` does NOT bump — pure brand/UX + threshold config.
+
+**Branch:** `phase-12-9-1-brand-discipline` off `origin/main` at `82474cc` (post-Phase-12.9 merge). Three commits pushed to origin. PR-creation URL: `https://github.com/kastiskemezys-tech/kkme-website/pull/new/phase-12-9-1-brand-discipline`.
+
+**Operator pushback applied (mid-Pause-A iteration):** initial S7/S9 chip drafts read `1.04× HIGH band` — operator flagged that "HIGH" is itself editorial scaffolding and same brand class as TIGHTENING/STABLE. Re-fixed to pure quantitative `X.XX× / 50 €/MWh threshold` (S7) and `X.XX× / 70 €/t threshold` (S9) — band names dropped entirely, only the numerical reference value remains. The 1.04× ratio carries the meaning; reader does not need a band label.
+
+**§12 contradictions — resolved cleanly via discovery:**
+- Prompt §2 expected "S5/S6/S7/S8/S9 cards likely have similar patterns" — actual: only S7 + S9 are LIVE on `app/page.tsx`. S5Card.tsx and S6Card.tsx exist but render nowhere; S8Card.tsx is RETIRED 2026-04-16 per file header. WindCard / SolarCard / LoadCard already use factual labels (`Above 7D avg` / `Below 7D avg` / `Near 7D avg`), no editorial gloss to strip. HeroMarketNow.tsx defined but no consumers in app/.
+- Prompt §4 anticipated s7/s8/s9 cron "if daily" — actual: `wrangler.toml` `[triggers]` shows `0 */4 * * *` covers all signals (every-4h). Audit reflects this honestly.
+- S4Card.tsx editorial chip discovered beyond prompt's expected list (`pipelineStatus()` returned `'High pipeline pressure'` / `'Pipeline building'` for ratios > 5 / > 3). Folded into scope as a 5th card; conversion logic also migrated string-`.includes('×')` heuristic to ratio-≤3 threshold for the dashed-vs-solid styling switch (otherwise post-change always-numeric label would have always taken the dashed branch, losing sentiment color).
+
+**Pause A defaults applied** (operator decisions, no re-asking required):
+- §10 commit structure followed prompt's 4-commit suggestion. Chip text / threshold / CI gate / handover.
+- Chip-design call: kept `<StatusChip>` everywhere instead of stripping chips on S7/S9 — preserves visual consistency with S1/S2/S4 hero rows. The `1.04× / 50 €/MWh threshold` format conveys position vs reference without editorial gloss.
+- Sentiment palette: explicitly preserved bit-for-bit in all 5 cards (same band thresholds, same `'positive' | 'caution' | 'negative'` outputs). Color is permitted by locked design principles; only chip text changed.
+- Engine state names (`derivePhase` internals, worker `signal: 'HIGH'` / `'TIGHTENING'` / etc.) intact — out of scope per §1 ("Engine state computation … keep returning state names").
+- Methodology drawer prose (`s1-utils.ts:getInterpretation`, `s2-utils.ts`) untouched — drawer prose not chip face, out of scope per §1.
+
+**Shipped (3 commits):**
+
+| # | SHA | Sub-item | What ships |
+|---|---|---|---|
+| 1 | `<commit-1>` | Editorial chip-text strip | `app/components/S1Card.tsx`: `derivePhase` → `deriveChip` returning `{ chipLabel, sentiment }`; chip renders percentile-band rank (`≥P90 / 30d`, `P75–P90 / 30d`, `P50–P75 / 30d`, `P25–P50 / 30d`, `<P25 / 30d`). `app/components/S2Card.tsx`: signed delta vs P50 (`+45% / P50` etc.). `app/components/S4Card.tsx`: `pipelineStatus()` always returns `X.X× pipeline`; dashed-vs-solid switch uses `ratio ≤ 3` instead of string `.includes('×')`. `app/components/S7Card.tsx`: `regimeLabel(price)` returns `X.XX× / 50 €/MWh threshold`. `app/components/S9Card.tsx`: `regimeLabel(price)` returns `X.XX× / 70 €/t threshold`. Sentiment palette unchanged in all 5 cards |
+| 2 | `<commit-2>` | Stale threshold tightening | `workers/lib/defaults.js`: `s1: 36 → 24` (DA tomorrow daily ~14:00 UTC publish), `s4: 36 → 24` (Litgrid daily). Audit comments updated for s2/s3/s7/s8/s9 — every-4h cron means 12h thresholds on s7/s8/s9 = 3-miss buffer (correct). Other thresholds left as-is per audit |
+| 3 | `<commit-3>` | CI grep gate + handover | `package.json`: new script `lint:no-editorial-chips` greps `app/components/*.tsx` for `phase: '(TIGHTENING\|WIDENING\|STABLE\|RISING\|FALLING\|STEADY\|ELEVATED\|HIGH\|LOW\|COMPRESSED\|OPEN)'`, exits non-zero on match. Verified passes on clean tree — new descriptors (`P90`, `P75`, `P50`, `P25`) don't match the `phase: 'X'` pattern. `docs/handover.md`: this entry. `docs/visual-audit/phase-12-9-1/`: empty dir; screenshots deferred to operator post-deploy visual check via kkme.eu |
+
+**Verification gates (all green; baseline preserved):**
+
+| Gate | Pre-edit baseline | Post-edit / final | Δ |
+|---|---|---|---|
+| `npx tsc --noEmit` | 0 errors | 0 errors | 0 |
+| `npx vitest run` | 927 / 927 (61 files) | 927 / 927 (61 files) | 0 — chip changes are display-layer, no logic-layer tests added |
+| `npm run lint` | 170 problems (40 errors / 130 warnings) | 170 problems (40 errors / 130 warnings) | **0** — baseline preserved |
+| `npm run lint:no-editorial-chips` | n/a (new script) | exits 0 (no `phase: 'X'` literals remain) | ✓ |
+| `npm run build` | 8 static pages | 8 static pages (4.3s compile) | clean |
+| `npx wrangler deploy` | n/a | Version `ff9ed839-f609-462c-bb80-5cf2bcac6a4e` deployed in 12.38s upload + 8.57s deploy; 4 cron triggers preserved | ✓ |
+
+**Pause B post-deploy curl deltas (production):**
+
+| Endpoint | Pre-deploy | Post-deploy | Status |
+|---|---|---|---|
+| `/health.signals.s1.threshold_hours` | 36 | **24** | ✅ s1 amber threshold matches daily DA cadence |
+| `/health.signals.s4.threshold_hours` | 36 | **24** | ✅ s4 matches Litgrid daily |
+| `/health.signals.s7.threshold_hours` | 12 | 12 | ✅ unchanged — every-4h cron, 12h = 3-miss buffer |
+| `/health.signals.s8.threshold_hours` | 12 | 12 | ✅ unchanged |
+| `/health.signals.s9.threshold_hours` | 12 | 12 | ✅ unchanged |
+| `/health.signals.s1.age_hours` (live sample) | 3.1 (from baseline diagnose) | 0.4 (post-deploy) | fresh, well below 24h threshold |
+
+**Per-card chip before/after inventory (LIVE homepage cards only):**
+
+| Card | File:line | Before | After | Sentiment |
+|---|---|---|---|---|
+| S1 | `app/components/S1Card.tsx:123` | `OPEN` / `TIGHTENING` / `COMPRESSED` | `≥P90 / 30d`, `P75–P90 / 30d`, `P50–P75 / 30d`, `P25–P50 / 30d`, `<P25 / 30d` | unchanged: ≥P75 positive, P25–P75 caution, <P25 negative |
+| S2 | `app/components/S2Card.tsx:240` | `HIGH` / `STABLE` / `LOW` | `+45% / P50` (signed delta vs P50) | unchanged: >+30% positive, <–30% negative, else caution |
+| S4 | `app/components/S4Card.tsx:411` | `High pipeline pressure` / `Pipeline building` / `X.X× pipeline` | always `X.X× pipeline` | unchanged: >3× caution, else positive; dashed style preserved at ≤3× |
+| S7 | `app/components/S7Card.tsx:93` | `High` / `Elevated` / `Low` / `Normal` | `X.XX× / 50 €/MWh threshold` | unchanged: HIGH/ELEVATED caution, LOW positive, NORMAL neutral |
+| S9 | `app/components/S9Card.tsx:98` | `High` / `Elevated` / `Low` / `Normal` | `X.XX× / 70 €/t threshold` | unchanged: same as S7 |
+
+**STALE_THRESHOLDS_HOURS audit (workers/lib/defaults.js post-Phase-12.9.1):**
+
+| Key | Hours | Cron cadence | Upstream cadence | Rationale |
+|---|---|---|---|---|
+| s1 | **24** ↓ from 36 | every-4h | DA tomorrow daily ~14:00 UTC | Tightened — 24h matches one publish cycle |
+| s2 | 48 | every-4h + daily 09:30 UTC watchdog | BTD daily | Left — one missed cron + buffer |
+| s3 | 36 | every-4h | daily | Left per prompt — pending BTD-frequency investigation |
+| euribor | 168 | every-4h | weekly | Left — ECB weekly is fine |
+| s4 | **24** ↓ from 36 | every-4h | Litgrid daily | Tightened |
+| s4_pipeline | 840 | every-4h | VERT.lt monthly | Left — 35-day buffer |
+| s5 | 6 | every-4h | every 4h | Left — one cron + small buffer |
+| s6 | 168 | every-4h | NVE weekly | Left — weekly upstream |
+| s7 | 12 | every-4h | TTF daily | **Audit correction:** prompt anticipated daily cron. Actual every-4h means 12h = 3 missed crons; appropriate |
+| s8 | 12 | every-4h + hourly | cross-border ~daily | Same as s7 |
+| s9 | 12 | every-4h | EUA daily | Same as s7 |
+| da_tomorrow | 36 | n/a (operator push) | Nord Pool daily | Left — operator-pushed, ~daily push cadence |
+| da_tomorrow:lastgood | 168 | n/a | n/a | Left — backstop only matters after a week of upstream failures |
+| extreme:latest | 168 | sparse | sparse events | Left — events are sparse, "missing" is normal |
+
+**Backlog discovered this session (operator follow-up actions):**
+
+1. **`/health.signals.s8.age_hours` reads negative (–5.2 at deploy time).** Indicates a timestamp parsing or timezone bug in how the s8 freshness check computes age, OR the cached s8 timestamp is genuinely future-dated. Not introduced by this phase — pre-existing. Worth investigating: if `(now - cached_timestamp)` < 0, the signal is being treated as artificially fresh (`stale: false`) regardless of threshold, which masks real staleness. File as **Phase 12.13 #2 follow-up** or similar.
+
+2. **Tooltip "Regime" labels in S7/S9 retain editorial framing.** S7Card.tsx:126/132 and S9Card.tsx:133/142 hover-tooltip rows still read `{ label: 'Regime', value: regimeLabel(...) }` — the chip value is now quantitative but the row label "Regime" is itself editorial gloss. Not chip-face, so out of scope per §1, but the same brand discipline arguably applies to hover tooltips when they render permanent on-card UI. Defer to Phase 12.13 hover/drawer audit.
+
+3. **Orphan card components** (`S5Card.tsx`, `S6Card.tsx`, `S8Card.tsx`, `WindCard.tsx`, `SolarCard.tsx`, `LoadCard.tsx`, `HeroMarketNow.tsx`) — left untouched this phase. WindCard/SolarCard/LoadCard already use factual labels (`Above 7D avg` etc.); S5/S6 chip patterns not inspected; S8 retired per file header. CI grep gate would catch any future re-introduction of `phase: 'X'` editorial literals on activation. If any of these get re-mounted on the homepage, run a Phase 12.9.x discipline pass first.
+
+4. **`RegulatoryItem.tsx:66` impactLabel HIGH/MEDIUM/LOW** — left as-is. Industry-standard severity classification on `/regulatory` page (analogous to log levels), distinct from market-state regime calls. If brand discipline extends to /regulatory in a future phase, would need its own quantitative replacement (e.g. days-to-deadline + impact-score numeric). Out of scope per operator framing on market chips.
+
+**Out of scope / not touched (per scope discipline):**
+- Engine state computation (`derivePhase` internal logic, worker `signal: '...'` strings) — kept returning state names; drives sentiment color, downstream interpretation prose
+- Methodology drawer prose (`s1-utils.ts:getInterpretation`, `s2-utils.ts`) — drawer text not chip face
+- Hover granularity, source-into-drawer move, underlying data-staleness fixes — separate phases (12.13 #6, 7.7g-b, 12.12 #3 respectively)
+- Adding new chips to cards that don't have one
+- Roadmap edits — `_post-12-8-roadmap.md` is operator/Cowork-owned per Session 28 backlog #2; report delta below, operator applies Cowork-side after merge
+- `gh pr create` — operator opens PR via GitHub web UI per `CLAUDE.md`
+- Screenshot capture — directory created at `docs/visual-audit/phase-12-9-1/` (empty); deferred to operator post-deploy visual check via kkme.eu after Cloudflare Pages auto-deploys
+
+**Roadmap delta needed — operator to apply Cowork-side after merge** (per Session 28 backlog #2 protocol — CC does NOT commit roadmap edits):
+
+1. **Move Phase 12.9.1 from "Currently active" to a Shipped appendix.** Update the "Currently active → Next CC job:" line to point to **Phase 4G** (intel encoding, ~1.5h).
+
+**Tier 0 sequence after Phase 12.9.1:**
+1. ✅ Phase 12.8, 12.8.0, 12.10.0, 12.10, 12.8.1, 12.9 (per Session 33 enumeration)
+2. ✅ **Phase 12.9.1** (this PR, awaiting merge — worker `ff9ed839` already live)
+3. ⏳ Phase 4G (intel encoding, ~1.5h) — **next CC job**
+
+Then Tier 1 (12.12 + 12.14 + 7.7g).
+
+**Next operator action:**
+- Open PR via GitHub web UI (base `main`, title `Phase 12.9.1 — Brand discipline pass`).
+- Apply roadmap delta above to `docs/phases/_post-12-8-roadmap.md` Cowork-side after merge.
+- Post-merge: smoke-test https://kkme.eu — confirm S1/S2/S4/S7/S9 chips render quantitative (e.g. `P75–P90 / 30d`, `+45% / P50`, `3.4× pipeline`, `1.04× / 50 €/MWh threshold`, `0.81× / 70 €/t threshold`) instead of editorial state names. Capture screenshots into `docs/visual-audit/phase-12-9-1/` if visual archive desired.
+- Notion board sync: mark Phase 12.9.1 shipped; advance "Next CC job" to Phase 4G.
+
 ### Session 33 — 2026-05-05 — Phase 12.9 — Worker + header KPI hot-fix bundle (Claude Code)
 
 **Headline:** five sub-items shipped on `phase-12-9-worker-kpi-bundle` off `main@1ad5952`. Worker deployed at version `8320c11c-8bec-4b9b-92d8-30afafbdf24d` (10:25 UTC). `/health` now monitors 14 keys (11 canonical signals + 3 data feeds) instead of 6 — `STALE_THRESHOLDS_HOURS` in `workers/lib/defaults.js` is the single source of truth, so adding a key there auto-includes it. `/da_tomorrow` gains a `:lastgood` mirror with `X-Stale` headers in the catch path so transient Nord Pool failures stop returning 500. `/extreme/latest` flags `is_stale` + `age_hours` once the cached event crosses 24h (WRITE TTL stays 7d). `/s9.eua_trend` no longer hardcoded null — pure helper `computeEUATrend(history, currentValue)` extracted to `workers/lib/eua_trend.js`, computes 7-day trend symbol from `s9_history`, threaded through `fetchEUCarbon(env)` (2 callers updated). Frontend SignalBar S/D RATIO migrates from deprecated `s2.sd_ratio` (always null) to canonical `s4.fleet.sd_ratio` (1.81 live). `model_version` does NOT bump — these are infra/UX fixes, not engine changes.

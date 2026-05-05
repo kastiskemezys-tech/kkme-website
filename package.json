@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "lint:no-editorial-chips": "! grep -rEn \"phase: '(TIGHTENING|WIDENING|STABLE|RISING|FALLING|STEADY|ELEVATED|HIGH|LOW|COMPRESSED|OPEN)'\" app/components --include='*.tsx' | grep -v __tests__",
     "test": "vitest run",
     "test:ui": "vitest --ui"
   },
