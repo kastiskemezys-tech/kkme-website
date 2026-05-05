@@ -43,8 +43,8 @@ export default function SignalBar() {
     },
     {
       label: 'S/D RATIO',
-      value: data.s2?.sd_ratio != null
-        ? `${data.s2.sd_ratio.toFixed(2)}×` : '—',
+      value: data.s4?.fleet?.sd_ratio != null
+        ? `${data.s4.fleet.sd_ratio.toFixed(2)}×` : '—',
     },
     {
       label: 'aFRR',
