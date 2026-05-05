@@ -177,7 +177,7 @@ function basisTimestamp(d: S3Signal): string | null {
 
 export function S3Card() {
   const { status, data } = useSignal<S3Signal>(`${WORKER_URL}/s3`);
-  const [duration, setDuration] = useState<Duration>('4h');
+  const [duration, setDuration] = useState<Duration>('2h');
   const [gridScope, setGridScope] = useState<GridScope>('heavy');
   const [expandedChip, setExpandedChip] = useState<number | null>(null);
   const [openDrawers, setOpenDrawers] = useState<Set<string>>(new Set());
