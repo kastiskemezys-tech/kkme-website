@@ -1308,7 +1308,7 @@ export function IntelFeed({ mode = 'homepage' }: IntelFeedProps = {}) {
               opacity: 0.85,
             }}
           >
-            View all {totalAvailable} items →
+            View all {allItems.length} items →
           </a>
         </div>
       )}

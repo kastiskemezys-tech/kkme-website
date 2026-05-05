@@ -1,7 +1,7 @@
 # KKME Handover
 
 Canonical state document. Read this first in every session.
-Last updated: 2026-05-04 (Session 29 — Phase 12.10.0 emergency hallucinated-entity purge on `phase-12-10-0-entity-purge` off post-merge `main`. New `POST /feed/delete-by-id` worker endpoint shipped (UPDATE_SECRET-gated, ~50 lines). `isGenericSourceUrl` + `hasHallucinationHedgeLanguage` helpers exported from `app/lib/feedSourceQuality.ts` for Phase 12.12 to wire into `evaluateFeedItemGates()` at worker line ~6602. Investigation traced the Saulėtas Pasaulis ingestion path: entry came in via `POST /feed/events` (id `mna2ne4x-xfri25` matches `makeId()` + typed-event field shape, no `cur_` prefix, no repo source) — operator hand-pushed via curl with LLM-drafted content from an external chat. Phase 12.12 #8's structural gate target is the typed-event endpoint, not curation. Worker deploy `043fd2cb-1146-4d96-95c2-0ecb2864f5d7` live; delete-call deferred to operator (UPDATE_SECRET not in this session's shell — endpoint deploys regardless, fire later). 882 → 893 tests. Branch pushed for PR; PR draft at `docs/phases/phase-12-10-0-pr.md`. Previously Session 28 — Phase 12.8.0 Tier 0 hot-fix bundle on `phase-12-8-0-tier0-hotfix`. Audit-investigated: the prompt's "highest-priority light-mode bug" was empirically false (152 root tokens, 114 light overrides, HeroBalticMap fully tokenized; visual screenshots confirm parity). Light-mode commit reduced to a single `ContactForm` chevron fix + investigation writeup. Three other sub-items shipped per Pause A decisions: percentile tiles → static stat-summary strip; keyboard shortcuts → SOT + outline flash + `?` overlay (fixes 2 dead bindings); ticker → pause-on-hover + edge fade + robustified reduced-motion selector. 866 → 882 tests. **Process finding: 3 of 4 audit-#2 visual claims confirmed hallucinated this session — see audit-credibility taxonomy in Session 28 entry + `docs/investigations/phase-12-8-0-light-mode-audit-vs-reality.md`.** Branch pushed for PR; PR draft at `docs/phases/phase-12-8-0-pr.md`. Cloudflare Pages preview verified. Previously Session 27 — Phase 12.8 Dispatch render-error fix + boundary upgrade; see `docs/investigations/phase-12-8-dispatch-render-error.md`.)
+Last updated: 2026-05-05 (Session 37 — Phase 4G intel encoding shipped on `phase-4g-intel-encoding`. Audit-#6 premise was wrong; CC's §10 discipline caught it at Pause A. Original 1–1.5h scope shrunk to ~20 min: (a) IntelFeed badge + View-all link converge on `allItems.length` denominator (1-line edit at `IntelFeed.tsx:1311`); (b) defensive `resp.encoding = 'utf-8'` on the 3 `requests.get` HTML scrapers in VPS `daily_intel.py` (audit hygiene, NOT a fix for the current mojibake — daily_intel.py has zero `unquote/cp1257/latin-1` references; live litgrid scrape returns `charset=utf-8` correctly); (c) single-item KV purge of `cur_mo87wkt8-65w5pc` via `POST /feed/delete-by-id`. The 1 production mojibake item came through `POST /curate` (`origin: 'curation'`), not the ingestion pipeline — UTF-8 `ė` (`\xc4\x97`) interpreted as cp1257 → `ÄŠ` happened in the operator's clipboard chain upstream of KKME. Phase 12.12 #16 backlog item authored: curation ingestion encoding-passthrough audit. Same audit-vs-reality pattern as Phase 12.8.0; the artifact itself is the discipline lesson. /feed: 8 → 7 items, mojibake regex matches: 1 → 0. 927 tests, baseline preserved. No worker engine changes. Branch pushed for PR. Previously Session 36 — Phase 12.9.3 default duration 4h → 2h. Session 29 — Phase 12.10.0 emergency hallucinated-entity purge on `phase-12-10-0-entity-purge` off post-merge `main`. New `POST /feed/delete-by-id` worker endpoint shipped (UPDATE_SECRET-gated, ~50 lines). `isGenericSourceUrl` + `hasHallucinationHedgeLanguage` helpers exported from `app/lib/feedSourceQuality.ts` for Phase 12.12 to wire into `evaluateFeedItemGates()` at worker line ~6602. Investigation traced the Saulėtas Pasaulis ingestion path: entry came in via `POST /feed/events` (id `mna2ne4x-xfri25` matches `makeId()` + typed-event field shape, no `cur_` prefix, no repo source) — operator hand-pushed via curl with LLM-drafted content from an external chat. Phase 12.12 #8's structural gate target is the typed-event endpoint, not curation. Worker deploy `043fd2cb-1146-4d96-95c2-0ecb2864f5d7` live; delete-call deferred to operator (UPDATE_SECRET not in this session's shell — endpoint deploys regardless, fire later). 882 → 893 tests. Branch pushed for PR; PR draft at `docs/phases/phase-12-10-0-pr.md`. Previously Session 28 — Phase 12.8.0 Tier 0 hot-fix bundle on `phase-12-8-0-tier0-hotfix`. Audit-investigated: the prompt's "highest-priority light-mode bug" was empirically false (152 root tokens, 114 light overrides, HeroBalticMap fully tokenized; visual screenshots confirm parity). Light-mode commit reduced to a single `ContactForm` chevron fix + investigation writeup. Three other sub-items shipped per Pause A decisions: percentile tiles → static stat-summary strip; keyboard shortcuts → SOT + outline flash + `?` overlay (fixes 2 dead bindings); ticker → pause-on-hover + edge fade + robustified reduced-motion selector. 866 → 882 tests. **Process finding: 3 of 4 audit-#2 visual claims confirmed hallucinated this session — see audit-credibility taxonomy in Session 28 entry + `docs/investigations/phase-12-8-0-light-mode-audit-vs-reality.md`.** Branch pushed for PR; PR draft at `docs/phases/phase-12-8-0-pr.md`. Cloudflare Pages preview verified. Previously Session 27 — Phase 12.8 Dispatch render-error fix + boundary upgrade; see `docs/investigations/phase-12-8-dispatch-render-error.md`.)
 
 ## Current phase
 
@@ -1881,6 +1881,86 @@ Then Tier 1 (12.12 + 12.14 + 7.7g). Phase 12.12 picks up:
 - Notion board sync: mark Phase 12.10 shipped; add the 7 backlog items above.
 - After merge to main → Phase 30 §6 (three commits + push to `phase-30-methodology-research` branch) resumes from the same working tree per operator's latest message.
  phase-12-8-1-backtest-caption
+
+### Session 37 — 2026-05-05 — Phase 4G — Intel encoding (audit-vs-reality) + IntelFeed count alignment (Claude Code)
+
+**Headline:** Audit-#6 premise was wrong; CC's §10 discipline caught it at Pause A. Original 1–1.5h scope shrunk to ~20 min. Original premise: `daily_intel.py` URL-decodes upstream as cp1257/latin-1 → mojibake on Lithuanian/Latvian titles. Code investigation: no such logic exists in repo or on VPS. The 1 production mojibake item came through `POST /curate` (operator-pasted), not the ingestion pipeline. The mojibake bytes are UTF-8 `ė` (`\xc4\x97`) interpreted as cp1257 → `ÄŠ` — encoding mangling happened in the operator's clipboard chain, upstream of KKME entirely. Same audit-vs-reality pattern as Phase 12.8.0's light-mode investigation; the artifact itself is the discipline lesson. Shipped: (a) IntelFeed count alignment — badge + View-all link converge on `allItems.length` denominator (1-line edit), (b) defensive `resp.encoding = 'utf-8'` on the 3 `requests.get` HTML scraper sites in `daily_intel.py` (audit hygiene against future Content-Type omissions, NOT a fix for the current mojibake), (c) single-item KV purge of `cur_mo87wkt8-65w5pc` via `POST /feed/delete-by-id`. No worker engine changes.
+
+**Branch:** `phase-4g-intel-encoding` off `origin/main` at `0c43d05` (post-Phase-12.9.3-merge, PR #57). PR-creation URL: `https://github.com/kastiskemezys-tech/kkme-website/pull/new/phase-4g-intel-encoding`.
+
+**Audit-vs-reality finding (load-bearing):**
+
+- **Premise (prompt §0 / audit-#6):** "the VPS `daily_intel.py` ingestion script URL-decodes responses as cp1257/latin-1 instead of UTF-8."
+- **Reality (live evidence captured at Pause A):**
+  1. `daily_intel.py` has zero `urllib.unquote` calls. Repo-wide grep for `unquote | cp1257 | latin-1 | latin1` across `app/`, `workers/`, `scripts/`: **zero matches**. The "URL-decode + JSON-parse path" the prompt describes does not exist in code.
+  2. `daily_intel.py` reads HTML via `requests.get` + `resp.text`. `requests` auto-detects encoding from Content-Type. Live VPS check: `https://www.litgrid.eu/index.php/naujienos/naujienos` returns `Content-Type: text/html; charset=utf-8`, so `resp.encoding = 'utf-8'` and `resp.text` decodes correctly. Vert + APVA are 403-blocked from datacenter IP and fall back to hardcoded `KNOWN_VERT_PDFS` / `KNOWN_APVA_EVENTS`.
+  3. Production `/feed` had **8 items, exactly 1 mojibake match** at scan time: `cur_mo87wkt8-65w5pc`, title `"Leidimai plÄŠtoti kaupimo pajÄŠgumus 2026-02-28.xlsx - VERT"`, **`origin: 'curation'`**. The `cur_` prefix + curation origin mean it came in via `POST /curate` (operator-pasted JSON, no encoding coercion in the worker). The source URL `…pl%C4%97toti…` is correctly UTF-8 percent-encoded; whatever decoded the filename to make the title used cp1257. That decoder is **upstream of `/curate`, not in this codebase**.
+- **Consequence:** §3 reduced to defensive belt-and-braces (3 lines added), not a root-cause fix. §5 reduced to a single delete (1 item, not "N items"). §3d (mirror to `scripts/vps/`) explicitly skipped per operator direction to keep PR scope tight.
+
+**Decisions taken at Pause A (operator):**
+1. §3: Option (B) light-touch. Add explicit `resp.encoding = 'utf-8'` to the 3 `requests.get` call sites in `daily_intel.py`. Cheap audit hygiene, NOT a fix for the current mojibake. Skip the repo mirror (§3d).
+2. §5: Single delete via `POST /feed/delete-by-id` for `cur_mo87wkt8-65w5pc`. Skip rewrite endpoint.
+3. Continuous flow from §3 → §5 → §6 → §7 (no extra Pause).
+
+**Files touched:**
+
+| File | Δ | Note |
+|---|---|---|
+| `app/components/IntelFeed.tsx:1311` | 1 line: `${totalAvailable}` → `${allItems.length}` | View-all link denominator now matches the unfiltered destination (`/intel`). Badge already used `allItems.length` in unfiltered case. |
+| VPS `/opt/kkme/app/sync/daily_intel.py:148/242/306` | 3 lines added: `resp.encoding = 'utf-8'` after each `raise_for_status()` | Belt-and-braces against future Content-Type omissions. NOT mirrored to repo this PR (skipped §3d). |
+| Worker KV `feed_index` | 1 item removed via `POST /feed/delete-by-id` | `cur_mo87wkt8-65w5pc` Lithuanian filename mojibake. before=47, after=46 (full feed_index incl. rejected); published `/feed`: 8 → 7 items. |
+
+**VPS deploy verification:** post-`scp`, ran `python daily_intel.py --job sync_litgrid` on VPS. Result: `Found 94 storage-related Litgrid articles`, 0 new assertions, no errors. Encoding line is no-op when upstream sends a correct charset (litgrid does); it activates only on the future-omission failure mode.
+
+**Verification gates (all green; baseline preserved):**
+
+| Gate | Pre-edit baseline | Post-edit | Δ |
+|---|---|---|---|
+| `npx tsc --noEmit` | 0 errors | 0 errors | 0 |
+| `npx vitest run` | 927 / 927 (61 files) | 927 / 927 (61 files) | 0 |
+| `npm run lint` | 170 problems (40 errors / 130 warnings) | 170 problems | 0 |
+| `npm run build` | 8 routes | 8 routes | 0 |
+
+**Production /feed verification (post-purge):**
+- `curl -s …/feed | jq '.items | length'` → 7 (was 8)
+- mojibake regex match count `Ä[ŠŽ]\|Å[ĄĮ]\|Ã[€¶]` → 0 (was 1)
+
+**IntelFeed count alignment — design rationale:**
+- Two semantics were possible: (a) "total in feed" — both surfaces use `allItems.length`; filter UI is informational; View-all leaves filter; (b) "currently visible" — both use `filteredItems.length`; View-all stays in filtered set.
+- Operator default: (a). View-all link target is `/intel` (which renders unfiltered), so the count should match the destination, not the current filter. Badge keeps `M of N` framing for active filters.
+
+**Backlog item flagged for Phase 12.12:**
+
+- **#16: Curation ingestion encoding-passthrough audit.** Operator-pasted curation can carry mojibake from upstream tools (clipboard apps, third-party converters, RSS readers that mis-detect charset). Worker `POST /curate` accepts strings as-given. Three options:
+  - (a) detect mojibake patterns at write-time and reject with helpful error;
+  - (b) auto-attempt UTF-8 round-trip recovery on common patterns (`s.encode('latin-1').decode('cp1257')` family);
+  - (c) pass through but mark `_encoding_suspect: true` for visual amber-disclosure.
+- Belongs alongside Phase 12.12 #1 (schema validation) — same write-time gate surface.
+
+**Out of scope / not touched:**
+- Schema validation infrastructure (Phase 12.12 #1).
+- Generic-source-URL detection / hallucination-marker wiring (Phase 12.12 #8 / #11).
+- Feed-source diversification (would be Phase 4H+).
+- VPS `daily_intel.py` mirror to `scripts/vps/` per Phase 12.10 precedent (§3d) — operator decision: own audit-hygiene phase later, not this PR.
+- Rewrite endpoint `POST /feed/rewrite-by-id` — not needed for single-item delete-and-defer-to-curator.
+
+**Roadmap delta needed — operator to apply Cowork-side after merge:**
+
+1. **Move Phase 4G from "Currently active" / "Next CC job" to the Shipped appendix.** Update the "Currently active → Next CC job:" pointer to **Phase 12.10a** (CLAUDE.md discipline patch).
+2. **Add Phase 12.12 #16** (Curation ingestion encoding-passthrough audit) to the Phase 12.12 sub-item list.
+3. Mark Phase 4G's actual scope: ~20 min (vs original 1–1.5h estimate). Audit-#6 premise contradiction shrunk it.
+
+**Tier 0 sequence after Phase 4G:**
+1. ✅ Phase 12.8, 12.8.0, 12.10.0, 12.10, 12.8.1, 12.9, 12.9.1, 12.9.2, 12.9.3 (per Session 36 enumeration)
+2. ✅ **Phase 4G** (this PR, awaiting merge)
+3. ⏳ Phase 12.10a (CLAUDE.md discipline patch) — **next CC job**
+
+Then Tier 1 (12.12 + 12.14 + 7.7g).
+
+**Next operator action:**
+- Open PR via GitHub web UI (base `main`, title `Phase 4G — Intel encoding (audit-vs-reality) + IntelFeed count alignment`).
+- Apply roadmap delta above to `docs/phases/_post-12-8-roadmap.md` Cowork-side after merge.
+- Optional smoke check post-merge: load homepage IntelFeed strip, confirm "View all N items" matches the count in the badge ("N items" unfiltered), open `/intel`, confirm clean Lithuanian characters in titles (mojibake item gone).
 
 ### Session 36 — 2026-05-05 — Phase 12.9.3 — Default duration 4h → 2h (Claude Code)
 
