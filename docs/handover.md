@@ -1,7 +1,7 @@
 # KKME Handover
 
 Canonical state document. Read this first in every session.
-Last updated: 2026-05-05 (Session 37 — Phase 4G intel encoding shipped on `phase-4g-intel-encoding`. Audit-#6 premise was wrong; CC's §10 discipline caught it at Pause A. Original 1–1.5h scope shrunk to ~20 min: (a) IntelFeed badge + View-all link converge on `allItems.length` denominator (1-line edit at `IntelFeed.tsx:1311`); (b) defensive `resp.encoding = 'utf-8'` on the 3 `requests.get` HTML scrapers in VPS `daily_intel.py` (audit hygiene, NOT a fix for the current mojibake — daily_intel.py has zero `unquote/cp1257/latin-1` references; live litgrid scrape returns `charset=utf-8` correctly); (c) single-item KV purge of `cur_mo87wkt8-65w5pc` via `POST /feed/delete-by-id`. The 1 production mojibake item came through `POST /curate` (`origin: 'curation'`), not the ingestion pipeline — UTF-8 `ė` (`\xc4\x97`) interpreted as cp1257 → `ÄŠ` happened in the operator's clipboard chain upstream of KKME. Phase 12.12 #16 backlog item authored: curation ingestion encoding-passthrough audit. Same audit-vs-reality pattern as Phase 12.8.0; the artifact itself is the discipline lesson. /feed: 8 → 7 items, mojibake regex matches: 1 → 0. 927 tests, baseline preserved. No worker engine changes. Branch pushed for PR. Previously Session 36 — Phase 12.9.3 default duration 4h → 2h. Session 29 — Phase 12.10.0 emergency hallucinated-entity purge on `phase-12-10-0-entity-purge` off post-merge `main`. New `POST /feed/delete-by-id` worker endpoint shipped (UPDATE_SECRET-gated, ~50 lines). `isGenericSourceUrl` + `hasHallucinationHedgeLanguage` helpers exported from `app/lib/feedSourceQuality.ts` for Phase 12.12 to wire into `evaluateFeedItemGates()` at worker line ~6602. Investigation traced the Saulėtas Pasaulis ingestion path: entry came in via `POST /feed/events` (id `mna2ne4x-xfri25` matches `makeId()` + typed-event field shape, no `cur_` prefix, no repo source) — operator hand-pushed via curl with LLM-drafted content from an external chat. Phase 12.12 #8's structural gate target is the typed-event endpoint, not curation. Worker deploy `043fd2cb-1146-4d96-95c2-0ecb2864f5d7` live; delete-call deferred to operator (UPDATE_SECRET not in this session's shell — endpoint deploys regardless, fire later). 882 → 893 tests. Branch pushed for PR; PR draft at `docs/phases/phase-12-10-0-pr.md`. Previously Session 28 — Phase 12.8.0 Tier 0 hot-fix bundle on `phase-12-8-0-tier0-hotfix`. Audit-investigated: the prompt's "highest-priority light-mode bug" was empirically false (152 root tokens, 114 light overrides, HeroBalticMap fully tokenized; visual screenshots confirm parity). Light-mode commit reduced to a single `ContactForm` chevron fix + investigation writeup. Three other sub-items shipped per Pause A decisions: percentile tiles → static stat-summary strip; keyboard shortcuts → SOT + outline flash + `?` overlay (fixes 2 dead bindings); ticker → pause-on-hover + edge fade + robustified reduced-motion selector. 866 → 882 tests. **Process finding: 3 of 4 audit-#2 visual claims confirmed hallucinated this session — see audit-credibility taxonomy in Session 28 entry + `docs/investigations/phase-12-8-0-light-mode-audit-vs-reality.md`.** Branch pushed for PR; PR draft at `docs/phases/phase-12-8-0-pr.md`. Cloudflare Pages preview verified. Previously Session 27 — Phase 12.8 Dispatch render-error fix + boundary upgrade; see `docs/investigations/phase-12-8-dispatch-render-error.md`.)
+Last updated: 2026-05-05 (Session 38 — Phase 12.10a CLAUDE.md discipline patch shipped on `phase-12-10a-claude-md-discipline`. Six discipline rules (audit-triage, no-hardcoded-temporal-label, named-entity verification, cross-card consistency, roadmap edit-conflict, no-editorial-state-label) baked into `CLAUDE.md` with originating incident-trace per rule; "Current phase" stale block (Hero v3 / Phase 2B-1) refreshed to point at Tier 0 closing → Tier 1 (12.12 + 7.7g, parallel). Documentation-only — `CLAUDE.md` +19 / −2 (1 file). All four gates baseline-exact (tsc 0, vitest 927/927, lint 170, build 8 routes). Last Tier 0 item; after merge + roadmap delta apply, Tier 1 begins. Branch pushed for PR. Previously Session 37 — Phase 4G intel encoding shipped on `phase-4g-intel-encoding`. Audit-#6 premise was wrong; CC's §10 discipline caught it at Pause A. Original 1–1.5h scope shrunk to ~20 min: (a) IntelFeed badge + View-all link converge on `allItems.length` denominator (1-line edit at `IntelFeed.tsx:1311`); (b) defensive `resp.encoding = 'utf-8'` on the 3 `requests.get` HTML scrapers in VPS `daily_intel.py` (audit hygiene, NOT a fix for the current mojibake — daily_intel.py has zero `unquote/cp1257/latin-1` references; live litgrid scrape returns `charset=utf-8` correctly); (c) single-item KV purge of `cur_mo87wkt8-65w5pc` via `POST /feed/delete-by-id`. The 1 production mojibake item came through `POST /curate` (`origin: 'curation'`), not the ingestion pipeline — UTF-8 `ė` (`\xc4\x97`) interpreted as cp1257 → `ÄŠ` happened in the operator's clipboard chain upstream of KKME. Phase 12.12 #16 backlog item authored: curation ingestion encoding-passthrough audit. Same audit-vs-reality pattern as Phase 12.8.0; the artifact itself is the discipline lesson. /feed: 8 → 7 items, mojibake regex matches: 1 → 0. 927 tests, baseline preserved. No worker engine changes. Branch pushed for PR. Previously Session 36 — Phase 12.9.3 default duration 4h → 2h. Session 29 — Phase 12.10.0 emergency hallucinated-entity purge on `phase-12-10-0-entity-purge` off post-merge `main`. New `POST /feed/delete-by-id` worker endpoint shipped (UPDATE_SECRET-gated, ~50 lines). `isGenericSourceUrl` + `hasHallucinationHedgeLanguage` helpers exported from `app/lib/feedSourceQuality.ts` for Phase 12.12 to wire into `evaluateFeedItemGates()` at worker line ~6602. Investigation traced the Saulėtas Pasaulis ingestion path: entry came in via `POST /feed/events` (id `mna2ne4x-xfri25` matches `makeId()` + typed-event field shape, no `cur_` prefix, no repo source) — operator hand-pushed via curl with LLM-drafted content from an external chat. Phase 12.12 #8's structural gate target is the typed-event endpoint, not curation. Worker deploy `043fd2cb-1146-4d96-95c2-0ecb2864f5d7` live; delete-call deferred to operator (UPDATE_SECRET not in this session's shell — endpoint deploys regardless, fire later). 882 → 893 tests. Branch pushed for PR; PR draft at `docs/phases/phase-12-10-0-pr.md`. Previously Session 28 — Phase 12.8.0 Tier 0 hot-fix bundle on `phase-12-8-0-tier0-hotfix`. Audit-investigated: the prompt's "highest-priority light-mode bug" was empirically false (152 root tokens, 114 light overrides, HeroBalticMap fully tokenized; visual screenshots confirm parity). Light-mode commit reduced to a single `ContactForm` chevron fix + investigation writeup. Three other sub-items shipped per Pause A decisions: percentile tiles → static stat-summary strip; keyboard shortcuts → SOT + outline flash + `?` overlay (fixes 2 dead bindings); ticker → pause-on-hover + edge fade + robustified reduced-motion selector. 866 → 882 tests. **Process finding: 3 of 4 audit-#2 visual claims confirmed hallucinated this session — see audit-credibility taxonomy in Session 28 entry + `docs/investigations/phase-12-8-0-light-mode-audit-vs-reality.md`.** Branch pushed for PR; PR draft at `docs/phases/phase-12-8-0-pr.md`. Cloudflare Pages preview verified. Previously Session 27 — Phase 12.8 Dispatch render-error fix + boundary upgrade; see `docs/investigations/phase-12-8-dispatch-render-error.md`.)
 
 ## Current phase
 
@@ -1881,6 +1881,58 @@ Then Tier 1 (12.12 + 12.14 + 7.7g). Phase 12.12 picks up:
 - Notion board sync: mark Phase 12.10 shipped; add the 7 backlog items above.
 - After merge to main → Phase 30 §6 (three commits + push to `phase-30-methodology-research` branch) resumes from the same working tree per operator's latest message.
  phase-12-8-1-backtest-caption
+
+### Session 38 — 2026-05-05 — Phase 12.10a — CLAUDE.md discipline patch (Claude Code)
+
+**Headline:** Six discipline rules earned across Sessions 25-37 baked into `CLAUDE.md` so they don't drift back; "Current phase" stale block (Hero v3 / Phase 2B-1) refreshed to point at Tier 0 closing → Tier 1 (12.12 + 7.7g, parallel). Documentation-only; no `model_version` bump, no worker, no frontend, no test changes. **Last Tier 0 item.**
+
+**Branch:** `phase-12-10a-claude-md-discipline` off `origin/main` at `3265849` (post-Phase-4G-merge + post-Cowork-roadmap-delta). One commit pushed. PR-creation URL: `https://github.com/kastiskemezys-tech/kkme-website/pull/new/phase-12-10a-claude-md-discipline`.
+
+**Commit:** `f15a371` — `phase-12-10a(discipline): six discipline rules + current-phase refresh in CLAUDE.md`.
+
+**Diff:** `CLAUDE.md` +19 / −2 (1 file).
+
+**Six rules added (each cites originating incident-trace phase):**
+1. **Audit-triage rule.** Visual-inference claims without screenshot/code-grep/primary-source are hypotheses, not bugs. Origin: Phase 12.8.0 (3 of 4 audit-#2 visual claims hallucinated); Phase 4G (audit-#6 cp1257 premise empirically false).
+2. **No-hardcoded-temporal-label rule.** No "where/when" display label without computing it. Origin: Phase 12.10 PeakForecastCard slice-idx → UTC clock-hour fix.
+3. **Named-entity verification rule.** No published named entity without registry/press-release/regulator URL. Origin: Phase 12.10.0 Saulėtas Pasaulis purge.
+4. **Cross-card consistency rule.** Same metric → one canonical worker field; declared in `app/lib/metricRegistry.ts`; CI test enforces (Phase 12.12 #5). Origin: Phase 12.9 SignalBar S/D RATIO mismatch.
+5. **Roadmap edit-conflict rule.** `_post-12-8-roadmap.md` is operator/Cowork-owned; CC reads but commits only when explicitly instructed. Origin: Phase 12.8.0 multi-actor edit-conflict.
+6. **No-editorial-state-label rule.** No engine-emitted state strings ("TIGHTENING"/"STABLE"/etc.) as chips. CI grep gate `npm run lint:no-editorial-chips`. Origin: Phase 12.9.1 brand-discipline pass.
+
+**"Current phase" refresh:** stale Hero v3 / Phase 2B-1 block → Tier 0 closing pointer (most recent shipped: Phase 4G; this phase 12.10a is last Tier 0 item; Tier 1 = Phase 12.12 + Phase 7.7g, parallel). Points readers at `_post-12-8-roadmap.md` "Currently active" + `handover.md` for live state.
+
+**Verification gates (all green; baseline preserved exactly):**
+
+| Gate | Pre-edit baseline | Post-edit | Δ |
+|---|---|---|---|
+| `npx tsc --noEmit` | 0 errors | 0 errors | 0 |
+| `npx vitest run` | 927 / 927 (61 files) | 927 / 927 (61 files) | 0 |
+| `npm run lint` | 170 problems (40 errors / 130 warnings) | 170 problems | 0 |
+| `npm run build` | 8 routes | 8 routes | 0 |
+
+(CLAUDE.md is not consumed at build time; gates are sanity checks only.)
+
+**Out of scope:**
+- Editing rules in any file other than `CLAUDE.md` (handover.md / roadmap references stay as-is).
+- Adding more rules — the six are the exhaustive set from Sessions 25-37; new rules will emerge from new incidents.
+- CI enforcement (rule #6 grep gate already shipped Phase 12.9.1; rule #4 cross-card CI test = Phase 12.12 #5).
+- Roadmap edits (Cowork-applied post-merge per rule #5).
+
+**Tier 0 sequence after Phase 12.10a:**
+1. ✅ Phase 12.8, 12.8.0, 12.10.0, 12.10, 12.8.1, 12.9, 12.9.1, 12.9.2, 12.9.3, 4G (per Session 37 enumeration + Phase 4G merge)
+2. ✅ **Phase 12.10a** (this PR, awaiting merge)
+3. → **Tier 0 closes.**
+
+Then **Tier 1 begins (Phase 12.12 data-integrity infrastructure + Phase 7.7g token rebuild + 5-primitive system, parallel).**
+
+**Roadmap delta needed — operator to apply Cowork-side after merge:**
+1. **Move Phase 12.10a from "Currently active" / "Next CC job" to the Shipped appendix.**
+2. **Advance the "Currently active → Next CC job:" pointer to Phase 12.12** (Tier 1 starts; Phase 7.7g runs in parallel).
+
+**Next operator action:**
+- Open PR via GitHub web UI (base `main`, title `Phase 12.10a — CLAUDE.md discipline patch`).
+- Apply roadmap delta above to `docs/phases/_post-12-8-roadmap.md` Cowork-side after merge.
 
 ### Session 37 — 2026-05-05 — Phase 4G — Intel encoding (audit-vs-reality) + IntelFeed count alignment (Claude Code)
 
