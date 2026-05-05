@@ -120,7 +120,7 @@ export function HeroBalticMap() {
   const fetchAll = useCallback(() => {
     return Promise.all([
       fetch(`${W}/s4/fleet`).then(r => r.ok ? r.json() : null).catch(() => null),
-      fetch(`${W}/revenue?dur=4h`).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`${W}/revenue?dur=2h`).then(r => r.ok ? r.json() : null).catch(() => null),
       fetch(`${W}/read`).then(r => r.ok ? r.json() : null).catch(() => null),
       fetch(`${W}/s8`).then(r => r.ok ? r.json() : null).catch(() => null),
       fetch(`${W}/s4`).then(r => r.ok ? r.json() : null).catch(() => null),

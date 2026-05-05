@@ -1525,7 +1525,7 @@ function DrawerContent({ data }: { data: RevenueData }) {
 // ═══ Main Component ═════════════════════════════════════════════════════════
 
 export function RevenueCard() {
-  const [dur, setDur] = useState<'2h' | '4h'>('4h');
+  const [dur, setDur] = useState<'2h' | '4h'>('2h');
   const [capex, setCapex] = useState<'low' | 'mid' | 'high'>('mid');
   const [cod, setCod] = useState(2028);
   const [scenario, setScenario] = useState('base');
