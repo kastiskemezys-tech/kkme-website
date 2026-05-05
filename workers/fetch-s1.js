@@ -24,6 +24,7 @@
 import { DEFAULTS, STALE_THRESHOLDS_HOURS } from './lib/defaults.js';
 import { kvWrite, checkBounds, checkRequired } from './lib/kv.js';
 import { notifyTelegram } from './lib/notify.js';
+import { computeEUATrend } from './lib/eua_trend.js';
 
 const ENTSOE_API    = 'https://web-api.tp.entsoe.eu/api';
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
@@ -5728,7 +5729,7 @@ function parseEUAPrice(html) {
   return null;
 }
 
-async function fetchEUCarbon() {
+async function fetchEUCarbon(env) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 20000);
   try {
@@ -5747,11 +5748,22 @@ async function fetchEUCarbon() {
     if (eua_eur_t > 70)      signal = 'HIGH';
     else if (eua_eur_t > 50) signal = 'ELEVATED';
     else if (eua_eur_t < 30) signal = 'LOW';
+    const eua_eur_t_rounded = Math.round(eua_eur_t * 100) / 100;
+    let eua_trend = null;
+    if (env && env.KKME_SIGNALS) {
+      try {
+        const rawHist = await env.KKME_SIGNALS.get('s9_history');
+        const history = rawHist ? JSON.parse(rawHist) : [];
+        eua_trend = computeEUATrend(history, eua_eur_t_rounded);
+      } catch (e) {
+        console.error('[S9/trend] history read failed:', String(e));
+      }
+    }
     return {
       timestamp:   new Date().toISOString(),
       signal,
-      eua_eur_t:   Math.round(eua_eur_t * 100) / 100,
-      eua_trend:   null,
+      eua_eur_t:   eua_eur_t_rounded,
+      eua_trend,
       interpretation: signal === 'HIGH'
         ? 'High carbon price — strong incentive to displace gas peakers with BESS.'
         : signal === 'LOW'
@@ -6347,7 +6359,7 @@ export default {
       withTimeout(fetchNordicHydro(),           20000),
       withTimeout(fetchTTFGas(),                20000),
       withTimeout(fetchInterconnectorFlows(env), 30000),
-      withTimeout(fetchEUCarbon(),              20000),
+      withTimeout(fetchEUCarbon(env),           20000),
       withTimeout(fetchBalticGeneration(),      25000),
       withTimeout(fetchGenLoad(env.ENTSOE_API_KEY), 30000),
     ]);
@@ -7622,7 +7634,7 @@ export default {
       ['s6', () => fetchNordicHydro(),             DEFAULTS.s6],
       ['s7', () => fetchTTFGas(),                  DEFAULTS.s7],
       ['s8', () => fetchInterconnectorFlows(env),  DEFAULTS.s8],
-      ['s9', () => fetchEUCarbon(),                DEFAULTS.s9],
+      ['s9', () => fetchEUCarbon(env),             DEFAULTS.s9],
     ]) {
       if (request.method === 'GET' && url.pathname === `/${sig}`) {
         const cached = await env.KKME_SIGNALS.get(sig).catch(() => null);
