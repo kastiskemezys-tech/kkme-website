@@ -7969,7 +7969,10 @@ export default {
     }
 
     // ── GET /da_tomorrow ─────────────────────────────────────────────────────
-    // Cached DA prices for LT+SE4; populated by cron or POST /da_tomorrow/update
+    // Cached DA prices for LT+SE4; populated by cron or POST /da_tomorrow/update.
+    // `da_tomorrow:lastgood` mirrors every successful write so a transient upstream
+    // failure can still serve a previous-day payload (with X-Stale headers) instead
+    // of returning 500.
     if (request.method === 'GET' && url.pathname === '/da_tomorrow') {
       const cached = await env.KKME_SIGNALS.get('da_tomorrow');
       if (cached) {
@@ -7977,9 +7980,25 @@ export default {
       }
       try {
         const data = await fetchNordPoolDA();
-        await env.KKME_SIGNALS.put('da_tomorrow', JSON.stringify(data));
-        return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json', ...CORS } });
+        const body = JSON.stringify(data);
+        await Promise.all([
+          env.KKME_SIGNALS.put('da_tomorrow', body),
+          env.KKME_SIGNALS.put('da_tomorrow:lastgood', body),
+        ]);
+        return new Response(body, { headers: { 'Content-Type': 'application/json', ...CORS } });
       } catch (err) {
+        const stale = await env.KKME_SIGNALS.get('da_tomorrow:lastgood').catch(() => null);
+        if (stale) {
+          return new Response(stale, {
+            headers: {
+              'Content-Type':   'application/json',
+              'Cache-Control':  'public, max-age=600',
+              'X-Stale':        'true',
+              'X-Stale-Reason': 'upstream-fetch-failed',
+              ...CORS,
+            },
+          });
+        }
         return new Response(JSON.stringify({ error: String(err) }), { status: 500, headers: { 'Content-Type': 'application/json', ...CORS } });
       }
     }
@@ -8003,7 +8022,11 @@ export default {
         metrics = { lt_peak: body.lt_peak ?? null, lt_trough: body.lt_trough ?? null, lt_avg: body.lt_avg ?? null, se4_avg: body.se4_avg ?? null, spread_pct: body.spread_pct ?? null };
       }
       const payload = { ...metrics, delivery_date: body.delivery_date ?? null, timestamp: new Date().toISOString() };
-      await env.KKME_SIGNALS.put('da_tomorrow', JSON.stringify(payload));
+      const payloadBody = JSON.stringify(payload);
+      await Promise.all([
+        env.KKME_SIGNALS.put('da_tomorrow', payloadBody),
+        env.KKME_SIGNALS.put('da_tomorrow:lastgood', payloadBody),
+      ]);
       console.log(`[NP/DA/update] lt_avg=${payload.lt_avg} lt_peak=${payload.lt_peak} spread=${payload.spread_pct}%`);
       return new Response(JSON.stringify(payload), { status: 200, headers: { 'Content-Type': 'application/json', ...CORS } });
     }
