@@ -5649,16 +5649,20 @@ async function fetchInterconnectorFlows(env) {
   const netTotal = (nordbalt_avg_mw_merged ?? 0) + (litpol_avg_mw_merged ?? 0);
   const signal   = netTotal > 100 ? 'IMPORTING' : netTotal < -100 ? 'EXPORTING' : 'NEUTRAL';
 
-  // Extract data timestamp from energy-charts unix_seconds (Bug 5 fix)
+  // Phase 12.9.2: `timestamp` is the canonical "as-of-write" used by /health for
+  // age computation; energy-charts.info publishes forward-looking slot-end times
+  // in unix_seconds, which previously leaked into `timestamp` and produced
+  // negative age_hours. Slot-end is preserved as `data_slot_end`.
   const unixSeconds = Array.isArray(ltData.unix_seconds) ? ltData.unix_seconds : [];
   const lastUnix = unixSeconds.length > 0 ? unixSeconds[unixSeconds.length - 1] : null;
-  const dataTimestamp = lastUnix ? new Date(lastUnix * 1000).toISOString() : new Date().toISOString();
+  const dataSlotEnd = lastUnix ? new Date(lastUnix * 1000).toISOString() : null;
 
   const fmtFlow = (label, sig, mw) =>
     `${label}: ${sig ?? '—'} (${mw != null ? mw + ' MW' : '—'})`;
 
   return {
-    timestamp:        dataTimestamp,
+    timestamp:        new Date().toISOString(),
+    data_slot_end:    dataSlotEnd,
     signal,
     nordbalt_avg_mw:  nordbalt_avg_mw_merged,
     litpol_avg_mw:    litpol_avg_mw_merged,
