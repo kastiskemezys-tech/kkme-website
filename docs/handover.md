@@ -1882,6 +1882,63 @@ Then Tier 1 (12.12 + 12.14 + 7.7g). Phase 12.12 picks up:
 - After merge to main → Phase 30 §6 (three commits + push to `phase-30-methodology-research` branch) resumes from the same working tree per operator's latest message.
  phase-12-8-1-backtest-caption
 
+### Session 35 — 2026-05-05 — Phase 12.9.2 — s8 timestamp fix (negative age_hours bug) (Claude Code)
+
+**Headline:** s8 timestamp bug fixed; `/health.signals.s8.age_hours` now reports positive. `fetchInterconnectorFlows()` was leaking the energy-charts.info forward-looking slot-end timestamp (from `unix_seconds[last]`) into the canonical `data.timestamp` field; `/health` reads `data.timestamp ?? data._meta?.written_at ?? data.updated_at` for age computation, so the future value produced negative `age_hours`. Surgical 1-file fix: `timestamp` becomes `new Date().toISOString()` (canonical "as-of-write", matching every other signal fetcher); the existing forward-looking value moves to a new `data_slot_end` field for any consumer that wants slot semantics. Worker deployed at version `456cf230-10fd-4135-9270-beade824a2b4`.
+
+**Branch:** `phase-12-9-2-s8-timestamp` off `origin/main` at `96cc677` (post-Phase-12.9.1-merge — PRs #54 + #55). One worker-file commit pushed to origin. PR-creation URL: `https://github.com/kastiskemezys-tech/kkme-website/pull/new/phase-12-9-2-s8-timestamp`.
+
+**Source-of-truth correction vs prompt §2:** prompt hypothesized the leaking timestamp came from "ENTSO-E forward-looking slot timestamp." Actual upstream is `energy-charts.info` CBET (`/cbet?country=lt`), `unix_seconds[last]` — same shape (forward-looking slot-end), different upstream. Fix pattern from §3 applied cleanly without scope adjustment. Bug history: introduced 2026-04-12 (`9317c94` "phase2a-3 worker: 5 bug fixes" — Bug 5 fix intentionally swapped fetch-time → slot-end for "data freshness" semantic; that semantic change broke `/health`'s `timestamp = as-of-write` convention. Phase 12.9.2 reconciles by giving each semantic its own field name).
+
+**Before / after:**
+
+| Endpoint | Before (15:55 UTC) | After production deploy (16:00 UTC) | After local wrangler dev (KV cleared) |
+|---|---|---|---|
+| `/health.signals.s8.age_hours` | **−4.8** (negative) | −4.7 (cached payload from pre-deploy cron — refreshes on next 4h tick) | **0** (just-written) |
+| `/s8.timestamp` | `2026-05-05T20:45:00.000Z` (~5h future) | unchanged (KV cache pre-deploy) | `2026-05-05T15:59:51.785Z` (~now) |
+| `/s8.data_slot_end` | n/a (field did not exist) | `null` (cached payload predates field) | `2026-05-05T20:45:00.000Z` (preserved slot-end) |
+
+Production cache inertia is expected per prompt §5: cron writes s8 every 4h, GET /s8 serves cached KV; production endpoints will reflect the fix on next cron tick (≤4h). Local wrangler dev with cleared KV is sufficient verification.
+
+**Verification gates (all green; baseline preserved):**
+
+| Gate | Pre-edit baseline | Post-edit | Δ |
+|---|---|---|---|
+| `npx tsc --noEmit` | 0 errors | 0 errors | 0 |
+| `npx vitest run` | 927 / 927 (61 files) | 927 / 927 (61 files) | 0 — bug fix has no test coverage to touch |
+| `npm run lint` | 170 problems (40 errors / 130 warnings) | 170 problems (40 errors / 130 warnings) | 0 |
+| `npx wrangler dev` (local boot) | n/a | GET /s8 → fresh `timestamp` ≈ now, `data_slot_end` preserved; GET /health.s8.age_hours = 0 | ✓ |
+| `npx wrangler deploy` | n/a | Version `456cf230-10fd-4135-9270-beade824a2b4`, 4 cron triggers preserved | ✓ |
+
+**Consumer audit (no coordinated change required):**
+- `app/components/S8Card.tsx:127` reads `data.timestamp` and renders it via `<SourceFooter updatedAt={...} />` — semantic is "when was this updated," which the new "as-of-write" value satisfies more accurately than the old slot-end. Display improves rather than regresses.
+- `workers/fetch-s1.js:8741` (`/health` age computation) — direct beneficiary of the fix.
+- `workers/lib/kv.js:105` — same pattern as `/health`, also benefits.
+- No consumer reads `s8.timestamp` expecting slot-end semantics. The slot-end is preserved under `data_slot_end` for any future consumer that needs it.
+
+**Out of scope / not touched:**
+- Other signals' timestamps (audited none — left for future ad-hoc check if anomalies surface).
+- `/health` endpoint logic — `data.timestamp ?? ...` chain is correct; bug was upstream.
+- Frontend display of s8 — verified `SourceFooter updatedAt` consumer; no breaking change.
+- Roadmap edits — operator-owned per protocol; report delta below.
+- Resolves Session 34 backlog #1 ("/health.signals.s8.age_hours reads negative (−5.2)").
+
+**Roadmap delta needed — operator to apply Cowork-side after merge** (per Session 28 backlog #2 protocol):
+
+1. **Move Phase 12.9.2 from "Currently active" to a Shipped appendix.** Update the "Currently active → Next CC job:" line to point to **Phase 4G** (intel encoding, ~1.5h).
+
+**Tier 0 sequence after Phase 12.9.2:**
+1. ✅ Phase 12.8, 12.8.0, 12.10.0, 12.10, 12.8.1, 12.9, 12.9.1 (per Session 34 enumeration)
+2. ✅ **Phase 12.9.2** (this PR, awaiting merge — worker `456cf230` already live; visible behavior on next 4h cron tick)
+3. ⏳ Phase 4G (intel encoding, ~1.5h) — **next CC job**
+
+Then Tier 1 (12.12 + 12.14 + 7.7g).
+
+**Next operator action:**
+- Open PR via GitHub web UI (base `main`, title `Phase 12.9.2 — s8 timestamp fix`).
+- Apply roadmap delta above to `docs/phases/_post-12-8-roadmap.md` Cowork-side after merge.
+- Optional: re-curl `/health.signals.s8` after the next cron tick (≤4h post-deploy at ~16:00 UTC) to confirm production reflects the fix; expected `age_hours` = small positive number.
+
 ### Session 34 — 2026-05-05 — Phase 12.9.1 — Brand discipline pass (Claude Code)
 
 **Headline:** three sub-items shipped on `phase-12-9-1-brand-discipline` off `main@82474cc`. Editorial state-name chips ("OPEN" / "TIGHTENING" / "COMPRESSED" / "HIGH" / "STABLE" / "LOW" / "Elevated" / "Normal" / "High pipeline pressure" / "Pipeline building") replaced with pure quantitative micro-descriptors on the 5 LIVE homepage cards (S1, S2, S4, S7, S9). `STALE_THRESHOLDS_HOURS` tightened on s1 (36→24) + s4 (36→24) to match daily upstream publication cadence; s7/s8/s9 audit corrected the prompt's anticipation (cron is every-4h, not daily — 12h threshold = 3-miss buffer is correct, left as-is). CI grep gate added in `package.json` to prevent re-introduction of `phase: 'X'` editorial literals. Worker deployed at version `ff9ed839-f609-462c-bb80-5cf2bcac6a4e` (18:36 UTC). `model_version` does NOT bump — pure brand/UX + threshold config.
