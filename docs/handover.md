@@ -1882,6 +1882,57 @@ Then Tier 1 (12.12 + 12.14 + 7.7g). Phase 12.12 picks up:
 - After merge to main → Phase 30 §6 (three commits + push to `phase-30-methodology-research` branch) resumes from the same working tree per operator's latest message.
  phase-12-8-1-backtest-caption
 
+### Session 36 — 2026-05-05 — Phase 12.9.3 — Default duration 4h → 2h (Claude Code)
+
+**Headline:** Default duration switched 4h → 2h on Returns card, S3 card, and HeroBalticMap fetch. KKME audience (investor / institutional Baltic readers) sees 2h economics on load — most contracted Baltic BESS today is 2h and financing assumptions converge faster on 2h. 4h remains as toggle option (RevenueCard segmented switch + S3Card switch + URL `?dur=4h` override on RevenueCard); just no longer the on-load default.
+
+**Branch:** `phase-12-9-3-default-duration-2h` off `origin/main` at `84edce6` (post-Phase-12.9.2-merge + post-roadmap-delta). One commit pushed to origin. PR-creation URL: `https://github.com/kastiskemezys-tech/kkme-website/pull/new/phase-12-9-3-default-duration-2h`.
+
+**Commits:**
+1. `ec85338` — `phase-12-9-3(defaults): default duration 4h → 2h across RevenueCard, S3Card, HeroBalticMap`
+
+**Per-file before/after:**
+
+| File:Line | Before | After |
+|---|---|---|
+| `app/components/RevenueCard.tsx:1528` | `useState<'2h' \| '4h'>('4h')` | `useState<'2h' \| '4h'>('2h')` |
+| `app/components/S3Card.tsx:180` | `useState<Duration>('4h')` | `useState<Duration>('2h')` |
+| `app/components/HeroBalticMap.tsx:123` | `fetch(\`${W}/revenue?dur=4h\`)` | `fetch(\`${W}/revenue?dur=2h\`)` |
+
+**Pre-flight audit (no other 4h defaults):** ran broad grep `useState.*'4h'\|=.*'4h'\|defaultDuration\|DEFAULT_DURATION\|dur=4h\|duration=4h` across `app/` and `workers/`. Other matches are all non-defaults: type unions (`type Duration = '2h' | '4h'`), toggle option arrays (`{ key: '4h', label: '4H' }` in TradingEngineCard + RevenueCard), URL-param parsing on RevenueCard (still allows `?dur=4h` override), and worker IRR / DUR_MAP logic that handles both durations symmetrically. No coordinated change needed.
+
+**Verification gates (all green; baseline preserved):**
+
+| Gate | Pre-edit baseline | Post-edit | Δ |
+|---|---|---|---|
+| `npx tsc --noEmit` | 0 errors | 0 errors | 0 |
+| `npx vitest run` | 927 / 927 (61 files) | 927 / 927 (61 files) | 0 — defaults aren't asserted in tests |
+| `npm run lint` | 170 problems (40 errors / 130 warnings) | 170 problems | 0 |
+| `npm run build` | 8 routes | 8 routes | 0 |
+
+**Out of scope / not touched:**
+- Removing `'4h'` as a toggle option — stays as alternative on RevenueCard segmented switch + S3Card switch + URL override.
+- Engine math, backtest, scenarios — engine handles both 2h and 4h paths today; no change needed.
+- Worker — pure frontend default flip.
+- Roadmap edits — operator-owned per protocol; reported below.
+
+**Roadmap delta needed — operator to apply Cowork-side after merge** (per Session 28 backlog #2 protocol):
+
+1. **Move Phase 12.9.3 from "Currently active" to the Shipped appendix.** Update the "Currently active → Next CC job:" line to point to **Phase 4G** (intel encoding, ~1.5h).
+
+**Tier 0 sequence after Phase 12.9.3:**
+1. ✅ Phase 12.8, 12.8.0, 12.10.0, 12.10, 12.8.1, 12.9, 12.9.1, 12.9.2 (per Session 35 enumeration + this PR)
+2. ✅ **Phase 12.9.3** (this PR, awaiting merge)
+3. ⏳ Phase 4G (intel encoding, ~1.5h) — **next CC job**
+4. ⏳ Phase 12.10a (CLAUDE.md discipline patch)
+
+Then Tier 1 (12.12 + 12.14 + 7.7g).
+
+**Next operator action:**
+- Open PR via GitHub web UI (base `main`, title `Phase 12.9.3 — Default duration 4h → 2h`).
+- Apply roadmap delta above to `docs/phases/_post-12-8-roadmap.md` Cowork-side after merge.
+- Optional smoke check post-merge: load homepage, confirm Returns card opens at 2H, S3 card opens at 2H, hero map IRR/MW/yr ribbon reflects 2h economics.
+
 ### Session 35 — 2026-05-05 — Phase 12.9.2 — s8 timestamp fix (negative age_hours bug) (Claude Code)
 
 **Headline:** s8 timestamp bug fixed; `/health.signals.s8.age_hours` now reports positive. `fetchInterconnectorFlows()` was leaking the energy-charts.info forward-looking slot-end timestamp (from `unix_seconds[last]`) into the canonical `data.timestamp` field; `/health` reads `data.timestamp ?? data._meta?.written_at ?? data.updated_at` for age computation, so the future value produced negative `age_hours`. Surgical 1-file fix: `timestamp` becomes `new Date().toISOString()` (canonical "as-of-write", matching every other signal fetcher); the existing forward-looking value moves to a new `data_slot_end` field for any consumer that wants slot semantics. Worker deployed at version `456cf230-10fd-4135-9270-beade824a2b4`.
