@@ -160,8 +160,6 @@ function pipelineSentiment(installedMw: number, tsoReservedMw: number): Sentimen
 
 function pipelineStatus(installedMw: number, tsoReservedMw: number): string {
   const ratio = tsoReservedMw / Math.max(installedMw, 1);
-  if (ratio > 5) return 'High pipeline pressure';
-  if (ratio > 3) return 'Pipeline building';
   return `${ratio.toFixed(1)}× pipeline`;
 }
 
@@ -393,8 +391,11 @@ export function S4Card() {
           {(() => {
             const ps = pipelineStatus(installedMw, tsoReservedMw);
             const sent = pipelineSentiment(installedMw, tsoReservedMw);
-            const isDashed = ps.includes('×');
-            return isDashed ? (
+            // Dashed border preserves the projected/forecast data-class signal at low
+            // ratios; sentiment-colored solid chip flags higher ratios. Threshold
+            // matches pipelineSentiment (caution above 3×, positive otherwise).
+            const ratio = tsoReservedMw / Math.max(installedMw, 1);
+            return ratio <= 3 ? (
               <span style={{
                 display: 'inline-block',
                 fontFamily: 'var(--font-mono)',

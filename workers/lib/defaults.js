@@ -185,17 +185,17 @@ export const SANITY_BOUNDS = {
 
 // How old is too old per signal/data key. Single source of truth for /health.
 export const STALE_THRESHOLDS_HOURS = {
-  s1:          36,    // DA prices: daily 06:00 UTC
-  s2:          48,    // BTD: daily cron
-  s3:          36,    // daily cron
+  s1:          24,    // DA prices: tomorrow's prices publish ~14:00 UTC daily; data fresh for ~24h
+  s2:          48,    // BTD: daily cron + 09:30 UTC watchdog; 48h = one missed cron + buffer
+  s3:          36,    // daily cron; left at 36 pending BTD-frequency investigation
   euribor:    168,    // ECB: weekly is fine
-  s4:          36,    // Litgrid: daily
+  s4:          24,    // Litgrid daily publication; 24h matches upstream cadence
   s4_pipeline: 840,   // VERT.lt: monthly
   s5:           6,    // DC news: every 4h cron
   s6:         168,    // NVE: weekly data, check every 4h
-  s7:          12,    // TTF: daily market data
-  s8:          12,    // Cross-border flows: daily
-  s9:          12,    // EU ETS: daily market data
+  s7:          12,    // TTF: every-4h cron, daily upstream; 12h = 3 missed crons
+  s8:          12,    // Cross-border flows: every-4h cron; 12h = 3 missed crons
+  s9:          12,    // EU ETS: every-4h cron, daily upstream; 12h = 3 missed crons
   // Non-signal data feeds consumed by frontend. Tracked in /health alongside signals.
   'da_tomorrow':           36,   // Nord Pool DA: daily ~13:00 CET / 06:00 UTC publish
   'da_tomorrow:lastgood': 168,   // backstop mirror; only matters after a week of upstream failures

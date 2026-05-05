@@ -9,12 +9,12 @@
 
 ## Currently active
 
-- **In flight:** none — operator at clean main, ready to launch next CC session
-- **Next CC job:** Phase 12.9 — worker + header KPI hot-fix bundle (~1.5-2h). SignalBar S/D RATIO migration, /da_tomorrow upstream-error handling, /health endpoint expansion to all 16 KV keys, /extreme/latest TTL 24h backstop, /s9.eua_trend regeneration. Worker deploy required.
-- **Then:** Phase 4G (intel encoding, ~1.5h) → Phase 12.10a (discipline-rules CLAUDE.md patch, ~30 min) → Tier 1
+- **In flight:** Phase 12.9 (PR #53 awaiting merge — worker live, frontend pending Cloudflare Pages auto-deploy on merge)
+- **Next CC job:** Phase 12.9.1 — Brand discipline pass (~45-60 min). **HIGHEST PRIORITY** per operator review 2026-05-05: strip editorial state labels site-wide (TIGHTENING / STABLE / RISING / etc.); tighten S1 stale threshold 36h → 24h. Frontend + worker config; worker deploy required.
+- **Then:** Phase 4G (intel encoding, ~1.5h) → Phase 12.10a (discipline-rules CLAUDE.md patch, ~30 min, NOW including no-editorial-state-label rule per 12.9.1 finding) → Tier 1
 - **Parallel research track:** Phase 30 research deliverables shipped (3 docs merged to main); Phase 29 (KKME Baltic Storage Index, ~4-6h) ships after Tier 0 closes — informed by Phase 30 findings (esp. Gap #5 aFRR/FCR cap reservation reconciliation)
-- **Phase 12.10 follow-up (NOT a new phase):** Gap #5 — KKME's published aFRR-down €5.03/MW/h is order-of-magnitude lower than Clean Horizon's €340/MW/h Baltic average. Per Phase 30 research finding, investigate whether KKME is reporting realised €/MWh-activated rather than reservation €/MW/h. Folds into next Phase 12.10 follow-up commit, not a standalone phase.
-- **Roadmap last updated:** 2026-05-04 by Cowork (Phase 30 + Phase 12.8.1 shipped → appendix; Currently-active advances Next CC job to Phase 12.9)
+- **Phase 12.10 follow-up (NOT a new phase):** Gap #5 — KKME's published aFRR-down €5.03/MW/h is order-of-magnitude lower than Clean Horizon's €340/MW/h Baltic average. **Operator live-site review 2026-05-05 reinforced: actual market is at €13.5/MW/h post Baltic-Continental integration Nov 2025; Clean Horizon's €340 likely measures something else.** Investigation re-framed: not "fix KKME numerator" but "decode Clean Horizon denominator." Folds into next Phase 12.10 follow-up commit.
+- **Roadmap last updated:** 2026-05-05 by Cowork (Phase 12.9.1 added — brand discipline pass; Phase 12.13 +#6 hover granularity sub-item; Phase 12.10a +#6 no-editorial-state-label rule; Phase 30 Gap #5 reframing per live-site evidence)
 
 ---
 
@@ -178,6 +178,27 @@ Defensive guards + CardBoundary upgrade. Ships preventive hardening (audit's tra
 **Scope:** SignalBar S/D RATIO migration (1 line: `data.s2?.sd_ratio` → `data.s4?.fleet?.sd_ratio`); /da_tomorrow upstream-error handling (try/catch JSON parse, last-good fallback); /health endpoint expansion to all 16 KV keys; /extreme/latest TTL 24h backstop; /s9.eua_trend regeneration from history.
 **Estimate:** ~1.5-2h. Worker deploy required.
 
+#### Phase 12.9.1 — Brand discipline pass [NEW — operator surfaced 2026-05-05]
+**Why:** Live site review on 2026-05-05 surfaced two violations of the locked design principles ("data/math/visuals speak; no methodology reveal") that shipped under the radar: editorial state labels ("TIGHTENING", "STABLE", and similar) and a too-lenient stale threshold on S1 that lets day-old data render without amber. Operator framing: *"extremely unprofessional."* Ships immediately to recover brand voice + freshness signal accuracy.
+
+**Scope (~45-60 min, single PR):**
+1. **Strip editorial state labels site-wide.** Find all instances where the engine emits a state-name string into a card chip — likely sources include `s1.regime`, `s2.regime`, `direction` fields, or similar. Map: TIGHTENING / TIGHT / WIDENING / WIDE / STABLE / STEADY / RISING / FALLING / NORMAL / CALM / ELEVATED / HIGH / LOW. Three options per chip:
+   - **Remove entirely** (default; matches "data speaks" principle)
+   - **Replace with a quantitative micro-descriptor** if the chip is load-bearing visually (e.g. `"Δ −8% / 30d"` instead of `"TIGHTENING"`)
+   - **Keep behind a methodology-drawer-only context** if the editorial label is genuinely the methodology talking about itself
+   Default: remove. Replace only where removal leaves a visual hole that breaks layout.
+2. **Tighten S1 stale threshold.** `workers/lib/defaults.js` `STALE_THRESHOLDS_HOURS.s1` is 36h. DA prices publish daily ~14:00 UTC; threshold should be 24h. Same audit for the other signal keys (s2 48h is reasonable; s5 6h is reasonable; review s7/s8/s9 12h against actual upstream publish cadence).
+3. **Audit other opinion-labels** that may have crept in elsewhere: card prose, IntelFeed item summaries, hero copy. Don't ship new editorial; flag for the next pass.
+
+**Out of scope:**
+- Underlying staleness fix (data not refreshing) — that's Phase 12.12 #3 (VPS-Python live-fetch pattern extension).
+- Source-attribution placement (move from card-face to drawer) — that's Phase 7.7g-b card rebuild.
+- 15-min chart hover granularity — that's Phase 12.13 #6 (added below).
+
+**Estimate:** ~45-60 min. Frontend + worker config; worker deploy required for stale-threshold change.
+
+**Sequencing:** ships AFTER Phase 12.9 merges (or in parallel — no overlap). **Highest immediate priority** per operator framing.
+
 #### Phase 4G — Intel feed encoding + count cleanup
 **Scope:** Python URL-decode encoding fix in `scripts/daily_intel.py` (cp1257/latin-1 → UTF-8); one-shot mojibake backfill purge (scan `feed_index` for `Ä[ŠŽ]`/`Å[ĄĮ]`/`Ã[€¶]` patterns); IntelFeed badge `${allItems.length}` vs View-all `${totalAvailable}` denominator alignment.
 **Estimate:** ~1.5h.
@@ -190,6 +211,7 @@ Defensive guards + CardBoundary upgrade. Ships preventive hardening (audit's tra
 3. **Named-entity verification rule:** No named entity in published content without verifiable source URL traceable to a commercial registry, press release with specific path, or regulator decision.
 4. **Cross-card consistency rule:** Same metric in N display locations must derive from one canonical worker field. Declared in metric registry; CI test enforces.
 5. **Roadmap edit-conflict rule:** `_post-12-8-roadmap.md` is operator/Cowork-owned. CC may READ but only commits roadmap changes when explicitly instructed. Default: CC reports needed changes via handover.
+6. **No-editorial-state-label rule** [Phase 12.9.1 backlog]: cards must not surface engine-emitted state strings ("TIGHTENING", "STABLE", "RISING", etc.) as chips. Locked design principle: data/math/visuals speak. If a chip is load-bearing visually, use a quantitative micro-descriptor (`"Δ −8% / 30d"`) not an editorial label. CI grep gate forbids re-introduction of stripped state-label literals in card components.
 
 **Sequencing:** ships AFTER Phase 12.10 closes (so the data-discipline rules are anchored in shipped work, not aspirational).
 
@@ -265,6 +287,7 @@ Defensive guards + CardBoundary upgrade. Ships preventive hardening (audit's tra
    - **`Chart`** wrapper — consistent title + source row + controls
    - **`Drawer`** — named, counted, expandable
 6. **Worker URL centralization** — single `app/lib/worker-url.ts`; migrate 16 sites.
+7. **Source attribution moves to Drawer** [operator surfaced 2026-05-05 — *"no need to show the source"*]. Card face renders only the data + freshness chip. Source URL, source name, methodology citation collapse into the `Drawer` primitive ("Reading this card" expandable). Card-face metadata reduced to: hero number, derived chip, micro-chart, freshness tick.
 
 ##### Phase 7.7g-c — Regression cleanup + CI gate (~2-3 days)
 7. **rgba/hex regression cleanup** — fix 213 rgba violations + 11 hex colors.
@@ -340,15 +363,16 @@ Defensive guards + CardBoundary upgrade. Ships preventive hardening (audit's tra
 **Estimate:** ~7 days.
 **Note:** Backtest fix moved to Phase 12.8.1 (Tier 0).
 
-#### Phase 12.13 — Outage data + price-anomaly chart annotations [FROM AUDIT #6]
-**Why:** ENTSO-E Unavailability feeds publish scheduled and unplanned outages. Auditor: *"huge price drivers."* Currently KKME shows price spikes with no explanation.
+#### Phase 12.13 — Outage data + price-anomaly chart annotations + chart hover granularity [FROM AUDIT #6 + operator review 2026-05-05]
+**Why:** ENTSO-E Unavailability feeds publish scheduled and unplanned outages. Auditor: *"huge price drivers."* Currently KKME shows price spikes with no explanation. Operator-surfaced 2026-05-05: hover on every chart shows aggregate (daily/monthly bucket) when underlying data has finer resolution (15-min for BTD, hourly for ENTSO-E DA). Reader sees a chart but can't drill into the actual tick they're hovering. *"I don't know what I'm looking at."*
 **Scope:**
 1. Worker `fetchEntsoeOutages()` polling Unavailability endpoints daily; KV `outages:scheduled` + `outages:unplanned`
 2. Endpoint `GET /events?from=<date>&to=<date>&type=outage|interconnector|regulatory`
 3. `<EventAnnotation>` primitive (extends Phase 7.7g `<Chart>` wrapper) — vertical dashed line + tooltip on time-series charts
 4. Wire into S1 DA chart, dispatch chart, capture chart
 5. Editorial extension: events of type `regulatory` operator-pushed via `POST /events` (UPDATE_SECRET-gated)
-**Estimate:** ~6-8h.
+6. **Hover granularity** [NEW per operator review 2026-05-05]: every time-series chart's hover tooltip exposes the underlying tick at native resolution. S2/BTD has 15-min resolution → hover surfaces 15-min ticks (not just monthly aggregate); S1/ENTSO-E DA has hourly resolution → hover surfaces hourly ticks (not daily aggregate). Currently both render aggregates only. Sub-implementation: `<Chart>` wrapper (Phase 7.7g) gets `hoverGranularity?: 'native' | 'aggregate'` prop, defaults to `'native'`. Cards that bucket for visual density still render aggregates but expose underlying ticks on hover.
+**Estimate:** ~7-9h (was 6-8h; +1h for hover granularity primitive).
 **Sequence:** depends on Phase A's `<Chart>` primitive. Ship as soon as Phase A lands.
 **Acceptance:** today's price chart shows vertical line for any Baltic outage in last 7 days; hovering shows detail. No more unexplained spikes.
 
@@ -508,7 +532,7 @@ Defensive guards + CardBoundary upgrade. Ships preventive hardening (audit's tra
 
 | Tier | Phases | Days |
 |---|---|---|
-| 0 — Bug fixes + data integrity | 12.8 [SHIPPED] · 12.8.0 [IN FLIGHT] · 12.10.0 · 12.10 · 12.8.1 · 12.9 · 4G · 12.10a | ~3-5 days |
+| 0 — Bug fixes + data integrity | 12.8 [SHIPPED] · 12.8.0 [SHIPPED] · 12.10.0 [SHIPPED] · 12.10 [SHIPPED] · 12.8.1 [SHIPPED] · 12.9 [IN FLIGHT] · 12.9.1 · 4G · 12.10a | ~3-5 days |
 | 1 — Foundation | 12.12 · 7.7g (a/b/c) | ~12-15 days |
 | 2 — Chapter restructure | A | ~5 days |
 | 3 — Two moments of presence | B · 12 | ~10 days |
@@ -522,7 +546,7 @@ Defensive guards + CardBoundary upgrade. Ships preventive hardening (audit's tra
 
 ## Dependencies + sequencing
 
-- **Tier 0 ships this week** — highest impact-per-hour. 12.8.0 in flight; 12.10.0 IMMEDIATELY after; then 12.10 → 12.8.1 → 12.9 → 4G → 12.10a.
+- **Tier 0 ships this week** — highest impact-per-hour. As of 2026-05-05: 12.8 / 12.8.0 / 12.10.0 / 12.10 / 12.8.1 / 30 (research) all SHIPPED; 12.9 in flight (PR #53 awaiting merge); next: **12.9.1 (brand discipline, HIGHEST PRIORITY) → 4G → 12.10a**, then Tier 1.
 - **Tier 1 (12.12 + 7.7g)** runs in parallel — different files, different concerns. 7.7g is the foundation; 12.12 is the integrity infrastructure. Both unlock Tier 2+.
 - **Tier 2 (Phase A)** depends on Tier 1's `Chart`, `Stat`, `Card` primitives. Sequence after.
 - **Tier 3 (Phase B + Phase 12)** can run parallel to each other; both depend on Tier 1's `Chart` primitive.
@@ -534,7 +558,7 @@ Defensive guards + CardBoundary upgrade. Ships preventive hardening (audit's tra
 - ⌘K command palette (overkill at scale)
 - Alerts layer (no login, no paying users yet)
 - Historical scrubber (no audience)
-- Methodology as separate destination (keep inline as drawer)
+- ~~Methodology as separate destination (keep inline as drawer)~~ → **REOPENED 2026-05-04 by Phase 30.** Standalone `/methodology` route now recommended (mirrors cleanhorizon.com publishing pattern) for the public-facing methodology paper at `docs/methodology.md`. **Operator decision still pending.** If chosen, `/methodology` destination decision lands as part of Phase A's chapter restructure or as a small dedicated phase.
 - Multi-page architecture (worsens current audience experience)
 - Workspace / paid tier (no audience to justify)
 - Founder bio in About (mystery is brand asset)

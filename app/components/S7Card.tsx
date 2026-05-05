@@ -25,11 +25,10 @@ interface S7Signal {
   _age_hours?:   number | null;
 }
 
-function regimeLabel(r: string | null | undefined): string {
-  if (r === 'HIGH') return 'High';
-  if (r === 'ELEVATED') return 'Elevated';
-  if (r === 'LOW') return 'Low';
-  return 'Normal';
+// Quantitative chip: ratio against the 50 €/MWh threshold reference.
+function regimeLabel(price: number | null | undefined): string {
+  if (price == null) return '—';
+  return `${(price / 50).toFixed(2)}× / 50 €/MWh threshold`;
 }
 
 function regimeSentiment(r: string | null | undefined): Sentiment {
@@ -90,7 +89,7 @@ export function S7Card() {
         <div style={{ marginBottom: '4px' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
             <MetricTile label="TTF day-ahead" value={data.ttf_eur_mwh.toFixed(1)} unit="€/MWh" size="hero" dataClass="observed" />
-            <StatusChip status={regimeLabel(regime)} sentiment={regimeSentiment(regime)} />
+            <StatusChip status={regimeLabel(data.ttf_eur_mwh)} sentiment={regimeSentiment(regime)} />
           </div>
         </div>
       )}
@@ -123,13 +122,13 @@ export function S7Card() {
             label: 'TTF gas',
             value: data.ttf_eur_mwh!,
             unit: '€/MWh',
-            secondary: [{ label: 'Regime', value: regimeLabel(regime) }],
+            secondary: [{ label: 'Regime', value: regimeLabel(data.ttf_eur_mwh) }],
           }, e.clientX, e.clientY)}
           onMouseMove={(e) => tt.show({
             label: 'TTF gas',
             value: data.ttf_eur_mwh!,
             unit: '€/MWh',
-            secondary: [{ label: 'Regime', value: regimeLabel(regime) }],
+            secondary: [{ label: 'Regime', value: regimeLabel(data.ttf_eur_mwh) }],
           }, e.clientX, e.clientY)}
           onMouseLeave={() => tt.hide()}>
           <div style={{
