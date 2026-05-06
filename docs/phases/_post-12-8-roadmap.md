@@ -9,10 +9,15 @@
 
 ## Currently active
 
-- **In flight:** none — operator at clean main, Phase 18 just shipped. **Phase 29 VPS Python deploy COMPLETE** (2026-05-06, LT/2h=€284.4, LT/4h=€306.6 live; daily cron at 06:30 UTC).
-- **Tier 1 — operator-pick across three eligible threads:**
-  1. **Phase 7.7g-a-2** (~1-2 days) — spacing tokens + rollout; continues the typography/foundation thread Phase 7.7g-a-1 opened.
-  2. **Phase 12.12 #1+#2** (~2-3 days) — schema validation + freshness gates; opens the parallel data-integrity thread.
+- **In flight:** none — operator at clean main, Phase 7.7g-a-2 SHIPPED 2026-05-06 PR #64 → merge commit `5fd2ca4` (3 commits `76c4092` / `0e41c94` / `c0ee974`; 361 sites migrated; lint:no-raw-spacing value-aware gate live; tsc 0 / vitest 919 / lint 126 / build 7 routes; check passed).
+- **Next CC pick — Phase 12.11 (operator-confirmed 2026-05-06):** P0 functional bug reconciliation. Prompt at `docs/phases/phase-12-11-prompt.md`. Leapfrogs 18.1/18.2/12.12 because audit-v2 P0 list was empirically validated via screenshot triangulation; visible same-page contradictions (822 vs 651 fleet, AFRR triple-precision, TODAY-chip-on-13h-ago, DISPATCH unit collision) are credibility-breaking and must be fixed before visual-polish phases land.
+- **Three small follow-on phases queued post-7.7g-a-2** (operator-surfaced 2026-05-06 audit "mobile is still off, charts aren't professional, lots of old requests pending"):
+  1. **Phase 18.1 — Mobile foundation pass** (~2-3h CC) — viewport meta + hero-grid responsive collapse <900px + masthead stack <520px + touch event scaffolding for hover-replacement. Doesn't replace Tier 6 but unblocks "site reads on phone."
+  2. **Phase 18.2 — Chart editorial polish** (~2-3h CC) — chart.js fonts → Plex Mono + Newsreader for axis labels; explicit Baltic palette; tooltip styling matches Phase 18 bracket-notation; sentinel-line treatment standardized across S1/S2/RevenueBacktest. Doesn't replace Phase 7.7g-b Chart primitive but lifts current charts to match the editorial site.
+  3. **Phase 12.10c — Operator-action verification + small backlog cleanup** (~30-45min Cowork, scope reduced 2026-05-06) — document curl results for 12.9 deferred verifications; visual-confirm 12.9.1/12.9.3 from operator-side; Notion sync update for Tier 1 progress; mark closed items closed in roadmap operator-action-items section. (Branch-cleanup line dropped per workflow simplification.)
+- **Tier 1 — operator-pick across remaining threads (after 18.1 / 18.2 / 12.10c):**
+  1. **Phase 12.12 #1+#2** (~2-3 days) — schema validation + freshness gates; opens the parallel data-integrity thread.
+  2. **Phase 7.7g-a-3** (~1-2 days, NEW post-7.7g-a-2 ship) — off-scale spacing residuals + shorthand expansion + missed top-level pages (intel/regulatory/layout.tsx 16 sites) + per-side CI variant extension (paddingLeft / paddingTop / etc.). ~422 sites. Continuation of value-aware gate from 7.7g-a-2.
   3. **Phase 7.7g-b reduced** (~3-4 days, scope reduced post-Phase-18) — Stat / Badge / Chart / Drawer primitives + worker URL centralization; Card primitive done by Phase 18; source-into-drawer reconsidered post-bracket-markers.
 - **Then:** Phase 7.7g-c (rgba/hex regression cleanup + CI gate), then Tier 2 (Phase A chapter restructure) → Tier 3 (Phase B + 12) → Tier 4 (charts + connection) → Tier 5 (editorial) → Tier 6 (mobile + a11y).
 - **Parallel research track:** Phase 30 research deliverables shipped; Phase 29 unblocked by Phase 12.10 follow-up.
@@ -28,9 +33,9 @@ These are not phases (no CC code work). They're operator-only actions that need 
 2. **Phase 12.9.1 production chip visual confirmation** — open kkme.eu Returns/S2/S4/S7/S9 cards; confirm chips render quantitative (`+45% / P50` etc.), not editorial (`STABLE` / `HIGH`). If old chips visible, Cloudflare Pages cache may be stuck.
 3. **Phase 12.9.3 default duration production confirmation** — open kkme.eu Returns card; confirm 2h is the on-load default (toggle still offers 4h).
 4. ~~**Methodology paper destination decision**~~ **[CLOSED 2026-05-06 by Phase 29]** — Standalone `/methodology` route shipped via Phase 29 commit `app/methodology/page.tsx`; renders `docs/methodology.md` via react-markdown + remark-gfm at build time; heading IDs auto-generated for anchor support; `/methodology#kkme-baltic-storage-index` deep-link confirmed working in dark + light mode.
-5. **Merged-branches cleanup on origin** — six branches from 2026-05-05 PRs likely still on origin (`phase-12-9-1-brand-discipline`, `phase-12-9-2-s8-timestamp`, `phase-12-9-3-default-duration-2h`, `phase-4g-intel-encoding`, `phase-12-10a-claude-md-discipline`, `phase-7-7g-a-1-token-audit`). One-click delete per branch on GitHub web UI; or `git push origin --delete <branch>` per branch.
+5. ~~**Merged-branches cleanup on origin**~~ **[DROPPED 2026-05-06 by workflow simplification]** — operator clarified merged branches don't need active cleanup; harmless clutter on origin, no quota or collision pressure. Phase 12.10c scope reduces accordingly.
 
-- **Roadmap last updated:** 2026-05-06 by Cowork (post-Phase-18-merge: Phase 18 → Shipped appendix [5 commits e160c77 / 36c8ac7 / db00eac / 473dcd2 / ac5b179, ~143 KB Latin bundle = -13% vs baseline, broadsheet masthead Vol I · No 128, IBM Plex Mono + Newsreader live, sharp 0px corners + per-card-type accents, Newsreader 200 hairline hero scale, footnote citation discipline real-anchors-only, bracket-notation SourceFooter, pull-quotes on §1/§4/§6, 18 visual-audit screenshots]; Phase 29 VPS Python deploy COMPLETE 2026-05-06 producing LT/2h=€284.4 LT/4h=€306.6 with daily cron 06:30 UTC; Currently-active In-flight clears to Tier 1 thread eligibility)
+- **Roadmap last updated:** 2026-05-06 by Cowork (post-Phase-7.7g-a-2-ship: 3 commits `76c4092` / `0e41c94` / `c0ee974` on `phase-7-7g-a-2-spacing-tokens`; 361 inline-px sites migrated to canonical 8-value `--space-*` scale via Python regex pass; `lint:no-raw-spacing` value-aware CI gate live; gates green tsc 0 / vitest 919 / lint 126 / build 7 routes; PR pending operator open. Phase 7.7g-a-3 added as continuation candidate. Phase 7.7g-c entry annotated re: gate-extension framing. Audit-v2 gap-analysis acknowledged but not folded into roadmap per operator instruction "no it's ok" — gaps captured in memory only.)
 
 ---
 
@@ -258,6 +263,35 @@ Defensive guards + CardBoundary upgrade. Ships preventive hardening (audit's tra
 
 ### Tier 1 — Foundation (~2-3 weeks)
 
+#### Phase 12.11 — P0 functional bug reconciliation [NEW 2026-05-06] (~1-2 days)
+**Why:** Audit-v2 P0 list (~7 items) was empirically validated 2026-05-06 via operator screenshot triangulation. Visible bugs include same-page contradictions (822 MW Flex Fleet vs 651 MW BESS installed), same-metric-different-precision (AFRR €8 / €7.96 / €13.5 across three locations), freshness-chip semantic drift ("TODAY" displayed next to "13h ago" timestamp), DISPATCH unit collision, COD alias straggler, CAPEX tornado consistency, LV/EE empty-cell honesty, intel feed staleness. Credibility-breaking — visitors see contradictions on a single viewport without leaving the screen. **Leapfrog ahead of mobile/charts polish (Phase 18.1/18.2)** because numbers must be trustworthy before visuals can carry them.
+
+**Scope (~1-2 days, single PR, three pause points):**
+
+Eight bug fixes, frontend-mostly with possible 1–2 metric-registry assertions. Engine math NOT changed — most bugs are display disambiguation + label discipline + freshness logic tuning. The engine already separates the conflicting metrics in `app/lib/fleet.ts` (822 = BESS+pumped vs 651 = BESS-only, KNOWN per code comment) and `app/lib/metricRegistry.ts`; the bugs are in display surfacing.
+
+Per-bug summary:
+1. Fleet 822 vs 651 — display label disambiguation (subscript or footnote), not engine fix
+2. AFRR precision — `SignalBar.tsx:52` `Math.round(afrr_up_avg)` → `.toFixed(2)` matching marquee
+3. Freshness "TODAY" chip — operator picks calendar-today-EET / rename-≤24h / drop entirely
+4. DISPATCH unit — header label needs unit + metric-name disambiguation
+5. COD alias — straggler grep + retire `'COD 2027'` references in non-test code
+6. CAPEX tornado consistency — verify bar labels match scenario absolute numbers
+7. LV/EE empty cells — operator-honest message replacing blank
+8. Intel feed staleness — verify >30d items filtered or visibly downgraded
+
+**Pause points:** Pause A (per-bug verification + operator decisions on #1/#3/#4/#6), Pause B (foundation gates + cross-card consistency check), Pause C (visual audit screenshots + commits).
+
+**Sequencing:** ships AFTER Phase 7.7g-a-2 merges (already done 2026-05-06). Leapfrogs Phase 18.1/18.2/12.12 in priority per operator confirmation 2026-05-06.
+
+**Estimate:** ~1-2 days CC. Frontend-mostly, no worker deploy expected (flag at Pause A if metric-registry assertion needs worker-side companion field).
+
+**Prompt:** `docs/phases/phase-12-11-prompt.md`.
+
+**Discipline rules engaged:** #1 audit-triage (every bug re-verified before scoping), #2 no-hardcoded-temporal-label (freshness boundary fix), #4 cross-card consistency (fleet + AFRR), #6 no-editorial-state-label (TODAY chip replacement must be quantitative).
+
+**Acceptance:** all 8 bugs either FIXED or DEFERRED-with-reason; no same-page contradictions remain in screenshot audit; cross-card consistency improved (handover lists residual metrics for Phase 12.12 #5 CI test).
+
 #### Phase 12.12 — Data integrity infrastructure [PARALLEL TO 7.7g]
 **Why:** Phase 12.10 fixes specific discrepancies. Phase 12.12 prevents the next class. The 41-day-stale Litgrid assertion shipped silently. The Saulėtas Pasaulis hallucinated entity passed every existing gate. Quarantine flags are decorative. Without infrastructure, audit findings recur.
 
@@ -317,10 +351,18 @@ Defensive guards + CardBoundary upgrade. Ships preventive hardening (audit's tra
 ##### Phase 7.7g-a-1 — Drop dead font triplet [SHIPPED 2026-05-05 PR #60 → commits `cc36e42` + `5b08c15`]
 6 next/font/google loaders (Cormorant, DM Mono, Unbounded, Fraunces, JetBrains Mono, Inter) → 3 (Cormorant, DM Mono, Unbounded). Dead `--type-*` ramp at globals.css:238-244 dropped (orphan-by-association); `app/lib/__tests__/typography.test.ts` deleted (Phase-8.2-era monument that pinned the dead system in place; 6/8 assertions broke on drop). 927 → 919 tests (pure subtraction). No visual change. Bytes-on-wire reduction every page load. Two in-session scope extensions, both operator-approved after triangulation. Process artifact: the `grep -v __tests__` filter in verify-before-act was the wrong default for declaration removal — tests pin systems; recurring-error memory updated.
 
-##### Phase 7.7g-a-2 — Spacing tokens + rollout (~1-2 days)
-Components currently use raw px inline (`padding: '8px'`, `margin: '4px'`) instead of CSS variables. Roll out 8-value spacing scale (4 / 8 / 16 / 24 / 32 / 48 / 64 / 96 px) via `--space-*` token additions; migrate component inline-px to tokens; CI grep gate forbids new raw px in component padding/margin.
+##### Phase 7.7g-a-2 — Spacing tokens + rollout [SHIPPED 2026-05-06 → 3 commits `76c4092` / `0e41c94` / `c0ee974` on `phase-7-7g-a-2-spacing-tokens`; PR pending operator open] (~1h actual vs estimate 1-2 days)
+Components used raw px inline (`padding: '8px'`, `margin: '4px'`) instead of CSS variables. Rolled out 8-value canonical scale (4 / 8 / 16 / 24 / 32 / 48 / 64 / 96 px) via `--space-2xs..3xl` token additions in `app/globals.css`; **361 inline-px sites migrated** across 56 files (288 quoted + 73 bare-number) via Python regex pass with property-name + value anchoring; `lint:no-raw-spacing` value-aware CI gate added (forbids new raw px in component padding/margin/gap with the 8-value scale as allowlist). Final gates: tsc 0 / vitest 919 / lint 126 / lint:no-raw-spacing exit 0 / lint:no-editorial-chips exit 0 / build 7 routes — baseline-exact. Migration scriptability paid off (zero existing-token-consumer blast radius — original concern empirically moot).
 
-##### ~~Phase 7.7g-a-3 — Accent color consolidation~~ [SUPERSEDED 2026-05-06 by Phase 18]
+##### Phase 7.7g-a-3 — Spacing residuals + per-side CI extension (~1-2 days, NEW 2026-05-06 post-7.7g-a-2-ship)
+Continuation of 7.7g-a-2's mechanical migration. Three buckets the value-aware gate doesn't yet catch:
+1. **Off-scale residuals** — sites using non-canonical px values (e.g., `padding: '6px'`, `margin: '12px'`) that don't map to the 8-value scale. Either snap to nearest scale value or add a justified design-rationalization exception with comment.
+2. **Shorthand-expansion residuals** — `padding: '4px 8px'` / `margin: '8px 16px'` style sites where the value-aware regex was conservative; expand and migrate to `--space-*` per side.
+3. **Missed top-level pages** — 16 raw-px sites in `intel/regulatory/layout.tsx` not in 7.7g-a-2's component sweep.
+4. **Per-side CI extension** — extend `lint:no-raw-spacing` regex to cover `paddingLeft` / `paddingTop` / `marginInline` / etc. (currently only enforces shorthand `padding` / `margin` / `gap`).
+Estimate: ~1-2 days CC, similar Python-regex pattern as 7.7g-a-2 but with per-side enumeration. ~422 sites total in scope per CC's Session 43 handover.
+
+##### ~~Phase 7.7g-a-3 (original — accent color consolidation)~~ [SUPERSEDED 2026-05-06 by Phase 18]
 ~~5 accents (purple / green / teal / rose / amber) + ~15 rgba variants → 3 semantic (`--positive` / `--warning` / `--negative`) + 1 brand `--accent`.~~
 
 **Replaced by Phase 18's Baltic-grounded palette consolidation:** mint → Baltic deep teal `#1a3833` (`--positive`); drop coral; keep Baltic amber `#d4a574` (`--warning`); add brick `#a8324a` (`--negative`, sparingly for live/critical only). The Phase-18 palette is more opinionated than the original 7.7g-a-3 plan — explicitly Baltic-regional, not generic-semantic. CI grep gate from this phase deferred to Phase 7.7g-c.
@@ -365,11 +407,11 @@ Editorial polish group (lands at Pause C):
 6. **Worker URL centralization** — single `app/lib/worker-url.ts`; migrate 16 sites.
 7. **Source attribution moves to Drawer** [operator surfaced 2026-05-05 — *"no need to show the source"*]. Card face renders only the data + freshness chip. Source URL, source name, methodology citation collapse into the `Drawer` primitive ("Reading this card" expandable). Card-face metadata reduced to: hero number, derived chip, micro-chart, freshness tick.
 
-##### Phase 7.7g-c — Regression cleanup + CI gate (~2-3 days)
+##### Phase 7.7g-c — Regression cleanup + CI gate (~2-3 days, scope reduced 2026-05-06)
 7. **rgba/hex regression cleanup** — fix 213 rgba violations + 11 hex colors.
-8. **Add CI grep gate** — pre-commit hook or `npm run lint:tokens` fails on new rgba/hex/hardcoded URL.
+8. **CI grep gate consolidation** — `lint:no-raw-spacing` already shipped in Phase 7.7g-a-2 (value-aware, shorthand only); `lint:no-editorial-chips` already in place from Phase 12.9.1. This phase folds those existing gates into a single `npm run lint:tokens` umbrella + adds rgba/hex/hardcoded-URL detection. Per-side spacing variant detection lives in Phase 7.7g-a-3 (continuation).
 
-**Acceptance:** every page element expressible as one of the 5 primitives; CI fails on new rgba/hex/hardcoded URL.
+**Acceptance:** every page element expressible as one of the 5 primitives; CI fails on new rgba/hex/hardcoded URL; all spacing/chips/color gates run from one umbrella.
 
 ---
 
@@ -609,7 +651,7 @@ Editorial polish group (lands at Pause C):
 | Tier | Phases | Days |
 |---|---|---|
 | 0 — Bug fixes + data integrity | 12.8 [SHIPPED] · 12.8.0 [SHIPPED] · 12.10.0 [SHIPPED] · 12.10 [SHIPPED] · 12.8.1 [SHIPPED] · 12.9 [SHIPPED] · 12.9.1 [SHIPPED] · 12.9.2 [SHIPPED] · 12.9.3 [SHIPPED] · 4G [SHIPPED] · 12.10a [SHIPPED] | **TIER CLOSED 2026-05-05** |
-| 1 — Foundation | 12.12 (16 sub-items + #17 daily_intel.py mirror) · 7.7g-a-1 [SHIPPED] · 7.7g-a-2 · ~~7.7g-a-3~~ ~~7.7g-a-4~~ · **18** [SHIPPED] · 7.7g-b reduced · 7.7g-c · **12.10b** [SHIPPED] | ~12-15 days |
+| 1 — Foundation | 12.12 (16 sub-items + #17 daily_intel.py mirror) · 7.7g-a-1 [SHIPPED] · 7.7g-a-2 [IN FLIGHT] · ~~7.7g-a-3~~ ~~7.7g-a-4~~ · **18** [SHIPPED] · **18.1** (mobile foundation, ~2-3h) · **18.2** (chart editorial polish, ~2-3h) · **12.10c** (operator-action verification, ~1h Cowork) · 7.7g-b reduced · 7.7g-c · **12.10b** [SHIPPED] | ~12-15 days |
 | 2 — Chapter restructure | A | ~5 days |
 | 3 — Two moments of presence | B · 12 | ~10 days |
 | 4 — Connection + content | 7.7f · 12.13 · D · 11 · C | ~12-14 days |
@@ -675,6 +717,7 @@ This document is the planning layer; `docs/handover.md` is the canonical state-o
 - **Phase 7.7g-a-1** — Drop dead font triplet [SHIPPED 2026-05-05 PR #60 → commits `cc36e42` + `5b08c15`] — 927 → 919 tests (pure subtraction); 6 next/font fonts → 3 in `app/layout.tsx`; dead `--type-*` ramp + dead Phase-8.2-era `typography.test.ts` removed (both orphan-by-association). Two in-session scope extensions operator-approved after triangulation. **First Tier 1 sub-phase shipped.** Process artifact: recurring-error memory updated re: `grep -v __tests__` is wrong default for declaration removal.
 - **Phase 12.10 follow-up** — Gap #5 reconciliation + EE A68/fleet boundary policy [SHIPPED 2026-05-05 PR #61 → commits `2fa2e72` + `191c548` + `4535fc9`] — 919 tests (no new). Methodology paper updated with two paragraphs documenting (1) Gap #5 reframing per CC primary-source verification of Clean Horizon's "Baltic S1 2025 Price Forecasts" Jun 2025 (€340/MW/h was Apr–mid-Jun 2025 launch-window aggregate-Baltic; not present-day comparable to KKME's post-integration €14/MW/h LT) and (2) EE A68/fleet boundary policy (strict-commissioned chosen, path (a); Hertz 2 stays `under_construction`). Worker `/s2.macro_context.afrr_methodology_note` field added (626 chars) so S2 card methodology drawer surfaces the disclosure to live readers without depending on `/methodology` route decision. Worker version `ea88ccc9-0b45-46e6-87cc-b0afbac7407d`. **Closes Phase 30's P1 critical Gap #5 finding; unblocks Phase 29.** Mid-session cross-actor race (operator's parallel Cowork roadmap commit `face05f` arrived during CC's deploy/commit flow) recovered cleanly via branch-ref-forward + main-reset + edit-replay; discipline lesson saved to memory.
 - **Phase 29** — KKME Baltic Storage Index [SHIPPED 2026-05-06 PR #62 → commit `69d482c`] — 919 tests; first public-facing Tier 1 product surface. Worker `GET /index/baltic` + `POST /index/update` (UPDATE_SECRET-gated), `/methodology` standalone route via react-markdown + remark-gfm, `BalticStorageIndexCard` rendered in Chapter 4 (`#revenue`), VPS Python aggregate script + PostgreSQL append-only history table. **Coverage scope: option ε at Pause A** — LT/{2h,4h} canonical (LT/2h=€284.4, LT/4h=€306.6 for Apr 2026 in production deploy); LV, EE, and 1h slots ship `coverage_status` strings (`pending_phase_29_1` and `pending_engine_1h_physics` respectively) per discipline rule #1 + #6 transparency framing. **Methodology paper +1 new "KKME Baltic Storage Index" section** documenting calculation (engine `/revenue.backtest` reshape × 30 / 50 MW), launch coverage profile, comparability framing vs Clean Horizon, annualization, source-of-truth + cadence. **Phase 30 destination decision resolved by this commit** (was Operator-action-item #4 — closed). Worker version `3c77897f-62ec-4dff-90c7-4aa94f052f47`. **VPS Python deploy COMPLETE 2026-05-06**: scripts/vps/baltic_storage_index.py + sql/002 migration deployed; daily cron 30 6 * * * active; first live `[DB] inserted 9 rows` + `[WORKER] POST {'ok': True}` confirmed. Mid-session git-state recovery noted (operator's parallel Cowork commit `22f6f27` arrived; recovered cleanly via ref-move). Phase 29.1 spun out as dedicated follow-on for per-country DA capture extension + 5-product cap-reservation extraction (~3-4h) to close LV/EE.
+- **Phase 7.7g-a-2** — Spacing tokens + rollout [SHIPPED 2026-05-06 PR #64 → merge commit `5fd2ca4`; 3 commits `76c4092` (tokens) + `0e41c94` (361-site migration) + `c0ee974` (CI + handover) on `phase-7-7g-a-2-spacing-tokens`] — 919 tests (no new); canonical 8-value `--space-2xs..3xl` scale (4/8/16/24/32/48/64/96 px) added to `app/globals.css`; **361 inline-px sites migrated** across 56 files (288 quoted `padding: '8px'` style + 73 bare-number `padding: 8` style) via Python regex pass with property-name + value anchoring; `lint:no-raw-spacing` value-aware CI gate added (shorthand `padding` / `margin` / `gap`; per-side variants deferred to Phase 7.7g-a-3). Final gates tsc 0 / vitest 919 / lint 126 / lint:no-raw-spacing exit 0 / lint:no-editorial-chips exit 0 / build 7 routes — baseline-exact. Visual diff: zero shift expected (1:1 value-preserving migration). Estimate: ~1h actual vs prompt's 1-2 days — migration scriptability paid off; original blast-radius concern empirically moot (zero existing-token consumers). Three residual buckets (off-scale + shorthand expansion + 16 missed top-level pages in intel/regulatory/layout.tsx + per-side CI extension) split out as Phase 7.7g-a-3.
 - **Phase 18** — Baltic editorial visual identity ship [SHIPPED 2026-05-06 PR #63 → commits `e160c77` / `36c8ac7` / `db00eac` / `473dcd2` / `ac5b179`] — 919 tests (1 pinned-token updated for editorial-serif lock); ~143 KB Latin-only bundle (-13% vs baseline). **Operator-surfaced 2026-05-06 in response to "looks AI-built, needs to read as human-designed."** Foundation: typography swap DM Mono → IBM Plex Mono [400, 500] + Cormorant → Newsreader [200, 400, 400-italic] via @fontsource imports (literal family names so SVG attrs + chart.js Canvas 2D resolve correctly); 33 hardcoded font-family sites migrated (9 Cormorant Garamond / 1 Cormorant / 10 Unbounded / 13 DM Mono); `--accent-rose` dark retuned to `#a8324a` brick (matches light); `--positive` / `--negative` aliases added mapping to existing `--success` / `--danger` (back-compat); sharp 0px corners across `.card` / `.card-tier1-feature` / `.card-tier3` + 8 inline card-shaped sites; per-card-type accent classes `.card--revenue` (deep teal) / `.card--balancing` (amber) / `.card--neutral` / `.card--live` (brick) wired to 11 wrappers; site-wide dotted pixel-grid via `--pixel-grid-dot` token + radial-gradient body::before; broadsheet masthead `<header>` with KKME wordmark + italic Newsreader tagline + mono `Vol I · No 128 · 06 MAY 2026` issue stamp + 0.5px Baltic-amber rule + bracket source-row + 24-tick architectural marquee row. Editorial polish: Newsreader 200 hairline hero scale on S1 / S2 / RevenueCard / BalticStorageIndexCard + MetricTile primitive (clamp 40-64px tier3, 56-88px tier1); footnote citation discipline real-anchors-only per operator's no-fabricated-§ rule (no methodology.md additions needed; every cited topic has real anchor); per-section pull-quotes on §1 / §4 / §6 (Baltic flexibility / Reference-asset economics / Pipeline movements); SourceFooter primitive refactored to bracket-notation `[src] / [as-of] / [class]` flowing to ~21 consumers without call-site changes. 18 visual-audit screenshots in `docs/visual-audit/phase-18/full/`. §4d hero-glued dropped (empirically false; 3-col grid had clean separation). §6e nice-to-haves (S·II archival stamp, ornament dingbats, brick live-dot) deferred as foundation already pushed identity hard. Supersedes Phase 7.7g-a-3 (accent consolidation) + Phase 7.7g-a-4 (Cormorant migration); reduces Phase 7.7g-b scope (Card primitive done; Stat / Badge / Chart / Drawer + worker URL centralization remain).
 
 (more populated as phases close)
