@@ -21,6 +21,7 @@ const ResidualLoadCard = dynamic(() => import('@/app/components/ResidualLoadCard
 const PeakForecastCard = dynamic(() => import('@/app/components/PeakForecastCard').then(m => m.PeakForecastCard));
 const SpreadCaptureCard = dynamic(() => import('@/app/components/SpreadCaptureCard').then(m => m.SpreadCaptureCard));
 const RevenueCard = dynamic(() => import('@/app/components/RevenueCard').then(m => m.RevenueCard));
+const BalticStorageIndexCard = dynamic(() => import('@/app/components/BalticStorageIndexCard').then(m => m.BalticStorageIndexCard));
 const TradingEngineCard = dynamic(() => import('@/app/components/TradingEngineCard').then(m => m.TradingEngineCard));
 const IntelFeed = dynamic(() => import('@/app/components/IntelFeed').then(m => m.IntelFeed));
 import { RegulatoryPreview } from '@/app/components/regulatory/RegulatoryPreview';
@@ -123,6 +124,11 @@ export default function Home() {
               <ErrorBoundary>
                 <RevenueCard />
               </ErrorBoundary>
+            </div>
+            <div className="card card-tier1" style={{ marginTop: '32px' }}>
+              <CardBoundary signal="baltic-storage-index">
+                <BalticStorageIndexCard />
+              </CardBoundary>
             </div>
             <div className="inline-cta">
               <a href="#conversation">Looking at Baltic storage? Start the conversation ↗</a>

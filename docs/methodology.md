@@ -12,7 +12,7 @@ This is a living document. Methodology changes are date-stamped at the bottom; c
 
 **Geographic.** Lithuania (deep), Latvia + Estonia (extending). Baltic-region focus by design. Pan-European comparison is out of scope; readers needing 15+ country coverage should consult Clean Horizon's Storage Index via Nord Pool.
 
-**Time horizon.** Live (sub-daily polling — 4-hour cron for all signals; hourly for time-sensitive endpoints) plus monthly aggregate (the [KKME Baltic Storage Index](https://kkme.eu/index), monthly cadence, planned).
+**Time horizon.** Live (sub-daily polling — 4-hour cron for all signals; hourly for time-sensitive endpoints) plus monthly aggregate (the [KKME Baltic Storage Index](https://kkme.eu/methodology#kkme-baltic-storage-index), monthly cadence, shipped 2026-05-06 in Phase 29).
 
 **Asset assumed.** Generic 50 MW BESS reference asset with configurable duration (1h / 2h / 4h) and CAPEX (low / mid / high). All published numbers normalize to per-MW basis where applicable so the asset size is replaceable.
 
@@ -268,6 +268,61 @@ Live `/revenue` endpoint computes both:
 
 `live_rate` shows what current-period prices imply for annual revenue; `base_year` shows what observed historical data anchors actually were.
 
+## KKME Baltic Storage Index
+
+The KKME Baltic Storage Index is a monthly per-country per-duration revenue benchmark for Baltic battery storage assets, computed from KKME's engine output and published as a public artifact at [kkme.eu](https://kkme.eu/#revenue). It is the public manifestation of KKME's positioning as an independent Baltic flexibility intelligence platform with its own methodology — comparable in framing to [Clean Horizon's Storage Index](https://www.cleanhorizon.com/battery-index/) but methodologically separate (primary-source ingestion vs COSMOS simulation; Baltic-deep vs pan-European).
+
+### Calculation
+
+For the canonical LT cells, the monthly index value is computed by reshaping the engine's `/revenue.backtest` output:
+
+```
+index_eur_mw_month(LT, dur) = total_daily_eur(LT, dur, month) × 30 / 50_MW_reference
+```
+
+Where `total_daily_eur` is the engine's per-day total revenue for the 50 MW reference asset (sum of `trading_daily` + `balancing_daily` from `/revenue.backtest` per `workers/fetch-s1.js` `computeRevenueV7`), and the 30-day month basis matches Clean Horizon's published convention.
+
+The components folded into `total_daily` are:
+
+- **Capacity-reservation revenue** (FCR + aFRR-up + aFRR-down + mFRR-up + mFRR-down per the per-product allocation shares in §"Per-product allocation"), priced from BTD `price_procured_reserves` for the index period.
+- **Activation-energy revenue** (aFRR + mFRR called energy at scenario-keyed activation rates), priced from BTD `balancing_energy_prices`.
+- **Day-ahead arbitrage revenue** (capture × DA throughput × RTE × realisation × duration discount × spread multiplier per §"Day-ahead arbitrage revenue"), priced from ENTSO-E A44 LT day-ahead via `s1_capture`.
+
+All scenario constants (availability, realisation, RTM fee, BRP fee) match the engine's base-scenario configuration in `REVENUE_SCENARIOS`. The index is therefore directly anchored to the same numerical model surfaced on the Returns card; readers can reconcile end-to-end.
+
+### Coverage scope (Phase 29 launch)
+
+Phase 29 launches with the following coverage profile:
+
+| Country | 1h | 2h | 4h |
+|---|---|---|---|
+| LT | `pending_engine_1h_physics` | **complete** | **complete** |
+| LV | `pending_engine_1h_physics` | `pending_phase_29_1` | `pending_phase_29_1` |
+| EE | `pending_engine_1h_physics` | `pending_phase_29_1` | `pending_phase_29_1` |
+
+Two coverage gaps are disclosed transparently in the live JSON payload (`/index/baltic.coverage`) and in the card-face null cells:
+
+- **`pending_engine_1h_physics`** — KKME engine v7.3 models 2h and 4h SOC physics only (`REVENUE_SCENARIOS` covers 2h and 4h; per-duration MWh anchors only at those two durations; SOH curves rate-tagged at observed cycling rates that assume 2h+ SOC depth). 1h cells return null until a dedicated engine extension lands. Most contracted Baltic BESS today is 2h, with 4h as the frontier-market default; the 1h gap is not load-bearing for the current investor audience.
+- **`pending_phase_29_1`** — LV and EE per-country values require (a) extension of `fetchEnergyCharts` from `bzn=LT` hardcode to multi-BZN day-ahead price coverage, and (b) extension of `computeS2Activation` to extract the full 5-product capacity-reservation set per country from BTD `price_procured_reserves`. Estimated ~3-4h scope for the dedicated Phase 29.1 follow-on.
+
+Per discipline rule #6 (no-editorial-state-label) and rule #1 (audit-triage), KKME publishes the gap rather than synthesizing a number to fill it. Coverage_status tokens are stable contract strings; consumers should branch on them rather than parsing the human notes.
+
+### Comparability vs Clean Horizon Storage Index
+
+Clean Horizon publishes its Storage Index per market (15+ European countries) on a monthly cadence via Nord Pool subscription. KKME's index ships free + public for the Baltic region only and is computationally separate (KKME runs primary-source ingestion + a transparent monthly aggregation; Clean Horizon runs COSMOS simulation against COSMOS-internal market state). KKME's published values for LT in Phase 29 launch are therefore directly comparable in framing to Clean Horizon's Baltic-region figures — same metric (per-country per-duration €/MW/month), same Baltic geography, same monthly cadence — but not identical in value, because the underlying computation differs (see [`docs/research/clean-horizon-methodology-vs-kkme-v7.3.md`](https://github.com/kastiskemezys-tech/kkme-website/blob/main/docs/research/clean-horizon-methodology-vs-kkme-v7.3.md) for the per-dimension comparison; the same Gap #5 reframing in the "Capacity reservation revenue" section above applies — windowing and aggregation choices materially shift published numbers).
+
+Where KKME's value materially diverges from a Clean Horizon publication for the same period, the methodology framing in this document plus the wrongs log are the operator-facing reconciliation surface. KKME does not display Clean Horizon's published numbers (paywall + IP).
+
+### Annualization
+
+Following Clean Horizon's published convention, monthly values are reported in €/MW/month — this month's rate, presented with the implicit framing that "if this month's market conditions repeated for 12 months, the annual rate is value × 12." The persisted value is €/MW/month; the × 12 framing is presentation only, not a forecast claim.
+
+### Source-of-truth + cadence
+
+The `kkme_baltic_storage_index` PostgreSQL table on KKME's VPS (Hetzner 89.167.124.42) is the historical source-of-truth. It is populated daily by [`scripts/vps/baltic_storage_index.py`](https://github.com/kastiskemezys-tech/kkme-website/blob/main/scripts/vps/baltic_storage_index.py) via cron: the script fetches the worker's `/revenue?dur=2h` + `/revenue?dur=4h`, reshapes the `backtest` per-month total into €/MW/month, and persists per-country per-duration rows (with `value_eur_mw_month` NULL for `pending` slots so the audit trail captures the gap). The same payload is POSTed to the worker `POST /index/update` (UPDATE_SECRET-gated), where the latest snapshot is served via `GET /index/baltic` and a rolling 12-month history is kept in `baltic_storage_index_history` KV.
+
+Historical values are immutable post-month-close; current-month-to-date values update daily as the engine's backtest accumulates. The schema is append-only — every daily push inserts new rows, so the full computation history is preserved for audit.
+
 ## Comparison to Clean Horizon Storage Index
 
 [Clean Horizon Storage Index](https://www.cleanhorizon.com/battery-index/) is the institutional benchmark for European BESS revenue, delivered via Nord Pool subscription. KKME's revenue calculation is methodologically comparable to Clean Horizon's COSMOS simulation tool on the dimensions both products expose publicly. Detailed dimension-by-dimension comparison: [`docs/research/clean-horizon-methodology-vs-kkme-v7.3.md`](https://github.com/kastiskemezys-tech/kkme-website/blob/main/docs/research/clean-horizon-methodology-vs-kkme-v7.3.md).
@@ -282,11 +337,11 @@ Summary verdict per dimension:
 | Activation rate modeling | Explicit per-product per scenario | Implicit in optimization | Comparable, different framings |
 | Cannibalization | Scenario-keyed compression multipliers | Installed-capacity-keyed (Jan 2026 update) | KKME less precise |
 | Multi-market simultaneous bidding | Fixed shares + energy stacking | Cascade via optimization | KKME behind on 4h+ assets |
-| Annualization | 20-year cashflow + monthly aggregate (Phase 29 planned) | Monthly aggregate annualized | Different framings, both valid |
+| Annualization | 20-year cashflow + monthly aggregate (KKME Baltic Storage Index, shipped Phase 29 / 2026-05-06) | Monthly aggregate annualized | Different framings, both valid |
 | RTE / degradation | Three throughput-aware SOH curves; year-indexed RTE | Cycle-limit assumption | KKME more sophisticated |
 | CAPEX / financing | Explicit (debt, tax, depreciation, IRR, DSCR) | Not in scope (gross revenue only) | KKME ahead — different products |
 | Geographic coverage | Lithuania (deep), Latvia + Estonia (extending) | 15+ European countries | Different positioning |
-| Cadence | Live (4-hour cron + hourly time-sensitive) + monthly (Phase 29 planned) | Monthly + daily granularity | KKME ahead on cadence |
+| Cadence | Live (4-hour cron + hourly time-sensitive) + monthly (KKME Baltic Storage Index, Phase 29) | Monthly + daily granularity | KKME ahead on cadence |
 | Distribution | Free + public, single-page | Paid via Nord Pool subscription | Different positioning |
 
 ## What's intentionally different
@@ -332,6 +387,10 @@ Calibration is reviewed quarterly; next review: **2026-Q3** (post-Litgrid 6-mont
 ## Updates + corrections
 
 Methodology updates published as date-stamped entries below. Corrections to past methodology issued via [the wrongs log](https://github.com/kastiskemezys-tech/kkme-website/blob/main/docs/wrongs.md).
+
+### 2026-05-06 — Phase 29: KKME Baltic Storage Index ships
+
+First public-facing numerical comparison surface from Tier 1. New "KKME Baltic Storage Index" section above documents the calculation (engine `/revenue.backtest` reshape × 30 / 50 MW reference), the launch coverage profile (LT/{2h,4h} canonical; LV, EE, 1h slots `coverage_pending` with stable contract strings), the comparability framing vs Clean Horizon, the annualization convention, and the source-of-truth / cadence. This phase also bundles the public `/methodology` route that renders this document — so the calibration footnote on the index card lands here, completing the Phase 30 "destination decision" thread (the route is standalone, not an inline drawer; chosen at Pause A per the Phase 30 recommendation). Phase 29.1 (per-country DA capture extension + 5-product capacity-reservation extraction) is the dedicated ~3-4h follow-on that closes the LV/EE gaps; the 1h gap is a separate engine extension scoped on demand.
 
 ### 2026-05-06 — Phase 12.10 follow-up: Gap #5 reconciliation + EE A68/fleet boundary policy
 
