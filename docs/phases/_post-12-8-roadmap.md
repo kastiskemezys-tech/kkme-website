@@ -9,12 +9,13 @@
 
 ## Currently active
 
-- **In flight:** Phase 12.10b — Post-follow-up housekeeping pass (Cowork, ~30 min). Bundles documentation/memory hygiene + Notion Tasks DB sync.
+- **In flight:** Phase 29 — KKME Baltic Storage Index (CC at Pause B, awaiting `proceed` for §9 worker deploy + §11 commits + PR. Approved 2026-05-06.).
+- **Immediately after Phase 29 merges:** **Phase 18 — Baltic editorial visual identity ship** (CC, ~8-12h, single PR, three pause points). Operator-surfaced 2026-05-06 in response to "looks AI-built, needs to read as human-designed." Replaces Phase 7.7g-a-3 (accent) + Phase 7.7g-a-4 (Cormorant migration) + parts of Phase 7.7g-b (Card primitive). Prompt at `docs/phases/phase-18-prompt.md`.
 - **Then Tier 1 continues — operator-pick across three eligible threads:**
   1. **Phase 7.7g-a-2** (~1-2 days) — spacing tokens + rollout; continues the typography/foundation thread Phase 7.7g-a-1 opened.
   2. **Phase 12.12 #1+#2** (~2-3 days) — schema validation + freshness gates; opens the parallel data-integrity thread.
-  3. **Phase 29** (~4-6h) — KKME Baltic Storage Index; **now genuinely unblocked** by Phase 12.10 follow-up resolving Gap #5 as methodology disclosure (no engine bug).
-- **Then:** remaining Phase 7.7g-a sub-phases (a-3 accent consolidation, a-4 Cormorant migration), then Phase 7.7g-b (5 primitives + card migration), then Phase 7.7g-c (rgba/hex regression cleanup + CI gate), then Tier 2 (Phase A chapter restructure) → Tier 3 (Phase B + 12) → Tier 4 (charts + connection) → Tier 5 (editorial) → Tier 6 (mobile + a11y).
+  3. **Phase 7.7g-b reduced** (~3-4 days, scope reduced post-Phase-18) — Stat / Badge / Chart / Drawer primitives + worker URL centralization; Card primitive done by Phase 18; source-into-drawer reconsidered post-bracket-markers.
+- **Then:** Phase 7.7g-c (rgba/hex regression cleanup + CI gate), then Tier 2 (Phase A chapter restructure) → Tier 3 (Phase B + 12) → Tier 4 (charts + connection) → Tier 5 (editorial) → Tier 6 (mobile + a11y).
 - **Parallel research track:** Phase 30 research deliverables shipped; Phase 29 unblocked by Phase 12.10 follow-up.
 - **Phase 12.10 follow-up shipped 2026-05-05** [PR #61 → commits `2fa2e72` + `191c548` + `4535fc9`; worker `ea88ccc9-0b45-46e6-87cc-b0afbac7407d`]. Resolution: Gap #5 reframed as methodology disclosure (CC primary-source verification of Clean Horizon's "Baltic S1 2025 Price Forecasts" Jun 2025 confirmed €340 was Apr–mid-Jun 2025 launch-window aggregate-Baltic; KKME's €14/MW/h LT post-integration is internally consistent with Clean Horizon's own Oct 2025 Storage Index showing ~5× compression even pre-sync). EE A68/fleet boundary set to **strict-commissioned (path a)** — current state already aligned, codified in methodology paper. Phase 12.12 #15 closed by this commit (no further action needed).
 
@@ -27,10 +28,10 @@ These are not phases (no CC code work). They're operator-only actions that need 
    - After next operator `POST /da_tomorrow/update` push: `curl -s https://kkme-fetch-s1.kastis-kemezys.workers.dev/health | jq '.signals."da_tomorrow:lastgood"'` — confirm transitions `missing` → `present`. If still missing, file Phase 12.9.4 follow-up.
 2. **Phase 12.9.1 production chip visual confirmation** — open kkme.eu Returns/S2/S4/S7/S9 cards; confirm chips render quantitative (`+45% / P50` etc.), not editorial (`STABLE` / `HIGH`). If old chips visible, Cloudflare Pages cache may be stuck.
 3. **Phase 12.9.3 default duration production confirmation** — open kkme.eu Returns card; confirm 2h is the on-load default (toggle still offers 4h).
-4. **Methodology paper destination decision** — `/methodology` route (Phase 30 recommended) vs Phase A inline drawer. `docs/methodology.md` is render-ready either way; deciding unblocks Phase A architecture decisions.
+4. ~~**Methodology paper destination decision**~~ **[CLOSED 2026-05-06 by Phase 29]** — Standalone `/methodology` route shipped via Phase 29 commit `app/methodology/page.tsx`; renders `docs/methodology.md` via react-markdown + remark-gfm at build time; heading IDs auto-generated for anchor support; `/methodology#kkme-baltic-storage-index` deep-link confirmed working in dark + light mode.
 5. **Merged-branches cleanup on origin** — six branches from 2026-05-05 PRs likely still on origin (`phase-12-9-1-brand-discipline`, `phase-12-9-2-s8-timestamp`, `phase-12-9-3-default-duration-2h`, `phase-4g-intel-encoding`, `phase-12-10a-claude-md-discipline`, `phase-7-7g-a-1-token-audit`). One-click delete per branch on GitHub web UI; or `git push origin --delete <branch>` per branch.
 
-- **Roadmap last updated:** 2026-05-05 by Cowork (added: Phase 12.10b post-follow-up housekeeping bundle, Operator-action-items tracking surface, Phase 12.12 #17 VPS daily_intel.py mirror; Phase 12.13 #6 sequencing note clarifying dependency on Phase 7.7g-b `<Chart>` primitive)
+- **Roadmap last updated:** 2026-05-06 by Cowork (Phase 29 in-flight at Pause B → noted approved-to-deploy; Phase 18 added as immediately-after-Phase-29-merge in-flight target with prompt link; Phase 7.7g-b scope marked reduced post-Phase-18; methodology destination operator-action-item closed by Phase 29; Phase 7.7g-a-3 and 7.7g-a-4 marked SUPERSEDED by Phase 18 in their entries below)
 
 ---
 
@@ -320,11 +321,40 @@ Defensive guards + CardBoundary upgrade. Ships preventive hardening (audit's tra
 ##### Phase 7.7g-a-2 — Spacing tokens + rollout (~1-2 days)
 Components currently use raw px inline (`padding: '8px'`, `margin: '4px'`) instead of CSS variables. Roll out 8-value spacing scale (4 / 8 / 16 / 24 / 32 / 48 / 64 / 96 px) via `--space-*` token additions; migrate component inline-px to tokens; CI grep gate forbids new raw px in component padding/margin.
 
-##### Phase 7.7g-a-3 — Accent color consolidation (~1-2 days)
-5 accents (purple / green / teal / rose / amber) + ~15 rgba variants → 3 semantic (`--positive` / `--warning` / `--negative`) + 1 brand `--accent`. Map current usages, migrate component references, drop dead variants. CI grep gate forbids new accent declarations outside the 4-token canonical set.
+##### ~~Phase 7.7g-a-3 — Accent color consolidation~~ [SUPERSEDED 2026-05-06 by Phase 18]
+~~5 accents (purple / green / teal / rose / amber) + ~15 rgba variants → 3 semantic (`--positive` / `--warning` / `--negative`) + 1 brand `--accent`.~~
 
-##### Phase 7.7g-a-4 — Cormorant migration + size system reduction (~1 day)
-**Operator decision recorded 2026-05-05: drop Cormorant entirely.** 39 `tier3-interp` usages migrate to `var(--font-body)` (resolves to system-ui sans-serif fallback after Inter is dropped per 7.7g-a-1; alternative target is DM Mono — CC verifies what's loaded in `app/layout.tsx` and picks). Drop `--font-serif` token + Cormorant next/font loader. Reduce font-size scale 6 → 5 (drop or repurpose `--font-2xl`).
+**Replaced by Phase 18's Baltic-grounded palette consolidation:** mint → Baltic deep teal `#1a3833` (`--positive`); drop coral; keep Baltic amber `#d4a574` (`--warning`); add brick `#a8324a` (`--negative`, sparingly for live/critical only). The Phase-18 palette is more opinionated than the original 7.7g-a-3 plan — explicitly Baltic-regional, not generic-semantic. CI grep gate from this phase deferred to Phase 7.7g-c.
+
+##### ~~Phase 7.7g-a-4 — Cormorant migration + size system reduction~~ [SUPERSEDED 2026-05-06 by Phase 18]
+~~Operator decision recorded 2026-05-05: drop Cormorant entirely. 39 `tier3-interp` usages migrate to `var(--font-body)`.~~
+
+**Replaced by Phase 18's typography swap:** DM Mono → IBM Plex Mono (workhorse, distinctive); Cormorant → Newsreader (editorial-publishing-grade serif). The Phase-18 swap is more positive than the original 7.7g-a-4 plan — Cormorant is replaced with a stronger editorial serif rather than dropped to system fallback. Both via `next/font/google`; token redirects in `app/globals.css`. Font-size scale reduction (6 → 5 sizes) deferred to Phase 7.7g-a-2 since spacing rollout is the natural place to audit the type ramp.
+
+##### Phase 18 — Baltic editorial visual identity ship [NEW 2026-05-06] (~8-12h)
+**Why:** Operator-surfaced 2026-05-06 in response to "looks AI-built, needs to read as human-designed." The cumulative effect of small AI-tells across the site (DM Mono workhorse, soft-rounded card corners, mint sentiment palette, symmetric layouts, no editorial scale contrast, no footnote discipline) reads as vibecoded. This phase ships the Baltic editorial direction researched against current best-in-class web design (Mercury, Bryter, Stripe Press, Pentagram editorial work, Order, Build in Amsterdam).
+
+**Scope (~8-12h, single PR, three pause points):**
+
+Foundation group (lands at Pause B):
+1. Typography swap — DM Mono → IBM Plex Mono; Cormorant → Newsreader (both via next/font; token redirects)
+2. Sentiment palette consolidation — Baltic-grounded (deep teal / amber / brick) replacing mint/coral
+3. Card primitive redesign — sharp 0px corners + per-card-type top accent rule (3px border-top per card class)
+4. Masthead row — broadsheet feel: pixel-KKME wordmark + italic Newsreader tagline + mono `Vol I · No NN · DD MMM YYYY` issue stamp + Baltic-amber rule below
+5. Background polish — site-wide pixel-grid; HeroBalticMap card-glued-on-map fix (full-bleed map + cards layered with proper backdrop); marquee architectural ticks
+
+Editorial polish group (lands at Pause C):
+6. Hero number editorial scale — RevenueCard / S1 / S2 / S4 / BalticStorageIndex hero stats get serif Newsreader at 88-96px hairline + italic supporting line
+7. Footnote citation discipline — every claim with a source gets superscript anchor tied to footnote at card bottom
+8. Bracket-notation source markers — `[src]`, `[as-of]`, `[t-2h]` format replacing prose source footers
+
+**Pause points:** Pause A (discovery + per-card-accent map + masthead text + footnote/pull-quote text approval), Pause B (foundation gates + screenshot diff), Pause C (pre-commit full-page screenshots + bundle size delta).
+
+**Estimate:** ~8-12h CC. Frontend-only, no worker deploy.
+**Sequencing:** ships AFTER Phase 29 merges (Phase 29 added the `/methodology` route and BalticStorageIndexCard which Phase 18 will visually polish).
+**Prompt:** `docs/phases/phase-18-prompt.md`.
+
+**Supersedes:** Phase 7.7g-a-3 (accent consolidation) + Phase 7.7g-a-4 (Cormorant migration). Reduces scope of Phase 7.7g-b (Card primitive done by Phase 18; remaining: Stat / Badge / Chart / Drawer + worker URL centralization + reconsider source-into-drawer post-bracket-markers).
 
 ##### Phase 7.7g-b — Five primitives + card migration (~5-7 days)
 5. **Build 5 primitive components,** every card rebuilt from these:
@@ -580,7 +610,7 @@ Components currently use raw px inline (`padding: '8px'`, `margin: '4px'`) inste
 | Tier | Phases | Days |
 |---|---|---|
 | 0 — Bug fixes + data integrity | 12.8 [SHIPPED] · 12.8.0 [SHIPPED] · 12.10.0 [SHIPPED] · 12.10 [SHIPPED] · 12.8.1 [SHIPPED] · 12.9 [SHIPPED] · 12.9.1 [SHIPPED] · 12.9.2 [SHIPPED] · 12.9.3 [SHIPPED] · 4G [SHIPPED] · 12.10a [SHIPPED] | **TIER CLOSED 2026-05-05** |
-| 1 — Foundation | 12.12 (16 sub-items + #17 daily_intel.py mirror) · 7.7g-a-1 [SHIPPED] · 7.7g-a-2 · 7.7g-a-3 · 7.7g-a-4 · 7.7g-b · 7.7g-c · **12.10b** (post-follow-up housekeeping, ~30 min Cowork) | ~12-15 days |
+| 1 — Foundation | 12.12 (16 sub-items + #17 daily_intel.py mirror) · 7.7g-a-1 [SHIPPED] · 7.7g-a-2 · ~~7.7g-a-3~~ ~~7.7g-a-4~~ · **18** (Baltic editorial visual identity) · 7.7g-b reduced · 7.7g-c · **12.10b** [SHIPPED] | ~12-15 days |
 | 2 — Chapter restructure | A | ~5 days |
 | 3 — Two moments of presence | B · 12 | ~10 days |
 | 4 — Connection + content | 7.7f · 12.13 · D · 11 · C | ~12-14 days |
