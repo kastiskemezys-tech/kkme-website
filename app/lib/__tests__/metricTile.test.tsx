@@ -60,11 +60,11 @@ describe('MetricTile (Phase 8.3 extension)', () => {
     expect(html).toMatch(/title="Methodology version v7"/);
   });
 
-  it('hero size keeps the editorial display font; standard/compact use mono', () => {
+  it('hero size uses the editorial serif (Phase 18 — Newsreader); standard/compact use mono', () => {
     const heroHtml = renderToStaticMarkup(
       <MetricTile label="Today" value="36" unit="€/MWh" size="hero" />,
     );
-    expect(heroHtml).toMatch(/var\(--font-display\)/);
+    expect(heroHtml).toMatch(/var\(--font-serif\)/);
     const compactHtml = renderToStaticMarkup(
       <MetricTile label="Reserve" value="14" unit="€/MW/h" size="compact" />,
     );

@@ -47,11 +47,14 @@ export default function Home() {
               <h2 className="section-header" style={{ marginBottom: '6px' }}>Revenue signals</h2>
               <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-base)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>Day-ahead price capture and balancing market revenue — capacity reservation, activation energy, and DA arbitrage.</p>
             </div>
+            <div className="pull-quote">
+              <p>Baltic flexibility, on the hour. Markets, fleet, dispatch — every five minutes.</p>
+            </div>
             <div className="grid-2 grid-2-stretch">
-              <div className="card card-tier1" style={{ alignSelf: 'stretch', display: 'flex', flexDirection: 'column' }}>
+              <div className="card card-tier1 card--neutral" style={{ alignSelf: 'stretch', display: 'flex', flexDirection: 'column' }}>
                 <CardBoundary signal="S1"><S1Card /></CardBoundary>
               </div>
-              <div className="card-tier1-feature" style={{ alignSelf: 'stretch', display: 'flex', flexDirection: 'column' }}>
+              <div className="card-tier1-feature card--balancing" style={{ alignSelf: 'stretch', display: 'flex', flexDirection: 'column' }}>
                 <CardBoundary signal="S2"><S2Card /></CardBoundary>
               </div>
             </div>
@@ -69,10 +72,10 @@ export default function Home() {
               <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-base)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>Project costs, financing, and grid access — the practical constraints on buildability.</p>
             </div>
             <div className="grid-2">
-              <div className="card" style={{ alignSelf: 'stretch', display: 'flex', flexDirection: 'column' }}>
+              <div className="card card--neutral" style={{ alignSelf: 'stretch', display: 'flex', flexDirection: 'column' }}>
                 <CardBoundary signal="S3"><S3Card /></CardBoundary>
               </div>
-              <div className="card" style={{ alignSelf: 'stretch', display: 'flex', flexDirection: 'column' }}>
+              <div className="card card--neutral" style={{ alignSelf: 'stretch', display: 'flex', flexDirection: 'column' }}>
                 <CardBoundary signal="S4"><S4Card /></CardBoundary>
               </div>
             </div>
@@ -90,22 +93,22 @@ export default function Home() {
             </div>
 
             <div className="tier3-grid">
-              <ScrollReveal delay={0}><div className="card-tier3">
+              <ScrollReveal delay={0}><div className="card-tier3 card--neutral">
                 <CardBoundary signal="renewable-mix"><RenewableMixCard /></CardBoundary>
               </div></ScrollReveal>
-              <ScrollReveal delay={80}><div className="card-tier3">
+              <ScrollReveal delay={80}><div className="card-tier3 card--neutral">
                 <CardBoundary signal="residual-load"><ResidualLoadCard /></CardBoundary>
               </div></ScrollReveal>
-              <ScrollReveal delay={160}><div className="card-tier3">
+              <ScrollReveal delay={160}><div className="card-tier3 card--neutral">
                 <CardBoundary signal="peak-forecast"><PeakForecastCard /></CardBoundary>
               </div></ScrollReveal>
-              <ScrollReveal delay={240}><div className="card-tier3">
+              <ScrollReveal delay={240}><div className="card-tier3 card--neutral">
                 <CardBoundary signal="spread-capture"><SpreadCaptureCard /></CardBoundary>
               </div></ScrollReveal>
-              <ScrollReveal delay={320}><div className="card-tier3">
+              <ScrollReveal delay={320}><div className="card-tier3 card--neutral">
                 <CardBoundary signal="S7"><S7Card /></CardBoundary>
               </div></ScrollReveal>
-              <ScrollReveal delay={400}><div className="card-tier3">
+              <ScrollReveal delay={400}><div className="card-tier3 card--neutral">
                 <CardBoundary signal="S9"><S9Card /></CardBoundary>
               </div></ScrollReveal>
             </div>
@@ -120,12 +123,15 @@ export default function Home() {
               <h2 className="section-header" style={{ marginBottom: '6px' }}>50 MW reference asset</h2>
               <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-base)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>How timing, duration, and installed cost shape storage economics.</p>
             </div>
+            <div className="pull-quote">
+              <p>Reference-asset economics, evaluated daily. Today&rsquo;s gross 2h capture, banded against the rolling 30-day distribution.</p>
+            </div>
             <div>
               <ErrorBoundary>
                 <RevenueCard />
               </ErrorBoundary>
             </div>
-            <div className="card card-tier1" style={{ marginTop: '32px' }}>
+            <div className="card card-tier1 card--revenue" style={{ marginTop: '32px' }}>
               <CardBoundary signal="baltic-storage-index">
                 <BalticStorageIndexCard />
               </CardBoundary>
@@ -143,7 +149,7 @@ export default function Home() {
               <h2 className="section-header" style={{ marginBottom: '6px' }}>Dispatch intelligence</h2>
               <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-base)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>How the KKME dispatch algorithm allocates a reference BESS across Baltic balancing and arbitrage.</p>
             </div>
-            <div className="card card-tier1">
+            <div className="card card-tier1 card--revenue">
               <CardBoundary signal="trading">
                 <TradingEngineCard />
               </CardBoundary>
@@ -161,6 +167,9 @@ export default function Home() {
               <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-base)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
                 Developments that affect Baltic BESS revenue, buildability, and market structure.
               </p>
+            </div>
+            <div className="pull-quote">
+              <p>Pipeline movements, regulatory shifts, balancing reserve developments &mdash; week to week.</p>
             </div>
             <RegulatoryPreview />
             <IntelFeed />

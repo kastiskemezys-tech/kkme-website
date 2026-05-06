@@ -209,6 +209,41 @@ export function BalticStorageIndexCard() {
         Monthly per-country per-duration revenue benchmark, computed from primary-source ingestion. Comparable in framing to Clean Horizon&apos;s Storage Index for Baltic markets; values diverge per the methodology paper.
       </p>
 
+      {/* Phase 18 — editorial hero (LT 2h primary) */}
+      {data.lt['2h'] != null && (
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, flexWrap: 'wrap', marginBottom: 24 }}>
+          <span style={{
+            fontFamily: 'var(--font-serif)',
+            fontSize: 'clamp(56px, 7vw, 88px)',
+            fontWeight: 200,
+            letterSpacing: '-0.025em',
+            lineHeight: 0.95,
+            color: 'var(--text-primary)',
+            fontVariantNumeric: 'tabular-nums',
+          }}>
+            €{Math.round(data.lt['2h']).toLocaleString()}
+            <sup style={{
+              fontFamily: 'var(--font-serif)',
+              fontStyle: 'italic',
+              fontWeight: 400,
+              fontSize: 13,
+              marginLeft: 6,
+              color: 'var(--text-secondary)',
+              verticalAlign: 'super',
+            }}>1</sup>
+          </span>
+          <span style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 13,
+            color: 'var(--text-secondary)',
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+          }}>
+            /MW · MO &nbsp;·&nbsp; LT 2h
+          </span>
+        </div>
+      )}
+
       {/* 3 countries × 3 durations grid */}
       <div style={{
         display: 'grid',
@@ -270,6 +305,14 @@ export function BalticStorageIndexCard() {
           )}
         </div>
       )}
+
+      {/* Phase 18 — footnotes */}
+      <div className="card-footnotes">
+        <div>
+          <span className="card-footnotes__anchor">1</span>
+          LT 2h composite: DA capture + balancing capacity reservation, daily VPS aggregate; {formatMonth(data.month)} computation. <a href="/methodology#kkme-baltic-storage-index">methodology</a>.
+        </div>
+      </div>
 
       <SourceFooter
         source="KKME engine v7.3 · BTD · ENTSO-E A44"

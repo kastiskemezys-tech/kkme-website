@@ -1,22 +1,18 @@
 import type { Metadata } from "next";
-import { Cormorant, DM_Mono, Unbounded } from "next/font/google";
+import { Unbounded } from "next/font/google";
 import { SmoothScroll } from "./providers";
 import { ClarityScript } from "@/app/components/ClarityScript";
+import "@fontsource/ibm-plex-mono/400.css";
+import "@fontsource/ibm-plex-mono/500.css";
+import "@fontsource/newsreader/200.css";
+import "@fontsource/newsreader/400.css";
+import "@fontsource/newsreader/400-italic.css";
 import "./globals.css";
 
-// Three fonts loaded: Cormorant (serif prose), DM Mono (numbers + labels), Unbounded (hero numbers + display).
-const cormorant = Cormorant({
-  variable: "--font-cormorant",
-  subsets: ["latin"],
-  weight: ["300", "400", "600"],
-});
-
-const dmMono = DM_Mono({
-  variable: "--font-dm-mono",
-  subsets: ["latin"],
-  weight: ["300", "400", "500"],
-});
-
+// Newsreader (serif editorial) and IBM Plex Mono (numbers + labels) loaded via
+// @fontsource so the literal family names register globally — required by SVG
+// font-family attributes and chart.js (Canvas 2D), which do not resolve
+// var(--font-*) at render time. Unbounded (display) stays on next/font.
 const unbounded = Unbounded({
   variable: "--font-unbounded",
   subsets: ["latin"],
@@ -57,7 +53,7 @@ export default function RootLayout({
     <html
       lang="en"
       data-theme="dark"
-      className={`${cormorant.variable} ${dmMono.variable} ${unbounded.variable}`}
+      className={unbounded.variable}
     >
       <head>
         <script

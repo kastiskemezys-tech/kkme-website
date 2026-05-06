@@ -40,6 +40,12 @@ function resolveSourceUrl(source: string, explicitUrl?: string): string | null {
 export function SourceFooter({ source, sourceUrl, updatedAt, dataClass, methodologyLink }: SourceFooterProps) {
   const url = resolveSourceUrl(source, sourceUrl);
 
+  // Phase 18 — bracket-notation: [src] sourceName · [as-of] timestamp · [class]
+  const bracketStyle: React.CSSProperties = {
+    color: 'var(--text-secondary)',
+    letterSpacing: '0.08em',
+  };
+
   return (
     <div style={{
       fontFamily: 'var(--font-mono)',
@@ -47,44 +53,44 @@ export function SourceFooter({ source, sourceUrl, updatedAt, dataClass, methodol
       color: 'var(--text-muted)',
       display: 'flex',
       alignItems: 'center',
-      gap: '6px',
+      gap: '8px',
       flexWrap: 'wrap',
+      letterSpacing: '0.04em',
     }}>
-      <span>
-        Source:{' '}
-        {url ? (
-          <a
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              color: 'inherit',
-              textDecoration: 'none',
-              borderBottom: '1px dotted var(--text-muted)',
-              transition: 'color 150ms',
-            }}
-            onMouseEnter={e => (e.currentTarget.style.color = 'var(--teal)')}
-            onMouseLeave={e => (e.currentTarget.style.color = 'inherit')}
-          >
-            {source} ↗
-          </a>
-        ) : source}
-      </span>
+      <span style={bracketStyle}>[src]</span>
+      {url ? (
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            color: 'inherit',
+            textDecoration: 'none',
+            borderBottom: '1px dotted var(--text-muted)',
+            transition: 'color 150ms',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.color = 'var(--teal)')}
+          onMouseLeave={e => (e.currentTarget.style.color = 'inherit')}
+        >
+          {source} ↗
+        </a>
+      ) : <span>{source}</span>}
       {updatedAt && updatedAt !== '—' && (
         <>
-          <span style={{ opacity: 0.5 }}>·</span>
-          <span>Updated {updatedAt}</span>
+          <span style={{ opacity: 0.4 }}>·</span>
+          <span style={bracketStyle}>[as-of]</span>
+          <span>{updatedAt}</span>
         </>
       )}
       {dataClass && (
         <>
-          <span style={{ opacity: 0.5 }}>·</span>
-          <span>{dataClass}</span>
+          <span style={{ opacity: 0.4 }}>·</span>
+          <span style={bracketStyle}>[{dataClass}]</span>
         </>
       )}
       {methodologyLink && (
         <>
-          <span style={{ opacity: 0.5 }}>·</span>
+          <span style={{ opacity: 0.4 }}>·</span>
           <a
             href={methodologyLink}
             style={{
@@ -92,7 +98,7 @@ export function SourceFooter({ source, sourceUrl, updatedAt, dataClass, methodol
               textDecoration: 'none',
             }}
           >
-            ↗ Methodology
+            ↗ methodology
           </a>
         </>
       )}

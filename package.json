@@ -13,6 +13,8 @@
   },
   "dependencies": {
     "@allmaps/transform": "^1.0.0-beta.51",
+    "@fontsource/ibm-plex-mono": "^5.2.7",
+    "@fontsource/newsreader": "^5.2.10",
     "@gsap/react": "^2.1.2",
     "@observablehq/plot": "^0.6.17",
     "@react-three/fiber": "^9.5.0",

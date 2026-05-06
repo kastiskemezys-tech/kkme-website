@@ -358,7 +358,7 @@ export function TradingEngineCard() {
 
   return (
     <div style={{ padding: 24, background: 'var(--bg-elevated)',
-      border: '1px solid var(--border-highlight)', borderRadius: 8 }}>
+      border: '1px solid var(--border-highlight)', borderRadius: 0 }}>
 
       {/* ── Title ── */}
       <div style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-xs)',
@@ -366,7 +366,7 @@ export function TradingEngineCard() {
         letterSpacing: '0.08em', marginBottom: 8 }}>
         Dispatch intelligence
       </div>
-      <p style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 'var(--font-sm)',
+      <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)',
         color: 'var(--text-secondary)', margin: '0 0 16px', lineHeight: 1.5 }}>
         How the KKME dispatch algorithm allocates a 50 MW reference BESS across Baltic balancing and arbitrage.
       </p>
@@ -414,7 +414,7 @@ export function TradingEngineCard() {
             alignItems: 'flex-start', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-                <span style={{ fontFamily: "'Unbounded',sans-serif", fontSize: '1.5rem',
+                <span style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem',
                   fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1 }}>
                   €{data.revenue_per_mw.daily_eur}</span>
                 <span style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-sm)',
@@ -447,7 +447,7 @@ export function TradingEngineCard() {
                 <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
                   fontFamily: "var(--font-mono)", textTransform: 'uppercase',
                   letterSpacing: '0.08em', marginBottom: 2 }}>{k.label}</div>
-                <div style={{ fontFamily: "'Unbounded',sans-serif", fontSize: '1rem',
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: '1rem',
                   color: 'var(--text-primary)', fontWeight: 500 }}>{k.pct}%</div>
                 <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
                   color: 'var(--text-secondary)' }}>€{k.eur}/MW/day</div>
@@ -459,14 +459,14 @@ export function TradingEngineCard() {
           {data.scenarios && data.scenarios.drr_uplift_eur_mw_day > 0 && (
             <div style={{
               border: '1px solid var(--teal)',
-              borderRadius: 4, padding: '12px 16px', marginBottom: 16,
+              borderRadius: 0, padding: '12px 16px', marginBottom: 16,
               background: 'var(--teal-bg)',
             }}>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
                 color: 'var(--teal)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 FCR market reopens ~{data.drr_note.derogation_expires_iso}
               </div>
-              <div style={{ fontFamily: "'Unbounded',sans-serif", fontSize: '1.25rem',
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.25rem',
                 color: 'var(--teal)', marginTop: 4, fontWeight: 500 }}>
                 +€{data.scenarios.drr_uplift_eur_mw_day}/MW/day
               </div>

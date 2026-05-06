@@ -56,7 +56,7 @@ export function Contact() {
       }}
     >
       <p style={{
-        fontFamily: 'Cormorant, serif',
+        fontFamily: 'var(--font-serif)',
         fontStyle: 'italic',
         fontWeight: 300,
         fontSize: '0.90rem',

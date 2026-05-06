@@ -713,6 +713,14 @@ export function S4Card() {
 
       <div style={{ flexGrow: 1 }} />
 
+      {/* Phase 18 — footnotes */}
+      <div className="card-footnotes">
+        <div>
+          <span className="card-footnotes__anchor">1</span>
+          TSO-tracked operational fleet: BESS + pumped hydro from LITGRID, ELERING, AST registries; entity-resolver deduplicated. <a href="/methodology">methodology</a>.
+        </div>
+      </div>
+
       {/* SOURCE FOOTER */}
       <button type="button" onClick={openDrawer} style={{ all: 'unset', display: 'block', width: '100%', cursor: 'pointer' }}>
         <SourceFooter
