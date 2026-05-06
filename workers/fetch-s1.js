@@ -7110,6 +7110,7 @@ export default {
           source_url: 'https://elering.ee/en/news/baltic-frequency-reserve-cost-74m-2025',
           coverage_period: '2025 calendar year (synchronous-area-wide aFRR + mFRR + FCR procurement)',
           interpretation: 'Strongest macro anchor for Baltic balancing-market spend size. KKME revenue projections sized at single-MW level scale linearly against this number (€74M ÷ ~752 MW eff demand → ≈ €98k/MW/yr Baltic-aggregated balancing spend, before TSO margin and product-level allocation).',
+          afrr_methodology_note: 'KKME afrr_up_avg / afrr_down_avg = rolling 7-day mean of BTD price_procured_reserves (Lithuania, capacity-reservation €/MW/h). Not directly comparable to Clean Horizon\'s June 2025 "Baltic S1 2025 Price Forecasts" (€77 up / €340 down, aggregate-Baltic, Apr–mid-Jun 2025 launch window) — that window predates summer-2025 market deepening (~1.5× compression visible in CH\'s Oct 2025 update) and Baltic-Continental synchronisation Nov 2025 (~8× step-change visible in KKME\'s S2 monthly trend chart). Same metric, different window + geography. See docs/methodology.md "Capacity reservation revenue" section for full reconciliation.',
         };
         if (activationRaw) {
           try {
