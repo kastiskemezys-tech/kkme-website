@@ -1882,6 +1882,145 @@ Then Tier 1 (12.12 + 12.14 + 7.7g). Phase 12.12 picks up:
 - After merge to main → Phase 30 §6 (three commits + push to `phase-30-methodology-research` branch) resumes from the same working tree per operator's latest message.
  phase-12-8-1-backtest-caption
 
+### Session 42 — 2026-05-06 — Phase 18 — Baltic editorial visual identity ship (Claude Code)
+
+**Headline:** Cumulative AI-tells (DM Mono workhorse, soft-rounded card corners, mint sentiment palette, no editorial scale contrast, no footnote discipline) replaced with the operator-approved 2026-05-06 broadsheet direction — typography swap (Plex Mono [400, 500] + Newsreader [200, 400, 400-italic]), Baltic-grounded palette (`--accent-rose` dark `#f5718e` → `#a8324a` brick), sharp 0px corners site-wide with per-card-type top accent rules, broadsheet masthead (`Vol I · No 128 · 06 MAY 2026` + italic Newsreader tagline + 0.5px Baltic-amber rule + bracket source-row), site-wide pixel-dot grid, marquee architectural ticks, editorial Newsreader 200 hairline hero numbers across 5 hero cards, footnote citation discipline with no-invented-section-numbers rule honoured (every link maps to a real `methodology.md` anchor or self-contained prose), bracket-notation `SourceFooter` ([src] / [as-of] / [class]) flowing through all ~21 consumers, per-section pull-quotes on §1 / §4 / §6. Frontend-only, no `model_version` bump, no worker deploy. Phase 7.7g-a-3 (accent consolidation) + Phase 7.7g-a-4 (Cormorant migration) **SUPERSEDED** by Phase 18 (Cormorant migrated to Newsreader, not just dropped to fallback). Phase 7.7g-b scope reduced — Card primitive done; Stat / Badge / Chart / Drawer + worker URL centralization remain.
+
+**Branch:** `phase-18-baltic-editorial` off `origin/main` at `4f5ab5a` (post-Phase-29-roadmap-delta). 4 commits pushed.
+
+**Pause A discovery — scope-corrections to the prompt:**
+
+| Prompt premise | Empirical finding |
+|---|---|
+| "9 routes (post-Phase-29)" | Build prints **7 routes**: `/`, `/_not-found`, `/dev/hero-preview`, `/dev/map-calibrate`, `/intel`, `/methodology`, `/regulatory`. Prompt-author miscount; not a missing route. |
+| "Update `--positive` / `--warning` / `--negative` semantic tokens" | Codebase uses `--success` / `--warning` / `--danger` (lines 70-72 globals.css); no `--positive` / `--negative` exist. Operator-decided: add aliases (3 LOC each in dark + light) mapping `--positive: var(--success)` and `--negative: var(--danger)`. Avoids renaming + keeps `tokens.test.ts` intact. |
+| "Drop dead `--accent-rose` / `--accent-purple`" | Both ARE used: `--accent-rose` aliased through `--coral` → `--danger` → `--signal-negative` (and 1 explicit `--warning`-style call site in RevenueBacktest); `--accent-purple` aliased through `--lavender` → `--cycles-fcr`. Operator-decided: retune values, don't drop. `--accent-rose` dark `#f5718e` → `#a8324a` brick; `--accent-purple` retained as FCR cycles colour. |
+| "478 mono usages + 39 serif usages flow through CSS variables" | True for tokenized usage (548 `var(--font-{mono,serif,display})` hits). But **33 hardcoded font sites bypass tokens**: 9× `'Cormorant Garamond'` (silent fallback bug — next/font loaded "Cormorant" not "Cormorant Garamond"), 1× `'Cormorant'`, 10× `'Unbounded'`, 13× `'DM Mono'` incl. SVG `fontFamily=` attrs in HeroBalticMap + chart.js literal in `chartTheme.ts`. All migrated. |
+| §4d "right-rail card glued onto map" | Visual-inference hypothesis without code-level confirmation. Current 3-col grid `minmax(260,300) / minmax(540,620) / minmax(260,300)` shows no overlap from code structure. Per audit-triage discipline rule #1 — operator confirmed empirically false at Pause B. Full-bleed-map architectural refactor dropped. |
+
+**Operator-decisions snapshot (Pause A → pre-§3 proceed):**
+
+| # | Decision | Why |
+|---|---|---|
+| 1 | `--positive` / `--negative` aliases (3 LOC each) | Don't rename `--success` / `--danger`; keeps `tokens.test.ts` intact |
+| 2 | Retune `--accent-rose` dark `#f5718e` → `#a8324a` (matches light, becomes brick); keep `--accent-purple` | Both tokens active in cycle/sentiment chains |
+| 3 | Per-card accent map approved with S5 frame stays neutral; brick reserved for per-news-item live indicators inside S5 | Frame brick on news ticker would visually overweight the card |
+| 4 | Masthead tagline "Baltic flexibility, daily" + launch date `2025-12-30` → today renders `Vol I · No 128 · 06 MAY 2026` | "Daily" matches editorial cadence; launch date pins issue numbering |
+| 5 | Footnotes — no invented `§3.2 / §3.3` section numbers; use real `methodology.md` anchors or self-contained prose | "Better terse-and-accurate than precise-and-fabricated" |
+| 6 | Pull-quotes only on §1 / §4 / §6; §4 static line `"Reference-asset economics, evaluated daily. Today's gross 2h capture, banded against the rolling 30-day distribution."` | Dynamic injection deferred; static line acceptable |
+| 7 | All 33 hardcoded font sites migrate in commit 1; `chartTheme.ts:103` + 3 SVG fontFamily attrs in HeroBalticMap → literal `'IBM Plex Mono'`; rest → CSS variables | chart.js (Canvas 2D) + SVG fontFamily attrs don't resolve `var()` |
+| 8 | Newsreader weights `[200, 400, 400-italic]`; Plex Mono `[400, 500]`; skip Newsreader 500 + 100; fallback to 300 if 200 unreadable | Bundle hygiene; 200 confirmed readable at Pause C |
+| 9 | §6e nice-to-haves (S·II archival stamp, ornament dingbats, brick live-dot) deferred at Pause C | Foundation + main editorial polish push the identity hard enough; further amplification post-merge if needed |
+
+**Pause B — foundation gates + diff (post-§3 + §4):**
+
+| Gate | Baseline | Pause B | Status |
+|---|---|---|---|
+| `npx tsc --noEmit` | 0 errors | 0 errors | ✅ unchanged |
+| `npx vitest run` | 919 / 60 files | 919 / 60 files | ✅ unchanged |
+| `npm run lint` | 126 (40e/86w) | 126 (40e/86w) | ✅ matches |
+| `npm run build` | 7 routes | 7 routes | ✅ unchanged |
+
+**Pause C — pre-commit verification (post-§6):**
+
+| Gate | Baseline | Pause C | Status |
+|---|---|---|---|
+| `npx tsc --noEmit` | 0 errors | 0 errors | ✅ unchanged |
+| `npx vitest run` | 919 / 60 files | 919 / 60 files | ✅ unchanged (1 pinned-token test in `metricTile.test.tsx` updated to lock new editorial-serif behavior) |
+| `npm run lint` | 126 (40e/86w) | 126 (40e/86w) | ✅ matches |
+| `npm run build` | 7 routes | 7 routes | ✅ unchanged |
+
+**Per-card accent map applied:**
+
+| Card | Section | Class | Top accent |
+|---|---|---|---|
+| RevenueCard | 50 MW reference asset | `card--revenue` | 3px deep teal `var(--positive)` |
+| BalticStorageIndexCard | 50 MW reference asset (sub-card) | `card--revenue` | 3px deep teal |
+| TradingEngineCard | Dispatch intelligence | `card--revenue` | 3px deep teal |
+| S2Card (`.card-tier1-feature` wrapper) | Revenue signals | `card--balancing` | 3px amber `var(--warning)` |
+| S1Card | Revenue signals | `card--neutral` | none |
+| S3, S4 | Build conditions | `card--neutral` | none |
+| 6 tier3 cards (RenewableMix, ResidualLoad, PeakForecast, SpreadCapture, S7, S9) | Structural market drivers | `card--neutral` | none |
+| S5 frame | Market intelligence | `card--neutral` (operator tweak) | none — brick reserved for per-news-item live indicators inside |
+
+**Masthead final text:**
+- Tagline: italic Newsreader 17px "Baltic flexibility, daily"
+- Launch date constant: `KKME_LAUNCH_ISO = '2025-12-30'` in `HeroBalticMap.tsx`
+- Today renders `Vol I · No 128 · 06 MAY 2026` (mono Plex 11px uppercase 0.12em)
+- 0.5px Baltic-amber rule below (max-width 1440-96px, `--accent-amber` @ 55% opacity)
+- Source row below the rule: `[ live ] · ENTSO-E · LITGRID · AST · ELERING · BTD`
+
+**Per-card footnote map (no fabricated § numbers):**
+
+| Card | Footnote text | Anchor |
+|---|---|---|
+| S1Card | "LT day-ahead, max-min daily {2h\|4h} spread" | `/methodology#day-ahead-arbitrage-revenue` |
+| S2Card | "{aFRR\|mFRR\|FCR} capacity-reservation price; BTD price_procured_reserves, {LT\|LV\|EE}, rolling 7d" + (aFRR-only addendum: "Up + down direction combined") | `/methodology#capacity-reservation-revenue` |
+| S4Card | "TSO-tracked operational fleet: BESS + pumped hydro from LITGRID, ELERING, AST registries; entity-resolver deduplicated" | plain `/methodology` (no precise § yet) |
+| RevenueCard | "20-yr unlevered DCF, {system} reference asset; gross capture from S1 + S2; calibration {date}" | `/methodology#project-finance` |
+| BalticStorageIndexCard | "LT 2h composite: DA capture + balancing capacity reservation, daily VPS aggregate; {month} computation" | `/methodology#kkme-baltic-storage-index` |
+
+No `methodology.md` additions needed — every cited topic already had a real section.
+
+**Pull-quote text per chapter:**
+- §1 #revenue-drivers: *"Baltic flexibility, on the hour. Markets, fleet, dispatch — every five minutes."*
+- §4 #revenue: *"Reference-asset economics, evaluated daily. Today's gross 2h capture, banded against the rolling 30-day distribution."* (operator's static edit applied)
+- §6 #intel: *"Pipeline movements, regulatory shifts, balancing reserve developments — week to week."*
+
+**Verification gates (final actual numbers):**
+- `npx tsc --noEmit`: 0 errors
+- `npx vitest run`: 919 passed (60 files)
+- `npm run lint`: 126 problems (40 errors, 86 warnings)
+- `npm run build`: 7 routes, compiled in 6.6s
+
+**Bundle size delta:**
+
+| Subset (Latin only, woff2) | Phase 17 baseline | Phase 18 |
+|---|---|---|
+| Mono (DM Mono → IBM Plex Mono) | 400 + 500: ~32 KB | 400 + 500: **~30 KB** |
+| Serif (Cormorant → Newsreader) | 300 + 400 + 600: ~88 KB | 200 + 400 + 400-italic: **~69 KB** |
+| Display (Unbounded) | 400 + 600: ~44 KB | 400 + 600: **~44 KB** unchanged |
+| **Latin total** | **~164 KB** | **~143 KB (–13%)** |
+
+`@fontsource` ships `latin-ext` / `cyrillic` / `cyrillic-ext` / `vietnamese` subsets in `.next/static/media/` (total media dir 788 KB) but browsers fetch on-demand via `unicode-range`. Effective user-visible bundle for English-only renders: ~143 KB.
+
+**Backlog discovered (deferred — not in this PR):**
+- **MetricTile primitive footnote-anchor prop** — current implementation places `¹` anchor adjacent to the primitive via the per-card footnote block, but the primitive itself doesn't take a `footnoteIndex` prop. Tier-3 cards (Wind / Solar / Load / etc.) inherit editorial-scale hero from MetricTile but don't surface a superscript anchor. Add optional `footnoteIndex?: number` prop for visual consistency. Defer; not load-bearing for "human-designed read."
+- **§6e nice-to-haves** — S·II archival stamp on chapter side rails, ornament dingbats `°  °  °` between sections, brick-red live-indicator dot beside `[ live ]` markers. ~30min adds; defer until operator confirms current density is right.
+- **`@fontsource` subset trimming** — package ships cyrillic / vietnamese subsets that won't be fetched for English-only content but inflate `.next/static/media/` from ~330 KB baseline to 788 KB. Could trim by importing only `@fontsource/ibm-plex-mono/latin-400.css` etc., but those subset-specific imports may not exist in the package. Investigate when convenient.
+- **MetricTile hero-tier prop split** — primitive uses single clamp(40, 5.5vw, 64) for size="hero"; tier-1 cards apply their own larger inline clamp(56, 7vw, 88). If MetricTile gets used in tier-1 contexts ever, would need a hero-tier prop. Acceptable for now.
+- **`/methodology` Newsreader weight readability fallback** — confirmed readable at Pause C in 200 hairline; if longer-form prose later surfaces a contrast issue, fall back to `@fontsource/newsreader/300.css` import in `app/layout.tsx`.
+
+**Out of scope (per prompt):**
+- Engine changes (engine v7.3 unchanged)
+- Worker changes (frontend-only)
+- 5-primitive system migration (only Card layer touched; Stat / Badge / Chart / Drawer remain in Phase 7.7g-b)
+- Spacing token rollout (Phase 7.7g-a-2 stays queued; uses current inline-px patterns in this phase)
+- rgba/hex regression cleanup + CI gate (Phase 7.7g-c stays queued)
+- Worker URL centralization (Phase 7.7g-b #6, stays queued)
+- Mobile responsive review (separate phase later)
+- Phase 12.12 data-integrity infrastructure
+- Roadmap edits — operator/Cowork-owned per discipline rule #5; CC reports needed deltas below
+
+**Visual-audit screenshots:** 18 PNGs at `docs/visual-audit/phase-18/full/` (9 shots × 2 themes). Captured headless via Playwright Chromium against local dev server; one-shot script `scripts/_phase18-screenshots.mjs` deleted pre-commit per operator request (re-create or promote to `scripts/visual-audit-capture.mjs` in a separate commit if needed for Phase 18.1+).
+
+**Tier 1 sequence after Phase 18:**
+- ✅ Phase 18 SHIPPED 2026-05-06
+- 🚫 Phase 7.7g-a-3 (accent consolidation) — SUPERSEDED by Phase 18
+- 🚫 Phase 7.7g-a-4 (Cormorant migration) — SUPERSEDED by Phase 18
+- 🟡 Phase 7.7g-b reduced scope — Card primitive done; Stat / Badge / Chart / Drawer + worker URL centralization remain
+- 🟡 Phase 7.7g-a-2 (spacing tokens + rollout) — still queued (~1-2 days)
+- 🟡 Phase 7.7g-c (rgba CI gate + regression cleanup) — still queued
+- 🟡 Phase 12.12 #1 + #2 (schema validation + freshness gates, ~2-3 days) — still queued
+
+**Operator action items post-merge:**
+1. Open PR via GitHub web UI from `phase-18-baltic-editorial` → `dev` (or `main`)
+2. Apply roadmap delta to `docs/phases/_post-12-8-roadmap.md` (operator/Cowork-owned per discipline rule #5):
+   - Phase 18 → Shipped appendix with full description
+   - Phase 7.7g-a-3 + 7.7g-a-4 marked **SUPERSEDED** by Phase 18 (strikethrough + commit pointer)
+   - Phase 7.7g-b reduced-scope note: Card primitive done; remaining Stat / Badge / Chart / Drawer + worker URL centralization
+   - Currently-active update: Phase 18 in-flight → SHIPPED; next CC task across (7.7g-a-2 / 12.12 #1+#2 / 7.7g-b reduced scope)
+
 ### Session 41 — 2026-05-06 — Phase 29 — KKME Baltic Storage Index (first public-facing Tier 1 product surface) (Claude Code)
 
 **Headline:** First public numerical comparison surface from Tier 1 ships. Monthly per-country per-duration €/MW revenue benchmark live at `GET /index/baltic`; LT/2h €284/MW/month + LT/4h €307/MW/month for Apr 2026 (production-engine reshape of `/revenue.backtest` × 30 / 50 MW reference); LV, EE, and 1h slots persist with stable `coverage_status` contract strings per Pause A option ε. **Phase 30 destination decision resolved** — standalone `/methodology` route shipped, rendering `docs/methodology.md` end-to-end via `react-markdown` + `remark-gfm`, anchor-aware. Operator-action-item #4 closed. Worker engine unchanged (no `model_version` bump). Phase 29.1 (per-country DA capture extension + 5-product cap-reservation extraction; ~3-4h estimate) sequenced as the dedicated follow-on that closes the LV/EE gap; 1h SOC physics is a separate engine extension on demand.
