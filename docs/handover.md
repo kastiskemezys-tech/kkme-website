@@ -1913,6 +1913,35 @@ Then Tier 1 (12.12 + 12.14 + 7.7g). Phase 12.12 picks up:
 | 7 | Inline footnote anchor (sup²) on each pending row + explicit footnote text | `BalticStorageIndexCard.tsx` — `<sup>2</sup>` on non-complete cells; new `<div>` in `card-footnotes` with text "Coverage pending Phase 29.1 — engine extension queued (per-country DA capture + 5-product capacity-reservation extraction). LT 1h additionally requires sub-2h SOC physics not modeled by engine v7.3." |
 | 8 | NOT REPRODUCIBLE; flag feed-source refresh as Phase 12.12 #3 territory | No code change. |
 
+**Pause C addendum — P0-1 (CAPEX selector recompute) + P0-2 (duration toggle) verification:**
+
+Operator-requested verification per discipline rule #3 (no silent drops). The original 8-bug Pause A scope did not include these two; verification was run post-commit, pre-PR-open.
+
+State-management shape (`RevenueCard.tsx:1528-1531`): `useState` per knob (`dur`, `capex`, `cod`, `scenario`). URL writeback `useEffect` at lines 1554-1561 keyed on `[dur, capex, cod, scenario]`. `fetchData` `useCallback` at line 1564 with same deps; `useEffect(() => fetchData(), [fetchData])` at line 1577 re-fires on any knob change. Refetch URL: `${WORKER}/revenue?dur=${dur}&capex=${capex}&cod=${cod}&scenario=${scenario}`.
+
+**P0-1 — CAPEX selector recompute · VERIFIED NOT REPRODUCIBLE (works as designed):**
+
+| Click | URL `capex=` | Headline IRR | Δ pp vs base | Description `€/kWh` | Bankability |
+|---|---|---|---|---|---|
+| Initial (mid) | `mid` | 12.8% | base | €164/kWh ✓ | investable |
+| €120 | `low` ✓ | 20.2% | **+7.4 pp** ✓ | €120/kWh ✓ | investable |
+| €262 | `high` ✓ | 4.5% | **−8.3 pp** ✓ | €262/kWh ✓ | below_hurdle |
+| €164 (return) | `mid` ✓ | 12.8% | back to base | €164/kWh ✓ | investable |
+
+URL `capex=` flips correctly on each click, headline IRR delta well above ≥1pp threshold, description string contains chosen €/kWh on each click. No recompute bug.
+
+**P0-2 — Duration toggle · VERIFIED NOT REPRODUCIBLE (works as designed):**
+
+| Click | URL `dur=` | Headline IRR | Optimizer 2H IRR | Optimizer 4H IRR | Headline matches optimizer cell? |
+|---|---|---|---|---|---|
+| 2H (initial) | `2h` | 12.8% | 12.8% | 6.0% | ✅ matches 2H cell |
+| 4H | `4h` ✓ | 6.0% | 12.8% | 6.0% | ✅ matches 4H cell |
+| 2H (return) | `2h` ✓ | 12.8% | 12.8% | 6.0% | ✅ back to 2H |
+
+Description also recomputes: `100 MWh (2H)` → `200 MWh (4H)`. Live rate recomputes: €346/MW/day → €374/MW/day. Net/MW/yr recomputes: €115k → €128k.
+
+Verification protocol executed via chrome-devtools-mcp on dev server localhost:3000 with click + 3-4s wait + DOM read on each step.
+
 **Cross-card consistency check (rule #4) — Pause B fold-in:** `grep afrr_up_avg` surfaced two additional 0dp sites beyond the audit's flagged surfaces:
 
 - `HeroMarketNow.tsx:242` — `Math.round(afrr).toString()` → 8
