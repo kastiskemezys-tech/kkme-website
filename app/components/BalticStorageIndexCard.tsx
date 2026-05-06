@@ -306,11 +306,15 @@ export function BalticStorageIndexCard() {
         </div>
       )}
 
-      {/* Phase 18 — footnotes */}
+      {/* Phase 18 — footnotes; Phase 12.11 — explicit pending-coverage footnote */}
       <div className="card-footnotes">
         <div>
           <span className="card-footnotes__anchor">1</span>
           LT 2h composite: DA capture + balancing capacity reservation, daily VPS aggregate; {formatMonth(data.month)} computation. <a href="/methodology#kkme-baltic-storage-index">methodology</a>.
+        </div>
+        <div>
+          <span className="card-footnotes__anchor">2</span>
+          Coverage pending Phase 29.1 — engine extension queued (per-country DA capture + 5-product capacity-reservation extraction). LT 1h additionally requires sub-2h SOC physics not modeled by engine v7.3.
         </div>
       </div>
 
@@ -357,6 +361,9 @@ function Row({
         const v = values[d];
         const cs = coverage[d];
         const isComplete = cs === 'complete';
+        // Phase 12.11 — pending cells get an inline sup² anchor so the gap is
+        // visible without requiring a hover (mirrors LT 2h sup¹ pattern). The
+        // cursor:help tooltip is kept as the rich-disclosure layer.
         return (
           <div
             key={`${country}-${d}`}
@@ -374,6 +381,17 @@ function Row({
             }}
           >
             {formatEur(v)}
+            {!isComplete && (
+              <sup style={{
+                fontFamily: 'var(--font-serif)',
+                fontStyle: 'italic',
+                fontWeight: 400,
+                fontSize: 11,
+                marginLeft: 3,
+                color: 'var(--text-secondary)',
+                verticalAlign: 'super',
+              }}>2</sup>
+            )}
           </div>
         );
       })}

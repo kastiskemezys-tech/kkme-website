@@ -74,7 +74,28 @@ export function formatTimestamp(
   return formatAbsoluteUTC(ts);
 }
 
-export function freshnessLabel(updatedAt: string | number | Date | null | undefined): FreshnessState {
+// Phase 12.11 — calendar-today-in-EET helper.
+//
+// Per discipline rule #2 (no-hardcoded-temporal-label), the previous boundary
+// `hoursStale < 24 → TODAY` fires for any timestamp under 24h old regardless
+// of calendar day. Mid-morning EET, a late-yesterday EET timestamp would still
+// read TODAY — that's yesterday's data. We compare calendar days in
+// Europe/Vilnius (Baltic operator + reader audience) so the chip semantic
+// matches the chart-week the visitor is looking at.
+//
+// LIVE/RECENT bands still take precedence over the calendar check so a 2h-old
+// reading captured across an EET-midnight boundary still reads RECENT, not
+// STALE. The calendar gate only narrows the 6h–24h window.
+function isSameVilniusDay(tsMs: number, nowMs: number): boolean {
+  const fmt = (ms: number) =>
+    new Date(ms).toLocaleDateString('en-LT', { timeZone: 'Europe/Vilnius' });
+  return fmt(tsMs) === fmt(nowMs);
+}
+
+export function freshnessLabel(
+  updatedAt: string | number | Date | null | undefined,
+  now: number = Date.now(),
+): FreshnessState {
   const ts = parseTs(updatedAt);
   if (ts == null) {
     return {
@@ -85,7 +106,7 @@ export function freshnessLabel(updatedAt: string | number | Date | null | undefi
       absolute: '—',
     };
   }
-  const hoursStale = Math.max(0, (Date.now() - ts) / 3_600_000);
+  const hoursStale = Math.max(0, (now - ts) / 3_600_000);
   const absolute = formatAbsoluteUTC(ts);
   const age = formatAge(hoursStale);
 
@@ -93,7 +114,7 @@ export function freshnessLabel(updatedAt: string | number | Date | null | undefi
   let colorToken: string;
   if (hoursStale < 1) { label = 'LIVE'; colorToken = '--teal'; }
   else if (hoursStale < 6) { label = 'RECENT'; colorToken = '--text-secondary'; }
-  else if (hoursStale < 24) { label = 'TODAY'; colorToken = '--text-tertiary'; }
+  else if (hoursStale < 24 && isSameVilniusDay(ts, now)) { label = 'TODAY'; colorToken = '--text-tertiary'; }
   else if (hoursStale < 72) { label = 'STALE'; colorToken = '--amber'; }
   else { label = 'OUTDATED'; colorToken = '--rose'; }
 

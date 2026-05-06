@@ -765,7 +765,16 @@ export function HeroBalticMap() {
           <div style={{
             fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-tertiary)',
             textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px',
-          }}>BALTIC FLEX FLEET</div>
+          }}>
+            BALTIC FLEX FLEET
+            {/* Phase 12.11 — inline subscript so 822 MW reads as composed metric
+              without the visitor needing to hover for the tooltip. */}
+            <span style={{
+              fontFamily: 'var(--font-mono)', fontSize: '9px',
+              color: 'var(--text-muted)', textTransform: 'none',
+              letterSpacing: '0.02em', marginLeft: '6px', fontWeight: 400,
+            }}>(BESS + pumped hydro)</span>
+          </div>
           <div style={{
             fontFamily: 'var(--font-display)', fontSize: '24px', fontWeight: 500,
             color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums',

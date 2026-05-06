@@ -239,7 +239,7 @@ export function HeroMarketNow() {
           <button type="button" onClick={() => document.getElementById('revenue-drivers')?.scrollIntoView({ behavior: 'smooth' })} style={{ all: 'unset', cursor: 'pointer' }}>
             <MetricTile
               label="Balancing capacity reference"
-              value={afrr != null ? Math.round(afrr).toString() : '—'}
+              value={afrr != null ? afrr.toFixed(2) : '—'}
               unit="€/MW/h"
               size="standard"
               dataClass="proxy"
