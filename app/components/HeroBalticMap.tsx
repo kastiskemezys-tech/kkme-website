@@ -685,7 +685,7 @@ export function HeroBalticMap() {
       </div>
 
       {/* ═══ RIGHT COLUMN ═══ */}
-      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '8px', zIndex: 2, gridColumn: 3, gridRow: 1 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 'var(--space-xs)', zIndex: 2, gridColumn: 3, gridRow: 1 }}>
 
         {/* Block 1 — Revenue headline */}
         <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 0, padding: '12px 16px' }}>
@@ -709,7 +709,7 @@ export function HeroBalticMap() {
           <div style={{
             fontFamily: 'var(--font-display)', fontSize: '72px', fontWeight: 500,
             color: lr?.today_total_daily != null ? 'var(--text-primary)' : 'var(--text-ghost)',
-            lineHeight: 1, marginTop: '4px', fontVariantNumeric: 'tabular-nums',
+            lineHeight: 1, marginTop: 'var(--space-2xs)', fontVariantNumeric: 'tabular-nums',
           }}>
             {'€'}{fmt(lr?.today_total_daily)}
           </div>
@@ -771,14 +771,14 @@ export function HeroBalticMap() {
             color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums',
           }}>
             {fmt(totalOp)} MW
-            <span style={{ fontSize: '10px', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', fontWeight: 400, textTransform: 'uppercase', letterSpacing: '0.06em', marginLeft: '4px' }}>OPERATIONAL</span>
+            <span style={{ fontSize: '10px', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', fontWeight: 400, textTransform: 'uppercase', letterSpacing: '0.06em', marginLeft: 'var(--space-2xs)' }}>OPERATIONAL</span>
           </div>
           {countries && totalOp > 0 && (() => {
             const order = ['EE', 'LT', 'LV'] as const;
             const opacities = [0.5, 0.85, 0.35];
             return (
               <>
-                <div style={{ display: 'flex', gap: '1px', height: '8px', marginTop: '6px', marginBottom: '4px', borderRadius: '4px', overflow: 'hidden' }}>
+                <div style={{ display: 'flex', gap: '1px', height: '8px', marginTop: '6px', marginBottom: 'var(--space-2xs)', borderRadius: '4px', overflow: 'hidden' }}>
                   {order.map((k, i) => {
                     const c = countries[k];
                     if (!c) return null;
@@ -802,7 +802,7 @@ export function HeroBalticMap() {
               </>
             );
           })()}
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', textTransform: 'uppercase' }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-secondary)', marginTop: 'var(--space-2xs)', textTransform: 'uppercase' }}>
             + {fmt(fleet?.baltic_pipeline_mw)} MW PIPELINE
           </div>
           {(fleet?.baltic_quarantined_mw ?? 0) > 0 && (
@@ -817,7 +817,7 @@ export function HeroBalticMap() {
 
         {/* Block 3 — Key ratios */}
         <div style={{
-          display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '4px',
+          display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 'var(--space-2xs)',
         }}>
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 0, padding: '8px 10px', textAlign: 'center' }}>
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>S/D</div>
@@ -863,13 +863,13 @@ export function HeroBalticMap() {
           <span tabIndex={0} style={{
             fontFamily: 'var(--font-mono)', fontSize: '11px',
             color: 'var(--text-muted)', letterSpacing: '0.04em',
-            paddingRight: '24px',
+            paddingRight: 'var(--space-md)',
             outline: 'none',
           }}>{tickerText}</span>
           <span aria-hidden="true" style={{
             fontFamily: 'var(--font-mono)', fontSize: '11px',
             color: 'var(--text-muted)', letterSpacing: '0.04em',
-            paddingRight: '24px',
+            paddingRight: 'var(--space-md)',
           }}>{tickerText}</span>
         </div>
       </div>

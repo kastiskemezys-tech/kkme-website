@@ -250,10 +250,10 @@ function MetricCell({ label, value, sub, color, title, methodVersion }: {
     <div style={{ flex: 1, minWidth: 110 }} title={title}>
       <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
         fontFamily: "var(--font-mono)", textTransform: 'uppercase',
-        letterSpacing: '0.08em', marginBottom: 4 }}>
+        letterSpacing: '0.08em', marginBottom: 'var(--space-2xs)' }}>
         {label}
         {methodVersion && (
-          <sup style={{ marginLeft: 4, color: 'var(--lavender)',
+          <sup style={{ marginLeft: 'var(--space-2xs)', color: 'var(--lavender)',
             fontSize: '0.55rem', letterSpacing: '0.04em', top: '-0.35em',
             position: 'relative' }}>{methodVersion}</sup>
         )}
@@ -262,7 +262,7 @@ function MetricCell({ label, value, sub, color, title, methodVersion }: {
         fontSize: '1.25rem', fontFamily: 'var(--font-display)',
         fontWeight: 500, lineHeight: 1.1 }}>{value}</div>
       {sub && <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
-        fontFamily: "var(--font-mono)", marginTop: 4 }}>{sub}</div>}
+        fontFamily: "var(--font-mono)", marginTop: 'var(--space-2xs)' }}>{sub}</div>}
     </div>
   );
 }
@@ -306,7 +306,7 @@ function DurationOptimizer({ rec }: { rec: DurationRecommendation | undefined })
       borderRadius: 0,
     }} title={STORAGE_METRICS.DURATION_RECOMMENDATION.tooltip}>
       <div style={{ display: 'flex', justifyContent: 'space-between',
-        alignItems: 'baseline', marginBottom: 8 }}>
+        alignItems: 'baseline', marginBottom: 'var(--space-xs)' }}>
         <div style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-xs)',
           fontFamily: 'var(--font-mono)', textTransform: 'uppercase',
           letterSpacing: '0.08em' }}>
@@ -325,7 +325,7 @@ function DurationOptimizer({ rec }: { rec: DurationRecommendation | undefined })
       </div>
       <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
         fontFamily: 'var(--font-serif)', fontStyle: 'italic',
-        marginTop: 8, lineHeight: 1.35 }}>
+        marginTop: 'var(--space-xs)', lineHeight: 1.35 }}>
         {rec.note}
       </div>
     </div>
@@ -530,7 +530,7 @@ export function CyclesBreakdownChart({
       <div style={{
         display: 'flex',
         flexWrap: 'wrap',
-        gap: 8,
+        gap: 'var(--space-xs)',
         alignItems: 'baseline',
         fontFamily: 'var(--font-mono)',
         fontSize: 'var(--font-xs)',
@@ -538,7 +538,7 @@ export function CyclesBreakdownChart({
         fontVariantNumeric: 'tabular-nums',
       }}>
         {products.map(p => (
-          <span key={p.key} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <span key={p.key} style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2xs)' }}>
             <span style={{
               display: 'inline-block', width: 7, height: 7, borderRadius: 1.5,
               background: PRODUCT_COLOR[p.key], opacity: 0.78,
@@ -555,7 +555,7 @@ export function CyclesBreakdownChart({
         </span>
         {warrantyDef && (
           <span style={{
-            marginLeft: 4,
+            marginLeft: 'var(--space-2xs)',
             padding: '1px 6px',
             border: `1px solid ${warrantyDef.color}`,
             borderRadius: 2,
@@ -602,7 +602,7 @@ export function CalibrationFooter({ source }: { source: EngineCalibrationSource 
   ];
 
   return (
-    <div data-testid="calibration-footer" style={{ marginTop: 8 }}>
+    <div data-testid="calibration-footer" style={{ marginTop: 'var(--space-xs)' }}>
       <button
         type="button"
         onClick={() => setExpanded(v => !v)}
@@ -644,7 +644,7 @@ export function CalibrationFooter({ source }: { source: EngineCalibrationSource 
         <div
           data-testid="calibration-footer-detail"
           style={{
-            marginTop: 8,
+            marginTop: 'var(--space-xs)',
             padding: '10px 12px',
             border: '1px solid var(--border-subtle)',
             borderRadius: 4,
@@ -717,14 +717,14 @@ function AssumptionsPanel({ panel, rteCurve, calibrationSource }: {
         letterSpacing: '0.08em', marginBottom: 10 }}>
         Engine assumptions
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 14, rowGap: 8 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 14, rowGap: 'var(--space-xs)' }}>
         {/* RTE row — value + inline RteSparkline of the 18-yr decay curve */}
         {panel.rte && (
           <>
             <div style={{
               fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
               color: 'var(--text-muted)', whiteSpace: 'nowrap',
-              display: 'flex', alignItems: 'center', gap: 8,
+              display: 'flex', alignItems: 'center', gap: 'var(--space-xs)',
             }} title={panel.rte.note}>
               <span style={{ color: 'var(--text-primary)' }}>{panel.rte.label}</span>
               <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
@@ -1024,7 +1024,7 @@ function CannibalizationChart({ rows, codYear, CC }: {
         <Line data={data} plugins={[refLine]} options={options} />
       </div>
       <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
-        fontFamily: 'var(--font-mono)', marginTop: 4 }}>
+        fontFamily: 'var(--font-mono)', marginTop: 'var(--space-2xs)' }}>
         cpi at COD applied as multiplier on capacity + balancing revenue
       </div>
       <ChartTooltipPortal tt={tt} />
@@ -1089,7 +1089,7 @@ function DSCRPanel({ base, conservative, worstMonth, covenant }: {
           <div key={c.spec.variant} title={c.spec.tooltip}>
             <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
               fontFamily: 'var(--font-mono)', textTransform: 'uppercase',
-              letterSpacing: '0.08em', marginBottom: 4,
+              letterSpacing: '0.08em', marginBottom: 'var(--space-2xs)',
               opacity: c.muted ? 0.78 : 1 }}>
               {c.spec.label}
             </div>
@@ -1101,7 +1101,7 @@ function DSCRPanel({ base, conservative, worstMonth, covenant }: {
               </span>
             </div>
             <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
-              fontFamily: 'var(--font-mono)', marginTop: 4 }}>
+              fontFamily: 'var(--font-mono)', marginTop: 'var(--space-2xs)' }}>
               {c.spec.sublabel}
             </div>
             <div style={{ position: 'relative', height: 4, background: 'var(--border-card)',
@@ -1152,7 +1152,7 @@ function SensitivityTable({ matrix, currentCod, currentCapex }: {
     <div>
       <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
         fontFamily: "var(--font-mono)", textTransform: 'uppercase',
-        letterSpacing: '0.08em', marginBottom: 8 }}>{IRR_LABELS.unlevered.short} sensitivity</div>
+        letterSpacing: '0.08em', marginBottom: 'var(--space-xs)' }}>{IRR_LABELS.unlevered.short} sensitivity</div>
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr>
@@ -1201,10 +1201,10 @@ function MonthlyHeatmap({ months }: { months: BaseMonth[] }) {
     max > min ? 0.25 + 0.55 * (v - min) / (max - min) : 0.4;
 
   return (
-    <div style={{ marginTop: 16 }}>
+    <div style={{ marginTop: 'var(--space-sm)' }}>
       <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
         fontFamily: "var(--font-mono)", textTransform: 'uppercase',
-        letterSpacing: '0.08em', marginBottom: 8 }}>Observed monthly revenue (€k/MW)</div>
+        letterSpacing: '0.08em', marginBottom: 'var(--space-xs)' }}>Observed monthly revenue (€k/MW)</div>
       <div style={{ display: 'grid', gridTemplateColumns: `60px repeat(${months.length}, 1fr)`,
         gap: 2, fontSize: 'var(--font-xs)', fontFamily: "var(--font-mono)" }}>
         <div style={{ color: 'var(--text-muted)', padding: '4px 0' }}>Bal</div>
@@ -1231,7 +1231,7 @@ function MonthlyHeatmap({ months }: { months: BaseMonth[] }) {
         ))}
       </div>
       <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
-        fontFamily: "var(--font-mono)", marginTop: 4 }}>
+        fontFamily: "var(--font-mono)", marginTop: 'var(--space-2xs)' }}>
         {months[0]?.month} to {months[months.length - 1]?.month}</div>
     </div>
   );
@@ -1412,7 +1412,7 @@ function DrawerContent({ data }: { data: RevenueData }) {
   const head: React.CSSProperties = {
     color: 'var(--text-tertiary)', fontSize: 'var(--font-xs)',
     fontFamily: "var(--font-mono)", textTransform: 'uppercase',
-    letterSpacing: '0.1em', marginTop: 20, marginBottom: 8,
+    letterSpacing: '0.1em', marginTop: 20, marginBottom: 'var(--space-xs)',
   };
   const row: React.CSSProperties = {
     display: 'flex', justifyContent: 'space-between',
@@ -1506,7 +1506,7 @@ function DrawerContent({ data }: { data: RevenueData }) {
         }} />
       </div>
       <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
-        fontFamily: "var(--font-mono)", marginTop: 4 }}>
+        fontFamily: "var(--font-mono)", marginTop: 'var(--space-2xs)' }}>
         OEM LFP · 1 cycle/day · augmentation Y10</div>
 
       <div style={head}>Data sources</div>
@@ -1602,7 +1602,7 @@ export function RevenueCard() {
   const openDrawer = () => setDrawerKey(k => k + 1);
 
   return (
-    <div className="card--revenue" style={{ padding: 24, background: 'var(--bg-elevated)',
+    <div className="card--revenue" style={{ padding: 'var(--space-md)', background: 'var(--bg-elevated)',
       border: '1px solid var(--border-highlight)', borderRadius: 0 }}>
 
       {/* Headline */}
@@ -1632,7 +1632,7 @@ export function RevenueCard() {
             {data.system} · €{data.capex_eur_kwh}/kWh · COD {data.cod_year} · {data.scenario} · 20-yr unlevered DCF
           </div>
           <div style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)',
-            fontStyle: 'italic', color: 'var(--text-muted)', marginTop: 4 }}>
+            fontStyle: 'italic', color: 'var(--text-muted)', marginTop: 'var(--space-2xs)' }}>
             Year 1 built from {data.base_year.data_coverage.s1_months} months observed DA prices + {data.base_year.data_coverage.s2_months} months BTD activation data
           </div>
         </div>
@@ -1657,7 +1657,7 @@ export function RevenueCard() {
                 color: 'var(--text-muted)' }}>{fmtDate(lr.as_of)}</div>
               {dispatchNote && (
                 <div style={{ fontFamily: "var(--font-mono)", fontSize: '0.5625rem',
-                  color: 'var(--text-ghost)', marginTop: 4, lineHeight: 1.4 }}>
+                  color: 'var(--text-ghost)', marginTop: 'var(--space-2xs)', lineHeight: 1.4 }}>
                   {dispatchNote}
                 </div>
               )}
@@ -1667,7 +1667,7 @@ export function RevenueCard() {
       </div>
 
       {/* Controls */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 16,
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 'var(--space-sm)',
         paddingBottom: 12, borderBottom: '1px solid var(--border-card)' }}>
         <ControlGroup label="Dur" value={dur}
           options={[{ key: '2h', label: '2H' }, { key: '4h', label: '4H' }]}
@@ -1684,7 +1684,7 @@ export function RevenueCard() {
       </div>
 
       {/* Returns metrics — Project IRR + Equity IRR (7.7.1) + CFADS + Payback + LCOS + MOIC (7.7c) */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginBottom: 16 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-sm)', marginBottom: 'var(--space-sm)' }}>
         <MetricCell label={IRR_TILES.unlevered.label}
           value={formatNumber(data.project_irr, 'irr')}
           color={irrColor(data.project_irr)}
@@ -1716,7 +1716,7 @@ export function RevenueCard() {
       </div>
 
       {/* Duration optimizer + DSCR triple panel (7.7c + 7.7.2) */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-sm)', marginBottom: 'var(--space-sm)' }}>
         <DurationOptimizer rec={data.duration_recommendation} />
         <DSCRPanel base={data.min_dscr} conservative={data.min_dscr_conservative}
           worstMonth={data.worst_month_dscr} covenant={DEFAULT_DSCR_COVENANT} />
@@ -1735,19 +1735,19 @@ export function RevenueCard() {
       <div className="rv-main" style={{ display: 'grid', gridTemplateColumns: '5fr 3fr', gap: 20 }}>
         <div>
           <RevenueChart years={data.years} CC={CC} ts={ts} />
-          <div style={{ display: 'flex', gap: 16, marginTop: 8,
+          <div style={{ display: 'flex', gap: 'var(--space-sm)', marginTop: 'var(--space-xs)',
             fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
             color: 'var(--text-muted)' }}>
             <span><span style={{ display: 'inline-block', width: 8, height: 8,
-              borderRadius: 1, background: CC.teal, marginRight: 4 }} />Balancing</span>
+              borderRadius: 1, background: CC.teal, marginRight: 'var(--space-2xs)' }} />Balancing</span>
             <span><span style={{ display: 'inline-block', width: 8, height: 8,
-              borderRadius: 1, background: CC.amber, marginRight: 4 }} />Trading</span>
+              borderRadius: 1, background: CC.amber, marginRight: 'var(--space-2xs)' }} />Trading</span>
             <span style={{ borderBottom: '1px dashed var(--text-muted)', paddingBottom: 1 }}>OPEX</span>
             <span style={{ borderBottom: '1px dotted var(--text-muted)', paddingBottom: 1 }}>Fleet S/D</span>
           </div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
           <SensitivityTable matrix={data.matrix}
             currentCod={data.cod_year} currentCapex={data.capex_eur_kwh} />
           <DSCRChart monthly={data.monthly_y1} CC={CC} />
@@ -1759,7 +1759,7 @@ export function RevenueCard() {
 
       {/* Analytics row — degradation, sensitivity, cannibalization, backtest */}
       <div className="rv-analytics" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr',
-        gap: 24, marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--border-card)' }}>
+        gap: 'var(--space-md)', marginTop: 'var(--space-md)', paddingTop: 'var(--space-sm)', borderTop: '1px solid var(--border-card)' }}>
         <DegradationChart years={data.years} CC={CC} ts={ts} />
         <RevenueSensitivityTornado matrix={data.matrix}
           scenarios={{
@@ -1779,13 +1779,13 @@ export function RevenueCard() {
 
       {/* Disclosure */}
       <div style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)',
-        fontStyle: 'italic', color: 'var(--text-muted)', marginTop: 16 }}>
+        fontStyle: 'italic', color: 'var(--text-muted)', marginTop: 'var(--space-sm)' }}>
         Year 1 from observed market data, not modeled assumptions. Forward compression derived from S2 fleet trajectory. Not investment advice.
       </div>
 
       {/* Source footer */}
       <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
-        color: 'var(--text-muted)', marginTop: 8, opacity: 0.7, cursor: 'pointer' }}
+        color: 'var(--text-muted)', marginTop: 'var(--space-xs)', opacity: 0.7, cursor: 'pointer' }}
         onClick={openDrawer}>
         {data.model_version} · S1 €{si.s1_capture?.toFixed(0)}/MWh · S2 aFRR €{si.afrr_clearing?.toFixed(0)} · Euribor {si.euribor}% · {fmtDate(data.timestamp)}
       </div>
@@ -1804,7 +1804,7 @@ export function RevenueCard() {
           <div
             style={{
               fontFamily: 'var(--font-mono)', fontSize: '0.5625rem',
-              color: 'var(--text-muted)', marginTop: 4, opacity: 0.65, lineHeight: 1.5,
+              color: 'var(--text-muted)', marginTop: 'var(--space-2xs)', opacity: 0.65, lineHeight: 1.5,
             }}
             title="Replicate-the-IRR disclosure (Phase 12.10): without these inputs the headline IRR is not reproducible. Full assumptions panel + scenario alternatives in the drawer."
           >

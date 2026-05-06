@@ -94,7 +94,7 @@ export function S1Card() {
   // Loading / error state
   if (status === 'loading' && !cap) {
     return (
-      <article style={{ padding: '24px' }}>
+      <article style={{ padding: 'var(--space-md)' }}>
         <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>
           Loading DA capture data\u2026
         </p>
@@ -107,9 +107,9 @@ export function S1Card() {
   const monthly = cap.monthly ?? [];
 
   return (
-    <article style={{ padding: '24px' }}>
+    <article style={{ padding: 'var(--space-md)' }}>
       {/* ── 1. Header ───────────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)', flexWrap: 'wrap', marginBottom: '12px' }}>
         <span style={{
           fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
           color: 'var(--text-tertiary)', letterSpacing: '0.08em', textTransform: 'uppercase',
@@ -141,7 +141,7 @@ export function S1Card() {
       {stats && (
         <>
           <div style={{
-            padding: '10px 0', marginBottom: '4px',
+            padding: '10px 0', marginBottom: 'var(--space-2xs)',
             borderTop: '1px solid var(--border-subtle)', borderBottom: '1px solid var(--border-subtle)',
           }}>
             <div style={{
@@ -149,7 +149,7 @@ export function S1Card() {
               color: 'var(--text-muted)', textTransform: 'uppercase',
               letterSpacing: '0.10em', marginBottom: '6px',
             }}>30-day trailing distribution</div>
-            <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
               {([
                 ['mean', stats.mean],
                 ['p25', stats.p25],
@@ -265,7 +265,7 @@ function useRefreshFlash(isRefreshing: boolean): boolean {
 function LiveSignal({ updatedAt, source, flash }: { updatedAt?: string | null; source: string; flash: boolean }) {
   const fresh = freshnessLabel(updatedAt);
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
       <span
         className="pulse-dot"
         aria-label={updatedAt ? `Data ${fresh.age} (${fresh.label.toLowerCase()})` : 'Data freshness unknown'}
@@ -458,7 +458,7 @@ function Sparkline({ history, dur, stats, CC, pinned, onPin }: {
       <div
         role="status"
         style={{
-          display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap',
+          display: 'flex', alignItems: 'center', gap: 'var(--space-xs)', flexWrap: 'wrap',
           fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
           color: 'var(--text-secondary)',
           padding: '2px 0 10px',
@@ -517,7 +517,7 @@ function MonthlyChart({ monthly, dur, CC }: {
   const externalTooltip = useTooltipStyle(CC, { external: externalHandler });
 
   return (
-    <div style={{ marginBottom: '16px' }}>
+    <div style={{ marginBottom: 'var(--space-sm)' }}>
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '6px' }}>
         Monthly avg gross {dur} <DataClassBadge dataClass="derived" />
       </div>
@@ -573,7 +573,7 @@ function BridgeChart({ bridge, chargePrice, rte, CC }: {
   const fmtChargeEuro = (v: number): string => `€${Math.abs(v) < 0.5 ? v.toFixed(2) : Math.round(v)}`;
 
   return (
-    <div style={{ marginBottom: '16px' }}>
+    <div style={{ marginBottom: 'var(--space-sm)' }}>
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '6px' }}>
         Gross → Net bridge (2h)
       </div>
@@ -615,9 +615,9 @@ function BridgeChart({ bridge, chargePrice, rte, CC }: {
 function ShapeRow({ shape, refIso }: { shape: NonNullable<S1CaptureData['shape']>; refIso?: string | null }) {
   return (
     <div style={{
-      display: 'flex', gap: '16px', flexWrap: 'wrap',
+      display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap',
       fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)',
-      paddingTop: '8px', borderTop: '1px solid var(--border-subtle)',
+      paddingTop: 'var(--space-xs)', borderTop: '1px solid var(--border-subtle)',
     }}>
       <span>Peak {formatHourEET(shape.peak_hour, refIso)} {fmtEuro(shape.peak_price)}</span>
       <span>Trough {formatHourEET(shape.trough_hour, refIso)} {fmtEuro(shape.trough_price)}</span>

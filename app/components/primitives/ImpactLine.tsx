@@ -31,7 +31,7 @@ export function ImpactLine({ impact, description, twoH, fourH }: ImpactLineProps
       color: 'var(--text-tertiary)',
       display: 'flex',
       flexWrap: 'wrap',
-      gap: '4px',
+      gap: 'var(--space-2xs)',
       alignItems: 'baseline',
     }}>
       <span>Reference asset impact:</span>

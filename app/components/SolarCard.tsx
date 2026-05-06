@@ -65,15 +65,15 @@ export function SolarCard() {
 
   if (status === 'loading') {
     return (
-      <article style={{ padding: '24px' }}>
-        <div className="skeleton" style={{ height: '0.875rem', width: '35%', marginBottom: '8px' }} />
-        <div className="skeleton" style={{ height: '1.5rem', width: '30%', marginBottom: '8px' }} />
+      <article style={{ padding: 'var(--space-md)' }}>
+        <div className="skeleton" style={{ height: '0.875rem', width: '35%', marginBottom: 'var(--space-xs)' }} />
+        <div className="skeleton" style={{ height: '1.5rem', width: '30%', marginBottom: 'var(--space-xs)' }} />
         <div className="skeleton" style={{ height: '0.625rem', width: '50%' }} />
       </article>
     );
   }
   if (status === 'error' || !data) {
-    return <article style={{ padding: '24px' }}><p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Solar data unavailable</p></article>;
+    return <article style={{ padding: 'var(--space-md)' }}><p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Solar data unavailable</p></article>;
   }
 
   const mw = data.baltic_mw;
@@ -88,7 +88,7 @@ export function SolarCard() {
       </h3>
 
       {mw != null && (
-        <div style={{ marginBottom: '4px' }}>
+        <div style={{ marginBottom: 'var(--space-2xs)' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
             <MetricTile label="Baltic solar output" value={mw.toLocaleString()} unit="MW" size="hero" dataClass="observed" />
             <StatusChip status={solarLabel(trend, isNight)} sentiment={solarSentiment(trend, isNight)} />
@@ -100,28 +100,28 @@ export function SolarCard() {
         {solarInterpretation(trend, isNight, mw)}
       </p>
 
-      <div className="tier3-impact" style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--teal-medium)', marginBottom: '8px' }}>
+      <div className="tier3-impact" style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--teal-medium)', marginBottom: 'var(--space-xs)' }}>
         {solarImpact(trend, isNight, mw)}
       </div>
 
       {/* Cross-signal: causal hint */}
       {mw != null && mw < 10 && (
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: '8px' }}>
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: 'var(--space-xs)' }}>
           Seasonal — March Baltic solar minimal, no midday price suppression
         </p>
       )}
 
       <SourceFooter source="energy-charts.info" updatedAt={data.timestamp ? new Date(data.timestamp).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) : undefined} dataClass="observed" />
 
-      <div style={{ marginTop: '8px' }}>
+      <div style={{ marginTop: 'var(--space-xs)' }}>
         <DetailsDrawer label="View country breakdown">
           {avg != null && (
             <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '12px' }}>
               7D avg: {avg.toLocaleString()} MW
             </p>
           )}
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>Per-country generation</p>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', marginBottom: '16px' }}>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 'var(--space-xs)' }}>Per-country generation</p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 'var(--space-xs)', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', marginBottom: 'var(--space-sm)' }}>
             {(['LT', 'EE', 'LV'] as const).map(c => {
               const v = c === 'LT' ? data.lt_mw : c === 'EE' ? data.ee_mw : data.lv_mw;
               return (

@@ -17,10 +17,10 @@ export default function DrawerTabs({ tabs, active, onChange }: DrawerTabsProps) 
       role="tablist"
       style={{
         display: 'flex',
-        gap: '24px',
+        gap: 'var(--space-md)',
         borderBottom: '1px solid var(--border-card)',
         marginBottom: '20px',
-        marginTop: '8px',
+        marginTop: 'var(--space-xs)',
         paddingBottom: '0',
       }}
     >

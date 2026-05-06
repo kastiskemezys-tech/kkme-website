@@ -186,8 +186,8 @@ export function ChartTooltip({
           {secondary && secondary.length > 0 && (
             <div
               style={{
-                marginTop: 8,
-                paddingTop: 8,
+                marginTop: 'var(--space-xs)',
+                paddingTop: 'var(--space-xs)',
                 borderTop: '1px solid var(--border-subtle)',
                 display: 'grid',
                 gridTemplateColumns: 'auto 1fr',

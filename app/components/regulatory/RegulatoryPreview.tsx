@@ -24,7 +24,7 @@ export function RegulatoryPreview() {
   return (
     <div
       style={{
-        marginBottom: '32px',
+        marginBottom: 'var(--space-lg)',
         padding: '20px 0',
         borderTop: '1px solid var(--border-subtle)',
         borderBottom: '1px solid var(--border-subtle)',
@@ -35,8 +35,8 @@ export function RegulatoryPreview() {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'baseline',
-          gap: '16px',
-          marginBottom: '8px',
+          gap: 'var(--space-sm)',
+          marginBottom: 'var(--space-xs)',
           flexWrap: 'wrap',
         }}
       >
@@ -92,7 +92,7 @@ export function RegulatoryPreview() {
 
       <p
         style={{
-          marginTop: '16px',
+          marginTop: 'var(--space-sm)',
           fontFamily: 'var(--font-mono)',
           fontSize: '10px',
           color: 'var(--text-muted)',

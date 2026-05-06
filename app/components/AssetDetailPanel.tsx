@@ -208,7 +208,7 @@ export function AssetDetailPanel({ isOpen, onClose, title, subtitle, assets, not
         {/* Notes */}
         {notes && notes.length > 0 && (
           <div style={{
-            marginTop: '16px',
+            marginTop: 'var(--space-sm)',
             padding: '8px 10px',
             borderLeft: '2px solid var(--amber-subtle)',
           }}>
@@ -235,7 +235,7 @@ export function AssetDetailPanel({ isOpen, onClose, title, subtitle, assets, not
                 fontSize: 'var(--font-xs)',
                 color: 'var(--text-muted)',
                 lineHeight: 1.5,
-                marginBottom: '4px',
+                marginBottom: 'var(--space-2xs)',
                 opacity: 0.7,
               }}>
                 {a.name}: {a.note}

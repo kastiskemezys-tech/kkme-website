@@ -80,7 +80,7 @@ function Drawer({ id, title, open, onToggle, children }: { id: string; title: st
 function BreakdownBar({ label, rangeKwh, midKwh, scope, maxVal, isHV }: { label: string; rangeKwh: number[]; midKwh?: number | null; scope: string; maxVal: number; isHV?: boolean }) {
   const low = rangeKwh[0], high = rangeKwh[1];
   return (
-    <div style={{ display: 'flex', alignItems: 'center', marginBottom: '6px', gap: '8px' }}>
+    <div style={{ display: 'flex', alignItems: 'center', marginBottom: '6px', gap: 'var(--space-xs)' }}>
       <div style={{ width: '130px', flexShrink: 0, fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</div>
       <div style={{ width: '85px', flexShrink: 0, fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-primary)', textAlign: 'right' }}>€{low}–{high}</div>
       <div style={{ flex: 1, position: 'relative', height: '10px' }}>
@@ -187,8 +187,8 @@ export function S3Card() {
 
   const toggleDrawer = (id: string) => setOpenDrawers(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
-  if (status === 'loading') return <article style={{ padding: '24px' }}><div className="skeleton" style={{ height: '2rem', width: '45%', marginBottom: '10px' }} /><div className="skeleton" style={{ height: '80px', width: '100%' }} /></article>;
-  if (status === 'error' || !data) return <article style={{ padding: '24px' }}><p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Cost data unavailable</p></article>;
+  if (status === 'loading') return <article style={{ padding: 'var(--space-md)' }}><div className="skeleton" style={{ height: '2rem', width: '45%', marginBottom: '10px' }} /><div className="skeleton" style={{ height: '80px', width: '100%' }} /></article>;
+  if (status === 'error' || !data) return <article style={{ padding: 'var(--space-md)' }}><p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Cost data unavailable</p></article>;
 
   const d = data;
   const profile = d.cost_profiles?.[duration];
@@ -243,7 +243,7 @@ export function S3Card() {
       <article style={{ width: '100%' }}>
         <h3 style={{ fontFamily: 'var(--font-mono)', fontSize: '0.9375rem', color: 'var(--text-tertiary)', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600, marginBottom: '6px' }}>Installed BESS cost</h3>
         <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.75rem', color: 'var(--text-primary)' }}>€{d.europe_system_eur_kwh ?? 164}<span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>/kWh</span></div>
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '4px' }}>{d.ref_source ?? 'BNEF Dec 2025'} · installed reference</p>
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-2xs)' }}>{d.ref_source ?? 'BNEF Dec 2025'} · installed reference</p>
       </article>
     );
   }
@@ -252,16 +252,16 @@ export function S3Card() {
     <article style={{ width: '100%', display: 'flex', flexDirection: 'column', flex: 1 }}>
 
       {/* 1. HEADER */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--space-2xs)' }}>
         <div onClick={openDrawer} style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 500, cursor: 'pointer', transition: 'color 150ms' }} onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-secondary)')} onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-tertiary)')}>BESS cost &amp; technology</div>
         {confLevel.includes('degraded') && (
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--amber)', border: '1px solid var(--amber)', borderRadius: '3px', padding: '1px 6px' }}>{confLevel}</span>
         )}
       </div>
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '16px' }}>Installed cost reference · scope-adjusted range</div>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: 'var(--space-sm)' }}>Installed cost reference · scope-adjusted range</div>
 
       {/* 2. TOGGLES */}
-      <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: 'var(--space-sm)', marginBottom: 'var(--space-sm)', alignItems: 'center' }}>
         <div style={{ display: 'flex' }}>
           {(['2h', '4h'] as Duration[]).map(v => (
             <button key={v} onClick={() => setDuration(v)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 10px', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: duration === v ? 'var(--teal)' : 'var(--text-muted)', borderBottom: duration === v ? '1px solid var(--teal)' : '1px solid transparent', transition: 'color 0.15s, border-color 0.15s' }}>{v}</button>
@@ -279,8 +279,8 @@ export function S3Card() {
       {/* 3. HERO CAPEX */}
       <div style={{ marginBottom: '2px' }}>
         <span style={{ fontFamily: 'var(--font-display)', fontSize: '1.75rem', color: 'var(--text-primary)', fontWeight: 400, letterSpacing: '-0.02em' }}>€{capexRange[0]}–{capexRange[1]}</span>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', marginLeft: '4px' }}>/kWh</span>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', border: '1px dashed var(--border-highlight)', borderRadius: '3px', padding: '1px 6px', marginLeft: '8px', letterSpacing: '0.06em' }}>REFERENCE</span>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', marginLeft: 'var(--space-2xs)' }}>/kWh</span>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', border: '1px dashed var(--border-highlight)', borderRadius: '3px', padding: '1px 6px', marginLeft: 'var(--space-xs)', letterSpacing: '0.06em' }}>REFERENCE</span>
         <button onClick={handleCopy} title="Copy range" style={{ all: 'unset', cursor: 'pointer', marginLeft: '6px', opacity: copied ? 0.8 : 0.3, transition: 'opacity 0.15s', fontSize: '14px' }} onMouseEnter={e => (e.currentTarget.style.opacity = '0.8')} onMouseLeave={e => (e.currentTarget.style.opacity = copied ? '0.8' : '0.3')}>
           {copied ? '✓' : '📋'}
         </button>
@@ -292,20 +292,20 @@ export function S3Card() {
       {/* Basis timestamp removed — SourceFooter at bottom of card */}
 
       {/* RANGE EXPLANATION (dynamic from driver state) */}
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '4px' }}>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: 'var(--space-2xs)' }}>
         Range drivers: grid {gridSpread} · supplier ±10–15% · timing {timingSpread}
       </div>
 
       {/* INTERPRETATION (dynamic, decision-relevant) */}
       {interpretation && (
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '4px' }}>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: 'var(--space-2xs)' }}>
           {interpretation}
         </div>
       )}
 
       {/* DATA INTEGRITY WARNING */}
       {showIntegrityWarning && (
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--amber)', marginBottom: '4px' }}>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--amber)', marginBottom: 'var(--space-2xs)' }}>
           ⚠ limited data quality — interpretation may be degraded
         </div>
       )}
@@ -319,7 +319,7 @@ export function S3Card() {
         return (
           <div style={{ margin: '0 0 12px', padding: '10px 0', borderTop: '1px solid var(--border-card)', borderBottom: '1px solid var(--border-card)' }}>
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Observed market spread</div>
-            <div style={{ position: 'relative', height: '20px', marginBottom: '4px' }}>
+            <div style={{ position: 'relative', height: '20px', marginBottom: 'var(--space-2xs)' }}>
               <div style={{ position: 'absolute', left: 0, right: 0, top: '7px', height: '6px', background: 'var(--bg-elevated)', borderRadius: '3px' }} />
               <div style={{ position: 'absolute', left: `${pct(120)}%`, width: `${pct(euLow) - pct(120)}%`, top: '5px', height: '10px', background: 'var(--bar-fill-teal-mid)', borderRadius: '2px' }} />
               <div style={{ position: 'absolute', left: `${pct(euLow)}%`, width: `${pct(euHigh) - pct(euLow)}%`, top: '3px', height: '14px', background: 'var(--bar-fill-teal-band)', border: '1px solid var(--teal)', borderRadius: '2px' }} />
@@ -368,11 +368,11 @@ export function S3Card() {
       {/* 6. DRIVER CHIPS */}
       {drivers.length > 0 && (
         <>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '4px' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: 'var(--space-2xs)' }}>
             {drivers.map((drv, i) => {
               const stale = isComponentStale(drv.component, d.data_freshness);
               return (
-                <div key={i} onClick={() => setExpandedChip(expandedChip === i ? null : i)} style={{ background: 'var(--bg-elevated)', border: `1px solid ${expandedChip === i ? chipColor(drv.direction) : 'var(--border-card)'}`, borderRadius: '4px', padding: '4px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', transition: 'border-color 0.2s, opacity 0.2s', opacity: stale ? 0.35 : 1 }}>
+                <div key={i} onClick={() => setExpandedChip(expandedChip === i ? null : i)} style={{ background: 'var(--bg-elevated)', border: `1px solid ${expandedChip === i ? chipColor(drv.direction) : 'var(--border-card)'}`, borderRadius: '4px', padding: '4px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 'var(--space-2xs)', transition: 'border-color 0.2s, opacity 0.2s', opacity: stale ? 0.35 : 1 }}>
                   <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: chipColor(drv.direction) }}>{drv.symbol} {drv.driver}</span>
                   <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-muted)', letterSpacing: '1px' }}>{magDots(drv.magnitude)}</span>
                 </div>
@@ -380,14 +380,14 @@ export function S3Card() {
             })}
           </div>
           {expandedChip !== null && drivers[expandedChip] ? (
-            <div style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-xs)', fontStyle: 'italic', color: 'var(--text-muted)', marginBottom: '10px', lineHeight: 1.5, paddingLeft: '4px' }}>{drivers[expandedChip].detail}</div>
+            <div style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-xs)', fontStyle: 'italic', color: 'var(--text-muted)', marginBottom: '10px', lineHeight: 1.5, paddingLeft: 'var(--space-2xs)' }}>{drivers[expandedChip].detail}</div>
           ) : <div style={{ height: '10px' }} />}
         </>
       )}
 
       {/* 7. BREAKDOWN BARS */}
       <div style={{ borderTop: '1px solid var(--border-card)', paddingTop: '10px', marginBottom: '12px' }}>
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>Breakdown · mid-case · ranges vary by scope &amp; supplier</div>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 'var(--space-xs)' }}>Breakdown · mid-case · ranges vary by scope &amp; supplier</div>
         {bd.dc_block && <BreakdownBar label={bd.dc_block.label} rangeKwh={bd.dc_block.range_kwh!} midKwh={bd.dc_block.mid_kwh} scope={bd.dc_block.scope} maxVal={maxBarVal} />}
         {bd.bos_civil && <BreakdownBar label={bd.bos_civil.label} rangeKwh={bd.bos_civil.range_kwh!} midKwh={bd.bos_civil.mid_kwh} scope={bd.bos_civil.scope} maxVal={maxBarVal} />}
         {bd.pcs && (
@@ -402,13 +402,13 @@ export function S3Card() {
 
       {/* 8. LCOS REFERENCE */}
       {d.lcos_reference && (
-        <div style={{ borderTop: '1px solid var(--border-card)', paddingTop: '10px', marginBottom: '8px' }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '6px' }}>
+        <div style={{ borderTop: '1px solid var(--border-card)', paddingTop: '10px', marginBottom: 'var(--space-xs)' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-xs)', marginBottom: '6px' }}>
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>LCOS (reference)</span>
             <span style={{ fontFamily: 'var(--font-display)', fontSize: '1.125rem', color: 'var(--text-primary)' }}>€{d.lcos_reference.range_eur_mwh[0]}–{d.lcos_reference.range_eur_mwh[1]}</span>
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)' }}>/MWh</span>
           </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '6px' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2xs)', marginBottom: '6px' }}>
             {(() => { const a = d.lcos_reference.assumptions as Record<string, unknown>; return [
               `${(a.cycles_per_year as number[])?.[0]}–${(a.cycles_per_year as number[])?.[1]} cycles/yr`,
               `${(a.rte_pct as number[])?.[0]}–${(a.rte_pct as number[])?.[1]}% RTE`,
@@ -421,7 +421,7 @@ export function S3Card() {
       )}
 
       {/* 9. CROSS-LINKS */}
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', display: 'flex', gap: '16px', marginBottom: '16px' }}>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', display: 'flex', gap: 'var(--space-sm)', marginBottom: 'var(--space-sm)' }}>
         <span>Grid constraint → <a href="#build" onClick={e => { e.preventDefault(); document.getElementById('build')?.scrollIntoView({ behavior: 'smooth' }); }} style={{ color: 'var(--teal)', textDecoration: 'none' }}>S4</a></span>
         <span>Revenue impact → <a href="#revenue" onClick={e => { e.preventDefault(); document.getElementById('revenue')?.scrollIntoView({ behavior: 'smooth' }); }} style={{ color: 'var(--teal)', textDecoration: 'none' }}>Revenue Engine</a></span>
       </div>
@@ -435,14 +435,14 @@ export function S3Card() {
       />
 
       {/* DETAILS DRAWER */}
-      <div style={{ marginTop: '16px' }}>
+      <div style={{ marginTop: 'var(--space-sm)' }}>
         <DetailsDrawer key={drawerKey} label="View signal breakdown" defaultOpen={drawerKey > 0}>
 
       {/* ENRICHMENT STRIP */}
       {d.enrichment_annotations && d.enrichment_annotations.headlines.length > 0 && (
-        <div style={{ padding: '10px 0', borderTop: '1px solid var(--border-card)', marginBottom: '8px' }}>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>Recent intelligence · automated · {new Date(d.enrichment_annotations.enriched_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</div>
-          {d.enrichment_annotations.headlines.map((h, i) => <div key={i} style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '4px' }}>• {h.headline} <span style={{ color: 'var(--text-ghost)' }}>— {h.source}</span></div>)}
+        <div style={{ padding: '10px 0', borderTop: '1px solid var(--border-card)', marginBottom: 'var(--space-xs)' }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 'var(--space-xs)' }}>Recent intelligence · automated · {new Date(d.enrichment_annotations.enriched_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</div>
+          {d.enrichment_annotations.headlines.map((h, i) => <div key={i} style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: 'var(--space-2xs)' }}>• {h.headline} <span style={{ color: 'var(--text-ghost)' }}>— {h.source}</span></div>)}
           {d.enrichment_annotations.review_needed && <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--amber)', marginTop: '6px' }}>⚠ Range review recommended</div>}
         </div>
       )}
@@ -452,7 +452,7 @@ export function S3Card() {
       {/* A: Transactions */}
       {d.transactions && d.transactions.length > 0 && (
         <Drawer id="transactions" title="Baltic transaction evidence" open={openDrawers.has('transactions')} onToggle={toggleDrawer}>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--teal)', marginBottom: '8px' }}>Observed references (highest reliability)</div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--teal)', marginBottom: 'var(--space-xs)' }}>Observed references (highest reliability)</div>
           <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' as unknown as undefined }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', minWidth: '400px' }}>
               <thead><tr style={{ color: 'var(--text-tertiary)', textAlign: 'left' }}>
@@ -475,7 +475,7 @@ export function S3Card() {
               ))}</tbody>
             </table>
           </div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--amber)', marginTop: '8px', marginBottom: '6px' }}>⚠ do not average — scope varies widely</div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--amber)', marginTop: 'var(--space-xs)', marginBottom: '6px' }}>⚠ do not average — scope varies widely</div>
           <div style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.5 }}>Scope drives Baltic variance. Grid + substation can add 50–200% vs equipment-only.</div>
         </Drawer>
       )}
@@ -509,7 +509,7 @@ export function S3Card() {
         <Drawer id="players" title="Key players · watchlist" open={openDrawers.has('players')} onToggle={toggleDrawer}>
           {Object.entries({ 'CELLS / DC BLOCK': d.key_players.cells_dc, 'PCS / INVERTER': d.key_players.pcs, 'INTEGRATORS': d.key_players.integrators, 'HV EQUIPMENT': d.key_players.hv_equipment }).filter(([, v]) => v).map(([group, players]) => (
             <div key={group} style={{ marginBottom: '10px' }}>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>{group}</div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 'var(--space-2xs)' }}>{group}</div>
               {(players as Player[]).map(p => <div key={p.name} style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', marginBottom: '2px' }}><span style={{ color: 'var(--text-secondary)' }}>{p.name}</span><span style={{ color: 'var(--text-muted)' }}> · {p.hq} · {p.positioning}</span></div>)}
             </div>
           ))}
@@ -526,7 +526,7 @@ export function S3Card() {
             { header: 'POLICY', items: (d.policy_flags || []).map(f => `${f.name}: ${f.impact}. ${f.status}.`) },
           ].filter(s => s.items.length > 0).map(({ header, items }) => (
             <div key={header} style={{ marginBottom: '10px' }}>
-              <div style={{ fontSize: '0.5625rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>{header}</div>
+              <div style={{ fontSize: '0.5625rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 'var(--space-2xs)' }}>{header}</div>
               {items.map((item, i) => <div key={i} style={{ color: 'var(--text-secondary)', marginBottom: '2px' }}>{item}</div>)}
             </div>
           ))}
@@ -545,7 +545,7 @@ export function S3Card() {
             ['EU reference', `€${d.europe_system_eur_kwh ?? 164}/kWh (BNEF Dec 2025)`, 'var(--text-secondary)', 'installed benchmark', false],
           ].map(([label, val, color, note, stale]) => (
             <div key={label as string} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', borderBottom: '1px solid var(--border-card)', opacity: stale ? 0.35 : 1, transition: 'opacity 0.2s' }}>
-              <span style={{ color: 'var(--text-tertiary)' }}>{label}{note ? <span style={{ fontSize: '0.5625rem', color: 'var(--text-ghost)', marginLeft: '4px' }}>({note as string})</span> : null}</span>
+              <span style={{ color: 'var(--text-tertiary)' }}>{label}{note ? <span style={{ fontSize: '0.5625rem', color: 'var(--text-ghost)', marginLeft: 'var(--space-2xs)' }}>({note as string})</span> : null}</span>
               <span style={{ color: color as string }}>{val}</span>
             </div>
           ))}
@@ -598,7 +598,7 @@ export function S3Card() {
       </div>
 
       {/* MODEL INPUT FOOTER */}
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-ghost)', marginTop: '16px', paddingTop: '8px', borderTop: '1px solid var(--border-card)' }}>MODEL INPUT → CAPEX reference · Financing cost</div>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-ghost)', marginTop: 'var(--space-sm)', paddingTop: 'var(--space-xs)', borderTop: '1px solid var(--border-card)' }}>MODEL INPUT → CAPEX reference · Financing cost</div>
     </article>
   );
 }

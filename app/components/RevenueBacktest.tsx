@@ -165,7 +165,7 @@ export function RevenueBacktest({ rows, modeledY1Daily, scenario }: RevenueBackt
         <Line data={data} plugins={[refLine]} options={options} />
       </div>
       {haveStats ? (
-        <div style={{ marginTop: 4, fontSize: 'var(--font-xs)', fontFamily: 'var(--font-mono)' }}>
+        <div style={{ marginTop: 'var(--space-2xs)', fontSize: 'var(--font-xs)', fontFamily: 'var(--font-mono)' }}>
           <div style={{ color: 'var(--text-muted)' }}>
             Dashed: Y1 model anchor — €{Math.round(modeledY1Daily as number)}/MW/day,
             scenario &ldquo;{scenarioLabel}&rdquo;, conservative bias.
@@ -184,7 +184,7 @@ export function RevenueBacktest({ rows, modeledY1Daily, scenario }: RevenueBackt
         </div>
       ) : (
         <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
-          fontFamily: 'var(--font-mono)', marginTop: 4 }}>
+          fontFamily: 'var(--font-mono)', marginTop: 'var(--space-2xs)' }}>
           Backtest data not yet available.
         </div>
       )}

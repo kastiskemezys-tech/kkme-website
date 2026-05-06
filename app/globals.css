@@ -223,12 +223,15 @@
   --font-xl:   2rem;
   --font-2xl:  3rem;
 
-  /* Space scale */
-  --space-xs: 4px;
-  --space-sm: 8px;
-  --space-md: 16px;
-  --space-lg: 24px;
-  --space-xl: 48px;
+  /* Space scale (canonical 8-value t-shirt scale, Phase 7.7g-a-2). */
+  --space-2xs: 4px;
+  --space-xs:  8px;
+  --space-sm:  16px;
+  --space-md:  24px;
+  --space-lg:  32px;
+  --space-xl:  48px;
+  --space-2xl: 64px;
+  --space-3xl: 96px;
 
 }
 

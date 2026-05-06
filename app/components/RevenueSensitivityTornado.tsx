@@ -132,7 +132,7 @@ export function RevenueSensitivityTornado({
         })}
       </svg>
       <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
-        fontFamily: 'var(--font-mono)', marginTop: 4 }}>
+        fontFamily: 'var(--font-mono)', marginTop: 'var(--space-2xs)' }}>
         Base: mid CAPEX · COD 2028 · base scenario
       </div>
       <ChartTooltip

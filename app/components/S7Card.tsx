@@ -66,15 +66,15 @@ export function S7Card() {
 
   if (status === 'loading') {
     return (
-      <article style={{ padding: '24px' }}>
-        <div className="skeleton" style={{ height: '0.875rem', width: '40%', marginBottom: '8px' }} />
-        <div className="skeleton" style={{ height: '1.5rem', width: '30%', marginBottom: '8px' }} />
+      <article style={{ padding: 'var(--space-md)' }}>
+        <div className="skeleton" style={{ height: '0.875rem', width: '40%', marginBottom: 'var(--space-xs)' }} />
+        <div className="skeleton" style={{ height: '1.5rem', width: '30%', marginBottom: 'var(--space-xs)' }} />
         <div className="skeleton" style={{ height: '0.625rem', width: '50%' }} />
       </article>
     );
   }
   if (status === 'error' || !data) {
-    return <article style={{ padding: '24px' }}><p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Gas data unavailable</p></article>;
+    return <article style={{ padding: 'var(--space-md)' }}><p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Gas data unavailable</p></article>;
   }
 
   const regime = data.regime ?? data.signal;
@@ -86,7 +86,7 @@ export function S7Card() {
       </h3>
 
       {data.ttf_eur_mwh != null && (
-        <div style={{ marginBottom: '4px' }}>
+        <div style={{ marginBottom: 'var(--space-2xs)' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
             <MetricTile label="TTF day-ahead" value={data.ttf_eur_mwh.toFixed(1)} unit="€/MWh" size="hero" dataClass="observed" />
             <StatusChip status={regimeLabel(data.ttf_eur_mwh)} sentiment={regimeSentiment(regime)} />
@@ -98,7 +98,7 @@ export function S7Card() {
         {gasInterpretation(regime)}
       </p>
 
-      <div className="tier3-impact" style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--teal-medium)', marginBottom: '8px' }}>
+      <div className="tier3-impact" style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--teal-medium)', marginBottom: 'var(--space-xs)' }}>
         {gasImpact(regime)}
       </div>
 
@@ -109,7 +109,7 @@ export function S7Card() {
           fontSize: 'var(--font-xs)',
           color: 'var(--text-muted)',
           lineHeight: 1.5,
-          marginBottom: '8px',
+          marginBottom: 'var(--space-xs)',
         }}>
           Gas marginal cost: ~€{Math.round(data.ttf_eur_mwh * 1.667)}/MWh (at ~60% CCGT efficiency) · Sets P_high floor for arbitrage
         </p>
@@ -117,7 +117,7 @@ export function S7Card() {
 
       {/* Threshold bar with hover tooltip */}
       {data.ttf_eur_mwh != null && (
-        <div style={{ position: 'relative', marginBottom: '8px', cursor: 'default' }}
+        <div style={{ position: 'relative', marginBottom: 'var(--space-xs)', cursor: 'default' }}
           onMouseEnter={(e) => tt.show({
             label: 'TTF gas',
             value: data.ttf_eur_mwh!,
@@ -158,23 +158,23 @@ export function S7Card() {
 
       <SourceFooter source="energy-charts.info" updatedAt={formatTimestamp(data.timestamp)} dataClass="observed" />
 
-      <div style={{ marginTop: '8px' }}>
+      <div style={{ marginTop: 'var(--space-xs)' }}>
         <DetailsDrawer label="View gas detail">
           {history.length > 0 && (
-            <div style={{ marginBottom: '16px' }}>
-              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>Recent trend</p>
+            <div style={{ marginBottom: 'var(--space-sm)' }}>
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 'var(--space-xs)' }}>Recent trend</p>
               <Sparkline values={history} color="var(--series-gas)" width={200} height={40} />
             </div>
           )}
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>Thresholds</p>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 'var(--space-xs)' }}>Thresholds</p>
           <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.6 }}>
             HIGH &gt;50 €/MWh · ELEVATED &gt;30 · NORMAL 15–30 · LOW &lt;15
           </p>
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px', marginTop: '16px' }}>Methodology</p>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 'var(--space-xs)', marginTop: 'var(--space-sm)' }}>Methodology</p>
           <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.6 }}>
             TTF Dutch Title Transfer Facility — European gas benchmark. Source: energy-charts.info weekly EU gas prices. Updated every 4h.
           </p>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-ghost)', letterSpacing: '0.06em', marginTop: '16px' }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-ghost)', letterSpacing: '0.06em', marginTop: 'var(--space-sm)' }}>
             MODEL INPUT → P_high floor (gas marginal cost)
           </div>
         </DetailsDrawer>

@@ -73,15 +73,15 @@ export function S9Card() {
 
   if (status === 'loading') {
     return (
-      <article style={{ padding: '24px' }}>
-        <div className="skeleton" style={{ height: '0.875rem', width: '40%', marginBottom: '8px' }} />
-        <div className="skeleton" style={{ height: '1.5rem', width: '28%', marginBottom: '8px' }} />
+      <article style={{ padding: 'var(--space-md)' }}>
+        <div className="skeleton" style={{ height: '0.875rem', width: '40%', marginBottom: 'var(--space-xs)' }} />
+        <div className="skeleton" style={{ height: '1.5rem', width: '28%', marginBottom: 'var(--space-xs)' }} />
         <div className="skeleton" style={{ height: '0.625rem', width: '50%' }} />
       </article>
     );
   }
   if (status === 'error' || !data) {
-    return <article style={{ padding: '24px' }}><p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Carbon data unavailable</p></article>;
+    return <article style={{ padding: 'var(--space-md)' }}><p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Carbon data unavailable</p></article>;
   }
 
   return (
@@ -91,7 +91,7 @@ export function S9Card() {
       </h3>
 
       {data.eua_eur_t != null && (
-        <div style={{ marginBottom: '4px' }}>
+        <div style={{ marginBottom: 'var(--space-2xs)' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
             <MetricTile label="EUA carbon price" value={data.eua_eur_t.toFixed(1)} unit="€/t" size="hero" dataClass="observed" />
             <StatusChip status={regimeLabel(data.eua_eur_t)} sentiment={regimeSentiment(data.signal)} />
@@ -103,7 +103,7 @@ export function S9Card() {
         {carbonInterpretation(data.signal, data.eua_eur_t)}
       </p>
 
-      <div className="tier3-impact" style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--teal-medium)', marginBottom: '8px' }}>
+      <div className="tier3-impact" style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--teal-medium)', marginBottom: 'var(--space-xs)' }}>
         {carbonImpact(data.signal, data.eua_eur_t)}
       </div>
 
@@ -114,7 +114,7 @@ export function S9Card() {
           fontSize: 'var(--font-xs)',
           color: 'var(--text-muted)',
           lineHeight: 1.5,
-          marginBottom: '8px',
+          marginBottom: 'var(--space-xs)',
         }}>
           Carbon premium on gas gen: ~€{Math.round(data.eua_eur_t * 0.45)}/MWh (0.45 tCO₂/MWh)
           {ttfPrice != null && ` · Combined P_high floor: ~€${Math.round(ttfPrice * 1.667 + data.eua_eur_t * 0.45)}/MWh (gas + carbon)`}
@@ -123,7 +123,7 @@ export function S9Card() {
 
       {/* Threshold bar with hover tooltip */}
       {data.eua_eur_t != null && (
-        <div style={{ position: 'relative', marginBottom: '8px', cursor: 'default' }}
+        <div style={{ position: 'relative', marginBottom: 'var(--space-xs)', cursor: 'default' }}
           onMouseEnter={(e) => tt.show({
             label: 'EUA',
             value: data.eua_eur_t!,
@@ -173,23 +173,23 @@ export function S9Card() {
 
       <SourceFooter source="energy-charts.info" updatedAt={formatTimestamp(data.timestamp)} dataClass="observed" />
 
-      <div style={{ marginTop: '8px' }}>
+      <div style={{ marginTop: 'var(--space-xs)' }}>
         <DetailsDrawer label="View carbon detail">
           {history.length > 0 && (
-            <div style={{ marginBottom: '16px' }}>
-              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>Recent trend</p>
+            <div style={{ marginBottom: 'var(--space-sm)' }}>
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 'var(--space-xs)' }}>Recent trend</p>
               <Sparkline values={history} color="var(--series-carbon)" width={200} height={40} />
             </div>
           )}
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>BESS context</p>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 'var(--space-xs)' }}>BESS context</p>
           <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.6 }}>
             BESS peaker displacement breakeven: ~55 €/t. Above this, the carbon premium on gas generation strengthens the BESS arbitrage case.
           </p>
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px', marginTop: '16px' }}>Methodology</p>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 'var(--space-xs)', marginTop: 'var(--space-sm)' }}>Methodology</p>
           <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.6 }}>
             EU ETS European Allowance price (€/t CO₂). Source: energy-charts.info weekly. Updated every 4h.
           </p>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-ghost)', letterSpacing: '0.06em', marginTop: '16px' }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-ghost)', letterSpacing: '0.06em', marginTop: 'var(--space-sm)' }}>
             MODEL INPUT → P_high floor (carbon cost)
           </div>
         </DetailsDrawer>

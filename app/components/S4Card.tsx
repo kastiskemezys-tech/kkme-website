@@ -221,7 +221,7 @@ function StatusBadge({ status }: { status: string }) {
 function AssetRow({ asset }: { asset: CountryAsset }) {
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', gap: '8px',
+      display: 'flex', alignItems: 'center', gap: 'var(--space-xs)',
       padding: '6px 0', borderBottom: '1px solid var(--border-card)',
       fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
     }}>
@@ -273,10 +273,10 @@ export function S4Card() {
 
   if (status === 'loading') {
     return (
-      <article style={{ padding: '24px' }}>
+      <article style={{ padding: 'var(--space-md)' }}>
         <div className="skeleton" style={{ height: '1rem', width: '50%', marginBottom: '10px' }} />
-        <div className="skeleton" style={{ height: '2rem', width: '30%', marginBottom: '8px' }} />
-        <div className="skeleton" style={{ height: '0.75rem', width: '55%', marginBottom: '16px' }} />
+        <div className="skeleton" style={{ height: '2rem', width: '30%', marginBottom: 'var(--space-xs)' }} />
+        <div className="skeleton" style={{ height: '0.75rem', width: '55%', marginBottom: 'var(--space-sm)' }} />
         <div className="skeleton" style={{ height: '80px', width: '100%' }} />
       </article>
     );
@@ -284,7 +284,7 @@ export function S4Card() {
 
   if (status === 'error' || !data) {
     return (
-      <article style={{ padding: '24px' }}>
+      <article style={{ padding: 'var(--space-md)' }}>
         <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>
           Grid capacity data unavailable
         </p>
@@ -341,7 +341,7 @@ export function S4Card() {
   return (
     <article style={{ width: '100%', display: 'flex', flexDirection: 'column', flex: 1 }}>
       {/* HEADER */}
-      <div style={{ marginBottom: '16px' }}>
+      <div style={{ marginBottom: 'var(--space-sm)' }}>
         <h3
           onClick={openDrawer}
           style={{
@@ -372,14 +372,14 @@ export function S4Card() {
           fontFamily: 'var(--font-mono)',
           fontSize: 'var(--font-xs)',
           color: 'var(--text-tertiary)',
-          marginTop: '4px',
+          marginTop: 'var(--space-2xs)',
         }}>
           BESS buildability ledger · Lithuania · Latvia · Estonia
         </p>
       </div>
 
       {/* HERO — Baltic installed storage */}
-      <div style={{ marginBottom: '4px' }}>
+      <div style={{ marginBottom: 'var(--space-2xs)' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
           <MetricTile
             label="Baltic BESS installed (TSO-tracked)"
@@ -414,7 +414,7 @@ export function S4Card() {
           })()}
         </div>
         <p
-          style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '4px' }}
+          style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-2xs)' }}
           title={[
             ltLookup.as_of ? `LT ${formatMW(ltMw)} MW (${verifiedLabel(ltLookup) ?? 'unverified'})${ltLookup.source_url ? ` · ${ltLookup.source_url}` : ''}` : null,
             lvLookup.as_of ? `LV ${formatMW(lvMw)} MW (${verifiedLabel(lvLookup) ?? 'unverified'})${lvLookup.source_url ? ` · ${lvLookup.source_url}` : ''}` : null,
@@ -427,7 +427,7 @@ export function S4Card() {
       </div>
 
       {/* COUNTRY TABS */}
-      <div style={{ display: 'flex', gap: '2px', marginBottom: '16px' }}>
+      <div style={{ display: 'flex', gap: '2px', marginBottom: 'var(--space-sm)' }}>
         {(['LT', 'LV', 'EE'] as CountryTab[]).map(c => {
           const tabMw = c === 'LT' ? ltMw : c === 'LV' ? lvMw : eeMw;
           return (
@@ -457,7 +457,7 @@ export function S4Card() {
       </div>
 
       {/* TAB CONTENT — min height to prevent layout shift */}
-      <div style={{ minHeight: '180px', marginBottom: '16px' }}>
+      <div style={{ minHeight: '180px', marginBottom: 'var(--space-sm)' }}>
         {activeTab === 'LT' && (
           <>
             {/* LT — existing pipeline bar + credibility ladder */}
@@ -512,8 +512,8 @@ export function S4Card() {
       <div style={{
         display: 'grid',
         gridTemplateColumns: '1fr 1fr',
-        gap: '8px',
-        marginBottom: '16px',
+        gap: 'var(--space-xs)',
+        marginBottom: 'var(--space-sm)',
       }}>
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.6 }}>
           TSO reserved: {formatMW(tsoReservedMw)} MW / {formatMW(pipe?.tso_reserved_mwh ?? 3204)} MWh
@@ -535,7 +535,7 @@ export function S4Card() {
         fontSize: 'var(--font-xs)',
         color: 'var(--text-muted)',
         lineHeight: 1.8,
-        marginBottom: '16px',
+        marginBottom: 'var(--space-sm)',
         paddingLeft: '2px',
       }}>
         <div><span style={{ color: 'var(--teal)' }}>●</span> Connected / operational: {formatMW(installedMw)} MW</div>
@@ -635,7 +635,7 @@ export function S4Card() {
       <div style={{
         padding: '10px 12px',
         borderLeft: '1px solid var(--amber-subtle)',
-        marginBottom: '16px',
+        marginBottom: 'var(--space-sm)',
       }}>
         <p style={{
           fontFamily: 'var(--font-mono)',
@@ -653,7 +653,7 @@ export function S4Card() {
         fontFamily: 'var(--font-mono)',
         fontSize: 'var(--font-xs)',
         color: 'var(--teal-medium)',
-        marginBottom: '16px',
+        marginBottom: 'var(--space-sm)',
       }}>
         {pipelineImpactDesc(installedMw, tsoReservedMw)}
       </div>
@@ -671,11 +671,11 @@ export function S4Card() {
           }
         }
         return (
-          <div style={{ marginTop: '16px', borderTop: '1px solid var(--border-card)', paddingTop: '12px' }}>
+          <div style={{ marginTop: 'var(--space-sm)', borderTop: '1px solid var(--border-card)', paddingTop: '12px' }}>
             <div style={{
               fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
               color: 'var(--text-tertiary)', letterSpacing: '0.08em',
-              textTransform: 'uppercase', marginBottom: '8px',
+              textTransform: 'uppercase', marginBottom: 'var(--space-xs)',
             }}>
               Fleet tracker · {allEntries.length > 0 ? `${allEntries.length} projects` : ''} · {fl.sd_ratio?.toFixed(2)}× S/D
             </div>
@@ -691,7 +691,7 @@ export function S4Card() {
               </div>
             )}
             <div style={{
-              display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px',
+              display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 'var(--space-xs)',
               fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
             }}>
               <div title="All commissioned, grid-connected flex assets — BESS + pumped hydro (Kruonis 205 MW). Distinct from BESS-only registry total shown in the LT pipeline bar above.">
@@ -731,7 +731,7 @@ export function S4Card() {
       </button>
 
       {/* DETAILS DRAWER */}
-      <div style={{ marginTop: '16px' }}>
+      <div style={{ marginTop: 'var(--space-sm)' }}>
         <DetailsDrawer key={drawerKey} label="View signal breakdown" defaultOpen={drawerKey > 0}>
           {/* BESS pipeline detail */}
           <p style={{
@@ -740,7 +740,7 @@ export function S4Card() {
             color: 'var(--text-tertiary)',
             letterSpacing: '0.1em',
             textTransform: 'uppercase',
-            marginBottom: '8px',
+            marginBottom: 'var(--space-xs)',
           }}>
             BESS pipeline detail
           </p>
@@ -778,7 +778,7 @@ export function S4Card() {
             color: 'var(--text-tertiary)',
             letterSpacing: '0.1em',
             textTransform: 'uppercase',
-            marginBottom: '8px',
+            marginBottom: 'var(--space-xs)',
           }}>
             Grid headroom (all technologies, indicative)
           </p>
@@ -792,7 +792,7 @@ export function S4Card() {
               fontSize: 'var(--font-xs)',
               color: 'var(--text-muted)',
               lineHeight: 1.6,
-              marginBottom: '8px',
+              marginBottom: 'var(--space-xs)',
             }}>
               {data.grid_caveat || 'These figures cover ALL technologies (wind, solar, thermal, storage). Zonal values are non-additive per Litgrid methodology — real connection potential cannot be computed by summing zones.'}
             </p>
@@ -832,7 +832,7 @@ export function S4Card() {
             color: 'var(--text-tertiary)',
             letterSpacing: '0.1em',
             textTransform: 'uppercase',
-            marginBottom: '8px',
+            marginBottom: 'var(--space-xs)',
           }}>
             Sources
           </p>
@@ -858,7 +858,7 @@ export function S4Card() {
             color: 'var(--text-muted)',
             letterSpacing: '0.1em',
             textTransform: 'uppercase',
-            marginBottom: '4px',
+            marginBottom: 'var(--space-2xs)',
             opacity: 0.7,
           }}>
             Methodology

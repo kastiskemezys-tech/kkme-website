@@ -51,15 +51,15 @@ export function PeakForecastCard() {
 
   if (status === 'loading') {
     return (
-      <article style={{ padding: '24px' }}>
-        <div className="skeleton" style={{ height: '0.875rem', width: '45%', marginBottom: '8px' }} />
-        <div className="skeleton" style={{ height: '1.5rem', width: '40%', marginBottom: '8px' }} />
+      <article style={{ padding: 'var(--space-md)' }}>
+        <div className="skeleton" style={{ height: '0.875rem', width: '45%', marginBottom: 'var(--space-xs)' }} />
+        <div className="skeleton" style={{ height: '1.5rem', width: '40%', marginBottom: 'var(--space-xs)' }} />
         <div className="skeleton" style={{ height: '0.625rem', width: '55%' }} />
       </article>
     );
   }
   if (status === 'error' || !data) {
-    return <article style={{ padding: '24px' }}><p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Peak forecast data unavailable</p></article>;
+    return <article style={{ padding: 'var(--space-md)' }}><p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Peak forecast data unavailable</p></article>;
   }
 
   const swing = data.lt_daily_swing_eur_mwh ?? 0;
@@ -70,7 +70,7 @@ export function PeakForecastCard() {
 
   return (
     <article style={{ width: '100%' }}>
-      <h3 style={{ fontFamily: 'var(--font-mono)', fontSize: '0.9375rem', color: 'var(--text-tertiary)', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600, marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <h3 style={{ fontFamily: 'var(--font-mono)', fontSize: '0.9375rem', color: 'var(--text-tertiary)', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600, marginBottom: '6px', display: 'flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
         Peak Forecast
         <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: dotColor(swing, stats), display: 'inline-block' }} />
       </h3>
@@ -78,13 +78,13 @@ export function PeakForecastCard() {
       <div style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(1.5rem, 3vw, 1.75rem)', fontWeight: 400, color: 'var(--text-primary)', lineHeight: 1, letterSpacing: '0.02em', marginBottom: '2px' }}>
         {'\u20AC'}{swing.toFixed(0)}/MWh
       </div>
-      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '8px' }}>
+      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: 'var(--space-xs)' }}>
         Today&apos;s DA swing{pt ? ` · Peak ${formatHourEET(pt.peakHour, data.updated_at)} · Trough ${formatHourEET(pt.troughHour, data.updated_at)}` : ''}
       </p>
 
       {/* Peak/trough detail */}
       {pt && (
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', marginBottom: '8px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', marginBottom: 'var(--space-xs)', display: 'flex', flexDirection: 'column', gap: '2px' }}>
           <div>
             <span style={{ color: 'var(--rose)' }}>▲ Peak</span>
             <span style={{ color: 'var(--text-muted)', marginLeft: '6px' }}>{formatHourEET(pt.peakHour, data.updated_at)}</span>

@@ -104,7 +104,7 @@ export function MetricTile({
       style={{
         display: 'flex',
         flexDirection: 'column',
-        gap: '4px',
+        gap: 'var(--space-2xs)',
         position: showCorner ? 'relative' : undefined,
       }}
     >
@@ -139,7 +139,7 @@ export function MetricTile({
         {dataClass && <DataClassBadge dataClass={dataClass} />}
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-2xs)' }}>
         <span style={valueStyle}>
           {typeof value === 'number' ? value.toLocaleString() : value}
         </span>

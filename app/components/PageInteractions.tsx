@@ -100,7 +100,7 @@ function ShortcutHelpOverlay({ onClose }: { onClose: () => void }) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '24px',
+        padding: 'var(--space-md)',
       }}
     >
       <div
@@ -119,7 +119,7 @@ function ShortcutHelpOverlay({ onClose }: { onClose: () => void }) {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'baseline',
-          marginBottom: '16px',
+          marginBottom: 'var(--space-sm)',
         }}>
           <h2 id="shortcut-help-title" style={{
             fontFamily: 'var(--font-display)',

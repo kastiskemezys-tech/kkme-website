@@ -22,7 +22,7 @@ export function ConfidenceBadge({ level, reason }: ConfidenceBadgeProps) {
         color,
         display: 'inline-flex',
         alignItems: 'baseline',
-        gap: '4px',
+        gap: 'var(--space-2xs)',
       }}
       title={reason}
     >

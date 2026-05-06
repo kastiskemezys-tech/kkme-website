@@ -63,7 +63,7 @@ export function RegimeBarometer({
       style={{
         display: 'inline-flex',
         flexDirection: 'column',
-        gap: 4,
+        gap: 'var(--space-2xs)',
       }}
     >
       <svg

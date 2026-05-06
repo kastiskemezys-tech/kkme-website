@@ -53,7 +53,7 @@ export function SourceFooter({ source, sourceUrl, updatedAt, dataClass, methodol
       color: 'var(--text-muted)',
       display: 'flex',
       alignItems: 'center',
-      gap: '8px',
+      gap: 'var(--space-xs)',
       flexWrap: 'wrap',
       letterSpacing: '0.04em',
     }}>

@@ -112,7 +112,7 @@ export function ContactForm() {
               ...fieldStyle,
               appearance: 'none',
               cursor: 'pointer',
-              paddingRight: '32px',
+              paddingRight: 'var(--space-lg)',
             }}
           >
             <option value="" disabled>Select...</option>
@@ -254,7 +254,7 @@ export function ContactForm() {
       </div>
 
       {/* Submit */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '4px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', marginTop: 'var(--space-2xs)' }}>
         <button
           type="submit"
           disabled={status === 'sending'}
@@ -282,7 +282,7 @@ export function ContactForm() {
           fontFamily: 'var(--font-mono)',
           fontSize: 'var(--font-xs)',
           color: 'var(--rose)',
-          marginTop: '4px',
+          marginTop: 'var(--space-2xs)',
         }}>
           Something went wrong. Try emailing{' '}
           <a href="mailto:kastytis@kkme.eu" style={{ color: 'var(--teal)', textDecoration: 'none' }}>
@@ -297,7 +297,7 @@ export function ContactForm() {
         fontFamily: 'var(--font-mono)',
         fontSize: 'var(--font-xs)',
         color: 'var(--text-ghost)',
-        marginTop: '4px',
+        marginTop: 'var(--space-2xs)',
         letterSpacing: '0.03em',
       }}>
         Baltic storage conversations only. Usually replies within a couple of days.

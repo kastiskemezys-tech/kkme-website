@@ -79,15 +79,15 @@ export function S8Card() {
 
   if (status === 'loading') {
     return (
-      <article style={{ padding: '24px' }}>
-        <div className="skeleton" style={{ height: '0.875rem', width: '45%', marginBottom: '8px' }} />
-        <div className="skeleton" style={{ height: '1.5rem', width: '35%', marginBottom: '8px' }} />
+      <article style={{ padding: 'var(--space-md)' }}>
+        <div className="skeleton" style={{ height: '0.875rem', width: '45%', marginBottom: 'var(--space-xs)' }} />
+        <div className="skeleton" style={{ height: '1.5rem', width: '35%', marginBottom: 'var(--space-xs)' }} />
         <div className="skeleton" style={{ height: '0.625rem', width: '55%' }} />
       </article>
     );
   }
   if (status === 'error' || !data) {
-    return <article style={{ padding: '24px' }}><p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Interconnector data unavailable</p></article>;
+    return <article style={{ padding: 'var(--space-md)' }}><p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Interconnector data unavailable</p></article>;
   }
 
   const nbSig = data.nordbalt_signal ?? null;
@@ -102,13 +102,13 @@ export function S8Card() {
         Interconnectors
       </h3>
 
-      <div style={{ marginBottom: '4px' }}>
+      <div style={{ marginBottom: 'var(--space-2xs)' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
           <div>
             <p style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(1.5rem, 3vw, 1.75rem)', fontWeight: 400, color: dirColor(dominantSig), lineHeight: 1, letterSpacing: '0.02em', margin: 0 }}>
               {regimeLabel(dominantSig)}
             </p>
-            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '4px' }}>
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-2xs)' }}>
               LT cross-border balance
             </p>
           </div>
@@ -120,16 +120,16 @@ export function S8Card() {
         {flowInterpretation(dominantSig, nbSig, lpSig)}
       </p>
 
-      <div className="tier3-impact" style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--teal-medium)', marginBottom: '8px' }}>
+      <div className="tier3-impact" style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--teal-medium)', marginBottom: 'var(--space-xs)' }}>
         {flowImpact(dominantSig)}
       </div>
 
       <SourceFooter source="ENTSO-E Transparency" updatedAt={data.timestamp ? new Date(data.timestamp).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) : undefined} dataClass="observed" />
 
-      <div style={{ marginTop: '8px' }}>
+      <div style={{ marginTop: 'var(--space-xs)' }}>
         <DetailsDrawer label="View flow map and detail">
           {/* Corridor summary — moved from default view */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 12px', marginBottom: '16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 12px', marginBottom: 'var(--space-sm)' }}>
             {([
               ['NordBalt → SE4', data.nordbalt_avg_mw, nbSig],
               ['LitPol → PL', data.litpol_avg_mw, lpSig],
@@ -140,7 +140,7 @@ export function S8Card() {
               </div>
             ))}
           </div>
-          <div style={{ maxHeight: '200px', overflow: 'hidden', marginBottom: '16px' }}>
+          <div style={{ maxHeight: '200px', overflow: 'hidden', marginBottom: 'var(--space-sm)' }}>
             <BalticMap
               nordbalt_mw={data.nordbalt_avg_mw}
               nordbalt_dir={data.nordbalt_signal}
@@ -149,11 +149,11 @@ export function S8Card() {
               compact
             />
           </div>
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>Methodology</p>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 'var(--space-xs)' }}>Methodology</p>
           <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.6 }}>
             Net physical flows from ENTSO-E A11 document type. NordBalt (LT↔SE4) and LitPol (LT↔PL). Positive = LT importing. Updated every 4h.
           </p>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-ghost)', letterSpacing: '0.06em', marginTop: '16px' }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-ghost)', letterSpacing: '0.06em', marginTop: 'var(--space-sm)' }}>
             MODEL INPUT → Interconnector spread drag
           </div>
         </DetailsDrawer>

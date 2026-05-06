@@ -67,7 +67,7 @@ export function ConfidencePanel() {
             style={{
               display: 'grid',
               gridTemplateColumns: '140px 70px 50px 1fr',
-              gap: '8px',
+              gap: 'var(--space-xs)',
               alignItems: 'center',
               fontFamily: 'var(--font-mono)',
               fontSize: 'var(--font-xs)',
@@ -86,7 +86,7 @@ export function ConfidencePanel() {
         fontSize: '0.625rem',
         color: 'var(--text-muted)',
         lineHeight: 1.6,
-        marginTop: '16px',
+        marginTop: 'var(--space-sm)',
         opacity: 0.7,
       }}>
         Confidence grades reflect data provenance, not prediction accuracy.

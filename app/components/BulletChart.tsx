@@ -46,7 +46,7 @@ export function BulletChart({
 
   return (
     <div
-      style={{ fontFamily: 'var(--font-mono)', marginBottom: '8px', position: 'relative' }}
+      style={{ fontFamily: 'var(--font-mono)', marginBottom: 'var(--space-xs)', position: 'relative' }}
       onMouseEnter={() => setHoverHost(true)}
       onMouseLeave={() => { setHoverHost(false); tt.hide(); }}
     >

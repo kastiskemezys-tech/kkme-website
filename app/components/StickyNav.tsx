@@ -136,7 +136,7 @@ export default function StickyNav() {
               }}
             >{l.label}</a>
           ))}
-          <div style={{ padding: '10px 24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ padding: '10px 24px', display: 'flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
             <ThemeToggle />
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>Theme</span>
           </div>

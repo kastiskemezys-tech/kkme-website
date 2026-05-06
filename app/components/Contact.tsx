@@ -61,7 +61,7 @@ export function Contact() {
         fontWeight: 300,
         fontSize: '0.90rem',
         color: 'var(--text-tertiary)',
-        marginBottom: '16px',
+        marginBottom: 'var(--space-sm)',
         textAlign: 'center',
         letterSpacing: '0.02em',
       }}>

@@ -51,7 +51,7 @@ function LoadingSkeleton() {
   return (
     <div
       data-testid="datastate-loading"
-      style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+      style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-xs)' }}
     >
       <div className="skeleton" style={{ height: 12, width: '40%' }} />
       <div className="skeleton" style={{ height: 24, width: '70%' }} />
@@ -72,7 +72,7 @@ function ErrorState({ errorMessage, retry }: { errorMessage?: string; retry?: ()
         color: 'var(--text-tertiary)',
         display: 'flex',
         alignItems: 'center',
-        gap: 8,
+        gap: 'var(--space-xs)',
       }}
     >
       <span
