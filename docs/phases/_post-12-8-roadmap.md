@@ -9,15 +9,34 @@
 
 ## Currently active
 
-- **In flight:** none — operator at clean main. Tier 0 closed 2026-05-05; Tier 1 in progress (1 sub-phase shipped: Phase 7.7g-a-1).
-- **Next CC job (operator-pick — three eligible threads):**
-  1. **Gap #5 reconciliation** (~1-2h) — Phase 12.10 follow-up commit; investigates whether KKME's aFRR-down €5.03/MW/h is mislabel or methodology gap vs Clean Horizon's €340/MW/h. **Recommended first** — small, time-bounded, clears a Phase-30-flagged credibility risk before deeper Tier 1 work piles on.
-  2. **Phase 7.7g-a-2** (~1-2 days) — spacing tokens + rollout; continues the typography/foundation thread Phase 7.7g-a-1 just opened.
-  3. **Phase 12.12 #1+#2** (~2-3 days) — schema validation + freshness gates; opens the parallel data-integrity thread.
-- **Then:** remaining Phase 7.7g-a sub-phases (a-3 accent consolidation, a-4 Cormorant migration), then Phase 7.7g-b (5 primitives + card migration), then Phase 7.7g-c (rgba/hex regression cleanup + CI gate), then Tier 2 (Phase A chapter restructure) → Tier 3 (Phase B + 12) → Tier 4 (charts + connection) → Tier 5 (editorial) → Tier 6 (mobile + a11y) → Tier 7 (Phase 29 KKME Baltic Storage Index, **now unblocked** by Tier 0 closure).
+- **In flight:** Phase 12.10 follow-up (Gap #5 + EE A68/fleet boundary) — CC running 2026-05-05; prompt at `docs/phases/phase-12-10-followup-prompt.md`.
+- **Immediately after Phase 12.10 follow-up merge:** **Phase 12.10b — Post-follow-up housekeeping pass** (Cowork, ~30 min, single Cowork commit). Bundles documentation/memory hygiene that drifted across the heavy Tier 0 + Tier 1-start sprint:
+  1. Notion Tasks DB sync (Phases DB synced 2026-05-05 with 16 entries; Tasks DB at `8adc11357f784ecc9a76fb8cb3c2c185` is parallel-stale)
+  2. `CLAUDE.md` "Current phase" refresh (drifted again ~24h after Phase 12.10a refreshed it; should reflect Tier-1-in-progress state)
+  3. Memory updates: `reference_card_inventory.md` (post-Phase-12.9.1 chip semantics) + `reference_engine_audit.md` (post-Phase-7.7d-v7.3 + Phase-12.9 worker bundle)
+  4. `CLAUDE.md` add audit-credibility taxonomy table inline (currently only in roadmap §"Audit credibility taxonomy")
+  5. Verify merged-branches cleanup on origin (six branches from 2026-05-05 PRs)
+- **Then Tier 1 continues — operator-pick across three eligible threads:**
+  1. **Phase 7.7g-a-2** (~1-2 days) — spacing tokens + rollout; continues the typography/foundation thread Phase 7.7g-a-1 opened.
+  2. **Phase 12.12 #1+#2** (~2-3 days) — schema validation + freshness gates; opens the parallel data-integrity thread.
+  3. **Phase 29** (~4-6h) — KKME Baltic Storage Index; **now genuinely unblocked** once Phase 12.10 follow-up resolves Gap #5.
+- **Then:** remaining Phase 7.7g-a sub-phases (a-3 accent consolidation, a-4 Cormorant migration), then Phase 7.7g-b (5 primitives + card migration), then Phase 7.7g-c (rgba/hex regression cleanup + CI gate), then Tier 2 (Phase A chapter restructure) → Tier 3 (Phase B + 12) → Tier 4 (charts + connection) → Tier 5 (editorial) → Tier 6 (mobile + a11y).
 - **Parallel research track:** Phase 30 research deliverables shipped; Phase 29 (KKME Baltic Storage Index, ~4-6h) blocked on Gap #5 resolution — Phase 30's headline finding folds into the Phase 12.10 follow-up commit above.
 - **Phase 12.10 follow-up scope (NOT a new phase, folds into single commit when fired):** (a) Gap #5 — KKME aFRR-down €5.03/MW/h vs Clean Horizon €340/MW/h order-of-magnitude mismatch. Live-site review 2026-05-05 reinforced: actual market is €13.5/MW/h post Baltic-Continental integration Nov 2025; Clean Horizon's €340 likely measures something else. Investigation: "decode Clean Horizon denominator" not "fix KKME numerator." (b) EE A68/fleet boundary policy decision — Phase 12.12 #15 backlog; cross-link with Gap #5 since both involve definitional denominator issues.
-- **Roadmap last updated:** 2026-05-05 by Cowork (post-Phase-7.7g-a-1-merge audit pass: Phase 7.7g-a-1 → Shipped appendix; Phase 7.7g-a split into 4 sub-phase entries (a-1 [SHIPPED] / a-2 / a-3 / a-4); Currently-active flips to operator-pick across 3 eligible threads; audit-credibility taxonomy sub-tier refinement landed; Tier 1 totals line freshened)
+
+### Operator action items (visible tracking surface — currently scattered across handover backlogs)
+
+These are not phases (no CC code work). They're operator-only actions that need a single tracking surface so they don't drop:
+
+1. **Phase 12.9 deferred verification curls** [Session 33 backlog]:
+   - At any 4h cron tick post-2026-05-05-10:25-UTC: `curl -s https://kkme-fetch-s1.kastis-kemezys.workers.dev/s9 | jq .eua_trend` — confirm result is one of `'↑ rising' | '→ stable' | '↓ falling'` (or null if `s9_history` < 2 entries). If null with ≥2 history entries, file Phase 12.9.4 follow-up.
+   - After next operator `POST /da_tomorrow/update` push: `curl -s https://kkme-fetch-s1.kastis-kemezys.workers.dev/health | jq '.signals."da_tomorrow:lastgood"'` — confirm transitions `missing` → `present`. If still missing, file Phase 12.9.4 follow-up.
+2. **Phase 12.9.1 production chip visual confirmation** — open kkme.eu Returns/S2/S4/S7/S9 cards; confirm chips render quantitative (`+45% / P50` etc.), not editorial (`STABLE` / `HIGH`). If old chips visible, Cloudflare Pages cache may be stuck.
+3. **Phase 12.9.3 default duration production confirmation** — open kkme.eu Returns card; confirm 2h is the on-load default (toggle still offers 4h).
+4. **Methodology paper destination decision** — `/methodology` route (Phase 30 recommended) vs Phase A inline drawer. `docs/methodology.md` is render-ready either way; deciding unblocks Phase A architecture decisions.
+5. **Merged-branches cleanup on origin** — six branches from 2026-05-05 PRs likely still on origin (`phase-12-9-1-brand-discipline`, `phase-12-9-2-s8-timestamp`, `phase-12-9-3-default-duration-2h`, `phase-4g-intel-encoding`, `phase-12-10a-claude-md-discipline`, `phase-7-7g-a-1-token-audit`). One-click delete per branch on GitHub web UI; or `git push origin --delete <branch>` per branch.
+
+- **Roadmap last updated:** 2026-05-05 by Cowork (added: Phase 12.10b post-follow-up housekeeping bundle, Operator-action-items tracking surface, Phase 12.12 #17 VPS daily_intel.py mirror; Phase 12.13 #6 sequencing note clarifying dependency on Phase 7.7g-b `<Chart>` primitive)
 
 ---
 
@@ -292,6 +311,7 @@ Defensive guards + CardBoundary upgrade. Ships preventive hardening (audit's tra
 14. **Quarantine-rule taxonomy review** [Phase 12.10 backlog]. The contradiction detector in `workers/fetch-s1.js` `detectContradictions()` flags Kruonis PSP `_quarantine` because its `source` doesn't match `/TSO|Litgrid|.../i` despite the entry being explicitly `type: 'pumped_hydro'` and Litgrid-confirmed operational. The flag is correct for behind-the-meter BESS but produces false positives on the operational pumped-hydro entry. Refine the C-01 rule to honour `type: 'pumped_hydro'` as a separate evidentiary category. This will move ~205 MW from `quarantined_mw` to `operational_mw_strict` for LT — ahead of any UI that surfaces strict by default in a hard-cutover way.
 15. **A68 vs fleet `under_construction` boundary review (EE +92 MW gap)** [Phase 12.10 backlog]. ENTSO-E A68 (B25 = battery storage, Elering for EE) returns 218 MW vs KKME fleet 126.5 MW commissioned. The ~92 MW delta is BSP Hertz 2 (100 MW under construction) reported by Elering as installed for transparency purposes. Decide which boundary KKME tracks: strict-commissioned (reject Hertz 2 from the headline until first operational evidence) or A68-aligned (treat Elering's classification as authoritative). `storage_by_country.EE.coverage_note` discloses the gap in current state.
 16. **Curation ingestion encoding-passthrough audit** [Phase 4G backlog]. `POST /curate` accepts operator-pasted strings as-given. Phase 4G found 1 production item (`cur_mo87wkt8-65w5pc`) where upstream encoding mangling (`\xc4\x97` UTF-8 ė interpreted as cp1257 → ÄŠ) carried through KKME unchanged. Decide: (a) detect mojibake patterns at write-time and reject with helpful error; (b) auto-attempt UTF-8 round-trip recovery on common Lithuanian/Latvian patterns; (c) pass through but mark `_encoding_suspect: true` for visual amber-disclosure on intel-feed cards. Recommendation: (a) reject + helpful error guides operator to clean-paste; cheapest, no recovery-heuristic risk.
+17. **VPS `daily_intel.py` repo mirror** [Phase 4G #3d operator-deferred]. Phase 4G shipped a defensive `resp.encoding = 'utf-8'` to 3 `requests.get` sites in VPS `/opt/kkme/app/sync/daily_intel.py` via `scp`, but did NOT mirror the post-fix script to `scripts/vps/daily_intel.py` per the Phase 12.10 precedent (which DID mirror `fetch_entsoe_installed_capacity.py`). VPS-only state is audit hygiene tech debt: no version control, no diff against future changes, no rollback if VPS dies. Mirror the current VPS version to repo + add a `scripts/vps/README.md` documenting the scp deploy convention. Estimate: ~30 min via Cowork (scp current state, commit, document).
 
 **Acceptance:** schema-drift detection live; staleness chips visible; reconciliation cron running nightly; quarantine flag enforced (incl. pumped-hydro carve-out from C-01); named-entity verification active; generic-source filter active; CI gates failing on time-of-day hardcodes + cross-card metric divergence; A68/fleet boundary policy chosen + documented.
 
@@ -404,7 +424,7 @@ Components currently use raw px inline (`padding: '8px'`, `margin: '4px'`) inste
 3. `<EventAnnotation>` primitive (extends Phase 7.7g `<Chart>` wrapper) — vertical dashed line + tooltip on time-series charts
 4. Wire into S1 DA chart, dispatch chart, capture chart
 5. Editorial extension: events of type `regulatory` operator-pushed via `POST /events` (UPDATE_SECRET-gated)
-6. **Hover granularity** [NEW per operator review 2026-05-05]: every time-series chart's hover tooltip exposes the underlying tick at native resolution. S2/BTD has 15-min resolution → hover surfaces 15-min ticks (not just monthly aggregate); S1/ENTSO-E DA has hourly resolution → hover surfaces hourly ticks (not daily aggregate). Currently both render aggregates only. Sub-implementation: `<Chart>` wrapper (Phase 7.7g) gets `hoverGranularity?: 'native' | 'aggregate'` prop, defaults to `'native'`. Cards that bucket for visual density still render aggregates but expose underlying ticks on hover.
+6. **Hover granularity** [NEW per operator review 2026-05-05]: every time-series chart's hover tooltip exposes the underlying tick at native resolution. S2/BTD has 15-min resolution → hover surfaces 15-min ticks (not just monthly aggregate); S1/ENTSO-E DA has hourly resolution → hover surfaces hourly ticks (not daily aggregate). Currently both render aggregates only. Sub-implementation: `<Chart>` wrapper (Phase 7.7g) gets `hoverGranularity?: 'native' | 'aggregate'` prop, defaults to `'native'`. Cards that bucket for visual density still render aggregates but expose underlying ticks on hover. **Sequencing dependency:** this sub-item is BLOCKED on Phase 7.7g-b shipping the `<Chart>` primitive — until then, the live site has aggregate-only hovers. Operator decision implicit: accept the aggregate-only-hover live state until 7.7g-b ships.
 **Estimate:** ~7-9h (was 6-8h; +1h for hover granularity primitive).
 **Sequence:** depends on Phase A's `<Chart>` primitive. Ship as soon as Phase A lands.
 **Acceptance:** today's price chart shows vertical line for any Baltic outage in last 7 days; hovering shows detail. No more unexplained spikes.
@@ -566,7 +586,7 @@ Components currently use raw px inline (`padding: '8px'`, `margin: '4px'`) inste
 | Tier | Phases | Days |
 |---|---|---|
 | 0 — Bug fixes + data integrity | 12.8 [SHIPPED] · 12.8.0 [SHIPPED] · 12.10.0 [SHIPPED] · 12.10 [SHIPPED] · 12.8.1 [SHIPPED] · 12.9 [SHIPPED] · 12.9.1 [SHIPPED] · 12.9.2 [SHIPPED] · 12.9.3 [SHIPPED] · 4G [SHIPPED] · 12.10a [SHIPPED] | **TIER CLOSED 2026-05-05** |
-| 1 — Foundation | 12.12 · 7.7g-a-1 [SHIPPED] · 7.7g-a-2 · 7.7g-a-3 · 7.7g-a-4 · 7.7g-b · 7.7g-c | ~12-15 days |
+| 1 — Foundation | 12.12 (16 sub-items + #17 daily_intel.py mirror) · 7.7g-a-1 [SHIPPED] · 7.7g-a-2 · 7.7g-a-3 · 7.7g-a-4 · 7.7g-b · 7.7g-c · **12.10b** (post-follow-up housekeeping, ~30 min Cowork) | ~12-15 days |
 | 2 — Chapter restructure | A | ~5 days |
 | 3 — Two moments of presence | B · 12 | ~10 days |
 | 4 — Connection + content | 7.7f · 12.13 · D · 11 · C | ~12-14 days |
