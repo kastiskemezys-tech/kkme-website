@@ -9,12 +9,15 @@
 
 ## Currently active
 
-- **In flight:** none — operator at clean main. **TIER 0 CLOSED 2026-05-05.**
-- **Next CC job:** Tier 1 begins. Phase 12.12 (data integrity infrastructure, 16 sub-items, ~7-10 days) and Phase 7.7g (token rebuild + 5-primitive system, ~12-15 days, splits into 7.7g-a / 7.7g-b / 7.7g-c) run in parallel — different files, different concerns. Both unlock Tier 2+. Author the Phase 12.12 prompt OR the Phase 7.7g-a prompt next (operator decision: which thread starts first; recommend 7.7g-a since the 5-primitive system unblocks card-rebuild work that Tier 2's chapter restructure depends on).
-- **Then:** Tier 2 (Phase A — five-chapter restructure) → Tier 3 (Phase B + 12) → Tier 4 (charts + connection) → Tier 5 (editorial) → Tier 6 (mobile + a11y) → Tier 7 (Phase 29 — KKME Baltic Storage Index, after Tier 0 closes per original sequencing).
-- **Parallel research track:** Phase 30 research deliverables shipped; Phase 29 (KKME Baltic Storage Index, ~4-6h) **now unblocked** by Tier 0 closure — informed by Phase 30 findings (esp. Gap #5 aFRR/FCR cap reservation reconciliation, which folds into Tier 1's first Phase 12.10 follow-up commit).
-- **Phase 12.10 follow-up (NOT a new phase):** Gap #5 — KKME's published aFRR-down €5.03/MW/h is order-of-magnitude lower than Clean Horizon's €340/MW/h Baltic average. **Operator live-site review 2026-05-05 reinforced: actual market is at €13.5/MW/h post Baltic-Continental integration Nov 2025; Clean Horizon's €340 likely measures something else.** Investigation re-framed: not "fix KKME numerator" but "decode Clean Horizon denominator." Folds into Tier 1's early Phase 12.10 follow-up commit.
-- **Roadmap last updated:** 2026-05-05 by Cowork (post-Phase-12.10a-merge: Phase 12.10a → Shipped appendix; **Tier 0 CLOSED**; Currently-active flips to Tier 1 starting state)
+- **In flight:** none — operator at clean main. Tier 0 closed 2026-05-05; Tier 1 in progress (1 sub-phase shipped: Phase 7.7g-a-1).
+- **Next CC job (operator-pick — three eligible threads):**
+  1. **Gap #5 reconciliation** (~1-2h) — Phase 12.10 follow-up commit; investigates whether KKME's aFRR-down €5.03/MW/h is mislabel or methodology gap vs Clean Horizon's €340/MW/h. **Recommended first** — small, time-bounded, clears a Phase-30-flagged credibility risk before deeper Tier 1 work piles on.
+  2. **Phase 7.7g-a-2** (~1-2 days) — spacing tokens + rollout; continues the typography/foundation thread Phase 7.7g-a-1 just opened.
+  3. **Phase 12.12 #1+#2** (~2-3 days) — schema validation + freshness gates; opens the parallel data-integrity thread.
+- **Then:** remaining Phase 7.7g-a sub-phases (a-3 accent consolidation, a-4 Cormorant migration), then Phase 7.7g-b (5 primitives + card migration), then Phase 7.7g-c (rgba/hex regression cleanup + CI gate), then Tier 2 (Phase A chapter restructure) → Tier 3 (Phase B + 12) → Tier 4 (charts + connection) → Tier 5 (editorial) → Tier 6 (mobile + a11y) → Tier 7 (Phase 29 KKME Baltic Storage Index, **now unblocked** by Tier 0 closure).
+- **Parallel research track:** Phase 30 research deliverables shipped; Phase 29 (KKME Baltic Storage Index, ~4-6h) blocked on Gap #5 resolution — Phase 30's headline finding folds into the Phase 12.10 follow-up commit above.
+- **Phase 12.10 follow-up scope (NOT a new phase, folds into single commit when fired):** (a) Gap #5 — KKME aFRR-down €5.03/MW/h vs Clean Horizon €340/MW/h order-of-magnitude mismatch. Live-site review 2026-05-05 reinforced: actual market is €13.5/MW/h post Baltic-Continental integration Nov 2025; Clean Horizon's €340 likely measures something else. Investigation: "decode Clean Horizon denominator" not "fix KKME numerator." (b) EE A68/fleet boundary policy decision — Phase 12.12 #15 backlog; cross-link with Gap #5 since both involve definitional denominator issues.
+- **Roadmap last updated:** 2026-05-05 by Cowork (post-Phase-7.7g-a-1-merge audit pass: Phase 7.7g-a-1 → Shipped appendix; Phase 7.7g-a split into 4 sub-phase entries (a-1 [SHIPPED] / a-2 / a-3 / a-4); Currently-active flips to operator-pick across 3 eligible threads; audit-credibility taxonomy sub-tier refinement landed; Tier 1 totals line freshened)
 
 ---
 
@@ -39,8 +42,9 @@ Three audit categories with different empirical track records. Apply different t
 | Category | Audits | Reliability | Triage rule |
 |---|---|---|---|
 | **Visual-inference** | #2, #3 | ~25% (3 of 4 claims hallucinated — percentile, keyboard, light-mode) | **Hypothesis to investigate, NOT bug to fix.** Code-grep + screenshot + git-log triangulation BEFORE scoping fix |
-| **Primary-source cross-check** | #4, #5 | ~95%+ (verified by Cowork curl + independent corroboration) | **Authoritative.** Ship the fix; verification mostly redundant |
-| **Inventory / catalogue** | #6, #7 | n/a (research deliverables, not critiques) | **Filter against consolidated-revision principles** ("denser-not-broader"). Most defer; high-leverage minority incorporates |
+| **Primary-source cross-check WITH citation** | #4, #5 | ~95%+ (verified by Cowork curl + independent corroboration) | **Authoritative.** Ship the fix; verification mostly redundant |
+| **Primary-source cross-check WITHOUT citation** | (none in current set, but the category exists for future audits) | ~80% (claim is plausible but unverifiable without operator effort) | **Verify-then-ship.** Cowork curl OR ask operator to confirm before scoping; if curl/confirm agrees → ship; if disagrees → escalate |
+| **Inventory / catalogue** | #6, #7 | n/a (research deliverables, not critiques) | **Filter against consolidated-revision principles** ("denser-not-broader"). Most defer; high-leverage minority incorporates. **Caveat from Phase 4G:** even inventory-style audits can carry empirically-false premises (audit #6's cp1257 claim was wrong); apply audit-triage rule at scope time |
 
 This taxonomy belongs in `CLAUDE.md` working-discipline section — see Phase 12.10a.
 
@@ -294,13 +298,19 @@ Defensive guards + CardBoundary upgrade. Ships preventive hardening (audit's tra
 #### Phase 7.7g — Token rebuild + 5-primitive system
 **Why:** Foundation that everything else sits on. Consolidated revision is more disciplined than my prior version: explicit small numbers, no aspirational tokens.
 
-**Splits into three sub-phases (formal):**
+**Splits into seven sub-phases.** Phase 7.7g-a was originally scoped as a single 5-7 day phase but split into 4 sub-phases at session-start of Tier 1 (2026-05-05) per audit-vs-reality findings — significant pre-existing infrastructure (16 primitives, comprehensive `formatNumber()` in `app/lib/format.ts`, 6 next/font fonts loaded with 3 dead, 5+ accent colors with rgba variants) means the work is "audit + drop + extend" not "build from scratch."
 
-##### Phase 7.7g-a — Tokens + numberFormat (~5-7 days)
-1. **Typography:** 5 sizes only (hero, section, card-title, body, caption). 2 weights (regular, medium). Drop Cormorant serif for prose; single sans-serif throughout. Mono only for tabular numerals + labels. Pixel KKME mark for wordmark only. **OPERATOR DECISION REQUIRED — see Decisions section.**
-2. **Spacing:** 8 values (4, 8, 16, 24, 32, 48, 64, 96 px). Nothing else.
-3. **Accent colors:** 3 semantic (positive, warning, negative). Current teal does 4 jobs — one job moves to underline/solid fill.
-4. **`numberFormat.ts`** — integers for MW; 1 decimal for ratios; no decimals for %; thin-space before unit; comma thousands separators.
+##### Phase 7.7g-a-1 — Drop dead font triplet [SHIPPED 2026-05-05 PR #60 → commits `cc36e42` + `5b08c15`]
+6 next/font/google loaders (Cormorant, DM Mono, Unbounded, Fraunces, JetBrains Mono, Inter) → 3 (Cormorant, DM Mono, Unbounded). Dead `--type-*` ramp at globals.css:238-244 dropped (orphan-by-association); `app/lib/__tests__/typography.test.ts` deleted (Phase-8.2-era monument that pinned the dead system in place; 6/8 assertions broke on drop). 927 → 919 tests (pure subtraction). No visual change. Bytes-on-wire reduction every page load. Two in-session scope extensions, both operator-approved after triangulation. Process artifact: the `grep -v __tests__` filter in verify-before-act was the wrong default for declaration removal — tests pin systems; recurring-error memory updated.
+
+##### Phase 7.7g-a-2 — Spacing tokens + rollout (~1-2 days)
+Components currently use raw px inline (`padding: '8px'`, `margin: '4px'`) instead of CSS variables. Roll out 8-value spacing scale (4 / 8 / 16 / 24 / 32 / 48 / 64 / 96 px) via `--space-*` token additions; migrate component inline-px to tokens; CI grep gate forbids new raw px in component padding/margin.
+
+##### Phase 7.7g-a-3 — Accent color consolidation (~1-2 days)
+5 accents (purple / green / teal / rose / amber) + ~15 rgba variants → 3 semantic (`--positive` / `--warning` / `--negative`) + 1 brand `--accent`. Map current usages, migrate component references, drop dead variants. CI grep gate forbids new accent declarations outside the 4-token canonical set.
+
+##### Phase 7.7g-a-4 — Cormorant migration + size system reduction (~1 day)
+**Operator decision recorded 2026-05-05: drop Cormorant entirely.** 39 `tier3-interp` usages migrate to `var(--font-body)` (resolves to system-ui sans-serif fallback after Inter is dropped per 7.7g-a-1; alternative target is DM Mono — CC verifies what's loaded in `app/layout.tsx` and picks). Drop `--font-serif` token + Cormorant next/font loader. Reduce font-size scale 6 → 5 (drop or repurpose `--font-2xl`).
 
 ##### Phase 7.7g-b — Five primitives + card migration (~5-7 days)
 5. **Build 5 primitive components,** every card rebuilt from these:
@@ -556,7 +566,7 @@ Defensive guards + CardBoundary upgrade. Ships preventive hardening (audit's tra
 | Tier | Phases | Days |
 |---|---|---|
 | 0 — Bug fixes + data integrity | 12.8 [SHIPPED] · 12.8.0 [SHIPPED] · 12.10.0 [SHIPPED] · 12.10 [SHIPPED] · 12.8.1 [SHIPPED] · 12.9 [SHIPPED] · 12.9.1 [SHIPPED] · 12.9.2 [SHIPPED] · 12.9.3 [SHIPPED] · 4G [SHIPPED] · 12.10a [SHIPPED] | **TIER CLOSED 2026-05-05** |
-| 1 — Foundation | 12.12 · 7.7g (a/b/c) | ~12-15 days |
+| 1 — Foundation | 12.12 · 7.7g-a-1 [SHIPPED] · 7.7g-a-2 · 7.7g-a-3 · 7.7g-a-4 · 7.7g-b · 7.7g-c | ~12-15 days |
 | 2 — Chapter restructure | A | ~5 days |
 | 3 — Two moments of presence | B · 12 | ~10 days |
 | 4 — Connection + content | 7.7f · 12.13 · D · 11 · C | ~12-14 days |
@@ -619,6 +629,7 @@ This document is the planning layer; `docs/handover.md` is the canonical state-o
 - **Phase 12.9.3** — Default duration 4h → 2h [SHIPPED 2026-05-05 → commits `ec85338` + `6d4922c`] — 927 tests (no new); 3-line frontend flip across `RevenueCard.tsx:1528`, `S3Card.tsx:180`, `HeroBalticMap.tsx:123`. KKME audience defaults to 2h economics (most contracted Baltic BESS is 2h; financing assumptions converge faster on 2h). 4h remains as toggle option. No worker deploy.
 - **Phase 4G** — Intel feed encoding + count cleanup [SHIPPED 2026-05-05 → commits `8e14a5f` + `72f8379`] — 927 tests (no new); IntelFeed badge + View-all link converged on `allItems.length` denominator (option (a)) at `IntelFeed.tsx:1311`; defensive `resp.encoding = 'utf-8'` added to 3 `requests.get` sites in VPS `daily_intel.py` (scp'd, not mirrored to repo); 1 production mojibake item purged via `POST /feed/delete-by-id` (cur_mo87wkt8-65w5pc). **Audit-vs-reality finding (load-bearing):** Phase 4G's premise — that `daily_intel.py` URL-decodes as cp1257/latin-1 — was empirically false. Repo + VPS grep for `unquote | cp1257 | latin-1` → zero matches. Live litgrid scrape returns charset=utf-8 and decodes correctly. The 1 mojibake item came via `POST /curate` (operator-pasted), with `\xc4\x97` (UTF-8 ė) interpreted as cp1257 → ÄŠ upstream of KKME entirely. Same audit-vs-reality pattern as Phase 12.8.0 light-mode investigation. **Actual scope ~20 min vs estimate ~1.5h.** Curation-encoding investigation queued as Phase 12.12 #16.
 - **Phase 12.10a** — CLAUDE.md discipline patch [SHIPPED 2026-05-05 → commits `f15a371` + `68ef9ba`] — 927 tests (no new); CLAUDE.md +19 / -2 added "Discipline rules" section codifying six rules (audit-triage, no-hardcoded-temporal-label, named-entity verification, cross-card consistency, roadmap edit-conflict, no-editorial-state-label) with origin-incident traces; "Current phase" section refreshed from stale Phase-2B-1 reference to Tier-0-closing state. Documentation-only, no code/worker change. **Closes Tier 0.**
+- **Phase 7.7g-a-1** — Drop dead font triplet [SHIPPED 2026-05-05 PR #60 → commits `cc36e42` + `5b08c15`] — 927 → 919 tests (pure subtraction); 6 next/font fonts → 3 in `app/layout.tsx`; dead `--type-*` ramp + dead Phase-8.2-era `typography.test.ts` removed (both orphan-by-association). Two in-session scope extensions operator-approved after triangulation. **First Tier 1 sub-phase shipped.** Process artifact: recurring-error memory updated re: `grep -v __tests__` is wrong default for declaration removal.
 
 (more populated as phases close)
 
