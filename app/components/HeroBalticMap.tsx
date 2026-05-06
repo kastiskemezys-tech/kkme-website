@@ -353,13 +353,6 @@ export function HeroBalticMap() {
       </div>
 
     <section className="hero-section" style={{
-      display: 'grid',
-      gridTemplateColumns: 'minmax(260px, 300px) minmax(540px, 620px) minmax(260px, 300px)',
-      gridTemplateRows: '1fr 6px 40px',
-      minHeight: '680px',
-      maxHeight: '900px',
-      gap: '36px',
-      padding: '24px 48px 48px',
       background: 'var(--hero-bg)',
       overflow: 'hidden',
       position: 'relative',
@@ -412,7 +405,7 @@ export function HeroBalticMap() {
         position: 'relative', display: 'flex', alignItems: 'center',
         justifyContent: 'center', overflow: 'hidden', gridColumn: 2, gridRow: 1,
       }}>
-        <div style={{
+        <div className="hero-map-wrapper" style={{
           position: 'relative',
           height: '100%',
           aspectRatio: `${MAP_WIDTH} / ${MAP_HEIGHT}`,
@@ -440,7 +433,7 @@ export function HeroBalticMap() {
             ref={svgRef}
             viewBox={`0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`}
             preserveAspectRatio="xMidYMid meet"
-            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', overflow: 'hidden' }}
           >
             {/* Cable motion paths */}
             <defs>

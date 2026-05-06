@@ -132,7 +132,7 @@ function Toggle({ options, value, onChange }: {
   return (
     <div style={{ display: 'flex', gap: 2 }}>
       {options.map(o => (
-        <button key={o.key} onClick={() => onChange(o.key)} style={{
+        <button key={o.key} onClick={() => onChange(o.key)} className="tap-target-mobile" style={{
           padding: '3px 10px', fontSize: 'var(--font-sm)',
           fontFamily: "var(--font-mono)", cursor: 'pointer',
           border: '1px solid',
@@ -140,7 +140,7 @@ function Toggle({ options, value, onChange }: {
           borderRadius: 3,
           background: value === o.key ? 'var(--teal-bg)' : 'transparent',
           color: value === o.key ? 'var(--teal)' : 'var(--text-secondary)',
-          transition: 'all 0.15s',
+          transition: 'background var(--motion-fast), color var(--motion-fast), border-color var(--motion-fast)',
         }}>{o.label}</button>
       ))}
     </div>

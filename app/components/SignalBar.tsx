@@ -105,10 +105,7 @@ export default function SignalBar() {
   }
 
   return (
-    <div style={{
-      display: 'grid',
-      gridTemplateColumns: `repeat(${signals.length}, 1fr)`,
-      gap: 'var(--space-sm)',
+    <div className="kpi-ticker" style={{
       padding: '8px 32px',
       borderBottom: '1px solid var(--bg-elevated)',
       background: 'var(--nav-bg)',
@@ -119,10 +116,14 @@ export default function SignalBar() {
           type="button"
           onClick={() => scrollTo(s.label)}
           title={(s as { tooltip?: string }).tooltip}
+          className="kpi-tile tap-target-mobile"
           style={{
-            all: 'unset',
-            display: 'flex',
-            flexDirection: 'column',
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            font: 'inherit',
+            color: 'inherit',
+            textAlign: 'left',
             gap: '2px',
             cursor: 'pointer',
           }}

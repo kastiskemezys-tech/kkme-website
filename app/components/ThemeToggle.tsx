@@ -55,7 +55,7 @@ export function ThemeToggle({ variant = 'nav' }: ThemeToggleProps) {
       onClick={toggle}
       aria-label={`Switch to ${isDark ? 'light' : 'dark'} theme`}
       title={`Switch to ${isDark ? 'light' : 'dark'} theme`}
-      className={isHero ? 'theme-toggle-hero' : undefined}
+      className={isHero ? 'theme-toggle-hero' : 'tap-target-mobile'}
       style={isHero ? {
         background: 'none',
         border: 'none',

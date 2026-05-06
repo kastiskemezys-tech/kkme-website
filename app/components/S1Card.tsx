@@ -322,14 +322,14 @@ function DurationToggle({ value, onChange }: { value: Duration; onChange: (d: Du
   return (
     <span style={{ display: 'inline-flex', gap: '2px', marginLeft: 'auto' }}>
       {(['2h', '4h'] as const).map(d => (
-        <button key={d} onClick={() => onChange(d)} style={{
+        <button key={d} onClick={() => onChange(d)} className="tap-target-mobile" style={{
           padding: '2px 8px', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
           cursor: 'pointer', border: '1px solid',
           borderColor: value === d ? 'var(--teal)' : 'var(--border-card)',
           borderRadius: '3px',
           background: value === d ? 'var(--teal-bg)' : 'transparent',
           color: value === d ? 'var(--teal)' : 'var(--text-secondary)',
-          transition: 'all 0.15s',
+          transition: 'background var(--motion-fast), color var(--motion-fast), border-color var(--motion-fast)',
         }}>{d}</button>
       ))}
     </span>
