@@ -36,6 +36,15 @@ This is a living document. Methodology changes are date-stamped at the bottom; c
 
 All public-source data is fetched, parsed, and stored in operator-owned PostgreSQL (Hetzner VPS) with full historical record. Snapshots POST to the Cloudflare Worker for frontend serving. The pattern is auditable end-to-end: every displayed number traces to a raw source response with timestamp.
 
+### Installed-capacity definitions (LT / LV / EE)
+
+KKME tracks two parallel installed-capacity views per Baltic country:
+
+- **Commissioned (canonical, default headline).** The operator-curated fleet tracker in `workers/fetch-s1.js` `processFleet`, where each entry has explicit commissioning evidence (TSO confirmation, public press release with operational date, or equivalent). Surfaced via `/s4.storage_by_country.{LT,LV,EE}.installed_mw`. This is the value used everywhere the "what's actually generating revenue today" framing applies — Returns calculations, fleet density tiles, S/D-ratio denominator.
+- **TSO-transparency (ENTSO-E A68).** Surfaced as `/s4.storage_by_country.{LT,LV,EE}.installed_mw_live`, backed by the VPS-Python live-fetch shipped in Phase 12.10 (`scripts/vps/fetch_entsoe_installed_capacity.py`, populated daily). A68 returns whatever capacity the TSO classifies as "installed" for European-uniform transparency reporting, which can include capacity under construction. Estonia is the load-bearing example: Elering reports BSP Hertz 2 (100 MW under construction) as installed for transparency, contributing to A68's 218 MW vs the fleet tracker's 126.5 MW commissioned — a ~92 MW definitional gap, disclosed verbatim in `storage_by_country.EE.coverage_note`.
+
+KKME's policy is **strict-commissioned**: headlines and revenue calculations use the commissioned view; the A68 view is an audit-trail companion, not a substitute. This boundary is codified here so future contributors can audit the choice rather than drift toward A68-aligned headlines, which would overstate operational fleet for revenue-anchor purposes.
+
 ## Revenue model
 
 KKME computes BESS revenue from per-product participation in the day-ahead market and four ancillary service products (FCR, aFRR-up, aFRR-down, mFRR-up, mFRR-down). The architecture mirrors Clean Horizon's COSMOS framework on dimensions both tools expose; see the [comparison document](https://github.com/kastiskemezys-tech/kkme-website/blob/main/docs/research/clean-horizon-methodology-vs-kkme-v7.3.md) for a per-dimension verdict.
@@ -95,7 +104,9 @@ mfrr_cap_revenue  = mw × 0.50 × mfrr_clearing_per_mw_per_h × 24 × 365 × ava
 
 Clearing prices come from BTD's `price_procured_reserves` dataset, country-filtered to Lithuania (or Latvia/Estonia where relevant). Availability factor `avail = 0.94 - 0.97` per scenario captures realistic uptime against the 100 % theoretical maximum.
 
-Note on aFRR direction: Baltic markets clear aFRR-up and aFRR-down separately. KKME's headline currently sums both directions (aFRR P50 = up + down combined) — methodology disclosure under revision in Phase 12.10. A BESS sized to provide both directions captures both revenues; a BESS provided to one direction only captures roughly half. Disclosure is in progress; readers comparing KKME to single-direction benchmarks (such as Clean Horizon's reported "aFRR Capacity Reservation average prices €77/MW/h for UP and €340/MW/h for DOWN regulation") should apply a 1:1 mapping per direction rather than KKME's combined number.
+Note on aFRR direction: Baltic markets clear aFRR-up and aFRR-down separately. KKME's S2 hero displays the up+down combined value (explicit "up+down combined" chip on `S2Card`) and exposes one-direction values (`afrr_up_avg`, `afrr_down_avg`) on the sub-line beneath it. A BESS sized to provide both directions captures both revenues; a BESS provided to one direction only captures roughly half. Readers comparing KKME to single-direction benchmarks should use the one-direction sub-line values, not the combined headline.
+
+Note on time-window comparability with Clean Horizon's published Baltic averages: Clean Horizon's June 2025 [Baltic S1 2025 Price Forecasts](https://www.cleanhorizon.com/news/baltic-s1-2025-price-forecasts-released/) reported aggregate-Baltic capacity-reservation averages of "€77/MW/h for UP and €340/MW/h for DOWN regulation" since the ancillary-service market launch in April 2025. Those numbers cover an early-launch window (April–mid-June 2025, ~2–3 months, aggregate-Baltic) and are not directly comparable to KKME's `afrr_up_avg` / `afrr_down_avg` for two reasons. First, the launch window predates two material step-changes: (a) progressive market deepening through summer 2025 — Clean Horizon's own [October 2025 update](https://www.cleanhorizon.com/news/storage-index-european-bess-market-update-october-2025/) reports Estonia aFRR capacity prices fell from €116/MW/h in August 2025 to €75/MW/h in September 2025, a ~1.5× compression before any synchronisation event; (b) Baltic-Continental synchronisation in November 2025, which collapsed Baltic capacity-reservation clearing prices by a further ~8× as the islanded balancing market joined the wider Continental zone. KKME's current values (rolling 7-day mean of BTD `price_procured_reserves` Lithuania capacity-reservation €/MW/h, last 9 days through 2 days ago) sit in the €5–35/MW/h band post-integration. Second, KKME's reading is Lithuania-only and Clean Horizon's is aggregate-Baltic (Estonia clears materially higher than Lithuania). The two products compute the same underlying metric (cleared aFRR capacity-reservation €/MW/h); they differ in window and geographic aggregation. The KKME monthly trend chart on `S2Card` makes the trajectory visible: ~€80/MW/h September 2025 → ~€10/MW/h November 2025 → €5–35/MW/h band post-integration.
 
 ### Activation-energy revenue
 
@@ -321,6 +332,10 @@ Calibration is reviewed quarterly; next review: **2026-Q3** (post-Litgrid 6-mont
 ## Updates + corrections
 
 Methodology updates published as date-stamped entries below. Corrections to past methodology issued via [the wrongs log](https://github.com/kastiskemezys-tech/kkme-website/blob/main/docs/wrongs.md).
+
+### 2026-05-06 — Phase 12.10 follow-up: Gap #5 reconciliation + EE A68/fleet boundary policy
+
+Two clarifications, no engine change. (1) The capacity-reservation aFRR section now discloses the time-window and geographic-aggregation differences between KKME's `afrr_up_avg` / `afrr_down_avg` (Lithuania-only, rolling 7-day BTD `price_procured_reserves` mean) and Clean Horizon's "Baltic S1 2025 Price Forecasts" (June 2025 publication, aggregate-Baltic, covering the April–mid-June 2025 launch window). KKME's engine computes the same metric Clean Horizon publishes; the values diverge because the windows differ, with two known step-changes between them (summer-2025 market deepening visible in Clean Horizon's October 2025 update; Baltic-Continental synchronisation November 2025 visible in KKME's S2 monthly trend chart). The same disclosure surfaces on the live S2 card via `/s2.macro_context.afrr_methodology_note`. (2) New "Installed-capacity definitions" subsection codifies KKME's strict-commissioned policy for headline installed-MW per Baltic country (canonical) and explains the parallel ENTSO-E A68 transparency view (audit trail, not headline). Closes Phase 30 Gap #5 reconciliation and Phase 12.12 #15 EE A68/fleet boundary backlog. Phase 29 (KKME Baltic Storage Index) unblocked.
 
 ### 2026-05-04 — Initial publication
 
