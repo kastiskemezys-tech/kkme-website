@@ -200,4 +200,5 @@ export const STALE_THRESHOLDS_HOURS = {
   'da_tomorrow':           36,   // Nord Pool DA: daily ~13:00 CET / 06:00 UTC publish
   'da_tomorrow:lastgood': 168,   // backstop mirror; only matters after a week of upstream failures
   'extreme:latest':       168,   // events are sparse — "missing" is normal, only flag after a week
+  'baltic_storage_index_latest': 36,  // VPS Python daily cron + buffer (Phase 29)
 };

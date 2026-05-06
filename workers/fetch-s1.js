@@ -8048,6 +8048,87 @@ export default {
       return new Response(JSON.stringify(payload), { status: 200, headers: { 'Content-Type': 'application/json', ...CORS } });
     }
 
+    // ── GET /index/baltic ────────────────────────────────────────────────────
+    // KKME Baltic Storage Index — monthly per-country per-duration revenue
+    // benchmark (€/MW/month). Populated daily by VPS Python
+    // `scripts/vps/baltic_storage_index.py` via `POST /index/update`.
+    // Phase 29 ships LT/{2h,4h} canonical; LV, EE, and 1h slots return null
+    // with `coverage_status` set per option-ε scope decision.
+    if (request.method === 'GET' && url.pathname === '/index/baltic') {
+      const cached = await env.KKME_SIGNALS.get('baltic_storage_index_latest');
+      if (cached) {
+        return new Response(cached, {
+          headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600', ...CORS },
+        });
+      }
+      return new Response(
+        JSON.stringify({ error: 'no_index_snapshot_yet', hint: 'awaiting first VPS Python push via POST /index/update' }),
+        { status: 404, headers: { 'Content-Type': 'application/json', ...CORS } },
+      );
+    }
+
+    // ── POST /index/update ───────────────────────────────────────────────────
+    // VPS Python pushes the latest Baltic Storage Index snapshot.
+    // UPDATE_SECRET-gated. Mirrors `POST /da_tomorrow/update` shape.
+    // Validates the JSON shape (month + per-country dur slots) and writes to
+    // `baltic_storage_index_latest` KV (consumed by GET /index/baltic) plus a
+    // rolling 12-month deque in `baltic_storage_index_history` for sparkline
+    // history beyond the per-snapshot trailing_6_months payload.
+    if (request.method === 'POST' && url.pathname === '/index/update') {
+      const secret = request.headers.get('X-Update-Secret');
+      if (!secret || secret !== env.UPDATE_SECRET) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401, headers: { 'Content-Type': 'application/json', ...CORS },
+        });
+      }
+      let body;
+      try { body = await request.json(); } catch {
+        return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+          status: 400, headers: { 'Content-Type': 'application/json', ...CORS },
+        });
+      }
+      // Minimal shape validation — month must be 'YYYY-MM' and per-country
+      // slots must be objects (values may legitimately be null per the
+      // coverage_pending design).
+      if (!body || typeof body.month !== 'string' || !/^\d{4}-\d{2}$/.test(body.month)) {
+        return new Response(JSON.stringify({ error: 'invalid month; expected YYYY-MM' }), {
+          status: 400, headers: { 'Content-Type': 'application/json', ...CORS },
+        });
+      }
+      for (const c of ['lt', 'lv', 'ee']) {
+        if (!body[c] || typeof body[c] !== 'object') {
+          return new Response(JSON.stringify({ error: `missing per-country slot: ${c}` }), {
+            status: 400, headers: { 'Content-Type': 'application/json', ...CORS },
+          });
+        }
+      }
+      body.timestamp = body.timestamp || new Date().toISOString();
+      body.received_at = new Date().toISOString();
+      const payloadBody = JSON.stringify(body);
+
+      // Roll history: keep last 12 distinct months by `month`, replace if same
+      // month re-pushed. Same shape as the per-snapshot trailing_6_months row.
+      let history = [];
+      try {
+        const histRaw = await env.KKME_SIGNALS.get('baltic_storage_index_history');
+        if (histRaw) history = JSON.parse(histRaw);
+      } catch { /* start fresh */ }
+      history = history.filter(h => h.month !== body.month);
+      history.push({ month: body.month, lt: body.lt, lv: body.lv, ee: body.ee });
+      history.sort((a, b) => a.month.localeCompare(b.month));
+      if (history.length > 12) history = history.slice(-12);
+
+      await Promise.all([
+        env.KKME_SIGNALS.put('baltic_storage_index_latest', payloadBody),
+        env.KKME_SIGNALS.put('baltic_storage_index_history', JSON.stringify(history)),
+      ]);
+      console.log(`[Index/update] month=${body.month} lt_2h=${body.lt['2h']} lt_4h=${body.lt['4h']} engine=${body.engine_version}`);
+      return new Response(
+        JSON.stringify({ ok: true, month: body.month, history_months: history.length }),
+        { status: 200, headers: { 'Content-Type': 'application/json', ...CORS } },
+      );
+    }
+
     // ── GET /revenue ─────────────────────────────────────────────────────────
     // Revenue Engine v4: 3-scenario, DSCR, COD sensitivity, CPI-based pricing.
     // Query params: system=2h|2.4h|4h  capex=low|mid|high  grant=none|partial  cod=2027|2028|2029
