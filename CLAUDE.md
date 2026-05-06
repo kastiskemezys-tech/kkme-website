@@ -43,8 +43,26 @@ Six rules earned by past incidents. Each is load-bearing for any session that to
 
 6. **No-editorial-state-label rule.** Cards must not surface engine-emitted state strings ("TIGHTENING", "STABLE", "RISING", "ELEVATED", "HIGH", "LOW", etc.) as chips. Locked design principle: data/math/visuals speak. If a chip is load-bearing visually, use a quantitative micro-descriptor (`"Δ −8% / 30d"` or `"+45% / P50"`) not an editorial label. CI grep gate `npm run lint:no-editorial-chips` forbids re-introduction. Origin: Phase 12.9.1 brand-discipline pass after operator live-site review framed pre-existing chips as "extremely unprofessional."
 
+## Audit credibility taxonomy
+
+Different audit categories have different empirical track records. Apply different triage discipline to each.
+
+| Category | Reliability | Triage rule |
+|---|---|---|
+| **Visual-inference** (no screenshot, no code-grep, no primary-source check) | ~25% (3 of 4 historical claims hallucinated) | **Hypothesis to investigate, NOT bug to fix.** Code-grep + screenshot + git-log triangulation BEFORE scoping fix. |
+| **Primary-source cross-check WITH citation** | ~95%+ (verified by Cowork curl + corroboration) | **Authoritative.** Ship the fix; verification mostly redundant. |
+| **Primary-source cross-check WITHOUT citation** | ~80% (claim plausible but unverifiable without operator effort) | **Verify-then-ship.** Cowork curl OR confirm with operator before scoping. |
+| **Inventory / catalogue** | n/a (research, not critique) | **Filter against locked principles + current code state.** Even inventory audits can carry empirically-false premises (Phase 4G's audit-#6 cp1257 claim was wrong); apply audit-triage rule at scope time. |
+
+Cross-reference: discipline rule #1 above is the operating-discipline application of this taxonomy.
+
 ## Current phase
 
-Tier 0 closing. Most recent shipped: Phase 4G (intel encoding, audit-vs-reality finding documented). Last Tier 0 item is this phase (12.10a). After Tier 0 closes, Tier 1 begins (Phase 12.12 data-integrity infrastructure + Phase 7.7g token rebuild + 5-primitive system, parallel).
+**Tier 0 closed 2026-05-05** (12 phases shipped). **Tier 1 in progress** — Phase 7.7g-a-1 [SHIPPED 2026-05-05] (drop dead font triplet); Phase 12.10 follow-up [SHIPPED 2026-05-05] (Gap #5 reconciliation + EE A68/fleet boundary policy); Phase 12.10b [in flight] (post-follow-up housekeeping, Cowork-direct).
+
+**Next operator-pick across three eligible Tier 1 threads:**
+- Phase 7.7g-a-2 (~1-2 days) — spacing tokens + rollout
+- Phase 12.12 #1+#2 (~2-3 days) — schema validation + freshness gates
+- Phase 29 (~4-6h) — KKME Baltic Storage Index (now unblocked by Gap #5 resolution)
 
 See `docs/phases/_post-12-8-roadmap.md` "Currently active" section for the canonical next-CC-job pointer; `docs/handover.md` for session log + backlog.
