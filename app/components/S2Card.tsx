@@ -228,6 +228,7 @@ export function S2Card() {
         <HeroButton onClick={() => openDrawer('what')} ariaLabel="Read how balancing capacity clearing is computed">
           {hero != null ? <AnimatedNumber value={hero} prefix={'€'} decimals={prod === 'FCR' ? 2 : 1} /> : '—'}
         </HeroButton>
+        <sup className="footnote-anchor">1</sup>
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>/MW/h</span>
         {prod === 'aFRR' && (
           <span
@@ -307,6 +308,16 @@ export function S2Card() {
           /year of reserved-capacity revenue.
         </p>
       )}
+
+      {/* ── Phase 18 — footnotes ──────────────────────────────────── */}
+      <div className="card-footnotes">
+        <div>
+          <span className="card-footnotes__anchor">1</span>
+          {prod === 'FCR' ? 'Baltic FCR' : prod} capacity-reservation price; BTD price_procured_reserves, {country.toUpperCase()}, rolling 7d.
+          {prod === 'aFRR' && ' Up + down direction combined.'}{' '}
+          <a href="/methodology#capacity-reservation-revenue">methodology</a>.
+        </div>
+      </div>
 
       {/* ── 10. Source footer ───────────────────────────────────── */}
       <SourceFooter
@@ -902,15 +913,17 @@ function HeroButton({ children, onClick, ariaLabel }: {
         padding: 0,
         margin: 0,
         cursor: 'pointer',
-        fontFamily: 'var(--font-display)',
-        fontSize: 'clamp(1.75rem, 4vw, 2.25rem)',
-        fontWeight: 600,
+        // Phase 18 — editorial scale (Newsreader hairline)
+        fontFamily: 'var(--font-serif)',
+        fontSize: 'clamp(56px, 7vw, 88px)',
+        fontWeight: 200,
         color: 'var(--text-primary)',
-        lineHeight: 1,
+        lineHeight: 0.95,
+        letterSpacing: '-0.025em',
         textDecoration: hover ? 'underline' : 'none',
         textDecorationColor: 'var(--text-muted)',
-        textUnderlineOffset: '4px',
-        textDecorationThickness: '1px',
+        textUnderlineOffset: '6px',
+        textDecorationThickness: '0.5px',
       }}
     >
       {children}

@@ -125,6 +125,7 @@ export function S1Card() {
         <HeroButton onClick={() => openDrawer('what')} ariaLabel="Read how gross capture is computed">
           {heroVal != null ? <AnimatedNumber value={heroVal} prefix={'€'} decimals={0} /> : '—'}
         </HeroButton>
+        <sup className="footnote-anchor">1</sup>
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>/MWh</span>
         {/* ── 3. Status chip ─────────────────────────────────── */}
         <StatusChip status={chipLabel} sentiment={sentiment} />
@@ -206,6 +207,14 @@ export function S1Card() {
           /day of arbitrage optionality.
         </p>
       )}
+
+      {/* ── Phase 18 — footnotes ──────────────────────────────────── */}
+      <div className="card-footnotes">
+        <div>
+          <span className="card-footnotes__anchor">1</span>
+          LT day-ahead, max-min daily {dur} spread; <a href="/methodology#day-ahead-arbitrage-revenue">methodology</a>.
+        </div>
+      </div>
 
       {/* ── 9. Source footer ────────────────────────────────────── */}
       <SourceFooter
@@ -641,15 +650,17 @@ function HeroButton({ children, onClick, ariaLabel }: {
         padding: 0,
         margin: 0,
         cursor: 'pointer',
-        fontFamily: 'var(--font-display)',
-        fontSize: 'clamp(1.75rem, 4vw, 2.25rem)',
-        fontWeight: 600,
+        // Phase 18 — editorial scale (Newsreader hairline)
+        fontFamily: 'var(--font-serif)',
+        fontSize: 'clamp(56px, 7vw, 88px)',
+        fontWeight: 200,
         color: 'var(--text-primary)',
-        lineHeight: 1,
+        lineHeight: 0.95,
+        letterSpacing: '-0.025em',
         textDecoration: hover ? 'underline' : 'none',
         textDecorationColor: 'var(--text-muted)',
-        textUnderlineOffset: '4px',
-        textDecorationThickness: '1px',
+        textUnderlineOffset: '6px',
+        textDecorationThickness: '0.5px',
       }}
     >
       {children}

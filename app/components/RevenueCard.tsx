@@ -259,7 +259,7 @@ function MetricCell({ label, value, sub, color, title, methodVersion }: {
         )}
       </div>
       <div style={{ color: color || 'var(--text-primary)',
-        fontSize: '1.25rem', fontFamily: "'Unbounded',sans-serif",
+        fontSize: '1.25rem', fontFamily: 'var(--font-display)',
         fontWeight: 500, lineHeight: 1.1 }}>{value}</div>
       {sub && <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
         fontFamily: "var(--font-mono)", marginTop: 4 }}>{sub}</div>}
@@ -291,7 +291,7 @@ function DurationOptimizer({ rec }: { rec: DurationRecommendation | undefined })
         letterSpacing: '0.08em', marginBottom: 2 }}>
         {hours}h IRR
       </div>
-      <div style={{ fontFamily: "'Unbounded',sans-serif", fontSize: '1rem',
+      <div style={{ fontFamily: 'var(--font-display)', fontSize: '1rem',
         fontWeight: 500, lineHeight: 1.1,
         color: dominantIs(hours) ? 'var(--mint)' : 'var(--text-primary)' }}>
         {formatNumber(irr, 'irr')}
@@ -303,7 +303,7 @@ function DurationOptimizer({ rec }: { rec: DurationRecommendation | undefined })
     <div data-testid="duration-optimizer" style={{
       padding: '10px 14px',
       border: '1px solid var(--border-card)',
-      borderRadius: 6,
+      borderRadius: 0,
     }} title={STORAGE_METRICS.DURATION_RECOMMENDATION.tooltip}>
       <div style={{ display: 'flex', justifyContent: 'space-between',
         alignItems: 'baseline', marginBottom: 8 }}>
@@ -324,7 +324,7 @@ function DurationOptimizer({ rec }: { rec: DurationRecommendation | undefined })
         <Chip hours={4} irr={rec.irr_4h} />
       </div>
       <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
-        fontFamily: "'Cormorant Garamond',serif", fontStyle: 'italic',
+        fontFamily: 'var(--font-serif)', fontStyle: 'italic',
         marginTop: 8, lineHeight: 1.35 }}>
         {rec.note}
       </div>
@@ -617,7 +617,7 @@ export function CalibrationFooter({ source }: { source: EngineCalibrationSource 
           display: 'flex',
           gap: 6,
           alignItems: 'baseline',
-          fontFamily: "'Cormorant Garamond', serif",
+          fontFamily: 'var(--font-serif)',
           fontStyle: 'italic',
           fontSize: 'var(--font-sm)',
           color: 'var(--text-muted)',
@@ -710,7 +710,7 @@ function AssumptionsPanel({ panel, rteCurve, calibrationSource }: {
     <div data-testid="assumptions-panel" style={{
       padding: '12px 16px',
       border: '1px solid var(--border-card)',
-      borderRadius: 6,
+      borderRadius: 0,
     }}>
       <div style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-xs)',
         fontFamily: 'var(--font-mono)', textTransform: 'uppercase',
@@ -733,7 +733,7 @@ function AssumptionsPanel({ panel, rteCurve, calibrationSource }: {
               {rteCurve && rteCurve.length >= 2 && <RteSparkline curve={rteCurve} />}
             </div>
             <div style={{
-              fontFamily: "'Cormorant Garamond',serif", fontSize: 'var(--font-sm)',
+              fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)',
               fontStyle: 'italic', color: 'var(--text-muted)', lineHeight: 1.35,
             }}>
               {panel.rte.note}
@@ -775,7 +775,7 @@ function AssumptionsPanel({ panel, rteCurve, calibrationSource }: {
               </span>
             </div>
             <div style={{
-              fontFamily: "'Cormorant Garamond',serif", fontSize: 'var(--font-sm)',
+              fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)',
               fontStyle: 'italic', color: 'var(--text-muted)', lineHeight: 1.35,
             }}>
               {v72CyclesRow.note}
@@ -797,7 +797,7 @@ function AssumptionsPanel({ panel, rteCurve, calibrationSource }: {
               </span>
             </div>
             <div style={{
-              fontFamily: "'Cormorant Garamond',serif", fontSize: 'var(--font-sm)',
+              fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)',
               fontStyle: 'italic', color: 'var(--text-muted)', lineHeight: 1.35,
             }}>
               {row.note}
@@ -1068,7 +1068,7 @@ function DSCRPanel({ base, conservative, worstMonth, covenant }: {
     <div data-testid="dscr-triple-panel" style={{
       padding: '12px 16px',
       border: '1px solid var(--border-card)',
-      borderRadius: 6,
+      borderRadius: 0,
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between',
         alignItems: 'baseline', marginBottom: 10 }}>
@@ -1094,7 +1094,7 @@ function DSCRPanel({ base, conservative, worstMonth, covenant }: {
               {c.spec.label}
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-              <span style={{ fontFamily: "'Unbounded',sans-serif", fontSize: '1.125rem',
+              <span style={{ fontFamily: 'var(--font-display)', fontSize: '1.125rem',
                 fontWeight: 500, lineHeight: 1.1,
                 color: dscrColor(c.value) }}>
                 {c.value != null ? formatNumber(c.value, 'ratio') : '—'}
@@ -1602,18 +1602,20 @@ export function RevenueCard() {
   const openDrawer = () => setDrawerKey(k => k + 1);
 
   return (
-    <div style={{ padding: 24, background: 'var(--bg-elevated)',
-      border: '1px solid var(--border-highlight)', borderRadius: 8 }}>
+    <div className="card--revenue" style={{ padding: 24, background: 'var(--bg-elevated)',
+      border: '1px solid var(--border-highlight)', borderRadius: 0 }}>
 
       {/* Headline */}
       <div style={{ display: 'flex', justifyContent: 'space-between',
         alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 12 }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
-            <span style={{ fontFamily: "'Unbounded',sans-serif", fontSize: '1.75rem',
-              fontWeight: 600, color: irrColor(data.project_irr), lineHeight: 1,
+            <span style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(56px, 7vw, 88px)',
+              fontWeight: 200, letterSpacing: '-0.025em',
+              color: irrColor(data.project_irr), lineHeight: 0.95,
+              fontVariantNumeric: 'tabular-nums',
               opacity: status === 'loading' ? 0.5 : 1, transition: 'opacity 0.2s' }}>
-              {fmtIrr(data.project_irr)}</span>
+              {fmtIrr(data.project_irr)}<sup className="footnote-anchor">1</sup></span>
             <span style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-sm)',
               color: 'var(--text-secondary)' }}>
               €{fmtK(data.net_rev_per_mw_yr)} net/MW/yr</span>
@@ -1629,7 +1631,7 @@ export function RevenueCard() {
             onClick={openDrawer}>
             {data.system} · €{data.capex_eur_kwh}/kWh · COD {data.cod_year} · {data.scenario} · 20-yr unlevered DCF
           </div>
-          <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 'var(--font-sm)',
+          <div style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)',
             fontStyle: 'italic', color: 'var(--text-muted)', marginTop: 4 }}>
             Year 1 built from {data.base_year.data_coverage.s1_months} months observed DA prices + {data.base_year.data_coverage.s2_months} months BTD activation data
           </div>
@@ -1643,7 +1645,7 @@ export function RevenueCard() {
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
                 color: 'var(--text-tertiary)', textTransform: 'uppercase',
                 letterSpacing: '0.06em', marginBottom: 2 }}>{liveLabel.short}</div>
-              <div style={{ fontFamily: "'Unbounded',sans-serif", fontSize: '1.1rem',
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.1rem',
                 color: 'var(--text-primary)', fontWeight: 500 }}>
                 €{lr.today_total_daily}/MW/day</div>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: '0.5625rem',
@@ -1776,7 +1778,7 @@ export function RevenueCard() {
       </div>
 
       {/* Disclosure */}
-      <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 'var(--font-sm)',
+      <div style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)',
         fontStyle: 'italic', color: 'var(--text-muted)', marginTop: 16 }}>
         Year 1 from observed market data, not modeled assumptions. Forward compression derived from S2 fleet trajectory. Not investment advice.
       </div>
@@ -1810,6 +1812,14 @@ export function RevenueCard() {
           </div>
         );
       })()}
+
+      {/* Phase 18 — footnotes */}
+      <div className="card-footnotes">
+        <div>
+          <span className="card-footnotes__anchor">1</span>
+          20-yr unlevered DCF, {data.system} reference asset; gross capture from S1 (DA) + S2 (balancing); calibration {data.engine_calibration_source?.last_calibrated ?? '—'}. <a href="/methodology#project-finance">methodology</a>.
+        </div>
+      </div>
 
       {/* Drawer */}
       <DetailsDrawer key={drawerKey} defaultOpen={drawerKey > 0}

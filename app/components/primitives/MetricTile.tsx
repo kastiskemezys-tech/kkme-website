@@ -26,10 +26,16 @@ interface MetricTileProps {
 
 const SIZE_STYLES = {
   hero: {
-    fontFamily: 'var(--font-display)',
-    fontSize: 'clamp(1.5rem, 3vw, 2rem)',
-    fontWeight: 500,
+    // Phase 18 — editorial scale: Newsreader hairline at broadsheet sizes.
+    // Tier 3 cards (Wind / Solar / Load / S7 / S9) keep the smaller clamp to
+    // preserve column rhythm; tier 1 hero cards apply their own larger inline
+    // scale (S1 / S2 / RevenueCard / BalticStorageIndex).
+    fontFamily: 'var(--font-serif)',
+    fontSize: 'clamp(40px, 5.5vw, 64px)',
+    fontWeight: 200,
     color: 'var(--text-primary)',
+    lineHeight: 0.98,
+    letterSpacing: '-0.02em',
   },
   standard: {
     fontFamily: 'var(--font-mono)',
