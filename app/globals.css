@@ -233,6 +233,13 @@
   --space-2xl: 64px;
   --space-3xl: 96px;
 
+  /* Motion scale (Phase 18.1, per spec CC-1). */
+  --motion-instant: 80ms;
+  --motion-fast:    160ms;
+  --motion-base:    240ms;
+  --motion-slow:    400ms;
+  --ease-standard:  cubic-bezier(.2, .8, .2, 1);
+
 }
 
 /* Tabular numerals everywhere — keeps numbers vertically aligned across
@@ -450,6 +457,18 @@
 html {
   color-scheme: dark;
   scroll-padding-top: 96px;
+  scroll-behavior: smooth;
+  /* Phase 18.1 — page-level horizontal-overflow clip. body already had this,
+     but document.documentElement.scrollWidth still bled past viewport on
+     mobile due to internal sub-card layout (DSCR panel, RTE assumption rows,
+     marquee ticker). Proper per-component reflow is queued as Phase 18.1.1
+     (mobile breakdown bars + Returns sub-cards). No `position: sticky`
+     descendants in the codebase, so this is safe. */
+  overflow-x: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
 }
 
 [data-theme="light"] {
@@ -462,6 +481,7 @@ body {
   font-family: var(--font-serif);
   position: relative;
   overflow-x: hidden;
+  overscroll-behavior-y: contain;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   line-height: 1.6;
@@ -707,7 +727,44 @@ body,
   to   { opacity: 1; transform: translateY(0); }
 }
 .hero-section {
+  /* Phase 18.1 — grid template moved from inline style to class so that
+     mobile collapse below can override via media query (inline styles win
+     specificity, classes don't). */
+  display: grid;
+  grid-template-columns: minmax(260px, 300px) minmax(540px, 620px) minmax(260px, 300px);
+  grid-template-rows: 1fr 6px 40px;
+  min-height: 680px;
+  max-height: 900px;
+  gap: 36px;
+  padding: 24px 48px 48px;
   animation: hero-mount 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+/* Phase 18.1 — Hero collapses to single-column stack below 900px viewport.
+   Switches to flex so children's inline `gridColumn` declarations are ignored
+   and they land in source order. */
+@media (max-width: 900px) {
+  .hero-section {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    padding: 16px 16px 32px;
+    min-height: 0;
+    max-height: none;
+  }
+}
+
+/* Inner map wrapper has inline `height: 100%` for desktop's grid-row-fill
+   behavior. In flex-column the parent has no defined height so 100% evaluates
+   to 0 and the map collapses to 0×0. Override to width-derived-height so the
+   aspect-ratio fills the available width (~328px at 360 viewport).
+   Hoisted out of the previous @media block — Tailwind v4 / Turbopack
+   silently dropped the rule when stacked alongside .hero-section. */
+@media (max-width: 900px) {
+  .hero-map-wrapper {
+    width: 100% !important;
+    height: auto !important;
+  }
 }
 
 /* ═══ Hero pulse dot (data-fetching indicator) ═══ */
@@ -815,7 +872,7 @@ body,
   letter-spacing: 0.06em;
   padding: 10px 28px;
   border: 1px solid var(--border-card);
-  transition: all 0.2s ease;
+  transition: color var(--motion-fast), background var(--motion-fast), border-color var(--motion-fast);
 }
 
 .inline-cta a:hover {
@@ -1157,4 +1214,71 @@ img.logo-light { display: none; }
   height: 4px;
   background: var(--text-tertiary);
   opacity: 0.55;
+}
+
+/* ════════════════════════════════════════════
+   PHASE 18.1 — MOBILE FOUNDATION
+   ════════════════════════════════════════════ */
+
+/* Tap-target hook for inline-styled control buttons (S1/S2 toggles, RevenueCard
+   ControlGroup, StickyNav hamburger / nav links / CTA, ThemeToggle nav variant).
+   Mobile: WCAG 2.5.5 minimum 44×44 via padding. Desktop pointers keep the
+   compact size from the inline style. Replaces the missing `:active` substitute
+   after `-webkit-tap-highlight-color: transparent` site-wide. */
+.tap-target-mobile {
+  position: relative;
+  -webkit-tap-highlight-color: transparent;
+}
+@media (max-width: 900px), (pointer: coarse) {
+  .tap-target-mobile {
+    min-block-size: 44px;
+    min-inline-size: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+.tap-target-mobile:active {
+  transform: scale(0.97);
+  opacity: 0.85;
+  transition: transform var(--motion-instant), opacity var(--motion-instant);
+}
+@media (prefers-reduced-motion: reduce) {
+  .tap-target-mobile:active { transform: none; opacity: 1; transition: none; }
+}
+
+/* Focus-visible ring for all interactive controls. Component focus rings can
+   override per-need; this is the global default. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* KPI ticker (SignalBar) — desktop 6-col 1fr, tablet 3-col, mobile horizontal
+   scroll-snap. Inline `gridTemplateColumns` removed from SignalBar.tsx so the
+   class controls layout. */
+.kpi-ticker {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: var(--space-sm);
+}
+@media (max-width: 900px) {
+  .kpi-ticker { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 520px) {
+  .kpi-ticker {
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(120px, 1fr);
+    grid-template-columns: none;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+  }
+  .kpi-ticker > * { scroll-snap-align: start; }
+}
+.kpi-tile {
+  min-block-size: 44px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }

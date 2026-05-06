@@ -422,14 +422,14 @@ function ProductToggle({ value, onChange }: { value: Product; onChange: (p: Prod
   return (
     <span style={{ display: 'inline-flex', gap: '2px' }}>
       {(['aFRR', 'mFRR', 'FCR'] as const).map(p => (
-        <button key={p} onClick={() => onChange(p)} style={{
+        <button key={p} onClick={() => onChange(p)} className="tap-target-mobile" style={{
           padding: '2px 8px', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
           cursor: 'pointer', border: '1px solid',
           borderColor: value === p ? 'var(--teal)' : 'var(--border-card)',
           borderRadius: '3px',
           background: value === p ? 'var(--teal-bg)' : 'transparent',
           color: value === p ? 'var(--teal)' : 'var(--text-secondary)',
-          transition: 'all 0.15s',
+          transition: 'background var(--motion-fast), color var(--motion-fast), border-color var(--motion-fast)',
         }}>{p}</button>
       ))}
     </span>
@@ -450,6 +450,7 @@ function CountryToggle({ value, onChange, disabled }: {
             key={c}
             onClick={() => !disabled && onChange(c)}
             disabled={disabled}
+            className="tap-target-mobile"
             style={{
               padding: '2px 8px', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
               cursor: disabled ? 'not-allowed' : 'pointer', border: '1px solid',
@@ -458,7 +459,7 @@ function CountryToggle({ value, onChange, disabled }: {
               background: active ? 'var(--teal-bg)' : 'transparent',
               color: disabled ? 'var(--text-muted)' : (active ? 'var(--teal)' : 'var(--text-secondary)'),
               opacity: disabled ? 0.45 : 1,
-              transition: 'all 0.15s',
+              transition: 'background var(--motion-fast), color var(--motion-fast), border-color var(--motion-fast), opacity var(--motion-fast)',
             }}
           >{c}</button>
         );

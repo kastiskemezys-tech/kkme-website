@@ -61,13 +61,14 @@ export default function StickyNav() {
               key={l.href}
               href={l.href}
               onClick={(e) => { e.preventDefault(); scrollTo(l.href); }}
+              className="tap-target-mobile"
               style={{
                 fontFamily: 'var(--font-mono)',
                 fontSize: '0.8125rem',
                 color: 'var(--text-secondary)',
                 textDecoration: 'none',
                 letterSpacing: '0.04em',
-                transition: 'color 0.15s ease',
+                transition: 'color var(--motion-fast)',
               }}
               onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-primary)')}
               onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-secondary)')}
@@ -77,6 +78,7 @@ export default function StickyNav() {
           <a
             href="#conversation"
             onClick={(e) => { e.preventDefault(); scrollTo('#conversation'); }}
+            className="tap-target-mobile"
             style={{
               padding: '5px 16px',
               fontFamily: 'var(--font-mono)',
@@ -94,7 +96,7 @@ export default function StickyNav() {
 
         {/* Mobile hamburger */}
         <button
-          className="nav-mobile-toggle"
+          className="nav-mobile-toggle tap-target-mobile"
           onClick={() => setMenuOpen(o => !o)}
           aria-label="Toggle navigation"
           style={{
@@ -126,6 +128,7 @@ export default function StickyNav() {
               key={l.href}
               href={l.href}
               onClick={(e) => { e.preventDefault(); scrollTo(l.href); setMenuOpen(false); }}
+              className="tap-target-mobile"
               style={{
                 fontFamily: 'var(--font-mono)',
                 fontSize: 'var(--font-sm)',
@@ -143,6 +146,7 @@ export default function StickyNav() {
           <a
             href="#conversation"
             onClick={(e) => { e.preventDefault(); scrollTo('#conversation'); setMenuOpen(false); }}
+            className="tap-target-mobile"
             style={{
               fontFamily: 'var(--font-mono)',
               fontSize: 'var(--font-sm)',

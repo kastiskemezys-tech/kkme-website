@@ -163,6 +163,7 @@ function Chip({
   return (
     <button
       onClick={onClick}
+      className="tap-target-mobile"
       style={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -181,7 +182,7 @@ function Chip({
         fontSize: 'var(--font-xs)',
         letterSpacing: '0.04em',
         cursor: 'pointer',
-        transition: 'all 150ms',
+        transition: 'background var(--motion-fast), color var(--motion-fast), border-color var(--motion-fast)',
       }}
     >
       {label}
