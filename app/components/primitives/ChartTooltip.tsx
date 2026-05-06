@@ -158,7 +158,7 @@ export function ChartTooltip({
           {/* Value row — the headline metric */}
           <div
             style={{
-              fontFamily: "'Unbounded', sans-serif",
+              fontFamily: 'var(--font-display)',
               fontSize: 17,
               lineHeight: 1.05,
               fontWeight: 500,
@@ -216,7 +216,7 @@ export function ChartTooltip({
             <div
               style={{
                 marginTop: 6,
-                fontFamily: "'Cormorant Garamond', serif",
+                fontFamily: 'var(--font-serif)',
                 fontStyle: 'italic',
                 fontSize: 10,
                 color: 'var(--text-muted)',

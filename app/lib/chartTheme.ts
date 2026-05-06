@@ -99,8 +99,10 @@ export function useChartColors(): ChartColors {
   return colors;
 }
 
+// chart.js renders to canvas — CSS variables don't resolve here. Use the
+// literal family name so it matches the @fontsource-loaded IBM Plex Mono.
 export const CHART_FONT = {
-  family: "'DM Mono', monospace",
+  family: "'IBM Plex Mono', monospace",
 };
 
 // Hook: returns theme-aware tooltip style with resolved colors.

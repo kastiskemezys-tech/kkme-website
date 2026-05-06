@@ -69,7 +69,7 @@ export function ColorTuner() {
           position: 'fixed', top: 80, right: 16, zIndex: 9999,
           padding: '8px 12px', background: 'rgba(0,0,0,0.85)',
           color: '#fff', border: '1px solid rgba(255,255,255,0.2)',
-          fontFamily: 'DM Mono, monospace', fontSize: 10,
+          fontFamily: 'var(--font-mono)', fontSize: 10,
           cursor: 'pointer', borderRadius: 2,
         }}
       >
@@ -82,7 +82,7 @@ export function ColorTuner() {
     <div style={{
       position: 'fixed', top: 80, right: 16, width: 260,
       padding: 16, background: 'rgba(10,10,10,0.94)',
-      color: '#fff', fontFamily: 'DM Mono, monospace',
+      color: '#fff', fontFamily: 'var(--font-mono)',
       fontSize: 10, borderRadius: 2, zIndex: 9999,
       maxHeight: '80vh', overflowY: 'auto',
       border: '1px solid rgba(255,255,255,0.15)',

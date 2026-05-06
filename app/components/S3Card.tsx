@@ -242,7 +242,7 @@ export function S3Card() {
     return (
       <article style={{ width: '100%' }}>
         <h3 style={{ fontFamily: 'var(--font-mono)', fontSize: '0.9375rem', color: 'var(--text-tertiary)', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600, marginBottom: '6px' }}>Installed BESS cost</h3>
-        <div style={{ fontFamily: 'Unbounded, sans-serif', fontSize: '1.75rem', color: 'var(--text-primary)' }}>€{d.europe_system_eur_kwh ?? 164}<span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>/kWh</span></div>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.75rem', color: 'var(--text-primary)' }}>€{d.europe_system_eur_kwh ?? 164}<span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>/kWh</span></div>
         <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '4px' }}>{d.ref_source ?? 'BNEF Dec 2025'} · installed reference</p>
       </article>
     );
@@ -278,7 +278,7 @@ export function S3Card() {
 
       {/* 3. HERO CAPEX */}
       <div style={{ marginBottom: '2px' }}>
-        <span style={{ fontFamily: 'Unbounded, sans-serif', fontSize: '1.75rem', color: 'var(--text-primary)', fontWeight: 400, letterSpacing: '-0.02em' }}>€{capexRange[0]}–{capexRange[1]}</span>
+        <span style={{ fontFamily: 'var(--font-display)', fontSize: '1.75rem', color: 'var(--text-primary)', fontWeight: 400, letterSpacing: '-0.02em' }}>€{capexRange[0]}–{capexRange[1]}</span>
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', marginLeft: '4px' }}>/kWh</span>
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', border: '1px dashed var(--border-highlight)', borderRadius: '3px', padding: '1px 6px', marginLeft: '8px', letterSpacing: '0.06em' }}>REFERENCE</span>
         <button onClick={handleCopy} title="Copy range" style={{ all: 'unset', cursor: 'pointer', marginLeft: '6px', opacity: copied ? 0.8 : 0.3, transition: 'opacity 0.15s', fontSize: '14px' }} onMouseEnter={e => (e.currentTarget.style.opacity = '0.8')} onMouseLeave={e => (e.currentTarget.style.opacity = copied ? '0.8' : '0.3')}>
@@ -405,7 +405,7 @@ export function S3Card() {
         <div style={{ borderTop: '1px solid var(--border-card)', paddingTop: '10px', marginBottom: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '6px' }}>
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>LCOS (reference)</span>
-            <span style={{ fontFamily: 'Unbounded, sans-serif', fontSize: '1.125rem', color: 'var(--text-primary)' }}>€{d.lcos_reference.range_eur_mwh[0]}–{d.lcos_reference.range_eur_mwh[1]}</span>
+            <span style={{ fontFamily: 'var(--font-display)', fontSize: '1.125rem', color: 'var(--text-primary)' }}>€{d.lcos_reference.range_eur_mwh[0]}–{d.lcos_reference.range_eur_mwh[1]}</span>
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)' }}>/MWh</span>
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '6px' }}>

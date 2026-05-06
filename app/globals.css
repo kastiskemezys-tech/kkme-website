@@ -5,9 +5,10 @@
   --text: #e8e2d9;
   --accent: #7b5ea7;
 
-  /* Font family tokens — resolved against next/font CSS variables */
-  --font-serif: var(--font-cormorant), 'Cormorant', serif;
-  --font-mono: var(--font-dm-mono), 'DM Mono', monospace;
+  /* Font family tokens — Newsreader + IBM Plex Mono load via @fontsource so
+     literal family names resolve in CSS, SVG fontFamily=, and chart.js. */
+  --font-serif: 'Newsreader', 'Iowan Old Style', Georgia, serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
   --font-display: var(--font-unbounded), 'Unbounded', sans-serif;
 
   /* Opacity scale */
@@ -37,7 +38,7 @@
   --accent-purple:  #7b5ea7;
   --accent-green:   #4ade80;
   --accent-teal:    #4dc5b0;
-  --accent-rose:    #f5718e;
+  --accent-rose:    #a8324a;          /* Phase 18 — brick (matches light); was #f5718e mint-rose */
   --accent-amber:   #d4a574;
   --project-dot-fill: #4dc5b0;
   --project-dot-halo: rgba(77, 197, 176, 0.1);
@@ -70,6 +71,10 @@
   --success:        var(--teal);
   --warning:        var(--amber);
   --danger:         var(--accent-rose);
+
+  /* Phase 18 — Baltic editorial: positive/negative aliases (mirror success/danger) */
+  --positive:       var(--success);
+  --negative:       var(--danger);
 
   --ink:            var(--text-primary);
   --ink-muted:      var(--text-secondary);
@@ -206,6 +211,9 @@
 
   /* Section elevated surface */
   --bg-section-elevated: rgba(232, 226, 217, 0.012);
+
+  /* Phase 18 — Baltic editorial pixel-grid dot opacity (~6%) */
+  --pixel-grid-dot: rgba(232, 226, 217, 0.06);
 
   /* Type scale */
   --font-xs:   0.75rem;
@@ -387,6 +395,9 @@
   /* Amber ray decorative — light */
   --amber-ray: rgba(138, 102, 32, 0.04);
 
+  /* Phase 18 — pixel-grid dot opacity for light (~6% on charcoal) */
+  --pixel-grid-dot: rgba(26, 26, 31, 0.06);
+
   /* ─── Semantic palette aliases — light (Phase 8.1) ─────────────────────
      Mirrors the dark-mode aliases. Light-mode values are inherited via
      the underlying primitives the [data-theme="light"] block already
@@ -402,6 +413,10 @@
   --warning:        var(--amber);
   --danger:         var(--accent-rose);
 
+  /* Phase 18 — Baltic editorial: positive/negative aliases (mirror success/danger) */
+  --positive:       var(--success);
+  --negative:       var(--danger);
+
   --ink:            var(--text-primary);
   --ink-muted:      var(--text-secondary);
   --ink-subtle:     var(--text-tertiary);
@@ -411,11 +426,9 @@
   color-scheme: light;
 }
 
-[data-theme="light"] body::before {
-  background-image:
-    linear-gradient(rgba(107, 79, 148, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(107, 79, 148, 0.04) 1px, transparent 1px);
-}
+/* Light-theme pixel-dot opacity is set via --pixel-grid-dot in the
+   [data-theme="light"] block; the body::before declaration above carries
+   the radial-gradient pattern for both themes. */
 
 @theme inline {
   --color-bg: var(--bg);
@@ -451,7 +464,9 @@ body {
   line-height: 1.6;
 }
 
-/* Blueprint grid — barely perceptible purple grid */
+/* Phase 18 — Baltic editorial pixel grid: dotted radial-gradient at 16px,
+   barely perceptible. Connective tissue, not decoration. Auto-adapts to
+   dark/light via --pixel-grid-dot. */
 body::before {
   content: '';
   position: fixed;
@@ -459,10 +474,9 @@ body::before {
   width: 100vw; height: 100vh;
   pointer-events: none;
   z-index: 0;
-  background-image:
-    linear-gradient(rgba(123, 94, 167, 0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(123, 94, 167, 0.025) 1px, transparent 1px);
-  background-size: 40px 40px;
+  background-image: radial-gradient(circle, var(--pixel-grid-dot) 1px, transparent 1px);
+  background-size: 16px 16px;
+  background-position: 0 0;
 }
 
 /* Grain overlay — SVG fractal noise, subtle */
@@ -661,11 +675,19 @@ body,
 .card {
   background: var(--bg-card);
   border: 1px solid var(--border-card);
-  border-radius: 4px;
+  border-radius: 0;
   padding: 28px;
   overflow: hidden;
   animation: cardFadeIn 0.4s ease-out both;
 }
+
+/* Phase 18 — per-card-type top accent rule (broadsheet section identity).
+   .card--neutral is the default (no rule); revenue/balancing/live carry a
+   3px top accent. Apply on the same wrapper that already carries .card,
+   .card-tier1, .card-tier1-feature, or .card-tier3. */
+.card--revenue { border-top: 3px solid var(--positive); }
+.card--balancing { border-top: 3px solid var(--warning); }
+.card--live { border-top: 3px solid var(--negative); }
 
 @keyframes cardFadeIn {
   from { opacity: 0; transform: translateY(8px); }
@@ -710,7 +732,7 @@ body,
 .card-tier1-feature {
   background: var(--bg-card-highlight);
   border: 1px solid var(--border-highlight);
-  border-radius: 4px;
+  border-radius: 0;
   padding: 28px;
   overflow: hidden;
   animation: cardFadeIn 0.4s ease-out both;
@@ -729,7 +751,7 @@ body,
 .card-tier3 {
   background: var(--bg-card);
   border: 1px solid var(--border-card);
-  border-radius: 4px;
+  border-radius: 0;
   padding: 16px;
   animation: cardFadeIn 0.4s ease-out both;
   overflow: hidden;
@@ -783,7 +805,7 @@ body,
 }
 
 .inline-cta a {
-  font-family: 'DM Mono', monospace;
+  font-family: var(--font-mono);
   font-size: var(--font-sm);
   color: var(--text-tertiary);
   text-decoration: none;
@@ -977,3 +999,159 @@ img.logo-dark { display: block; }
 img.logo-light { display: none; }
 [data-theme="light"] img.logo-dark { display: none; }
 [data-theme="light"] img.logo-light { display: block; }
+
+/* ═══════════════════════════════════════════
+   PHASE 18 — BROADSHEET MASTHEAD
+   ═══════════════════════════════════════════ */
+
+.masthead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 16px 48px 0;
+  max-width: 1440px;
+  margin: 0 auto;
+  width: 100%;
+  position: relative;
+  z-index: 3;
+}
+.masthead__left {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.masthead__tagline {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 17px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  letter-spacing: -0.01em;
+}
+.masthead__issue {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-tertiary);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.masthead__rule {
+  height: 0.5px;
+  background: var(--accent-amber);
+  opacity: 0.55;
+  max-width: 1440px;
+  margin: 8px auto 0;
+  width: calc(100% - 96px);
+  position: relative;
+  z-index: 3;
+}
+.masthead__source-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 48px 0;
+  max-width: 1440px;
+  margin: 0 auto;
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-tertiary);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  flex-wrap: wrap;
+  position: relative;
+  z-index: 3;
+}
+.src-bracket {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  letter-spacing: 0.08em;
+}
+
+@media (max-width: 720px) {
+  .masthead { padding: 12px 16px 0; gap: 12px; flex-wrap: wrap; }
+  .masthead__rule { width: calc(100% - 32px); }
+  .masthead__source-row { padding: 8px 16px 0; gap: 10px; font-size: 10px; }
+}
+
+/* Phase 18 — footnote anchor superscript (italic Newsreader serif beside hero) */
+.footnote-anchor {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 13px;
+  margin-left: 6px;
+  color: var(--text-secondary);
+  vertical-align: super;
+  line-height: 0;
+}
+
+/* Phase 18 — per-card footnotes block, sits above SourceFooter */
+.card-footnotes {
+  margin: 12px 0 8px;
+  padding-top: 8px;
+  border-top: 0.5px solid var(--border-subtle);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-tertiary);
+  line-height: 1.6;
+  letter-spacing: 0.02em;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.card-footnotes__anchor {
+  font-family: var(--font-serif);
+  font-style: italic;
+  color: var(--text-secondary);
+  margin-right: 4px;
+}
+.card-footnotes a {
+  color: inherit;
+  border-bottom: 1px dotted var(--text-tertiary);
+  text-decoration: none;
+}
+.card-footnotes a:hover { color: var(--teal); }
+
+/* Phase 18 — editorial pull-quote (italic Newsreader, amber rules above + below) */
+.pull-quote {
+  max-width: 540px;
+  margin: 32px auto;
+  padding: 22px 0;
+  text-align: center;
+  border-top: 0.5px solid var(--accent-amber);
+  border-bottom: 0.5px solid var(--accent-amber);
+}
+.pull-quote p {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 17px;
+  font-weight: 400;
+  color: var(--text-primary);
+  line-height: 1.5;
+  margin: 0;
+  letter-spacing: -0.005em;
+}
+@media (max-width: 720px) {
+  .pull-quote { margin: 24px 16px; padding: 18px 0; }
+  .pull-quote p { font-size: 15px; }
+}
+
+/* Marquee architectural ticks — top edge of bottom marquee strip */
+.marquee-ticks {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 1rem;
+  pointer-events: none;
+  height: 4px;
+}
+.marquee-ticks__tick {
+  width: 1px;
+  height: 4px;
+  background: var(--text-tertiary);
+  opacity: 0.55;
+}

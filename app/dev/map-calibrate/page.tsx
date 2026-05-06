@@ -161,7 +161,7 @@ export default function MapCalibrate() {
     <div style={{
       display: 'grid', gridTemplateColumns: '360px 1fr',
       height: '100vh', background: '#0a0a0e', color: '#e8e2d9',
-      fontFamily: '"DM Mono", monospace',
+      fontFamily: 'var(--font-mono)',
     }}>
       {/* Sidebar */}
       <div style={{ padding: '20px', borderRight: '1px solid rgba(232,226,217,0.1)', overflowY: 'auto', fontSize: '12px' }}>
@@ -305,7 +305,7 @@ export default function MapCalibrate() {
                 <g key={pt.id}>
                   <line x1={pt.px - 8} y1={pt.py} x2={pt.px + 8} y2={pt.py} stroke={color} strokeWidth="1.5" />
                   <line x1={pt.px} y1={pt.py - 8} x2={pt.px} y2={pt.py + 8} stroke={color} strokeWidth="1.5" />
-                  <text x={pt.px + 8} y={pt.py - 6} fill={color} fontSize="9" fontFamily="DM Mono, monospace">
+                  <text x={pt.px + 8} y={pt.py - 6} fill={color} fontSize="9" fontFamily="IBM Plex Mono, monospace">
                     {anchor?.name?.split(' ')[0] ?? pt.id}
                   </text>
                 </g>
@@ -336,7 +336,7 @@ export default function MapCalibrate() {
                     <g key={j}>
                       <circle cx={p.px} cy={p.py} r="8" fill={color} opacity="0.8" />
                       <text x={p.px} y={p.py + 4} textAnchor="middle" fill="#000"
-                        fontSize="10" fontWeight="bold" fontFamily="DM Mono, monospace">
+                        fontSize="10" fontWeight="bold" fontFamily="IBM Plex Mono, monospace">
                         {j + 1}
                       </text>
                     </g>
@@ -355,7 +355,7 @@ const btnStyle: React.CSSProperties = {
   background: 'transparent',
   border: '1px solid rgba(232,226,217,0.2)',
   color: 'rgba(232,226,217,0.7)',
-  fontFamily: '"DM Mono", monospace',
+  fontFamily: 'var(--font-mono)',
   fontSize: '11px',
   padding: '6px 12px',
   cursor: 'pointer',
