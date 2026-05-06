@@ -1882,6 +1882,63 @@ Then Tier 1 (12.12 + 12.14 + 7.7g). Phase 12.12 picks up:
 - After merge to main → Phase 30 §6 (three commits + push to `phase-30-methodology-research` branch) resumes from the same working tree per operator's latest message.
  phase-12-8-1-backtest-caption
 
+### Session 39 — 2026-05-06 — Phase 7.7g-a-1 — Token audit + drop dead font triplet (Claude Code)
+
+**Headline:** 6 next/font/google loaders → 3. Fraunces / JetBrains Mono / Inter dropped from `app/layout.tsx`; the matching `--font-editorial` / `--font-numeric` / `--font-body` declarations + the downstream dead `--type-*` ramp dropped from `app/globals.css`; the Phase-8.2-era `app/lib/__tests__/typography.test.ts` deleted as the third link in the dead chain. Bytes-on-wire reduction across every page load. No visual change. No `model_version` bump. **First Tier 1 sub-phase shipped.**
+
+**Branch:** `phase-7-7g-a-1-token-audit` off `origin/main` at `6426efc` (post-Phase-12.10a-merge + Tier-0-closing roadmap commit). One commit pushed. PR-creation URL: `https://github.com/kastiskemezys-tech/kkme-website/pull/new/phase-7-7g-a-1-token-audit`.
+
+**Commit:** `cc36e42` — `phase-7-7g-a-1(tokens): drop dead font triplet (Fraunces / JetBrains Mono / Inter)`.
+
+**Diff:** 3 files changed, 3 insertions(+), 121 deletions(-).
+- `app/layout.tsx`: −34 / +3 (drop 3 imports, 3 loader declarations + obsolete Phase 8.2/10 comment block, 3 className concatenations; replace with one-line comment naming the surviving fonts).
+- `app/globals.css`: −20 / +0 (drop the three `--font-editorial`/`--font-numeric`/`--font-body` declarations + Phase 8.2 comment; drop the entire `--type-*` ramp [`--type-hero` / `--type-number-xl` / `--type-number-l` / `--type-section` / `--type-eyebrow` / `--type-body` / `--type-caption`] + its P2-locked comment).
+- `app/lib/__tests__/typography.test.ts`: deleted (67 lines, 8 tests).
+
+**Verify-before-act result (per discipline rule #1):**
+- Component-scoped grep on `app/components/` + `app/lib/` for `var(--font-editorial|numeric|body)` and `--font-fraunces|jetbrains-mono|inter` → empty (zero usages).
+- Wide grep on `app/` confirmed all references confined to `app/layout.tsx` and `app/globals.css` — no production consumer.
+
+**Two in-session triangulation findings (operator approved scope extensions both times):**
+1. **Dead `--type-*` ramp.** `globals.css:238-244` defined a type ramp (`--type-hero`, `--type-number-xl`, `--type-section`, `--type-body`, etc.) that consumed the dead triplet. Component-grep for `var(--type-*)` returned zero usages — the ramp was dead-by-association. Operator approved drop on grounds: same risk profile as the triplet, and leaving them creates broken-by-definition tokens (referencing undefined custom properties) for the next reader.
+2. **Phase-8.2 test file.** `app/lib/__tests__/typography.test.ts` (8 tests) was a Phase-8.2-era artifact written to pin the dead system in place. After the triplet+ramp drop, 6 of 8 assertions broke (those asserting Fraunces/JetBrains/Inter imports, `--font-editorial/numeric/body` declarations, and `--type-*` ramp existence). The 2 surviving assertions covered legacy tokens we kept (Cormorant/DM Mono/Unbounded + tabular numerals) which are exercised in production by usage. Operator approved deletion as third link in the dead chain — same dead-by-association boundary; sentinel tests for the new token state will be designed by Phase 7.7g-b/7.7g-a-2/3/4 with intent, not pre-pinned mid-consolidation.
+
+The original prompt's `grep -v __tests__` and "no test changes expected" assumption masked finding #2 from the verify-before-act step. Caught only by running the full vitest suite post-edit (which is what §5 mandates). Same audit-triage pattern as Phase 12.8.0/4G.
+
+**Verification gates:**
+
+| Gate | Pre-edit baseline | Post-edit | Δ |
+|---|---|---|---|
+| `npx tsc --noEmit` | 0 errors | 0 errors | 0 |
+| `npx vitest run` | 927 / 927 (61 files) | 919 / 919 (60 files) | −8 tests / −1 file (pure subtraction from typography.test.ts deletion) |
+| `npm run lint` | 170 problems (40 errors / 130 warnings) | 170 problems | 0 |
+| `npm run build` | 8 routes | 8 routes | 0 |
+
+`npm run build` in particular green: next/font's bundling pipeline accepts the reduced-loader state cleanly, confirming the dropped fonts were never in the actual bundle dependency graph from any code path beyond the dead declarations themselves.
+
+**Out of scope (untouched per prompt):**
+- Cormorant migration → Phase 7.7g-a-4
+- Spacing token rollout → Phase 7.7g-a-2
+- Accent color consolidation → Phase 7.7g-a-3
+- Font size system reduction 6 → 5 → deferred / undecided
+- rgba/hex regression cleanup → Phase 7.7g-c
+- Building 5 primitives → Phase 7.7g-b
+- Worker URL centralization → Phase 7.7g-b #6
+- Other token chains in `globals.css` (no audit done; not in prompt)
+- Roadmap edits (operator-applied per discipline rule #5)
+
+**Tier 1 sequence after Phase 7.7g-a-1:**
+1. ✅ Phase 7.7g-a-1 (this PR, awaiting merge) — first Tier 1 sub-phase shipped.
+2. → Next CC job: **Phase 7.7g-a-2** (spacing tokens + rollout) OR **Phase 12.12** (data-integrity infrastructure, parallel thread). Operator picks which to fire next; both are eligible.
+
+**Roadmap delta needed — operator to apply Cowork-side after merge:**
+1. **Add Phase 7.7g-a-1 entry to the Shipped appendix.** Note the in-scope expansion (test-file deletion + `--type-*` ramp drop) as part of the audit-triage finding chain — both extensions caught at Pause B-equivalent (post-edit gate failure) and operator-approved before commit.
+2. **Advance "Currently active → Next CC job" pointer to Phase 7.7g-a-2 (or note both 7.7g-a-2 and 12.12 are eligible to fire next, operator-pick).**
+
+**Next operator action:**
+- Open PR via GitHub web UI (base `main`, title `Phase 7.7g-a-1 — Drop dead font triplet`).
+- Apply roadmap delta above to `docs/phases/_post-12-8-roadmap.md` Cowork-side after merge.
+
 ### Session 38 — 2026-05-05 — Phase 12.10a — CLAUDE.md discipline patch (Claude Code)
 
 **Headline:** Six discipline rules earned across Sessions 25-37 baked into `CLAUDE.md` so they don't drift back; "Current phase" stale block (Hero v3 / Phase 2B-1) refreshed to point at Tier 0 closing → Tier 1 (12.12 + 7.7g, parallel). Documentation-only; no `model_version` bump, no worker, no frontend, no test changes. **Last Tier 0 item.**
