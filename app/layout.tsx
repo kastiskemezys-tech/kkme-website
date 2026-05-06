@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Unbounded } from "next/font/google";
 import { SmoothScroll } from "./providers";
 import { ClarityScript } from "@/app/components/ClarityScript";
@@ -42,6 +42,12 @@ export const metadata: Metadata = {
   alternates: {
     canonical: 'https://kkme.eu',
   },
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({
