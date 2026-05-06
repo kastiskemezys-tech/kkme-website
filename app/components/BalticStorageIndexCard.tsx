@@ -119,9 +119,9 @@ export function BalticStorageIndexCard() {
 
   if (status === 'loading') {
     return (
-      <article style={{ padding: '24px' }}>
+      <article style={{ padding: 'var(--space-md)' }}>
         <div className="skeleton" style={{ height: '0.875rem', width: '40%', marginBottom: '12px' }} />
-        <div className="skeleton" style={{ height: '1.5rem', width: '30%', marginBottom: '24px' }} />
+        <div className="skeleton" style={{ height: '1.5rem', width: '30%', marginBottom: 'var(--space-md)' }} />
         <div className="skeleton" style={{ height: '0.875rem', width: '90%' }} />
       </article>
     );
@@ -129,7 +129,7 @@ export function BalticStorageIndexCard() {
 
   if (status === 'pending') {
     return (
-      <article style={{ padding: '24px' }}>
+      <article style={{ padding: 'var(--space-md)' }}>
         <h3 style={{
           fontFamily: 'var(--font-mono)',
           fontSize: 'var(--font-sm)',
@@ -150,7 +150,7 @@ export function BalticStorageIndexCard() {
 
   if (status === 'error' || !data) {
     return (
-      <article style={{ padding: '24px' }}>
+      <article style={{ padding: 'var(--space-md)' }}>
         <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>
           Index data unavailable.
         </p>
@@ -173,7 +173,7 @@ export function BalticStorageIndexCard() {
     .map((m) => formatMonth(m.month));
 
   return (
-    <article style={{ padding: '24px' }}>
+    <article style={{ padding: 'var(--space-md)' }}>
       <h3 style={{
         fontFamily: 'var(--font-mono)',
         fontSize: 'var(--font-sm)',
@@ -211,7 +211,7 @@ export function BalticStorageIndexCard() {
 
       {/* Phase 18 — editorial hero (LT 2h primary) */}
       {data.lt['2h'] != null && (
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, flexWrap: 'wrap', marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, flexWrap: 'wrap', marginBottom: 'var(--space-md)' }}>
           <span style={{
             fontFamily: 'var(--font-serif)',
             fontSize: 'clamp(56px, 7vw, 88px)',
@@ -347,7 +347,7 @@ function Row({
           borderBottom: isLast ? 'none' : '1px solid var(--border-card)',
           display: 'flex',
           alignItems: 'center',
-          gap: '8px',
+          gap: 'var(--space-xs)',
         }}
       >
         <span style={{ fontSize: '0.95rem' }}>{meta.flag}</span>

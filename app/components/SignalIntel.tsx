@@ -46,7 +46,7 @@ export function SignalIntel({ signalId }: { signalId: string }) {
   if (items.length === 0) return null;
 
   return (
-    <div style={{ marginTop: '8px', marginBottom: '4px' }}>
+    <div style={{ marginTop: 'var(--space-xs)', marginBottom: 'var(--space-2xs)' }}>
       <button
         onClick={() => setExpanded(!expanded)}
         style={{
@@ -64,14 +64,14 @@ export function SignalIntel({ signalId }: { signalId: string }) {
       </button>
 
       {expanded && (
-        <div style={{ marginTop: '6px', paddingLeft: '8px', borderLeft: '1px solid var(--border-card)' }}>
+        <div style={{ marginTop: '6px', paddingLeft: 'var(--space-xs)', borderLeft: '1px solid var(--border-card)' }}>
           {items.map(item => (
             <div key={item.id} style={{
               fontFamily: 'var(--font-mono)',
               fontSize: 'var(--font-xs)',
               color: 'var(--text-muted)',
               lineHeight: 1.5,
-              marginBottom: '4px',
+              marginBottom: 'var(--space-2xs)',
             }}>
               {effectDot(item.impact_direction)}{' '}
               {item.source_url ? (

@@ -40,15 +40,15 @@ export function ResidualLoadCard() {
 
   if (loading) {
     return (
-      <article style={{ padding: '24px' }}>
-        <div className="skeleton" style={{ height: '0.875rem', width: '45%', marginBottom: '8px' }} />
-        <div className="skeleton" style={{ height: '1.5rem', width: '35%', marginBottom: '8px' }} />
+      <article style={{ padding: 'var(--space-md)' }}>
+        <div className="skeleton" style={{ height: '0.875rem', width: '45%', marginBottom: 'var(--space-xs)' }} />
+        <div className="skeleton" style={{ height: '1.5rem', width: '35%', marginBottom: 'var(--space-xs)' }} />
         <div className="skeleton" style={{ height: '0.625rem', width: '55%' }} />
       </article>
     );
   }
   if (error) {
-    return <article style={{ padding: '24px' }}><p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Residual load data unavailable</p></article>;
+    return <article style={{ padding: 'var(--space-md)' }}><p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Residual load data unavailable</p></article>;
   }
 
   const windMw = wind?.baltic_mw ?? 0;
@@ -70,7 +70,7 @@ export function ResidualLoadCard() {
 
   return (
     <article style={{ width: '100%' }}>
-      <h3 style={{ fontFamily: 'var(--font-mono)', fontSize: '0.9375rem', color: 'var(--text-tertiary)', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600, marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <h3 style={{ fontFamily: 'var(--font-mono)', fontSize: '0.9375rem', color: 'var(--text-tertiary)', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600, marginBottom: '6px', display: 'flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
         Residual Load
         <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: dotColor(residualMw, residual7d), display: 'inline-block' }} />
       </h3>
@@ -78,12 +78,12 @@ export function ResidualLoadCard() {
       <div style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(1.5rem, 3vw, 1.75rem)', fontWeight: 400, color: 'var(--text-primary)', lineHeight: 1, letterSpacing: '0.02em', marginBottom: '2px' }}>
         {Math.round(residualMw).toLocaleString()} MW
       </div>
-      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '8px' }}>
+      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: 'var(--space-xs)' }}>
         {residualPct.toFixed(0)}% of total load
       </p>
 
       {/* Per-country */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '4px', fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', marginBottom: '8px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 'var(--space-2xs)', fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', marginBottom: 'var(--space-xs)' }}>
         <div>
           <span style={{ color: 'var(--text-muted)' }}>LT </span>
           <span style={{ color: 'var(--text-secondary)' }}>{Math.round(ltRes)} MW</span>

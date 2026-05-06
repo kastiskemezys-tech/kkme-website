@@ -57,7 +57,7 @@ export function S5Card() {
       className="signal-card"
       style={{ width: '100%' }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: 'var(--space-sm)' }}>
         <SignalIcon type="dc-power" size={20} />
         <h3 style={{ ...MONO, fontSize: '0.9375rem', letterSpacing: '0.06em', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>
           DC Power Viability
@@ -134,7 +134,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason }: LiveDat
         }[data.signal ?? 'OPEN'] ?? 'var(--teal-glow)';
         return (
           <div style={{ marginBottom: '1.25rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: 'var(--space-2xs)' }}>
               <span style={{
                 width: '10px', height: '10px', borderRadius: '50%',
                 background: glowColor,

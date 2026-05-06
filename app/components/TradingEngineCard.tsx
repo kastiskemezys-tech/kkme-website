@@ -357,13 +357,13 @@ export function TradingEngineCard() {
   }
 
   return (
-    <div style={{ padding: 24, background: 'var(--bg-elevated)',
+    <div style={{ padding: 'var(--space-md)', background: 'var(--bg-elevated)',
       border: '1px solid var(--border-highlight)', borderRadius: 0 }}>
 
       {/* ── Title ── */}
       <div style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-xs)',
         fontFamily: "var(--font-mono)", textTransform: 'uppercase',
-        letterSpacing: '0.08em', marginBottom: 8 }}>
+        letterSpacing: '0.08em', marginBottom: 'var(--space-xs)' }}>
         Dispatch intelligence
       </div>
       <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)',
@@ -372,7 +372,7 @@ export function TradingEngineCard() {
       </p>
 
       {/* ── Controls ── */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 16,
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 'var(--space-sm)',
         paddingBottom: 12, borderBottom: '1px solid var(--border-card)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <span style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
@@ -411,7 +411,7 @@ export function TradingEngineCard() {
         <>
           {/* ── Headline ── */}
           <div style={{ display: 'flex', justifyContent: 'space-between',
-            alignItems: 'flex-start', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+            alignItems: 'flex-start', flexWrap: 'wrap', gap: 'var(--space-xs)', marginBottom: 'var(--space-sm)' }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
                 <span style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem',
@@ -426,18 +426,18 @@ export function TradingEngineCard() {
                   {data.arbitrage_detail.capture_quality_label}</span>
               </div>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
-                color: 'var(--text-muted)', marginTop: 4 }}>
+                color: 'var(--text-muted)', marginTop: 'var(--space-2xs)' }}>
                 {formatHeadlineAnnualLabel(data.revenue_per_mw.annual_eur)}/MW/yr annualised · {data.meta.mw_total}MW · {data.meta.dur_h}H · {data.meta.mode} · {fmtDate(data.meta.date_iso)}
               </div>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: '0.5625rem',
-                color: 'var(--text-ghost)', marginTop: 4, letterSpacing: '0.04em' }}>
+                color: 'var(--text-ghost)', marginTop: 'var(--space-2xs)', letterSpacing: '0.04em' }}>
                 {DISPATCH_LABELS.dispatch_model.short.toUpperCase()} · {DISPATCH_LABELS.dispatch_model.detail}
               </div>
             </div>
           </div>
 
           {/* ── KPI strip ── */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginBottom: 16 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-sm)', marginBottom: 'var(--space-sm)' }}>
             {[
               { label: 'Capacity', pct: data.split_pct.capacity, eur: data.revenue_per_mw.capacity_eur_day, color: CC.tealLight },
               { label: 'Activation', pct: data.split_pct.activation, eur: data.revenue_per_mw.activation_eur_day, color: CC.tealMid },
@@ -459,7 +459,7 @@ export function TradingEngineCard() {
           {data.scenarios && data.scenarios.drr_uplift_eur_mw_day > 0 && (
             <div style={{
               border: '1px solid var(--teal)',
-              borderRadius: 0, padding: '12px 16px', marginBottom: 16,
+              borderRadius: 0, padding: '12px 16px', marginBottom: 'var(--space-sm)',
               background: 'var(--teal-bg)',
             }}>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
@@ -467,23 +467,23 @@ export function TradingEngineCard() {
                 FCR market reopens ~{data.drr_note.derogation_expires_iso}
               </div>
               <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.25rem',
-                color: 'var(--teal)', marginTop: 4, fontWeight: 500 }}>
+                color: 'var(--teal)', marginTop: 'var(--space-2xs)', fontWeight: 500 }}>
                 +€{data.scenarios.drr_uplift_eur_mw_day}/MW/day
               </div>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
-                color: 'var(--text-secondary)', marginTop: 4 }}>
+                color: 'var(--text-secondary)', marginTop: 'var(--space-2xs)' }}>
                 FCR at €{data.drr_note.post_drr_fcr_price_eur_mw_h}/MW/h → €{data.scenarios.post_drr_daily_eur}/MW/day total (€{Math.round(data.scenarios.post_drr_annual_eur / 1000)}k/MW/yr, +{Math.round((data.scenarios.post_drr_annual_eur / data.revenue_per_mw.annual_eur - 1) * 100)}% uplift)
               </div>
             </div>
           )}
 
           {/* ── MW Allocation ── */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginBottom: 16,
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-sm)', marginBottom: 'var(--space-sm)',
             padding: '12px 0', borderTop: '1px solid var(--border-card)' }}>
             <div style={{ flex: 1, minWidth: 140 }}>
               <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
                 fontFamily: "var(--font-mono)", textTransform: 'uppercase',
-                letterSpacing: '0.08em', marginBottom: 4 }}>Reserves</div>
+                letterSpacing: '0.08em', marginBottom: 'var(--space-2xs)' }}>Reserves</div>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-sm)',
                 color: 'var(--text-secondary)' }}>
                 avg {data.mw_allocation.avg_reserves_mw} MW (FCR {data.reserves_detail.fcr_mw_avg} + aFRR {data.reserves_detail.afrr_mw_avg} + mFRR {data.reserves_detail.mfrr_mw_avg})
@@ -505,7 +505,7 @@ export function TradingEngineCard() {
             <div style={{ flex: 1, minWidth: 140 }}>
               <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
                 fontFamily: "var(--font-mono)", textTransform: 'uppercase',
-                letterSpacing: '0.08em', marginBottom: 4 }}>Arbitrage</div>
+                letterSpacing: '0.08em', marginBottom: 'var(--space-2xs)' }}>Arbitrage</div>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-sm)',
                 color: 'var(--text-secondary)' }}>
                 avg {data.mw_allocation.avg_arbitrage_mw} MW · {data.arbitrage_detail.cycles_per_day_count} cycles/day
@@ -518,7 +518,7 @@ export function TradingEngineCard() {
             <div style={{ flex: 1, minWidth: 140 }}>
               <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
                 fontFamily: "var(--font-mono)", textTransform: 'uppercase',
-                letterSpacing: '0.08em', marginBottom: 4 }}>SoC dynamics</div>
+                letterSpacing: '0.08em', marginBottom: 'var(--space-2xs)' }}>SoC dynamics</div>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-sm)',
                 color: 'var(--text-secondary)' }}>
                 {data.soc_dynamics.soc_min_pct}% – {data.soc_dynamics.soc_max_pct}% (avg {data.soc_dynamics.soc_avg_pct}%)
@@ -532,15 +532,15 @@ export function TradingEngineCard() {
 
           {/* ── Hourly chart ── */}
           <HourlyChart data={data} CC={CC} ts={ts} />
-          <div style={{ display: 'flex', gap: 16, marginTop: 8,
+          <div style={{ display: 'flex', gap: 'var(--space-sm)', marginTop: 'var(--space-xs)',
             fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
             color: 'var(--text-muted)' }}>
             <span><span style={{ display: 'inline-block', width: 8, height: 8,
-              borderRadius: 1, background: CC.tealLight, marginRight: 4 }} />Capacity</span>
+              borderRadius: 1, background: CC.tealLight, marginRight: 'var(--space-2xs)' }} />Capacity</span>
             <span><span style={{ display: 'inline-block', width: 8, height: 8,
-              borderRadius: 1, background: CC.tealMid, marginRight: 4 }} />Activation</span>
+              borderRadius: 1, background: CC.tealMid, marginRight: 'var(--space-2xs)' }} />Activation</span>
             <span><span style={{ display: 'inline-block', width: 8, height: 8,
-              borderRadius: 1, background: CC.amberLight, marginRight: 4 }} />Arbitrage</span>
+              borderRadius: 1, background: CC.amberLight, marginRight: 'var(--space-2xs)' }} />Arbitrage</span>
           </div>
 
           {/* ── Cross-reference ── */}
@@ -554,7 +554,7 @@ export function TradingEngineCard() {
 
           {/* ── Source footer ── */}
           <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
-            color: 'var(--text-muted)', marginTop: 8, opacity: 0.7 }}>
+            color: 'var(--text-muted)', marginTop: 'var(--space-xs)', opacity: 0.7 }}>
             v2 · {formatSourceFooterLabel(data.meta.sources)} · {data.meta.data_class} · {fmtDate(data.meta.as_of_iso)}
           </div>
 

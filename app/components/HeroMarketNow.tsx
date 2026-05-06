@@ -85,7 +85,7 @@ export function HeroMarketNow() {
       position: 'relative',
       display: 'grid',
       gridTemplateColumns: '1fr 1fr',
-      gap: '48px',
+      gap: 'var(--space-xl)',
       alignItems: 'start',
       padding: '48px 0 32px',
     }}>
@@ -128,7 +128,7 @@ export function HeroMarketNow() {
           Nine signals · four-hour updates · ENTSO-E, Litgrid, Baltic TSO data
         </p>
 
-        <div className="hero-cta" style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+        <div className="hero-cta" style={{ display: 'flex', gap: 'var(--space-sm)', alignItems: 'center' }}>
           <a
             href="#revenue-drivers"
             onClick={(e) => { e.preventDefault(); document.querySelector('#revenue-drivers')?.scrollIntoView({ behavior: 'smooth' }); }}
@@ -164,9 +164,9 @@ export function HeroMarketNow() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          marginBottom: '16px',
+          marginBottom: 'var(--space-sm)',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
             <span
               style={{
                 fontFamily: 'var(--font-mono)',
@@ -202,7 +202,7 @@ export function HeroMarketNow() {
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-xs)',
             color: 'var(--text-muted)',
-            marginTop: '4px',
+            marginTop: 'var(--space-2xs)',
             display: 'block',
           }}>
             Below 1.0× means battery supply has not yet matched system balancing demand
@@ -212,7 +212,7 @@ export function HeroMarketNow() {
               fontFamily: 'var(--font-mono)',
               fontSize: 'var(--font-sm)',
               color: 'var(--text-muted)',
-              marginTop: '4px',
+              marginTop: 'var(--space-2xs)',
               display: 'block',
             }}>
               {visitDelta.sd >= 0 ? '+' : ''}{visitDelta.sd.toFixed(2)} since last visit
@@ -272,7 +272,7 @@ export function HeroMarketNow() {
           fontSize: 'var(--font-sm)',
           color: 'var(--text-secondary)',
           lineHeight: 1.6,
-          marginBottom: '8px',
+          marginBottom: 'var(--space-xs)',
         }}>
           {interpretationText(sd)}
         </p>
@@ -313,7 +313,7 @@ export function HeroMarketNow() {
               color: 'var(--text-tertiary)',
               letterSpacing: '0.08em',
               textTransform: 'uppercase',
-              marginBottom: '8px',
+              marginBottom: 'var(--space-xs)',
             }}>
               Metric definitions
             </p>
@@ -323,7 +323,7 @@ export function HeroMarketNow() {
               gap: '6px 16px',
               fontFamily: 'var(--font-mono)',
               fontSize: 'var(--font-xs)',
-              marginBottom: '24px',
+              marginBottom: 'var(--space-md)',
             }}>
               <span style={{ color: 'var(--text-muted)' }}>S/D balance</span>
               <span style={{ color: 'var(--text-muted)' }}>Battery fleet supply divided by estimated balancing demand. Below 1.0× = demand exceeds supply.</span>
@@ -344,7 +344,7 @@ export function HeroMarketNow() {
               color: 'var(--text-tertiary)',
               letterSpacing: '0.08em',
               textTransform: 'uppercase',
-              marginBottom: '8px',
+              marginBottom: 'var(--space-xs)',
             }}>
               Data sources and methodology
             </p>

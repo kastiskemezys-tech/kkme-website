@@ -53,7 +53,7 @@ export function VintageGlyphRow({ active, size = 16 }: VintageGlyphRowProps) {
       style={{
         display: 'inline-flex',
         alignItems: 'center',
-        gap: 4,
+        gap: 'var(--space-2xs)',
       }}
     >
       {VINTAGE_ORDER.map((v) => {

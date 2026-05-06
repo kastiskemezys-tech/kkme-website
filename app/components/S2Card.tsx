@@ -194,7 +194,7 @@ export function S2Card() {
 
   if (status === 'loading' && !data) {
     return (
-      <article style={{ padding: '24px' }}>
+      <article style={{ padding: 'var(--space-md)' }}>
         <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>
           Loading balancing data\u2026
         </p>
@@ -206,9 +206,9 @@ export function S2Card() {
   const capMonthly = data.capacity_monthly ?? [];
 
   return (
-    <article style={{ padding: '24px' }}>
+    <article style={{ padding: 'var(--space-md)' }}>
       {/* ── 1. Header ───────────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)', flexWrap: 'wrap', marginBottom: '12px' }}>
         <span style={{
           fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
           color: 'var(--text-tertiary)', letterSpacing: '0.08em', textTransform: 'uppercase',
@@ -216,7 +216,7 @@ export function S2Card() {
           S2 · Balancing · LT/LV/EE
         </span>
         <LiveSignal updatedAt={data.timestamp} source="BTD" flash={flash} />
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-xs)', marginLeft: 'auto' }}>
           <ProductToggle value={prod} onChange={setProd} />
           <span aria-hidden="true" style={{ width: '1px', height: '14px', background: 'var(--border-subtle)' }} />
           <CountryToggle value={country} onChange={setCountry} disabled={prod === 'FCR'} />
@@ -256,7 +256,7 @@ export function S2Card() {
         <p style={{
           fontFamily: 'var(--font-mono)', fontSize: 'var(--font-2xs, 10px)',
           color: 'var(--text-muted)', letterSpacing: '0.04em',
-          marginTop: '-2px', marginBottom: '8px',
+          marginTop: '-2px', marginBottom: 'var(--space-xs)',
         }}>
           One-direction (up only, Baltic avg): {data.afrr_up_avg != null ? `€${data.afrr_up_avg.toFixed(2)}/MW/h` : '—'}
           {data.afrr_down_avg != null && ` · down: €${data.afrr_down_avg.toFixed(2)}/MW/h`}
@@ -266,7 +266,7 @@ export function S2Card() {
       {/* ── 4. Imbalance context tiles (→ `what` drawer) ────────── */}
       {(data.imbalance_mean != null || data.imbalance_p90 != null || data.pct_above_100 != null) && (
         <div style={{
-          display: 'flex', gap: '16px', flexWrap: 'wrap',
+          display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap',
           padding: '10px 0', marginBottom: '12px',
           borderTop: '1px solid var(--border-subtle)', borderBottom: '1px solid var(--border-subtle)',
         }}>
@@ -365,7 +365,7 @@ function useRefreshFlash(isRefreshing: boolean): boolean {
 function LiveSignal({ updatedAt, source, flash }: { updatedAt?: string | null; source: string; flash: boolean }) {
   const fresh = freshnessLabel(updatedAt);
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
       <span
         className="pulse-dot"
         aria-label={updatedAt ? `Data ${fresh.age} (${fresh.label.toLowerCase()})` : 'Data freshness unknown'}
@@ -533,7 +533,7 @@ function PinReadout({ prefix, pinned, onClear, fmtKey }: {
     <div
       role="status"
       style={{
-        display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap',
+        display: 'flex', alignItems: 'center', gap: 'var(--space-xs)', flexWrap: 'wrap',
         fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
         color: 'var(--text-secondary)',
         padding: '2px 0 10px',
@@ -788,7 +788,7 @@ function CapacityChart({ monthly, prod, CC }: {
   const externalTooltip = useTooltipStyle(CC, { external: externalHandler });
 
   return (
-    <div style={{ marginBottom: '16px' }}>
+    <div style={{ marginBottom: 'var(--space-sm)' }}>
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '6px' }}>
         Monthly {prod} capacity clearing <DataClassBadge dataClass="observed" />
       </div>
@@ -844,7 +844,7 @@ function ContextTable({ data, country, prod }: { data: S2Signal; country: Countr
   const unitStyle = { color: 'var(--text-muted)' };
 
   return (
-    <div style={{ paddingTop: '4px' }}>
+    <div style={{ paddingTop: 'var(--space-2xs)' }}>
       {/* Country-prefixed header rows */}
       {prod !== 'FCR' && (
         <>

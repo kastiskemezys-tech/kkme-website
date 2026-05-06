@@ -19,7 +19,7 @@ export function CardFooter({ period, compare, updated, timestamp, isStale, ageHo
       fontSize: '0.65rem',
       color: 'var(--text-tertiary)',
       marginTop: '14px',
-      paddingTop: '8px',
+      paddingTop: 'var(--space-xs)',
       borderTop: '1px solid var(--border-subtle)',
       lineHeight: 1.6,
     }}>

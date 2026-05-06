@@ -39,7 +39,7 @@ export function FreshnessBadge({ source, updatedAt, dataClass }: FreshnessBadgeP
           letterSpacing: '0.06em',
           display: 'inline-flex',
           alignItems: 'center',
-          gap: '4px',
+          gap: 'var(--space-2xs)',
         }}
       >
         {showLivePulse && (

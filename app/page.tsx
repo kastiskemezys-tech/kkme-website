@@ -43,7 +43,7 @@ export default function Home() {
         {/* ═══ REVENUE SIGNALS ═══ */}
         <ScrollReveal>
           <div className="section" id="revenue-drivers">
-            <div style={{ marginBottom: '32px' }}>
+            <div style={{ marginBottom: 'var(--space-lg)' }}>
               <h2 className="section-header" style={{ marginBottom: '6px' }}>Revenue signals</h2>
               <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-base)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>Day-ahead price capture and balancing market revenue — capacity reservation, activation energy, and DA arbitrage.</p>
             </div>
@@ -67,7 +67,7 @@ export default function Home() {
         {/* ═══ BUILD SIGNALS ═══ */}
         <ScrollReveal>
           <div className="section" id="build">
-            <div style={{ marginBottom: '32px' }}>
+            <div style={{ marginBottom: 'var(--space-lg)' }}>
               <h2 className="section-header" style={{ marginBottom: '6px' }}>Build conditions</h2>
               <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-base)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>Project costs, financing, and grid access — the practical constraints on buildability.</p>
             </div>
@@ -87,7 +87,7 @@ export default function Home() {
         {/* ═══ STRUCTURAL MARKET DRIVERS ═══ */}
         <ScrollReveal>
           <div className="section" id="structural">
-            <div style={{ marginBottom: '24px' }}>
+            <div style={{ marginBottom: 'var(--space-md)' }}>
               <h2 className="section-header" style={{ marginBottom: '6px' }}>Structural market drivers</h2>
               <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-base)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>Renewable mix, residual load, price spreads, and commodity signals driving Baltic BESS dispatch economics.</p>
             </div>
@@ -119,7 +119,7 @@ export default function Home() {
         {/* ═══ REVENUE ENGINE — elevated ═══ */}
         <ScrollReveal>
           <div className="section-elevated" id="revenue">
-            <div style={{ marginBottom: '32px' }}>
+            <div style={{ marginBottom: 'var(--space-lg)' }}>
               <h2 className="section-header" style={{ marginBottom: '6px' }}>50 MW reference asset</h2>
               <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-base)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>How timing, duration, and installed cost shape storage economics.</p>
             </div>
@@ -131,7 +131,7 @@ export default function Home() {
                 <RevenueCard />
               </ErrorBoundary>
             </div>
-            <div className="card card-tier1 card--revenue" style={{ marginTop: '32px' }}>
+            <div className="card card-tier1 card--revenue" style={{ marginTop: 'var(--space-lg)' }}>
               <CardBoundary signal="baltic-storage-index">
                 <BalticStorageIndexCard />
               </CardBoundary>
@@ -145,7 +145,7 @@ export default function Home() {
         {/* ═══ DISPATCH INTELLIGENCE ═══ */}
         <ScrollReveal>
           <div className="section" id="trading">
-            <div style={{ marginBottom: '32px' }}>
+            <div style={{ marginBottom: 'var(--space-lg)' }}>
               <h2 className="section-header" style={{ marginBottom: '6px' }}>Dispatch intelligence</h2>
               <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-base)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>How the KKME dispatch algorithm allocates a reference BESS across Baltic balancing and arbitrage.</p>
             </div>
@@ -162,7 +162,7 @@ export default function Home() {
         {/* ═══ MARKET INTELLIGENCE ═══ */}
         <ScrollReveal>
           <div className="section" id="intel">
-            <div style={{ marginBottom: '24px' }}>
+            <div style={{ marginBottom: 'var(--space-md)' }}>
               <h2 className="section-header" style={{ marginBottom: '6px' }}>Market intelligence</h2>
               <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-base)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
                 Developments that affect Baltic BESS revenue, buildability, and market structure.
@@ -181,12 +181,12 @@ export default function Home() {
         {/* ═══ DISCUSS BALTIC STORAGE ═══ */}
         <ScrollReveal>
           <div className="section" id="conversation">
-            <div style={{ marginBottom: '32px' }}>
+            <div style={{ marginBottom: 'var(--space-lg)' }}>
               <h2 className="section-header" style={{ marginBottom: '6px' }}>Discuss Baltic storage</h2>
             </div>
             <div className="grid-2" style={{ alignItems: 'start' }}>
               {/* LEFT: Copy + credit */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)' }}>
                 <p style={{
                   fontFamily: 'var(--font-serif)',
                   fontSize: 'var(--font-base)',
@@ -205,7 +205,7 @@ export default function Home() {
                   }}>
                     Kastytis Kemežys · Baltic energy infrastructure
                   </p>
-                  <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
                     <a href="mailto:kastytis@kkme.eu" style={{
                       fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)',
                       color: 'var(--teal)', textDecoration: 'none',
@@ -235,14 +235,14 @@ export default function Home() {
         <footer style={{
           borderTop: '1px solid var(--border-card)',
           padding: '32px 0',
-          marginTop: '48px',
+          marginTop: 'var(--space-xl)',
         }}>
           <div style={{
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
             flexWrap: 'wrap',
-            gap: '16px',
+            gap: 'var(--space-sm)',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <img src="/design-assets/Logo/kkme-white.png" alt="KKME" height={16} width={76} className="logo-dark" style={{ opacity: 0.5 }} />
@@ -255,7 +255,7 @@ export default function Home() {
               }}>Baltic BESS Market Signals</span>
             </div>
             <div style={{
-              display: 'flex', gap: '24px',
+              display: 'flex', gap: 'var(--space-md)',
               fontFamily: 'var(--font-mono)',
               fontSize: '0.8125rem',
             }}>
@@ -270,7 +270,7 @@ export default function Home() {
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-sm)',
             color: 'var(--text-muted)',
-            marginTop: '16px',
+            marginTop: 'var(--space-sm)',
           }}>
             Data: ENTSO-E · NVE · ECB · energy-charts.info · Litgrid · VERT.lt · Updated every 4h
           </div>
@@ -278,7 +278,7 @@ export default function Home() {
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-xs)',
             color: 'var(--text-tertiary)',
-            marginTop: '8px',
+            marginTop: 'var(--space-xs)',
             letterSpacing: '0.06em',
           }}>
             Keyboard:{' '}

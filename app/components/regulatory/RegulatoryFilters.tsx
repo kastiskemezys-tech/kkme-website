@@ -60,7 +60,7 @@ export function RegulatoryFilters({ impactCounts, categories, tags }: Props) {
         padding: '16px 0',
         borderTop: '1px solid var(--border-subtle)',
         borderBottom: '1px solid var(--border-subtle)',
-        marginBottom: '24px',
+        marginBottom: 'var(--space-md)',
       }}
     >
       <FilterRow label="Impact">
@@ -166,7 +166,7 @@ function Chip({
       style={{
         display: 'inline-flex',
         alignItems: 'center',
-        gap: '4px',
+        gap: 'var(--space-2xs)',
         padding: '3px 8px',
         background: active
           ? 'color-mix(in srgb, var(--teal) 8%, transparent)'

@@ -58,7 +58,7 @@ export function RegulatoryItem({ item, impactTooltip, variant = 'full' }: Props)
           display: 'flex',
           alignItems: 'baseline',
           gap: '12px',
-          marginBottom: '8px',
+          marginBottom: 'var(--space-xs)',
           flexWrap: 'wrap',
         }}
       >
@@ -125,7 +125,7 @@ export function RegulatoryItem({ item, impactTooltip, variant = 'full' }: Props)
         style={{
           marginTop: '12px',
           display: 'flex',
-          gap: '16px',
+          gap: 'var(--space-sm)',
           alignItems: 'center',
           flexWrap: 'wrap',
           fontFamily: 'var(--font-mono)',

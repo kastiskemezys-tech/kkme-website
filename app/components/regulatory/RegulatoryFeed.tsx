@@ -66,7 +66,7 @@ export function RegulatoryFeedView({
               color: 'var(--text-muted)',
               letterSpacing: '0.08em',
               textTransform: 'uppercase',
-              marginBottom: '8px',
+              marginBottom: 'var(--space-xs)',
             }}
           >
             {formatWeekHeader(scanDate)} · {items.length} {items.length === 1 ? 'update' : 'updates'}

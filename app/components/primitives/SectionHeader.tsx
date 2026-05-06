@@ -12,7 +12,7 @@ interface SectionHeaderProps {
 
 export function SectionHeader({ title, subtitle, metadata }: SectionHeaderProps) {
   return (
-    <div style={{ marginBottom: '48px' }}>
+    <div style={{ marginBottom: 'var(--space-xl)' }}>
       <h2 style={{
         fontFamily: 'var(--font-mono)',
         fontSize: 'var(--font-sm)',

@@ -49,7 +49,7 @@ export default function MethodologyPage() {
         background: 'var(--bg)',
       }}
     >
-      <header style={{ marginBottom: '32px' }}>
+      <header style={{ marginBottom: 'var(--space-lg)' }}>
         <p
           style={{
             fontFamily: 'var(--font-mono)',
@@ -116,7 +116,7 @@ export default function MethodologyPage() {
               );
             },
             pre: ({ children }) => (
-              <pre style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem', background: 'var(--bg-elevated)', padding: '16px', borderRadius: 4, overflowX: 'auto', margin: '0 0 16px', border: '1px solid var(--border-card)' }}>
+              <pre style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem', background: 'var(--bg-elevated)', padding: 'var(--space-sm)', borderRadius: 4, overflowX: 'auto', margin: '0 0 16px', border: '1px solid var(--border-card)' }}>
                 {children}
               </pre>
             ),

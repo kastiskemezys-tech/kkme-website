@@ -517,7 +517,7 @@ function IntelRow({ item, isExpanded, onToggle, isOlder = false }: {
         <div style={{
           display: 'flex',
           alignItems: 'baseline',
-          gap: '8px',
+          gap: 'var(--space-xs)',
           width: '100%',
         }}>
           <span style={{
@@ -584,7 +584,7 @@ function IntelRow({ item, isExpanded, onToggle, isOlder = false }: {
         <div style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '8px',
+          gap: 'var(--space-xs)',
           flexWrap: 'wrap',
           marginTop: '2px',
         }}>
@@ -885,7 +885,7 @@ function FeaturedRow({ item }: { item: IntelItem }) {
             marginLeft: 'auto',
             display: 'flex',
             alignItems: 'center',
-            gap: '8px',
+            gap: 'var(--space-xs)',
           }}>
             <SourceFavicon domain={domain} sourceName={item.sourceName} size={18} />
             {item.sourceUrl ? (
@@ -1141,7 +1141,7 @@ export function IntelFeed({ mode = 'homepage' }: IntelFeedProps = {}) {
       </div>
 
       {/* Filter bar */}
-      <nav aria-label="Intelligence filters" style={{ marginBottom: '24px' }}>
+      <nav aria-label="Intelligence filters" style={{ marginBottom: 'var(--space-md)' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
           {FILTER_CATEGORIES.map(cat => {
             const count = cat === 'all' ? allItems.length : (categoryCounts[cat] ?? 0);
@@ -1183,9 +1183,9 @@ export function IntelFeed({ mode = 'homepage' }: IntelFeedProps = {}) {
         <div style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '8px',
+          gap: 'var(--space-xs)',
           flexWrap: 'wrap',
-          marginBottom: '16px',
+          marginBottom: 'var(--space-sm)',
         }}>
           <span style={{
             fontFamily: 'var(--font-mono)',
@@ -1251,7 +1251,7 @@ export function IntelFeed({ mode = 'homepage' }: IntelFeedProps = {}) {
               fontSize: 'var(--font-xs)',
               color: 'var(--teal)',
               cursor: 'pointer',
-              marginLeft: '4px',
+              marginLeft: 'var(--space-2xs)',
               opacity: 0.85,
             }}
           >
@@ -1319,7 +1319,7 @@ export function IntelFeed({ mode = 'homepage' }: IntelFeedProps = {}) {
           fontFamily: 'var(--font-mono)',
           fontSize: 'var(--font-xs)',
           color: 'var(--text-ghost)',
-          marginTop: '16px',
+          marginTop: 'var(--space-sm)',
           letterSpacing: '0.04em',
         }}>
           Recent curated intelligence. Updated as new developments are assessed.

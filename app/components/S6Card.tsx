@@ -54,7 +54,7 @@ export function S6Card() {
       className="signal-card"
       style={{ width: '100%' }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: 'var(--space-sm)' }}>
         <SignalIcon type="hydro" size={20} />
         <h3 style={{ ...MONO, fontSize: '0.9375rem', letterSpacing: '0.06em', color: 'var(--signal-neutral)', fontWeight: 600, textTransform: 'uppercase' }}>
           Nordic Hydro Reservoir

@@ -99,7 +99,7 @@ export default function SignalBar() {
     <div style={{
       display: 'grid',
       gridTemplateColumns: `repeat(${signals.length}, 1fr)`,
-      gap: '16px',
+      gap: 'var(--space-sm)',
       padding: '8px 32px',
       borderBottom: '1px solid var(--bg-elevated)',
       background: 'var(--nav-bg)',

@@ -73,7 +73,7 @@ export function ThemeToggle({ variant = 'nav' }: ThemeToggleProps) {
         background: 'none',
         border: 'none',
         cursor: 'pointer',
-        padding: '4px',
+        padding: 'var(--space-2xs)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',

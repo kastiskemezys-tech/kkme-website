@@ -61,7 +61,7 @@ export function CopyButton({ value, label, variant = 'icon' }: CopyButtonProps) 
           all: 'unset',
           display: 'inline-flex',
           alignItems: 'center',
-          gap: '4px',
+          gap: 'var(--space-2xs)',
           fontFamily: 'var(--font-mono)',
           fontSize: 'var(--font-xs)',
           color: color ?? 'var(--text-muted)',

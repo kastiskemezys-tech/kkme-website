@@ -316,7 +316,7 @@ export function BalticMap({
         fontFamily: 'var(--font-mono)',
         fontSize: '9px',
         color: 'var(--text-muted)',
-        marginTop: '4px',
+        marginTop: 'var(--space-2xs)',
         justifyContent: 'flex-end',
       }}>
         <span><span style={{ color: 'var(--accent-green-bright)' }}>→</span> LT export</span>

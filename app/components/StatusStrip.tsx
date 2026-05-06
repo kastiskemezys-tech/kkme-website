@@ -65,7 +65,7 @@ export function StatusStrip() {
   }, []);
 
   return (
-    <div className="status-strip" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '24px', marginBottom: '32px', width: '100%' }}>
+    <div className="status-strip" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--space-md)', marginBottom: 'var(--space-lg)', width: '100%' }}>
       {items.map(({ label, value, state }) => (
         <button
           type="button"
@@ -85,7 +85,7 @@ export function StatusStrip() {
             fontSize: '0.58rem',
             color: 'var(--text-tertiary)',
             letterSpacing: '0.06em',
-            marginBottom: '4px',
+            marginBottom: 'var(--space-2xs)',
             textTransform: 'uppercase',
           }}>
             {label}

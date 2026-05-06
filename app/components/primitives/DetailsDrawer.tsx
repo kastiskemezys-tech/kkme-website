@@ -104,7 +104,7 @@ export const DetailsDrawer = forwardRef(function DetailsDrawer(
       <div
         ref={containerRef}
         style={{
-          paddingTop: '16px',
+          paddingTop: 'var(--space-sm)',
           borderTop: portalId ? 'none' : '1px solid var(--border-card)',
           marginTop: portalId ? '0' : '8px',
         }}
@@ -129,7 +129,7 @@ export const DetailsDrawer = forwardRef(function DetailsDrawer(
             color: 'var(--text-tertiary)',
             display: 'flex',
             alignItems: 'center',
-            gap: '4px',
+            gap: 'var(--space-2xs)',
           }}
         >
           <span style={{
@@ -174,7 +174,7 @@ export function DrawerSection({ id, title, children }: DrawerSectionProps) {
         color: 'var(--text-tertiary)',
         letterSpacing: '0.08em',
         textTransform: 'uppercase',
-        marginBottom: '8px',
+        marginBottom: 'var(--space-xs)',
       }}>
         {title}
       </div>

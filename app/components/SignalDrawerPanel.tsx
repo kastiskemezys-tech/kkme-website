@@ -37,7 +37,7 @@ export function SignalDrawerPanel() {
 
   return (
     <div style={{
-      marginTop: '24px',
+      marginTop: 'var(--space-md)',
       border: '1px solid var(--border-highlight)',
       borderRadius: '4px',
       overflow: 'hidden',
@@ -86,7 +86,7 @@ export function SignalDrawerPanel() {
       </div>
 
       {/* Tab content — portal targets */}
-      <div style={{ padding: '24px' }}>
+      <div style={{ padding: 'var(--space-md)' }}>
         <div
           id="signal-drawer-s1"
           style={{ display: activeTab === 's1' ? 'block' : 'none' }}

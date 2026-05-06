@@ -36,15 +36,15 @@ export function RenewableMixCard() {
 
   if (loading) {
     return (
-      <article style={{ padding: '24px' }}>
-        <div className="skeleton" style={{ height: '0.875rem', width: '50%', marginBottom: '8px' }} />
-        <div className="skeleton" style={{ height: '1.5rem', width: '35%', marginBottom: '8px' }} />
+      <article style={{ padding: 'var(--space-md)' }}>
+        <div className="skeleton" style={{ height: '0.875rem', width: '50%', marginBottom: 'var(--space-xs)' }} />
+        <div className="skeleton" style={{ height: '1.5rem', width: '35%', marginBottom: 'var(--space-xs)' }} />
         <div className="skeleton" style={{ height: '0.625rem', width: '60%' }} />
       </article>
     );
   }
   if (error) {
-    return <article style={{ padding: '24px' }}><p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Renewable mix data unavailable</p></article>;
+    return <article style={{ padding: 'var(--space-md)' }}><p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Renewable mix data unavailable</p></article>;
   }
 
   const windMw = wind?.baltic_mw ?? 0;
@@ -69,7 +69,7 @@ export function RenewableMixCard() {
 
   return (
     <article style={{ width: '100%' }}>
-      <h3 style={{ fontFamily: 'var(--font-mono)', fontSize: '0.9375rem', color: 'var(--text-tertiary)', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600, marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <h3 style={{ fontFamily: 'var(--font-mono)', fontSize: '0.9375rem', color: 'var(--text-tertiary)', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600, marginBottom: '6px', display: 'flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
         Renewable Mix
         <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: dotColor(renewablePct), display: 'inline-block' }} />
       </h3>
@@ -82,7 +82,7 @@ export function RenewableMixCard() {
       </p>
 
       {/* Stacked bar */}
-      <div style={{ width: '100%', height: '8px', borderRadius: '4px', overflow: 'hidden', display: 'flex', marginBottom: '4px' }}>
+      <div style={{ width: '100%', height: '8px', borderRadius: '4px', overflow: 'hidden', display: 'flex', marginBottom: 'var(--space-2xs)' }}>
         <div style={{ flex: windPct, background: 'var(--teal)', transition: 'flex 0.3s ease' }} />
         <div style={{ flex: solarPct, background: 'var(--amber)', transition: 'flex 0.3s ease' }} />
         <div style={{ flex: thermalPct, background: 'var(--text-ghost)', transition: 'flex 0.3s ease' }} />
@@ -91,7 +91,7 @@ export function RenewableMixCard() {
         Wind {windPct.toFixed(0)}% · Solar {solarPct.toFixed(0)}% · Thermal {thermalPct.toFixed(0)}%
       </p>
       {solarFootnote && (
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--amber)', marginBottom: '8px', lineHeight: 1.5 }}>
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--amber)', marginBottom: 'var(--space-xs)', lineHeight: 1.5 }}>
           {solarFootnote}
         </p>
       )}

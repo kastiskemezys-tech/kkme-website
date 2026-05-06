@@ -41,7 +41,7 @@ export function CardDisclosure({ explain, dataLines }: CardDisclosureProps) {
 
       {open && (
         <div style={{
-          marginTop: '8px',
+          marginTop: 'var(--space-xs)',
           paddingLeft: '10px',
           borderLeft: '1px solid var(--border-subtle)',
         }}>
