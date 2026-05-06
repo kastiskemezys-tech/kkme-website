@@ -47,9 +47,12 @@ export default function SignalBar() {
         ? `${data.s4.fleet.sd_ratio.toFixed(2)}×` : '—',
     },
     {
+      // Phase 12.11 — match marquee + S2 hero precision (2dp). Header was
+      // rounding 7.96 → 8, reading as a different metric from the bottom
+      // marquee/S2 hero. Same field, same precision now.
       label: 'aFRR',
       value: data.s2?.afrr_up_avg != null
-        ? `${Math.round(data.s2.afrr_up_avg)} €/MW/h` : '—',
+        ? `${data.s2.afrr_up_avg.toFixed(2)} €/MW/h` : '—',
     },
     {
       label: 'GRID FREE',
@@ -60,6 +63,9 @@ export default function SignalBar() {
       // Flex fleet = BESS + pumped hydro (Kruonis), live from /s4.fleet.
       // Was reading /s2.baltic_operational_mw which is always null on /s2.
       label: 'FLEX FLEET',
+      // Phase 12.11 — inline scope so a same-page reader sees the 822-vs-651
+      // composition without needing to hover the tooltip. Mirrors hero block 2.
+      scope: 'BESS + pumped hydro',
       value: (() => {
         const v = flexibilityFleetMw(data.s4);
         return v != null ? `${Math.round(v)} MW` : '—';
@@ -84,9 +90,12 @@ export default function SignalBar() {
       })(),
     },
     {
+      // Phase 12.11 — header was emitting €/MW without a time qualifier; hero
+      // dispatch tile renders €/MW/DAY. Both pull from analysis.totals.per_mw
+      // (worker line 8542) which is daily revenue per MW. Unit normalized.
       label: 'DISPATCH',
       value: data.trading?.totals?.per_mw != null
-        ? `€${Math.round(data.trading.totals.per_mw)}/MW` : '—',
+        ? `€${Math.round(data.trading.totals.per_mw)}/MW/DAY` : '—',
     },
   ];
 
@@ -124,7 +133,18 @@ export default function SignalBar() {
             color: 'var(--text-ghost)',
             letterSpacing: '0.10em',
             textTransform: 'uppercase',
-          }}>{s.label}</span>
+          }}>
+            {s.label}
+            {(s as { scope?: string }).scope && (
+              <span style={{
+                marginLeft: '4px',
+                color: 'var(--text-muted)',
+                textTransform: 'none',
+                letterSpacing: '0.02em',
+                fontSize: '0.5rem',
+              }}>({(s as { scope?: string }).scope})</span>
+            )}
+          </span>
           <span style={{
             fontFamily: 'var(--font-mono)',
             fontSize: '0.6875rem',

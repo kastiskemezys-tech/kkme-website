@@ -47,7 +47,7 @@ export function StatusStrip() {
         },
         {
           label: 'aFRR',
-          value: afrr != null ? `${afrr.toFixed(0)} €/MW/h` : '—',
+          value: afrr != null ? `${afrr.toFixed(2)} €/MW/h` : '—',
           state: afrr != null ? (afrr > 40 ? 'positive' : afrr > 10 ? 'neutral' : 'warning') : 'neutral',
         },
         {
