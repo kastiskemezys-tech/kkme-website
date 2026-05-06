@@ -23,6 +23,19 @@ gsap.registerPlugin(MotionPathPlugin);
 
 const W = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
+// Phase 18 — broadsheet masthead. Issue number = days since launch (inclusive).
+const KKME_LAUNCH_ISO = '2025-12-30';
+function computeIssueStamp(now: Date = new Date()): { vol: string; no: number; date: string } {
+  const launch = new Date(`${KKME_LAUNCH_ISO}T00:00:00Z`);
+  const days = Math.max(1, Math.floor((now.getTime() - launch.getTime()) / 86_400_000) + 1);
+  const yearsSinceLaunch = now.getUTCFullYear() - launch.getUTCFullYear();
+  const vol = ['I', 'II', 'III', 'IV', 'V'][Math.min(yearsSinceLaunch, 4)] ?? 'I';
+  const date = now.toLocaleDateString('en-GB', {
+    day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC',
+  }).toUpperCase();
+  return { vol, no: days, date };
+}
+
 // ═══ Types ═══════════════════════════════════════════════════════════════════
 
 interface FleetCountry {
@@ -115,7 +128,14 @@ export function HeroBalticMap() {
   const [hoveredProject, setHoveredProject] = useState<MappedProject | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [issueStamp, setIssueStamp] = useState<{ vol: string; no: number; date: string } | null>(null);
   const cableTip = useChartTooltipState();
+
+  // Phase 18 — issue stamp computed client-side to avoid SSR/hydration drift.
+  // Microtask defer mirrors the pattern of fetchAll().then() below.
+  useEffect(() => {
+    Promise.resolve().then(() => setIssueStamp(computeIssueStamp()));
+  }, []);
 
   const fetchAll = useCallback(() => {
     return Promise.all([
@@ -304,14 +324,42 @@ export function HeroBalticMap() {
   }
 
   return (
+    <>
+      {/* Phase 18 — broadsheet masthead */}
+      <header className="masthead">
+        <div className="masthead__left">
+          <h1 style={{ margin: 0, lineHeight: 1, display: 'inline-flex', alignItems: 'baseline' }}>
+            <img src="/design-assets/Logo/kkme-white.png" alt="KKME" height={28} width={132} className="logo-dark" />
+            <img src="/design-assets/Logo/kkme-black.png" alt="KKME" height={28} width={132} className="logo-light" />
+          </h1>
+          <span className="masthead__tagline">Baltic flexibility, daily</span>
+        </div>
+        <div className="masthead__issue">
+          {issueStamp ? `Vol ${issueStamp.vol} · No ${issueStamp.no} · ${issueStamp.date}` : ' '}
+        </div>
+      </header>
+      <div className="masthead__rule" />
+      <div className="masthead__source-row">
+        <span className="src-bracket">[ live ]</span>
+        <span>ENTSO-E</span>
+        <span>·</span>
+        <span>LITGRID</span>
+        <span>·</span>
+        <span>AST</span>
+        <span>·</span>
+        <span>ELERING</span>
+        <span>·</span>
+        <span>BTD</span>
+      </div>
+
     <section className="hero-section" style={{
       display: 'grid',
       gridTemplateColumns: 'minmax(260px, 300px) minmax(540px, 620px) minmax(260px, 300px)',
-      gridTemplateRows: '1fr 40px',
-      minHeight: '720px',
+      gridTemplateRows: '1fr 6px 40px',
+      minHeight: '680px',
       maxHeight: '900px',
       gap: '36px',
-      padding: '48px',
+      padding: '24px 48px 48px',
       background: 'var(--hero-bg)',
       overflow: 'hidden',
       position: 'relative',
@@ -327,24 +375,8 @@ export function HeroBalticMap() {
         <ThemeToggle variant="hero" />
       </div>
 
-      {/* ═══ LEFT COLUMN ═══ */}
+      {/* ═══ LEFT COLUMN — interconnector flows (logo/tagline/source moved to masthead) ═══ */}
       <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', zIndex: 2, gridColumn: 1, gridRow: 1 }}>
-        <h1 style={{ margin: 0, lineHeight: 1 }}>
-          <img src="/design-assets/Logo/kkme-white.png" alt="KKME" height={48} width={228} className="logo-dark" />
-          <img src="/design-assets/Logo/kkme-black.png" alt="KKME" height={48} width={228} className="logo-light" />
-        </h1>
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '14px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.4 }}>
-          Baltic flexibility market, live
-        </p>
-        <p style={{
-          fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-tertiary)',
-          textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: '8px', lineHeight: 1.6,
-        }}>
-          LIVE · ENTSO-E · LITGRID · AST · ELERING
-        </p>
-
-        <div style={{ height: '40px' }} />
-
         {/* Interconnector flows — 6 cables, arrow notation */}
         <div>
           <div style={{
@@ -479,7 +511,7 @@ export function HeroBalticMap() {
                     <circle cx={city.x} cy={city.y} r="2"
                       fill="var(--text-secondary)" opacity="0.8" />
                     <text x={textX} y={textY}
-                      fontFamily="DM Mono, monospace" fontSize="10"
+                      fontFamily="IBM Plex Mono, monospace" fontSize="10"
                       fontWeight="500"
                       fill="var(--text-secondary)"
                       letterSpacing="0.04em"
@@ -543,7 +575,7 @@ export function HeroBalticMap() {
                 return (
                   <g key={label}>
                     {genStr && <text x={centerX} y={baseY}
-                      fontFamily="DM Mono, monospace" fontSize="15"
+                      fontFamily="IBM Plex Mono, monospace" fontSize="15"
                       fontWeight="500"
                       fill="var(--accent-teal, var(--teal))"
                       textAnchor="middle" letterSpacing="0.02em"
@@ -556,7 +588,7 @@ export function HeroBalticMap() {
                       }}
                     >{genStr} gen</text>}
                     {loadStr && <text x={centerX} y={baseY + 18}
-                      fontFamily="DM Mono, monospace" fontSize="12"
+                      fontFamily="IBM Plex Mono, monospace" fontSize="12"
                       fill="var(--text-secondary)"
                       textAnchor="middle" letterSpacing="0.02em"
                       style={{
@@ -632,7 +664,7 @@ export function HeroBalticMap() {
                   transform: 'translate(16px, -50%)',
                   fontFamily: 'var(--font-mono)', fontSize: '10px',
                   padding: '8px 12px',
-                  borderRadius: '6px',
+                  borderRadius: 0,
                   background: 'var(--map-bg)',
                   backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
                   border: '1px solid var(--border-card)',
@@ -656,7 +688,7 @@ export function HeroBalticMap() {
       <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '8px', zIndex: 2, gridColumn: 3, gridRow: 1 }}>
 
         {/* Block 1 — Revenue headline */}
-        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '12px 16px' }}>
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 0, padding: '12px 16px' }}>
           <div style={{
             fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-tertiary)',
             textTransform: 'uppercase', letterSpacing: '0.08em',
@@ -727,7 +759,7 @@ export function HeroBalticMap() {
 
         {/* Block 2 — Fleet composition */}
         <div
-          style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '12px 16px' }}
+          style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 0, padding: '12px 16px' }}
           title={`Baltic flexibility fleet · BESS + pumped hydro (Kruonis 205 MW). Includes ${fmt(fleet?.baltic_quarantined_mw ?? 0)} MW flagged _quarantine pending TSO operational evidence (Kruonis PSP, BSP Hertz 1, Eesti Energia BESS, Utilitas Targale, AJ Power). Strict-verified count: ${fmt(fleet?.baltic_operational_mw_strict ?? null)} MW. For BESS-only registry total see S4 "Grid access and buildability" card.`}
         >
           <div style={{
@@ -787,19 +819,19 @@ export function HeroBalticMap() {
         <div style={{
           display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '4px',
         }}>
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '8px 10px', textAlign: 'center' }}>
+          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 0, padding: '8px 10px', textAlign: 'center' }}>
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>S/D</div>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: '16px', color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums', marginTop: '2px' }}>
               {fleet?.sd_ratio != null ? fleet.sd_ratio.toFixed(2) : '—'}{'×'}
             </div>
           </div>
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '8px 10px', textAlign: 'center' }}>
+          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 0, padding: '8px 10px', textAlign: 'center' }}>
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>CPI</div>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: '16px', color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums', marginTop: '2px' }}>
               {fleet?.cpi != null ? fleet.cpi.toFixed(2) : '—'}
             </div>
           </div>
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '8px 10px', textAlign: 'center' }}>
+          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 0, padding: '8px 10px', textAlign: 'center' }}>
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>PHASE</div>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: '14px', color: 'var(--text-primary)', textTransform: 'uppercase', marginTop: '2px' }}>
               {fleet?.phase ?? '—'}
@@ -809,13 +841,21 @@ export function HeroBalticMap() {
 
       </div>
 
+      {/* Phase 18 — architectural ticks on top edge of marquee */}
+      <div className="marquee-ticks" style={{ gridColumn: '1 / -1' }} aria-hidden="true">
+        {Array.from({ length: 24 }).map((_, i) => (
+          <div key={i} className="marquee-ticks__tick" />
+        ))}
+      </div>
+
       {/* ═══ TICKER — seamless loop, pause-on-hover, edge-fade, reduced-motion ═══ */}
       <div className="hero-ticker" style={{
         gridColumn: '1 / -1', overflow: 'hidden', display: 'flex', alignItems: 'center',
-        borderRadius: '6px',
+        borderRadius: 0,
         background: 'var(--overlay-heavy)',
         backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
         borderTop: '1px solid var(--border-card)', zIndex: 10,
+        position: 'relative',
       }}>
         <div className="hero-ticker-strip" style={{
           display: 'flex', whiteSpace: 'nowrap',
@@ -876,5 +916,6 @@ export function HeroBalticMap() {
       `}</style>
       <ChartTooltipPortal tt={cableTip} />
     </section>
+    </>
   );
 }
