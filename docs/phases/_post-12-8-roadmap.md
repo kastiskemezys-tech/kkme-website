@@ -9,8 +9,7 @@
 
 ## Currently active
 
-- **In flight:** Phase 29 — KKME Baltic Storage Index (CC at Pause B, awaiting `proceed` for §9 worker deploy + §11 commits + PR. Approved 2026-05-06.).
-- **Immediately after Phase 29 merges:** **Phase 18 — Baltic editorial visual identity ship** (CC, ~8-12h, single PR, three pause points). Operator-surfaced 2026-05-06 in response to "looks AI-built, needs to read as human-designed." Replaces Phase 7.7g-a-3 (accent) + Phase 7.7g-a-4 (Cormorant migration) + parts of Phase 7.7g-b (Card primitive). Prompt at `docs/phases/phase-18-prompt.md`.
+- **In flight:** **Phase 18 — Baltic editorial visual identity ship** (CC, ~8-12h, single PR, three pause points). Operator-surfaced 2026-05-06 in response to "looks AI-built, needs to read as human-designed." Supersedes Phase 7.7g-a-3 (accent) + Phase 7.7g-a-4 (Cormorant migration) + parts of Phase 7.7g-b (Card primitive). Prompt at `docs/phases/phase-18-prompt.md`. **VPS Python deploy for Phase 29 still operator-pending**: scp + psql migration + first live run + crontab; commands in handover Session 41 §VPS Python deploy block.
 - **Then Tier 1 continues — operator-pick across three eligible threads:**
   1. **Phase 7.7g-a-2** (~1-2 days) — spacing tokens + rollout; continues the typography/foundation thread Phase 7.7g-a-1 opened.
   2. **Phase 12.12 #1+#2** (~2-3 days) — schema validation + freshness gates; opens the parallel data-integrity thread.
@@ -31,7 +30,7 @@ These are not phases (no CC code work). They're operator-only actions that need 
 4. ~~**Methodology paper destination decision**~~ **[CLOSED 2026-05-06 by Phase 29]** — Standalone `/methodology` route shipped via Phase 29 commit `app/methodology/page.tsx`; renders `docs/methodology.md` via react-markdown + remark-gfm at build time; heading IDs auto-generated for anchor support; `/methodology#kkme-baltic-storage-index` deep-link confirmed working in dark + light mode.
 5. **Merged-branches cleanup on origin** — six branches from 2026-05-05 PRs likely still on origin (`phase-12-9-1-brand-discipline`, `phase-12-9-2-s8-timestamp`, `phase-12-9-3-default-duration-2h`, `phase-4g-intel-encoding`, `phase-12-10a-claude-md-discipline`, `phase-7-7g-a-1-token-audit`). One-click delete per branch on GitHub web UI; or `git push origin --delete <branch>` per branch.
 
-- **Roadmap last updated:** 2026-05-06 by Cowork (Phase 29 in-flight at Pause B → noted approved-to-deploy; Phase 18 added as immediately-after-Phase-29-merge in-flight target with prompt link; Phase 7.7g-b scope marked reduced post-Phase-18; methodology destination operator-action-item closed by Phase 29; Phase 7.7g-a-3 and 7.7g-a-4 marked SUPERSEDED by Phase 18 in their entries below)
+- **Roadmap last updated:** 2026-05-06 by Cowork (post-Phase-29-merge: Phase 29 → Shipped appendix [PR #62 → commit `69d482c`, worker `3c77897f-62ec-4dff-90c7-4aa94f052f47`, /methodology route live, BalticStorageIndexCard rendering with LT canonical / LV+EE coverage_pending Phase 29.1]; Phase 18 advances to In-flight position; VPS Python deploy operator-pending; Phase 7.7g-b scope reduced post-Phase-18; Phase 7.7g-a-3 and 7.7g-a-4 marked SUPERSEDED by Phase 18; methodology destination operator-action-item closed by Phase 29)
 
 ---
 
@@ -616,7 +615,7 @@ Editorial polish group (lands at Pause C):
 | 4 — Connection + content | 7.7f · 12.13 · D · 11 · C | ~12-14 days |
 | 5 — Editorial + content | 9 · 28 · 13 · 19 · 27 · 12.14 | ~6 days build |
 | 6 — Mobile + a11y + polish | 11.2 · 20 · 21 · 22 · 23 · 25 · 26 | ~6-8 days |
-| 7 — Methodology depth + comparable index | 30 (research) · 29 (index card) | ~3-4 days |
+| 7 — Methodology depth + comparable index | 30 [SHIPPED] · 29 [SHIPPED] · 29.1 (per-country extension) | ~3-4 days |
 | **Total** | **32 phases** | **~58-69 focused days ≈ 10-12 weeks** |
 
 ---
@@ -675,6 +674,7 @@ This document is the planning layer; `docs/handover.md` is the canonical state-o
 - **Phase 12.10a** — CLAUDE.md discipline patch [SHIPPED 2026-05-05 → commits `f15a371` + `68ef9ba`] — 927 tests (no new); CLAUDE.md +19 / -2 added "Discipline rules" section codifying six rules (audit-triage, no-hardcoded-temporal-label, named-entity verification, cross-card consistency, roadmap edit-conflict, no-editorial-state-label) with origin-incident traces; "Current phase" section refreshed from stale Phase-2B-1 reference to Tier-0-closing state. Documentation-only, no code/worker change. **Closes Tier 0.**
 - **Phase 7.7g-a-1** — Drop dead font triplet [SHIPPED 2026-05-05 PR #60 → commits `cc36e42` + `5b08c15`] — 927 → 919 tests (pure subtraction); 6 next/font fonts → 3 in `app/layout.tsx`; dead `--type-*` ramp + dead Phase-8.2-era `typography.test.ts` removed (both orphan-by-association). Two in-session scope extensions operator-approved after triangulation. **First Tier 1 sub-phase shipped.** Process artifact: recurring-error memory updated re: `grep -v __tests__` is wrong default for declaration removal.
 - **Phase 12.10 follow-up** — Gap #5 reconciliation + EE A68/fleet boundary policy [SHIPPED 2026-05-05 PR #61 → commits `2fa2e72` + `191c548` + `4535fc9`] — 919 tests (no new). Methodology paper updated with two paragraphs documenting (1) Gap #5 reframing per CC primary-source verification of Clean Horizon's "Baltic S1 2025 Price Forecasts" Jun 2025 (€340/MW/h was Apr–mid-Jun 2025 launch-window aggregate-Baltic; not present-day comparable to KKME's post-integration €14/MW/h LT) and (2) EE A68/fleet boundary policy (strict-commissioned chosen, path (a); Hertz 2 stays `under_construction`). Worker `/s2.macro_context.afrr_methodology_note` field added (626 chars) so S2 card methodology drawer surfaces the disclosure to live readers without depending on `/methodology` route decision. Worker version `ea88ccc9-0b45-46e6-87cc-b0afbac7407d`. **Closes Phase 30's P1 critical Gap #5 finding; unblocks Phase 29.** Mid-session cross-actor race (operator's parallel Cowork roadmap commit `face05f` arrived during CC's deploy/commit flow) recovered cleanly via branch-ref-forward + main-reset + edit-replay; discipline lesson saved to memory.
+- **Phase 29** — KKME Baltic Storage Index [SHIPPED 2026-05-06 PR #62 → commit `69d482c`] — 919 tests; first public-facing Tier 1 product surface. Worker `GET /index/baltic` + `POST /index/update` (UPDATE_SECRET-gated), `/methodology` standalone route via react-markdown + remark-gfm, `BalticStorageIndexCard` rendered in Chapter 4 (`#revenue`), VPS Python aggregate script + PostgreSQL append-only history table. **Coverage scope: option ε at Pause A** — LT/{2h,4h} canonical (~€284 / €307 for Apr 2026 in production-engine smoke); LV, EE, and 1h slots ship `coverage_status` strings (`pending_phase_29_1` and `pending_engine_1h_physics` respectively) per discipline rule #1 + #6 transparency framing. **Methodology paper +1 new "KKME Baltic Storage Index" section** documenting calculation (engine `/revenue.backtest` reshape × 30 / 50 MW), launch coverage profile, comparability framing vs Clean Horizon, annualization, source-of-truth + cadence. **Phase 30 destination decision resolved by this commit** (was Operator-action-item #4 — closed). Worker version `3c77897f-62ec-4dff-90c7-4aa94f052f47`. Mid-session git-state recovery noted (operator's parallel Cowork commit `22f6f27` arrived; recovered cleanly via ref-move). Phase 29.1 spun out as dedicated follow-on for per-country DA capture extension + 5-product cap-reservation extraction (~3-4h) to close LV/EE.
 
 (more populated as phases close)
 
@@ -726,7 +726,7 @@ Added 2026-05-04 after operator's Clean Horizon competitive-positioning question
 
 **Operator decision required:** publish the methodology paper as inline drawer (Phase A consolidates methodology there) OR as standalone `/methodology` route. Auditor's consolidated revision walked back standalone methodology destination; this is the one case worth re-considering since methodology depth IS the credibility play vs Clean Horizon. **Recommendation:** standalone `/methodology` route. Clean Horizon publishes monthly methodology updates as standalone blog posts; KKME needs a comparable destination to be linkable in trade press / cited externally.
 
-#### Phase 29 — KKME Baltic Storage Index (~4-6h) [BLOCKED on Phase 30 Gap #5 reconciliation]
+#### ~~Phase 29 — KKME Baltic Storage Index~~ [SHIPPED 2026-05-06 PR #62 → commit `69d482c`; full entry in Shipped appendix]
 
 **Phase 30 finding informs:** Position C confirmed; Clean Horizon ingestion legal/IP risk documented in research deliverable; comparable-index framing validated. **Blocker:** Gap #5 (aFRR-down magnitude reconciliation) must resolve before this phase ships, otherwise published index would contradict Clean Horizon's published numbers without methodological explanation. Gap #5 work folds into next Phase 12.10 follow-up commit.
 
