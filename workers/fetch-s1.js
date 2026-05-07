@@ -3457,6 +3457,33 @@ async function appendSignalHistory(env, signal, entry) {
   await env.KKME_SIGNALS.put(key, JSON.stringify(history));
 }
 
+// Phase 21.2 — `s2_btd_history` is the 365-day BTD daily-clearing-price KV the
+// `/s2.capacity_monthly` aggregate is computed from. Two write paths into it
+// must stay in sync (worker-direct cron + Mac-cron POST `/s2/update`); previously
+// only the worker-direct path appended, which silently under-populated the KV
+// whenever BTD's edge-side SSL flickered to 526 and Mac cron stepped in.
+async function appendBtdHistory(env, payload) {
+  try {
+    const histRaw = await env.KKME_SIGNALS.get('s2_btd_history').catch(() => null);
+    const hist = histRaw ? JSON.parse(histRaw) : [];
+    const today = new Date().toISOString().slice(0, 10);
+    if (!hist.some(h => h.date === today)) {
+      hist.push({
+        date: today,
+        fcr: payload.fcr_avg,
+        afrr_up: payload.afrr_up_avg,
+        mfrr_up: payload.mfrr_up_avg,
+      });
+    }
+    const cutoff = new Date(Date.now() - 365 * 86400000).toISOString().slice(0, 10);
+    const trimmed = hist.filter(h => h.date >= cutoff).sort((a, b) => a.date.localeCompare(b.date));
+    await env.KKME_SIGNALS.put('s2_btd_history', JSON.stringify(trimmed));
+    console.log(`[S2/btd-history] ${trimmed.length} days`);
+  } catch (e) {
+    console.error('[S2/btd-history]', String(e));
+  }
+}
+
 function rollingStats(history, field) {
   const vals = history
     .map(h => h[field])
@@ -6175,6 +6202,7 @@ export default {
         } else {
           console.log(`[S2/0930] fcr=${payload.fcr_avg} afrr_up=${payload.afrr_up_avg} ordered=${payload.ordered_price ?? '—'}`);
           await appendSignalHistory(env, 's2', { afrr_up: payload.afrr_up_avg, mfrr_up: payload.mfrr_up_avg, fcr: payload.fcr_avg }).catch(e => console.error('[S2/history]', e));
+          await appendBtdHistory(env, payload);
         }
       } catch (e) {
         console.error('[S2/0930]', String(e));
@@ -6299,27 +6327,7 @@ export default {
       } else {
         console.log(`[S2] fcr=${payload.fcr_avg} afrr_up=${payload.afrr_up_avg} ordered=${payload.ordered_price ?? '—'}`);
         await appendSignalHistory(env, 's2', { afrr_up: payload.afrr_up_avg, mfrr_up: payload.mfrr_up_avg, fcr: payload.fcr_avg }).catch(e => console.error('[S2/history]', e));
-
-        // Accumulate daily BTD capacity prices for trailing 12-month analysis
-        try {
-          const histRaw = await env.KKME_SIGNALS.get('s2_btd_history').catch(() => null);
-          const hist = histRaw ? JSON.parse(histRaw) : [];
-          const today = new Date().toISOString().slice(0, 10);
-          if (!hist.some(h => h.date === today)) {
-            hist.push({
-              date: today,
-              fcr: payload.fcr_avg,
-              afrr_up: payload.afrr_up_avg,
-              mfrr_up: payload.mfrr_up_avg,
-            });
-          }
-          const cutoff = new Date(Date.now() - 365 * 86400000).toISOString().slice(0, 10);
-          const trimmed = hist.filter(h => h.date >= cutoff).sort((a, b) => a.date.localeCompare(b.date));
-          await env.KKME_SIGNALS.put('s2_btd_history', JSON.stringify(trimmed));
-          console.log(`[S2/btd-history] ${trimmed.length} days`);
-        } catch (e) {
-          console.error('[S2/btd-history]', String(e));
-        }
+        await appendBtdHistory(env, payload);
       }
       } // end else (!payload)
     } else {
@@ -7258,7 +7266,35 @@ export default {
 
       console.log(`[S2/update] ${payload.signal} fcr=${payload.fcr_avg} afrr_up=${payload.afrr_up_avg} pct_up=${payload.pct_up} ordered=${ordered_price ?? '—'}€/MW/h ${ordered_mw ?? '—'}MW`);
       await appendSignalHistory(env, 's2', { afrr_up: payload.afrr_up_avg, mfrr_up: payload.mfrr_up_avg, fcr: payload.fcr_avg }).catch(e => console.error('[S2/history]', e));
+      await appendBtdHistory(env, payload);
       return new Response(JSON.stringify(payload), { status: 200, headers: { 'Content-Type': 'application/json', ...CORS } });
+    }
+
+    // ── POST /s2/btd-history/backfill ────────────────────────────────────────
+    // Phase 21.2 — recover lost `s2_btd_history` entries from `s2_history` (the
+    // KV that was written on every path including the broken Mac-cron leg).
+    // Both KVs share `{ date, fcr, afrr_up, mfrr_up }` shape; we copy entries
+    // whose `date` is missing from `s2_btd_history` and re-trim to 365 days.
+    if (request.method === 'POST' && url.pathname === '/s2/btd-history/backfill') {
+      const secret = request.headers.get('X-Update-Secret');
+      if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
+      const sourceRaw = await env.KKME_SIGNALS.get('s2_history').catch(() => null);
+      if (!sourceRaw) return jsonResp({ error: 's2_history empty' }, 400);
+      const source = JSON.parse(sourceRaw);
+      const targetRaw = await env.KKME_SIGNALS.get('s2_btd_history').catch(() => null);
+      const target = targetRaw ? JSON.parse(targetRaw) : [];
+      const existing = new Set(target.map(h => h.date));
+      let added = 0;
+      for (const e of source) {
+        if (e.date && !existing.has(e.date) && e.afrr_up != null && e.mfrr_up != null && e.fcr != null) {
+          target.push({ date: e.date, fcr: e.fcr, afrr_up: e.afrr_up, mfrr_up: e.mfrr_up });
+          added++;
+        }
+      }
+      const cutoff = new Date(Date.now() - 365 * 86400000).toISOString().slice(0, 10);
+      const trimmed = target.filter(h => h.date >= cutoff).sort((a, b) => a.date.localeCompare(b.date));
+      await env.KKME_SIGNALS.put('s2_btd_history', JSON.stringify(trimmed));
+      return jsonResp({ ok: true, source_count: source.length, target_after: trimmed.length, added });
     }
 
     // ── GET /api/model-inputs ─────────────────────────────────────────────────
