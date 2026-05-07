@@ -306,6 +306,36 @@ export function useChartTooltipState(): {
   const hide = useCallback(() => {
     setState(HIDDEN);
   }, [setState]);
+
+  // Phase 18.2.3 — mobile dismissal. chart.js's `external` callback dismisses
+  // tooltips on mouseleave (desktop) but has no equivalent on touchend or
+  // scroll. Without these listeners, a tooltip activated by tap can linger
+  // visually after the chart canvas scrolls out of view. The dismiss closure
+  // gates on `prev.visible`, so non-visible instances are no-ops — the
+  // value-equality dedupe in setState above means React skips the re-render
+  // when prev is already HIDDEN. Passive listeners give the browser scroll
+  // preemption priority. Universal across desktop + mobile (additive on
+  // desktop where mouseleave already dismisses).
+  useEffect(() => {
+    const dismiss = () => {
+      setStateRaw(prev => (prev.visible ? HIDDEN : prev));
+    };
+    let touchTimer: ReturnType<typeof setTimeout> | null = null;
+    const onTouchEnd = () => {
+      if (touchTimer) clearTimeout(touchTimer);
+      // 250ms grace so tap-and-read works; tap-then-pan races scroll-dismiss
+      // (scroll fires first when finger moves, dismissing immediately).
+      touchTimer = setTimeout(dismiss, 250);
+    };
+    window.addEventListener('scroll', dismiss, { passive: true });
+    document.addEventListener('touchend', onTouchEnd, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', dismiss);
+      document.removeEventListener('touchend', onTouchEnd);
+      if (touchTimer) clearTimeout(touchTimer);
+    };
+  }, []);
+
   return { state, show, hide, setState };
 }
 
