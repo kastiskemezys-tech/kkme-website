@@ -477,13 +477,12 @@ html {
   color-scheme: dark;
   scroll-padding-top: 96px;
   scroll-behavior: smooth;
-  /* Phase 18.1 — page-level horizontal-overflow clip. body already had this,
-     but document.documentElement.scrollWidth still bled past viewport on
-     mobile due to internal sub-card layout (DSCR panel, RTE assumption rows,
-     marquee ticker). Proper per-component reflow is queued as Phase 18.1.1
-     (mobile breakdown bars + Returns sub-cards). No `position: sticky`
-     descendants in the codebase, so this is safe. */
-  overflow-x: hidden;
+  /* Phase 18.1.3 — both `overflow-x: hidden` band-aids (Phase 18.1 page-level
+     + the older body-level defensive trim) removed once per-component
+     reflows closed all overflow holes (DSCR triple panel, AssumptionsPanel
+     grid, S3 BreakdownBar, MonthlyHeatmap, plus chart-canvas auto-minimum
+     fallbacks in rv-analytics). 5-viewport scrollWidth=clientWidth verified
+     before removal at 360 / 414 / 768 / 1024 / 1440. */
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -499,7 +498,6 @@ body {
   color: var(--text);
   font-family: var(--font-serif);
   position: relative;
-  overflow-x: hidden;
   overscroll-behavior-y: contain;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
