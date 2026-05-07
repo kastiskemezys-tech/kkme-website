@@ -15,7 +15,7 @@ const TYPE_OPTIONS: { value: ContactType; label: string }[] = [
 
 const fieldStyle = {
   width: '100%',
-  padding: '10px 12px',
+  paddingTop: '10px', paddingRight: '12px', paddingBottom: '10px', paddingLeft: '12px',
   background: 'var(--bg-card)',
   border: '1px solid var(--border-card)',
   borderRadius: '2px',
@@ -84,7 +84,7 @@ export function ContactForm() {
 
   if (status === 'success') {
     return (
-      <div style={{ padding: '24px 0' }}>
+      <div style={{ paddingTop: 'var(--space-md)', paddingRight: 0, paddingBottom: 'var(--space-md)', paddingLeft: 0 }}>
         <p style={{
           fontFamily: 'var(--font-serif)',
           fontSize: 'var(--font-base)',
@@ -259,7 +259,7 @@ export function ContactForm() {
           type="submit"
           disabled={status === 'sending'}
           style={{
-            padding: '11px 28px',
+            paddingTop: '11px', paddingRight: '28px', paddingBottom: '11px', paddingLeft: '28px',
             background: 'var(--teal-bg)',
             border: '1px solid var(--teal-subtle)',
             borderRadius: '2px',

@@ -29,11 +29,11 @@ export function MarketThicknessChip({ product, showCaption = false }: MarketThic
     <span title={spec.tooltip} style={{ display: 'inline-flex', flexDirection: 'column',
       alignItems: 'flex-start', gap: 2 }}>
       <span style={{
-        fontFamily: 'var(--font-mono)', fontSize: '0.6rem',
+        fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)',
         textTransform: 'uppercase', letterSpacing: '0.06em',
         color: 'var(--text-tertiary)',
         border: '1px solid var(--border-card)',
-        borderRadius: 2, padding: '1px 6px',
+        borderRadius: 2, paddingTop: '1px', paddingRight: '6px', paddingBottom: '1px', paddingLeft: '6px',
         whiteSpace: 'nowrap',
       }}
       data-testid={`market-thickness-${product}`}
@@ -42,7 +42,7 @@ export function MarketThicknessChip({ product, showCaption = false }: MarketThic
       </span>
       {showCaption && spec.caption && (
         <span style={{
-          fontFamily: 'var(--font-mono)', fontSize: '0.5625rem',
+          fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)',
           color: 'var(--text-muted)', lineHeight: 1.3,
         }}>
           {spec.caption}

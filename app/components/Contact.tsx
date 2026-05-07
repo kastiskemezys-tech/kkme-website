@@ -6,7 +6,7 @@ const MONO: CSSProperties = { fontFamily: 'var(--font-mono)' };
 
 const BASE_STYLE: CSSProperties = {
   ...MONO,
-  fontSize: '0.625rem',
+  fontSize: 'var(--type-mono-xs)',
   letterSpacing: '0.08em',
   color: 'var(--text-muted)',
   textDecoration: 'none',
@@ -59,7 +59,7 @@ export function Contact() {
         fontFamily: 'var(--font-serif)',
         fontStyle: 'italic',
         fontWeight: 300,
-        fontSize: '0.90rem',
+        fontSize: 'var(--type-body-md)',
         color: 'var(--text-tertiary)',
         marginBottom: 'var(--space-sm)',
         textAlign: 'center',

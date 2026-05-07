@@ -30,7 +30,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
         <article
           style={{
             border: '1px solid var(--border-card)',
-            padding: '2rem 2.5rem',
+            paddingTop: '2rem', paddingRight: '2.5rem', paddingBottom: '2rem', paddingLeft: '2.5rem',
             maxWidth: '440px',
             width: '100%',
           }}
@@ -38,7 +38,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
           <p
             style={{
               fontFamily: 'var(--font-mono)',
-              fontSize: '0.625rem',
+              fontSize: 'var(--type-mono-xs)',
               letterSpacing: '0.14em',
               color: 'var(--text-muted)',
               textTransform: 'uppercase',

@@ -43,7 +43,7 @@ export function RegulatoryFeedView({
     return (
       <div
         style={{
-          padding: '40px 0',
+          paddingTop: '40px', paddingRight: 0, paddingBottom: '40px', paddingLeft: 0,
           textAlign: 'center',
           fontFamily: 'var(--font-serif)',
           color: 'var(--text-tertiary)',

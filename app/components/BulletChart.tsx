@@ -52,7 +52,7 @@ export function BulletChart({
     >
       <div
         style={{
-          fontSize: '0.65rem',
+          fontSize: 'var(--type-mono-xs)',
           color: 'var(--chart-label)',
           marginBottom: '3px',
           display: 'flex',

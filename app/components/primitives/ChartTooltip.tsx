@@ -126,7 +126,7 @@ export function ChartTooltip({
             border: '1px solid var(--border-highlight)',
             borderRadius: 3,
             boxShadow: 'var(--tooltip-shadow)',
-            padding: '6px 8px',
+            paddingTop: '6px', paddingRight: 'var(--space-xs)', paddingBottom: '6px', paddingLeft: 'var(--space-xs)',
             minWidth: 96,
             maxWidth: 280,
             fontFamily: 'var(--font-mono)',
@@ -137,7 +137,7 @@ export function ChartTooltip({
           {headline && (
             <div
               style={{
-                fontSize: 10,
+                fontSize: 'var(--type-mono-xs)',
                 lineHeight: 1.2,
                 color: 'var(--text-tertiary)',
                 letterSpacing: '0.06em',
@@ -151,15 +151,15 @@ export function ChartTooltip({
             >
               <span style={{ color: 'var(--text-secondary)' }}>{headline}</span>
               {timeText && (
-                <span style={{ color: 'var(--text-muted)', fontSize: 10 }}>{timeText}</span>
+                <span style={{ color: 'var(--text-muted)', fontSize: 'var(--type-mono-xs)' }}>{timeText}</span>
               )}
             </div>
           )}
           {/* Value row — the headline metric */}
           <div
             style={{
-              fontFamily: 'var(--font-display)',
-              fontSize: 13,
+              fontFamily: 'var(--font-mono)',
+              fontSize: 'var(--type-body-md)',
               lineHeight: 1.15,
               fontWeight: 500,
               letterSpacing: '-0.005em',
@@ -173,7 +173,7 @@ export function ChartTooltip({
           {headlineSub && (
             <div
               style={{
-                fontSize: 10,
+                fontSize: 'var(--type-mono-xs)',
                 color: 'var(--text-muted)',
                 letterSpacing: '0.04em',
                 marginTop: 2,
@@ -193,7 +193,7 @@ export function ChartTooltip({
                 gridTemplateColumns: 'auto 1fr',
                 columnGap: 10,
                 rowGap: 2,
-                fontSize: 10,
+                fontSize: 'var(--type-mono-xs)',
                 fontVariantNumeric: 'tabular-nums',
               }}
             >
@@ -218,7 +218,7 @@ export function ChartTooltip({
                 marginTop: 5,
                 fontFamily: 'var(--font-serif)',
                 fontStyle: 'italic',
-                fontSize: 10,
+                fontSize: 'var(--type-mono-xs)',
                 color: 'var(--text-muted)',
                 lineHeight: 1.3,
               }}

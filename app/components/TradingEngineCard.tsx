@@ -133,7 +133,7 @@ function Toggle({ options, value, onChange }: {
     <div style={{ display: 'flex', gap: 2 }}>
       {options.map(o => (
         <button key={o.key} onClick={() => onChange(o.key)} className="tap-target-mobile" style={{
-          padding: '3px 10px', fontSize: 'var(--font-sm)',
+          paddingTop: '3px', paddingRight: '10px', paddingBottom: '3px', paddingLeft: '10px', fontSize: 'var(--font-sm)',
           fontFamily: "var(--font-mono)", cursor: 'pointer',
           border: '1px solid',
           borderColor: value === o.key ? 'var(--teal)' : 'var(--border-card)',
@@ -250,7 +250,7 @@ export function HourlyChart({ data, CC }: {
       <Bar data={chartData} plugins={[crosshair]} options={options} />
       <div style={{
         position: 'absolute', top: 0, right: 0,
-        fontFamily: CHART_FONT.family, fontSize: '0.5625rem',
+        fontFamily: CHART_FONT.family, fontSize: 'var(--type-mono-xs)',
         color: 'var(--text-muted)', pointerEvents: 'none',
       }}>
         Daily avg: €{avgLine.toFixed(2)}/MW/h · sum = €{data.revenue_per_mw.daily_eur}/MW/day
@@ -268,12 +268,12 @@ export function ISPTable({ isps }: { isps: DispatchResponse['isp_dispatch'] }) {
   // (DetailsDrawer renders children regardless of open state).
   const list = Array.isArray(isps) ? isps : [];
   const th: React.CSSProperties = {
-    padding: '3px 6px', fontSize: 'var(--font-xs)', color: 'var(--text-muted)',
+    paddingTop: '3px', paddingRight: '6px', paddingBottom: '3px', paddingLeft: '6px', fontSize: 'var(--font-xs)', color: 'var(--text-muted)',
     fontFamily: "var(--font-mono)", fontWeight: 400, textAlign: 'right',
     borderBottom: '1px solid var(--border-card)',
   };
   const td: React.CSSProperties = {
-    padding: '2px 6px', fontSize: 'var(--font-xs)',
+    paddingTop: '2px', paddingRight: '6px', paddingBottom: '2px', paddingLeft: '6px', fontSize: 'var(--font-xs)',
     fontFamily: "var(--font-mono)", color: 'var(--text-secondary)', textAlign: 'right',
   };
 
@@ -372,7 +372,7 @@ export function TradingEngineCard() {
         Dispatch intelligence
       </div>
       <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)',
-        color: 'var(--text-secondary)', margin: '0 0 16px', lineHeight: 1.5 }}>
+        color: 'var(--text-secondary)', marginTop: 0, marginRight: 0, marginBottom: 'var(--space-sm)', marginLeft: 0, lineHeight: 1.5 }}>
         How the KKME dispatch algorithm allocates a 50 MW reference BESS across Baltic balancing and arbitrage.
       </p>
 
@@ -399,14 +399,14 @@ export function TradingEngineCard() {
 
       {/* ── No data state ── */}
       {!data && mode === 'forecast' && (
-        <div style={{ padding: '24px 0', color: 'var(--text-muted)',
+        <div style={{ paddingTop: 'var(--space-md)', paddingRight: 0, paddingBottom: 'var(--space-md)', paddingLeft: 0, color: 'var(--text-muted)',
           fontFamily: "var(--font-mono)", fontSize: 'var(--font-sm)', textAlign: 'center' }}>
           Tomorrow&apos;s dispatch forecast not yet available.<br />
           DA prices typically publish ~14:00 CET. Check back later.
         </div>
       )}
       {!data && mode === 'realised' && !loading && (
-        <div style={{ padding: '24px 0', color: 'var(--text-muted)',
+        <div style={{ paddingTop: 'var(--space-md)', paddingRight: 0, paddingBottom: 'var(--space-md)', paddingLeft: 0, color: 'var(--text-muted)',
           fontFamily: "var(--font-mono)", fontSize: 'var(--font-sm)', textAlign: 'center' }}>
           No dispatch data yet. Waiting for BTD push.
         </div>
@@ -419,7 +419,7 @@ export function TradingEngineCard() {
             alignItems: 'flex-start', flexWrap: 'wrap', gap: 'var(--space-xs)', marginBottom: 'var(--space-sm)' }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-                <span style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem',
+                <span style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--type-display-md)',
                   fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1 }}>
                   €{data.revenue_per_mw.daily_eur}</span>
                 <span style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-sm)',
@@ -427,14 +427,14 @@ export function TradingEngineCard() {
                 <span style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
                   color: qualityColor(data.arbitrage_detail.capture_quality_label),
                   border: `1px solid ${qualityColor(data.arbitrage_detail.capture_quality_label)}`,
-                  borderRadius: 3, padding: '1px 6px' }}>
+                  borderRadius: 3, paddingTop: '1px', paddingRight: '6px', paddingBottom: '1px', paddingLeft: '6px' }}>
                   {data.arbitrage_detail.capture_quality_label}</span>
               </div>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
                 color: 'var(--text-muted)', marginTop: 'var(--space-2xs)' }}>
                 {formatHeadlineAnnualLabel(data.revenue_per_mw.annual_eur)}/MW/yr annualised · {data.meta.mw_total}MW · {data.meta.dur_h}H · {data.meta.mode} · {fmtDate(data.meta.date_iso)}
               </div>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: '0.5625rem',
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--type-mono-xs)',
                 color: 'var(--text-ghost)', marginTop: 'var(--space-2xs)', letterSpacing: '0.04em' }}>
                 {DISPATCH_LABELS.dispatch_model.short.toUpperCase()} · {DISPATCH_LABELS.dispatch_model.detail}
               </div>
@@ -452,7 +452,7 @@ export function TradingEngineCard() {
                 <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
                   fontFamily: "var(--font-mono)", textTransform: 'uppercase',
                   letterSpacing: '0.08em', marginBottom: 2 }}>{k.label}</div>
-                <div style={{ fontFamily: 'var(--font-display)', fontSize: '1rem',
+                <div style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--type-body-lg)',
                   color: 'var(--text-primary)', fontWeight: 500 }}>{k.pct}%</div>
                 <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
                   color: 'var(--text-secondary)' }}>€{k.eur}/MW/day</div>
@@ -464,14 +464,14 @@ export function TradingEngineCard() {
           {data.scenarios && data.scenarios.drr_uplift_eur_mw_day > 0 && (
             <div style={{
               border: '1px solid var(--teal)',
-              borderRadius: 0, padding: '12px 16px', marginBottom: 'var(--space-sm)',
+              borderRadius: 0, paddingTop: '12px', paddingRight: 'var(--space-sm)', paddingBottom: '12px', paddingLeft: 'var(--space-sm)', marginBottom: 'var(--space-sm)',
               background: 'var(--teal-bg)',
             }}>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
                 color: 'var(--teal)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 FCR market reopens ~{data.drr_note.derogation_expires_iso}
               </div>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.25rem',
+              <div style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--type-display-md)',
                 color: 'var(--teal)', marginTop: 'var(--space-2xs)', fontWeight: 500 }}>
                 +€{data.scenarios.drr_uplift_eur_mw_day}/MW/day
               </div>
@@ -484,7 +484,7 @@ export function TradingEngineCard() {
 
           {/* ── MW Allocation ── */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-sm)', marginBottom: 'var(--space-sm)',
-            padding: '12px 0', borderTop: '1px solid var(--border-card)' }}>
+            paddingTop: '12px', paddingRight: 0, paddingBottom: '12px', paddingLeft: 0, borderTop: '1px solid var(--border-card)' }}>
             <div style={{ flex: 1, minWidth: 140 }}>
               <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
                 fontFamily: "var(--font-mono)", textTransform: 'uppercase',
@@ -502,7 +502,7 @@ export function TradingEngineCard() {
                 color: 'var(--text-muted)', marginTop: 6 }}>
                 {ACTIVATION_COVERAGE_LABEL} {data.reserves_detail.activation_rate_pct}%
               </div>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: '0.5625rem',
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--type-mono-xs)',
                 color: 'var(--text-ghost)', marginTop: 2, lineHeight: 1.4 }}>
                 = {ACTIVATION_COVERAGE_FORMULA}
               </div>

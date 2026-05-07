@@ -139,11 +139,11 @@ export function S1Card() {
       {stats && (
         <>
           <div style={{
-            padding: '10px 0', marginBottom: 'var(--space-2xs)',
+            paddingTop: '10px', paddingRight: 0, paddingBottom: '10px', paddingLeft: 0, marginBottom: 'var(--space-2xs)',
             borderTop: '1px solid var(--border-subtle)', borderBottom: '1px solid var(--border-subtle)',
           }}>
             <div style={{
-              fontFamily: 'var(--font-mono)', fontSize: '0.5625rem',
+              fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)',
               color: 'var(--text-muted)', textTransform: 'uppercase',
               letterSpacing: '0.10em', marginBottom: '6px',
             }}>30-day trailing distribution</div>
@@ -167,7 +167,7 @@ export function S1Card() {
             if (!note) return null;
             return (
               <p style={{
-                fontFamily: 'var(--font-mono)', fontSize: '0.5625rem',
+                fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)',
                 color: 'var(--text-muted)', marginBottom: '12px', lineHeight: 1.5,
               }}>
                 {note}
@@ -194,12 +194,12 @@ export function S1Card() {
       {heroVal != null && (
         <p style={{
           fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)',
-          color: 'var(--text-secondary)', lineHeight: 1.5, margin: '12px 0 8px',
+          color: 'var(--text-secondary)', lineHeight: 1.5, marginTop: '12px', marginRight: 0, marginBottom: 'var(--space-xs)', marginLeft: 0,
         }}>
           At a{' '}
-          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 500 }}>100 MW / {dur}</span>{' '}
+          <span style={{ fontFamily: 'var(--font-serif)', fontWeight: 500 }}>100 MW / {dur}</span>{' '}
           plant, today&apos;s gross capture implies{' '}
-          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 500 }}>
+          <span style={{ fontFamily: 'var(--font-serif)', fontWeight: 500 }}>
             {fmtEuro(Math.round(heroVal * (dur === '2h' ? 200 : 400) / 100) * 100)}
           </span>
           /day of arbitrage optionality.
@@ -280,7 +280,7 @@ function LiveSignal({ updatedAt, source, flash }: { updatedAt?: string | null; s
         style={{
           fontFamily: 'var(--font-mono)', fontSize: 'var(--font-2xs, 10px)',
           color: `var(${fresh.colorToken})`,
-          padding: '2px 6px',
+          paddingTop: '2px', paddingRight: '6px', paddingBottom: '2px', paddingLeft: '6px',
           border: '1px solid var(--border-subtle)',
           borderRadius: '2px',
           letterSpacing: '0.06em',
@@ -303,7 +303,7 @@ function LiveSignal({ updatedAt, source, flash }: { updatedAt?: string | null; s
       <span style={{
         fontFamily: 'var(--font-mono)', fontSize: 'var(--font-2xs, 10px)',
         color: 'var(--text-tertiary)',
-        padding: '2px 6px',
+        paddingTop: '2px', paddingRight: '6px', paddingBottom: '2px', paddingLeft: '6px',
         border: '1px solid var(--border-subtle)',
         borderRadius: '2px',
         letterSpacing: '0.04em',
@@ -321,7 +321,7 @@ function DurationToggle({ value, onChange }: { value: Duration; onChange: (d: Du
     <span style={{ display: 'inline-flex', gap: '2px', marginLeft: 'auto' }}>
       {(['2h', '4h'] as const).map(d => (
         <button key={d} onClick={() => onChange(d)} className="tap-target-mobile" style={{
-          padding: '2px 8px', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+          paddingTop: '2px', paddingRight: 'var(--space-xs)', paddingBottom: '2px', paddingLeft: 'var(--space-xs)', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
           cursor: 'pointer', border: '1px solid',
           borderColor: value === d ? 'var(--teal)' : 'var(--border-card)',
           borderRadius: '3px',
@@ -468,7 +468,7 @@ function Sparkline({ history, dur, stats, CC, pinned, onPin }: {
           display: 'flex', alignItems: 'center', gap: 'var(--space-xs)', flexWrap: 'wrap',
           fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
           color: 'var(--text-secondary)',
-          padding: '2px 0 10px',
+          paddingTop: '2px', paddingRight: 0, paddingBottom: '10px', paddingLeft: 0,
         }}
       >
         <span style={{ color: 'var(--text-muted)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Pinned</span>
@@ -598,7 +598,7 @@ function BridgeChart({ bridge, chargePrice, rte, CC }: {
             <div style={{
               display: 'flex', justifyContent: 'space-between',
               fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
-              padding: '2px 0',
+              paddingTop: '2px', paddingRight: 0, paddingBottom: '2px', paddingLeft: 0,
               color: line.type === 'result' ? 'var(--text-primary)' : line.type === 'deduction' ? 'var(--rose)' : 'var(--text-secondary)',
               fontWeight: line.type === 'result' ? 600 : 400,
             }}>
@@ -608,7 +608,7 @@ function BridgeChart({ bridge, chargePrice, rte, CC }: {
             {line.type === 'deduction' && line.label.startsWith('RTE loss') && (
               <div style={{
                 fontFamily: 'var(--font-mono)', fontSize: 'var(--font-2xs, 10px)',
-                color: 'var(--text-muted)', padding: '0 0 6px', lineHeight: 1.5,
+                color: 'var(--text-muted)', paddingTop: 0, paddingRight: 0, paddingBottom: '6px', paddingLeft: 0, lineHeight: 1.5,
               }}>
                 <div>
                   = {lossPct}% × charge price ({fmtChargeEuro(charge)} today) = {fmtChargeEuro(todayLoss)}/MWh
@@ -721,7 +721,7 @@ function DrawerProse({ children }: { children: ReactNode }) {
   return (
     <p style={{
       fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)',
-      color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 0 8px',
+      color: 'var(--text-secondary)', lineHeight: 1.6, marginTop: 0, marginRight: 0, marginBottom: 'var(--space-xs)', marginLeft: 0,
     }}>
       {children}
     </p>
@@ -757,7 +757,7 @@ function S1HowSection() {
     <ul style={{
       fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)',
       color: 'var(--text-secondary)', lineHeight: 1.6,
-      margin: '0 0 8px', paddingLeft: '18px',
+      marginTop: 0, marginRight: 0, marginBottom: 'var(--space-xs)', marginLeft: 0, paddingLeft: '18px',
     }}>
       <li>Peak-2h average price minus trough-2h average, on day-ahead clearing prices.</li>
       <li>85% round-trip efficiency applied on the charge leg (gross → net).</li>

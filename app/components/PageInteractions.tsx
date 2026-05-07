@@ -109,7 +109,7 @@ function ShortcutHelpOverlay({ onClose }: { onClose: () => void }) {
           background: 'var(--bg-card)',
           border: '1px solid var(--border-highlight)',
           borderRadius: '4px',
-          padding: '24px 28px',
+          paddingTop: 'var(--space-md)', paddingRight: '28px', paddingBottom: 'var(--space-md)', paddingLeft: '28px',
           maxWidth: '420px',
           width: '100%',
           boxShadow: 'var(--tooltip-shadow)',
@@ -122,8 +122,8 @@ function ShortcutHelpOverlay({ onClose }: { onClose: () => void }) {
           marginBottom: 'var(--space-sm)',
         }}>
           <h2 id="shortcut-help-title" style={{
-            fontFamily: 'var(--font-display)',
-            fontSize: '1rem',
+            fontFamily: 'var(--font-serif)',
+            fontSize: 'var(--type-body-lg)',
             color: 'var(--text-primary)',
             letterSpacing: '0.04em',
             margin: 0,
@@ -140,7 +140,7 @@ function ShortcutHelpOverlay({ onClose }: { onClose: () => void }) {
               cursor: 'pointer',
               fontFamily: 'var(--font-mono)',
               fontSize: 'var(--font-sm)',
-              padding: '4px 8px',
+              paddingTop: 'var(--space-2xs)', paddingRight: 'var(--space-xs)', paddingBottom: 'var(--space-2xs)', paddingLeft: 'var(--space-xs)',
             }}
           >Esc</button>
         </div>
@@ -165,7 +165,7 @@ function ShortcutHelpOverlay({ onClose }: { onClose: () => void }) {
                 color: 'var(--text-primary)',
                 background: 'var(--bg-elevated)',
                 border: '1px solid var(--border-card)',
-                padding: '2px 8px',
+                paddingTop: '2px', paddingRight: 'var(--space-xs)', paddingBottom: '2px', paddingLeft: 'var(--space-xs)',
                 borderRadius: '2px',
                 textAlign: 'center',
               }}>{s.key.toUpperCase()}</kbd>

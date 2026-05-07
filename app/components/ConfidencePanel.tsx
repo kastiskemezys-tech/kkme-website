@@ -32,10 +32,10 @@ function LevelBadge({ level }: { level: string }) {
   return (
     <span style={{
       fontFamily: 'var(--font-mono)',
-      fontSize: '0.5625rem',
+      fontSize: 'var(--type-mono-xs)',
       color: colors[level] || 'var(--text-muted)',
       border: `1px solid ${colors[level] || 'var(--border-card)'}`,
-      padding: '0px 4px',
+      paddingTop: 0, paddingRight: 'var(--space-2xs)', paddingBottom: 0, paddingLeft: 'var(--space-2xs)',
       borderRadius: '2px',
       textTransform: 'uppercase',
       letterSpacing: '0.04em',
@@ -76,14 +76,14 @@ export function ConfidencePanel() {
             <span style={{ color: 'var(--text-secondary)' }}>{row.metric}</span>
             <Dots filled={row.filled} />
             <LevelBadge level={row.level} />
-            <span style={{ color: 'var(--text-muted)', fontSize: '0.625rem' }}>{row.source}</span>
+            <span style={{ color: 'var(--text-muted)', fontSize: 'var(--type-mono-xs)' }}>{row.source}</span>
           </div>
         ))}
       </div>
 
       <p style={{
         fontFamily: 'var(--font-mono)',
-        fontSize: '0.625rem',
+        fontSize: 'var(--type-mono-xs)',
         color: 'var(--text-muted)',
         lineHeight: 1.6,
         marginTop: 'var(--space-sm)',

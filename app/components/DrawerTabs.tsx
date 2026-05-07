@@ -43,7 +43,7 @@ export default function DrawerTabs({ tabs, active, onChange }: DrawerTabsProps) 
               fontSize: 'var(--font-xs)',
               textTransform: 'uppercase',
               letterSpacing: '0.06em',
-              padding: '8px 0',
+              paddingTop: 'var(--space-xs)', paddingRight: 0, paddingBottom: 'var(--space-xs)', paddingLeft: 0,
               marginBottom: '-1px',
               cursor: 'pointer',
               transition: 'color 120ms ease, border-color 120ms ease',

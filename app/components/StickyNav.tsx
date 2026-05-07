@@ -45,7 +45,7 @@ export default function StickyNav() {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: '10px 24px',
+        paddingTop: '10px', paddingRight: 'var(--space-md)', paddingBottom: '10px', paddingLeft: 'var(--space-md)',
         background: 'var(--nav-bg)',
         borderBottom: '1px solid var(--border-subtle)',
       }}>
@@ -64,7 +64,7 @@ export default function StickyNav() {
               className="tap-target-mobile"
               style={{
                 fontFamily: 'var(--font-mono)',
-                fontSize: '0.8125rem',
+                fontSize: 'var(--type-body-md)',
                 color: 'var(--text-secondary)',
                 textDecoration: 'none',
                 letterSpacing: '0.04em',
@@ -80,9 +80,9 @@ export default function StickyNav() {
             onClick={(e) => { e.preventDefault(); scrollTo('#conversation'); }}
             className="tap-target-mobile"
             style={{
-              padding: '5px 16px',
+              paddingTop: '5px', paddingRight: 'var(--space-sm)', paddingBottom: '5px', paddingLeft: 'var(--space-sm)',
               fontFamily: 'var(--font-mono)',
-              fontSize: '0.8125rem',
+              fontSize: 'var(--type-body-md)',
               background: 'transparent',
               border: '1px solid var(--border-highlight)',
               color: 'var(--text-secondary)',
@@ -104,9 +104,9 @@ export default function StickyNav() {
             background: 'none',
             border: 'none',
             color: 'var(--text-tertiary)',
-            fontSize: '1.25rem',
+            fontSize: 'var(--type-display-md)',
             cursor: 'pointer',
-            padding: '4px 8px',
+            paddingTop: 'var(--space-2xs)', paddingRight: 'var(--space-xs)', paddingBottom: 'var(--space-2xs)', paddingLeft: 'var(--space-xs)',
           }}
         >
           {menuOpen ? '✕' : '☰'}
@@ -121,7 +121,7 @@ export default function StickyNav() {
           gap: '0',
           background: 'var(--nav-bg)',
           borderBottom: '1px solid var(--border-subtle)',
-          padding: '8px 0',
+          paddingTop: 'var(--space-xs)', paddingRight: 0, paddingBottom: 'var(--space-xs)', paddingLeft: 0,
         }}>
           {visibleLinks.map(l => (
             <a
@@ -135,11 +135,11 @@ export default function StickyNav() {
                 color: 'var(--text-tertiary)',
                 textDecoration: 'none',
                 letterSpacing: '0.04em',
-                padding: '10px 24px',
+                paddingTop: '10px', paddingRight: 'var(--space-md)', paddingBottom: '10px', paddingLeft: 'var(--space-md)',
               }}
             >{l.label}</a>
           ))}
-          <div style={{ padding: '10px 24px', display: 'flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
+          <div style={{ paddingTop: '10px', paddingRight: 'var(--space-md)', paddingBottom: '10px', paddingLeft: 'var(--space-md)', display: 'flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
             <ThemeToggle />
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>Theme</span>
           </div>
@@ -153,7 +153,7 @@ export default function StickyNav() {
               color: 'var(--teal)',
               textDecoration: 'none',
               letterSpacing: '0.04em',
-              padding: '10px 24px',
+              paddingTop: '10px', paddingRight: 'var(--space-md)', paddingBottom: '10px', paddingLeft: 'var(--space-md)',
             }}
           >Get in touch</a>
         </div>

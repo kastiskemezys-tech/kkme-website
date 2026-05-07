@@ -66,7 +66,7 @@ export function CopyButton({ value, label, variant = 'icon' }: CopyButtonProps) 
           fontSize: 'var(--font-xs)',
           color: color ?? 'var(--text-muted)',
           cursor: 'pointer',
-          padding: '4px 8px',
+          paddingTop: 'var(--space-2xs)', paddingRight: 'var(--space-xs)', paddingBottom: 'var(--space-2xs)', paddingLeft: 'var(--space-xs)',
           transition: 'color 150ms ease',
           minWidth: '44px',
           minHeight: '28px',

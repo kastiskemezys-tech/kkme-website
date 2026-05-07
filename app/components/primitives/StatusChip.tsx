@@ -19,7 +19,7 @@ export function StatusChip({ status, sentiment = 'neutral' }: StatusChipProps) {
       color,
       border: `1px solid color-mix(in srgb, ${color} 15%, transparent)`,
       background: `color-mix(in srgb, ${color} 5%, transparent)`,
-      padding: '2px 8px',
+      paddingTop: '2px', paddingRight: 'var(--space-xs)', paddingBottom: '2px', paddingLeft: 'var(--space-xs)',
       letterSpacing: '0.04em',
       lineHeight: 1.4,
     }}>

@@ -234,7 +234,7 @@ export default function Home() {
         {/* ═══ FOOTER ═══ */}
         <footer style={{
           borderTop: '1px solid var(--border-card)',
-          padding: '32px 0',
+          paddingTop: 'var(--space-lg)', paddingRight: 0, paddingBottom: 'var(--space-lg)', paddingLeft: 0,
           marginTop: 'var(--space-xl)',
         }}>
           <div style={{
@@ -249,7 +249,7 @@ export default function Home() {
               <img src="/design-assets/Logo/kkme-black.png" alt="KKME" height={16} width={76} className="logo-light" style={{ opacity: 0.5 }} />
               <span style={{
                 fontFamily: 'var(--font-mono)',
-                fontSize: '0.8125rem',
+                fontSize: 'var(--type-body-md)',
                 color: 'var(--text-muted)',
                 letterSpacing: '0.06em',
               }}>Baltic BESS Market Signals</span>
@@ -257,7 +257,7 @@ export default function Home() {
             <div style={{
               display: 'flex', gap: 'var(--space-md)',
               fontFamily: 'var(--font-mono)',
-              fontSize: '0.8125rem',
+              fontSize: 'var(--type-body-md)',
             }}>
               <span style={{ color: 'var(--text-muted)' }}>kastytis@kkme.eu</span>
               <span style={{ color: 'var(--text-muted)' }}>+370 698 22225</span>

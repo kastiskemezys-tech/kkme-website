@@ -314,7 +314,7 @@ export function BalticMap({
         display: 'flex',
         gap: '10px',
         fontFamily: 'var(--font-mono)',
-        fontSize: '9px',
+        fontSize: 'var(--type-mono-xs)',
         color: 'var(--text-muted)',
         marginTop: 'var(--space-2xs)',
         justifyContent: 'flex-end',

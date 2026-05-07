@@ -39,10 +39,10 @@ function StatusPill({ status, tech }: { status: string; tech?: string }) {
   return (
     <span style={{
       fontFamily: 'var(--font-mono)',
-      fontSize: '0.5625rem',
+      fontSize: 'var(--type-mono-xs)',
       color: s.color,
       border: `1px solid ${s.color}`,
-      padding: '1px 4px',
+      paddingTop: '1px', paddingRight: 'var(--space-2xs)', paddingBottom: '1px', paddingLeft: 'var(--space-2xs)',
       borderRadius: '2px',
       whiteSpace: 'nowrap',
     }}>
@@ -116,7 +116,7 @@ export function AssetDetailPanel({ isOpen, onClose, title, subtitle, assets, not
                 fontFamily: 'var(--font-mono)',
                 fontSize: 'var(--font-xs)',
                 color: 'var(--text-muted)',
-                margin: '4px 0 0',
+                marginTop: 'var(--space-2xs)', marginRight: 0, marginBottom: 0, marginLeft: 0,
               }}>
                 {subtitle}
               </p>
@@ -127,10 +127,10 @@ export function AssetDetailPanel({ isOpen, onClose, title, subtitle, assets, not
             style={{
               all: 'unset',
               fontFamily: 'var(--font-mono)',
-              fontSize: '1rem',
+              fontSize: 'var(--type-body-lg)',
               color: 'var(--text-muted)',
               cursor: 'pointer',
-              padding: '2px 6px',
+              paddingTop: '2px', paddingRight: '6px', paddingBottom: '2px', paddingLeft: '6px',
               transition: 'color 150ms',
             }}
             onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-secondary)')}
@@ -156,11 +156,11 @@ export function AssetDetailPanel({ isOpen, onClose, title, subtitle, assets, not
           gridTemplateColumns: '1fr 55px 60px auto',
           gap: '4px 8px',
           fontFamily: 'var(--font-mono)',
-          fontSize: '0.5625rem',
+          fontSize: 'var(--type-mono-xs)',
           color: 'var(--text-ghost)',
           textTransform: 'uppercase',
           letterSpacing: '0.06em',
-          padding: '4px 0',
+          paddingTop: 'var(--space-2xs)', paddingRight: 0, paddingBottom: 'var(--space-2xs)', paddingLeft: 0,
           borderBottom: '1px solid var(--border-card)',
           marginBottom: '2px',
         }}>
@@ -180,7 +180,7 @@ export function AssetDetailPanel({ isOpen, onClose, title, subtitle, assets, not
               gap: '4px 8px',
               fontFamily: 'var(--font-mono)',
               fontSize: 'var(--font-xs)',
-              padding: '6px 0',
+              paddingTop: '6px', paddingRight: 0, paddingBottom: '6px', paddingLeft: 0,
               borderBottom: '1px solid var(--bg-card)',
               alignItems: 'center',
             }}
@@ -209,7 +209,7 @@ export function AssetDetailPanel({ isOpen, onClose, title, subtitle, assets, not
         {notes && notes.length > 0 && (
           <div style={{
             marginTop: 'var(--space-sm)',
-            padding: '8px 10px',
+            paddingTop: 'var(--space-xs)', paddingRight: '10px', paddingBottom: 'var(--space-xs)', paddingLeft: '10px',
             borderLeft: '2px solid var(--amber-subtle)',
           }}>
             {notes.map((note, i) => (

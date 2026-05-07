@@ -21,9 +21,9 @@ export function StaleBanner({ isDefault, isStale, ageHours, defaultReason }: Sta
         ...MONO,
         background:   'var(--stale-bg)',
         borderLeft:   '2px solid var(--stale-border)',
-        padding:      '0.4rem 0.6rem',
+        paddingTop: '0.4rem', paddingRight: '0.6rem', paddingBottom: '0.4rem', paddingLeft: '0.6rem',
         marginBottom: '1.25rem',
-        fontSize:     '0.5rem',
+        fontSize: 'var(--type-mono-xs)',
         color:        'var(--stale-text)',
         lineHeight:    1.5,
       }}>
@@ -37,7 +37,7 @@ export function StaleBanner({ isDefault, isStale, ageHours, defaultReason }: Sta
     return (
       <span style={{
         ...MONO,
-        fontSize:    '0.5rem',
+        fontSize: 'var(--type-mono-xs)',
         color:       'var(--stale-text-soft)',
         marginLeft:  '0.4rem',
       }}>

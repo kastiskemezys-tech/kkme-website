@@ -49,7 +49,7 @@ export function SectionDivider({ label, sub }: SectionDividerProps) {
       <span
         style={{
           ...MONO,
-          fontSize: '0.72rem',
+          fontSize: 'var(--type-label)',
           letterSpacing: '0.2em',
           color: 'var(--text-secondary)',
           textTransform: 'uppercase',
@@ -74,7 +74,7 @@ export function SectionDivider({ label, sub }: SectionDividerProps) {
         <span
           style={{
             ...MONO,
-            fontSize: '0.58rem',
+            fontSize: 'var(--type-mono-xs)',
             letterSpacing: '0.10em',
             color: 'var(--text-muted)',
             textTransform: 'uppercase',

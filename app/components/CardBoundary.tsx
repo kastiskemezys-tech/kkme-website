@@ -30,9 +30,9 @@ export function CardBoundaryFallback({ signal, error, onRetry }: FallbackProps) 
       aria-live="polite"
       style={{
         border:      '1px solid var(--error-border)',
-        padding:     '2rem 2.5rem',
+        paddingTop: '2rem', paddingRight: '2.5rem', paddingBottom: '2rem', paddingLeft: '2.5rem',
         fontFamily:  'var(--font-mono)',
-        fontSize:    '0.6rem',
+        fontSize: 'var(--type-mono-xs)',
         color:       'var(--text-tertiary)',
         maxWidth:    '440px',
         width:       '100%',

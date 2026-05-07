@@ -136,7 +136,7 @@ export const DetailsDrawer = forwardRef(function DetailsDrawer(
             display: 'inline-block',
             transition: 'transform 200ms ease',
             transform: open ? 'rotate(90deg)' : 'rotate(0deg)',
-            fontSize: '0.625rem',
+            fontSize: 'var(--type-mono-xs)',
           }}>
             ▸
           </span>

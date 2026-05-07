@@ -12,8 +12,8 @@ const IntelFeed = dynamic(() => import('@/app/components/IntelFeed').then(m => m
 
 export default function IntelPage() {
   return (
-    <main style={{ padding: '80px 24px 120px', maxWidth: '880px', margin: '0 auto' }}>
-      <header style={{ marginBottom: '32px' }}>
+    <main style={{ paddingTop: '80px', paddingRight: 'var(--space-md)', paddingBottom: '120px', paddingLeft: 'var(--space-md)', maxWidth: '880px', margin: '0 auto' }}>
+      <header style={{ marginBottom: 'var(--space-lg)' }}>
         <p
           style={{
             fontFamily: 'var(--font-mono)',
@@ -21,7 +21,7 @@ export default function IntelPage() {
             color: 'var(--text-muted)',
             letterSpacing: '0.12em',
             textTransform: 'uppercase',
-            margin: '0 0 8px',
+            marginTop: 0, marginRight: 0, marginBottom: 'var(--space-xs)', marginLeft: 0,
           }}
         >
           KKME · Baltic BESS market intelligence
@@ -32,7 +32,7 @@ export default function IntelPage() {
             fontSize: 'clamp(28px, 4vw, 44px)',
             color: 'var(--text-primary)',
             lineHeight: 1.1,
-            margin: '0 0 16px',
+            marginTop: 0, marginRight: 0, marginBottom: 'var(--space-sm)', marginLeft: 0,
             fontWeight: 400,
           }}
         >
@@ -44,7 +44,7 @@ export default function IntelPage() {
             fontSize: 'var(--font-base)',
             color: 'var(--text-secondary)',
             lineHeight: 1.55,
-            margin: '0 0 12px',
+            marginTop: 0, marginRight: 0, marginBottom: '12px', marginLeft: 0,
             maxWidth: '64ch',
           }}
         >

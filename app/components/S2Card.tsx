@@ -305,7 +305,7 @@ export function S2Card() {
       {(data.imbalance_mean != null || data.imbalance_p90 != null || data.pct_above_100 != null) && (
         <div style={{
           display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap',
-          padding: '10px 0', marginBottom: '12px',
+          paddingTop: '10px', paddingRight: 0, paddingBottom: '10px', paddingLeft: 0, marginBottom: '12px',
           borderTop: '1px solid var(--border-subtle)', borderBottom: '1px solid var(--border-subtle)',
         }}>
           <TileButton
@@ -347,12 +347,12 @@ export function S2Card() {
       {hero != null && prod === 'aFRR' && (
         <p style={{
           fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)',
-          color: 'var(--text-secondary)', lineHeight: 1.5, margin: '12px 0 8px',
+          color: 'var(--text-secondary)', lineHeight: 1.5, marginTop: '12px', marginRight: 0, marginBottom: 'var(--space-xs)', marginLeft: 0,
         }}>
           At a{' '}
-          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 500 }}>50 MW</span>{' '}
+          <span style={{ fontFamily: 'var(--font-serif)', fontWeight: 500 }}>50 MW</span>{' '}
           aFRR offer, today&apos;s clearing implies{' '}
-          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 500 }}>
+          <span style={{ fontFamily: 'var(--font-serif)', fontWeight: 500 }}>
             {fmtEuro(Math.round(hero * 50 * 24 * 365 / 1000))}k
           </span>
           /year of reserved-capacity revenue.
@@ -435,7 +435,7 @@ function LiveSignal({ updatedAt, source, flash }: { updatedAt?: string | null; s
         style={{
           fontFamily: 'var(--font-mono)', fontSize: 'var(--font-2xs, 10px)',
           color: `var(${fresh.colorToken})`,
-          padding: '2px 6px',
+          paddingTop: '2px', paddingRight: '6px', paddingBottom: '2px', paddingLeft: '6px',
           border: '1px solid var(--border-subtle)',
           borderRadius: '2px',
           letterSpacing: '0.06em',
@@ -458,7 +458,7 @@ function LiveSignal({ updatedAt, source, flash }: { updatedAt?: string | null; s
       <span style={{
         fontFamily: 'var(--font-mono)', fontSize: 'var(--font-2xs, 10px)',
         color: 'var(--text-tertiary)',
-        padding: '2px 6px',
+        paddingTop: '2px', paddingRight: '6px', paddingBottom: '2px', paddingLeft: '6px',
         border: '1px solid var(--border-subtle)',
         borderRadius: '2px',
         letterSpacing: '0.04em',
@@ -476,7 +476,7 @@ function ProductToggle({ value, onChange }: { value: Product; onChange: (p: Prod
     <span style={{ display: 'inline-flex', gap: '2px' }}>
       {(['aFRR', 'mFRR', 'FCR'] as const).map(p => (
         <button key={p} onClick={() => onChange(p)} className="tap-target-mobile" style={{
-          padding: '2px 8px', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+          paddingTop: '2px', paddingRight: 'var(--space-xs)', paddingBottom: '2px', paddingLeft: 'var(--space-xs)', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
           cursor: 'pointer', border: '1px solid',
           borderColor: value === p ? 'var(--teal)' : 'var(--border-card)',
           borderRadius: '3px',
@@ -505,7 +505,7 @@ function CountryToggle({ value, onChange, disabled }: {
             disabled={disabled}
             className="tap-target-mobile"
             style={{
-              padding: '2px 8px', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
+              paddingTop: '2px', paddingRight: 'var(--space-xs)', paddingBottom: '2px', paddingLeft: 'var(--space-xs)', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
               cursor: disabled ? 'not-allowed' : 'pointer', border: '1px solid',
               borderColor: active ? 'var(--teal)' : 'var(--border-card)',
               borderRadius: '3px',
@@ -534,7 +534,7 @@ function RateChip({ rate, onClick }: { rate: number | null; onClick?: () => void
           fontFamily: 'var(--font-mono)',
           fontSize: 'var(--font-2xs, 10px)',
           color: 'var(--text-muted)',
-          padding: '2px 6px',
+          paddingTop: '2px', paddingRight: '6px', paddingBottom: '2px', paddingLeft: '6px',
           border: '1px solid var(--border-subtle)',
           borderRadius: '2px',
           letterSpacing: '0.04em',
@@ -558,7 +558,7 @@ function RateChip({ rate, onClick }: { rate: number | null; onClick?: () => void
         fontFamily: 'var(--font-mono)',
         fontSize: 'var(--font-2xs, 10px)',
         color: 'var(--text-secondary)',
-        padding: '2px 6px',
+        paddingTop: '2px', paddingRight: '6px', paddingBottom: '2px', paddingLeft: '6px',
         border: '1px solid var(--border-subtle)',
         borderRadius: '2px',
         letterSpacing: '0.04em',
@@ -592,7 +592,7 @@ function AfrrDeltaChip({ delta, onClick }: { delta: number | null; onClick?: () 
           fontFamily: 'var(--font-mono)',
           fontSize: 'var(--font-2xs, 10px)',
           color: 'var(--text-muted)',
-          padding: '2px 6px',
+          paddingTop: '2px', paddingRight: '6px', paddingBottom: '2px', paddingLeft: '6px',
           border: '1px solid var(--border-subtle)',
           borderRadius: '2px',
           letterSpacing: '0.04em',
@@ -619,7 +619,7 @@ function AfrrDeltaChip({ delta, onClick }: { delta: number | null; onClick?: () 
         fontFamily: 'var(--font-mono)',
         fontSize: 'var(--font-2xs, 10px)',
         color: 'var(--text-secondary)',
-        padding: '2px 6px',
+        paddingTop: '2px', paddingRight: '6px', paddingBottom: '2px', paddingLeft: '6px',
         border: '1px solid var(--border-subtle)',
         borderRadius: '2px',
         letterSpacing: '0.04em',
@@ -651,7 +651,7 @@ function PinReadout({ prefix, pinned, onClear, fmtKey }: {
         display: 'flex', alignItems: 'center', gap: 'var(--space-xs)', flexWrap: 'wrap',
         fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
         color: 'var(--text-secondary)',
-        padding: '2px 0 10px',
+        paddingTop: '2px', paddingRight: 0, paddingBottom: '10px', paddingLeft: 0,
       }}
     >
       <span style={{ color: 'var(--text-muted)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Pinned</span>
@@ -1127,7 +1127,7 @@ function DrawerProse({ children }: { children: ReactNode }) {
   return (
     <p style={{
       fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)',
-      color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 0 8px',
+      color: 'var(--text-secondary)', lineHeight: 1.6, marginTop: 0, marginRight: 0, marginBottom: 'var(--space-xs)', marginLeft: 0,
     }}>
       {children}
     </p>
@@ -1178,7 +1178,7 @@ function S2HowSection() {
     <ul style={{
       fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)',
       color: 'var(--text-secondary)', lineHeight: 1.6,
-      margin: '0 0 8px', paddingLeft: '18px',
+      marginTop: 0, marginRight: 0, marginBottom: 'var(--space-xs)', marginLeft: 0, paddingLeft: '18px',
     }}>
       <li>7-day rolling P50 of capacity clearing prices, per country, per product.</li>
       <li>aFRR / mFRR / FCR are reserve products; LT has the richest mix, LV/EE are aFRR-dominated.</li>

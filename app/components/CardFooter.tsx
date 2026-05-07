@@ -16,7 +16,7 @@ export function CardFooter({ period, compare, updated, timestamp, isStale, ageHo
   return (
     <div style={{
       ...MONO,
-      fontSize: '0.65rem',
+      fontSize: 'var(--type-mono-xs)',
       color: 'var(--text-tertiary)',
       marginTop: '14px',
       paddingTop: 'var(--space-xs)',
@@ -24,9 +24,9 @@ export function CardFooter({ period, compare, updated, timestamp, isStale, ageHo
       lineHeight: 1.6,
     }}>
       <span>{period}</span>
-      <span style={{ margin: '0 5px', opacity: 0.35 }}>·</span>
+      <span style={{ marginTop: 0, marginRight: '5px', marginBottom: 0, marginLeft: '5px', opacity: 0.35 }}>·</span>
       <span>{compare}</span>
-      <span style={{ margin: '0 5px', opacity: 0.35 }}>·</span>
+      <span style={{ marginTop: 0, marginRight: '5px', marginBottom: 0, marginLeft: '5px', opacity: 0.35 }}>·</span>
       <span style={{ color: isStale ? 'var(--amber)' : 'var(--text-muted)' }}>
         <FreshnessDot timestamp={timestamp} />
         {updated}

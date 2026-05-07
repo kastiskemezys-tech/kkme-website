@@ -73,7 +73,7 @@ export function StatusStrip() {
           onClick={() => document.getElementById(SECTION_MAP[label])?.scrollIntoView({ behavior: 'smooth' })}
           style={{
             all: 'unset',
-            padding: '8px 10px',
+            paddingTop: 'var(--space-xs)', paddingRight: '10px', paddingBottom: 'var(--space-xs)', paddingLeft: '10px',
             border: '1px solid var(--border-card)',
             background: 'var(--bg-card)',
             cursor: 'pointer',
@@ -82,7 +82,7 @@ export function StatusStrip() {
         >
           <div style={{
             fontFamily: 'var(--font-mono)',
-            fontSize: '0.58rem',
+            fontSize: 'var(--type-mono-xs)',
             color: 'var(--text-tertiary)',
             letterSpacing: '0.06em',
             marginBottom: 'var(--space-2xs)',
@@ -92,7 +92,7 @@ export function StatusStrip() {
           </div>
           <div style={{
             fontFamily: 'var(--font-mono)',
-            fontSize: '0.72rem',
+            fontSize: 'var(--type-label)',
             color: signalColor(state),
             fontWeight: 500,
           }}>

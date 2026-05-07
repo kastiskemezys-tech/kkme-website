@@ -333,13 +333,13 @@ function OfficialBadge() {
   return (
     <span style={{
       fontFamily: 'var(--font-mono)',
-      fontSize: '0.625rem',
+      fontSize: 'var(--type-mono-xs)',
       letterSpacing: '0.1em',
       textTransform: 'uppercase',
       color: 'var(--teal)',
       border: '1px solid var(--teal-subtle)',
       background: 'var(--teal-bg)',
-      padding: '1px 5px',
+      paddingTop: '1px', paddingRight: '5px', paddingBottom: '1px', paddingLeft: '5px',
       borderRadius: '2px',
       fontWeight: 500,
     }}>
@@ -443,7 +443,7 @@ function PinnedStrip({ items }: { items: IntelItem[] }) {
             key={item.id}
             style={{
               background: 'var(--bg-elevated)',
-              padding: '16px 18px',
+              paddingTop: 'var(--space-sm)', paddingRight: '18px', paddingBottom: 'var(--space-sm)', paddingLeft: '18px',
               borderRadius: '2px',
               display: 'flex',
               flexDirection: 'column',
@@ -505,7 +505,7 @@ function IntelRow({ item, isExpanded, onToggle, isOlder = false }: {
           width: '100%',
           background: 'none',
           border: 'none',
-          padding: '18px 0',
+          paddingTop: '18px', paddingRight: 0, paddingBottom: '18px', paddingLeft: 0,
           cursor: 'pointer',
           textAlign: 'left',
           display: 'flex',
@@ -638,13 +638,12 @@ function IntelRow({ item, isExpanded, onToggle, isOlder = false }: {
       {/* Expanded detail */}
       {isExpanded && (
         <div style={{
-          padding: '0 0 18px',
+          paddingTop: 0, paddingRight: 0, paddingBottom: '18px', paddingLeft: '14px',
           display: 'flex',
           flexDirection: 'column',
           gap: '10px',
           borderLeft: `2px solid ${CATEGORY_COLORS[item.primaryCategory]}`,
           marginLeft: '2px',
-          paddingLeft: '14px',
         }}>
           {/* Pull-quote treatment for whyItMatters — editorial verdict */}
           {item.whyItMatters && (
@@ -709,7 +708,7 @@ function IntelRow({ item, isExpanded, onToggle, isOlder = false }: {
                       all: 'unset',
                       fontFamily: 'var(--font-mono)',
                       fontSize: 'var(--font-xs)',
-                      padding: '1px 5px',
+                      paddingTop: '1px', paddingRight: '5px', paddingBottom: '1px', paddingLeft: '5px',
                       background: 'var(--bg-elevated)',
                       borderRadius: '2px',
                       color: 'var(--text-tertiary)',
@@ -805,7 +804,7 @@ function FeaturedRow({ item }: { item: IntelItem }) {
       <div style={{
         borderTop: '1px solid var(--border-card)',
         borderBottom: '1px solid var(--border-card)',
-        padding: '24px 0',
+        paddingTop: 'var(--space-md)', paddingRight: 0, paddingBottom: 'var(--space-md)', paddingLeft: 0,
         display: 'flex',
         flexDirection: 'column',
         gap: '14px',
@@ -819,7 +818,7 @@ function FeaturedRow({ item }: { item: IntelItem }) {
         }}>
           <h3 style={{
             fontFamily: 'var(--font-mono)',
-            fontSize: '1.125rem',
+            fontSize: 'var(--type-display-md)',
             lineHeight: 1.35,
             color: 'var(--text-primary)',
             margin: 0,
@@ -1116,7 +1115,7 @@ export function IntelFeed({ mode = 'homepage' }: IntelFeedProps = {}) {
               style={{
                 fontFamily: 'var(--font-mono)',
                 fontSize: 'var(--font-xs)',
-                padding: '4px 10px',
+                paddingTop: 'var(--space-2xs)', paddingRight: '10px', paddingBottom: 'var(--space-2xs)', paddingLeft: '10px',
                 border: 'none',
                 borderBottom: isActive ? '2px solid var(--teal)' : '2px solid transparent',
                 background: 'transparent',
@@ -1157,7 +1156,7 @@ export function IntelFeed({ mode = 'homepage' }: IntelFeedProps = {}) {
                   fontFamily: 'var(--font-mono)',
                   fontSize: 'var(--font-xs)',
                   letterSpacing: '0.06em',
-                  padding: '5px 10px',
+                  paddingTop: '5px', paddingRight: '10px', paddingBottom: '5px', paddingLeft: '10px',
                   border: `1px solid ${isActive ? 'var(--teal-subtle)' : 'var(--border-card)'}`,
                   background: isActive ? 'var(--teal-bg)' : 'transparent',
                   color: isActive ? 'var(--teal-medium)' : 'var(--text-tertiary)',
@@ -1204,7 +1203,7 @@ export function IntelFeed({ mode = 'homepage' }: IntelFeedProps = {}) {
               style={{
                 fontFamily: 'var(--font-mono)',
                 fontSize: 'var(--font-xs)',
-                padding: '3px 8px',
+                paddingTop: '3px', paddingRight: 'var(--space-xs)', paddingBottom: '3px', paddingLeft: 'var(--space-xs)',
                 border: '1px solid var(--border-card)',
                 background: 'var(--bg-elevated)',
                 color: 'var(--text-secondary)',
@@ -1227,7 +1226,7 @@ export function IntelFeed({ mode = 'homepage' }: IntelFeedProps = {}) {
               style={{
                 fontFamily: 'var(--font-mono)',
                 fontSize: 'var(--font-xs)',
-                padding: '3px 8px',
+                paddingTop: '3px', paddingRight: 'var(--space-xs)', paddingBottom: '3px', paddingLeft: 'var(--space-xs)',
                 border: '1px solid var(--border-card)',
                 background: 'var(--bg-elevated)',
                 color: 'var(--text-secondary)',
@@ -1267,7 +1266,7 @@ export function IntelFeed({ mode = 'homepage' }: IntelFeedProps = {}) {
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-sm)',
             color: 'var(--text-muted)',
-            padding: '24px 0',
+            paddingTop: 'var(--space-md)', paddingRight: 0, paddingBottom: 'var(--space-md)', paddingLeft: 0,
             textAlign: 'center',
           }}>
             No {activeFilter !== 'all' ? CATEGORY_LABELS[activeFilter].toLowerCase() : ''} intelligence items.

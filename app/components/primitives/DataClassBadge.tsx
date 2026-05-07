@@ -32,12 +32,12 @@ export function DataClassBadge({ dataClass }: DataClassBadgeProps) {
   const s = STYLES[dataClass] || STYLES.derived;
   return (
     <span style={{
-      fontSize: '0.6rem',
+      fontSize: 'var(--type-mono-xs)',
       fontFamily: 'var(--font-mono)',
       color: s.color,
       border: `1px ${s.borderStyle ?? 'solid'} ${s.border}`,
       backgroundColor: s.bg ?? 'transparent',
-      padding: '1px 6px',
+      paddingTop: '1px', paddingRight: '6px', paddingBottom: '1px', paddingLeft: '6px',
       borderRadius: 2,
       whiteSpace: 'nowrap',
       opacity: s.bg === 'var(--mint)' ? 1 : 0.85,

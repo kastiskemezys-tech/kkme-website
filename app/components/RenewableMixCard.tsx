@@ -69,12 +69,12 @@ export function RenewableMixCard() {
 
   return (
     <article style={{ width: '100%' }}>
-      <h3 style={{ fontFamily: 'var(--font-mono)', fontSize: '0.9375rem', color: 'var(--text-tertiary)', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600, marginBottom: '6px', display: 'flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
+      <h3 style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-body-md)', color: 'var(--text-tertiary)', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600, marginBottom: '6px', display: 'flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
         Renewable Mix
         <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: dotColor(renewablePct), display: 'inline-block' }} />
       </h3>
 
-      <div style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(1.5rem, 3vw, 1.75rem)', fontWeight: 400, color: 'var(--text-primary)', lineHeight: 1, letterSpacing: '0.02em', marginBottom: '2px' }}>
+      <div style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(1.5rem, 3vw, 1.75rem)', fontWeight: 400, color: 'var(--text-primary)', lineHeight: 1, letterSpacing: '0.02em', marginBottom: '2px' }}>
         {renewablePct.toFixed(0)}%
       </div>
       <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '10px' }}>
@@ -87,11 +87,11 @@ export function RenewableMixCard() {
         <div style={{ flex: solarPct, background: 'var(--amber)', transition: 'flex 0.3s ease' }} />
         <div style={{ flex: thermalPct, background: 'var(--text-ghost)', transition: 'flex 0.3s ease' }} />
       </div>
-      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-muted)', marginBottom: solarFootnote ? '4px' : '8px' }}>
+      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--text-muted)', marginBottom: solarFootnote ? '4px' : '8px' }}>
         Wind {windPct.toFixed(0)}% · Solar {solarPct.toFixed(0)}% · Thermal {thermalPct.toFixed(0)}%
       </p>
       {solarFootnote && (
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--amber)', marginBottom: 'var(--space-xs)', lineHeight: 1.5 }}>
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--amber)', marginBottom: 'var(--space-xs)', lineHeight: 1.5 }}>
           {solarFootnote}
         </p>
       )}
@@ -103,7 +103,7 @@ export function RenewableMixCard() {
         </p>
       )}
 
-      <p className="tier3-interp" style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', lineHeight: 1.4, margin: '4px 0 8px' }}>
+      <p className="tier3-interp" style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', lineHeight: 1.4, marginTop: 'var(--space-2xs)', marginRight: 0, marginBottom: 'var(--space-xs)', marginLeft: 0 }}>
         {interpretation(renewablePct)}
       </p>
 

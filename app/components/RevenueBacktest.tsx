@@ -61,7 +61,7 @@ export function RevenueBacktest({ rows, modeledY1Daily, scenario }: RevenueBackt
           Back-test · last 13 months · realised vs predicted
         </div>
         <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
-          fontFamily: 'var(--font-mono)', padding: '12px 0' }}>
+          fontFamily: 'var(--font-mono)', paddingTop: '12px', paddingRight: 0, paddingBottom: '12px', paddingLeft: 0 }}>
           Insufficient history
         </div>
       </div>
