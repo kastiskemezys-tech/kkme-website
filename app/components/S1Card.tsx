@@ -67,9 +67,7 @@ function fmtDate(d: string): string {
 }
 
 function fmtMonth(m: string): string {
-  const [y, mo] = m.split('-');
-  const names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  return `${names[parseInt(mo) - 1]} ${y.slice(2)}`;
+  return m;
 }
 
 // timeAgo retired in 7.6.16 — formatTimestamp covers the same shape and adds
