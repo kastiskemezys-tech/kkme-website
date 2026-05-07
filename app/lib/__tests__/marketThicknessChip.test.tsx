@@ -6,21 +6,24 @@ import { MarketThicknessChip } from '@/app/components/MarketThicknessChip';
 // pattern of asserting against renderToStaticMarkup, no DOM dep).
 
 describe('MarketThicknessChip — render output', () => {
-  it('aFRR renders as "aFRR · thick"', () => {
+  it('aFRR renders as "aFRR · thick · ≥100 MW" (Phase 21 — quantitative anchor)', () => {
     const html = renderToStaticMarkup(<MarketThicknessChip product="afrr" />);
     expect(html).toContain('aFRR · thick');
+    expect(html).toContain('≥100 MW');
     expect(html).toContain('data-thickness-level="thick"');
   });
 
-  it('mFRR renders as "mFRR · medium"', () => {
+  it('mFRR renders as "mFRR · medium · 50–100 MW" (Phase 21 — quantitative anchor)', () => {
     const html = renderToStaticMarkup(<MarketThicknessChip product="mfrr" />);
     expect(html).toContain('mFRR · medium');
+    expect(html).toContain('50–100 MW');
     expect(html).toContain('data-thickness-level="medium"');
   });
 
-  it('FCR renders as "FCR · thin"', () => {
+  it('FCR renders as "FCR · thin · ≤50 MW" (Phase 21 — quantitative anchor)', () => {
     const html = renderToStaticMarkup(<MarketThicknessChip product="fcr" />);
     expect(html).toContain('FCR · thin');
+    expect(html).toContain('≤50 MW');
     expect(html).toContain('data-thickness-level="thin"');
   });
 

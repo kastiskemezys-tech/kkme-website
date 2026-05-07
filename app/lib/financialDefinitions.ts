@@ -179,6 +179,13 @@ export interface MarketThicknessSpec {
   level: ThicknessLevel;
   /** Optional short caption shown beneath the chip; null for `thick`. */
   caption: string | null;
+  /**
+   * Phase 21 — quantitative depth anchor rendered inside the chip after the
+   * level word (e.g. "≥100 MW"). Per discipline rule #6, the level token
+   * (THICK/MEDIUM/THIN) reads as editorial state-label to non-expert readers
+   * unless paired with a quantitative anchor; this field carries that anchor.
+   */
+  quantitative_anchor: string;
   /** title=… tooltip */
   tooltip: string;
 }
@@ -188,6 +195,7 @@ export const MARKET_THICKNESS: Readonly<Record<ThicknessProduct, MarketThickness
     product: 'afrr',
     level: 'thick',
     caption: null,
+    quantitative_anchor: '≥100 MW',
     tooltip:
       'aFRR is the thickest balancing market in the Baltics. A 50 MW asset is a price-taker.',
   },
@@ -195,6 +203,7 @@ export const MARKET_THICKNESS: Readonly<Record<ThicknessProduct, MarketThickness
     product: 'mfrr',
     level: 'medium',
     caption: 'thinner market — bid-shading recommended',
+    quantitative_anchor: '50–100 MW',
     tooltip:
       'mFRR is medium-thickness. Liquidity drops in off-peak hours; bid-shading recommended for assets > 50 MW.',
   },
@@ -202,6 +211,7 @@ export const MARKET_THICKNESS: Readonly<Record<ThicknessProduct, MarketThickness
     product: 'fcr',
     level: 'thin',
     caption: 'very thin market — price-taker assumption breaks for >50 MW',
+    quantitative_anchor: '≤50 MW',
     tooltip:
       'FCR is the thinnest balancing product — sometimes Baltic-aggregate, single-buyer (post-DRR derogation). The price-taker assumption breaks down for assets > 50 MW.',
   },

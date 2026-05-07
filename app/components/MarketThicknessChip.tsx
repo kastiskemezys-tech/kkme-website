@@ -38,7 +38,7 @@ export function MarketThicknessChip({ product, showCaption = false }: MarketThic
       }}
       data-testid={`market-thickness-${product}`}
       data-thickness-level={spec.level}>
-        {label} · {spec.level}
+        {label} · {spec.level} · {spec.quantitative_anchor}
       </span>
       {showCaption && spec.caption && (
         <span style={{
