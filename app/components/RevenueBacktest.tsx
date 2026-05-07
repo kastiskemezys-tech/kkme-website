@@ -12,7 +12,7 @@
 
 import { useMemo } from 'react';
 import { Line } from 'react-chartjs-2';
-import { useChartColors, CHART_FONT, useTooltipStyle } from '@/app/lib/chartTheme';
+import { useChartColors, CHART_FONT, CHART_FONT_DISPLAY, useTooltipStyle, SENTINEL_DASH, SENTINEL_LINE_WIDTH, makeCrosshairPlugin } from '@/app/lib/chartTheme';
 import { ChartTooltipPortal, useChartTooltipState } from '@/app/components/primitives';
 import { buildExternalTooltipHandler } from '@/app/lib/chartTooltip';
 import {
@@ -93,21 +93,22 @@ export function RevenueBacktest({ rows, modeledY1Daily, scenario }: RevenueBackt
       const yPx = scales.y.getPixelForValue(modeledY1Daily);
       if (!Number.isFinite(yPx)) return;
       ctx.save();
-      ctx.setLineDash([4, 4]);
+      ctx.setLineDash(SENTINEL_DASH);
       ctx.strokeStyle = CC.amber;
-      ctx.lineWidth = 0.8;
+      ctx.lineWidth = SENTINEL_LINE_WIDTH;
       ctx.beginPath();
       ctx.moveTo(scales.x.left, yPx);
       ctx.lineTo(scales.x.right, yPx);
       ctx.stroke();
       ctx.setLineDash([]);
       ctx.fillStyle = CC.amber;
-      ctx.font = `9px ${CHART_FONT.family}`;
+      ctx.font = `italic 10px ${CHART_FONT_DISPLAY.family}`;
       ctx.textAlign = 'right';
       ctx.fillText(`Y1 model €${Math.round(modeledY1Daily)}`, scales.x.right - 4, yPx - 3);
       ctx.restore();
     },
   };
+  const crosshair = makeCrosshairPlugin(CC);
 
   const options: any = {
     responsive: true, maintainAspectRatio: false,
@@ -161,8 +162,16 @@ export function RevenueBacktest({ rows, modeledY1Daily, scenario }: RevenueBackt
           n={stats.count} months · {stats.totalDays}d
         </div>
       </div>
-      <div style={{ height: 160 }}>
-        <Line data={data} plugins={[refLine]} options={options} />
+      <div
+        role="img"
+        aria-label={
+          haveStats
+            ? `13-month back-test, ${stats.count} months realised vs €${Math.round(modeledY1Daily as number)}/MW/day model anchor; mean error ${signedPct}%`
+            : `13-month back-test chart, ${stats.count} months`
+        }
+        style={{ height: 160 }}
+      >
+        <Line data={data} plugins={[refLine, crosshair]} options={options} />
       </div>
       {haveStats ? (
         <div style={{ marginTop: 'var(--space-2xs)', fontSize: 'var(--font-xs)', fontFamily: 'var(--font-mono)' }}>

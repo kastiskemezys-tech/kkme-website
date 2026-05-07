@@ -17,7 +17,7 @@ import {
   Tooltip, Filler,
 } from 'chart.js';
 import { Line, Bar } from 'react-chartjs-2';
-import { CHART_FONT, useChartColors, useTooltipStyle, buildScales } from '@/app/lib/chartTheme';
+import { CHART_FONT, useChartColors, useTooltipStyle, buildScales, SENTINEL_DASH, makeCrosshairPlugin } from '@/app/lib/chartTheme';
 import { freshnessLabel, formatTimestamp } from '@/app/lib/freshness';
 import { leftSkewFootnote } from '@/app/lib/distributionShape';
 import { formatHourEET } from '@/app/lib/hourLabels';
@@ -397,19 +397,27 @@ function Sparkline({ history, dur, stats, CC, pinned, onPin }: {
       data: values.map(() => stats.p50),
       borderColor: CC.textFaint,
       borderWidth: 1,
-      borderDash: [4, 4],
+      borderDash: SENTINEL_DASH,
       pointRadius: 0,
       fill: false,
     });
   }
 
   const scales = buildScales(CC);
+  const crosshair = makeCrosshairPlugin(CC);
+
+  // Data-derived honest summary for screen readers — quantitative, no editorial state.
+  const valid = values.filter((v): v is number => typeof v === 'number');
+  const ariaLabel = valid.length > 0
+    ? `Day-ahead ${dur} capture, last ${valid.length} days${stats?.p50 != null ? `; median €${Math.round(stats.p50)}/MWh` : ''}${stats?.p90 != null ? `; P90 €${Math.round(stats.p90)}/MWh` : ''}`
+    : `Day-ahead ${dur} capture chart, no data`;
 
   return (
     <>
-    <div style={{ height: '120px', marginBottom: pinned ? '4px' : '8px' }}>
+    <div role="img" aria-label={ariaLabel} style={{ height: '120px', marginBottom: pinned ? '4px' : '8px' }}>
       <Line
         data={{ labels, datasets: datasets as never }}
+        plugins={[crosshair]}
         options={{
           responsive: true,
           maintainAspectRatio: false,
@@ -515,13 +523,19 @@ function MonthlyChart({ monthly, dur, CC }: {
     [tt.setState, monthly],
   );
   const externalTooltip = useTooltipStyle(CC, { external: externalHandler });
+  const crosshair = makeCrosshairPlugin(CC);
+
+  const valid = values.filter((v): v is number => typeof v === 'number');
+  const ariaLabel = valid.length > 0
+    ? `Monthly average gross ${dur} capture, last ${valid.length} months`
+    : `Monthly capture chart, no data`;
 
   return (
     <div style={{ marginBottom: 'var(--space-sm)' }}>
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '6px' }}>
         Monthly avg gross {dur} <DataClassBadge dataClass="derived" />
       </div>
-      <div style={{ height: '140px' }}>
+      <div role="img" aria-label={ariaLabel} style={{ height: '140px' }}>
         <Bar
           data={{
             labels,
@@ -534,6 +548,7 @@ function MonthlyChart({ monthly, dur, CC }: {
               barPercentage: 0.7,
             }],
           }}
+          plugins={[crosshair]}
           options={{
             responsive: true,
             maintainAspectRatio: false,

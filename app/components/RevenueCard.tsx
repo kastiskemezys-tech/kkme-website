@@ -8,7 +8,7 @@ import {
   Tooltip, Legend, Filler,
 } from 'chart.js';
 import { Line, Bar } from 'react-chartjs-2';
-import { useChartColors, CHART_FONT, useTooltipStyle } from '@/app/lib/chartTheme';
+import { useChartColors, CHART_FONT, CHART_FONT_DISPLAY, useTooltipStyle, SENTINEL_DASH, SENTINEL_LINE_WIDTH, makeCrosshairPlugin } from '@/app/lib/chartTheme';
 import { DetailsDrawer, ChartTooltipPortal, useChartTooltipState } from '@/app/components/primitives';
 import { buildExternalTooltipHandler } from '@/app/lib/chartTooltip';
 import { RevenueSensitivityTornado } from '@/app/components/RevenueSensitivityTornado';
@@ -497,6 +497,8 @@ export function CyclesBreakdownChart({
       <svg
         viewBox={`0 0 ${W} ${H}`}
         preserveAspectRatio="none"
+        role="img"
+        aria-label={`Cycle breakdown — FCR ${Math.round(breakdown.fcr)}, aFRR ${Math.round(breakdown.afrr)}, mFRR ${Math.round(breakdown.mfrr)}, DA ${Math.round(breakdown.da)} EFCs/yr; total ${Math.round(total)} EFCs/yr (${breakdown.total_cd.toFixed(2)} c/d)`}
         style={{ display: 'block', width: '100%', maxWidth: W, height: H, overflow: 'visible' }}
       >
         <rect x={0} y={0} width={W} height={H} rx={2} fill="var(--bg-elevated)" />
@@ -864,16 +866,16 @@ function DegradationChart({ years, CC }: {
         const yPx = scales.y.getPixelForValue(yVal);
         if (yPx == null || !Number.isFinite(yPx)) return;
         ctx.save();
-        ctx.setLineDash([4, 4]);
+        ctx.setLineDash(SENTINEL_DASH);
         ctx.strokeStyle = color;
-        ctx.lineWidth = 0.8;
+        ctx.lineWidth = SENTINEL_LINE_WIDTH;
         ctx.beginPath();
         ctx.moveTo(xL, yPx);
         ctx.lineTo(xR, yPx);
         ctx.stroke();
         ctx.setLineDash([]);
         ctx.fillStyle = color;
-        ctx.font = `9px ${CHART_FONT.family}`;
+        ctx.font = `italic 10px ${CHART_FONT_DISPLAY.family}`;
         ctx.textAlign = 'right';
         ctx.fillText(label, xR - 4, yPx - 3);
         ctx.restore();
@@ -882,6 +884,7 @@ function DegradationChart({ years, CC }: {
       drawLine(END_OF_LIFE_THRESHOLD, CC.rose, '0.70 · EoL');
     },
   };
+  const crosshair = makeCrosshairPlugin(CC);
 
   const options: any = {
     responsive: true, maintainAspectRatio: false,
@@ -906,6 +909,9 @@ function DegradationChart({ years, CC }: {
     },
   };
 
+  const lastPoint = points[points.length - 1];
+  const ariaLabel = `State-of-health trajectory over ${points.length} years; year-${lastPoint?.year ?? 0} retention ${lastPoint ? Math.round(lastPoint.retention * 100) : 0}%; reference lines at 80% augment threshold and 70% end-of-life`;
+
   return (
     <div>
       <div style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-xs)',
@@ -913,8 +919,8 @@ function DegradationChart({ years, CC }: {
         letterSpacing: '0.08em', marginBottom: 6 }}>
         State-of-health trajectory · OEM curve · LFP 4h
       </div>
-      <div style={{ height: 160 }}>
-        <Line data={data} plugins={[refLines]} options={options} />
+      <div role="img" aria-label={ariaLabel} style={{ height: 160 }}>
+        <Line data={data} plugins={[refLines, crosshair]} options={options} />
       </div>
       <ChartTooltipPortal tt={tt} />
     </div>
@@ -969,21 +975,22 @@ function CannibalizationChart({ rows, codYear, CC }: {
       const yPx = scales.y.getPixelForValue(TODAYS_MARKET_REFERENCE);
       if (!Number.isFinite(yPx)) return;
       ctx.save();
-      ctx.setLineDash([4, 4]);
+      ctx.setLineDash(SENTINEL_DASH);
       ctx.strokeStyle = CC.textMuted;
-      ctx.lineWidth = 0.8;
+      ctx.lineWidth = SENTINEL_LINE_WIDTH;
       ctx.beginPath();
       ctx.moveTo(scales.x.left, yPx);
       ctx.lineTo(scales.x.right, yPx);
       ctx.stroke();
       ctx.setLineDash([]);
       ctx.fillStyle = CC.textMuted;
-      ctx.font = `9px ${CHART_FONT.family}`;
+      ctx.font = `italic 10px ${CHART_FONT_DISPLAY.family}`;
       ctx.textAlign = 'right';
       ctx.fillText('1.0 · today', scales.x.right - 4, yPx - 3);
       ctx.restore();
     },
   };
+  const crosshair = makeCrosshairPlugin(CC);
 
   const options: any = {
     responsive: true, maintainAspectRatio: false,
@@ -1021,8 +1028,12 @@ function CannibalizationChart({ rows, codYear, CC }: {
             fontFamily: 'var(--font-mono)' }}>COD {codYear}</div>
         )}
       </div>
-      <div style={{ height: 160 }}>
-        <Line data={data} plugins={[refLine]} options={options} />
+      <div
+        role="img"
+        aria-label={`Capacity-payment compression — ${points.length} years of CPI multiplier; today's reference 1.0×; final-year ${points[points.length - 1] ? points[points.length - 1].cpi.toFixed(2) : '—'}×`}
+        style={{ height: 160 }}
+      >
+        <Line data={data} plugins={[refLine, crosshair]} options={options} />
       </div>
       <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
         fontFamily: 'var(--font-mono)', marginTop: 'var(--space-2xs)' }}>
@@ -1292,12 +1303,14 @@ function RevenueChart({ years, CC }: {
         label: 'OPEX',
         data: years.map(y => y.opex / MW / 1000),
         fill: false, borderColor: CC.textMuted, borderWidth: 1,
-        borderDash: [4, 4], pointRadius: 0, yAxisID: 'y',
+        borderDash: SENTINEL_DASH, pointRadius: 0, yAxisID: 'y',
       },
       {
         label: 'Fleet S/D',
         data: years.map(y => y.sd_ratio),
         fill: false, borderColor: CC.fillSd, borderWidth: 1,
+        // Tighter [2, 3] dash deliberately differentiates the right-axis ratio
+        // line from the left-axis OPEX line painted above with SENTINEL_DASH.
         borderDash: [2, 3], pointRadius: 0, yAxisID: 'y2',
       },
     ],
@@ -1333,9 +1346,16 @@ function RevenueChart({ years, CC }: {
     },
   };
 
+  const crosshair = makeCrosshairPlugin(CC);
+  const lastY = years[years.length - 1];
+  const firstY = years[0];
+  const ariaLabel = years.length > 0
+    ? `Annual revenue + OPEX over ${years.length} years; Y${firstY?.yr ?? 0} total ${firstY ? Math.round((firstY.rev_bal + firstY.rev_trd) / MW / 1000) : 0}k €/MW; Y${lastY?.yr ?? 0} total ${lastY ? Math.round((lastY.rev_bal + lastY.rev_trd) / MW / 1000) : 0}k €/MW`
+    : 'Annual revenue chart, no data';
+
   return (
-    <div style={{ height: 280, position: 'relative' }}>
-      <Line data={chartData} options={options} />
+    <div role="img" aria-label={ariaLabel} style={{ height: 280, position: 'relative' }}>
+      <Line data={chartData} plugins={[crosshair]} options={options} />
       <ChartTooltipPortal tt={tt} />
     </div>
   );
@@ -1368,9 +1388,9 @@ function DSCRChart({ monthly, CC }: {
       const { ctx, scales } = chart;
       const yPixel = scales.y.getPixelForValue(1.20);
       ctx.save();
-      ctx.setLineDash([4, 4]);
+      ctx.setLineDash(SENTINEL_DASH);
       ctx.strokeStyle = CC.textMuted;
-      ctx.lineWidth = 0.8;
+      ctx.lineWidth = SENTINEL_LINE_WIDTH;
       ctx.beginPath();
       ctx.moveTo(scales.x.left, yPixel);
       ctx.lineTo(scales.x.right, yPixel);
@@ -1379,12 +1399,18 @@ function DSCRChart({ monthly, CC }: {
     },
   };
 
+  const dscrValues = monthly.map(m => m.dscr).filter((v): v is number => typeof v === 'number');
+  const minDscr = dscrValues.length > 0 ? Math.min(...dscrValues) : null;
+  const ariaLabel = dscrValues.length > 0
+    ? `Y1 monthly DSCR over ${dscrValues.length} months; minimum ${minDscr != null ? minDscr.toFixed(2) : '—'}× against 1.20× covenant floor`
+    : 'Y1 monthly DSCR chart, no data';
+
   return (
     <div>
       <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
         fontFamily: "var(--font-mono)", textTransform: 'uppercase',
         letterSpacing: '0.08em', marginBottom: 6 }}>Y1 monthly DSCR</div>
-      <div style={{ height: 140 }}>
+      <div role="img" aria-label={ariaLabel} style={{ height: 140 }}>
         <Bar data={data} plugins={[covenantPlugin]} options={{
           responsive: true, maintainAspectRatio: false,
           plugins: { legend: { display: false }, tooltip: { enabled: false } },
@@ -1483,7 +1509,11 @@ function DrawerContent({ data }: { data: RevenueData }) {
       <R label="Equity" val={`€${fmtK(data.equity_initial)}`} />
 
       <div style={head}>Degradation</div>
-      <div style={{ height: 120 }}>
+      <div
+        role="img"
+        aria-label={`Usable energy degradation over ${data.years.length} years; Y0 ${data.years[0]?.usable_mwh_per_mw.toFixed(1) ?? '—'} MWh/MW; final ${data.years[data.years.length - 1]?.usable_mwh_per_mw.toFixed(1) ?? '—'} MWh/MW`}
+        style={{ height: 120 }}
+      >
         <Line data={{
           labels: data.years.map(y => 'Y' + y.yr),
           datasets: [{

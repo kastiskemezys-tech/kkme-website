@@ -16,7 +16,7 @@ import {
   Tooltip, Filler,
 } from 'chart.js';
 import { Line, Bar } from 'react-chartjs-2';
-import { CHART_FONT, useChartColors, useTooltipStyle, buildScales } from '@/app/lib/chartTheme';
+import { CHART_FONT, useChartColors, useTooltipStyle, buildScales, makeCrosshairPlugin } from '@/app/lib/chartTheme';
 import { freshnessLabel, formatTimestamp } from '@/app/lib/freshness';
 import { MarketThicknessChip } from '@/app/components/MarketThicknessChip';
 import type { ThicknessProduct } from '@/app/lib/financialDefinitions';
@@ -593,10 +593,16 @@ function HistoryChart({ history, prod, CC, pinned, onPin }: {
     [tt.setState, history, prod],
   );
   const externalTooltip = useTooltipStyle(CC, { external: externalHandler });
+  const crosshair = makeCrosshairPlugin(CC);
+
+  const valid = values.filter((v): v is number => typeof v === 'number');
+  const ariaLabel = valid.length > 0
+    ? `${prod} clearing-price history, last ${valid.length} days`
+    : `${prod} history chart, no data`;
 
   return (
     <>
-      <div style={{ height: '120px', marginBottom: pinned ? '4px' : '8px' }}>
+      <div role="img" aria-label={ariaLabel} style={{ height: '120px', marginBottom: pinned ? '4px' : '8px' }}>
         <Line
           data={{
             labels,
@@ -615,6 +621,7 @@ function HistoryChart({ history, prod, CC, pinned, onPin }: {
               spanGaps: true,
             }],
           }}
+          plugins={[crosshair]}
           options={{
             responsive: true,
             maintainAspectRatio: false,
@@ -691,10 +698,16 @@ function MonthlyTrajectoryChart({ monthly, country, prod, CC, pinned, onPin }: {
     [tt.setState, monthly, country, prod],
   );
   const externalTooltip = useTooltipStyle(CC, { external: externalHandler });
+  const crosshair = makeCrosshairPlugin(CC);
+
+  const valid = values.filter((v): v is number => typeof v === 'number');
+  const ariaLabel = valid.length > 0
+    ? `${country} ${prod} P50 monthly trajectory, ${valid.length} months`
+    : `${country} ${prod} monthly trajectory, no data`;
 
   return (
     <>
-      <div style={{ height: '120px', marginBottom: pinned ? '4px' : '8px' }}>
+      <div role="img" aria-label={ariaLabel} style={{ height: '120px', marginBottom: pinned ? '4px' : '8px' }}>
         <Line
           data={{
             labels,
@@ -713,6 +726,7 @@ function MonthlyTrajectoryChart({ monthly, country, prod, CC, pinned, onPin }: {
               spanGaps: true,
             }],
           }}
+          plugins={[crosshair]}
           options={{
             responsive: true,
             maintainAspectRatio: false,
@@ -787,13 +801,19 @@ function CapacityChart({ monthly, prod, CC }: {
     [tt.setState, monthly, prod],
   );
   const externalTooltip = useTooltipStyle(CC, { external: externalHandler });
+  const crosshair = makeCrosshairPlugin(CC);
+
+  const valid = values.filter((v): v is number => typeof v === 'number');
+  const ariaLabel = valid.length > 0
+    ? `Monthly ${prod} capacity clearing, ${valid.length} months`
+    : `${prod} capacity history chart, no data`;
 
   return (
     <div style={{ marginBottom: 'var(--space-sm)' }}>
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '6px' }}>
         Monthly {prod} capacity clearing <DataClassBadge dataClass="observed" />
       </div>
-      <div style={{ height: '140px' }}>
+      <div role="img" aria-label={ariaLabel} style={{ height: '140px' }}>
         <Bar
           data={{
             labels,
@@ -806,6 +826,7 @@ function CapacityChart({ monthly, prod, CC }: {
               barPercentage: 0.7,
             }],
           }}
+          plugins={[crosshair]}
           options={{
             responsive: true,
             maintainAspectRatio: false,
