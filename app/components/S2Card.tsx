@@ -602,7 +602,7 @@ function HistoryChart({ history, prod, CC, pinned, onPin }: {
 
   return (
     <>
-      <div role="img" aria-label={ariaLabel} style={{ height: '120px', marginBottom: pinned ? '4px' : '8px' }}>
+      <div role="img" aria-label={ariaLabel} style={{ height: '170px', marginBottom: pinned ? '4px' : '8px' }}>
         <Line
           data={{
             labels,
@@ -708,7 +708,7 @@ function MonthlyTrajectoryChart({ monthly, country, prod, CC, pinned, onPin }: {
 
   return (
     <>
-      <div role="img" aria-label={ariaLabel} style={{ height: '120px', marginBottom: pinned ? '4px' : '8px' }}>
+      <div role="img" aria-label={ariaLabel} style={{ height: '170px', marginBottom: pinned ? '4px' : '8px' }}>
         <Line
           data={{
             labels,
@@ -815,7 +815,7 @@ function CapacityChart({ monthly, prod, CC }: {
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '6px' }}>
         Monthly {prod} capacity clearing <DataClassBadge dataClass="observed" />
       </div>
-      <div role="img" aria-label={ariaLabel} style={{ height: '140px' }}>
+      <div role="img" aria-label={ariaLabel} style={{ height: '190px' }}>
         <Bar
           data={{
             labels,

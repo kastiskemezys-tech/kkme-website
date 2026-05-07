@@ -414,7 +414,7 @@ function Sparkline({ history, dur, stats, CC, pinned, onPin }: {
 
   return (
     <>
-    <div role="img" aria-label={ariaLabel} style={{ height: '120px', marginBottom: pinned ? '4px' : '8px' }}>
+    <div role="img" aria-label={ariaLabel} style={{ height: '170px', marginBottom: pinned ? '4px' : '8px' }}>
       <Line
         data={{ labels, datasets: datasets as never }}
         plugins={[crosshair]}
@@ -536,7 +536,7 @@ function MonthlyChart({ monthly, dur, CC }: {
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '6px' }}>
         Monthly avg gross {dur} <DataClassBadge dataClass="derived" />
       </div>
-      <div role="img" aria-label={ariaLabel} style={{ height: '140px' }}>
+      <div role="img" aria-label={ariaLabel} style={{ height: '190px' }}>
         <Bar
           data={{
             labels,

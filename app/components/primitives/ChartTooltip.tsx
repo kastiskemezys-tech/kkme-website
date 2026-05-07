@@ -124,10 +124,10 @@ export function ChartTooltip({
             backdropFilter: 'blur(10px) saturate(140%)',
             WebkitBackdropFilter: 'blur(10px) saturate(140%)',
             border: '1px solid var(--border-highlight)',
-            borderRadius: 4,
+            borderRadius: 3,
             boxShadow: 'var(--tooltip-shadow)',
-            padding: '10px 12px',
-            minWidth: 128,
+            padding: '6px 8px',
+            minWidth: 96,
             maxWidth: 280,
             fontFamily: 'var(--font-mono)',
             color: 'var(--text-primary)',
@@ -137,7 +137,7 @@ export function ChartTooltip({
           {headline && (
             <div
               style={{
-                fontSize: 10.5,
+                fontSize: 10,
                 lineHeight: 1.2,
                 color: 'var(--text-tertiary)',
                 letterSpacing: '0.06em',
@@ -145,7 +145,7 @@ export function ChartTooltip({
                 display: 'flex',
                 gap: 10,
                 alignItems: 'baseline',
-                marginBottom: 5,
+                marginBottom: 3,
                 fontVariantNumeric: 'tabular-nums',
               }}
             >
@@ -159,8 +159,8 @@ export function ChartTooltip({
           <div
             style={{
               fontFamily: 'var(--font-display)',
-              fontSize: 17,
-              lineHeight: 1.05,
+              fontSize: 13,
+              lineHeight: 1.15,
               fontWeight: 500,
               letterSpacing: '-0.005em',
               fontVariantNumeric: 'tabular-nums',
@@ -173,7 +173,7 @@ export function ChartTooltip({
           {headlineSub && (
             <div
               style={{
-                fontSize: 10.5,
+                fontSize: 10,
                 color: 'var(--text-muted)',
                 letterSpacing: '0.04em',
                 marginTop: 2,
@@ -186,14 +186,14 @@ export function ChartTooltip({
           {secondary && secondary.length > 0 && (
             <div
               style={{
-                marginTop: 'var(--space-xs)',
-                paddingTop: 'var(--space-xs)',
+                marginTop: 6,
+                paddingTop: 6,
                 borderTop: '1px solid var(--border-subtle)',
                 display: 'grid',
                 gridTemplateColumns: 'auto 1fr',
                 columnGap: 10,
-                rowGap: 3,
-                fontSize: 10.5,
+                rowGap: 2,
+                fontSize: 10,
                 fontVariantNumeric: 'tabular-nums',
               }}
             >
@@ -215,7 +215,7 @@ export function ChartTooltip({
           {source && (
             <div
               style={{
-                marginTop: 6,
+                marginTop: 5,
                 fontFamily: 'var(--font-serif)',
                 fontStyle: 'italic',
                 fontSize: 10,
