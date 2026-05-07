@@ -77,6 +77,16 @@ export const METRIC_REGISTRY: Record<string, MetricDescriptor> = {
       'Distinct from baltic_total.installed_mw which excludes pumped hydro by definition.',
     introducedPhase: '12.10',
   },
+  afrr_up_avg_90d_delta: {
+    label: 'aFRR up-only 30d-vs-60d directional delta',
+    workerPath: 's2.afrr_up_avg_90d_delta',
+    meaning:
+      'Percent change between current 30-day mean and prior 60-day mean of Lithuania aFRR up-only ' +
+      'capacity-reservation €/MW/h (BTD price_procured_reserves rolling-7d, daily-snapshotted to ' +
+      's2_history KV). Surfaced as Δ ±N% / 90d quantitative micro-descriptor chip near the S2 hero ' +
+      'per discipline rule #6 (no editorial state-labels). Null when s2_history < 60 days.',
+    introducedPhase: '21',
+  },
 };
 
 /** Per-country installed-MW selector. Prefers `_live` (VPS-ingested) over hardcode. */
