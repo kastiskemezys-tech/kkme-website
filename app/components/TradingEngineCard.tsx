@@ -8,7 +8,7 @@ import {
   Tooltip, Legend, Filler,
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
-import { useChartColors, CHART_FONT, useTooltipStyle } from '@/app/lib/chartTheme';
+import { useChartColors, CHART_FONT, useTooltipStyle, makeCrosshairPlugin } from '@/app/lib/chartTheme';
 import {
   DetailsDrawer, SourceFooter,
   ChartTooltipPortal, useChartTooltipState,
@@ -240,9 +240,14 @@ export function HourlyChart({ data, CC }: {
     },
   };
 
+  const crosshair = makeCrosshairPlugin(CC);
+  const ariaLabel = hourly.length > 0
+    ? `Hourly dispatch over ${hourly.length} hours; daily average €${avgLine.toFixed(2)}/MW/h; total €${data.revenue_per_mw.daily_eur}/MW/day across capacity, activation, and arbitrage stacks`
+    : 'Hourly dispatch chart, no data';
+
   return (
-    <div style={{ height: 220, position: 'relative' }}>
-      <Bar data={chartData} options={options} />
+    <div role="img" aria-label={ariaLabel} style={{ height: 220, position: 'relative' }}>
+      <Bar data={chartData} plugins={[crosshair]} options={options} />
       <div style={{
         position: 'absolute', top: 0, right: 0,
         fontFamily: CHART_FONT.family, fontSize: '0.5625rem',

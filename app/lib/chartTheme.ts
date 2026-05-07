@@ -105,6 +105,49 @@ export const CHART_FONT = {
   family: "'IBM Plex Mono', monospace",
 };
 
+// Phase 18.2 — editorial caption family for canvas-painted callouts (ref-line
+// labels, annotations). Mirrors the `var(--font-serif)` chain used in HTML so
+// canvas + DOM stay visually aligned.
+export const CHART_FONT_DISPLAY = {
+  family: "'Newsreader', 'Iowan Old Style', Georgia, serif",
+};
+
+// Phase 18.2 — sentinel-line treatment standardized across S1Card, RevenueBacktest,
+// RevenueCard.DegradationChart, RevenueCard.CannibalizationChart, RevenueCard.RevenueChart.
+// Cross-card consistency rule #4: same dash + same lineWidth wherever a reference /
+// median / threshold line is painted.
+export const SENTINEL_DASH: [number, number] = [4, 4];
+export const SENTINEL_LINE_WIDTH = 0.8;
+
+// Phase 18.2 — crosshair plugin. Paints a thin vertical line at the active
+// tooltip caret X across the full chart area whenever the tooltip is visible.
+// Returns a fresh plugin per call so consumers can pass colors at the call
+// site; the plugin closure captures the color, which means it picks up theme
+// toggles automatically when the host re-renders with new resolved colors.
+//
+// Honors `prefers-reduced-motion`: the line is a static paint, no transition.
+export function makeCrosshairPlugin(colors: ChartColors) {
+  return {
+    id: 'kkme-crosshair',
+    afterDraw(chart: { tooltip?: { opacity?: number; caretX?: number }; chartArea?: { top: number; bottom: number }; ctx: CanvasRenderingContext2D }) {
+      const tooltip = chart.tooltip;
+      if (!tooltip || !tooltip.opacity || tooltip.opacity === 0) return;
+      const x = tooltip.caretX;
+      const area = chart.chartArea;
+      if (x == null || !area) return;
+      const ctx = chart.ctx;
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(x, area.top);
+      ctx.lineTo(x, area.bottom);
+      ctx.lineWidth = 0.5;
+      ctx.strokeStyle = colors.textMuted;
+      ctx.stroke();
+      ctx.restore();
+    },
+  };
+}
+
 // Hook: returns theme-aware tooltip style with resolved colors.
 // Default — chart.js renders its own tooltip with the legacy theme. Existing
 // consumers continue to call `useTooltipStyle(colors)` and see identical output.
