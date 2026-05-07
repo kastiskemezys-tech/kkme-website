@@ -458,13 +458,13 @@ html {
   color-scheme: dark;
   scroll-padding-top: 96px;
   scroll-behavior: smooth;
-  /* Phase 18.1 — page-level horizontal-overflow clip. body already had this,
-     but document.documentElement.scrollWidth still bled past viewport on
-     mobile due to internal sub-card layout (DSCR panel, RTE assumption rows,
-     marquee ticker). Proper per-component reflow is queued as Phase 18.1.1
-     (mobile breakdown bars + Returns sub-cards). No `position: sticky`
-     descendants in the codebase, so this is safe. */
-  overflow-x: hidden;
+  /* Phase 18.1.1 — band-aid removed. The `html { overflow-x: hidden }` rule
+     added in Phase 18.1 masked sub-card overflow at four sites (DSCR triple
+     panel, AssumptionsPanel grid, S3 BreakdownBar, MonthlyHeatmap, plus
+     intrinsic 360px chart-canvas fallbacks in rv-analytics). Each was
+     reflowed in this phase; 5-viewport scrollWidth=clientWidth verified
+     before removal. body still keeps `overflow-x: hidden` as a defensive
+     trim against any new component-level overflow regression slipping in. */
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -480,7 +480,6 @@ body {
   color: var(--text);
   font-family: var(--font-serif);
   position: relative;
-  overflow-x: hidden;
   overscroll-behavior-y: contain;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -765,6 +764,94 @@ body,
     width: 100% !important;
     height: auto !important;
   }
+}
+
+/* Phase 18.1.1 — Hero map desktop ↔ mobile swap. Both blocks live in the
+   DOM; CSS toggles visibility at the same 900px breakpoint that collapses
+   the hero grid (Phase 18.1). `display` declared via class (not inline) so
+   the @media override below resolves correctly — inline declarations beat
+   class specificity. Each rule in its own @media block per the Tailwind v4
+   silent-drop pattern. */
+.hero-map-desktop { display: flex; }
+.hero-map-mobile  { display: none; }
+@media (max-width: 900px) {
+  .hero-map-desktop { display: none; }
+}
+@media (max-width: 900px) {
+  .hero-map-mobile { display: flex; }
+}
+
+/* Phase 18.1.1 — Engine assumptions grid. `auto minmax(0, 1fr)` prevents the
+   1fr column from expanding past its track when italic notes contain long
+   unbreakable tokens (the previous `auto 1fr` resolved to max-content under
+   that pressure, blowing the whole panel's scrollWidth past viewport at 360).
+   Below 720px the grid stacks single-column so label + sparkline + italic
+   note flow as readable paragraph blocks. Hoisted to its own @media block per
+   Tailwind v4 silent-drop pattern (Phase 18.1 surprise #1). */
+.assumptions-grid {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 14px;
+  row-gap: var(--space-xs);
+}
+@media (max-width: 720px) {
+  .assumptions-grid {
+    grid-template-columns: minmax(0, 1fr);
+    column-gap: 0;
+    row-gap: var(--space-2xs);
+  }
+}
+
+/* Phase 18.1.1 — DurationOptimizer + DSCR triple panel side-by-side at
+   desktop, stacked at <720px. Previous `gridTemplateColumns: '1fr 1fr'`
+   resolved to max-content under content pressure (DurationOptimizer's
+   2H/4H pill row pushed past 1fr's track), pushing the DSCR panel past
+   viewport on mobile. minmax(0, 1fr) holds the desktop columns; stack
+   below 720. Hoisted to its own @media block per Tailwind v4 quirk. */
+.rv-dur-dscr {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-sm);
+}
+@media (max-width: 720px) {
+  .rv-dur-dscr {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-xs);
+  }
+}
+
+/* Phase 18.1.1 — S3 BreakdownBar mobile reflow (spec P1-4). Children sum
+   130 + 85 + flex + 90 + 24 (3 gaps) = 329px fixed at desktop; flex bar
+   collapses to 0px at <360 viewport. Stack to 3 visual rows on <720px:
+   row 1 = label (full width, allow wrap), row 2 = range + scope (split),
+   row 3 = bar (full width). PCS sub-note loses its 130px desktop indent.
+   Each rule below in its own @media block — Tailwind v4 / Turbopack
+   silently drops some rules when multiple selectors share a block (Phase
+   18.1 surprise #1; reproduced again in Phase 18.1.1 with 5-selector
+   block — split fixed it). */
+@media (max-width: 720px) {
+  .breakdown-bar { flex-wrap: wrap !important; }
+}
+@media (max-width: 720px) {
+  .breakdown-bar__label {
+    width: auto !important;
+    flex: 1 1 100% !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+  }
+}
+@media (max-width: 720px) {
+  .breakdown-bar__range { width: auto !important; flex: 0 1 auto !important; }
+}
+@media (max-width: 720px) {
+  .breakdown-bar__scope { width: auto !important; flex: 1 1 auto !important; text-align: left !important; }
+}
+@media (max-width: 720px) {
+  .breakdown-bar__bar { flex: 1 1 100% !important; order: 99 !important; }
+}
+@media (max-width: 720px) {
+  .breakdown-bar__pcs-note { margin-left: 0 !important; }
 }
 
 /* ═══ Hero pulse dot (data-fetching indicator) ═══ */

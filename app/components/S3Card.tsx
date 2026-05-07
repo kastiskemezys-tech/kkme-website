@@ -80,17 +80,17 @@ function Drawer({ id, title, open, onToggle, children }: { id: string; title: st
 function BreakdownBar({ label, rangeKwh, midKwh, scope, maxVal, isHV }: { label: string; rangeKwh: number[]; midKwh?: number | null; scope: string; maxVal: number; isHV?: boolean }) {
   const low = rangeKwh[0], high = rangeKwh[1];
   return (
-    <div style={{ display: 'flex', alignItems: 'center', marginBottom: '6px', gap: 'var(--space-xs)' }}>
-      <div style={{ width: '130px', flexShrink: 0, fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</div>
-      <div style={{ width: '85px', flexShrink: 0, fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-primary)', textAlign: 'right' }}>€{low}–{high}</div>
-      <div style={{ flex: 1, position: 'relative', height: '10px' }}>
+    <div className="breakdown-bar" style={{ display: 'flex', alignItems: 'center', marginBottom: '6px', gap: 'var(--space-xs)' }}>
+      <div className="breakdown-bar__label" style={{ width: '130px', flexShrink: 0, fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</div>
+      <div className="breakdown-bar__range" style={{ width: '85px', flexShrink: 0, fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-primary)', textAlign: 'right' }}>€{low}–{high}</div>
+      <div className="breakdown-bar__bar" style={{ flex: 1, position: 'relative', height: '10px' }}>
         <div style={{ position: 'absolute', left: 0, right: 0, top: '3px', height: '4px', background: 'var(--bg-elevated)', borderRadius: '2px' }} />
         <div style={{ position: 'absolute', left: `${(low / maxVal) * 100}%`, width: `${((high - low) / maxVal) * 100}%`, top: '1px', height: '8px', background: isHV ? 'var(--bar-fill-amber-mid)' : 'var(--bar-fill-teal)', borderRadius: '2px', transition: 'left 0.3s ease, width 0.3s ease' }} />
         {midKwh != null && (
           <div style={{ position: 'absolute', left: `${(midKwh / maxVal) * 100}%`, top: 0, width: '2px', height: '10px', background: isHV ? 'var(--amber)' : 'var(--teal)', borderRadius: '1px', transition: 'left 0.3s ease' }} />
         )}
       </div>
-      <div style={{ width: '90px', flexShrink: 0, fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-muted)', textAlign: 'right' }}>{scope}</div>
+      <div className="breakdown-bar__scope" style={{ width: '90px', flexShrink: 0, fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-muted)', textAlign: 'right' }}>{scope}</div>
     </div>
   );
 }
@@ -393,7 +393,7 @@ export function S3Card() {
         {bd.pcs && (
           <>
             <BreakdownBar label={bd.pcs.label} rangeKwh={[Math.round(bd.pcs.range_kw![0] / H), Math.round(bd.pcs.range_kw![1] / H)]} midKwh={pcsKwhEquiv} scope={bd.pcs.scope} maxVal={maxBarVal} />
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', fontStyle: 'italic', color: 'var(--text-muted)', marginLeft: '130px', marginBottom: '6px', marginTop: '-2px' }}>PCS: €{bd.pcs.range_kw![0]}–{bd.pcs.range_kw![1]}/kW · fixed per MW, shown as €/kWh for {duration}</div>
+            <div className="breakdown-bar__pcs-note" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', fontStyle: 'italic', color: 'var(--text-muted)', marginLeft: '130px', marginBottom: '6px', marginTop: '-2px' }}>PCS: €{bd.pcs.range_kw![0]}–{bd.pcs.range_kw![1]}/kW · fixed per MW, shown as €/kWh for {duration}</div>
           </>
         )}
         {bd.hv_grid && <BreakdownBar label={bd.hv_grid.label} rangeKwh={bd.hv_grid.range_kwh!} midKwh={null} scope={bd.hv_grid.scope} maxVal={maxBarVal} isHV />}
