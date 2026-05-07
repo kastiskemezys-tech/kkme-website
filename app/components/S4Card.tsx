@@ -211,7 +211,7 @@ function StatusBadge({ status }: { status: string }) {
       fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
       color: colors[status] || 'var(--text-muted)',
       border: `1px solid ${colors[status] || 'var(--border-card)'}`,
-      padding: '1px 5px', borderRadius: '2px',
+      paddingTop: '1px', paddingRight: '5px', paddingBottom: '1px', paddingLeft: '5px', borderRadius: '2px',
     }}>
       {labels[status] || status}
     </span>
@@ -222,7 +222,7 @@ function AssetRow({ asset }: { asset: CountryAsset }) {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 'var(--space-xs)',
-      padding: '6px 0', borderBottom: '1px solid var(--border-card)',
+      paddingTop: '6px', paddingRight: 0, paddingBottom: '6px', paddingLeft: 0, borderBottom: '1px solid var(--border-card)',
       fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
     }}>
       <span style={{ flex: 1, color: 'var(--text-secondary)' }}>
@@ -346,7 +346,7 @@ export function S4Card() {
           onClick={openDrawer}
           style={{
             fontFamily: 'var(--font-mono)',
-            fontSize: '0.9375rem',
+            fontSize: 'var(--type-body-md)',
             color: 'var(--text-tertiary)',
             letterSpacing: '0.06em',
             textTransform: 'uppercase',
@@ -402,7 +402,7 @@ export function S4Card() {
                 fontSize: 'var(--font-xs)',
                 color: 'var(--text-secondary)',
                 border: '1px dashed var(--border-highlight)',
-                padding: '2px 8px',
+                paddingTop: '2px', paddingRight: 'var(--space-xs)', paddingBottom: '2px', paddingLeft: 'var(--space-xs)',
                 letterSpacing: '0.04em',
                 lineHeight: 1.4,
               }}>
@@ -438,7 +438,7 @@ export function S4Card() {
                 fontFamily: 'var(--font-mono)',
                 fontSize: 'var(--font-xs)',
                 letterSpacing: '0.06em',
-                padding: '5px 12px',
+                paddingTop: '5px', paddingRight: '12px', paddingBottom: '5px', paddingLeft: '12px',
                 border: `1px solid ${activeTab === c ? 'var(--border-highlight)' : 'var(--border-card)'}`,
                 background: activeTab === c ? 'var(--bg-elevated)' : 'transparent',
                 color: activeTab === c ? 'var(--text-secondary)' : 'var(--text-tertiary)',
@@ -463,7 +463,7 @@ export function S4Card() {
             {/* LT — existing pipeline bar + credibility ladder */}
 
       {/* BESS PIPELINE BAR */}
-      <div style={{ margin: '16px 0 20px' }}>
+      <div style={{ marginTop: 'var(--space-sm)', marginRight: 0, marginBottom: '20px', marginLeft: 0 }}>
         <div style={{ display: 'flex', height: '40px', gap: '1px', borderRadius: '2px', overflow: 'hidden' }}>
           <div style={{
             flex: installedPct,
@@ -559,13 +559,13 @@ export function S4Card() {
                 {formatMW(sbc.EE?.under_construction_mw ?? 255)} MW under construction ↗
               </button>
             </div>
-            <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 0 12px' }}>
+            <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', lineHeight: 1.6, marginTop: 0, marginRight: 0, marginBottom: '12px', marginLeft: 0 }}>
               {sbc.EE?.coverage_note || `${eeMw} MW operational since Feb 2026, ${sbc.EE?.under_construction_mw ?? 255} MW under construction. Estonia BESS market emerging fast.`}
             </p>
             {eeQuarantinedMw > 0 && (
               <p style={{
                 fontFamily: 'var(--font-serif)', fontSize: 'var(--font-xs)', color: 'var(--amber)',
-                lineHeight: 1.5, margin: '0 0 10px', padding: '6px 10px',
+                lineHeight: 1.5, marginTop: 0, marginRight: 0, marginBottom: '10px', marginLeft: 0, paddingTop: '6px', paddingRight: '10px', paddingBottom: '6px', paddingLeft: '10px',
                 borderLeft: '2px solid var(--amber-subtle)',
               }}>
                 EE BESS fleet awaiting TSO confirmation: {formatMW(eeQuarantinedMw)} MW (BSP Hertz 1 + Eesti Energia BESS) flagged operational without Elering operational evidence. Strict count: {formatMW(Math.max(eeMw - eeQuarantinedMw, 0))} MW verified.
@@ -586,7 +586,7 @@ export function S4Card() {
             {lvQuarantinedMw > 0 && (
               <p style={{
                 fontFamily: 'var(--font-serif)', fontSize: 'var(--font-xs)', color: 'var(--amber)',
-                lineHeight: 1.5, margin: '4px 0 10px', padding: '6px 10px',
+                lineHeight: 1.5, marginTop: 'var(--space-2xs)', marginRight: 0, marginBottom: '10px', marginLeft: 0, paddingTop: '6px', paddingRight: '10px', paddingBottom: '6px', paddingLeft: '10px',
                 borderLeft: '2px solid var(--amber-subtle)',
               }}>
                 LV commercial BESS awaiting TSO confirmation: {formatMW(lvQuarantinedMw)} MW (Utilitas Targale, AJ Power) flagged operational without AST operational evidence. Headline {formatMW(lvMw)} MW = AST-owned Rēzekne + Tume only.
@@ -597,7 +597,7 @@ export function S4Card() {
             )}
             {sbc.LV?.coverage_note && (
               <div style={{
-                padding: '8px 10px', borderLeft: '2px solid var(--amber-subtle)',
+                paddingTop: 'var(--space-xs)', paddingRight: '10px', paddingBottom: 'var(--space-xs)', paddingLeft: '10px', borderLeft: '2px solid var(--amber-subtle)',
                 marginTop: '12px', lineHeight: 1.6,
               }}>
                 {sbc.LV.coverage_note}
@@ -613,7 +613,7 @@ export function S4Card() {
         fontSize: 'var(--font-sm)',
         color: 'var(--text-secondary)',
         lineHeight: 1.7,
-        margin: '0 0 16px',
+        marginTop: 0, marginRight: 0, marginBottom: 'var(--space-sm)', marginLeft: 0,
       }}>
         {installedMw} MW installed against {(tsoReservedMw / 1000).toFixed(1)} GW in TSO reservations and {(intentionMw / 1000).toFixed(1)} GW in intention protocols.
         Not all pipeline MW are equal — the credibility ladder shows how much is confirmed vs speculative.
@@ -633,7 +633,7 @@ export function S4Card() {
 
       {/* POLICY WATCH */}
       <div style={{
-        padding: '10px 12px',
+        paddingTop: '10px', paddingRight: '12px', paddingBottom: '10px', paddingLeft: '12px',
         borderLeft: '1px solid var(--amber-subtle)',
         marginBottom: 'var(--space-sm)',
       }}>
@@ -682,7 +682,7 @@ export function S4Card() {
             {fl.baltic_weighted_mw != null && fl.eff_demand_mw != null && (
               <div
                 style={{
-                  fontFamily: 'var(--font-mono)', fontSize: '0.5625rem',
+                  fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)',
                   color: 'var(--text-muted)', marginBottom: '10px', lineHeight: 1.5,
                 }}
                 title="Numerator is the credibility-weighted supply: operational ×1.0, under_construction ×0.9, connection_agreement ×0.6, application ×0.3, announced ×0.1. Pumped hydro and TSO BESS excluded (DRR-suppressed for FCR/aFRR until 2028-02)."
@@ -783,7 +783,7 @@ export function S4Card() {
             Grid headroom (all technologies, indicative)
           </p>
           <div style={{
-            padding: '10px 12px',
+            paddingTop: '10px', paddingRight: '12px', paddingBottom: '10px', paddingLeft: '12px',
             borderLeft: '2px solid var(--amber-subtle)',
             marginBottom: '12px',
           }}>

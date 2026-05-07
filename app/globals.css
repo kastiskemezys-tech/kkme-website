@@ -6,10 +6,11 @@
   --accent: #7b5ea7;
 
   /* Font family tokens — Newsreader + IBM Plex Mono load via @fontsource so
-     literal family names resolve in CSS, SVG fontFamily=, and chart.js. */
+     literal family names resolve in CSS, SVG fontFamily=, and chart.js.
+     Phase 7.7g-a-3 — Unbounded removed; broadsheet wordmark is an <img>
+     so --font-display had zero load-bearing consumers. */
   --font-serif: 'Newsreader', 'Iowan Old Style', Georgia, serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
-  --font-display: var(--font-unbounded), 'Unbounded', sans-serif;
 
   /* Opacity scale */
   --opacity-primary:   0.92;
@@ -215,13 +216,31 @@
   /* Phase 18 — Baltic editorial pixel-grid dot opacity (~6%) */
   --pixel-grid-dot: rgba(232, 226, 217, 0.06);
 
-  /* Type scale */
-  --font-xs:   0.75rem;
-  --font-sm:   0.875rem;
-  --font-base: 1rem;
-  --font-lg:   1.375rem;
-  --font-xl:   2rem;
-  --font-2xl:  3rem;
+  /* Type scale (Phase 7.7g-a-3, per spec CC-1).
+   *
+   * 9-step modular scale. Token naming carries semantic intent (display vs
+   * body vs label vs mono) so call-sites pick by purpose, not numeric size.
+   * Line-heights shipped as the second value via CSS shorthand callers,
+   * but defined as plain font-size here; consumers set lineHeight inline. */
+  --type-display-2xl: 4rem;     /* 64 / 72  — hero number */
+  --type-display-xl:  3rem;     /* 48 / 56  — section H1 */
+  --type-display-lg:  2rem;     /* 32 / 40  — card hero number */
+  --type-display-md:  1.5rem;   /* 24 / 32  — card subtitle number */
+  --type-body-lg:     1rem;     /* 16 / 24  — body */
+  --type-body-md:     0.875rem; /* 14 / 20  — dense card body */
+  --type-body-sm:     0.75rem;  /* 12 / 18  — meta, tickers */
+  --type-label:       0.6875rem;/* 11 / 14  — KPI labels (uppercase, +0.06em) */
+  --type-mono-xs:     0.625rem; /* 10 / 14  — provenance only */
+
+  /* Phase 7.7g-a-2 / pre-spec aliases — back-compat references to 9-step
+   * scale above. Existing 6-token consumers keep working; new code prefers
+   * --type-* tokens directly. */
+  --font-xs:   var(--type-body-sm);    /* 12 → was 0.75rem */
+  --font-sm:   var(--type-body-md);    /* 14 → was 0.875rem */
+  --font-base: var(--type-body-lg);    /* 16 → was 1rem */
+  --font-lg:   var(--type-display-md); /* 24 → was 1.375rem (22) — re-anchored to spec */
+  --font-xl:   var(--type-display-lg); /* 32 → was 2rem */
+  --font-2xl:  var(--type-display-xl); /* 48 → was 3rem */
 
   /* Space scale (canonical 8-value t-shirt scale, Phase 7.7g-a-2). */
   --space-2xs: 4px;
@@ -651,8 +670,8 @@ body,
 }
 
 .section-header {
-  font-family: var(--font-display);
-  font-size: 1.25rem;
+  font-family: var(--font-serif);
+  font-size: var(--type-display-md);
   color: var(--text-primary);
   letter-spacing: 0.04em;
   font-weight: 500;

@@ -25,7 +25,7 @@ export function RegulatoryPreview() {
     <div
       style={{
         marginBottom: 'var(--space-lg)',
-        padding: '20px 0',
+        paddingTop: '20px', paddingRight: 0, paddingBottom: '20px', paddingLeft: 0,
         borderTop: '1px solid var(--border-subtle)',
         borderBottom: '1px solid var(--border-subtle)',
       }}
@@ -59,7 +59,7 @@ export function RegulatoryPreview() {
               fontFamily: 'var(--font-mono)',
               fontSize: 'var(--font-xs)',
               color: 'var(--text-muted)',
-              margin: '4px 0 0',
+              marginTop: 'var(--space-2xs)', marginRight: 0, marginBottom: 0, marginLeft: 0,
               letterSpacing: '0.04em',
             }}
           >
@@ -94,7 +94,7 @@ export function RegulatoryPreview() {
         style={{
           marginTop: 'var(--space-sm)',
           fontFamily: 'var(--font-mono)',
-          fontSize: '10px',
+          fontSize: 'var(--type-mono-xs)',
           color: 'var(--text-muted)',
           letterSpacing: '0.04em',
           fontStyle: 'normal',

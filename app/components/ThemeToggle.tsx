@@ -78,7 +78,7 @@ export function ThemeToggle({ variant = 'nav' }: ThemeToggleProps) {
         alignItems: 'center',
         justifyContent: 'center',
         color: 'var(--text-tertiary)',
-        fontSize: '1rem',
+        fontSize: 'var(--type-body-lg)',
         lineHeight: 1,
         transition: 'color 150ms ease',
       }}

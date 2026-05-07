@@ -15,7 +15,7 @@ export function RegulatoryEmpty({ result, description, nextRun }: Props) {
   return (
     <div
       style={{
-        padding: '48px 24px',
+        paddingTop: 'var(--space-xl)', paddingRight: 'var(--space-md)', paddingBottom: 'var(--space-xl)', paddingLeft: 'var(--space-md)',
         textAlign: 'center',
         border: '1px solid var(--border-subtle)',
         background: 'var(--surface-1)',
@@ -28,7 +28,7 @@ export function RegulatoryEmpty({ result, description, nextRun }: Props) {
           color: 'var(--text-secondary)',
           letterSpacing: '0.08em',
           textTransform: 'uppercase',
-          margin: '0 0 12px',
+          marginTop: 0, marginRight: 0, marginBottom: '12px', marginLeft: 0,
         }}
       >
         {title}

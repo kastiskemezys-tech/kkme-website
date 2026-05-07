@@ -188,7 +188,7 @@ export function BalticStorageIndexCard() {
       }}>
         KKME Baltic Storage Index
         <span style={{
-          fontSize: '0.6875rem',
+          fontSize: 'var(--type-label)',
           color: 'var(--text-muted)',
           letterSpacing: '0.04em',
           textTransform: 'none',
@@ -203,7 +203,7 @@ export function BalticStorageIndexCard() {
         fontSize: 'var(--font-sm)',
         color: 'var(--text-secondary)',
         lineHeight: 1.6,
-        margin: '0 0 24px',
+        marginTop: 0, marginRight: 0, marginBottom: 'var(--space-md)', marginLeft: 0,
         maxWidth: '560px',
       }}>
         Monthly per-country per-duration revenue benchmark, computed from primary-source ingestion. Comparable in framing to Clean Horizon&apos;s Storage Index for Baltic markets; values diverge per the methodology paper.
@@ -226,7 +226,7 @@ export function BalticStorageIndexCard() {
               fontFamily: 'var(--font-serif)',
               fontStyle: 'italic',
               fontWeight: 400,
-              fontSize: 13,
+              fontSize: 'var(--type-body-md)',
               marginLeft: 6,
               color: 'var(--text-secondary)',
               verticalAlign: 'super',
@@ -234,7 +234,7 @@ export function BalticStorageIndexCard() {
           </span>
           <span style={{
             fontFamily: 'var(--font-mono)',
-            fontSize: 13,
+            fontSize: 'var(--type-body-md)',
             color: 'var(--text-secondary)',
             letterSpacing: '0.06em',
             textTransform: 'uppercase',
@@ -249,17 +249,17 @@ export function BalticStorageIndexCard() {
         display: 'grid',
         gridTemplateColumns: 'auto repeat(3, 1fr)',
         gap: '0',
-        margin: '0 0 24px',
+        marginTop: 0, marginRight: 0, marginBottom: 'var(--space-md)', marginLeft: 0,
         border: '1px solid var(--border-card)',
         borderRadius: 4,
       }}>
         {/* Header row */}
-        <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border-card)' }} />
+        <div style={{ paddingTop: 'var(--space-xs)', paddingRight: '12px', paddingBottom: 'var(--space-xs)', paddingLeft: '12px', borderBottom: '1px solid var(--border-card)' }} />
         {DURATIONS.map((d) => (
           <div
             key={`h-${d}`}
             style={{
-              padding: '8px 12px',
+              paddingTop: 'var(--space-xs)', paddingRight: '12px', paddingBottom: 'var(--space-xs)', paddingLeft: '12px',
               fontFamily: 'var(--font-mono)',
               fontSize: 'var(--font-xs)',
               color: 'var(--text-muted)',
@@ -354,7 +354,7 @@ function Row({
           gap: 'var(--space-xs)',
         }}
       >
-        <span style={{ fontSize: '0.95rem' }}>{meta.flag}</span>
+        <span style={{ fontSize: 'var(--type-body-md)' }}>{meta.flag}</span>
         <span>{meta.code}</span>
       </div>
       {DURATIONS.map((d) => {
@@ -370,7 +370,7 @@ function Row({
             title={COVERAGE_LABEL[cs]}
             style={{
               padding: '12px',
-              fontFamily: isComplete ? 'var(--font-display)' : 'var(--font-mono)',
+              fontFamily: isComplete ? 'var(--font-serif)' : 'var(--font-mono)',
               fontSize: isComplete ? '1.125rem' : 'var(--font-sm)',
               fontWeight: isComplete ? 500 : 400,
               color: isComplete ? 'var(--text-primary)' : 'var(--text-muted)',
@@ -386,7 +386,7 @@ function Row({
                 fontFamily: 'var(--font-serif)',
                 fontStyle: 'italic',
                 fontWeight: 400,
-                fontSize: 11,
+                fontSize: 'var(--type-label)',
                 marginLeft: 3,
                 color: 'var(--text-secondary)',
                 verticalAlign: 'super',

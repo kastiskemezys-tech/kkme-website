@@ -59,7 +59,7 @@ export function S5Card() {
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: 'var(--space-sm)' }}>
         <SignalIcon type="dc-power" size={20} />
-        <h3 style={{ ...MONO, fontSize: '0.9375rem', letterSpacing: '0.06em', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>
+        <h3 style={{ ...MONO, fontSize: 'var(--type-body-md)', letterSpacing: '0.06em', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>
           DC Power Viability
         </h3>
       </div>
@@ -95,7 +95,7 @@ function Skeleton() {
       <p style={{ ...MONO, fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', fontWeight: 400, color: 'var(--text-ghost)', lineHeight: 1, letterSpacing: '-0.02em', marginBottom: '0.75rem' }}>
         —
       </p>
-      <p style={{ ...MONO, fontSize: '0.625rem', color: 'var(--text-faint)', letterSpacing: '0.1em' }}>Fetching</p>
+      <p style={{ ...MONO, fontSize: 'var(--type-mono-xs)', color: 'var(--text-faint)', letterSpacing: '0.1em' }}>Fetching</p>
     </>
   );
 }
@@ -106,7 +106,7 @@ function ErrorState() {
       <p style={{ ...MONO, fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', fontWeight: 400, color: 'var(--text-ghost)', lineHeight: 1, letterSpacing: '-0.02em', marginBottom: '0.75rem' }}>
         —
       </p>
-      <p style={{ ...MONO, fontSize: '0.625rem', color: 'var(--text-tertiary)', letterSpacing: '0.1em' }}>Data unavailable</p>
+      <p style={{ ...MONO, fontSize: 'var(--type-mono-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em' }}>Data unavailable</p>
     </>
   );
 }
@@ -143,7 +143,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason }: LiveDat
               }} />
               <span style={{
                 fontFamily: 'var(--font-mono)',
-                fontSize: '2.2rem',
+                fontSize: 'var(--type-display-lg)',
                 letterSpacing: '0.08em',
                 fontWeight: 500,
                 color: glowColor,
@@ -153,7 +153,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason }: LiveDat
                 {data.signal ?? 'OPEN'}
               </span>
             </div>
-            <p style={{ ...MONO, fontSize: '0.55rem', color: 'var(--text-muted)', letterSpacing: '0.08em' }}>
+            <p style={{ ...MONO, fontSize: 'var(--type-mono-xs)', color: 'var(--text-muted)', letterSpacing: '0.08em' }}>
               Grid headroom for new DC connections
             </p>
           </div>
@@ -168,8 +168,8 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason }: LiveDat
           ['Utilisation', data.grid_utilisation != null ? `${safeNum(data.grid_utilisation, 1)}%` : '—'],
         ] as [string, string][]).map(([label, value]) => (
           <div key={label}>
-            <p style={{ ...MONO, fontSize: '0.5rem', color: 'var(--text-tertiary)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.2rem' }}>{label}</p>
-            <p style={{ ...MONO, fontSize: '0.625rem', color: 'var(--text-secondary)' }}>{value}</p>
+            <p style={{ ...MONO, fontSize: 'var(--type-mono-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.2rem' }}>{label}</p>
+            <p style={{ ...MONO, fontSize: 'var(--type-mono-xs)', color: 'var(--text-secondary)' }}>{value}</p>
           </div>
         ))}
       </div>
@@ -189,7 +189,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason }: LiveDat
         ]}
       />
 
-      <p style={{ ...MONO, fontSize: '0.45rem', color: 'var(--text-muted)', letterSpacing: '0.06em', marginTop: '0.5rem', marginBottom: '1rem' }}>
+      <p style={{ ...MONO, fontSize: 'var(--type-mono-xs)', color: 'var(--text-muted)', letterSpacing: '0.06em', marginTop: '0.5rem', marginBottom: '1rem' }}>
         Same grid dataset as S4 — filtered for DC-relevant connection nodes.
       </p>
 
@@ -197,19 +197,19 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason }: LiveDat
       {data.pipeline_mw != null && (
         <>
           <div style={{ ...DIVIDER, marginBottom: '1rem' }} />
-          <p style={{ ...MONO, fontSize: '0.5rem', letterSpacing: '0.14em', color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: '0.6rem' }}>
+          <p style={{ ...MONO, fontSize: 'var(--type-mono-xs)', letterSpacing: '0.14em', color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: '0.6rem' }}>
             Baltic DC pipeline
           </p>
-          <p style={{ ...MONO, fontSize: '0.625rem', color: 'var(--text-tertiary)', marginBottom: '0.3rem' }}>
+          <p style={{ ...MONO, fontSize: 'var(--type-mono-xs)', color: 'var(--text-tertiary)', marginBottom: '0.3rem' }}>
             {data.pipeline_mw.toLocaleString('en-GB')} MW announced
           </p>
           {data.pipeline_note && (
-            <p style={{ ...MONO, fontSize: '0.5rem', color: 'var(--text-muted)', marginBottom: '0.3rem' }}>
+            <p style={{ ...MONO, fontSize: 'var(--type-mono-xs)', color: 'var(--text-muted)', marginBottom: '0.3rem' }}>
               {data.pipeline_note}
             </p>
           )}
           {data.pipeline_updated && (
-            <p style={{ ...MONO, fontSize: '0.45rem', color: 'var(--text-faint)', marginBottom: '0.75rem' }}>
+            <p style={{ ...MONO, fontSize: 'var(--type-mono-xs)', color: 'var(--text-faint)', marginBottom: '0.75rem' }}>
               Updated {parseNewsDate(data.pipeline_updated)}
             </p>
           )}
@@ -224,7 +224,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason }: LiveDat
         style={{
           display: 'inline-flex', alignItems: 'center',
           gap: '6px', marginTop: '12px',
-          fontFamily: 'var(--font-mono)', fontSize: '0.8125rem',
+          fontFamily: 'var(--font-mono)', fontSize: 'var(--type-body-md)',
           color: 'var(--teal)',
           textDecoration: 'none',
           opacity: 0.75,
@@ -236,12 +236,12 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason }: LiveDat
         ↗ Litgrid consumption capacity map
       </a>
 
-      <time dateTime={ts ?? ''} style={{ ...MONO, fontSize: '0.575rem', color: 'var(--text-tertiary)', letterSpacing: '0.06em', display: 'block', textAlign: 'right', marginTop: '1rem' }}>
+      <time dateTime={ts ?? ''} style={{ ...MONO, fontSize: 'var(--type-mono-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.06em', display: 'block', textAlign: 'right', marginTop: '1rem' }}>
         {ts ? new Date(ts).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'UTC', timeZoneName: 'short' }) : '—'}
         <StaleBanner isDefault={false} isStale={isStale} ageHours={ageHours} defaultReason={null} />
       </time>
 
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.55rem', color: 'var(--text-faint)', letterSpacing: '0.06em', marginTop: '12px' }}>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--text-faint)', letterSpacing: '0.06em', marginTop: '12px' }}>
         MODEL INPUT → DC corridor thesis (qualitative)
       </div>
 

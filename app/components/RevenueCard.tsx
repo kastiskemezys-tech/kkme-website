@@ -223,7 +223,7 @@ function ControlGroup({ label, options, value, onChange }: {
           <button key={o.key} onClick={() => onChange(o.key)}
             className="tap-target-mobile"
             style={{
-              padding: '3px 10px', fontSize: 'var(--font-sm)',
+              paddingTop: '3px', paddingRight: '10px', paddingBottom: '3px', paddingLeft: '10px', fontSize: 'var(--font-sm)',
               fontFamily: "var(--font-mono)", cursor: 'pointer',
               border: '1px solid',
               borderColor: value === o.key ? 'var(--teal)' : 'var(--border-card)',
@@ -255,12 +255,12 @@ function MetricCell({ label, value, sub, color, title, methodVersion }: {
         {label}
         {methodVersion && (
           <sup style={{ marginLeft: 'var(--space-2xs)', color: 'var(--lavender)',
-            fontSize: '0.55rem', letterSpacing: '0.04em', top: '-0.35em',
+            fontSize: 'var(--type-mono-xs)', letterSpacing: '0.04em', top: '-0.35em',
             position: 'relative' }}>{methodVersion}</sup>
         )}
       </div>
       <div style={{ color: color || 'var(--text-primary)',
-        fontSize: '1.25rem', fontFamily: 'var(--font-display)',
+        fontSize: 'var(--type-display-md)', fontFamily: 'var(--font-serif)',
         fontWeight: 500, lineHeight: 1.1 }}>{value}</div>
       {sub && <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
         fontFamily: "var(--font-mono)", marginTop: 'var(--space-2xs)' }}>{sub}</div>}
@@ -282,7 +282,7 @@ function DurationOptimizer({ rec }: { rec: DurationRecommendation | undefined })
   const Chip = ({ hours, irr }: { hours: 2 | 4; irr: number }) => (
     <div style={{
       flex: 1,
-      padding: '8px 12px',
+      paddingTop: 'var(--space-xs)', paddingRight: '12px', paddingBottom: 'var(--space-xs)', paddingLeft: '12px',
       border: `1px solid ${dominantIs(hours) ? 'var(--mint)' : 'var(--border-card)'}`,
       borderRadius: 4,
       background: dominantIs(hours) ? 'color-mix(in srgb, var(--mint) 8%, transparent)' : 'transparent',
@@ -292,7 +292,7 @@ function DurationOptimizer({ rec }: { rec: DurationRecommendation | undefined })
         letterSpacing: '0.08em', marginBottom: 2 }}>
         {hours}h IRR
       </div>
-      <div style={{ fontFamily: 'var(--font-display)', fontSize: '1rem',
+      <div style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--type-body-lg)',
         fontWeight: 500, lineHeight: 1.1,
         color: dominantIs(hours) ? 'var(--mint)' : 'var(--text-primary)' }}>
         {formatNumber(irr, 'irr')}
@@ -302,7 +302,7 @@ function DurationOptimizer({ rec }: { rec: DurationRecommendation | undefined })
 
   return (
     <div data-testid="duration-optimizer" style={{
-      padding: '10px 14px',
+      paddingTop: '10px', paddingRight: '14px', paddingBottom: '10px', paddingLeft: '14px',
       border: '1px solid var(--border-card)',
       borderRadius: 0,
     }} title={STORAGE_METRICS.DURATION_RECOMMENDATION.tooltip}>
@@ -559,7 +559,7 @@ export function CyclesBreakdownChart({
         {warrantyDef && (
           <span style={{
             marginLeft: 'var(--space-2xs)',
-            padding: '1px 6px',
+            paddingTop: '1px', paddingRight: '6px', paddingBottom: '1px', paddingLeft: '6px',
             border: `1px solid ${warrantyDef.color}`,
             borderRadius: 2,
             color: warrantyDef.color,
@@ -631,12 +631,12 @@ export function CalibrationFooter({ source }: { source: EngineCalibrationSource 
         <span style={{ flex: 1 }}>{summary}{nextSuffix}</span>
         <span aria-hidden style={{
           fontFamily: 'var(--font-mono)',
-          fontSize: 10,
+          fontSize: 'var(--type-mono-xs)',
           color: 'var(--text-tertiary)',
           letterSpacing: '0.04em',
           textTransform: 'uppercase',
           fontStyle: 'normal',
-          padding: '1px 5px',
+          paddingTop: '1px', paddingRight: '5px', paddingBottom: '1px', paddingLeft: '5px',
           borderRadius: 2,
           border: '1px solid var(--border-subtle)',
           transition: 'transform 0.18s ease',
@@ -648,7 +648,7 @@ export function CalibrationFooter({ source }: { source: EngineCalibrationSource 
           data-testid="calibration-footer-detail"
           style={{
             marginTop: 'var(--space-xs)',
-            padding: '10px 12px',
+            paddingTop: '10px', paddingRight: '12px', paddingBottom: '10px', paddingLeft: '12px',
             border: '1px solid var(--border-subtle)',
             borderRadius: 4,
             background: 'var(--bg-elevated)',
@@ -669,7 +669,7 @@ export function CalibrationFooter({ source }: { source: EngineCalibrationSource 
                   color: 'var(--text-tertiary)',
                   letterSpacing: '0.04em',
                   textTransform: 'uppercase',
-                  fontSize: 10,
+                  fontSize: 'var(--type-mono-xs)',
                   whiteSpace: 'nowrap',
                   paddingTop: 1,
                 }}>
@@ -711,7 +711,7 @@ function AssumptionsPanel({ panel, rteCurve, calibrationSource }: {
 
   return (
     <div data-testid="assumptions-panel" style={{
-      padding: '12px 16px',
+      paddingTop: '12px', paddingRight: 'var(--space-sm)', paddingBottom: '12px', paddingLeft: 'var(--space-sm)',
       border: '1px solid var(--border-card)',
       borderRadius: 0,
     }}>
@@ -1078,7 +1078,7 @@ function DSCRPanel({ base, conservative, worstMonth, covenant }: {
 
   return (
     <div data-testid="dscr-triple-panel" style={{
-      padding: '12px 16px',
+      paddingTop: '12px', paddingRight: 'var(--space-sm)', paddingBottom: '12px', paddingLeft: 'var(--space-sm)',
       border: '1px solid var(--border-card)',
       borderRadius: 0,
     }}>
@@ -1106,7 +1106,7 @@ function DSCRPanel({ base, conservative, worstMonth, covenant }: {
               {c.spec.label}
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-              <span style={{ fontFamily: 'var(--font-display)', fontSize: '1.125rem',
+              <span style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--type-display-md)',
                 fontWeight: 500, lineHeight: 1.1,
                 color: dscrColor(c.value) }}>
                 {c.value != null ? formatNumber(c.value, 'ratio') : '—'}
@@ -1156,7 +1156,7 @@ function SensitivityTable({ matrix, currentCod, currentCapex }: {
   const cods = [2027, 2028, 2029];
   const capexes = [120, 164, 262];
   const th: React.CSSProperties = {
-    padding: '4px 8px', fontSize: 'var(--font-xs)', color: 'var(--text-muted)',
+    paddingTop: 'var(--space-2xs)', paddingRight: 'var(--space-xs)', paddingBottom: 'var(--space-2xs)', paddingLeft: 'var(--space-xs)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)',
     fontFamily: "var(--font-mono)", fontWeight: 400,
   };
 
@@ -1175,14 +1175,14 @@ function SensitivityTable({ matrix, currentCod, currentCapex }: {
         <tbody>
           {capexes.map(kwh => (
             <tr key={kwh}>
-              <td style={{ padding: '5px 8px', fontSize: 'var(--font-sm)',
+              <td style={{ paddingTop: '5px', paddingRight: 'var(--space-xs)', paddingBottom: '5px', paddingLeft: 'var(--space-xs)', fontSize: 'var(--font-sm)',
                 fontFamily: "var(--font-mono)", color: 'var(--text-secondary)' }}>€{kwh}</td>
               {cods.map(c => {
                 const cell = getCell(kwh, c);
                 const isCurrent = kwh === currentCapex && c === currentCod;
                 return (
                   <td key={c} style={{
-                    padding: '5px 8px', textAlign: 'right',
+                    paddingTop: '5px', paddingRight: 'var(--space-xs)', paddingBottom: '5px', paddingLeft: 'var(--space-xs)', textAlign: 'right',
                     fontFamily: "var(--font-mono)", fontSize: 'var(--font-sm)',
                     background: isCurrent ? 'var(--bg-elevated)' : 'transparent',
                     color: isCurrent ? 'var(--teal)' : cell.color,
@@ -1219,26 +1219,26 @@ function MonthlyHeatmap({ months }: { months: BaseMonth[] }) {
         letterSpacing: '0.08em', marginBottom: 'var(--space-xs)' }}>Observed monthly revenue (€k/MW)</div>
       <div style={{ display: 'grid', gridTemplateColumns: `60px repeat(${months.length}, 1fr)`,
         gap: 2, fontSize: 'var(--font-xs)', fontFamily: "var(--font-mono)" }}>
-        <div style={{ color: 'var(--text-muted)', padding: '4px 0' }}>Bal</div>
+        <div style={{ color: 'var(--text-muted)', paddingTop: 'var(--space-2xs)', paddingRight: 0, paddingBottom: 'var(--space-2xs)', paddingLeft: 0 }}>Bal</div>
         {months.map((m, i) => (
           <div key={'b' + i} style={{
             background: `rgba(0,180,160,${opacity(m.balancing, balMin, balMax)})`,
-            padding: '4px 2px', textAlign: 'center',
+            paddingTop: 'var(--space-2xs)', paddingRight: '2px', paddingBottom: 'var(--space-2xs)', paddingLeft: '2px', textAlign: 'center',
             color: 'var(--text-primary)', borderRadius: 2,
           }}>{Math.round(m.balancing / 1000)}</div>
         ))}
-        <div style={{ color: 'var(--text-muted)', padding: '4px 0' }}>Trd</div>
+        <div style={{ color: 'var(--text-muted)', paddingTop: 'var(--space-2xs)', paddingRight: 0, paddingBottom: 'var(--space-2xs)', paddingLeft: 0 }}>Trd</div>
         {months.map((m, i) => (
           <div key={'t' + i} style={{
             background: `rgba(212,160,60,${opacity(m.trading, trdMin, trdMax)})`,
-            padding: '4px 2px', textAlign: 'center',
+            paddingTop: 'var(--space-2xs)', paddingRight: '2px', paddingBottom: 'var(--space-2xs)', paddingLeft: '2px', textAlign: 'center',
             color: 'var(--text-primary)', borderRadius: 2,
           }}>{Math.round(m.trading / 1000)}</div>
         ))}
         <div />
         {months.map((m, i) => (
           <div key={'l' + i} style={{ textAlign: 'center',
-            color: 'var(--text-muted)', padding: '2px 0' }}>
+            color: 'var(--text-muted)', paddingTop: '2px', paddingRight: 0, paddingBottom: '2px', paddingLeft: 0 }}>
             {MONTH_NAMES[parseInt(m.month.split('-')[1]) - 1]?.slice(0, 3)}</div>
         ))}
       </div>
@@ -1444,7 +1444,7 @@ function DrawerContent({ data }: { data: RevenueData }) {
   const row: React.CSSProperties = {
     display: 'flex', justifyContent: 'space-between',
     fontFamily: "var(--font-mono)", fontSize: 'var(--font-sm)',
-    color: 'var(--text-secondary)', padding: '2px 0',
+    color: 'var(--text-secondary)', paddingTop: '2px', paddingRight: 0, paddingBottom: '2px', paddingLeft: 0,
   };
 
   const R = ({ label, val, bold }: { label: string; val: string; bold?: boolean }) => (
@@ -1473,10 +1473,10 @@ function DrawerContent({ data }: { data: RevenueData }) {
         fontFamily: "var(--font-mono)", fontSize: 'var(--font-sm)' }}>
         <thead>
           <tr style={{ color: 'var(--text-muted)' }}>
-            <th style={{ textAlign: 'left', fontWeight: 400, padding: '3px 4px' }} />
+            <th style={{ textAlign: 'left', fontWeight: 400, paddingTop: '3px', paddingRight: 'var(--space-2xs)', paddingBottom: '3px', paddingLeft: 'var(--space-2xs)' }} />
             {['base', 'conservative', 'stress'].map(s => (
               <th key={s} style={{ textAlign: 'right', fontWeight: 400,
-                padding: '3px 6px', fontSize: 'var(--font-xs)' }}>
+                paddingTop: '3px', paddingRight: '6px', paddingBottom: '3px', paddingLeft: '6px', fontSize: 'var(--font-xs)' }}>
                 {s === 'conservative' ? 'Cons.' : s.charAt(0).toUpperCase() + s.slice(1)}</th>
             ))}
           </tr>
@@ -1484,7 +1484,7 @@ function DrawerContent({ data }: { data: RevenueData }) {
         <tbody>
           {['IRR', 'DSCR', 'Net/MW', 'Bankability'].map(metric => (
             <tr key={metric} style={{ color: 'var(--text-secondary)' }}>
-              <td style={{ padding: '3px 4px' }}>{metric}</td>
+              <td style={{ paddingTop: '3px', paddingRight: 'var(--space-2xs)', paddingBottom: '3px', paddingLeft: 'var(--space-2xs)' }}>{metric}</td>
               {['base', 'conservative', 'stress'].map(s => {
                 const sc = data.all_scenarios[s];
                 let val = '—';
@@ -1494,7 +1494,7 @@ function DrawerContent({ data }: { data: RevenueData }) {
                   else if (metric === 'Net/MW') val = sc.net_mw_yr ? '€' + fmtK(sc.net_mw_yr) : '—';
                   else if (metric === 'Bankability') val = sc.bankability ?? '—';
                 }
-                return <td key={s} style={{ textAlign: 'right', padding: '3px 6px' }}>{val}</td>;
+                return <td key={s} style={{ textAlign: 'right', paddingTop: '3px', paddingRight: '6px', paddingBottom: '3px', paddingLeft: '6px' }}>{val}</td>;
               })}
             </tr>
           ))}
@@ -1654,7 +1654,7 @@ export function RevenueCard() {
               <span style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
                 color: irrColor(data.project_irr), opacity: 0.75,
                 border: `1px solid ${irrColor(data.project_irr)}`,
-                borderRadius: 3, padding: '1px 6px' }}>{data.irr_status}</span>
+                borderRadius: 3, paddingTop: '1px', paddingRight: '6px', paddingBottom: '1px', paddingLeft: '6px' }}>{data.irr_status}</span>
             )}
           </div>
           <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
@@ -1676,10 +1676,10 @@ export function RevenueCard() {
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
                 color: 'var(--text-tertiary)', textTransform: 'uppercase',
                 letterSpacing: '0.06em', marginBottom: 2 }}>{liveLabel.short}</div>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.1rem',
+              <div style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--type-body-lg)',
                 color: 'var(--text-primary)', fontWeight: 500 }}>
                 €{lr.today_total_daily}/MW/day</div>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: '0.5625rem',
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--type-mono-xs)',
                 color: 'var(--text-muted)' }}>{liveLabel.detail}</div>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
                 color: lr.delta_pct >= 0 ? 'var(--teal)' : 'var(--amber)', marginTop: 2 }}>
@@ -1687,7 +1687,7 @@ export function RevenueCard() {
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
                 color: 'var(--text-muted)' }}>{fmtDate(lr.as_of)}</div>
               {dispatchNote && (
-                <div style={{ fontFamily: "var(--font-mono)", fontSize: '0.5625rem',
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--type-mono-xs)',
                   color: 'var(--text-ghost)', marginTop: 'var(--space-2xs)', lineHeight: 1.4 }}>
                   {dispatchNote}
                 </div>
@@ -1834,7 +1834,7 @@ export function RevenueCard() {
         return (
           <div
             style={{
-              fontFamily: 'var(--font-mono)', fontSize: '0.5625rem',
+              fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)',
               color: 'var(--text-muted)', marginTop: 'var(--space-2xs)', opacity: 0.65, lineHeight: 1.5,
             }}
             title="Replicate-the-IRR disclosure (Phase 12.10): without these inputs the headline IRR is not reproducible. Full assumptions panel + scenario alternatives in the drawer."

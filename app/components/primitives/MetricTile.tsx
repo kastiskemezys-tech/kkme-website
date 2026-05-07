@@ -39,13 +39,13 @@ const SIZE_STYLES = {
   },
   standard: {
     fontFamily: 'var(--font-mono)',
-    fontSize: '1.25rem',
+    fontSize: 'var(--type-display-md)',
     fontWeight: 500,
     color: 'var(--text-primary)',
   },
   compact: {
     fontFamily: 'var(--font-mono)',
-    fontSize: '1rem',
+    fontSize: 'var(--type-body-lg)',
     fontWeight: 400,
     color: 'var(--text-primary)',
   },
@@ -126,7 +126,7 @@ export function MetricTile({
             data-testid="metric-method-version"
             style={{
               fontFamily: 'var(--font-mono)',
-              fontSize: '0.55rem',
+              fontSize: 'var(--type-mono-xs)',
               color: 'var(--lavender)',
               letterSpacing: '0.04em',
               top: '-0.4em',
@@ -174,7 +174,7 @@ export function MetricTile({
             bottom: 0,
             right: 0,
             fontFamily: 'var(--font-mono)',
-            fontSize: '0.6rem',
+            fontSize: 'var(--type-mono-xs)',
             color: 'var(--text-muted)',
             letterSpacing: '0.04em',
           }}

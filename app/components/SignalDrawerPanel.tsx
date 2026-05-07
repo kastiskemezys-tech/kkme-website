@@ -68,7 +68,7 @@ export function SignalDrawerPanel() {
             }}
             style={{
               flex: 1,
-              padding: '12px 16px',
+              paddingTop: '12px', paddingRight: 'var(--space-sm)', paddingBottom: '12px', paddingLeft: 'var(--space-sm)',
               fontFamily: 'var(--font-mono)',
               fontSize: 'var(--font-sm)',
               color: activeTab === tab.id ? 'var(--text-primary)' : 'var(--text-muted)',

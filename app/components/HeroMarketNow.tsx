@@ -87,7 +87,7 @@ export function HeroMarketNow() {
       gridTemplateColumns: '1fr 1fr',
       gap: 'var(--space-xl)',
       alignItems: 'start',
-      padding: '48px 0 32px',
+      paddingTop: 'var(--space-xl)', paddingRight: 0, paddingBottom: 'var(--space-lg)', paddingLeft: 0,
     }}>
 
       {/* Theme toggle — top-right corner */}
@@ -103,7 +103,7 @@ export function HeroMarketNow() {
       {/* LEFT COLUMN — Value Prop */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
         <h1 style={{
-          fontFamily: 'var(--font-display)',
+          fontFamily: 'var(--font-serif)',
           fontSize: 'clamp(1.5rem, 3vw, 2rem)',
           color: 'var(--text-primary)',
           letterSpacing: '0.15em',
@@ -134,7 +134,7 @@ export function HeroMarketNow() {
             onClick={(e) => { e.preventDefault(); document.querySelector('#revenue-drivers')?.scrollIntoView({ behavior: 'smooth' }); }}
             style={{
               display: 'inline-block',
-              padding: '10px 28px',
+              paddingTop: '10px', paddingRight: '28px', paddingBottom: '10px', paddingLeft: '28px',
               fontFamily: 'var(--font-mono)',
               fontSize: 'var(--font-sm)',
               letterSpacing: '0.06em',

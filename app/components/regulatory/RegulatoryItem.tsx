@@ -100,7 +100,7 @@ export function RegulatoryItem({ item, impactTooltip, variant = 'full' }: Props)
             fontSize: 'var(--font-sm)',
             color: 'var(--text-tertiary)',
             lineHeight: 1.4,
-            margin: '4px 0 0',
+            marginTop: 'var(--space-2xs)', marginRight: 0, marginBottom: 0, marginLeft: 0,
           }}
         >
           {item.title_lt}
@@ -114,7 +114,7 @@ export function RegulatoryItem({ item, impactTooltip, variant = 'full' }: Props)
             fontSize: 'var(--font-base)',
             color: 'var(--text-secondary)',
             lineHeight: 1.55,
-            margin: '12px 0 0',
+            marginTop: '12px', marginRight: 0, marginBottom: 0, marginLeft: 0,
           }}
         >
           {item.summary}

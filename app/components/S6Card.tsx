@@ -56,7 +56,7 @@ export function S6Card() {
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: 'var(--space-sm)' }}>
         <SignalIcon type="hydro" size={20} />
-        <h3 style={{ ...MONO, fontSize: '0.9375rem', letterSpacing: '0.06em', color: 'var(--signal-neutral)', fontWeight: 600, textTransform: 'uppercase' }}>
+        <h3 style={{ ...MONO, fontSize: 'var(--type-body-md)', letterSpacing: '0.06em', color: 'var(--signal-neutral)', fontWeight: 600, textTransform: 'uppercase' }}>
           Nordic Hydro Reservoir
         </h3>
       </div>
@@ -91,7 +91,7 @@ function Skeleton() {
   return (
     <>
       <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', fontWeight: 400, color: 'var(--text-ghost)', lineHeight: 1, letterSpacing: '-0.02em', marginBottom: '0.75rem' }}>—</p>
-      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.625rem', color: 'var(--text-faint)', letterSpacing: '0.1em' }}>Fetching</p>
+      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--text-faint)', letterSpacing: '0.1em' }}>Fetching</p>
     </>
   );
 }
@@ -100,7 +100,7 @@ function ErrorState() {
   return (
     <>
       <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', fontWeight: 400, color: 'var(--text-ghost)', lineHeight: 1, letterSpacing: '-0.02em', marginBottom: '0.75rem' }}>—</p>
-      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.625rem', color: 'var(--text-muted)', letterSpacing: '0.1em' }}>Data unavailable</p>
+      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--text-muted)', letterSpacing: '0.1em' }}>Data unavailable</p>
     </>
   );
 }
@@ -124,7 +124,7 @@ function FillBar({ fill, median }: { fill: number; median: number }) {
     : 'var(--hydro-shimmer)';
 
   return (
-    <div style={{ margin: '12px 0 8px' }}>
+    <div style={{ marginTop: '12px', marginRight: 0, marginBottom: 'var(--space-xs)', marginLeft: 0 }}>
       <div style={{ position: 'relative', height: '28px', background: 'var(--bg-elevated)', border: '1px solid var(--border-card)', overflow: 'hidden' }}>
         {/* Fill level */}
         <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${Math.min(fill, 100)}%`, background: bg, transition: 'width 0.6s ease' }} />
@@ -140,14 +140,14 @@ function FillBar({ fill, median }: { fill: number; median: number }) {
         }} />
         {/* Median marker */}
         <div style={{ position: 'absolute', left: `${Math.min(median, 100)}%`, top: '-4px', bottom: '-4px', width: '1px', background: 'var(--text-tertiary)' }} />
-        <span style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', fontFamily: 'var(--font-mono)', fontSize: '0.68rem', color: 'var(--text-primary)' }}>
+        <span style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', fontFamily: 'var(--font-mono)', fontSize: 'var(--type-label)', color: 'var(--text-primary)' }}>
           {fill.toFixed(1)}%
         </span>
-        <span style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'var(--text-tertiary)' }}>
+        <span style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--text-tertiary)' }}>
           median {median.toFixed(1)}%
         </span>
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '3px', fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '3px', fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--text-muted)' }}>
         <span>0%</span><span>50%</span><span>100%</span>
       </div>
     </div>
@@ -172,7 +172,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
           <span style={{ fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', color: heroColor }}>
             {data.fill_pct != null ? `${safeNum(data.fill_pct, 1)}%` : '—'}
           </span>
-          <span style={{ fontSize: '0.75rem', marginLeft: '0.4em', color: 'var(--text-muted)' }}>
+          <span style={{ fontSize: 'var(--type-body-sm)', marginLeft: '0.4em', color: 'var(--text-muted)' }}>
             {data.signal ?? ''}
           </span>
         </p>
@@ -186,23 +186,23 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason, history }
 
       {/* Deviation row */}
       {data.deviation_pp != null && (
-        <p style={{ ...MONO, fontSize: '0.6rem', color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: '0.75rem' }}>
+        <p style={{ ...MONO, fontSize: 'var(--type-mono-xs)', color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: '0.75rem' }}>
           {devSign}{safeNum(data.deviation_pp, 1)}pp vs median
           {data.median_fill_pct != null && ` (median ${safeNum(data.median_fill_pct, 1)}%)`}
           {data.week != null && `, week ${data.week}`}
         </p>
       )}
 
-      <p style={{ ...MONO, fontSize: '0.6rem', color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: '1.5rem' }}>
+      <p style={{ ...MONO, fontSize: 'var(--type-mono-xs)', color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: '1.5rem' }}>
         {data.interpretation ?? '—'}
       </p>
 
-      <time dateTime={ts ?? ''} style={{ ...MONO, fontSize: '0.575rem', color: 'var(--text-muted)', letterSpacing: '0.06em', display: 'block', textAlign: 'right' }}>
+      <time dateTime={ts ?? ''} style={{ ...MONO, fontSize: 'var(--type-mono-xs)', color: 'var(--text-muted)', letterSpacing: '0.06em', display: 'block', textAlign: 'right' }}>
         {ts ? formatTs(ts) : '—'}
         <StaleBanner isDefault={false} isStale={isStale} ageHours={ageHours} defaultReason={null} />
       </time>
 
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.55rem', color: 'var(--text-faint)', letterSpacing: '0.06em', marginTop: '12px' }}>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--text-faint)', letterSpacing: '0.06em', marginTop: '12px' }}>
         MODEL INPUT → Indirect (SE4 price support)
       </div>
 

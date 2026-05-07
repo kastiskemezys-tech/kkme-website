@@ -28,7 +28,7 @@ export default function RegulatoryPage() {
 
   if (!result.ok) {
     return (
-      <main style={{ padding: '80px 24px 120px', maxWidth: '880px', margin: '0 auto' }}>
+      <main style={{ paddingTop: '80px', paddingRight: 'var(--space-md)', paddingBottom: '120px', paddingLeft: 'var(--space-md)', maxWidth: '880px', margin: '0 auto' }}>
         <PageHeader />
         <RegulatoryEmpty result={result} />
         <Footer />
@@ -41,7 +41,7 @@ export default function RegulatoryPage() {
 
   if (items.length === 0) {
     return (
-      <main style={{ padding: '80px 24px 120px', maxWidth: '880px', margin: '0 auto' }}>
+      <main style={{ paddingTop: '80px', paddingRight: 'var(--space-md)', paddingBottom: '120px', paddingLeft: 'var(--space-md)', maxWidth: '880px', margin: '0 auto' }}>
         <PageHeader />
         <RegulatoryEmpty
           result={{ ok: false, reason: 'feed-missing' }}
@@ -67,7 +67,7 @@ export default function RegulatoryPage() {
     .sort((a, b) => b.count - a.count);
 
   return (
-    <main style={{ padding: '80px 24px 120px', maxWidth: '880px', margin: '0 auto' }}>
+    <main style={{ paddingTop: '80px', paddingRight: 'var(--space-md)', paddingBottom: '120px', paddingLeft: 'var(--space-md)', maxWidth: '880px', margin: '0 auto' }}>
       <PageHeader description={feed.feed_metadata.description} lastUpdated={feed.feed_metadata.last_updated} nextRun={feed.feed_metadata.next_run} />
 
       <Suspense fallback={null}>
@@ -98,7 +98,7 @@ function PageHeader({
   nextRun?: string;
 }) {
   return (
-    <header style={{ marginBottom: '32px' }}>
+    <header style={{ marginBottom: 'var(--space-lg)' }}>
       <p
         style={{
           fontFamily: 'var(--font-mono)',
@@ -106,7 +106,7 @@ function PageHeader({
           color: 'var(--text-muted)',
           letterSpacing: '0.12em',
           textTransform: 'uppercase',
-          margin: '0 0 8px',
+          marginTop: 0, marginRight: 0, marginBottom: 'var(--space-xs)', marginLeft: 0,
         }}
       >
         KKME · Lithuanian BESS regulatory monitor
@@ -117,7 +117,7 @@ function PageHeader({
           fontSize: 'clamp(28px, 4vw, 44px)',
           color: 'var(--text-primary)',
           lineHeight: 1.1,
-          margin: '0 0 16px',
+          marginTop: 0, marginRight: 0, marginBottom: 'var(--space-sm)', marginLeft: 0,
           fontWeight: 400,
         }}
       >
@@ -130,7 +130,7 @@ function PageHeader({
             fontSize: 'var(--font-base)',
             color: 'var(--text-secondary)',
             lineHeight: 1.55,
-            margin: '0 0 12px',
+            marginTop: 0, marginRight: 0, marginBottom: '12px', marginLeft: 0,
             maxWidth: '64ch',
           }}
         >
@@ -160,8 +160,8 @@ function Footer() {
   return (
     <footer
       style={{
-        marginTop: '64px',
-        paddingTop: '24px',
+        marginTop: 'var(--space-2xl)',
+        paddingTop: 'var(--space-md)',
         borderTop: '1px solid var(--border-subtle)',
         fontFamily: 'var(--font-mono)',
         fontSize: 'var(--font-xs)',

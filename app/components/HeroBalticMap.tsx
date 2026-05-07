@@ -373,27 +373,27 @@ export function HeroBalticMap() {
         {/* Interconnector flows — 6 cables, arrow notation */}
         <div>
           <div style={{
-            fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-tertiary)',
+            fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--text-tertiary)',
             textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '12px',
           }}>INTERCONNECTORS · LIVE FLOW</div>
 
           {resolved.map(r => (
             <div key={r.id} style={{
               display: 'grid', gridTemplateColumns: '100px 70px 60px',
-              alignItems: 'baseline', fontFamily: 'var(--font-mono)', padding: '3px 0',
+              alignItems: 'baseline', fontFamily: 'var(--font-mono)', paddingTop: '3px', paddingRight: 0, paddingBottom: '3px', paddingLeft: 0,
             }}>
-              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>
+              <span style={{ fontSize: 'var(--type-body-sm)', fontWeight: 600, color: 'var(--text-primary)' }}>
                 {r.displayName}
               </span>
-              <span style={{ fontSize: '11px', color: arrowColorVar(r.arrowColor) }}>
+              <span style={{ fontSize: 'var(--type-label)', color: arrowColorVar(r.arrowColor) }}>
                 {r.fromCountry} → {r.toCountry}
               </span>
               <span style={{
-                fontSize: '14px', fontWeight: 500, color: 'var(--text-primary)',
+                fontSize: 'var(--type-body-md)', fontWeight: 500, color: 'var(--text-primary)',
                 fontVariantNumeric: 'tabular-nums', textAlign: 'right',
               }}>
                 {r.mw > 0 ? r.mw : '·'}
-                {r.mw > 0 && <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginLeft: '2px' }}>MW</span>}
+                {r.mw > 0 && <span style={{ fontSize: 'var(--type-mono-xs)', color: 'var(--text-muted)', marginLeft: '2px' }}>MW</span>}
               </span>
             </div>
           ))}
@@ -532,7 +532,7 @@ export function HeroBalticMap() {
                 ['POLAND',    304, 1114],
               ] as const).map(([name, x, y]) => (
                 <text key={name} x={x} y={y}
-                  fontFamily="var(--font-display)"
+                  fontFamily="var(--font-mono)"
                   fontSize="18"
                   fontWeight="700"
                   fill="var(--text-secondary)"
@@ -655,8 +655,8 @@ export function HeroBalticMap() {
                   left: `${(hoveredProject.x / MAP_WIDTH) * 100}%`,
                   top: `${(hoveredProject.y / MAP_HEIGHT) * 100}%`,
                   transform: 'translate(16px, -50%)',
-                  fontFamily: 'var(--font-mono)', fontSize: '10px',
-                  padding: '8px 12px',
+                  fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)',
+                  paddingTop: 'var(--space-xs)', paddingRight: '12px', paddingBottom: 'var(--space-xs)', paddingLeft: '12px',
                   borderRadius: 0,
                   background: 'var(--map-bg)',
                   backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
@@ -681,9 +681,9 @@ export function HeroBalticMap() {
       <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 'var(--space-xs)', zIndex: 2, gridColumn: 3, gridRow: 1 }}>
 
         {/* Block 1 — Revenue headline */}
-        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 0, padding: '12px 16px' }}>
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 0, paddingTop: '12px', paddingRight: 'var(--space-sm)', paddingBottom: '12px', paddingLeft: 'var(--space-sm)' }}>
           <div style={{
-            fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-tertiary)',
+            fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--text-tertiary)',
             textTransform: 'uppercase', letterSpacing: '0.08em',
             display: 'flex', alignItems: 'center', gap: '6px',
           }}>
@@ -700,20 +700,20 @@ export function HeroBalticMap() {
             }) + ' UTC' : ''}</span>
           </div>
           <div style={{
-            fontFamily: 'var(--font-display)', fontSize: '72px', fontWeight: 500,
+            fontFamily: 'var(--font-serif)', fontSize: 'var(--type-display-2xl)', fontWeight: 500,
             color: lr?.today_total_daily != null ? 'var(--text-primary)' : 'var(--text-ghost)',
             lineHeight: 1, marginTop: 'var(--space-2xs)', fontVariantNumeric: 'tabular-nums',
           }}>
             {'€'}{fmt(lr?.today_total_daily)}
           </div>
           <div style={{
-            fontFamily: 'var(--font-mono)', fontSize: '14px', color: 'var(--text-secondary)',
+            fontFamily: 'var(--font-mono)', fontSize: 'var(--type-body-md)', color: 'var(--text-secondary)',
             textTransform: 'uppercase', letterSpacing: '0.08em',
           }}>/MW/DAY</div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px', marginTop: '6px', flexWrap: 'wrap' }}>
             {lr?.delta_pct != null && (
               <span style={{
-                fontFamily: 'var(--font-mono)', fontSize: '12px',
+                fontFamily: 'var(--font-mono)', fontSize: 'var(--type-body-sm)',
                 color: lr.delta_pct < 0 ? 'var(--rose)' : 'var(--teal)',
                 fontVariantNumeric: 'tabular-nums',
               }}>
@@ -721,18 +721,18 @@ export function HeroBalticMap() {
               </span>
             )}
             <span style={{
-              fontFamily: 'var(--font-mono)', fontSize: '14px', fontWeight: 500,
+              fontFamily: 'var(--font-mono)', fontSize: 'var(--type-body-md)', fontWeight: 500,
               color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums',
             }}>
               {'€'}{lr?.annualised != null ? `${fmt(Math.round(lr.annualised / 1000))}k` : '···'}
-              <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 400, marginLeft: '3px' }}>/MW/YR</span>
+              <span style={{ fontSize: 'var(--type-label)', color: 'var(--text-secondary)', fontWeight: 400, marginLeft: '3px' }}>/MW/YR</span>
             </span>
           </div>
           {sparkData.length > 3 && (
             <div style={{ marginTop: '10px' }}>
               <SharedSparkline values={sparkData} width={200} height={30} unit="€/MW/day" rangeUnit="€/MW/day" />
               <div style={{
-                fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-tertiary)',
+                fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--text-tertiary)',
                 textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: '2px',
               }}>30D CAPTURE TREND</div>
             </div>
@@ -740,7 +740,7 @@ export function HeroBalticMap() {
           {revenue?.project_irr != null && (
             <div
               style={{
-                fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--amber-strong)',
+                fontFamily: 'var(--font-mono)', fontSize: 'var(--type-body-sm)', color: 'var(--amber-strong)',
                 marginTop: '6px', fontVariantNumeric: 'tabular-nums',
               }}
               title={IRR_LABELS.unlevered.long + ' — ' + IRR_LABELS.unlevered.detail}
@@ -752,28 +752,28 @@ export function HeroBalticMap() {
 
         {/* Block 2 — Fleet composition */}
         <div
-          style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 0, padding: '12px 16px' }}
+          style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 0, paddingTop: '12px', paddingRight: 'var(--space-sm)', paddingBottom: '12px', paddingLeft: 'var(--space-sm)' }}
           title={`Baltic flexibility fleet · BESS + pumped hydro (Kruonis 205 MW). Includes ${fmt(fleet?.baltic_quarantined_mw ?? 0)} MW flagged _quarantine pending TSO operational evidence (Kruonis PSP, BSP Hertz 1, Eesti Energia BESS, Utilitas Targale, AJ Power). Strict-verified count: ${fmt(fleet?.baltic_operational_mw_strict ?? null)} MW. For BESS-only registry total see S4 "Grid access and buildability" card.`}
         >
           <div style={{
-            fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-tertiary)',
+            fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--text-tertiary)',
             textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px',
           }}>
             BALTIC FLEX FLEET
             {/* Phase 12.11 — inline subscript so 822 MW reads as composed metric
               without the visitor needing to hover for the tooltip. */}
             <span style={{
-              fontFamily: 'var(--font-mono)', fontSize: '9px',
+              fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)',
               color: 'var(--text-muted)', textTransform: 'none',
               letterSpacing: '0.02em', marginLeft: '6px', fontWeight: 400,
             }}>(BESS + pumped hydro)</span>
           </div>
           <div style={{
-            fontFamily: 'var(--font-display)', fontSize: '24px', fontWeight: 500,
+            fontFamily: 'var(--font-serif)', fontSize: 'var(--type-display-md)', fontWeight: 500,
             color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums',
           }}>
             {fmt(totalOp)} MW
-            <span style={{ fontSize: '10px', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', fontWeight: 400, textTransform: 'uppercase', letterSpacing: '0.06em', marginLeft: 'var(--space-2xs)' }}>OPERATIONAL</span>
+            <span style={{ fontSize: 'var(--type-mono-xs)', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', fontWeight: 400, textTransform: 'uppercase', letterSpacing: '0.06em', marginLeft: 'var(--space-2xs)' }}>OPERATIONAL</span>
           </div>
           {countries && totalOp > 0 && (() => {
             const order = ['EE', 'LT', 'LV'] as const;
@@ -787,14 +787,14 @@ export function HeroBalticMap() {
                     return <div key={k} style={{ width: `${(c.operational_mw / totalOp) * 100}%`, background: 'var(--teal)', opacity: opacities[i] }} />;
                   })}
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-mono)', fontSize: '11px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-mono)', fontSize: 'var(--type-label)' }}>
                   {order.map(k => {
                     const c = countries[k];
                     if (!c) return null;
                     return (
                       <span key={k} style={{ color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>
                         {k} {Math.round(c.operational_mw)}
-                        <span style={{ color: 'var(--text-muted)', marginLeft: '3px', fontSize: '10px' }}>
+                        <span style={{ color: 'var(--text-muted)', marginLeft: '3px', fontSize: 'var(--type-mono-xs)' }}>
                           {Math.round((c.operational_mw / totalOp) * 100)}%
                         </span>
                       </span>
@@ -804,12 +804,12 @@ export function HeroBalticMap() {
               </>
             );
           })()}
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-secondary)', marginTop: 'var(--space-2xs)', textTransform: 'uppercase' }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-body-sm)', color: 'var(--text-secondary)', marginTop: 'var(--space-2xs)', textTransform: 'uppercase' }}>
             + {fmt(fleet?.baltic_pipeline_mw)} MW PIPELINE
           </div>
           {(fleet?.baltic_quarantined_mw ?? 0) > 0 && (
             <div style={{
-              fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--amber)',
+              fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--amber)',
               marginTop: '6px', letterSpacing: '0.04em',
             }}>
               {fmt(fleet?.baltic_quarantined_mw)} MW awaiting TSO confirmation
@@ -821,21 +821,21 @@ export function HeroBalticMap() {
         <div style={{
           display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 'var(--space-2xs)',
         }}>
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 0, padding: '8px 10px', textAlign: 'center' }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>S/D</div>
-            <div style={{ fontFamily: 'var(--font-display)', fontSize: '16px', color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums', marginTop: '2px' }}>
+          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 0, paddingTop: 'var(--space-xs)', paddingRight: '10px', paddingBottom: 'var(--space-xs)', paddingLeft: '10px', textAlign: 'center' }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>S/D</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-body-lg)', color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums', marginTop: '2px' }}>
               {fleet?.sd_ratio != null ? fleet.sd_ratio.toFixed(2) : '—'}{'×'}
             </div>
           </div>
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 0, padding: '8px 10px', textAlign: 'center' }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>CPI</div>
-            <div style={{ fontFamily: 'var(--font-display)', fontSize: '16px', color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums', marginTop: '2px' }}>
+          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 0, paddingTop: 'var(--space-xs)', paddingRight: '10px', paddingBottom: 'var(--space-xs)', paddingLeft: '10px', textAlign: 'center' }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>CPI</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-body-lg)', color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums', marginTop: '2px' }}>
               {fleet?.cpi != null ? fleet.cpi.toFixed(2) : '—'}
             </div>
           </div>
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 0, padding: '8px 10px', textAlign: 'center' }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>PHASE</div>
-            <div style={{ fontFamily: 'var(--font-display)', fontSize: '14px', color: 'var(--text-primary)', textTransform: 'uppercase', marginTop: '2px' }}>
+          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 0, paddingTop: 'var(--space-xs)', paddingRight: '10px', paddingBottom: 'var(--space-xs)', paddingLeft: '10px', textAlign: 'center' }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>PHASE</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-body-md)', color: 'var(--text-primary)', textTransform: 'uppercase', marginTop: '2px' }}>
               {fleet?.phase ?? '—'}
             </div>
           </div>
@@ -863,13 +863,13 @@ export function HeroBalticMap() {
           display: 'flex', whiteSpace: 'nowrap',
         }}>
           <span tabIndex={0} style={{
-            fontFamily: 'var(--font-mono)', fontSize: '11px',
+            fontFamily: 'var(--font-mono)', fontSize: 'var(--type-label)',
             color: 'var(--text-muted)', letterSpacing: '0.04em',
             paddingRight: 'var(--space-md)',
             outline: 'none',
           }}>{tickerText}</span>
           <span aria-hidden="true" style={{
-            fontFamily: 'var(--font-mono)', fontSize: '11px',
+            fontFamily: 'var(--font-mono)', fontSize: 'var(--type-label)',
             color: 'var(--text-muted)', letterSpacing: '0.04em',
             paddingRight: 'var(--space-md)',
           }}>{tickerText}</span>

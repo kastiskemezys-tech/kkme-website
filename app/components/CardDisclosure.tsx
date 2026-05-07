@@ -15,13 +15,13 @@ export function CardDisclosure({ explain, dataLines }: CardDisclosureProps) {
 
   const btnStyle = (active: boolean): React.CSSProperties => ({
     fontFamily: 'var(--font-mono)',
-    fontSize: '0.5rem',
+    fontSize: 'var(--type-mono-xs)',
     letterSpacing: '0.06em',
     textTransform: 'uppercase',
     background: 'transparent',
     border: `1px solid ${active ? 'var(--violet)' : 'var(--border-card)'}`,
     color: active ? 'var(--text-primary)' : 'var(--text-tertiary)',
-    padding: '2px 8px',
+    paddingTop: '2px', paddingRight: 'var(--space-xs)', paddingBottom: '2px', paddingLeft: 'var(--space-xs)',
     cursor: 'pointer',
     borderRadius: '2px',
   });
@@ -48,7 +48,7 @@ export function CardDisclosure({ explain, dataLines }: CardDisclosureProps) {
           {lines.map((line, i) => (
             <div key={i} style={{
               fontFamily: 'var(--font-mono)',
-              fontSize: '0.52rem',
+              fontSize: 'var(--type-mono-xs)',
               color: 'var(--text-tertiary)',
               lineHeight: 1.6,
               marginBottom: '2px',

@@ -86,7 +86,7 @@ export function S9Card() {
 
   return (
     <article style={{ width: '100%' }}>
-      <h3 style={{ fontFamily: 'var(--font-mono)', fontSize: '0.9375rem', color: 'var(--text-tertiary)', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600, marginBottom: '6px' }}>
+      <h3 style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-body-md)', color: 'var(--text-tertiary)', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600, marginBottom: '6px' }}>
         EU ETS Carbon
       </h3>
 
@@ -99,7 +99,7 @@ export function S9Card() {
         </div>
       )}
 
-      <p className="tier3-interp" style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', lineHeight: 1.4, margin: '4px 0 8px' }}>
+      <p className="tier3-interp" style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', lineHeight: 1.4, marginTop: 'var(--space-2xs)', marginRight: 0, marginBottom: 'var(--space-xs)', marginLeft: 0 }}>
         {carbonInterpretation(data.signal, data.eua_eur_t)}
       </p>
 
@@ -159,14 +159,14 @@ export function S9Card() {
             borderRadius: '1px',
           }} />
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2px' }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-ghost)' }}>0</span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-ghost)' }}>30</span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-ghost)', position: 'relative' }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--text-ghost)' }}>0</span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--text-ghost)' }}>30</span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--text-ghost)', position: 'relative' }}>
               55
-              <span style={{ position: 'absolute', top: '-10px', left: '50%', transform: 'translateX(-50)', fontSize: '0.5rem', color: 'var(--text-ghost)' }}>▲</span>
+              <span style={{ position: 'absolute', top: '-10px', left: '50%', transform: 'translateX(-50)', fontSize: 'var(--type-mono-xs)', color: 'var(--text-ghost)' }}>▲</span>
             </span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-ghost)' }}>80</span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', color: 'var(--text-ghost)' }}>120</span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--text-ghost)' }}>80</span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--text-ghost)' }}>120</span>
           </div>
         </div>
       )}

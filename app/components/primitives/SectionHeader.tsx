@@ -28,7 +28,7 @@ export function SectionHeader({ title, subtitle, metadata }: SectionHeaderProps)
       {subtitle && (
         <p style={{
           fontFamily: 'var(--font-serif)',
-          fontSize: '1rem',
+          fontSize: 'var(--type-body-lg)',
           color: 'var(--text-secondary)',
           lineHeight: 1.7,
           maxWidth: '600px',

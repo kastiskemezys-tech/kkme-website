@@ -106,7 +106,7 @@ export default function SignalBar() {
 
   return (
     <div className="kpi-ticker" style={{
-      padding: '8px 32px',
+      paddingTop: 'var(--space-xs)', paddingRight: 'var(--space-lg)', paddingBottom: 'var(--space-xs)', paddingLeft: 'var(--space-lg)',
       borderBottom: '1px solid var(--bg-elevated)',
       background: 'var(--nav-bg)',
     }}>
@@ -130,7 +130,7 @@ export default function SignalBar() {
         >
           <span style={{
             fontFamily: 'var(--font-mono)',
-            fontSize: '0.5625rem',
+            fontSize: 'var(--type-mono-xs)',
             color: 'var(--text-ghost)',
             letterSpacing: '0.10em',
             textTransform: 'uppercase',
@@ -138,17 +138,17 @@ export default function SignalBar() {
             {s.label}
             {(s as { scope?: string }).scope && (
               <span style={{
-                marginLeft: '4px',
+                marginLeft: 'var(--space-2xs)',
                 color: 'var(--text-muted)',
                 textTransform: 'none',
                 letterSpacing: '0.02em',
-                fontSize: '0.5rem',
+                fontSize: 'var(--type-mono-xs)',
               }}>({(s as { scope?: string }).scope})</span>
             )}
           </span>
           <span style={{
             fontFamily: 'var(--font-mono)',
-            fontSize: '0.6875rem',
+            fontSize: 'var(--type-label)',
             color: 'var(--text-secondary)',
             transition: 'color 150ms ease',
           }}>{s.value}</span>

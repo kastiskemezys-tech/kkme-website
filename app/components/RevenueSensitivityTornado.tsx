@@ -45,7 +45,7 @@ export function RevenueSensitivityTornado({
   if (!bars.length) {
     return (
       <div style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)',
-        fontSize: 'var(--font-xs)', padding: '12px 0' }}>
+        fontSize: 'var(--font-xs)', paddingTop: '12px', paddingRight: 0, paddingBottom: '12px', paddingLeft: 0 }}>
         Insufficient sensitivity data
       </div>
     );

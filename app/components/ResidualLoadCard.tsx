@@ -70,12 +70,12 @@ export function ResidualLoadCard() {
 
   return (
     <article style={{ width: '100%' }}>
-      <h3 style={{ fontFamily: 'var(--font-mono)', fontSize: '0.9375rem', color: 'var(--text-tertiary)', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600, marginBottom: '6px', display: 'flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
+      <h3 style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-body-md)', color: 'var(--text-tertiary)', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600, marginBottom: '6px', display: 'flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
         Residual Load
         <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: dotColor(residualMw, residual7d), display: 'inline-block' }} />
       </h3>
 
-      <div style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(1.5rem, 3vw, 1.75rem)', fontWeight: 400, color: 'var(--text-primary)', lineHeight: 1, letterSpacing: '0.02em', marginBottom: '2px' }}>
+      <div style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(1.5rem, 3vw, 1.75rem)', fontWeight: 400, color: 'var(--text-primary)', lineHeight: 1, letterSpacing: '0.02em', marginBottom: '2px' }}>
         {Math.round(residualMw).toLocaleString()} MW
       </div>
       <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: 'var(--space-xs)' }}>
@@ -83,7 +83,7 @@ export function ResidualLoadCard() {
       </p>
 
       {/* Per-country */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 'var(--space-2xs)', fontFamily: 'var(--font-mono)', fontSize: '0.5625rem', marginBottom: 'var(--space-xs)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 'var(--space-2xs)', fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', marginBottom: 'var(--space-xs)' }}>
         <div>
           <span style={{ color: 'var(--text-muted)' }}>LT </span>
           <span style={{ color: 'var(--text-secondary)' }}>{Math.round(ltRes)} MW</span>
@@ -105,7 +105,7 @@ export function ResidualLoadCard() {
         </p>
       )}
 
-      <p className="tier3-interp" style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', lineHeight: 1.4, margin: '4px 0 8px' }}>
+      <p className="tier3-interp" style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', lineHeight: 1.4, marginTop: 'var(--space-2xs)', marginRight: 0, marginBottom: 'var(--space-xs)', marginLeft: 0 }}>
         {interpretation(residualMw, residual7d)}
       </p>
 

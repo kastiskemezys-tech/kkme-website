@@ -57,7 +57,7 @@ export function RegulatoryFilters({ impactCounts, categories, tags }: Props) {
         display: 'flex',
         flexDirection: 'column',
         gap: '12px',
-        padding: '16px 0',
+        paddingTop: 'var(--space-sm)', paddingRight: 0, paddingBottom: 'var(--space-sm)', paddingLeft: 0,
         borderTop: '1px solid var(--border-subtle)',
         borderBottom: '1px solid var(--border-subtle)',
         marginBottom: 'var(--space-md)',
@@ -168,7 +168,7 @@ function Chip({
         display: 'inline-flex',
         alignItems: 'center',
         gap: 'var(--space-2xs)',
-        padding: '3px 8px',
+        paddingTop: '3px', paddingRight: 'var(--space-xs)', paddingBottom: '3px', paddingLeft: 'var(--space-xs)',
         background: active
           ? 'color-mix(in srgb, var(--teal) 8%, transparent)'
           : 'transparent',
@@ -186,7 +186,7 @@ function Chip({
       }}
     >
       {label}
-      <span style={{ color: 'var(--text-muted)', fontSize: '10px' }}>
+      <span style={{ color: 'var(--text-muted)', fontSize: 'var(--type-mono-xs)' }}>
         {count}
       </span>
     </button>
