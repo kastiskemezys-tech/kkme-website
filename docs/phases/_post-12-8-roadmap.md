@@ -10,7 +10,8 @@
 ## Currently active
 
 - **In flight:** none — operator at clean main. Phase 18.2.3 SHIPPED 2026-05-07 (2 commits `74489d4` / `a0423b2` on `phase-18-2-3-tooltip-dismiss-mobile` merged to main). Tooltip dismiss-on-scroll + touchend-with-250ms-grace mobile fix; +30 lines in `ChartTooltip.tsx`; gates baseline-exact; bundle delta below KB-rounding noise floor; verified zero `stopPropagation` interference on touch events. Universality confirmed: scroll-dismiss is additive on desktop, primary fix on mobile.
-- **Next CC pick — Phase 21 (operator-confirmed 2026-05-07):** S2 professional polish; (a) hero inversion + (b) 90d delta worker deploy + (c) IMB interpretation/THICK chip fix. Prompt at `docs/phases/phase-21-prompt.md`. ~3-4h CC. Single PR with three sub-items.
+- **Next CC pick — Phase 21.2 (operator-confirmed 2026-05-07 path A):** S2 monthly trajectory + capacity_monthly KV fix. Prompt at `docs/phases/phase-21-2-prompt.md`. ~2-4h CC. Production curl revealed `capacity_monthly[0] = { month: "2026-03", days: 1 }` — single-day mislabeled as "monthly" aggregate; root cause is worker `s2_btd_history` KV under-population. Includes (a) `fmtMonth` format change `Mar 26` → `2026-03` (operator-picked ISO), (b) KV diagnostic via wrangler kv get + tail, (c) under-population fix per (b) diagnosis (backfill / cron restart / filter relax / namespace fix), (d) honest empty-state fallback for future under-population recurrence.
+- **Earlier:** Phase 21 SHIPPED 2026-05-07 (3 commits `3e75557` / `b11addf` / `799ad30` on `phase-21-s2-professional-polish` merged to main); S2 professional polish; hero inversion to up-only operational reality + 90d delta worker field (currently null with s2_history at 48/60 days; first value ~2026-05-19; full window ~2026-06-18) + IMB interpretive line + THICK chip rule-#6 alignment with quantitative anchor + quiet integrity fix on Baltic-avg → LT-only label correction. Worker version `2b3c6bc5-e9a3-4819-9919-cd1ec3d85952`.
 - **Earlier:** Phase 18.2 SHIPPED 2026-05-06 (3 commits `c11cbe5` / `22aed12` / `facbe76` on `phase-18-2-chart-editorial-polish` merged to main). Chart editorial polish: crosshair plugin (vertical line on hover), Newsreader italic ref-line callouts (4 sites), sentinel-line constants (SENTINEL_DASH = [4,4], SENTINEL_LINE_WIDTH = 0.8), 13 chart aria-labels. Phase 7.7e UI track had absorbed most spec P2-2 work pre-emptively (chartTheme.ts centralization existed); 18.2 was a smaller refined scope (~1.5h actual vs estimate 2-3h). Local-build verification via curl-only path (chrome MCP locked); structural verification confirmed 18.1.1-class ChunkLoadError absent. **Operator hard-refresh feedback post-merge:** (a) crosshair only fires on data points / hover lines, want "+" pattern (vertical + horizontal) following cursor anywhere over chart canvas — Phase 18.2.2 hotfix prompted; (b) Newsreader/typography sprawl visible on IntelFeed item — defer to Phase 7.7g-a-3 (typography rationalization, queued); (c) mojibake visible in screenshot intel item ("plÄŠtoti" should be "plėtoti") — Phase 4G follow-up candidate.
 - **Earlier:** Phase 18.1.1 SHIPPED 2026-05-06 then **REVERTED same-day** via revert commit `f62d3f8` after operator hard-refresh hit `ChunkLoadError: Failed to load chunk` on production (mobile + desktop). Cause: HTML referenced JS chunks that returned 404 from origin (`cf-cache: BYPASS` confirmed). Likely culprit in 18.1.1 diff (~200 lines MobileBalticMap + GSAP guard tweak): SSR/build-time mismatch with the new code path. **Production restored to Phase 18.1 state** (mobile foundation works; mobile map is back to compressed dotted-grid). Re-ship conditional on chunk-error investigation (would-be Phase 18.1.1.1).
 - **Next CC pick — Phase 18.2.2 (operator-confirmed 2026-05-06):** chart crosshair UX hotfix. Prompt at `docs/phases/phase-18-2-2-prompt.md`. ~30-60 min CC. Adds horizontal line to existing crosshair plugin + sets `interaction.intersect = false` on all chart options so crosshair "+" follows cursor anywhere over chart canvas, not just on data points.
@@ -281,6 +282,34 @@ Defensive guards + CardBoundary upgrade. Ships preventive hardening (audit's tra
 ---
 
 ### Tier 1 — Foundation (~2-3 weeks)
+
+#### Phase 21.2 — S2 monthly trajectory + capacity_monthly KV fix [NEW 2026-05-07] (~2-4h)
+
+**Why:** Operator opened S2 drawer "Monthly trajectory — Baltic aggregate" 2026-05-07 and saw a single bar at "Mar 26". Production curl revealed smoking gun: `capacity_monthly[0] = { month: "2026-03", days: 1 }`. Worker's `s2_btd_history` KV is severely under-populated; chart calls itself "monthly trajectory" but renders single-day data mislabeled as monthly aggregate. Discipline rule #2 anti-pattern (no-hardcoded-temporal-label without computing it; "monthly" must mean monthly).
+
+**Scope (~2-4h, single PR, three pause points):**
+
+**(a) fmtMonth format change** (~10-15 min, frontend-only) — `fmtMonth` helper output `Mar 26` → `2026-03` (operator-picked ISO). Cross-card consumer audit: `fmtMonth` used in S2Card.tsx + S1Card.tsx; format change propagates to all consumers per discipline rule #4.
+
+**(b) `s2_btd_history` KV diagnostic** (~30-60 min) — diagnose via `wrangler kv key get --binding=KKME_SIGNALS s2_btd_history --remote` + `wrangler tail` for live cron observation + git log for recent worker deploys. Identify root cause: KV-was-wiped / cron-stopped / write-bails / namespace-mismatch / aggregation-filter.
+
+**(c) Fix the under-population** (~30 min - 2h depending on root cause) — branches per (b) diagnosis: backfill function design (BTD historical API per-day batch write); cron restart + monitoring; write-path bug fix; namespace correction.
+
+**(d) Honest empty-state fallback** (~15-30 min, frontend-only) — defensive UI: if `capacity_monthly.length < 3`, render muted line *"Capacity history accruing — {N} months collected, full trajectory available {date}"* in place of chart. Computes accrual date dynamically. Prevents future "1-bar mislabel" recurrence.
+
+**Pause points:** Pause A (fmtMonth audit + KV diagnosis + aggregation function audit), Pause B (foundation gates + worker deploy if needed + local-build smoke-test), Pause C (visual + commits).
+
+**Sequencing:** operator picked path A — fix before moving to typography (Phase 7.7g-a-3).
+
+**Estimate:** ~2-4h CC. Worker investigation likely; possible worker deploy.
+
+**Prompt:** `docs/phases/phase-21-2-prompt.md`.
+
+**Discipline rules engaged:** #1 audit-triage (KV diagnostic before scoping fix), #2 no-hardcoded-temporal-label (capacity_monthly with days:1 is exact anti-pattern), #4 cross-card consistency (fmtMonth propagates to S1 + S2), #5 roadmap edit-conflict (Cowork-applied delta only), #6 no-editorial-state-label (empty-state line must be quantitative not vague).
+
+**Acceptance:** S2 drawer shows multi-month trajectory if KV repopulated, OR honest empty-state muted line with accrual date; `fmtMonth` output uniformly `2026-03` across all consumers; future under-population auto-renders empty-state instead of mislabeled "monthly" snapshot.
+
+**Out of scope:** engine math, other monthly aggregations beyond capacity_monthly (file 21.3 if s1_capture has same problem), historical KV architecture redesign, BTD source backfill earlier than data depth, forward curves, scenario analysis.
 
 #### Phase 21 — S2 professional polish [NEW 2026-05-07] (~3-4h)
 
