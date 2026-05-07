@@ -16,7 +16,7 @@ import {
   Tooltip, Filler,
 } from 'chart.js';
 import { Line, Bar } from 'react-chartjs-2';
-import { CHART_FONT, useChartColors, useTooltipStyle, buildScales, makeCrosshairPlugin } from '@/app/lib/chartTheme';
+import { CHART_FONT, useChartColors, useTooltipStyle, buildScales, makeCrosshairPlugin, CHART_INTERACTION } from '@/app/lib/chartTheme';
 import { freshnessLabel, formatTimestamp } from '@/app/lib/freshness';
 import { MarketThicknessChip } from '@/app/components/MarketThicknessChip';
 import type { ThicknessProduct } from '@/app/lib/financialDefinitions';
@@ -625,6 +625,7 @@ function HistoryChart({ history, prod, CC, pinned, onPin }: {
           options={{
             responsive: true,
             maintainAspectRatio: false,
+            interaction: CHART_INTERACTION,
             onClick: (_evt, elements) => {
               if (!elements || elements.length === 0) {
                 onPin(null);
@@ -730,6 +731,7 @@ function MonthlyTrajectoryChart({ monthly, country, prod, CC, pinned, onPin }: {
           options={{
             responsive: true,
             maintainAspectRatio: false,
+            interaction: CHART_INTERACTION,
             onClick: (_evt, elements) => {
               if (!elements || elements.length === 0) {
                 onPin(null);
@@ -830,6 +832,7 @@ function CapacityChart({ monthly, prod, CC }: {
           options={{
             responsive: true,
             maintainAspectRatio: false,
+            interaction: CHART_INTERACTION,
             plugins: { legend: { display: false }, tooltip: externalTooltip },
             scales: {
               ...scales,

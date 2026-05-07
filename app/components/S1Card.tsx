@@ -17,7 +17,7 @@ import {
   Tooltip, Filler,
 } from 'chart.js';
 import { Line, Bar } from 'react-chartjs-2';
-import { CHART_FONT, useChartColors, useTooltipStyle, buildScales, SENTINEL_DASH, makeCrosshairPlugin } from '@/app/lib/chartTheme';
+import { CHART_FONT, useChartColors, useTooltipStyle, buildScales, SENTINEL_DASH, makeCrosshairPlugin, CHART_INTERACTION } from '@/app/lib/chartTheme';
 import { freshnessLabel, formatTimestamp } from '@/app/lib/freshness';
 import { leftSkewFootnote } from '@/app/lib/distributionShape';
 import { formatHourEET } from '@/app/lib/hourLabels';
@@ -421,6 +421,7 @@ function Sparkline({ history, dur, stats, CC, pinned, onPin }: {
         options={{
           responsive: true,
           maintainAspectRatio: false,
+          interaction: CHART_INTERACTION,
           onClick: (_evt, elements) => {
             if (!elements || elements.length === 0) {
               onPin(null);
@@ -552,6 +553,7 @@ function MonthlyChart({ monthly, dur, CC }: {
           options={{
             responsive: true,
             maintainAspectRatio: false,
+            interaction: CHART_INTERACTION,
             plugins: { legend: { display: false }, tooltip: externalTooltip },
             scales: {
               ...scales,
