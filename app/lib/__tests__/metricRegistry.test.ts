@@ -11,8 +11,11 @@ describe('metricRegistry — canonical metric declarations (Phase 12.10)', () =>
   });
 
   it('every entry names a worker payload path so CI can grep for raw alternatives', () => {
+    // Phase 21 — registry expanded beyond s4 fleet metrics (Phase 12.10 seed) to
+    // cover s2 derived signals (e.g. afrr_up_avg_90d_delta). Broadened to any
+    // s1..s9 namespace.
     for (const [key, descriptor] of Object.entries(METRIC_REGISTRY)) {
-      expect(descriptor.workerPath, `${key} missing workerPath`).toMatch(/^s4\./);
+      expect(descriptor.workerPath, `${key} missing workerPath`).toMatch(/^s\d\./);
       expect(descriptor.label.length, `${key} missing label`).toBeGreaterThan(0);
       expect(descriptor.meaning.length, `${key} missing meaning`).toBeGreaterThan(20);
     }

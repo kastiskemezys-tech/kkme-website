@@ -62,6 +62,12 @@ interface S2Signal {
   afrr_down_avg?: number | null;
   mfrr_up_avg?: number | null;
   mfrr_down_avg?: number | null;
+  /**
+   * Phase 21 — current 30d mean vs prior 60d mean of LT aFRR up-only €/MW/h,
+   * expressed as percent (1dp, signed). Null when s2_history KV underfilled
+   * (< 60 days of snapshots). Worker computes via `computeAfrrUp30dVs60dDeltaPct`.
+   */
+  afrr_up_avg_90d_delta?: number | null;
   pct_up?: number | null;
   pct_down?: number | null;
   imbalance_mean?: number | null;
@@ -101,9 +107,14 @@ interface S2HistoryEntry {
 
 function heroValue(data: S2Signal, prod: Product, country: Country): number | null {
   if (prod === 'FCR') return data.fcr_avg ?? null;
+  // Phase 21 — aFRR hero is LT-anchored, up-only, 7d mean from BTD
+  // price_procured_reserves (the operationally honest revenue anchor for
+  // one-direction BESS bidding). Country toggle is disabled on aFRR; per-
+  // country up-only fields don't exist yet (deferred to Phase 21.1+).
+  if (prod === 'aFRR') return data.afrr_up_avg ?? null;
   const act = data.activation?.[COUNTRY_KEY[country]];
   if (!act) return null;
-  return prod === 'aFRR' ? (act.afrr_p50 ?? null) : (act.mfrr_p50 ?? null);
+  return act.mfrr_p50 ?? null;
 }
 
 function activationRate(data: S2Signal, prod: Product, country: Country): number | null {
@@ -186,11 +197,19 @@ export function S2Card() {
   // Reset pin on product/country change — idx no longer maps to the same day
   useEffect(() => { setPinned(null); }, [prod, country]);
 
-  const hero = data ? heroValue(data, prod, country) : null;
-  const rate = data ? activationRate(data, prod, country) : null;
-  const activeAct = data?.activation?.[COUNTRY_KEY[country]];
+  // Phase 21 — aFRR is LT-anchored (hero, trajectory chart, ContextTable all
+  // read LT data); the country toggle below is visually disabled on aFRR. We
+  // derive `effectiveCountry` at render rather than mutating state via effect:
+  // it keeps the toggle's highlight in sync with what the card actually shows
+  // while letting raw `country` state survive a round-trip through aFRR (so
+  // toggling back to mFRR preserves the user's prior LV / EE pick).
+  const effectiveCountry: Country = prod === 'aFRR' ? 'LT' : country;
+
+  const hero = data ? heroValue(data, prod, effectiveCountry) : null;
+  const rate = data ? activationRate(data, prod, effectiveCountry) : null;
+  const activeAct = data?.activation?.[COUNTRY_KEY[effectiveCountry]];
   const { chipLabel, sentiment } = useMemo(() => deriveChip(hero ?? 0, activeAct, prod), [hero, activeAct, prod]);
-  const monthly = data ? monthlySeries(data, prod, country) : null;
+  const monthly = data ? monthlySeries(data, prod, effectiveCountry) : null;
 
   if (status === 'loading' && !data) {
     return (
@@ -219,7 +238,7 @@ export function S2Card() {
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-xs)', marginLeft: 'auto' }}>
           <ProductToggle value={prod} onChange={setProd} />
           <span aria-hidden="true" style={{ width: '1px', height: '14px', background: 'var(--border-subtle)' }} />
-          <CountryToggle value={country} onChange={setCountry} disabled={prod === 'FCR'} />
+          <CountryToggle value={effectiveCountry} onChange={setCountry} disabled={prod === 'FCR' || prod === 'aFRR'} />
         </span>
       </div>
 
@@ -236,30 +255,36 @@ export function S2Card() {
               fontFamily: 'var(--font-mono)', fontSize: 'var(--font-2xs, 10px)',
               color: 'var(--text-tertiary)', letterSpacing: '0.04em', textTransform: 'uppercase',
             }}
-            title="aFRR P50 from BTD activation feed clears as up+down combined per ENTSO-E balancing methodology. One-direction P50 (up only) is available below; downstream readers sizing a one-direction BESS offer should halve, or use afrr_up_avg / afrr_down_avg directly."
+            title="aFRR hero = BTD price_procured_reserves Lithuania up-direction column, 7-day rolling mean. This is the operationally honest revenue anchor for one-direction BESS bidding. Combined up+down P50 (the ENTSO-E auction-clearing methodology view, ~70% higher) is shown as a methodology disclosure on the next line."
           >
-            up+down combined
+            LT · up only · 7d
           </span>
         )}
         {/* ── 3. Status chip ─────────────────────────────────── */}
-        <StatusChip status={chipLabel} sentiment={sentiment} />
+        {/* Phase 21 — on aFRR, the 30d-vs-60d directional delta replaces the
+            now-vestigial P50 self-comparison (hero is a different stat / window
+            from `act.afrr_p50` post-inversion). mFRR + FCR keep the existing
+            chip. Null delta renders as muted "—" so chip rhythm is preserved. */}
+        {prod === 'aFRR'
+          ? <AfrrDeltaChip delta={data.afrr_up_avg_90d_delta ?? null} onClick={() => openDrawer('how')} />
+          : <StatusChip status={chipLabel} sentiment={sentiment} />}
         {/* Activation-rate chiplet (muted n/a when upstream null) */}
         {prod !== 'FCR' && <RateChip rate={rate} onClick={() => openDrawer('what')} />}
         {/* Market thickness chip (7.7.14) — discloses depth for the active product */}
         <MarketThicknessChip product={prod.toLowerCase() as ThicknessProduct} showCaption />
       </div>
-      {/* Phase 12.10 — aFRR direction disclosure (audit #5 finding):
-          headline is up+down combined; expose one-direction P50 in a sub-line
-          so downstream readers sizing a one-direction BESS offer cannot
-          accidentally double-count. */}
-      {prod === 'aFRR' && (data.afrr_up_avg != null || data.afrr_down_avg != null) && (
+      {/* Phase 21 — methodology disclosure: hero is LT up-only 7d (operational
+          reality for one-direction BESS bidding); the combined up+down 3m P50
+          (ENTSO-E auction-clearing view) is shown here so cross-method readers
+          can reconcile the ~70% gap between the two framings. */}
+      {prod === 'aFRR' && data.activation?.lt?.afrr_p50 != null && (
         <p style={{
           fontFamily: 'var(--font-mono)', fontSize: 'var(--font-2xs, 10px)',
           color: 'var(--text-muted)', letterSpacing: '0.04em',
           marginTop: '-2px', marginBottom: 'var(--space-xs)',
         }}>
-          One-direction (up only, Baltic avg): {data.afrr_up_avg != null ? `€${data.afrr_up_avg.toFixed(2)}/MW/h` : '—'}
-          {data.afrr_down_avg != null && ` · down: €${data.afrr_down_avg.toFixed(2)}/MW/h`}
+          Combined up+down (LT, 3m P50): €{data.activation.lt.afrr_p50.toFixed(1)}/MW/h
+          {data.afrr_down_avg != null && ` · down 7d: €${data.afrr_down_avg.toFixed(2)}/MW/h`}
         </p>
       )}
 
@@ -288,10 +313,22 @@ export function S2Card() {
         </div>
       )}
 
+      {/* Phase 21 — IMB interpretive connector: ties the three imbalance stats
+          to balancing-revenue logic so non-expert readers see why they matter. */}
+      {data.pct_above_100 != null && data.pct_above_100 > 0 && (
+        <p style={{
+          fontFamily: 'var(--font-mono)', fontSize: 'var(--font-2xs, 10px)',
+          color: 'var(--text-muted)', letterSpacing: '0.04em', lineHeight: 1.5,
+          margin: '-4px 0 12px',
+        }}>
+          Imbalance volume drives activation: more imbalance → more aFRR called → activation revenue layers on top of the capacity reservation above. Today&apos;s {Math.round(data.pct_above_100)}% &gt;100 MWh ≈ 1-in-{Math.max(2, Math.round(100 / data.pct_above_100))} settlement periods stressed.
+        </p>
+      )}
+
       {/* ── 5. Sparkline — monthly P50 trajectory per country, or FCR daily (click-to-pin) ─ */}
       {prod === 'FCR'
         ? (history.length > 2 && <HistoryChart history={history} prod={prod} CC={CC} ttStyle={ttStyle} pinned={pinned} onPin={setPinned} />)
-        : (monthly && Object.keys(monthly).length > 1 && <MonthlyTrajectoryChart monthly={monthly} country={country} prod={prod} CC={CC} ttStyle={ttStyle} pinned={pinned} onPin={setPinned} />)}
+        : (monthly && Object.keys(monthly).length > 1 && <MonthlyTrajectoryChart monthly={monthly} country={effectiveCountry} prod={prod} CC={CC} ttStyle={ttStyle} pinned={pinned} onPin={setPinned} />)}
 
       {/* ── 9. Impact line ──────────────────────────────────────── */}
       {hero != null && prod === 'aFRR' && (
@@ -313,8 +350,9 @@ export function S2Card() {
       <div className="card-footnotes">
         <div>
           <span className="card-footnotes__anchor">1</span>
-          {prod === 'FCR' ? 'Baltic FCR' : prod} capacity-reservation price; BTD price_procured_reserves, {country.toUpperCase()}, rolling 7d.
-          {prod === 'aFRR' && ' Up + down direction combined.'}{' '}
+          {prod === 'aFRR'
+            ? 'aFRR capacity-reservation price; BTD price_procured_reserves, Lithuania, up-direction column, rolling 7d mean.'
+            : `${prod === 'FCR' ? 'Baltic FCR' : prod} capacity-reservation price; BTD price_procured_reserves, ${country.toUpperCase()}, rolling 7d.`}{' '}
           <a href="/methodology#capacity-reservation-revenue">methodology</a>.
         </div>
       </div>
@@ -329,7 +367,7 @@ export function S2Card() {
       {/* ── Drawer — narrative + methodology + monthly + bridge ─── */}
       <DetailsDrawer ref={drawerRef} label="Reading this card">
         <DrawerSection id="what" title="What this is">
-          <S2WhatSection prod={prod} country={country} hero={hero} />
+          <S2WhatSection prod={prod} country={effectiveCountry} hero={hero} />
         </DrawerSection>
         <DrawerSection id="how" title="How we compute this">
           <S2HowSection />
@@ -338,7 +376,7 @@ export function S2Card() {
           {capMonthly.length > 0 ? <CapacityChart monthly={capMonthly} prod={prod} CC={CC} ttStyle={ttStyle} /> : <MutedLine text="No capacity history yet." />}
         </DrawerSection>
         <DrawerSection id="bridge" title="Country detail + BTD context">
-          <ContextTable data={data} country={country} prod={prod} />
+          <ContextTable data={data} country={effectiveCountry} prod={prod} />
         </DrawerSection>
       </DetailsDrawer>
     </article>
@@ -518,6 +556,67 @@ function RateChip({ rate, onClick }: { rate: number | null; onClick?: () => void
       }}
     >
       {`${Math.round(rate * 100)}%`}
+    </button>
+  );
+}
+
+// ── aFRR directional delta chip (Phase 21) ──────────────────────────────────
+//
+// Quantitative micro-descriptor per discipline rule #6: surfaces direction of
+// the LT aFRR up-only capacity-reservation market over a regime-meaningful
+// window (current 30d mean vs prior 60d mean) without an editorial state-label.
+// No sentiment palette — muted text only; the sign + magnitude tell the story.
+
+function AfrrDeltaChip({ delta, onClick }: { delta: number | null; onClick?: () => void }) {
+  const [hover, setHover] = useState(false);
+  if (delta == null) {
+    return (
+      <span
+        title="30d-vs-60d directional delta — not yet computable. Worker requires ≥60 days of s2_history KV snapshots."
+        style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: 'var(--font-2xs, 10px)',
+          color: 'var(--text-muted)',
+          padding: '2px 6px',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: '2px',
+          letterSpacing: '0.04em',
+          marginLeft: '2px',
+        }}
+      >
+        Δ — / 90d
+      </span>
+    );
+  }
+  const sign = delta >= 0 ? '+' : '−';
+  const abs = Math.abs(delta);
+  const decimals = abs < 10 ? 1 : 0;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      onFocus={() => setHover(true)}
+      onBlur={() => setHover(false)}
+      title={`Lithuania aFRR up-only capacity-reservation €/MW/h: current 30d mean is ${delta >= 0 ? 'up' : 'down'} ${abs.toFixed(decimals)}% vs the prior 60-day mean. Reads regime direction (post-Feb-2025 Continental synchronisation context) without chart redesign.`}
+      style={{
+        fontFamily: 'var(--font-mono)',
+        fontSize: 'var(--font-2xs, 10px)',
+        color: 'var(--text-secondary)',
+        padding: '2px 6px',
+        border: '1px solid var(--border-subtle)',
+        borderRadius: '2px',
+        letterSpacing: '0.04em',
+        marginLeft: '2px',
+        background: 'transparent',
+        cursor: 'pointer',
+        textDecoration: hover ? 'underline' : 'none',
+        textDecorationColor: 'var(--text-muted)',
+        textUnderlineOffset: '3px',
+      }}
+    >
+      {`Δ ${sign}${abs.toFixed(decimals)}% / 90d`}
     </button>
   );
 }
@@ -1025,6 +1124,26 @@ function S2WhatSection({ prod, country, hero }: {
   country: Country;
   hero: number | null;
 }) {
+  // Phase 21 — aFRR hero is LT-anchored, up-only, 7d mean (operational
+  // revenue anchor for one-direction BESS); mFRR + FCR keep their original
+  // country-scoped P50 framing.
+  if (prod === 'aFRR') {
+    return (
+      <>
+        <DrawerProse>
+          Lithuania aFRR (up-direction only) clears at{' '}
+          <strong style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{fmtEuro(hero)}/MW/h</strong>{' '}
+          on a 7-day rolling mean.
+        </DrawerProse>
+        <DrawerProse>
+          This is the operational revenue anchor for one-direction BESS bidding. Combined up+down P50 (the ENTSO-E auction-clearing methodology view) is ~70% higher; see the methodology disclosure beneath the hero.
+        </DrawerProse>
+        <DrawerProse>
+          This is capacity payment — paid per MW offered per hour, regardless of activation.
+        </DrawerProse>
+      </>
+    );
+  }
   return (
     <>
       <DrawerProse>

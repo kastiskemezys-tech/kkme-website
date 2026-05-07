@@ -3474,6 +3474,32 @@ function rollingStats(history, field) {
   };
 }
 
+// Phase 21 — 30d-vs-prior-60d directional delta on Lithuania aFRR up-only
+// capacity-reservation €/MW/h (BTD price_procured_reserves rolling-7d mean,
+// snapshotted daily into the s2_history KV via appendSignalHistory). Returns
+// percent (1dp) or null when the window is underfilled.
+//
+// Window choice: MAX_HISTORY caps s2_history at 90 days. "Current 30d vs prior
+// 60d" fits exactly; "current 30d vs prior 90d" would need 120 days. Smooth
+// enough to read regime direction (post-Feb-2025 sync state) without the
+// week-to-week noise of shorter windows.
+//
+// Null-safety: requires ≥15 entries in current window AND ≥30 in prior window
+// before emitting a number; protects against early-deploy or sparse-history
+// Cardinality. Returns null if prior_mean is zero (avoid /0).
+function computeAfrrUp30dVs60dDeltaPct(history) {
+  if (!Array.isArray(history) || history.length < 60) return null;
+  const sorted = [...history].sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  const last30 = sorted.slice(-30).map(h => h.afrr_up).filter(v => typeof v === 'number' && Number.isFinite(v));
+  const prior60 = sorted.slice(-90, -30).map(h => h.afrr_up).filter(v => typeof v === 'number' && Number.isFinite(v));
+  if (last30.length < 15 || prior60.length < 30) return null;
+  const mean = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
+  const cur = mean(last30);
+  const prior = mean(prior60);
+  if (prior === 0) return null;
+  return Math.round(((cur - prior) / prior) * 1000) / 10;
+}
+
 // ─── S4 — Grid Connection Scarcity ────────────────────────────────────────────
 
 function s4SignalLevel(freeMw) {
@@ -7084,12 +7110,13 @@ export default {
     // Merges BTD capacity data + fleet S/D ratio data + activation clearing prices.
     if (request.method === 'GET' && url.pathname === '/s2') {
       try {
-        const [cached, activationRaw, btdHistRaw, extremeRaw, rolling180dRaw] = await Promise.all([
+        const [cached, activationRaw, btdHistRaw, extremeRaw, rolling180dRaw, s2HistoryRaw] = await Promise.all([
           env.KKME_SIGNALS.get('s2'),
           env.KKME_SIGNALS.get('s2_activation').catch(() => null),
           env.KKME_SIGNALS.get('s2_btd_history').catch(() => null),
           env.KKME_SIGNALS.get('extreme:latest').catch(() => null),
           env.KKME_SIGNALS.get('s2_rolling_180d').catch(() => null),
+          env.KKME_SIGNALS.get('s2_history').catch(() => null),
         ]);
         const base = cached
           ? JSON.parse(cached)
@@ -7163,6 +7190,17 @@ export default {
         // Attach rolling 180-day stats
         if (rolling180dRaw) {
           try { base.rolling_180d = JSON.parse(rolling180dRaw); } catch { /* ignore */ }
+        }
+        // Phase 21 — directional delta (current 30d mean vs prior 60d mean) on
+        // Lithuania aFRR up-only €/MW/h. Frontend renders as Δ ±N% / 90d chip
+        // near the hero. Read s2_history (daily snapshots, capped at 90 days),
+        // compute delta, attach top-level scalar. Null when window underfilled.
+        base.afrr_up_avg_90d_delta = null;
+        if (s2HistoryRaw) {
+          try {
+            const hist = JSON.parse(s2HistoryRaw);
+            base.afrr_up_avg_90d_delta = computeAfrrUp30dVs60dDeltaPct(hist);
+          } catch { /* ignore — null fallback already set */ }
         }
         // Attach extreme event only if from today
         if (extremeRaw) {
