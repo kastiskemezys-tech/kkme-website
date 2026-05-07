@@ -162,9 +162,22 @@ function fmtDate(d: string): string {
 }
 
 function fmtMonth(m: string): string {
-  const [y, mo] = m.split('-');
-  const names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  return `${names[parseInt(mo) - 1]} ${y.slice(2)}`;
+  return m;
+}
+
+// Phase 21.2 — defensive muted line for under-populated capacity_monthly. The
+// chart is meaningful only with ≥3 months; otherwise we say so explicitly,
+// computing the accrual date data-derived (rule #6 — quantitative, not
+// editorial). Prevents recurrence of the "1-bar mislabeled as monthly" shape.
+function capacityEmptyStateText(months: CapacityMonth[]): string {
+  const n = months.length;
+  const monthsRemaining = 3 - n;
+  const today = new Date();
+  const accrualDate = new Date(today.getFullYear(), today.getMonth() + monthsRemaining, 1);
+  const ymd = accrualDate.toISOString().slice(0, 10);
+  if (n === 0) return `No capacity history yet — full trajectory available ${ymd}.`;
+  const monthList = months.map(m => m.month).join(' + ');
+  return `Capacity history accruing — ${n} month${n === 1 ? '' : 's'} collected (${monthList}); full trajectory available ${ymd}.`;
 }
 
 // timeAgo retired in 7.6.16 — formatTimestamp covers the same shape and adds
@@ -373,7 +386,9 @@ export function S2Card() {
           <S2HowSection />
         </DrawerSection>
         <DrawerSection id="monthly" title="Monthly trajectory — Baltic aggregate">
-          {capMonthly.length > 0 ? <CapacityChart monthly={capMonthly} prod={prod} CC={CC} ttStyle={ttStyle} /> : <MutedLine text="No capacity history yet." />}
+          {capMonthly.length >= 3
+            ? <CapacityChart monthly={capMonthly} prod={prod} CC={CC} ttStyle={ttStyle} />
+            : <MutedLine text={capacityEmptyStateText(capMonthly)} />}
         </DrawerSection>
         <DrawerSection id="bridge" title="Country detail + BTD context">
           <ContextTable data={data} country={effectiveCountry} prod={prod} />
