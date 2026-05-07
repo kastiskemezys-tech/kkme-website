@@ -718,15 +718,14 @@ function AssumptionsPanel({ panel, rteCurve, calibrationSource }: {
         letterSpacing: '0.08em', marginBottom: 10 }}>
         Engine assumptions
       </div>
-      <div className="assumptions-grid">
+      <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 14, rowGap: 'var(--space-xs)' }}>
         {/* RTE row — value + inline RteSparkline of the 18-yr decay curve */}
         {panel.rte && (
           <>
-            <div className="assumptions-grid__label" style={{
+            <div style={{
               fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
-              color: 'var(--text-muted)',
+              color: 'var(--text-muted)', whiteSpace: 'nowrap',
               display: 'flex', alignItems: 'center', gap: 'var(--space-xs)',
-              flexWrap: 'wrap',
             }} title={panel.rte.note}>
               <span style={{ color: 'var(--text-primary)' }}>{panel.rte.label}</span>
               <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
@@ -734,10 +733,9 @@ function AssumptionsPanel({ panel, rteCurve, calibrationSource }: {
               </span>
               {rteCurve && rteCurve.length >= 2 && <RteSparkline curve={rteCurve} />}
             </div>
-            <div className="assumptions-grid__note" style={{
+            <div style={{
               fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)',
               fontStyle: 'italic', color: 'var(--text-muted)', lineHeight: 1.35,
-              overflowWrap: 'anywhere',
             }}>
               {panel.rte.note}
               {rteCurve && rteCurve.length >= 2 && (
@@ -750,14 +748,14 @@ function AssumptionsPanel({ panel, rteCurve, calibrationSource }: {
         {/* Cycles row — v7.3 cycles_breakdown chart, or v7.2 fallback row */}
         {useV73CyclesChart && panel.cycles_breakdown && (
           <>
-            <div className="assumptions-grid__label" style={{
+            <div style={{
               fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
-              color: 'var(--text-muted)', alignSelf: 'start',
+              color: 'var(--text-muted)', whiteSpace: 'nowrap', alignSelf: 'start',
               paddingTop: 2,
             }}>
               <span style={{ color: 'var(--text-primary)' }}>Cycles per year</span>
             </div>
-            <div className="assumptions-grid__note">
+            <div>
               <CyclesBreakdownChart
                 breakdown={panel.cycles_breakdown}
                 warrantyStatus={panel.warranty_status}
@@ -767,9 +765,9 @@ function AssumptionsPanel({ panel, rteCurve, calibrationSource }: {
         )}
         {!useV73CyclesChart && v72CyclesRow && (
           <>
-            <div className="assumptions-grid__label" style={{
+            <div style={{
               fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
-              color: 'var(--text-muted)',
+              color: 'var(--text-muted)', whiteSpace: 'nowrap',
             }} title={v72CyclesRow.note}>
               <span style={{ color: 'var(--text-primary)' }}>{v72CyclesRow.label}</span>
               {' '}
@@ -777,10 +775,9 @@ function AssumptionsPanel({ panel, rteCurve, calibrationSource }: {
                 {v72CyclesRow.value}{v72CyclesRow.unit}
               </span>
             </div>
-            <div className="assumptions-grid__note" style={{
+            <div style={{
               fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)',
               fontStyle: 'italic', color: 'var(--text-muted)', lineHeight: 1.35,
-              overflowWrap: 'anywhere',
             }}>
               {v72CyclesRow.note}
             </div>
@@ -790,9 +787,9 @@ function AssumptionsPanel({ panel, rteCurve, calibrationSource }: {
         {/* Remaining standard rows — availability / hold / wacc */}
         {standardRows.map(({ key, row }) => (
           <div key={key} style={{ display: 'contents' }}>
-            <div className="assumptions-grid__label" style={{
+            <div style={{
               fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
-              color: 'var(--text-muted)',
+              color: 'var(--text-muted)', whiteSpace: 'nowrap',
             }} title={row.note}>
               <span style={{ color: 'var(--text-primary)' }}>{row.label}</span>
               {' '}
@@ -800,10 +797,9 @@ function AssumptionsPanel({ panel, rteCurve, calibrationSource }: {
                 {row.value}{row.unit}
               </span>
             </div>
-            <div className="assumptions-grid__note" style={{
+            <div style={{
               fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)',
               fontStyle: 'italic', color: 'var(--text-muted)', lineHeight: 1.35,
-              overflowWrap: 'anywhere',
             }}>
               {row.note}
             </div>
@@ -1091,11 +1087,11 @@ function DSCRPanel({ base, conservative, worstMonth, covenant }: {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
         {cells.map((c) => (
-          <div key={c.spec.variant} title={c.spec.tooltip} style={{ minWidth: 0 }}>
+          <div key={c.spec.variant} title={c.spec.tooltip}>
             <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
               fontFamily: 'var(--font-mono)', textTransform: 'uppercase',
               letterSpacing: '0.08em', marginBottom: 'var(--space-2xs)',
-              opacity: c.muted ? 0.78 : 1, overflowWrap: 'anywhere' }}>
+              opacity: c.muted ? 0.78 : 1 }}>
               {c.spec.label}
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
@@ -1106,8 +1102,7 @@ function DSCRPanel({ base, conservative, worstMonth, covenant }: {
               </span>
             </div>
             <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
-              fontFamily: 'var(--font-mono)', marginTop: 'var(--space-2xs)',
-              overflowWrap: 'anywhere' }}>
+              fontFamily: 'var(--font-mono)', marginTop: 'var(--space-2xs)' }}>
               {c.spec.sublabel}
             </div>
             <div style={{ position: 'relative', height: 4, background: 'var(--border-card)',
@@ -1211,7 +1206,7 @@ function MonthlyHeatmap({ months }: { months: BaseMonth[] }) {
       <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
         fontFamily: "var(--font-mono)", textTransform: 'uppercase',
         letterSpacing: '0.08em', marginBottom: 'var(--space-xs)' }}>Observed monthly revenue (€k/MW)</div>
-      <div style={{ display: 'grid', gridTemplateColumns: `60px repeat(${months.length}, minmax(0, 1fr))`,
+      <div style={{ display: 'grid', gridTemplateColumns: `60px repeat(${months.length}, 1fr)`,
         gap: 2, fontSize: 'var(--font-xs)', fontFamily: "var(--font-mono)" }}>
         <div style={{ color: 'var(--text-muted)', padding: '4px 0' }}>Bal</div>
         {months.map((m, i) => (
@@ -1722,7 +1717,7 @@ export function RevenueCard() {
       </div>
 
       {/* Duration optimizer + DSCR triple panel (7.7c + 7.7.2) */}
-      <div className="rv-dur-dscr" style={{ marginBottom: 'var(--space-sm)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-sm)', marginBottom: 'var(--space-sm)' }}>
         <DurationOptimizer rec={data.duration_recommendation} />
         <DSCRPanel base={data.min_dscr} conservative={data.min_dscr_conservative}
           worstMonth={data.worst_month_dscr} covenant={DEFAULT_DSCR_COVENANT} />
@@ -1834,11 +1829,6 @@ export function RevenueCard() {
       </DetailsDrawer>
 
       <style>{`
-        /* Phase 18.1.1 — chart.js canvases need their grid track to be
-           shrinkable below intrinsic content width. Without min-width: 0,
-           the first-layout-pass 360px canvas fallback becomes the grid
-           item auto-minimum, blowing the track past viewport on mobile. */
-        .rv-main > *, .rv-analytics > * { min-width: 0; }
         @media (max-width: 768px) {
           .rv-main { grid-template-columns: 1fr !important; }
           .rv-analytics { grid-template-columns: 1fr !important; }

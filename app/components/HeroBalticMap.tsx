@@ -105,196 +105,6 @@ function formatPower(mw: number | null | undefined): string {
 
 const dotRadius = (mw: number) => 3 + Math.sqrt(mw / 10) * 1.2;
 
-// ═══ Phase 18.1.1 — Mobile-simplified Baltic map ════════════════════════════
-//
-// Below 900px the desktop dotted-grid map (~1024-wide viewBox, designer-baked
-// raster country layers, project dots, particles) compresses to ~328px wide
-// and reads as a noise blur. This swap renders a clean abstraction at the same
-// breakpoint: 3 hand-coded country outlines (LT/LV/EE), 6 interconnector
-// arrow-lines per the resolved flow data, with MW magnitudes near each line
-// and threshold-based color (amber default; brick rose when MW > 500).
-// Country labels in editorial display font (Newsreader); MW values + neighbor
-// labels in IBM Plex Mono with tabular-nums. Static — no animation. CSS
-// `display: none` toggle in globals.css gates desktop ↔ mobile.
-
-const MOBILE_VIEWBOX = { w: 400, h: 360 };
-
-// Hand-coded simplified country outlines. Polygons drawn by inspection of
-// the desktop calibrated geo with major coastline + Riga bay landmarks
-// preserved. Not geographically precise — a brand-recognition abstraction.
-const MOBILE_COUNTRY_PATHS = {
-  EE: 'M 132 65 L 152 35 L 285 33 L 297 75 L 290 115 L 200 118 L 145 116 L 132 95 Z',
-  LV: 'M 110 145 L 165 128 L 200 140 L 280 132 L 295 175 L 130 178 L 108 165 Z',
-  LT: 'M 92 215 L 130 197 L 200 198 L 270 207 L 290 250 L 282 295 L 130 297 L 95 263 Z',
-} as const;
-
-// Country label centroids (rough visual centers).
-const MOBILE_COUNTRY_LABELS = {
-  EE: { x: 215, y: 80,  name: 'EE' },
-  LV: { x: 200, y: 158, name: 'LV' },
-  LT: { x: 190, y: 250, name: 'LT' },
-} as const;
-
-// Neighbor anchor labels (for cable endpoints into FI/SE/PL).
-const MOBILE_NEIGHBOR_LABELS = [
-  { x: 200, y: 16,  name: 'FI' },
-  { x: 16,  y: 200, name: 'SE' },
-  { x: 145, y: 350, name: 'PL' },
-] as const;
-
-// Per-cable endpoint coordinates within the mobile viewBox. endA/endB are
-// labeled by country only; the actual arrow direction is decided per-render
-// from the resolved flow's fromCountry → toCountry.
-const MOBILE_CABLE_ENDS: Record<string, {
-  endA: { x: number; y: number; country: string };
-  endB: { x: number; y: number; country: string };
-}> = {
-  'nordbalt':    { endA: { x: 95,  y: 245, country: 'LT' }, endB: { x: 14,  y: 270, country: 'SE' } },
-  'litpol':      { endA: { x: 140, y: 297, country: 'LT' }, endB: { x: 140, y: 340, country: 'PL' } },
-  'estlink-1':   { endA: { x: 195, y: 35,  country: 'EE' }, endB: { x: 195, y: 8,   country: 'FI' } },
-  'estlink-2':   { endA: { x: 225, y: 35,  country: 'EE' }, endB: { x: 225, y: 8,   country: 'FI' } },
-  'fennoskan-1': { endA: { x: 28,  y: 100, country: 'SE' }, endB: { x: 270, y: 8,   country: 'FI' } },
-  'fennoskan-2': { endA: { x: 28,  y: 125, country: 'SE' }, endB: { x: 290, y: 18,  country: 'FI' } },
-};
-
-const MOBILE_HIGH_FLOW_THRESHOLD_MW = 500;
-
-function MobileBalticMap({ resolved }: { resolved: ResolvedFlow[] }) {
-  const { w, h } = MOBILE_VIEWBOX;
-  return (
-    <svg
-      viewBox={`0 0 ${w} ${h}`}
-      preserveAspectRatio="xMidYMid meet"
-      role="img"
-      aria-label="Baltic interconnector flow map · simplified mobile view"
-      style={{ display: 'block', width: '100%', height: 'auto', maxWidth: '100%' }}
-    >
-      <defs>
-        <marker id="kkme-arrow-amber" viewBox="0 0 10 10" refX="9" refY="5"
-          markerWidth="5" markerHeight="5" orient="auto-start-reverse">
-          <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--accent-amber)" />
-        </marker>
-        <marker id="kkme-arrow-rose" viewBox="0 0 10 10" refX="9" refY="5"
-          markerWidth="5" markerHeight="5" orient="auto-start-reverse">
-          <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--accent-rose)" />
-        </marker>
-        <marker id="kkme-arrow-mute" viewBox="0 0 10 10" refX="9" refY="5"
-          markerWidth="5" markerHeight="5" orient="auto-start-reverse">
-          <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--text-tertiary)" />
-        </marker>
-      </defs>
-
-      {/* Country shapes — fill subtle, stroke at text-secondary tone */}
-      {(['EE', 'LV', 'LT'] as const).map(c => (
-        <path key={c} d={MOBILE_COUNTRY_PATHS[c]}
-          fill="var(--bg-elevated)"
-          stroke="var(--text-secondary)"
-          strokeWidth="1.2"
-          strokeOpacity="0.55"
-          strokeLinejoin="round"
-        />
-      ))}
-
-      {/* Country labels — Newsreader display, halo-stroked for legibility */}
-      {(['EE', 'LV', 'LT'] as const).map(c => {
-        const lbl = MOBILE_COUNTRY_LABELS[c];
-        return (
-          <text key={`lbl-${c}`} x={lbl.x} y={lbl.y}
-            fontFamily="var(--font-display)"
-            fontSize={20}
-            fontWeight={600}
-            fill="var(--text-primary)"
-            textAnchor="middle"
-            letterSpacing="0.08em"
-            style={{
-              paintOrder: 'stroke fill',
-              stroke: 'var(--theme-bg, #0a0a0a)',
-              strokeWidth: '4px',
-              strokeLinejoin: 'round' as const,
-              strokeOpacity: 0.95,
-            }}
-          >{lbl.name}</text>
-        );
-      })}
-
-      {/* Neighbor anchor labels — Plex Mono, muted */}
-      {MOBILE_NEIGHBOR_LABELS.map(n => (
-        <text key={`nb-${n.name}`} x={n.x} y={n.y}
-          fontFamily="IBM Plex Mono, monospace"
-          fontSize={10}
-          fontWeight={500}
-          fill="var(--text-tertiary)"
-          textAnchor="middle"
-          letterSpacing="0.06em"
-        >{n.name}</text>
-      ))}
-
-      {/* Cable arrow lines + MW labels */}
-      {resolved.map(r => {
-        const ends = MOBILE_CABLE_ENDS[r.id];
-        if (!ends) return null;
-        const startsAtA = r.fromCountry === ends.endA.country;
-        const start = startsAtA ? ends.endA : ends.endB;
-        const end   = startsAtA ? ends.endB : ends.endA;
-        const mw = r.mw;
-        const isHigh = mw > MOBILE_HIGH_FLOW_THRESHOLD_MW;
-        const isInactive = !mw || mw < 5;
-        const stroke =
-          isInactive ? 'var(--text-tertiary)' :
-          isHigh     ? 'var(--accent-rose)'   :
-                       'var(--accent-amber)';
-        const marker =
-          isInactive ? 'url(#kkme-arrow-mute)'  :
-          isHigh     ? 'url(#kkme-arrow-rose)'  :
-                       'url(#kkme-arrow-amber)';
-        // Midpoint for MW label, with a small perpendicular offset so the
-        // label doesn't sit directly on the line.
-        const midX = (start.x + end.x) / 2;
-        const midY = (start.y + end.y) / 2;
-        const dx = end.x - start.x;
-        const dy = end.y - start.y;
-        const len = Math.hypot(dx, dy) || 1;
-        // Perpendicular unit vector, offset 9px above the line
-        const px = -dy / len * 9;
-        const py =  dx / len * 9;
-        const labelX = midX + px;
-        const labelY = midY + py;
-        return (
-          <g key={r.id}>
-            <line
-              x1={start.x} y1={start.y} x2={end.x} y2={end.y}
-              stroke={stroke}
-              strokeWidth={isHigh ? 2.4 : 2}
-              strokeOpacity={isInactive ? 0.5 : 0.92}
-              strokeLinecap="round"
-              markerEnd={marker}
-            />
-            {!isInactive && (
-              <text
-                x={labelX} y={labelY}
-                fontFamily="IBM Plex Mono, monospace"
-                fontSize={10}
-                fontWeight={600}
-                fill={stroke}
-                textAnchor="middle"
-                dominantBaseline="middle"
-                style={{
-                  fontVariantNumeric: 'tabular-nums',
-                  paintOrder: 'stroke fill',
-                  stroke: 'var(--theme-bg, #0a0a0a)',
-                  strokeWidth: '3px',
-                  strokeLinejoin: 'round' as const,
-                  strokeOpacity: 0.9,
-                }}
-              >{Math.round(mw)}</text>
-            )}
-          </g>
-        );
-      })}
-    </svg>
-  );
-}
-
 // Phase 7.7e — replaced inline Sparkline definition with shared component import
 // (top of file). The shared Sparkline carries the unified ChartTooltip primitive
 // so the 30D capture trend mini-chart now hovers consistently with every other
@@ -367,11 +177,6 @@ export function HeroBalticMap() {
   useGSAP(() => {
     if (!svgRef.current) return;
     if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    // Phase 18.1.1 — skip particle MotionPath setup when the desktop SVG is
-    // hidden by the <900px @media toggle (mobile shows the simplified SVG).
-    // Avoids wasted layout/animation work + potential resize-thrash if the
-    // user crosses the 900px breakpoint while the page is open.
-    if (typeof window !== 'undefined' && window.innerWidth < 900) return;
 
     resolved.forEach(r => {
       if (!CABLE_PATHS[r.id] || r.mw < 5) return;
@@ -595,9 +400,9 @@ export function HeroBalticMap() {
         </div>
       </div>
 
-      {/* ═══ CENTER — MAP (desktop ≥900px: dotted-grid + cables + particles) ═══ */}
-      <div className="hero-map-desktop" style={{
-        position: 'relative', alignItems: 'center',
+      {/* ═══ CENTER — MAP ═══ */}
+      <div style={{
+        position: 'relative', display: 'flex', alignItems: 'center',
         justifyContent: 'center', overflow: 'hidden', gridColumn: 2, gridRow: 1,
       }}>
         <div className="hero-map-wrapper" style={{
@@ -870,15 +675,6 @@ export function HeroBalticMap() {
             )}
           </AnimatePresence>
         </div>
-      </div>
-
-      {/* ═══ CENTER — MAP (mobile <900px: simplified country outlines + flow lines) ═══ */}
-      <div className="hero-map-mobile" style={{
-        position: 'relative', alignItems: 'center',
-        justifyContent: 'center', gridColumn: 2, gridRow: 1,
-        padding: 'var(--space-2xs) var(--space-xs)',
-      }}>
-        <MobileBalticMap resolved={resolved} />
       </div>
 
       {/* ═══ RIGHT COLUMN ═══ */}

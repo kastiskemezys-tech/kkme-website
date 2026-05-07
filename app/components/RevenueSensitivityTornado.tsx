@@ -68,11 +68,9 @@ export function RevenueSensitivityTornado({
         letterSpacing: '0.08em', marginBottom: 6 }}>
         Sensitivity tornado · Δ Project IRR vs base
       </div>
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        preserveAspectRatio="xMidYMid meet"
+      <svg width={width} height={height}
         role="img" aria-label="IRR sensitivity tornado chart"
-        style={{ display: 'block', width: '100%', height: 'auto', maxWidth: width, overflow: 'visible' }}>
+        style={{ display: 'block', overflow: 'visible' }}>
         {/* Zero axis */}
         <line x1={zeroX} y1={20} x2={zeroX} y2={height - 4}
           stroke="var(--border-card)" strokeWidth={1} />
