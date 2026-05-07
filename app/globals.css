@@ -767,6 +767,21 @@ body,
   }
 }
 
+/* Phase 18.1.1 — Hero map desktop ↔ mobile swap. Both blocks live in the
+   DOM; CSS toggles visibility at the same 900px breakpoint that collapses
+   the hero grid (Phase 18.1). `display` declared via class (not inline) so
+   the @media override below resolves correctly — inline declarations beat
+   class specificity. Each rule in its own @media block per the Tailwind v4
+   silent-drop pattern. */
+.hero-map-desktop { display: flex; }
+.hero-map-mobile  { display: none; }
+@media (max-width: 900px) {
+  .hero-map-desktop { display: none; }
+}
+@media (max-width: 900px) {
+  .hero-map-mobile { display: flex; }
+}
+
 /* ═══ Hero pulse dot (data-fetching indicator) ═══ */
 @keyframes hero-pulse {
   0%, 100% { opacity: 1; transform: scale(1); }
