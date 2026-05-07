@@ -8,7 +8,7 @@ import {
   Tooltip, Legend, Filler,
 } from 'chart.js';
 import { Line, Bar } from 'react-chartjs-2';
-import { useChartColors, CHART_FONT, CHART_FONT_DISPLAY, useTooltipStyle, SENTINEL_DASH, SENTINEL_LINE_WIDTH, makeCrosshairPlugin } from '@/app/lib/chartTheme';
+import { useChartColors, CHART_FONT, CHART_FONT_DISPLAY, useTooltipStyle, SENTINEL_DASH, SENTINEL_LINE_WIDTH, makeCrosshairPlugin, CHART_INTERACTION } from '@/app/lib/chartTheme';
 import { DetailsDrawer, ChartTooltipPortal, useChartTooltipState } from '@/app/components/primitives';
 import { buildExternalTooltipHandler } from '@/app/lib/chartTooltip';
 import { RevenueSensitivityTornado } from '@/app/components/RevenueSensitivityTornado';
@@ -888,7 +888,7 @@ function DegradationChart({ years, CC }: {
 
   const options: any = {
     responsive: true, maintainAspectRatio: false,
-    interaction: { mode: 'index', intersect: false },
+    interaction: CHART_INTERACTION,
     plugins: {
       legend: { display: false },
       tooltip: externalTooltip,
@@ -994,7 +994,7 @@ function CannibalizationChart({ rows, codYear, CC }: {
 
   const options: any = {
     responsive: true, maintainAspectRatio: false,
-    interaction: { mode: 'index', intersect: false },
+    interaction: CHART_INTERACTION,
     plugins: {
       legend: { display: false },
       tooltip: externalTooltip,
@@ -1318,7 +1318,7 @@ function RevenueChart({ years, CC }: {
 
   const options: any = {
     responsive: true, maintainAspectRatio: false,
-    interaction: { mode: 'index', intersect: false },
+    interaction: CHART_INTERACTION,
     plugins: {
       legend: { display: false },
       tooltip: externalTooltip,

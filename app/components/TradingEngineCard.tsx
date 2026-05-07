@@ -8,7 +8,7 @@ import {
   Tooltip, Legend, Filler,
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
-import { useChartColors, CHART_FONT, useTooltipStyle, makeCrosshairPlugin } from '@/app/lib/chartTheme';
+import { useChartColors, CHART_FONT, useTooltipStyle, makeCrosshairPlugin, CHART_INTERACTION } from '@/app/lib/chartTheme';
 import {
   DetailsDrawer, SourceFooter,
   ChartTooltipPortal, useChartTooltipState,
@@ -216,7 +216,7 @@ export function HourlyChart({ data, CC }: {
 
   const options: any = {
     responsive: true, maintainAspectRatio: false,
-    interaction: { mode: 'index', intersect: false },
+    interaction: CHART_INTERACTION,
     plugins: {
       legend: { display: false },
       tooltip: externalTooltip,

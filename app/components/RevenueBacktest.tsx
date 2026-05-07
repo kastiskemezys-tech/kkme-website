@@ -12,7 +12,7 @@
 
 import { useMemo } from 'react';
 import { Line } from 'react-chartjs-2';
-import { useChartColors, CHART_FONT, CHART_FONT_DISPLAY, useTooltipStyle, SENTINEL_DASH, SENTINEL_LINE_WIDTH, makeCrosshairPlugin } from '@/app/lib/chartTheme';
+import { useChartColors, CHART_FONT, CHART_FONT_DISPLAY, useTooltipStyle, SENTINEL_DASH, SENTINEL_LINE_WIDTH, makeCrosshairPlugin, CHART_INTERACTION } from '@/app/lib/chartTheme';
 import { ChartTooltipPortal, useChartTooltipState } from '@/app/components/primitives';
 import { buildExternalTooltipHandler } from '@/app/lib/chartTooltip';
 import {
@@ -112,7 +112,7 @@ export function RevenueBacktest({ rows, modeledY1Daily, scenario }: RevenueBackt
 
   const options: any = {
     responsive: true, maintainAspectRatio: false,
-    interaction: { mode: 'index', intersect: false },
+    interaction: CHART_INTERACTION,
     plugins: {
       legend: { display: false },
       tooltip: externalTooltip,

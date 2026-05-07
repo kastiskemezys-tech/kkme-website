@@ -119,29 +119,47 @@ export const CHART_FONT_DISPLAY = {
 export const SENTINEL_DASH: [number, number] = [4, 4];
 export const SENTINEL_LINE_WIDTH = 0.8;
 
-// Phase 18.2 — crosshair plugin. Paints a thin vertical line at the active
-// tooltip caret X across the full chart area whenever the tooltip is visible.
+// Phase 18.2.2 — chart.js interaction mode shared across every plugin-bearing
+// chart. `intersect: false` makes the tooltip + crosshair fire whenever the
+// cursor is anywhere over the canvas, not only when it crosses a data point —
+// the difference between "have to find the line" and "always see where I am."
+// `axis: 'xy'` lets the crosshair track in both dimensions for the "+" pattern.
+export const CHART_INTERACTION = { mode: 'index', intersect: false, axis: 'xy' } as const;
+
+// Phase 18.2 — crosshair plugin. Phase 18.2.2 extended to draw a "+" pattern
+// (vertical at cursor X, horizontal at cursor Y) across the full chart area
+// whenever the tooltip is visible. The horizontal line is the readability win
+// on small charts: lets the eye trace cursor Y → axis without hunting.
 // Returns a fresh plugin per call so consumers can pass colors at the call
 // site; the plugin closure captures the color, which means it picks up theme
 // toggles automatically when the host re-renders with new resolved colors.
 //
-// Honors `prefers-reduced-motion`: the line is a static paint, no transition.
+// Honors `prefers-reduced-motion`: the lines are static paints, no transition.
 export function makeCrosshairPlugin(colors: ChartColors) {
   return {
     id: 'kkme-crosshair',
-    afterDraw(chart: { tooltip?: { opacity?: number; caretX?: number }; chartArea?: { top: number; bottom: number }; ctx: CanvasRenderingContext2D }) {
+    afterDraw(chart: {
+      tooltip?: { opacity?: number; caretX?: number; caretY?: number };
+      chartArea?: { top: number; bottom: number; left: number; right: number };
+      ctx: CanvasRenderingContext2D;
+    }) {
       const tooltip = chart.tooltip;
       if (!tooltip || !tooltip.opacity || tooltip.opacity === 0) return;
       const x = tooltip.caretX;
+      const y = tooltip.caretY;
       const area = chart.chartArea;
-      if (x == null || !area) return;
+      if (x == null || y == null || !area) return;
       const ctx = chart.ctx;
       ctx.save();
+      ctx.lineWidth = 0.5;
+      ctx.strokeStyle = colors.textMuted;
       ctx.beginPath();
       ctx.moveTo(x, area.top);
       ctx.lineTo(x, area.bottom);
-      ctx.lineWidth = 0.5;
-      ctx.strokeStyle = colors.textMuted;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(area.left, y);
+      ctx.lineTo(area.right, y);
       ctx.stroke();
       ctx.restore();
     },
