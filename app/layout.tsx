@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import { Unbounded } from "next/font/google";
 import { SmoothScroll } from "./providers";
 import { ClarityScript } from "@/app/components/ClarityScript";
 import "@fontsource/ibm-plex-mono/400.css";
@@ -12,12 +11,12 @@ import "./globals.css";
 // Newsreader (serif editorial) and IBM Plex Mono (numbers + labels) loaded via
 // @fontsource so the literal family names register globally — required by SVG
 // font-family attributes and chart.js (Canvas 2D), which do not resolve
-// var(--font-*) at render time. Unbounded (display) stays on next/font.
-const unbounded = Unbounded({
-  variable: "--font-unbounded",
-  subsets: ["latin"],
-  weight: ["400", "600"],
-});
+// var(--font-*) at render time.
+//
+// Phase 7.7g-a-3 — Unbounded removed. The broadsheet masthead wordmark is a
+// PNG <img> so Unbounded had zero load-bearing consumers; all other
+// --font-display sites migrated to --font-serif (editorial) or --font-mono
+// (data/labels) per spec P3-1.
 
 export const metadata: Metadata = {
   title: 'KKME — Baltic Flexibility Market Intelligence & Storage Economics',
@@ -59,7 +58,6 @@ export default function RootLayout({
     <html
       lang="en"
       data-theme="dark"
-      className={unbounded.variable}
     >
       <head>
         <script
@@ -96,7 +94,7 @@ export default function RootLayout({
           position: 'absolute', left: '-9999px', top: '8px', zIndex: 100,
           fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)',
           color: 'var(--text-primary)', background: 'var(--bg-card)',
-          padding: '8px 16px', border: '1px solid var(--border-highlight)',
+          paddingTop: 'var(--space-xs)', paddingRight: 'var(--space-sm)', paddingBottom: 'var(--space-xs)', paddingLeft: 'var(--space-sm)', border: '1px solid var(--border-highlight)',
         }}>Skip to content</a>
         <SmoothScroll />
         {children}
