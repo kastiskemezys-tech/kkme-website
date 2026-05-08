@@ -59,7 +59,7 @@ function deriveChip(hero: number, stats: CaptureRolling | null): { chipLabel: st
 
 function fmtEuro(v: number | null | undefined): string {
   if (v == null) return '—';
-  return '€' + Math.round(v);
+  return '€' + Math.round(v).toLocaleString('en-US');
 }
 
 function fmtDate(d: string): string {

@@ -176,12 +176,12 @@ export function RevenueBacktest({ rows, modeledY1Daily, scenario }: RevenueBackt
       {haveStats ? (
         <div style={{ marginTop: 'var(--space-2xs)', fontSize: 'var(--font-xs)', fontFamily: 'var(--font-mono)' }}>
           <div style={{ color: 'var(--text-muted)' }}>
-            Dashed: Y1 model anchor — €{Math.round(modeledY1Daily as number)}/MW/day,
+            Dashed: Y1 model anchor — €{Math.round(modeledY1Daily as number).toLocaleString('en-US')}/MW/day,
             scenario &ldquo;{scenarioLabel}&rdquo;, conservative bias.
           </div>
           <div style={{ color: 'var(--text-secondary)' }}>
             Realised tracked {signedPct}% {aboveModel ? 'above' : 'below'} model · MAE €
-            {Math.round(stats.mae as number)}/MW/day over {stats.count} months ·{' '}
+            {Math.round(stats.mae as number).toLocaleString('en-US')}/MW/day over {stats.count} months ·{' '}
             {aboveModel ? (
               <span>Model intentionally conservative.</span>
             ) : (

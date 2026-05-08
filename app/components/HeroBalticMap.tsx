@@ -67,6 +67,7 @@ interface S8Data { [k: string]: unknown }
 interface S4Data {
   projects?: Array<{ id?: string; name: string; mw: number; status: string; country: string; cod?: string; lat?: number; lng?: number }>;
   free_mw?: number;
+  baltic_total?: { installed_mw?: number | null } | null;
 }
 interface S2Data { afrr_up_avg?: number; mfrr_up_avg?: number; fcr_avg?: number }
 interface ReadData { capture?: { gross_4h?: number; shape_swing?: number }; updated_at?: string }
@@ -712,12 +713,18 @@ export function HeroBalticMap() {
           }}>/MW/DAY</div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px', marginTop: '6px', flexWrap: 'wrap' }}>
             {lr?.delta_pct != null && (
-              <span style={{
-                fontFamily: 'var(--font-mono)', fontSize: 'var(--type-body-sm)',
-                color: lr.delta_pct < 0 ? 'var(--rose)' : 'var(--teal)',
-                fontVariantNumeric: 'tabular-nums',
-              }}>
-                {lr.delta_pct < 0 ? '↓' : '↑'} {Math.abs(lr.delta_pct)}% vs base
+              <span
+                style={{
+                  fontFamily: 'var(--font-mono)', fontSize: 'var(--type-body-sm)',
+                  color: lr.delta_pct < 0 ? 'var(--rose)' : 'var(--teal)',
+                  fontVariantNumeric: 'tabular-nums',
+                  cursor: 'help',
+                }}
+                title={lr.base_daily != null
+                  ? `vs base: Y1 base year average daily — €${fmt(lr.base_daily)}/MW/day (annual gross ÷ 365)`
+                  : 'vs base: Y1 base year average daily revenue (annual gross ÷ 365)'}
+              >
+                {lr.delta_pct < 0 ? '↓' : '↑'} {Math.abs(lr.delta_pct)}% vs Y1 base
               </span>
             )}
             <span style={{
@@ -807,6 +814,20 @@ export function HeroBalticMap() {
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-body-sm)', color: 'var(--text-secondary)', marginTop: 'var(--space-2xs)', textTransform: 'uppercase' }}>
             + {fmt(fleet?.baltic_pipeline_mw)} MW PIPELINE
           </div>
+          {(() => {
+            const bess = s4?.baltic_total?.installed_mw;
+            const flex = fleet?.baltic_operational_mw;
+            if (bess == null || flex == null) return null;
+            const kruonis = Math.max(0, Math.round(flex - bess));
+            return (
+              <div style={{
+                fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--text-muted)',
+                marginTop: '6px', letterSpacing: '0.02em', lineHeight: 1.4,
+              }}>
+                = TSO BESS {fmt(bess)} MW + Kruonis flex share {kruonis} MW
+              </div>
+            );
+          })()}
           {(fleet?.baltic_quarantined_mw ?? 0) > 0 && (
             <div style={{
               fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--amber)',
@@ -821,7 +842,18 @@ export function HeroBalticMap() {
         <div style={{
           display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 'var(--space-2xs)',
         }}>
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 0, paddingTop: 'var(--space-xs)', paddingRight: '10px', paddingBottom: 'var(--space-xs)', paddingLeft: '10px', textAlign: 'center' }}>
+          <div
+            style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 0, paddingTop: 'var(--space-xs)', paddingRight: '10px', paddingBottom: 'var(--space-xs)', paddingLeft: '10px', textAlign: 'center', cursor: 'help' }}
+            title={(() => {
+              const op = fleet?.baltic_operational_mw;
+              const pipe = fleet?.baltic_pipeline_mw;
+              const dem = fleet?.eff_demand_mw;
+              if (op != null && pipe != null && dem != null) {
+                return `S/D ratio = (operational + 0.5 × pipeline) / effective demand = (${fmt(op)} + 0.5 × ${fmt(pipe)}) / ${fmt(dem)} = ${(fleet?.sd_ratio ?? 0).toFixed(2)}×. Pipeline is risk-weighted at 50%.`;
+              }
+              return 'S/D ratio = (operational fleet + 50% pipeline) / effective demand. Pipeline is risk-weighted at 50% for permitting/financing risk.';
+            })()}
+          >
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>S/D</div>
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-body-lg)', color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums', marginTop: '2px' }}>
               {fleet?.sd_ratio != null ? fleet.sd_ratio.toFixed(2) : '—'}{'×'}
