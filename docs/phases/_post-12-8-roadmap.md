@@ -15,6 +15,26 @@
 - **Chrome MCP gate restored 2026-05-07** via Cowork investigation — 5 orphan chrome-devtools-mcp processes accumulated since Tue 10AM; pre-session `cc` alias in operator's `~/.zshrc` runs `pkill -f "chrome.*devtools-mcp"` before launching CC. Memory: `feedback_chrome_mcp_orphans.md`. Visual MCP verification gate restored.
 - **In flight:** none — operator at clean main. Phase 18.1.3 SHIPPED 2026-05-07 (3 commits `cec168d` / `f739d17` / `a49cdff` on `phase-18-1-3-mobile-component-reflow` merged to main). Mobile per-component reflow extracted from reverted Phase 18.1.1; 6 sub-items shipped (DSCR + AssumptionsPanel + S3 BreakdownBar + chart-canvas track + Sensitivity tornado SVG + MonthlyHeatmap); both html + body `overflow-x: hidden` band-aids removed; 5-viewport scrollWidth=clientWidth verified clean at 360/414/768/1024/1440. **Operator-screenshot bug closed** (AssumptionsPanel right-column-vertical-text → readable paragraph blocks at 360px). 7 visual audit PNGs captured via chrome MCP (gate restored end-to-end this session — first chrome-MCP-clean ship since Session 47). NO mobile map redesign (Phase 18.1.1.1 territory; still deferred).
 - **Mojibake intel item deleted 2026-05-07:** `cur_motnhb6l-o8mv3k` ("Leidimai plÄŠtoti...") removed via `POST /feed/delete-by-id`; intel feed 47 → 46 items. 2nd `cur_*` deletion in the project's history (Phase 12.10.0 was the 1st). Pattern recognized; Phase 4G.1 candidate filed.
+- **Today's plan REVISED 2026-05-08 (3 phases after audit-3 + memory review):**
+  1. **Phase 25** (~1.5-2h CC) — P0 hot-fix + credibility-disclosure pass. NEW PRIORITY. Prompt at `docs/phases/phase-25-prompt.md`. Right-rail clipping fix at 1066-1100px viewport range (empirically verified — €378 hero overflows 97px past viewport at 1066px wide); S/D ratio formula disclosure on card (`(operational + 50% pipeline) / demand` formula not currently surfaced — auditor's "doesn't reconcile" was credibility-disclosure gap not arithmetic bug); 651 vs 822 MW Kruonis flex-allocated share footnote; "Investable" pill rule-#6 fix (replace with explicit threshold disclosure); number formatting consistency (€20400 → €20,400); "↓23% vs base" base-definition tooltip; dispatch card copy de-dup; theme toggle aria-label updates on flip.
+  2. **Phase 4G.1** (~30-60min CC) — `POST /curate` encoding-validation gate. Prompt at `docs/phases/phase-4g-1-prompt.md`. Worker-side; rejects mojibake at ingest.
+  3. **Phase 18.3** (~2-3h CC) — animation activation per spec P2-1. 11 dormant keyframes; useCountUp hook (closes V-10 dropped idea per `project_visual_vision.md`); copy-button feedback; card hover-lift.
+- **Next CC pick — Phase 25.** Operator fire via `cc` alias.
+
+### Newly filed candidates (2026-05-08 audit-3 + dropped-ideas review)
+
+These don't run today; surfaced from audit-3 + `project_visual_vision.md` ideas-at-risk + chat scan for slipped asks. Operator picks when/if relevant.
+
+- **Phase 26 — Email subscription / Baltic Flex newsletter** (~1 day CC) — Subscribe form between Intel section and contact form; routes to `/newsletter`; email ingestion via worker storage + Resend send-on-confirm; weekly digest scaffolding. Audit-3 §3 + §6 ("more natural conversion than cold contact form").
+- **Phase 27 — Project fleet tracker drilldown** (~1-2 days CC) — Sortable table for "29 projects" (developer/MW/MWh/country/status/COD); shareable URL filters; possibly per-project dedicated route. Audit-3 §6 ("the single most likely page to be bookmarked and shared").
+- **Phase 28 — Cross-border flow → spread analytics** (~3-5h CC) — Connect interconnector flows on hero map to S1 price spreads. Display "Today's import balance: 3,855 MW north→south, compressing LT-FI spread to €4.2/MWh." Makes the map work analytically vs decoratively. Audit-3 §6.
+- **B-006 LV↔LT flow display** (~1-2h CC) — Worker already emits B-006 data; frontend doesn't render. From `project_visual_vision.md` ideas-at-risk #3 (Phase 4D era). Frontend-only; closes a long-standing dropped item.
+- **Vector logo cleanup** (~1-2h Cowork) — Current "SVGs contain embedded PNGs, not real vectors" per ideas-at-risk #7. Replace embedded-PNG SVG assets with real vector paths. Design-tooling work; possibly out-of-scope for CC; pure Cowork.
+- **Search command palette** (`/` shortcut) — Audit-3 §6. Could fold into Phase 19 a11y or its own ~3-4h CC phase. Defers if not picked.
+- **Date/time-zone consistency sweep** (~30-45 min CC) — Standardize on ISO + UTC ("2026-05-08 06:00 UTC") across all surfaces. Audit-3 §6.
+- **Provenance label sweep** (~3-4h editorial CC) — Extend `[src]/[as-of]/[observed]` pattern to every quantitative card; every numeric claim carries `observed/derived/modelled/operator-estimate/forecast`. Audit-3 §4 ("be more rigorous").
+
+**Note on naming collision:** the legacy "Phase 21 — Print stylesheet" in Tier 5 still exists (pre-S2-polish era); rename someday to free up Phase 21 namespace cleanly. Same for "Phase 8/9" which were unused low-number slots historically; the LV↔LT-flow + vector-logo tasks above use named identifiers to avoid collision.
 - **Then operator chooses among:**
   2. **Phase 18.3** (~2-3h CC) — animation activation (11 dormant keyframes + useCountUp hook); spec P2-1/3/4
   3. **Phase 19** (~3-4h CC) — A11y MVP (focus-visible + aria-labels + role=status); spec P1-3 + P2-2
