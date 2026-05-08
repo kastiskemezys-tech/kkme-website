@@ -1638,7 +1638,7 @@ export function RevenueCard() {
   const openDrawer = () => setDrawerKey(k => k + 1);
 
   return (
-    <div className="card--revenue" style={{ padding: 'var(--space-md)', background: 'var(--bg-elevated)',
+    <div className="card--revenue card--interactive" style={{ padding: 'var(--space-md)', background: 'var(--bg-elevated)',
       border: '1px solid var(--border-highlight)', borderRadius: 0 }}>
 
       {/* Headline */}
