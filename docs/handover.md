@@ -1882,6 +1882,120 @@ Then Tier 1 (12.12 + 12.14 + 7.7g). Phase 12.12 picks up:
 - After merge to main → Phase 30 §6 (three commits + push to `phase-30-methodology-research` branch) resumes from the same working tree per operator's latest message.
  phase-12-8-1-backtest-caption
 
+### Session 56 — 2026-05-08 — Phase 18.3 — Animation activation + orphan-hook cleanup (Claude Code)
+
+**Headline:** Phase 18.3 shipped on `phase-18-3-animation-activation`. **Pause-A audit-triage hat-trick continued** (rule #1 victory: 3rd consecutive ship where empirical code-grep override the prompt's literal scope). The prompt's central premise — "11 dormant keyframes; only 2 actually run" — was empirically false: 9 of 10 keyframes already running. 3 of 7 sub-items SKIPPED on triangulated evidence. 4 sub-items shipped: copy-button feedback (P2-3), card hover-lift on Returns/Build/Trading (P2-4), 3 hero numeric sites wrapped with `AnimatedNumber`, global universal `prefers-reduced-motion` gate. Plus orphan-hook cleanup: `app/hooks/useCountUp.ts` (0 callers) deleted, closing backlog B-027 via re-discovery — `AnimatedNumber` primitive IS the count-up implementation. V-10 dropped-ideas item from `project_visual_vision.md` closed. Frontend-only, no `model_version` bump, no worker deploy.
+
+**Pause A keyframe inventory** — code-grep found 10 defined keyframes (spec claimed 11; `claude-pulse` not in repo), 9 already running:
+
+| Keyframe | Defined | Active? | Site |
+|---|---|---|---|
+| `pulse` | globals.css:578 | ✅ | inline `HeroMarketNow.tsx:185` + `FreshnessBadge.tsx:54` |
+| `shimmer` | globals.css:583 | ❌ ORPHAN | 0 callers (kept; not in operator cleanup pick) |
+| `skeleton-shimmer` | globals.css:589 | ✅ | `.skeleton` class:600; 12+ consumer sites |
+| `water-shimmer` | globals.css:604 | ✅ | inline `S6Card.tsx:139` |
+| `live-pulse` | globals.css:609 | ✅ | line 628 |
+| `cardFadeIn` | globals.css:741 | ✅ | `.card`:730 + `.card-tier1-feature`:904 + `.card-tier3`:922 |
+| `hero-mount` | globals.css:751 | ✅ | `.hero-section`:766 since Phase 18.1.x |
+| `hero-pulse` | globals.css:877 | ✅ | line 882 |
+| `fadeOut` | globals.css:1100 | ✅ | `.irr-delta-flash`:1106 |
+| `tickerScroll` | `HeroBalticMap.tsx:912` styled-jsx | ✅ | `.hero-ticker-strip`:934 |
+
+**Sub-items SKIPPED per audit-triage (rule #1):**
+- (1) Hero mount — already running 0.6s cubic-bezier(0.2,.8,.2,1) on `.hero-section` since Phase 18.1.x
+- (2) Card mount via IntersectionObserver — already shipped via `<ScrollReveal>` wrapping every section + 6 stagger-delayed Tier 3 cards (delays 0/80/160/240/320/400ms via `useScrollReveal` hook with reduced-motion honored at globals.css:1123)
+- (4) Skeleton-shimmer — already running via `.skeleton` class consumed by S2/S3/S8/S9/Wind/Solar/RenewableMix/ResidualLoad/PeakForecast/RevenueCard
+
+**Sub-items shipped (4):**
+
+- **(7) Global `prefers-reduced-motion` gate** — universal `*, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1; transition-duration: 0.01ms; scroll-behavior: auto; }` defensive fallback at end of `globals.css` in own fresh `@media` block per Tailwind v4 silent-drop discipline. CSS-rule presence confirmed via DOM probe: `selectors[6] = "*, ::before, ::after"` in bundle (engine normalized `*::before` → `::before`). 5 pre-existing scoped per-class rules retained as primary; this is the catch-all.
+
+- **(6) Card hover-lift** (spec P2-4 strict-literal: 3 cards) — new `.card--interactive` class with `transition: transform 160ms var(--ease-standard), box-shadow 160ms var(--ease-standard)` and `:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,.18); }` reusing existing `--ease-standard: cubic-bezier(.2,.8,.2,1)` token at globals.css:260 (rule #4 cross-card consistency). Applied to: `RevenueCard.tsx` root (Returns), `app/page.tsx` S4Card wrapper (Build), `app/page.tsx` TradingEngineCard wrapper (Trading). Per-class reduced-motion gate.
+
+- **(5) Copy-button feedback** (spec P2-3) — `S3Card.tsx:284` button gained: `aria-label="Copy CAPEX range"`, `aria-live="polite"`, `data-copied={copied}` attribute, `className="copy-btn"`, `color: var(--positive)` on copied, transition includes `transform 100ms cubic-bezier(.2,.8,.2,1)`. New inline `<span role="status">Copied</span>` toast appears next to button when `copied=true`, auto-dismissed by existing 1.5s `setTimeout(() => setCopied(false))`. Press-scale via `.copy-btn:active { transform: scale(0.92) }` CSS rule.
+
+- **(3) useCountUp + KPI tweens** — three-step:
+  1. **Deleted orphan** `app/hooks/useCountUp.ts` (0 callers; B-027 backlog closed via re-discovery — `AnimatedNumber` primitive at `app/components/primitives/AnimatedNumber.tsx` IS the production count-up implementation, consumed at S1Card hero `:124` + S2Card hero `:261` since Phase 7).
+  2. **Upgraded `AnimatedNumber.tsx`** from `.toFixed(decimals)` to `.toLocaleString('en-US', { minimumFractionDigits, maximumFractionDigits })` — picks up Phase 25's number-formatting cross-card-consistency sweep automatically. Existing S1/S2 callers benefit at no cost.
+  3. **Wrapped 3 missing hero numeric sites** with `<AnimatedNumber>`:
+     - `HeroBalticMap.tsx:708` — main €N hero (today_total_daily, var(--type-display-2xl), 64px Newsreader at 1440px)
+     - `HeroBalticMap.tsx:782` — 822 MW operational fleet (var(--type-display-md))
+     - `BalticStorageIndexCard.tsx:224` — KKME index hero (clamp(56px,7vw,88px))
+
+**Discipline rules applied:**
+
+- **#1 audit-triage (third consecutive session win)** — Phase 25 sub-item 8 ThemeToggle SKIP (code-grep + git blame override) → Phase 4G.1 pattern-set refinement (210-curation empirical corpus override) → Phase 18.3 sub-items 1/2/4 SKIP (DOM-probe override). The pattern is durable: visual-inference / spec-author claims that LACK code-grep verification land in the ~25% reliability bucket; triangulation finds 3 of 7 sub-items already shipped. Hours saved by NOT wiring defensive duplicates.
+- **#4 cross-card consistency** — `AnimatedNumber.toLocaleString('en-US')` upgrade extends Phase 25's number-formatting sweep to every existing + new hero count-up site. Single primitive, uniform formatting. The phase pattern (Phase 25 helper sweep → Phase 18.3 primitive upgrade) is the rule's intended operating mode.
+- **#5 roadmap edit-conflict** — no roadmap edits; needed deltas reported below for operator/Cowork.
+- **#6 no-editorial-state-label** — animation copy is microcopy ("Copied" toast per spec P2-3), not engine-emitted state labels. Visual motion otherwise.
+- **Tailwind v4 silent-drop** — global motion gate, card-hover gate, copy-btn gate each in OWN fresh `@media` block at end of globals.css.
+
+**Foundation gates (all baseline-exact or improved):**
+
+| Gate | Baseline | Post-edit |
+|---|---|---|
+| `tsc --noEmit` | 0 errors | **0 errors** |
+| `vitest run` | 925/925 | **925/925** |
+| `lint` | 127 (40e/87w) | **126 (39e/87w)** ← −1 error from deleted orphan hook |
+| `lint:no-raw-spacing` | exit 0 | **exit 0** |
+| `lint:no-editorial-chips` | exit 0 | **exit 0** |
+| `npm run build` | 7 routes clean | **7 routes clean** |
+
+**Local-build smoke-test (per `feedback_local_build_verification.md` REQUIRED gate):** `npm run build && npx serve out -l 3100` → home HTTP 200; 8/8 sampled JS chunks HTTP 200; **Phase 18.1.1-class ChunkLoadError absent**. Risk class LOW: no new hook code (reused existing `AnimatedNumber` + `ScrollReveal`); single CSS-class addition; one primitive-prop preserved-API change.
+
+**Chrome MCP gate validated end-to-end (3rd consecutive session via `cc` alias).** Sessions 53 (18.1.3) + 54 (Phase 25) + 56 (this) all chrome-MCP-clean. Empirical DOM probes via `evaluate_script`:
+
+```
+3 .card--interactive elements: RevenueCard / S4Card / TradingEngineCard ✅
+.card--interactive transition: transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.16s ... ✅
+9 prefers-reduced-motion @media blocks; universal "*, ::before, ::after" CONFIRMED in bundle ✅
+.copy-btn click → data-copied=true + ✓ swap + "Copied" toast rendered ✅
+.hero-section animation: 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both hero-mount ✅
+HeroBalticMap €361 hero rendering at 64px Newsreader (display-2xl) ✅
+BalticStorageIndexCard hero €361 at 64px Newsreader (clamp 56-88px) ✅
+Fleet 822 MW operational rendering ✅
+```
+
+**Visual evidence captured at `docs/visual-audit/phase-18-3/`:** 5 PNGs (`1440-hero.png`, `1440-build-section-pre-copy.png`, `1440-copy-button-active.png`, `1440-revenue-section.png`, `1440-trading-section.png`).
+
+**Files touched (4 modified, 1 deleted):**
+
+```
+M  app/globals.css                              +51 lines (3 new sections at end)
+M  app/page.tsx                                 className additions (2 lines)
+M  app/components/RevenueCard.tsx               className addition (1 line)
+M  app/components/S3Card.tsx                    copy-button polish (~20 lines)
+M  app/components/HeroBalticMap.tsx             AnimatedNumber import + 2 site wraps
+M  app/components/BalticStorageIndexCard.tsx    AnimatedNumber import + 1 site wrap
+M  app/components/primitives/AnimatedNumber.tsx toLocaleString upgrade (4 lines)
+D  app/hooks/useCountUp.ts                      orphan removed (closes B-027)
+```
+
+**Risk class LOW confirmed.** No new hooks added (reused existing `AnimatedNumber` + `ScrollReveal`). No new IntersectionObserver code. One CSS-class addition. One primitive-prop preserved-API upgrade. No engine math, no schema, no worker, no chart libraries, no theme system. Smaller blast radius than Phase 25.
+
+**V-10 dropped-ideas item closed** — count-up animations from Phase 4A now wired at 3 hero numeric sites; orphan `useCountUp.ts` hook deleted. Cowork-side `project_visual_vision.md` ideas-at-risk #5 should be marked done.
+
+**Today's plan complete (2026-05-08):**
+1. ✅ Phase 25 SHIPPED — P0 right-rail clipping + credibility-disclosure pass
+2. ✅ Phase 25.1 SHIPPED Cowork-direct — hero-bg unification
+3. ❌ Phase 25.2/25.3 REVERTED — site-wide texture experiments rejected; texture-redesign-candidate filed
+4. ✅ Phase 4G.1 SHIPPED — POST /curate encoding gate
+5. ✅ Phase 18.3 SHIPPED — animation activation + orphan-hook cleanup
+
+**Operator workflow:** open PR → click merge; no PR body draft, no branch delete (per `feedback_pr_workflow_minimal.md`).
+
+**Roadmap delta needed (operator-side after merge, Cowork applies per discipline rule #5):**
+- Phase 18.3 → Shipped appendix
+- Currently-active update: 18.3 SHIPPED — TODAY'S PLAN COMPLETE; next CC pick from remaining Tier 1 queue
+- B-027 → done 2026-05-08 ("closed by Phase 18.3 via re-discovery: AnimatedNumber primitive IS the count-up implementation; orphan useCountUp.ts hook deleted; 3 hero sites wrapped")
+- V-10 dropped-ideas item closed in `project_visual_vision.md` Cowork-side memory
+
+**Tier 1 sequence:** 18.3 ✅ → next CC pick across remaining queue (4G.2 entity verification, 12.12 #1+#2 schema validation, 7.7g-a-2 spacing rollout / 7.7g-b reduced primitives, 19 a11y MVP, 18.2.1 Baltic palette retune, 21.1 per-country aFRR worker, 20 static IA, 29.1 per-country DA capture, 22 institutional S2, 18.1.1.1 chunk-error investigation).
+
+**Next operator action:** open PR; merge; hard-refresh kkme.eu; verify (a) hover RevenueCard / S4Card / TradingEngineCard for `translateY(-2px)` lift + shadow grow over 160ms; (b) click S3Card 📋 button for ✓ swap + "Copied" toast + 1.5s auto-dismiss; (c) toggle DevTools → Rendering → Emulate CSS: `prefers-reduced-motion: reduce` and confirm all motion is minimal/instant.
+
+---
+
 ### Session 55 — 2026-05-08 — Phase 4G.1 — POST /curate encoding-validation gate (Claude Code)
 
 **Headline:** Phase 4G.1 shipped on `phase-4g-1-curate-encoding-gate`. Single sub-item, single PR, worker-only. `POST /curate` now rejects mojibake (cp1257-misdecoded-UTF-8) in `title` or `raw_text` at ingest before persisting to KV — the operator-paste path that produced both the Phase 12.10.0 Saulėtas Pasaulis hallucinated entity AND the Phase 18.1.3-era `cur_motnhb6l-o8mv3k` mojibake deletion (2026-05-07) is now gated. Worker version `e150b2d8-8878-49b9-ab0e-fc0ef8588ea5` deployed at Pause B. No `model_version` bump, no engine math change, no frontend touch.
