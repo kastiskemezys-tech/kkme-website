@@ -16,7 +16,7 @@ import { RevenueBacktest } from '@/app/components/RevenueBacktest';
 import type { BacktestRow } from '@/app/lib/backtest';
 import { findMatrixCell, type MatrixCell as SensMatrixCell } from '@/app/lib/sensitivityMatrix';
 import { DISPATCH_LABELS, vsCanonicalDispatchFootnote } from '@/app/lib/dispatchDefinitions';
-import { IRR_LABELS } from '@/app/lib/irrLabels';
+import { IRR_LABELS, irrStatusDisclosure, type IrrStatus } from '@/app/lib/irrLabels';
 import {
   IRR_TILES, DSCR_LABELS, DEFAULT_DSCR_COVENANT, STORAGE_METRICS,
 } from '@/app/lib/financialDefinitions';
@@ -1656,10 +1656,15 @@ export function RevenueCard() {
               color: 'var(--text-secondary)' }}>
               €{fmtK(data.net_rev_per_mw_yr)} net/MW/yr</span>
             {data.irr_status && (
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
-                color: irrColor(data.project_irr), opacity: 0.75,
-                border: `1px solid ${irrColor(data.project_irr)}`,
-                borderRadius: 3, paddingTop: '1px', paddingRight: '6px', paddingBottom: '1px', paddingLeft: '6px' }}>{data.irr_status}</span>
+              <span
+                style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
+                  color: irrColor(data.project_irr), opacity: 0.75,
+                  border: `1px solid ${irrColor(data.project_irr)}`,
+                  borderRadius: 3, paddingTop: '1px', paddingRight: '6px', paddingBottom: '1px', paddingLeft: '6px' }}
+                title="IRR thresholds: ≥12% investable · <12% marginal · <6% below hurdle · <−50% uneconomic"
+              >
+                {irrStatusDisclosure(data.irr_status as IrrStatus)}
+              </span>
             )}
           </div>
           <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
@@ -1683,7 +1688,7 @@ export function RevenueCard() {
                 letterSpacing: '0.06em', marginBottom: 2 }}>{liveLabel.short}</div>
               <div style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--type-body-lg)',
                 color: 'var(--text-primary)', fontWeight: 500 }}>
-                €{lr.today_total_daily}/MW/day</div>
+                €{lr.today_total_daily.toLocaleString('en-US')}/MW/day</div>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--type-mono-xs)',
                 color: 'var(--text-muted)' }}>{liveLabel.detail}</div>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',

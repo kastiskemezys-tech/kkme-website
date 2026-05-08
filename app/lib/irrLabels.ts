@@ -52,3 +52,27 @@ export function isForbiddenIrrLabel(s: string): boolean {
   const lower = s.toLowerCase();
   return FORBIDDEN_IRR_TERMS.some(t => lower.includes(t));
 }
+
+// Phase 25 — IRR status threshold disclosure. Mirrors worker source-of-truth
+// at fetch-s1.js:1528-1531 / 1935-1938:
+//   irr < -0.50 → 'uneconomic'
+//   irr < 0.06  → 'below_hurdle'
+//   irr < 0.12  → 'marginal'
+//   irr ≥ 0.12  → 'investable'
+// Discipline rule #6: editorial state strings ('investable' etc.) must carry
+// a quantitative micro-descriptor. The threshold below is what makes the
+// status true; rendering them inline closes the credibility-disclosure gap.
+// If worker thresholds change, update this map AND fetch-s1.js together.
+export type IrrStatus = 'uneconomic' | 'below_hurdle' | 'marginal' | 'investable';
+
+export const IRR_STATUS_THRESHOLD: Readonly<Record<IrrStatus, string>> = Object.freeze({
+  uneconomic:   '<−50%',
+  below_hurdle: '<6%',
+  marginal:     '<12%',
+  investable:   '≥12%',
+});
+
+/** Display label: e.g., "investable · ≥12% IRR". */
+export function irrStatusDisclosure(status: IrrStatus): string {
+  return `${status.replace('_', ' ')} · ${IRR_STATUS_THRESHOLD[status]} IRR`;
+}

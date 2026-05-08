@@ -757,10 +757,18 @@ body,
   animation: hero-mount 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
-/* Phase 18.1 — Hero collapses to single-column stack below 900px viewport.
+/* Phase 25 (was 18.1) — Hero collapses to single-column stack below 1228px.
+   Math: grid template `minmax(260,300) minmax(540,620) minmax(260,300)` plus
+   2×36px gap requires 1132px inner width; 48px L/R padding adds 96 → 1228px
+   viewport minimum to fit the 3-col cleanly. The 18.1 cut at <900px left
+   900-1227px in an awkward middle range where the right rail clipped past
+   viewport (audit-3 reported €378 at 1066px overflowing 97px past viewport
+   edge; 1181-1227 was a smaller content-clip-inside-hero-overflow:hidden
+   variant of the same bug class). Cutoff matches the demand math exactly —
+   below 1228 stack, ≥1228 grid.
    Switches to flex so children's inline `gridColumn` declarations are ignored
    and they land in source order. */
-@media (max-width: 900px) {
+@media (max-width: 1228px) {
   .hero-section {
     display: flex;
     flex-direction: column;
@@ -777,7 +785,7 @@ body,
    aspect-ratio fills the available width (~328px at 360 viewport).
    Hoisted out of the previous @media block — Tailwind v4 / Turbopack
    silently dropped the rule when stacked alongside .hero-section. */
-@media (max-width: 900px) {
+@media (max-width: 1228px) {
   .hero-map-wrapper {
     width: 100% !important;
     height: auto !important;

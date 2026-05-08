@@ -45,6 +45,13 @@ export default function SignalBar() {
       label: 'S/D RATIO',
       value: data.s4?.fleet?.sd_ratio != null
         ? `${data.s4.fleet.sd_ratio.toFixed(2)}×` : '—',
+      tooltip: (() => {
+        const f = data.s4?.fleet as { baltic_operational_mw?: number; baltic_pipeline_mw?: number; eff_demand_mw?: number; sd_ratio?: number } | undefined;
+        if (f?.baltic_operational_mw != null && f?.baltic_pipeline_mw != null && f?.eff_demand_mw != null) {
+          return `S/D = (operational + 0.5 × pipeline) / effective demand = (${Math.round(f.baltic_operational_mw)} + 0.5 × ${Math.round(f.baltic_pipeline_mw)}) / ${Math.round(f.eff_demand_mw)} = ${(f.sd_ratio ?? 0).toFixed(2)}×. Pipeline risk-weighted at 50%.`;
+        }
+        return 'S/D = (operational fleet + 50% pipeline) / effective demand. Pipeline risk-weighted at 50% for permitting / financing risk.';
+      })(),
     },
     {
       // Phase 12.11 — match marquee + S2 hero precision (2dp). Header was

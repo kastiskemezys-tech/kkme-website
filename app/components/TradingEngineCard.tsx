@@ -253,7 +253,7 @@ export function HourlyChart({ data, CC }: {
         fontFamily: CHART_FONT.family, fontSize: 'var(--type-mono-xs)',
         color: 'var(--text-muted)', pointerEvents: 'none',
       }}>
-        Daily avg: €{avgLine.toFixed(2)}/MW/h · sum = €{data.revenue_per_mw.daily_eur}/MW/day
+        Daily avg: €{avgLine.toFixed(2)}/MW/h · sum = €{data.revenue_per_mw.daily_eur.toLocaleString('en-US')}/MW/day
       </div>
       <ChartTooltipPortal tt={tt} />
     </div>
@@ -365,17 +365,6 @@ export function TradingEngineCard() {
     <div style={{ padding: 'var(--space-md)', background: 'var(--bg-elevated)',
       border: '1px solid var(--border-highlight)', borderRadius: 0 }}>
 
-      {/* ── Title ── */}
-      <div style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-xs)',
-        fontFamily: "var(--font-mono)", textTransform: 'uppercase',
-        letterSpacing: '0.08em', marginBottom: 'var(--space-xs)' }}>
-        Dispatch intelligence
-      </div>
-      <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)',
-        color: 'var(--text-secondary)', marginTop: 0, marginRight: 0, marginBottom: 'var(--space-sm)', marginLeft: 0, lineHeight: 1.5 }}>
-        How the KKME dispatch algorithm allocates a 50 MW reference BESS across Baltic balancing and arbitrage.
-      </p>
-
       {/* ── Controls ── */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 'var(--space-sm)',
         paddingBottom: 12, borderBottom: '1px solid var(--border-card)' }}>
@@ -421,7 +410,7 @@ export function TradingEngineCard() {
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
                 <span style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--type-display-md)',
                   fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1 }}>
-                  €{data.revenue_per_mw.daily_eur}</span>
+                  €{data.revenue_per_mw.daily_eur.toLocaleString('en-US')}</span>
                 <span style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-sm)',
                   color: 'var(--text-secondary)' }}>/MW/day</span>
                 <span style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
@@ -455,7 +444,7 @@ export function TradingEngineCard() {
                 <div style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--type-body-lg)',
                   color: 'var(--text-primary)', fontWeight: 500 }}>{k.pct}%</div>
                 <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
-                  color: 'var(--text-secondary)' }}>€{k.eur}/MW/day</div>
+                  color: 'var(--text-secondary)' }}>€{k.eur.toLocaleString('en-US')}/MW/day</div>
               </div>
             ))}
           </div>
@@ -473,11 +462,11 @@ export function TradingEngineCard() {
               </div>
               <div style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--type-display-md)',
                 color: 'var(--teal)', marginTop: 'var(--space-2xs)', fontWeight: 500 }}>
-                +€{data.scenarios.drr_uplift_eur_mw_day}/MW/day
+                +€{data.scenarios.drr_uplift_eur_mw_day.toLocaleString('en-US')}/MW/day
               </div>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
                 color: 'var(--text-secondary)', marginTop: 'var(--space-2xs)' }}>
-                FCR at €{data.drr_note.post_drr_fcr_price_eur_mw_h}/MW/h → €{data.scenarios.post_drr_daily_eur}/MW/day total (€{Math.round(data.scenarios.post_drr_annual_eur / 1000)}k/MW/yr, +{Math.round((data.scenarios.post_drr_annual_eur / data.revenue_per_mw.annual_eur - 1) * 100)}% uplift)
+                FCR at €{data.drr_note.post_drr_fcr_price_eur_mw_h}/MW/h → €{data.scenarios.post_drr_daily_eur.toLocaleString('en-US')}/MW/day total (€{Math.round(data.scenarios.post_drr_annual_eur / 1000)}k/MW/yr, +{Math.round((data.scenarios.post_drr_annual_eur / data.revenue_per_mw.annual_eur - 1) * 100)}% uplift)
               </div>
             </div>
           )}
@@ -552,9 +541,9 @@ export function TradingEngineCard() {
           <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
             color: 'var(--text-muted)', marginTop: 12 }}>
             {revEngineLive !== null && (
-              <span>Revenue Engine live: €{revEngineLive}/MW/day · </span>
+              <span>Revenue Engine live: €{revEngineLive.toLocaleString('en-US')}/MW/day · </span>
             )}
-            Dispatch ({data.meta.mode}, {data.meta.date_iso}): €{data.revenue_per_mw.daily_eur}/MW/day
+            Dispatch ({data.meta.mode}, {data.meta.date_iso}): €{data.revenue_per_mw.daily_eur.toLocaleString('en-US')}/MW/day
           </div>
 
           {/* ── Source footer ── */}
