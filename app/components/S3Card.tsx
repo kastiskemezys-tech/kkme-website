@@ -281,9 +281,27 @@ export function S3Card() {
         <span style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--type-display-lg)', color: 'var(--text-primary)', fontWeight: 400, letterSpacing: '-0.02em' }}>€{capexRange[0]}–{capexRange[1]}</span>
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', marginLeft: 'var(--space-2xs)' }}>/kWh</span>
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', border: '1px dashed var(--border-highlight)', borderRadius: '3px', paddingTop: '1px', paddingRight: '6px', paddingBottom: '1px', paddingLeft: '6px', marginLeft: 'var(--space-xs)', letterSpacing: '0.06em' }}>REFERENCE</span>
-        <button onClick={handleCopy} title="Copy range" style={{ all: 'unset', cursor: 'pointer', marginLeft: '6px', opacity: copied ? 0.8 : 0.3, transition: 'opacity 0.15s', fontSize: 'var(--type-body-md)' }} onMouseEnter={e => (e.currentTarget.style.opacity = '0.8')} onMouseLeave={e => (e.currentTarget.style.opacity = copied ? '0.8' : '0.3')}>
+        <button
+          onClick={handleCopy}
+          title="Copy range"
+          aria-label="Copy CAPEX range"
+          aria-live="polite"
+          data-copied={copied}
+          className="copy-btn"
+          style={{ all: 'unset', cursor: 'pointer', marginLeft: '6px', opacity: copied ? 0.85 : 0.3, transition: 'opacity 0.15s, transform 100ms cubic-bezier(0.2, 0.8, 0.2, 1), color 150ms', fontSize: 'var(--type-body-md)', lineHeight: 1, color: copied ? 'var(--positive)' : 'inherit' }}
+          onMouseEnter={e => { if (!copied) e.currentTarget.style.opacity = '0.8'; }}
+          onMouseLeave={e => { e.currentTarget.style.opacity = copied ? '0.85' : '0.3'; }}
+        >
           {copied ? '✓' : '📋'}
         </button>
+        {copied && (
+          <span
+            role="status"
+            style={{ marginLeft: '6px', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--positive)', opacity: 0.9 }}
+          >
+            Copied
+          </span>
+        )}
         {d.trend && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-body-lg)', color: d.trend.direction === 'easing' ? 'var(--teal)' : 'var(--amber)', marginLeft: '12px' }}>{d.trend.direction === 'easing' ? '↘' : d.trend.direction === 'rising' ? '↗' : '→'}</span>}
       </div>
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', marginBottom: '2px' }}>€{kwRange[0]}–{kwRange[1]}/kW @ POI</div>

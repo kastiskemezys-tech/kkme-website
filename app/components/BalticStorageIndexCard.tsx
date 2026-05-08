@@ -17,7 +17,7 @@
 
 import { useEffect, useState } from 'react';
 import { Sparkline } from './Sparkline';
-import { SourceFooter } from '@/app/components/primitives';
+import { SourceFooter, AnimatedNumber } from '@/app/components/primitives';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
@@ -221,7 +221,7 @@ export function BalticStorageIndexCard() {
             color: 'var(--text-primary)',
             fontVariantNumeric: 'tabular-nums',
           }}>
-            €{Math.round(data.lt['2h']).toLocaleString()}
+            <AnimatedNumber value={Math.round(data.lt['2h'])} prefix="€" decimals={0} />
             <sup style={{
               fontFamily: 'var(--font-serif)',
               fontStyle: 'italic',

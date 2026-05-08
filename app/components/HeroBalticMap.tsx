@@ -17,7 +17,7 @@ import { formatTickerItem } from '@/app/lib/ticker';
 import { IRR_LABELS } from '@/app/lib/irrLabels';
 import { ThemeToggle } from './ThemeToggle';
 import { Sparkline as SharedSparkline } from './Sparkline';
-import { ChartTooltipPortal, useChartTooltipState } from '@/app/components/primitives';
+import { ChartTooltipPortal, useChartTooltipState, AnimatedNumber } from '@/app/components/primitives';
 
 gsap.registerPlugin(MotionPathPlugin);
 
@@ -705,7 +705,9 @@ export function HeroBalticMap() {
             color: lr?.today_total_daily != null ? 'var(--text-primary)' : 'var(--text-ghost)',
             lineHeight: 1, marginTop: 'var(--space-2xs)', fontVariantNumeric: 'tabular-nums',
           }}>
-            {'€'}{fmt(lr?.today_total_daily)}
+            {lr?.today_total_daily != null
+              ? <AnimatedNumber value={Math.round(lr.today_total_daily)} prefix="€" decimals={0} />
+              : <>{'€'}{fmt(null)}</>}
           </div>
           <div style={{
             fontFamily: 'var(--font-mono)', fontSize: 'var(--type-body-md)', color: 'var(--text-secondary)',
@@ -779,7 +781,7 @@ export function HeroBalticMap() {
             fontFamily: 'var(--font-serif)', fontSize: 'var(--type-display-md)', fontWeight: 500,
             color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums',
           }}>
-            {fmt(totalOp)} MW
+            <AnimatedNumber value={totalOp} decimals={0} suffix=" MW" />
             <span style={{ fontSize: 'var(--type-mono-xs)', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', fontWeight: 400, textTransform: 'uppercase', letterSpacing: '0.06em', marginLeft: 'var(--space-2xs)' }}>OPERATIONAL</span>
           </div>
           {countries && totalOp > 0 && (() => {

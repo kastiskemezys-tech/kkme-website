@@ -1388,3 +1388,52 @@ img.logo-light { display: none; }
   flex-direction: column;
   justify-content: center;
 }
+
+/* ═══════════════════════════════════════════
+   PHASE 18.3 — Global motion-reduction gate (defensive fallback)
+   In its own @media block per Tailwind v4 silent-drop discipline. Per-class
+   reduced-motion rules above remain as primary; this catches anything new.
+   ═══════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ═══════════════════════════════════════════
+   PHASE 18.3 — Card hover-lift (interactive cards only, spec P2-4)
+   Applied to RevenueCard / S4Card / TradingEngineCard wrappers via the
+   .card--interactive modifier. Pure-display cards do NOT lift.
+   ═══════════════════════════════════════════ */
+.card--interactive {
+  transition: transform 160ms var(--ease-standard), box-shadow 160ms var(--ease-standard);
+}
+.card--interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+@media (prefers-reduced-motion: reduce) {
+  .card--interactive { transition: none; }
+  .card--interactive:hover { transform: none; }
+}
+
+/* ═══════════════════════════════════════════
+   PHASE 18.3 — Copy-button feedback (spec P2-3)
+   Press-scale + check-mark swap; consumed by S3Card range-copy.
+   ═══════════════════════════════════════════ */
+.copy-btn {
+  transition: transform 100ms var(--ease-standard);
+}
+.copy-btn:active {
+  transform: scale(0.92);
+}
+.copy-btn[data-copied="true"] {
+  color: var(--positive);
+}
+@media (prefers-reduced-motion: reduce) {
+  .copy-btn { transition: none; }
+  .copy-btn:active { transform: none; }
+}

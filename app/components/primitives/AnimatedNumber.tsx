@@ -48,9 +48,14 @@ export function AnimatedNumber({
     return () => cancelAnimationFrame(rafRef.current);
   }, [value, duration]);
 
+  const formatted = display.toLocaleString('en-US', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+
   return (
     <span className={className} style={{ fontVariantNumeric: 'tabular-nums' }}>
-      {prefix}{display.toFixed(decimals)}{suffix}
+      {prefix}{formatted}{suffix}
     </span>
   );
 }
