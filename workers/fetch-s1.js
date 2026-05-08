@@ -5051,6 +5051,52 @@ function makeId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+// Empirical Baltic mojibake bigrams (UTF-8 chars misdecoded as Win-1252/cp125x
+// then re-encoded). Bare /Ä/ and /Å/ would false-positive on legitimate
+// Estonian (Tähtsamad, Käiku) and Swedish/Finnish content.
+const MOJIBAKE_PATTERNS = [
+  /Ä„/,   // ą / Ą
+  /Ä…/,   // ą (Win-1252 path)
+  /Ä—/,   // ė / Ė (Win-1252 path)
+  /ÄŠ/,   // ė / Ė (observed in production curation)
+  /Ä™/,   // ę
+  /Ä¯/,   // į
+  /Å¡/,   // š
+  /Å¾/,   // ž
+  /Å³/,   // ų
+  /Å«/,   // ū
+];
+
+function detectMojibake(s) {
+  if (typeof s !== 'string') return null;
+  for (const pattern of MOJIBAKE_PATTERNS) {
+    if (pattern.test(s)) return pattern.source;
+  }
+  return null;
+}
+
+function validateCurationContent(body) {
+  const titleMojibake = detectMojibake(body.title);
+  if (titleMojibake) {
+    return {
+      valid: false,
+      field: 'title',
+      pattern: titleMojibake,
+      message: 'Title contains mojibake (cp1257-misdecoded-UTF-8). Re-paste from a UTF-8 source.',
+    };
+  }
+  const rawMojibake = detectMojibake(body.raw_text);
+  if (rawMojibake) {
+    return {
+      valid: false,
+      field: 'raw_text',
+      pattern: rawMojibake,
+      message: 'raw_text contains mojibake (cp1257-misdecoded-UTF-8). Re-paste from a UTF-8 source.',
+    };
+  }
+  return { valid: true };
+}
+
 async function readIndex(kv) {
   const raw = await kv.get(KV_CURATIONS_INDEX);
   if (!raw) return [];
@@ -7339,6 +7385,18 @@ export default {
       const { url: entryUrl, title, raw_text, source, relevance, tags } = body;
       if (!entryUrl || !title || !raw_text || !source || !relevance) {
         return new Response(JSON.stringify({ error: 'Missing required fields' }), { status: 400, headers: { 'Content-Type': 'application/json', ...CORS } });
+      }
+      const validation = validateCurationContent(body);
+      if (!validation.valid) {
+        return new Response(JSON.stringify({
+          error: 'Encoding validation failed',
+          field: validation.field,
+          pattern: validation.pattern,
+          message: validation.message,
+        }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json', ...CORS },
+        });
       }
       const entry = {
         id: makeId(), url: entryUrl, title, raw_text, source,
