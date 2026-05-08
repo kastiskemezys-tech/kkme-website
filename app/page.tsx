@@ -75,7 +75,7 @@ export default function Home() {
               <div className="card card--neutral" style={{ alignSelf: 'stretch', display: 'flex', flexDirection: 'column' }}>
                 <CardBoundary signal="S3"><S3Card /></CardBoundary>
               </div>
-              <div className="card card--neutral card--interactive" style={{ alignSelf: 'stretch', display: 'flex', flexDirection: 'column' }}>
+              <div className="card card--neutral" style={{ alignSelf: 'stretch', display: 'flex', flexDirection: 'column' }}>
                 <CardBoundary signal="S4"><S4Card /></CardBoundary>
               </div>
             </div>
@@ -149,7 +149,7 @@ export default function Home() {
               <h2 className="section-header" style={{ marginBottom: '6px' }}>Dispatch intelligence</h2>
               <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-base)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>How the KKME dispatch algorithm allocates a reference BESS across Baltic balancing and arbitrage.</p>
             </div>
-            <div className="card card-tier1 card--revenue card--interactive">
+            <div className="card card-tier1 card--revenue">
               <CardBoundary signal="trading">
                 <TradingEngineCard />
               </CardBoundary>
