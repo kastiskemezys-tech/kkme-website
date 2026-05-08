@@ -213,8 +213,8 @@
   /* Section elevated surface */
   --bg-section-elevated: rgba(232, 226, 217, 0.012);
 
-  /* Phase 25.3 — Map-inspired subtle noise-masked dot grid, dark mode (cream dots on dark) */
-  --pixel-grid-dot: rgba(232, 226, 217, 0.08);
+  /* Phase 18 — Baltic editorial pixel-grid dot opacity (~6%) [25.3 noise-masked grid reverted 2026-05-08; site-wide map-faithful texture deferred to dedicated design phase — body-level CSS can't blend with cards' own backgrounds, requires architectural rethink] */
+  --pixel-grid-dot: rgba(232, 226, 217, 0.06);
 
   /* Type scale (Phase 7.7g-a-3, per spec CC-1).
    *
@@ -424,8 +424,8 @@
   /* Amber ray decorative — light */
   --amber-ray: rgba(138, 102, 32, 0.04);
 
-  /* Phase 25.3 — Map-inspired subtle noise-masked dot grid, light mode (charcoal dots on cream) */
-  --pixel-grid-dot: rgba(26, 26, 31, 0.08);
+  /* Phase 18 — pixel-grid dot opacity for light (~6% on charcoal) [25.3 reverted 2026-05-08; texture redesign deferred to dedicated design phase] */
+  --pixel-grid-dot: rgba(26, 26, 31, 0.06);
 
   /* ─── Semantic palette aliases — light (Phase 8.1) ─────────────────────
      Mirrors the dark-mode aliases. Light-mode values are inherited via
@@ -504,21 +504,18 @@ body {
   line-height: 1.6;
 }
 
-/* Phase 25.3 — Map-inspired subtle noise-masked dot grid (replaces Phase 18 single 16px grid).
-   What the map has: uniform small-dot grid with density VARYING ORGANICALLY across regions
-   (sparse in sea, dense in land). To replicate the SAME EFFECT site-wide without geographic
-   data, apply an SVG fractal-noise mask to a uniform dot grid: noise modulates dot opacity,
-   creating organic patches of slightly higher/lower density.
+/* Phase 18 — Baltic editorial pixel grid: dotted radial-gradient at 16px,
+   barely perceptible. Connective tissue, not decoration. Auto-adapts to
+   dark/light via --pixel-grid-dot.
 
-   Tuning for "very light touch and subtle" per operator 2026-05-08:
-   - Grid: 4px spacing, 0.6px dot (denser than Phase 18's 16px, tighter dots)
-   - --pixel-grid-dot bumped 0.06 → 0.08 to compensate for mask reducing peaks
-   - Mask alpha range CLAMPED 0.5–1.0 via feComponentTransfer — dots never disappear,
-     just gently vary 0.04 (valleys) ↔ 0.08 (peaks). Average ≈ 0.06 (matches Phase 18 baseline).
-   - feTurbulence baseFrequency 0.012 → ~80-120px patches; numOctaves 2; stitchTiles for clean tiling
-   - 600px mask tile period
-
-   Phase 25.2 layered-grid attempt rejected 2026-05-08; this replaces it with the right approach. */
+   [Texture-redesign attempts 2026-05-08 reverted: 25.2 (three-layer coprime
+   grids) was too uniform/dense; 25.3 (single grid + SVG noise mask) was still
+   too uniform and didn't blend with map's varied texture. Root issue is
+   architectural: cards + sections paint their own backgrounds covering
+   body-level texture, so body::before can't unify the visual surface alone.
+   Proper site-wide map-faithful texture deferred to dedicated design phase
+   (extract map's halftone as tileable SVG asset OR redesign card backgrounds
+   to be transparent — operator-pick later).] */
 body::before {
   content: '';
   position: fixed;
@@ -526,15 +523,9 @@ body::before {
   width: 100vw; height: 100vh;
   pointer-events: none;
   z-index: 0;
-  background-image: radial-gradient(circle, var(--pixel-grid-dot) 0.6px, transparent 1px);
-  background-size: 4px 4px;
+  background-image: radial-gradient(circle, var(--pixel-grid-dot) 1px, transparent 1px);
+  background-size: 16px 16px;
   background-position: 0 0;
-  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='600'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.012' numOctaves='2' stitchTiles='stitch' seed='2'/><feComponentTransfer><feFuncA type='linear' slope='0.5' intercept='0.5'/></feComponentTransfer></filter><rect width='600' height='600' filter='url(%23n)'/></svg>");
-          mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='600'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.012' numOctaves='2' stitchTiles='stitch' seed='2'/><feComponentTransfer><feFuncA type='linear' slope='0.5' intercept='0.5'/></feComponentTransfer></filter><rect width='600' height='600' filter='url(%23n)'/></svg>");
-  -webkit-mask-size: 600px 600px;
-          mask-size: 600px 600px;
-  -webkit-mask-repeat: repeat;
-          mask-repeat: repeat;
 }
 
 /* Grain overlay — SVG fractal noise, subtle */
