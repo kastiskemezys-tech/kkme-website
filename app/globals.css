@@ -213,12 +213,8 @@
   /* Section elevated surface */
   --bg-section-elevated: rgba(232, 226, 217, 0.012);
 
-  /* Phase 25.2 — Map-inspired three-layer halftone tokens (replaces Phase 18 single-layer 6% pixel-grid).
-     Three relatively-prime spacings (4/7/13 px) with descending opacity create aperiodic patches of
-     higher/lower density that mimic the map's halftone feel. Pattern repeats every 4×7×13 = 364px. */
-  --pixel-grid-dot:           rgba(232, 226, 217, 0.10);  /* primary 4px-grid layer */
-  --pixel-grid-dot-accent:    rgba(232, 226, 217, 0.05);  /* medium 7px-grid accent */
-  --pixel-grid-dot-highlight: rgba(232, 226, 217, 0.03);  /* sparse 13px-grid highlight */
+  /* Phase 18 — Baltic editorial pixel-grid dot opacity (~6%) [25.2 layered halftone reverted 2026-05-08 per operator visual rejection] */
+  --pixel-grid-dot: rgba(232, 226, 217, 0.06);
 
   /* Type scale (Phase 7.7g-a-3, per spec CC-1).
    *
@@ -428,11 +424,8 @@
   /* Amber ray decorative — light */
   --amber-ray: rgba(138, 102, 32, 0.04);
 
-  /* Phase 25.2 — Map-inspired three-layer halftone tokens, light mode (charcoal dots on cream).
-     Mirrors dark-mode definitions; same opacity ladder (0.10 / 0.05 / 0.03) with rgba color flipped. */
-  --pixel-grid-dot:           rgba(26, 26, 31, 0.10);  /* primary 4px-grid layer */
-  --pixel-grid-dot-accent:    rgba(26, 26, 31, 0.05);  /* medium 7px-grid accent */
-  --pixel-grid-dot-highlight: rgba(26, 26, 31, 0.03);  /* sparse 13px-grid highlight */
+  /* Phase 18 — pixel-grid dot opacity for light (~6% on charcoal) [25.2 layered halftone reverted 2026-05-08 per operator visual rejection] */
+  --pixel-grid-dot: rgba(26, 26, 31, 0.06);
 
   /* ─── Semantic palette aliases — light (Phase 8.1) ─────────────────────
      Mirrors the dark-mode aliases. Light-mode values are inherited via
@@ -511,14 +504,12 @@ body {
   line-height: 1.6;
 }
 
-/* Phase 25.2 — Map-inspired three-layer halftone (replaces Phase 18 single 16px pixel-grid).
-   Three radial-gradient layers at relatively-prime spacings (4 / 7 / 13 px) with descending
-   opacity create aperiodic patches of higher and lower density that mimic the map's halftone
-   feel. Pattern repeats every LCM(4,7,13) = 364px → reads as organic density variation rather
-   than a rigid grid. Auto-adapts to dark/light via --pixel-grid-dot* tokens.
-
-   Operator pivot 2026-05-08 from Phase 18's "barely perceptible connective tissue" toward
-   "map-faithful halftone unifying hero + cards + page." */
+/* Phase 18 — Baltic editorial pixel grid: dotted radial-gradient at 16px,
+   barely perceptible. Connective tissue, not decoration. Auto-adapts to
+   dark/light via --pixel-grid-dot. [Phase 25.2 three-layer halftone reverted
+   2026-05-08 per operator rejection — pattern read as too-busy / not
+   map-faithful. Future approach TBD; possibly direct SVG asset extraction
+   from the map rather than CSS-generated pattern.] */
 body::before {
   content: '';
   position: fixed;
@@ -526,15 +517,9 @@ body::before {
   width: 100vw; height: 100vh;
   pointer-events: none;
   z-index: 0;
-  background-image:
-    /* primary dense grid */
-    radial-gradient(circle, var(--pixel-grid-dot) 0.6px, transparent 1px),
-    /* medium accent layer (relatively prime to 4) */
-    radial-gradient(circle, var(--pixel-grid-dot-accent) 0.8px, transparent 1.4px),
-    /* sparse highlight layer (relatively prime to 4 and 7) */
-    radial-gradient(circle, var(--pixel-grid-dot-highlight) 1.0px, transparent 2px);
-  background-size: 4px 4px, 7px 7px, 13px 13px;
-  background-position: 0 0, 2px 2px, 4px 4px;
+  background-image: radial-gradient(circle, var(--pixel-grid-dot) 1px, transparent 1px);
+  background-size: 16px 16px;
+  background-position: 0 0;
 }
 
 /* Grain overlay — SVG fractal noise, subtle */
