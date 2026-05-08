@@ -1882,6 +1882,78 @@ Then Tier 1 (12.12 + 12.14 + 7.7g). Phase 12.12 picks up:
 - After merge to main → Phase 30 §6 (three commits + push to `phase-30-methodology-research` branch) resumes from the same working tree per operator's latest message.
  phase-12-8-1-backtest-caption
 
+### Session 54 — 2026-05-08 — Phase 25 — P0 right-rail clipping + audit-3 credibility-disclosure pass (Claude Code)
+
+**Headline:** Phase 25 shipped on `phase-25-credibility-disclosure-pass`. 7 sub-items implemented + 1 SKIP; 8 files modified across `app/components/` + `app/lib/` + `app/globals.css`. Audit-3's P0 right-rail clipping at 1066-1227px viewport range CLOSED; the 7 credibility-disclosure gaps closed with quantitative micro-descriptors per discipline rule #6's spirit. Frontend-only, no `model_version` bump, no worker deploy.
+
+**Sub-items shipped:**
+
+- **(1) Right-rail clipping fix** — `app/globals.css:763` hero collapse breakpoint **<900px → <1228px**. Math principle: grid template `minmax(260,300) minmax(540,620) minmax(260,300)` + 2×36px gap = 1132px inner demand; 48px L/R padding adds 96 → 1228px viewport minimum to fit 3-col cleanly. Operator-pick fork chose `<1180` initially; chrome-MCP boundary verification surfaced 1181-1227 as content-clipping-inside-`overflow:hidden` (smaller magnitude of same bug class as the 1066 P0); operator approved bump to 1228 to fully close the gap. Boundary verified at 1180 / 1228 / 1229 / 1300: all flex-collapsed below 1229, grid kicks in at 1229+ with `260 540 260` track minimums; at 1300 tracks flex to `280 560 280`.
+- **(2) S/D ratio formula disclosure** — `HeroBalticMap.tsx:830-839` Block 3 ratios tile + `SignalBar.tsx:45-58` KPI ticker. Both surfaces now carry tooltip: `S/D ratio = (operational + 0.5 × pipeline) / effective demand = (822 + 0.5 × 1,083) / 752 = 1.81×. Pipeline is risk-weighted at 50%.` — derives live from `s4.fleet.{baltic_operational_mw, baltic_pipeline_mw, eff_demand_mw}` (rule #2 spirit: derived value asserts its derivation).
+- **(3) 651/822 Kruonis footnote** — `HeroBalticMap.tsx:813-825` widened `S4Data` interface to include `baltic_total.installed_mw`; new inline footnote below FLEX FLEET tile renders `= TSO BESS {bess} MW + Kruonis flex share {kruonis} MW` derived from worker fields. The 651 + 171 = 822 arithmetic now visible without hover (auditor's "doesn't reconcile from displayed inputs" gap).
+- **(4) "Investable" pill rule-#6 fix** — `RevenueCard.tsx:1658-1670` editorial chip rendering `data.irr_status` ('investable' / 'marginal' / 'below_hurdle' / 'uneconomic') replaced with quantitative micro-descriptor: `investable · ≥12% IRR` / `marginal · <12% IRR` / `below hurdle · <6% IRR` / `uneconomic · <−50% IRR`. Thresholds centralized in `app/lib/irrLabels.ts` (`IRR_STATUS_THRESHOLD` map + `irrStatusDisclosure()` helper) with explicit comment mirroring `fetch-s1.js:1528-1531` source-of-truth. Title attribute carries the full threshold ladder.
+- **(5) Number formatting consistency sweep** — auditor's "€20400/day missing thousands separator" was traced to `S1Card.tsx::fmtEuro` helper (`'€' + Math.round(v)` → `'€' + Math.round(v).toLocaleString('en-US')`). Single-helper fix applies thousands separator across all 8 fmtEuro callers. Additionally swept 5 raw `€{x}/MW/day` interpolation sites in `TradingEngineCard.tsx` (lines 256, 413, 447, 465, 469, 544, 546) + 1 in `RevenueCard.tsx:1691` + 2 in `RevenueBacktest.tsx:179, 184` with `.toLocaleString('en-US')`. Per rule #4 cross-card consistency: every euro display ≥1000 now carries the comma separator.
+- **(6) "vs base" → "vs Y1 base" disclosure** — `HeroBalticMap.tsx:715-727` delta chip relabeled and given `title` attribute exposing the live `base_daily` value + computation: `vs base: Y1 base year average daily — €{base_daily}/MW/day (annual gross ÷ 365)`. Per rule #2 spirit.
+- **(7) Dispatch card copy de-dup** — `TradingEngineCard.tsx:368-377` removed inner "Dispatch intelligence" label + "How the KKME dispatch algorithm allocates a 50 MW reference BESS..." paragraph. `page.tsx:149-150` retains the section's `<h2>Dispatch intelligence</h2>` + paragraph as the canonical owner of section identity.
+- **(8) ThemeToggle aria-label** — **SKIPPED**. Code-grep at Pause A confirmed `ThemeToggle.tsx:56` already derives `aria-label={`Switch to ${isDark ? 'light' : 'dark'} theme`}` from `isDark` state. Git blame: correct since `e9475878` (2026-03-12 light theme rollout). Cowork's chrome-MCP "doesn't update on flip" finding diagnosed as synthetic-click-then-immediate-getAttribute timing artifact; if post-merge live verification surfaces a real issue, Phase 25.1 can be filed.
+
+**Discipline rules applied:**
+- **#1 audit-triage** — sub-item 8 SKIP based on code-grep + git blame primary-source verification overrode prompt's chrome-MCP empirical claim. Sub-item 4 confirmed-with-citation: rendered string source traced to `fetch-s1.js:1528-1531`. Sub-item 1 verified at audit's specific 1066px viewport empirically via chrome-MCP.
+- **#2 no-hardcoded-temporal-label** — S/D `1.81×`, `vs base` delta, IRR threshold all now derive their derivation from live engine fields (S/D from operational+pipeline+demand; vs Y1 base from base_daily; IRR threshold from irrLabels mirror with explicit worker-source comment).
+- **#4 cross-card consistency** — number formatting sweep is exactly this rule. Single S1Card::fmtEuro helper change propagates across 8 callers; rule was also applied during sub-item 5 implementation when bonus `€20400` site surfaced (caught via chrome-MCP visual verification).
+- **#5 roadmap edit-conflict** — no roadmap edits; needed delta reported below for operator/Cowork.
+- **#6 no-editorial-state-label** — sub-item 4 is the canonical application: replaced engine-emitted state string ('investable') as chip with quantitative micro-descriptor ('investable · ≥12% IRR'). Same pattern as Phase 21's THICK chip.
+
+**Audit-3 P0 closure (1066-1227px viewport range):**
+
+| Viewport | display | overflow | observation |
+|---|---|---|---|
+| 1066 (audit-3 reported) | flex (collapsed) | none | €378 hero `right:1022 ≤ 1066` ✓ — was overflowing 97px past viewport edge pre-fix |
+| 1100 | flex (collapsed) | none | within bumped breakpoint ✓ |
+| 1180 | flex (collapsed) | none | within bumped breakpoint ✓ |
+| 1228 | flex (collapsed) | none | boundary inclusive (the math cutoff) ✓ |
+| 1229 | grid (3-col, mins) | none | 1px above breakpoint, grid kicks in at minimum tracks ✓ |
+| 1300 | grid (3-col, flexed) | none | comfortable 3-col, right rail at `right:1241 ≤ 1300` ✓ |
+| 1440 | grid (3-col, max tracks) | none | full desktop; tracks at `300 620 300` ✓ |
+
+**Chrome MCP gate validated end-to-end (2nd consecutive session post-fix)** — first session was Phase 18.1.3 (`feedback_chrome_mcp_orphans.md` `cc` alias fix); this session is the confirmation pass. `mcp__chrome-devtools__navigate_page`, `resize_page`, `evaluate_script`, `take_screenshot` all worked end-to-end across 9 viewport probes (360/414/1066/1100/1180/1228/1229/1300/1440).
+
+**Foundation gates (all baseline-exact):** tsc 0 / vitest 924/925 (pre-existing freshnessBadge boundary failure carried as known baseline — Phase 21's `isSameVilniusDay` calendar-today logic, NOT a Phase 25 regression; reproduces on `main`) / lint 127 (40e/87w) / no-raw-spacing exit 0 / no-editorial-chips exit 0 / build 7 routes (clean).
+
+**Local-build smoke-test (per `feedback_local_build_verification.md` REQUIRED gate):** `npm run build && npx serve out -l 3100` → home HTTP 200 (105 KB); 8/8 sampled JS chunks HTTP 200; no 18.1.1-class ChunkLoadError. Bundle delta noise-floor (no new dependencies; CSS @media block edited in place).
+
+**Visual evidence captured at `docs/visual-audit/phase-25/`:**
+- `1066-hero-final.png` — audit-3 specific viewport, post-fix
+- `1100-hero.png`, `1180-hero.png`, `1228-hero.png`, `1300-hero.png`, `1440-hero.png` — boundary verification
+- `360-hero.png`, `414-hero.png` — mobile (chrome-MCP min ~500px reported)
+
+**Files touched (8):**
+- `app/components/HeroBalticMap.tsx` — S/D tooltip + Kruonis footnote + Y1 base disclosure + S4Data widened
+- `app/components/SignalBar.tsx` — S/D RATIO tooltip
+- `app/components/RevenueCard.tsx` — IRR pill threshold disclosure + lr daily formatting
+- `app/components/TradingEngineCard.tsx` — duplicate copy removed + 5 daily-eur thousands-separator sites
+- `app/components/RevenueBacktest.tsx` — 2 daily-eur thousands-separator sites
+- `app/components/S1Card.tsx` — fmtEuro helper applies thousands separator (8 callers benefit)
+- `app/lib/irrLabels.ts` — IRR_STATUS_THRESHOLD + irrStatusDisclosure helper
+- `app/globals.css` — hero collapse breakpoint <900 → <1228 (2 @media block updates)
+
+**Risk class LOW confirmed** — sub-item 1 layout breakpoint change is the only structural surface; chrome-MCP boundary tests at 1180/1228/1229/1300 confirm grid mode toggles cleanly at the math cutoff. All 7 ship-items ≤30-line edits.
+
+**Operator workflow:** open PR → click merge; no PR body draft, no branch delete (per `feedback_pr_workflow_minimal.md`).
+
+**Roadmap delta needed (operator-side after merge, Cowork applies per discipline rule #5):**
+- Phase 25 → Shipped appendix
+- Currently-active update: 25 SHIPPED; next CC pick is Phase 4G.1 (encoding gate; ~30-60 min) OR Phase 18.3 (animation activation) OR Phase 12.12 #1+#2 (schema validation) per Tier 1 queue
+- Audit-3 P0 right-rail clipping CLOSED across full 1066-1227px viewport range
+- 7 credibility-disclosure gaps closed (S/D formula on card, Kruonis footnote, investable pill, number formatting, vs Y1 base disclosure, dispatch dup removed)
+- ThemeToggle SKIP per code-grep (audit was empirically false; aria-label already correctly derived since 2026-03-12)
+
+**Next operator action:** open PR; merge; hard-refresh kkme.eu at 1066px laptop viewport (audit-3's specific reported width) to confirm hero renders cleanly with no right-rail clip. Optional: also confirm aria-label at light/dark toggle on live site (closing the audit-3 chrome-MCP timing-artifact loop empirically).
+
+**Tier 1 sequence:** 25 ✅ → next CC pick across remaining queue (4G.1 encoding gate, 18.3 animation activation, 12.12 #1+#2 schema validation gates).
+
+---
+
 ### Session 53 — 2026-05-07 — Phase 18.1.3 — Mobile per-component reflow (extracted from reverted 18.1.1) (Claude Code)
 
 **Headline:** Phase 18.1.3 shipped on `phase-18-1-3-mobile-component-reflow`. Six sub-items in one PR; 4 files modified. Extracted the safe-subset reflow scope from reverted Phase 18.1.1 — line-numbers re-grepped post-7.7g-a-3 typography phase (drift +5 to +28 across sites; S3Card + Tornado + MonthlyHeatmap untouched at 0). All reflows applied verbatim from commit `1839328`'s pattern:
