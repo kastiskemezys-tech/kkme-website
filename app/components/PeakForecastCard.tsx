@@ -3,7 +3,7 @@
 import { useSignal } from '@/lib/useSignal';
 import { REFRESH_HOT } from '@/lib/refresh-cadence';
 import { SourceFooter } from '@/app/components/primitives';
-import { computePeakTrough, formatTomorrowLine } from '@/app/lib/peakForecast';
+import { formatTomorrowLine } from '@/app/lib/peakForecast';
 import { formatHourEET } from '@/app/lib/hourLabels';
 import { formatTimestamp } from '@/app/lib/freshness';
 
@@ -11,9 +11,10 @@ const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
 interface S1Signal {
   lt_daily_swing_eur_mwh?: number | null;
-  p_high_avg?: number | null;
-  p_low_avg?: number | null;
-  hourly_lt?: number[] | null;
+  lt_peak_hour_utc?: number | null;
+  lt_peak_price?: number | null;
+  lt_trough_hour_utc?: number | null;
+  lt_trough_price?: number | null;
   da_tomorrow?: {
     lt_peak?: number | null;
     lt_trough?: number | null;
@@ -64,8 +65,11 @@ export function PeakForecastCard() {
 
   const swing = data.lt_daily_swing_eur_mwh ?? 0;
   const stats = data.swing_stats_90d;
-  const hourly = data.hourly_lt;
-  const pt = computePeakTrough(hourly ?? null, data.updated_at ?? null);
+  const peakHour = data.lt_peak_hour_utc;
+  const peakPrice = data.lt_peak_price;
+  const troughHour = data.lt_trough_hour_utc;
+  const troughPrice = data.lt_trough_price;
+  const hasPt = peakHour != null && peakPrice != null && troughHour != null && troughPrice != null;
   const tomorrow = data.da_tomorrow;
 
   return (
@@ -79,21 +83,21 @@ export function PeakForecastCard() {
         {'\u20AC'}{swing.toFixed(0)}/MWh
       </div>
       <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: 'var(--space-xs)' }}>
-        Today&apos;s DA swing{pt ? ` · Peak ${formatHourEET(pt.peakHour, data.updated_at)} · Trough ${formatHourEET(pt.troughHour, data.updated_at)}` : ''}
+        Today&apos;s DA swing{hasPt ? ` · Peak ${formatHourEET(peakHour!, data.updated_at)} · Trough ${formatHourEET(troughHour!, data.updated_at)}` : ''}
       </p>
 
       {/* Peak/trough detail */}
-      {pt && (
+      {hasPt && (
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', marginBottom: 'var(--space-xs)', display: 'flex', flexDirection: 'column', gap: '2px' }}>
           <div>
             <span style={{ color: 'var(--rose)' }}>▲ Peak</span>
-            <span style={{ color: 'var(--text-muted)', marginLeft: '6px' }}>{formatHourEET(pt.peakHour, data.updated_at)}</span>
-            <span style={{ color: 'var(--text-secondary)', marginLeft: '6px' }}>{'\u20AC'}{pt.peakPrice.toFixed(1)}/MWh</span>
+            <span style={{ color: 'var(--text-muted)', marginLeft: '6px' }}>{formatHourEET(peakHour!, data.updated_at)}</span>
+            <span style={{ color: 'var(--text-secondary)', marginLeft: '6px' }}>{'\u20AC'}{peakPrice!.toFixed(1)}/MWh</span>
           </div>
           <div>
             <span style={{ color: 'var(--teal)' }}>▼ Trough</span>
-            <span style={{ color: 'var(--text-muted)', marginLeft: '6px' }}>{formatHourEET(pt.troughHour, data.updated_at)}</span>
-            <span style={{ color: 'var(--text-secondary)', marginLeft: '6px' }}>{'\u20AC'}{pt.troughPrice.toFixed(1)}/MWh</span>
+            <span style={{ color: 'var(--text-muted)', marginLeft: '6px' }}>{formatHourEET(troughHour!, data.updated_at)}</span>
+            <span style={{ color: 'var(--text-secondary)', marginLeft: '6px' }}>{'\u20AC'}{troughPrice!.toFixed(1)}/MWh</span>
           </div>
         </div>
       )}

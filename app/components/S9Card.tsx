@@ -20,37 +20,43 @@ interface S9Signal {
   signal?:        string | null;
   eua_eur_t?:     number | null;
   eua_trend?:     string | null;
-  interpretation?: string | null;
   _stale?:        boolean;
   _age_hours?:    number | null;
 }
 
-// Quantitative chip: ratio against the 70 €/t threshold reference.
+const CARBON_THRESHOLD = 70;     // €/t — worker HIGH boundary, also the pill anchor
+const CARBON_BREAKEVEN = 55;     // €/t — BESS peaker-displacement breakeven
+const CARBON_INTENSITY = 0.45;   // tCO₂/MWh — gas-CCGT carbon footprint
+
+// Quantitative chip: ratio against the 70 €/t threshold reference (matches regime HIGH boundary).
 function regimeLabel(price: number | null | undefined): string {
   if (price == null) return '—';
-  return `${(price / 70).toFixed(2)}× / 70 €/t threshold`;
+  return `${(price / CARBON_THRESHOLD).toFixed(2)}× / ${CARBON_THRESHOLD} €/t threshold`;
 }
 
-function regimeSentiment(sig: string | null | undefined): Sentiment {
-  if (sig === 'HIGH') return 'caution';
-  if (sig === 'ELEVATED') return 'caution';
-  if (sig === 'LOW') return 'positive';
+// Sentiment derived directly from the price vs threshold ratio (data-, not regime-derived).
+function ratioSentiment(price: number | null | undefined): Sentiment {
+  if (price == null) return 'neutral';
+  const ratio = price / CARBON_THRESHOLD;
+  if (ratio >= 1)   return 'caution';
+  if (ratio < 0.43) return 'positive'; // < 30 €/t: carbon premium negligible
   return 'neutral';
 }
 
-function carbonInterpretation(sig: string | null | undefined, price: number | null | undefined): string {
-  if (sig === 'HIGH') return 'High carbon — strengthening BESS displacement case.';
-  if (sig === 'ELEVATED') return 'Above-normal carbon — adding to peaker costs.';
-  if (sig === 'LOW') return 'Low carbon — reducing gas emissions premium.';
-  return 'Mid-range carbon — moderate peaker displacement effect.';
+// Data-derived interpretation: ratio vs threshold + computed gas carbon premium.
+function carbonInterpretation(price: number | null | undefined): string {
+  if (price == null) return '—';
+  const ratio = (price / CARBON_THRESHOLD).toFixed(2);
+  const premium = Math.round(price * CARBON_INTENSITY);
+  return `EUA at ${ratio}× the ${CARBON_THRESHOLD} €/t threshold; carbon premium on gas generation €${premium}/MWh.`;
 }
 
-function carbonImpact(sig: string | null | undefined, price: number | null | undefined): string {
-  if (price != null && price >= 55) return 'Reference asset: above BESS displacement breakeven (~55 €/t)';
-  if (price != null && price < 55) return 'Reference asset: below BESS displacement breakeven (~55 €/t)';
-  if (sig === 'HIGH') return 'Reference asset: supportive for peaker displacement';
-  if (sig === 'LOW') return 'Reference asset: reducing displacement premium';
-  return 'Reference asset: neutral for carbon floor';
+// Data-derived impact: position vs BESS displacement breakeven (~55 €/t).
+function carbonImpact(price: number | null | undefined): string {
+  if (price == null) return '—';
+  const delta = Math.round(price - CARBON_BREAKEVEN);
+  const sign = delta >= 0 ? '+' : '';
+  return `BESS displacement breakeven ${CARBON_BREAKEVEN} €/t (${sign}${delta} €/t vs spot).`;
 }
 
 export function S9Card() {
@@ -94,17 +100,17 @@ export function S9Card() {
         <div style={{ marginBottom: 'var(--space-2xs)' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
             <MetricTile label="EUA carbon price" value={data.eua_eur_t.toFixed(1)} unit="€/t" size="hero" dataClass="observed" />
-            <StatusChip status={regimeLabel(data.eua_eur_t)} sentiment={regimeSentiment(data.signal)} />
+            <StatusChip status={regimeLabel(data.eua_eur_t)} sentiment={ratioSentiment(data.eua_eur_t)} />
           </div>
         </div>
       )}
 
       <p className="tier3-interp" style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', lineHeight: 1.4, marginTop: 'var(--space-2xs)', marginRight: 0, marginBottom: 'var(--space-xs)', marginLeft: 0 }}>
-        {carbonInterpretation(data.signal, data.eua_eur_t)}
+        {carbonInterpretation(data.eua_eur_t)}
       </p>
 
       <div className="tier3-impact" style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--teal-medium)', marginBottom: 'var(--space-xs)' }}>
-        {carbonImpact(data.signal, data.eua_eur_t)}
+        {carbonImpact(data.eua_eur_t)}
       </div>
 
       {/* Cross-signal: carbon premium on gas generation */}
@@ -129,7 +135,7 @@ export function S9Card() {
             value: data.eua_eur_t!,
             unit: '€/t',
             secondary: [
-              { label: 'Regime', value: regimeLabel(data.eua_eur_t) },
+              { label: 'Threshold', value: regimeLabel(data.eua_eur_t) },
               ...(data.eua_eur_t! >= 55 ? [{ label: 'BESS', value: 'above breakeven' }] : []),
             ],
           }, e.clientX, e.clientY)}
@@ -138,7 +144,7 @@ export function S9Card() {
             value: data.eua_eur_t!,
             unit: '€/t',
             secondary: [
-              { label: 'Regime', value: regimeLabel(data.eua_eur_t) },
+              { label: 'Threshold', value: regimeLabel(data.eua_eur_t) },
               ...(data.eua_eur_t! >= 55 ? [{ label: 'BESS', value: 'above breakeven' }] : []),
             ],
           }, e.clientX, e.clientY)}
@@ -163,7 +169,7 @@ export function S9Card() {
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--text-ghost)' }}>30</span>
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--text-ghost)', position: 'relative' }}>
               55
-              <span style={{ position: 'absolute', top: '-10px', left: '50%', transform: 'translateX(-50)', fontSize: 'var(--type-mono-xs)', color: 'var(--text-ghost)' }}>▲</span>
+              <span style={{ position: 'absolute', top: '-10px', left: '50%', transform: 'translateX(-50%)', fontSize: 'var(--type-mono-xs)', color: 'var(--text-ghost)' }}>▲</span>
             </span>
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--text-ghost)' }}>80</span>
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--text-ghost)' }}>120</span>

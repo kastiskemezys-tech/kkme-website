@@ -3342,6 +3342,38 @@ async function computeS1(env) {
     ? Math.round((Math.max(...ltPrices) - Math.min(...ltPrices)) * 100) / 100
     : null;
 
+  // Peak / trough anchored to the same full-day array used for the swing,
+  // emitting UTC clock-hours so the frontend can format directly via
+  // formatHourEET. ENTSO-E period starts at UTC 00:00; resolution is hourly
+  // (24 entries) or 15-min (96 entries). Index → UTC hour = floor(idx*24/N).
+  let lt_peak_hour_utc = null, lt_peak_price = null;
+  let lt_trough_hour_utc = null, lt_trough_price = null;
+  let lt_hourly_24 = null;
+  if (ltPrices.length >= 24) {
+    let peakIdx = 0, troughIdx = 0;
+    for (let i = 1; i < ltPrices.length; i++) {
+      if (ltPrices[i] > ltPrices[peakIdx])   peakIdx   = i;
+      if (ltPrices[i] < ltPrices[troughIdx]) troughIdx = i;
+    }
+    const N = ltPrices.length;
+    lt_peak_hour_utc   = Math.floor((peakIdx   * 24) / N);
+    lt_trough_hour_utc = Math.floor((troughIdx * 24) / N);
+    lt_peak_price   = Math.round(ltPrices[peakIdx]   * 100) / 100;
+    lt_trough_price = Math.round(ltPrices[troughIdx] * 100) / 100;
+
+    // 24-entry hourly downsampling (avg of sub-entries per UTC hour).
+    // When N=24 this passes through; when N=96, averages 4 quarter-hours.
+    const perHour = N / 24;
+    if (Number.isInteger(perHour) && perHour >= 1) {
+      lt_hourly_24 = [];
+      for (let h = 0; h < 24; h++) {
+        let s = 0;
+        for (let k = 0; k < perHour; k++) s += ltPrices[h * perHour + k];
+        lt_hourly_24.push(Math.round((s / perHour) * 100) / 100);
+      }
+    }
+  }
+
   // Evening premium: mean(LT h17-21) - mean(LT h10-14) — peak vs shoulder
   const ltEvening  = ltPrices.slice(17, 22);   // hours 17,18,19,20,21
   const ltShoulder = ltPrices.slice(10, 15);   // hours 10,11,12,13,14
@@ -3399,6 +3431,9 @@ async function computeS1(env) {
     lt_pl_spread_eur_mwh:      lt_pl_spread_eur,
     lt_pl_spread_pct,
     lt_daily_swing_eur_mwh,
+    lt_peak_hour_utc, lt_peak_price,
+    lt_trough_hour_utc, lt_trough_price,
+    lt_hourly_24,
     lt_evening_premium,
     p_high_avg, p_low_avg, intraday_capture, bess_net_capture,
     state: signalState(separationPct),
@@ -5620,13 +5655,6 @@ async function fetchTTFGas() {
       bess_impact,
       ttf_eur_mwh: Math.round(ttf_eur_mwh * 100) / 100,
       ttf_trend,
-      interpretation: signal === 'HIGH'
-        ? 'Gas expensive — strong BESS arbitrage case vs peaker plants.'
-        : signal === 'ELEVATED'
-          ? 'Gas at moderate premium — BESS vs peaker economics supported.'
-          : signal === 'LOW'
-            ? 'Gas cheap — peaker margin compressed; less urgency for storage.'
-            : 'Gas price in normal range — standard storage economics apply.',
     };
   } catch (err) {
     clearTimeout(timer);
@@ -5867,11 +5895,6 @@ async function fetchEUCarbon(env) {
       signal,
       eua_eur_t:   eua_eur_t_rounded,
       eua_trend,
-      interpretation: signal === 'HIGH'
-        ? 'High carbon price — strong incentive to displace gas peakers with BESS.'
-        : signal === 'LOW'
-          ? 'Low EUA — carbon premium reduced; BESS vs gas economics less compelling.'
-          : 'Carbon price in normal range — standard BESS vs peaker economics.',
     };
   } catch (err) {
     clearTimeout(timer);
