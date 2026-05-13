@@ -16,7 +16,7 @@ interface S1Signal {
   p_low_avg?: number | null;
   bess_net_capture?: number | null;
   intraday_capture?: number | null;
-  hourly_lt?: number[] | null;
+  lt_hourly_24?: number[] | null;
   updated_at?: string | null;
 }
 
@@ -74,30 +74,38 @@ export function SpreadCaptureCard() {
     return <article style={{ padding: 'var(--space-md)' }}><p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Spread capture data unavailable</p></article>;
   }
 
-  const capture = data.bess_net_capture ?? 0;
+  // Hero = GROSS peak−trough range (matches "raw daily envelope" label + Buy/Sell sub-row).
+  // Net (after RTE charge leg) disclosed below.
+  const grossCapture = data.intraday_capture ?? 0;
+  const netCapture = data.bess_net_capture;
   const pHigh = data.p_high_avg ?? 0;
   const pLow = data.p_low_avg ?? 0;
   const crossBorder = data.spread_eur_mwh ?? 0;
-  const hourly = data.hourly_lt;
-  // Use last 24 hours for today's curve
-  const todayCurve = hourly && hourly.length >= 24 ? hourly.slice(-24) : (hourly ?? []);
+  // Worker emits 24-entry hourly downsample (averaged across 15-min sub-bars when present).
+  const todayCurve = data.lt_hourly_24 ?? [];
 
   const label = CAPTURE_LABELS.da_peak_trough_range;
   const canonicalNote = vsCanonicalFootnote('da_peak_trough_range', canonicalGross4h);
+  const interpValue = grossCapture;
 
   return (
     <article style={{ width: '100%' }}>
       <h3 style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-body-md)', color: 'var(--text-tertiary)', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600, marginBottom: '6px', display: 'flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
         {label.short}
-        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: dotColor(capture), display: 'inline-block' }} />
+        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: dotColor(grossCapture), display: 'inline-block' }} />
       </h3>
 
       <div style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(1.5rem, 3vw, 1.75rem)', fontWeight: 400, color: 'var(--text-primary)', lineHeight: 1, letterSpacing: '0.02em', marginBottom: '2px' }}>
-        {'\u20AC'}{capture}/MWh
+        {'\u20AC'}{grossCapture.toFixed(0)}/MWh
       </div>
       <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: 'var(--space-2xs)' }}>
         {label.detail} · Buy {'\u20AC'}{pLow.toFixed(0)} · Sell {'\u20AC'}{pHigh.toFixed(0)}
       </p>
+      {netCapture != null && (
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--text-ghost)', marginBottom: 'var(--space-2xs)', lineHeight: 1.4 }}>
+          Net after RTE charge leg: {'€'}{netCapture.toFixed(0)}/MWh
+        </p>
+      )}
       {canonicalNote && (
         <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--text-ghost)', marginBottom: 'var(--space-xs)', lineHeight: 1.4 }}>
           {canonicalNote}
@@ -130,7 +138,7 @@ export function SpreadCaptureCard() {
       )}
 
       <p className="tier3-interp" style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', lineHeight: 1.4, marginTop: 'var(--space-2xs)', marginRight: 0, marginBottom: 'var(--space-xs)', marginLeft: 0 }}>
-        {interpretation(capture)}
+        {interpretation(interpValue)}
       </p>
 
       <SourceFooter source="Nord Pool" updatedAt={formatTimestamp(data.updated_at)} dataClass="observed" />

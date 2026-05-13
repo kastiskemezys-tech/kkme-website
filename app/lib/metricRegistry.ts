@@ -87,6 +87,34 @@ export const METRIC_REGISTRY: Record<string, MetricDescriptor> = {
       'per discipline rule #6 (no editorial state-labels). Null when s2_history < 60 days.',
     introducedPhase: '21',
   },
+  lt_peak_price_eur_mwh: {
+    label: 'LT day-ahead peak price (€/MWh)',
+    workerPath: 's1.lt_peak_price',
+    meaning:
+      'Max of the same ltPrices array used for lt_daily_swing_eur_mwh — peak DA hour-of-day price, ' +
+      'paired with lt_peak_hour_utc for the formatted EET hour label. Phase 31.A: replaces the ' +
+      'frontend-side heuristic in computePeakTrough that misclassified 96-entry 15-min ISP arrays as ' +
+      '24-entry hourly when adjacent-bar variance crossed €2 (normal Baltic volatility).',
+    introducedPhase: '31.A',
+  },
+  lt_trough_price_eur_mwh: {
+    label: 'LT day-ahead trough price (€/MWh)',
+    workerPath: 's1.lt_trough_price',
+    meaning:
+      'Min of the same ltPrices array used for lt_daily_swing_eur_mwh — trough DA hour-of-day price, ' +
+      'paired with lt_trough_hour_utc.',
+    introducedPhase: '31.A',
+  },
+  lt_hourly_24: {
+    label: 'LT day-ahead 24-entry hourly downsample',
+    workerPath: 's1.lt_hourly_24',
+    meaning:
+      'Resolution-normalized 24-entry hourly array derived from the same ltPrices source as ' +
+      'lt_daily_swing_eur_mwh. When the upstream array is 96 entries (15-min ISP), averages 4 ' +
+      'sub-bars per UTC hour; when 24, pass-through. SpreadCaptureCard sparkline consumes this ' +
+      'instead of slicing hourly_lt directly (the prior slice(-24) returned last 6h on 15-min arrays).',
+    introducedPhase: '31.A',
+  },
 };
 
 /** Per-country installed-MW selector. Prefers `_live` (VPS-ingested) over hardcode. */

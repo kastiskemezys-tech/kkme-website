@@ -20,36 +20,41 @@ interface S7Signal {
   bess_impact?:  string | null;
   ttf_eur_mwh?:  number | null;
   ttf_trend?:    string | null;
-  interpretation?: string | null;
   _stale?:       boolean;
   _age_hours?:   number | null;
 }
 
+const GAS_THRESHOLD = 50; // €/MWh — BESS-arbitrage reference (worker HIGH boundary)
+const CCGT_HEAT_RATE = 1.667; // ~60% CCGT efficiency → €/MWh_e per €/MWh_th
+
 // Quantitative chip: ratio against the 50 €/MWh threshold reference.
 function regimeLabel(price: number | null | undefined): string {
   if (price == null) return '—';
-  return `${(price / 50).toFixed(2)}× / 50 €/MWh threshold`;
+  return `${(price / GAS_THRESHOLD).toFixed(2)}× / ${GAS_THRESHOLD} €/MWh threshold`;
 }
 
-function regimeSentiment(r: string | null | undefined): Sentiment {
-  if (r === 'HIGH') return 'caution';
-  if (r === 'ELEVATED') return 'caution';
-  if (r === 'LOW') return 'positive';
+// Sentiment derived directly from the price vs threshold ratio (data-, not regime-derived).
+function ratioSentiment(price: number | null | undefined): Sentiment {
+  if (price == null) return 'neutral';
+  const ratio = price / GAS_THRESHOLD;
+  if (ratio >= 1)   return 'caution';   // at or above the arbitrage-support threshold
+  if (ratio < 0.3)  return 'positive';  // < 15 €/MWh: peaker margin compressed
   return 'neutral';
 }
 
-function gasInterpretation(regime: string | null | undefined): string {
-  if (regime === 'HIGH') return 'Expensive gas — strengthening BESS arbitrage case.';
-  if (regime === 'ELEVATED') return 'Above-normal gas — supporting wider peak spreads.';
-  if (regime === 'LOW') return 'Cheap gas — compressing peaker displacement value.';
-  return 'Mid-range gas — moderate effect on peak pricing.';
+// Data-derived interpretation: ratio vs threshold + computed peaker marginal cost.
+function gasInterpretation(price: number | null | undefined): string {
+  if (price == null) return '—';
+  const ratio = (price / GAS_THRESHOLD).toFixed(2);
+  const peaker = Math.round(price * CCGT_HEAT_RATE);
+  return `Gas at ${ratio}× the ${GAS_THRESHOLD} €/MWh threshold; gas peaker marginal cost €${peaker}/MWh.`;
 }
 
-function gasImpact(regime: string | null | undefined): string {
-  if (regime === 'HIGH') return 'Reference asset: supportive for arbitrage vs gas peakers';
-  if (regime === 'ELEVATED') return 'Reference asset: supporting wider peak spreads';
-  if (regime === 'LOW') return 'Reference asset: reducing peaker displacement value';
-  return 'Reference asset: neutral for spread floor';
+// Data-derived impact: P_high gas-only floor in absolute €/MWh.
+function gasImpact(price: number | null | undefined): string {
+  if (price == null) return '—';
+  const peaker = Math.round(price * CCGT_HEAT_RATE);
+  return `P_high floor (gas only): €${peaker}/MWh — combine with EUA carbon for full peaker displacement floor.`;
 }
 
 export function S7Card() {
@@ -77,8 +82,6 @@ export function S7Card() {
     return <article style={{ padding: 'var(--space-md)' }}><p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Gas data unavailable</p></article>;
   }
 
-  const regime = data.regime ?? data.signal;
-
   return (
     <article style={{ width: '100%' }}>
       <h3 style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-body-md)', color: 'var(--text-tertiary)', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600, marginBottom: '6px' }}>
@@ -89,17 +92,17 @@ export function S7Card() {
         <div style={{ marginBottom: 'var(--space-2xs)' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
             <MetricTile label="TTF day-ahead" value={data.ttf_eur_mwh.toFixed(1)} unit="€/MWh" size="hero" dataClass="observed" />
-            <StatusChip status={regimeLabel(data.ttf_eur_mwh)} sentiment={regimeSentiment(regime)} />
+            <StatusChip status={regimeLabel(data.ttf_eur_mwh)} sentiment={ratioSentiment(data.ttf_eur_mwh)} />
           </div>
         </div>
       )}
 
       <p className="tier3-interp" style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', lineHeight: 1.4, marginTop: 'var(--space-2xs)', marginRight: 0, marginBottom: 'var(--space-xs)', marginLeft: 0 }}>
-        {gasInterpretation(regime)}
+        {gasInterpretation(data.ttf_eur_mwh)}
       </p>
 
       <div className="tier3-impact" style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--teal-medium)', marginBottom: 'var(--space-xs)' }}>
-        {gasImpact(regime)}
+        {gasImpact(data.ttf_eur_mwh)}
       </div>
 
       {/* Cross-signal: P_high floor math */}
@@ -122,13 +125,13 @@ export function S7Card() {
             label: 'TTF gas',
             value: data.ttf_eur_mwh!,
             unit: '€/MWh',
-            secondary: [{ label: 'Regime', value: regimeLabel(data.ttf_eur_mwh) }],
+            secondary: [{ label: 'Threshold', value: regimeLabel(data.ttf_eur_mwh) }],
           }, e.clientX, e.clientY)}
           onMouseMove={(e) => tt.show({
             label: 'TTF gas',
             value: data.ttf_eur_mwh!,
             unit: '€/MWh',
-            secondary: [{ label: 'Regime', value: regimeLabel(data.ttf_eur_mwh) }],
+            secondary: [{ label: 'Threshold', value: regimeLabel(data.ttf_eur_mwh) }],
           }, e.clientX, e.clientY)}
           onMouseLeave={() => tt.hide()}>
           <div style={{
