@@ -545,11 +545,13 @@ body::after {
 body,
 .card,
 .card-tier1,
+.card-tier1-feature,
 .card-tier3,
 .section-elevated,
 .signal-card,
 .inline-cta a {
-  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease,
+              transform 160ms var(--ease-standard), box-shadow 160ms var(--ease-standard);
 }
 
 /* ── Minimum contrast enforcement ─────────────────────────────────────────── */
@@ -1404,20 +1406,44 @@ img.logo-light { display: none; }
 }
 
 /* ═══════════════════════════════════════════
-   PHASE 18.3 — Card hover-lift (interactive cards only, spec P2-4)
-   Applied to RevenueCard / S4Card / TradingEngineCard wrappers via the
-   .card--interactive modifier. Pure-display cards do NOT lift.
+   PHASE 18.3.1 — Universal card hover-lift (operator decision 2026-05-08)
+   Every card family lifts on hover. Hero opts out by virtue of using
+   .hero-section (not a card class). Transitions are declared in the
+   combined body+card rule above so we only need :hover state here.
+
+   !important on transform: .card / .card-tier1-feature / .card-tier3 each
+   carry `animation: cardFadeIn ... both`. The animation's fill-state
+   `transform: translateY(0)` is treated as an active animation value and
+   ranks above regular cascade — silently blocking :hover transform.
+   !important promotes :hover above the animation per CSS spec.
    ═══════════════════════════════════════════ */
+.card:hover,
+.card-tier1-feature:hover,
+.card-tier3:hover {
+  transform: translateY(-0.5px) !important;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+}
+
+/* Opt-in modifier for non-.card surfaces that want the lift
+   (e.g. the investable pill inside RevenueCard at RevenueCard.tsx:1641 —
+   carries card--revenue for the top accent but has no .card class). */
 .card--interactive {
   transition: transform 160ms var(--ease-standard), box-shadow 160ms var(--ease-standard);
 }
 .card--interactive:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  transform: translateY(-0.5px);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
 }
+
 @media (prefers-reduced-motion: reduce) {
+  .card:hover,
+  .card-tier1-feature:hover,
+  .card-tier3:hover {
+    transform: none !important;
+    box-shadow: none;
+  }
   .card--interactive { transition: none; }
-  .card--interactive:hover { transform: none; }
+  .card--interactive:hover { transform: none; box-shadow: none; }
 }
 
 /* ═══════════════════════════════════════════
