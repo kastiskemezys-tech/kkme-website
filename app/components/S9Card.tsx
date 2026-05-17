@@ -4,11 +4,10 @@ import { useState, useEffect } from 'react';
 import { useSignal } from '@/lib/useSignal';
 import { REFRESH_COOL } from '@/lib/refresh-cadence';
 import {
-  MetricTile, StatusChip, SourceFooter, DetailsDrawer,
+  SourceFooter, DetailsDrawer,
   ChartTooltip, useChartTooltipState,
 } from '@/app/components/primitives';
 import { Sparkline } from './Sparkline';
-import type { Sentiment } from '@/app/lib/types';
 import { formatTimestamp } from '@/app/lib/freshness';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
@@ -28,19 +27,19 @@ const CARBON_THRESHOLD = 70;     // €/t — worker HIGH boundary, also the pil
 const CARBON_BREAKEVEN = 55;     // €/t — BESS peaker-displacement breakeven
 const CARBON_INTENSITY = 0.45;   // tCO₂/MWh — gas-CCGT carbon footprint
 
-// Quantitative chip: ratio against the 70 €/t threshold reference (matches regime HIGH boundary).
+// Quantitative threshold reference (used in interpretation prose).
 function regimeLabel(price: number | null | undefined): string {
   if (price == null) return '—';
   return `${(price / CARBON_THRESHOLD).toFixed(2)}× / ${CARBON_THRESHOLD} €/t threshold`;
 }
 
-// Sentiment derived directly from the price vs threshold ratio (data-, not regime-derived).
-function ratioSentiment(price: number | null | undefined): Sentiment {
-  if (price == null) return 'neutral';
+// Header dot color: data-derived from the price vs threshold ratio.
+function dotColor(price: number | null | undefined): string {
+  if (price == null) return 'var(--text-muted)';
   const ratio = price / CARBON_THRESHOLD;
-  if (ratio >= 1)   return 'caution';
-  if (ratio < 0.43) return 'positive'; // < 30 €/t: carbon premium negligible
-  return 'neutral';
+  if (ratio >= 1)   return 'var(--amber)';
+  if (ratio < 0.43) return 'var(--green)'; // < 30 €/t: carbon premium negligible
+  return 'var(--text-muted)';
 }
 
 // Data-derived interpretation: ratio vs threshold + computed gas carbon premium.
@@ -92,17 +91,20 @@ export function S9Card() {
 
   return (
     <article style={{ width: '100%' }}>
-      <h3 style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-body-md)', color: 'var(--text-tertiary)', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600, marginBottom: '6px' }}>
+      <h3 style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-body-md)', color: 'var(--text-tertiary)', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600, marginBottom: '6px', display: 'flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
         EU ETS Carbon
+        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: dotColor(data.eua_eur_t), display: 'inline-block' }} />
       </h3>
 
       {data.eua_eur_t != null && (
-        <div style={{ marginBottom: 'var(--space-2xs)' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-            <MetricTile label="EUA carbon price" value={data.eua_eur_t.toFixed(1)} unit="€/t" size="hero" dataClass="observed" />
-            <StatusChip status={regimeLabel(data.eua_eur_t)} sentiment={ratioSentiment(data.eua_eur_t)} />
+        <>
+          <div style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(1.5rem, 3vw, 1.75rem)', fontWeight: 400, color: 'var(--text-primary)', lineHeight: 1, letterSpacing: '0.02em', marginBottom: '2px' }}>
+            {data.eua_eur_t.toFixed(1)} <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)' }}>€/t</span>
           </div>
-        </div>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: 'var(--space-xs)' }}>
+            EUA carbon price · {regimeLabel(data.eua_eur_t)}
+          </p>
+        </>
       )}
 
       <p className="tier3-interp" style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', lineHeight: 1.4, marginTop: 'var(--space-2xs)', marginRight: 0, marginBottom: 'var(--space-xs)', marginLeft: 0 }}>
@@ -127,7 +129,7 @@ export function S9Card() {
         </p>
       )}
 
-      {/* Threshold bar with hover tooltip */}
+      {/* Commodity-subtype scale bar (S7 + S9 only — documented variant per phase-31 pick 4). */}
       {data.eua_eur_t != null && (
         <div style={{ position: 'relative', marginBottom: 'var(--space-xs)', cursor: 'default' }}
           onMouseEnter={(e) => tt.show({

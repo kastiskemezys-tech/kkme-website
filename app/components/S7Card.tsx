@@ -4,11 +4,10 @@ import { useState, useEffect } from 'react';
 import { useSignal } from '@/lib/useSignal';
 import { REFRESH_COOL } from '@/lib/refresh-cadence';
 import {
-  MetricTile, StatusChip, SourceFooter, DetailsDrawer,
+  SourceFooter, DetailsDrawer,
   ChartTooltip, useChartTooltipState,
 } from '@/app/components/primitives';
 import { Sparkline } from './Sparkline';
-import type { Sentiment } from '@/app/lib/types';
 import { formatTimestamp } from '@/app/lib/freshness';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
@@ -27,19 +26,19 @@ interface S7Signal {
 const GAS_THRESHOLD = 50; // €/MWh — BESS-arbitrage reference (worker HIGH boundary)
 const CCGT_HEAT_RATE = 1.667; // ~60% CCGT efficiency → €/MWh_e per €/MWh_th
 
-// Quantitative chip: ratio against the 50 €/MWh threshold reference.
+// Quantitative threshold reference (used in interpretation prose).
 function regimeLabel(price: number | null | undefined): string {
   if (price == null) return '—';
   return `${(price / GAS_THRESHOLD).toFixed(2)}× / ${GAS_THRESHOLD} €/MWh threshold`;
 }
 
-// Sentiment derived directly from the price vs threshold ratio (data-, not regime-derived).
-function ratioSentiment(price: number | null | undefined): Sentiment {
-  if (price == null) return 'neutral';
+// Header dot color: data-derived from the price vs threshold ratio.
+function dotColor(price: number | null | undefined): string {
+  if (price == null) return 'var(--text-muted)';
   const ratio = price / GAS_THRESHOLD;
-  if (ratio >= 1)   return 'caution';   // at or above the arbitrage-support threshold
-  if (ratio < 0.3)  return 'positive';  // < 15 €/MWh: peaker margin compressed
-  return 'neutral';
+  if (ratio >= 1)   return 'var(--amber)';   // at or above arbitrage-support threshold
+  if (ratio < 0.3)  return 'var(--green)';   // peaker margin compressed
+  return 'var(--text-muted)';
 }
 
 // Data-derived interpretation: ratio vs threshold + computed peaker marginal cost.
@@ -84,17 +83,20 @@ export function S7Card() {
 
   return (
     <article style={{ width: '100%' }}>
-      <h3 style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-body-md)', color: 'var(--text-tertiary)', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600, marginBottom: '6px' }}>
+      <h3 style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-body-md)', color: 'var(--text-tertiary)', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600, marginBottom: '6px', display: 'flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
         TTF Gas Price
+        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: dotColor(data.ttf_eur_mwh), display: 'inline-block' }} />
       </h3>
 
       {data.ttf_eur_mwh != null && (
-        <div style={{ marginBottom: 'var(--space-2xs)' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-            <MetricTile label="TTF day-ahead" value={data.ttf_eur_mwh.toFixed(1)} unit="€/MWh" size="hero" dataClass="observed" />
-            <StatusChip status={regimeLabel(data.ttf_eur_mwh)} sentiment={ratioSentiment(data.ttf_eur_mwh)} />
+        <>
+          <div style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(1.5rem, 3vw, 1.75rem)', fontWeight: 400, color: 'var(--text-primary)', lineHeight: 1, letterSpacing: '0.02em', marginBottom: '2px' }}>
+            {data.ttf_eur_mwh.toFixed(1)} <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)' }}>€/MWh</span>
           </div>
-        </div>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: 'var(--space-xs)' }}>
+            TTF day-ahead · {regimeLabel(data.ttf_eur_mwh)}
+          </p>
+        </>
       )}
 
       <p className="tier3-interp" style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', lineHeight: 1.4, marginTop: 'var(--space-2xs)', marginRight: 0, marginBottom: 'var(--space-xs)', marginLeft: 0 }}>
@@ -118,7 +120,7 @@ export function S7Card() {
         </p>
       )}
 
-      {/* Threshold bar with hover tooltip */}
+      {/* Commodity-subtype scale bar (S7 + S9 only — documented variant per phase-31 pick 4). */}
       {data.ttf_eur_mwh != null && (
         <div style={{ position: 'relative', marginBottom: 'var(--space-xs)', cursor: 'default' }}
           onMouseEnter={(e) => tt.show({

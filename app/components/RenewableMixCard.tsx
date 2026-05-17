@@ -2,7 +2,7 @@
 
 import { useSignal } from '@/lib/useSignal';
 import { REFRESH_WARM } from '@/lib/refresh-cadence';
-import { SourceFooter } from '@/app/components/primitives';
+import { SourceFooter, DetailsDrawer } from '@/app/components/primitives';
 import { computeRenewableMix, solarAnomalyFootnote } from '@/app/lib/renewableShare';
 import { formatTimestamp } from '@/app/lib/freshness';
 
@@ -116,6 +116,25 @@ export function RenewableMixCard() {
       </p>
 
       <SourceFooter source="ENTSO-E" updatedAt={formatTimestamp(ts)} dataClass="observed" />
+
+      <div style={{ marginTop: 'var(--space-xs)' }}>
+        <DetailsDrawer label="View renewable mix detail">
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 'var(--space-xs)' }}>Source</p>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+            ENTSO-E Transparency Platform wind, solar, and load actuals for the Baltic synchronous area (LT + LV + EE). Aggregated by the S1 worker (`/s_wind`, `/s_solar`, `/s_load`), with 7-day rolling averages computed server-side.
+          </p>
+
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 'var(--space-xs)', marginTop: 'var(--space-sm)' }}>Computation</p>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+            renewable_pct = (wind_mw + solar_mw) / load_mw × 100. Thermal residual = load − wind − solar; wind/solar/thermal shares displayed as a stacked bar. Detail in `app/lib/renewableShare.ts`. The 7-day baseline uses the same ENTSO-E feed averaged over the rolling window; Δpp vs 7D contextualizes today against recent generation mix.
+          </p>
+
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 'var(--space-xs)', marginTop: 'var(--space-sm)' }}>Limitations</p>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+            Actuals only — no forecast. ENTSO-E observed-data lag varies by TSO (typically &lt;1h). Solar anomalies (negative or implausibly large values) surface a footnote; the underlying value still renders. Net-export windows (renewables &gt; load) are reported, but cross-border exports themselves are not decomposed here.
+          </p>
+        </DetailsDrawer>
+      </div>
     </article>
   );
 }
