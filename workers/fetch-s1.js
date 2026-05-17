@@ -3362,15 +3362,18 @@ async function computeS1(env) {
     lt_trough_price = Math.round(ltPrices[troughIdx] * 100) / 100;
 
     // 24-entry hourly downsampling (avg of sub-entries per UTC hour).
-    // When N=24 this passes through; when N=96, averages 4 quarter-hours.
-    const perHour = N / 24;
-    if (Number.isInteger(perHour) && perHour >= 1) {
-      lt_hourly_24 = [];
-      for (let h = 0; h < 24; h++) {
-        let s = 0;
-        for (let k = 0; k < perHour; k++) s += ltPrices[h * perHour + k];
-        lt_hourly_24.push(Math.round((s / perHour) * 100) / 100);
-      }
+    // Resolution-aware via Math.round(h*N/24) bucketing — mirrors the
+    // evening-premium slice arithmetic at L3382-3383 (Phase 31.A.2) and the
+    // inverse of the peak/trough idx→UTC-hour formula at L3359-3360. Handles
+    // N=24 (pass-through), N=96 (4 sub-bars per hour), and N=95 (3-or-4
+    // sub-bars per hour) uniformly. Output: always 24-entry float array.
+    lt_hourly_24 = [];
+    for (let h = 0; h < 24; h++) {
+      const lo = Math.round((h * N) / 24);
+      const hi = Math.round(((h + 1) * N) / 24);
+      const bucket = ltPrices.slice(lo, hi);
+      const m = bucket.reduce((a, b) => a + b, 0) / bucket.length;
+      lt_hourly_24.push(Math.round(m * 100) / 100);
     }
   }
 
