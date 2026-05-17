@@ -1882,6 +1882,112 @@ Then Tier 1 (12.12 + 12.14 + 7.7g). Phase 12.12 picks up:
 - After merge to main → Phase 30 §6 (three commits + push to `phase-30-methodology-research` branch) resumes from the same working tree per operator's latest message.
  phase-12-8-1-backtest-caption
 
+### Session 63 — 2026-05-17 — Phase 19 — A11y MVP (Claude Code)
+
+**Headline:** First a11y pass after 13 phases of visual/data/structural polish. Branch `phase-19-a11y-mvp` off `a0f138a` (post-Phase-31 merge). **Three-pause-point session, frontend-only, 14 files touched, ~3h CC.** P1-3 (focus-visible) + P2-2 (chart aria + tooltip semantics) + audit-v2 P5 (form contrast + missing labels) addressed per the consolidated MVP a11y bundle. Eleven discrete fixes shipped, zero engine/schema/worker touch, zero new lint errors, zero new axe violations introduced.
+
+**Pause A audit (per discipline rule #1 triangulation — code-grep + DOM-render check + git-log cross-reference before scoping):**
+
+| Category | ❌ missing | ⚠️ partial | ✓ done | Notes |
+|---|---:|---:|---:|---|
+| Focus management | 0 | 7 | 1 | Global `:focus-visible` rule existed at `app/globals.css:1360`; only `border-radius: 2px` from pick #1 was missing |
+| Landmarks | 1 | 0 | 4 | 7 `<div className="section">` had no `<section>`/`role="region"`/`aria-labelledby` — page-level sections all caught |
+| Chart aria-labels | 6 | 2 | 18 | 18 sites with `role="img"` + `aria-label` (Phase 18.2 ship + RevenueCard/TradingEngineCard); 6 missing (`PeakForecastCard` P25/P50/P90 marker bar [NEW from P31], 2× `SpreadCaptureCard` sparklines, `BalticStorageIndexCard` SparkRow, `RevenueCard` RteSparkline, `RenewableMixCard` stacked share bar); 2 with caveats (`RegimeBarometer` regime-word aria, `RevenueSensitivityTornado` static aria) |
+| Live regions | 1 | 0 | 7 | `FreshnessBadge` primitive at `app/components/primitives/FreshnessBadge.tsx` has **0 in-prod usages** (only test-render); the actual production freshness path is `SourceFooter` (rendered in ≥15 cards) — pick #2 retargeted to SourceFooter per operator clarification #1 |
+| State announcements | 2 | 1 | 2 | `DetailsDrawer` primitive lacked `aria-expanded`/`aria-controls`; `S2Card.CountryToggle` had parent `aria-disabled` but no per-button equivalent; `StickyNav` had no `aria-current` (deferred per operator clarification #2 → Phase 19.1 candidate) |
+| Form a11y | 1 | 4 | 7 | All 7 fields had `<label htmlFor>`; 4 required fields had native `required` but no `aria-required`; cream-on-cream candidate identified as input `::placeholder` browser-default fallback (~50% opacity of text-primary), confirmed in light theme |
+
+Total ❌ at Pause A: 11. Pause B order revised from prompt §Pause B based on real coverage (RegimeBarometer regime-word aria treated as rule-#6-adjacent → rewrite; RevenueSensitivityTornado static aria → rewrite; scrollspy deferred).
+
+**Operator clarifications applied at Pause B:**
+
+1. SourceFooter live region: `role="status" aria-live="polite" aria-atomic="false"` (S5/S6 shipped pattern). Cadence verified: `REFRESH_HOT = 5min` minimum in `lib/refresh-cadence.ts` — well above sub-minute, no throttling needed. Single primitive change auto-propagates to ≥11 cards (probe confirmed 11 SourceFooter live-region instances at /).
+2. `aria-current` scrollspy DEFERRED — filed as Phase 19.1 candidate (scrollspy + tab-order audit) in roadmap delta below.
+3. RegimeBarometer aria: chart is a gauge with no visible regime word (gauge only renders the word when `showLabel={true}`, default false). Rewritten to data-derived `"Regime indicator: position N of 5"` per rule #6 spirit (aria-text not a chip but operator's clarification was "use judgment").
+4. RevenueSensitivityTornado aria: rewritten from static `"IRR sensitivity tornado chart"` to data-derived `"IRR sensitivity tornado — top driver: {label} {±N.N} pp (axis ±{N} pp over {N} drivers)"`.
+
+**Shipped (11 fixes, 14 files):**
+
+| # | Fix | File(s) |
+|---|---|---|
+| 1 | Global `:focus-visible` — added `border-radius: 2px` to existing rule | `app/globals.css:1360-1364` |
+| 2 | Landmark sections — 7× `<div className="section">` → `<section aria-labelledby="...">` + matching `<h2 id="...">` | `app/page.tsx` (revenue-drivers, build, structural, revenue, trading, intel, conversation) |
+| 3a | Chart aria — PeakForecastCard P25/P50/P90 distribution bar (NEW from P31) | `app/components/PeakForecastCard.tsx` |
+| 3b | Chart aria — SpreadCaptureCard today's 24h LT curve + 14D swing history (2 sparklines) | `app/components/SpreadCaptureCard.tsx` |
+| 3c | Chart aria — BalticStorageIndexCard `<SparkRow>` (auto-applies to all 4 monthly tracks via shared primitive) | `app/components/BalticStorageIndexCard.tsx` |
+| 3d | Chart aria — RevenueCard `RteSparkline` (BOL→EOL %) | `app/components/RevenueCard.tsx:385-387` |
+| 3e | Chart aria — RenewableMixCard 8px stacked share bar | `app/components/RenewableMixCard.tsx` |
+| 3f | Chart aria rewrite — RegimeBarometer data-derived `"position N of 5"` | `app/components/primitives/RegimeBarometer.tsx` + `app/lib/__tests__/regimeBarometer.test.tsx` (test expectation updated with rule-#6 comment) |
+| 3g | Chart aria rewrite — RevenueSensitivityTornado data-derived top-driver label | `app/components/RevenueSensitivityTornado.tsx` |
+| 4 | SourceFooter live region — `role="status" aria-live="polite" aria-atomic="false"` (auto-propagates to ≥11 cards) | `app/components/primitives/SourceFooter.tsx` |
+| 5 | DetailsDrawer trigger — `aria-expanded={open}` + `aria-controls={drawerDomId}` via `useId()`; auto-propagates to all 12 in-prod consumers | `app/components/primitives/DetailsDrawer.tsx` |
+| 6 | CountryToggle (S2Card) — per-button `aria-disabled` + `aria-pressed`; `role="group" aria-label="Country"` on wrapper | `app/components/S2Card.tsx` |
+| 7a | ContactForm — `aria-required="true"` on the 4 required fields (type, name, email, message) | `app/components/ContactForm.tsx` |
+| 7b | Placeholder contrast — `input::placeholder, textarea::placeholder { color: var(--text-muted); opacity: 1; }` (fixes audit-v2 P5 cream-on-cream) | `app/globals.css` |
+| 8 | Phase 19 probe script | `scripts/_phase-19-probe.mjs` (+ `docs/visual-audit/phase-19/{focus-ring-1440,focus-ring-414}.png`) |
+
+**Verification gates (baseline reference: tsc 0 errors / vitest 919-passed / lint 125 problems / build success):**
+
+| Gate | Baseline | Post-edit | Δ |
+|---|---|---|---|
+| `npx tsc --noEmit` | 0 errors | 0 errors | 0 |
+| `npm run test` | 919/919 (60 files) | 919/919 (60 files) | 0 (one test expectation updated for RegimeBarometer aria rewrite) |
+| `npm run lint` | 125 problems (39 errors / 86 warnings) | 125 problems (39 errors / 86 warnings) | 0 (confirmed via `git stash` baseline diff) |
+| `npm run lint:no-raw-spacing` | pass | pass | 0 |
+| `npm run lint:no-editorial-chips` | pass | pass | 0 |
+| `npm run build` | success | success (3.8s compile, 7/7 static) | 0 |
+
+**Pause C verification:**
+
+*Local-build smoke-test:* `npm run build && npx serve out -l 3100`. 5 routes (`/`, `/intel`, `/regulatory`, `/methodology`, `/dev/hero-preview`) all HTTP 200. 8 chunks (sampled `.js` from `out/_next/static/chunks/`) all HTTP 200. Clean.
+
+*axe-core CLI scan:* `npx @axe-core/cli@latest http://localhost:3100/ --exit`. **7 color-contrast violations only — identical baseline pre-Phase-19 (verified via `git stash` + rebuild + re-scan).** Zero new violations introduced; zero violations in landmark / ARIA / missing-label / aria-required / form-association / focus-management categories. The 7 color-contrast hits are pre-existing palette issues (4× footer text-muted, 3× page-container muted elements) and out of scope for this MVP a11y phase per prompt §"What NOT to do" (no color/palette changes). **Deferred to future Tier 6 comprehensive WCAG audit** (Phase 19.2 candidate filed below).
+
+*Multi-viewport DOM probe (`node scripts/_phase-19-probe.mjs`):* Playwright (chromium headless). Pass criteria all satisfied:
+
+| Probe | Result |
+|---|---|
+| Landmarks | `main:1`, `nav:2`, `header:2`, `footer:1`, top-level sections `7/7 labelled` (17 total `<section>` includes 10 inner `<DrawerSection>` anchors which are by-design unlabelled) |
+| SourceFooter live regions | 11 instances with `role="status"` + `aria-live="polite"` + `[src]` bracket signature |
+| DetailsDrawer triggers | 12 buttons with `aria-expanded` + `aria-controls` → all 12 controls-targets exist in DOM (S1 + S2 "Reading this card", 2× SignalDrawerPanel "View signal breakdown", 4 tier-3 cards "View [thing] detail", S7+S9 "View gas/carbon detail", RevenueCard + TradingEngineCard top-level drawers) |
+| Charts with `role="img"` | 31 total; 11 with empty `aria-label` are all `<canvas>` children of chart.js auto-tagged-role wrappers whose parent `<div role="img">` already carries the descriptive label (0 real misses) |
+| CountryToggle | 3 buttons, all `aria-pressed=false` `aria-disabled=true` (default-load state: aFRR locked LT-only) |
+| ContactForm | 4 required fields all `aria-required="true"` (type, name, email, message) |
+| Skip-to-content link | present (Phase 18.1 ship intact) |
+| Focus ring desktop | `outline: 2px solid rgb(123,94,167) (= var(--accent))`, `outline-offset: 2px`, `border-radius: 2px` on RevenueCard drawer trigger |
+| Focus ring mobile (414) | identical computed style on `.nav-mobile-toggle` |
+
+*Visual evidence:* 2 PNGs at `docs/visual-audit/phase-19/focus-ring-1440.png` (RevenueCard drawer trigger with lavender ring) + `focus-ring-414.png` (mobile nav toggle with lavender ring). Both show 2px solid `var(--accent)` outline with 2px offset and 2px corner radius — pick #1 confirmed visually rendering.
+
+*Operator-side checks (NOT CC-runnable; flagged for operator post-merge verification per prompt §Pause C):*
+- **macOS VoiceOver smoke:** Cmd+F5 → tab through page → confirm announcements make sense. Expected wins: section landmarks now announce by heading ("Revenue signals, region"), drawer triggers announce collapsed/expanded state, freshness updates announce on data refresh, form fields announce "required" via aria-required.
+- **Keyboard-only navigation:** Tab/Shift-Tab/Enter through page; confirm all interactives reachable + activatable. Tab order is currently natural-source-order (no positive tabindex anywhere — prompt §"What NOT to do" honored).
+- **Lighthouse a11y score:** open Chrome DevTools → Lighthouse → A11y; target ≥95. Pre-Phase-19 baseline unknown; recommend operator capture both pre-merge (revert this branch locally) + post-merge for delta.
+
+**Out of scope (untouched per prompt §"What NOT to do"):**
+- No content rewrites — labels/copy only changed where genuinely missing (none required after audit).
+- No color/palette changes — placeholder contrast fix is a single token swap, not a brand sweep.
+- No new components — all changes are augment-existing.
+- No JS a11y libs — native HTML/ARIA only.
+- No `.sr-only` sprawl — zero new screen-reader-only text added.
+- No positive `tabindex` — none added.
+- No roadmap edits per discipline rule #5.
+
+**Roadmap delta needed — operator to apply Cowork-side after merge (per rule #5 + `feedback_cowork_cc_sequencing.md` step 10):**
+
+1. **Mark Phase 19 SHIPPED** in `docs/phases/_post-12-8-roadmap.md` with this Session 63 reference.
+2. **Update "Currently active" pointer** away from Phase 19.
+3. **File Phase 19.1 candidate** — scrollspy + StickyNav `aria-current="location"` + tab-order audit. Deferred from this phase per operator clarification #2 (~30min extra work; should be paired with a wider keyboard-only audit and natural-source-order verification across the lazy-loaded card tree).
+4. **File Phase 19.2 candidate** — comprehensive WCAG 2.1 AA color-contrast pass to address the 7 pre-existing axe-core violations (4× footer text-muted, 3× page-container muted elements). Out of scope for MVP per prompt §"What NOT to do" (no color/palette changes); needs paired Tier 6 brand-palette review.
+5. **(Optional)** automated a11y CI gate via `@axe-core/cli` against the local build output — would catch any future a11y regressions without operator-side verification, but worth confirming the 7 existing baseline violations are explicitly accepted (or fixed in 19.2) before turning on a gate.
+
+**Backlog discovered this session:**
+- The `FreshnessBadge` primitive (`app/components/primitives/FreshnessBadge.tsx`) has zero in-production consumers; only renders in `app/lib/__tests__/freshnessBadge.test.tsx`. Either it's dead code that should be removed (low effort) or it was intended as a follow-up to replace `FreshnessDot` + `SourceFooter` and never landed. Worth resolving in a 12.10b housekeeping pass — not a Phase 19 concern.
+
+**Branch push:** `phase-19-a11y-mvp` pushed to origin. Operator opens PR + merges per `feedback_pr_workflow_minimal.md` (no body, no branch delete).
+
+---
+
 ### Session 62 — 2026-05-17 — Phase 31 — Tier-3 card structural normalization (Claude Code)
 
 **Headline:** 6 tier-3 cards under "Structural market drivers" finally read as siblings. Shipped on `phase-31-tier3-visual-normalization` off latest main (`08e26e7`, post-31.A.1 merge). **Three-pause-point session, frontend-only, 6 components + new probe script, ~3h CC.** Status indicator unified to filled colored dot on S7/S9 (dropped `<MetricTile dataClass="observed">` green pill + `<StatusChip>` sentiment chip + their imports). Hero type aligned: S7/S9 hero rebuilt as inline serif `clamp(1.5rem, 3vw, 1.75rem)` matching cards 1-4 (was `MetricTile size="hero"` at `clamp(40px, 5.5vw, 64px)` — dropping ~36px at desktop). `DetailsDrawer` "▸ View [thing] detail" footer affordance added to RenewableMix / ResidualLoad / PeakForecast / SpreadCapture with three-section drawer content (Source / Computation / Limitations) authored per worker source visible in the codebase; S7/S9 retained their pre-existing "View gas detail" / "View carbon detail" drawers. PeakForecast viz added: P25/P50/P90 marker bar (28px tall, mint P50 tick, today's swing as 2px primary-color cursor, micro-labels below). S7/S9 commodity-subtype bottom scale bar preserved with a code comment marking it as documented variant per pick 4.

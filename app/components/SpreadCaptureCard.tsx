@@ -114,14 +114,24 @@ export function SpreadCaptureCard() {
       )}
 
       {/* Today's price curve */}
-      {todayCurve.length >= 2 && (
-        <div style={{ marginBottom: '6px' }}>
-          <Sparkline values={todayCurve} color="var(--teal)" height={32} />
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--text-ghost)', marginTop: '2px' }}>
-            Today&apos;s LT price curve (24h)
-          </p>
-        </div>
-      )}
+      {todayCurve.length >= 2 && (() => {
+        const validHourly = todayCurve.filter((v): v is number => typeof v === 'number' && isFinite(v));
+        const hMin = validHourly.length ? Math.min(...validHourly) : 0;
+        const hMax = validHourly.length ? Math.max(...validHourly) : 0;
+        return (
+          <div style={{ marginBottom: '6px' }}>
+            <div
+              role="img"
+              aria-label={`LT day-ahead 24h price curve, ${validHourly.length} hours; range €${hMin.toFixed(0)} to €${hMax.toFixed(0)} per MWh`}
+            >
+              <Sparkline values={todayCurve} color="var(--teal)" height={32} />
+            </div>
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--text-ghost)', marginTop: '2px' }}>
+              Today&apos;s LT price curve (24h)
+            </p>
+          </div>
+        );
+      })()}
 
       {/* Cross-border spread */}
       <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '6px' }}>
@@ -129,14 +139,24 @@ export function SpreadCaptureCard() {
       </p>
 
       {/* 14D swing history sparkline */}
-      {history.length >= 2 && (
-        <div style={{ marginBottom: '6px' }}>
-          <Sparkline values={history} color="var(--amber)" height={20} />
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--text-ghost)', marginTop: '2px' }}>
-            14D daily swing
-          </p>
-        </div>
-      )}
+      {history.length >= 2 && (() => {
+        const sMin = Math.min(...history);
+        const sMax = Math.max(...history);
+        const sLast = history[history.length - 1];
+        return (
+          <div style={{ marginBottom: '6px' }}>
+            <div
+              role="img"
+              aria-label={`14-day daily swing history, ${history.length} days; range €${sMin.toFixed(0)} to €${sMax.toFixed(0)} per MWh; latest €${sLast.toFixed(0)} per MWh`}
+            >
+              <Sparkline values={history} color="var(--amber)" height={20} />
+            </div>
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--text-ghost)', marginTop: '2px' }}>
+              14D daily swing
+            </p>
+          </div>
+        );
+      })()}
 
       <p className="tier3-interp" style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', lineHeight: 1.4, marginTop: 'var(--space-2xs)', marginRight: 0, marginBottom: 'var(--space-xs)', marginLeft: 0 }}>
         {interpretation(grossCapture, netCapture)}

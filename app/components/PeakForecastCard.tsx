@@ -124,7 +124,11 @@ export function PeakForecastCard() {
         const span = scaleMax - scaleMin;
         const pos = (v: number) => `${Math.min(100, Math.max(0, ((v - scaleMin) / span) * 100))}%`;
         return (
-          <div style={{ marginBottom: '6px' }}>
+          <div
+            role="img"
+            aria-label={`Today's swing €${swing.toFixed(0)}/MWh vs 90-day P25 €${p25.toFixed(0)}, P50 €${p50.toFixed(0)}, P90 €${p90.toFixed(0)}`}
+            style={{ marginBottom: '6px' }}
+          >
             <div style={{ position: 'relative', height: '28px' }}>
               <div style={{ position: 'absolute', left: 0, right: 0, top: '11px', height: '6px', borderRadius: '3px', background: 'var(--bg-elevated)' }} />
               <div style={{ position: 'absolute', left: pos(p25), top: '8px', width: '1px', height: '12px', background: 'var(--text-muted)' }} />

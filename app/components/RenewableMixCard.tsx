@@ -90,7 +90,11 @@ export function RenewableMixCard() {
       </p>
 
       {/* Stacked bar */}
-      <div style={{ width: '100%', height: '8px', borderRadius: '4px', overflow: 'hidden', display: 'flex', marginBottom: 'var(--space-2xs)' }}>
+      <div
+        role="img"
+        aria-label={`Generation mix stacked bar — wind ${windPct.toFixed(0)}%, solar ${solarPct.toFixed(0)}%, thermal ${thermalPct.toFixed(0)}%`}
+        style={{ width: '100%', height: '8px', borderRadius: '4px', overflow: 'hidden', display: 'flex', marginBottom: 'var(--space-2xs)' }}
+      >
         <div style={{ flex: windPct, background: 'var(--teal)', transition: 'flex 0.3s ease' }} />
         <div style={{ flex: solarPct, background: 'var(--amber)', transition: 'flex 0.3s ease' }} />
         <div style={{ flex: thermalPct, background: 'var(--text-ghost)', transition: 'flex 0.3s ease' }} />

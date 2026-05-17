@@ -68,7 +68,7 @@ export function RegimeBarometer({
     >
       <svg
         role="img"
-        aria-label={`Regime barometer: ${regime}`}
+        aria-label={`Regime indicator: position ${idx + 1} of ${REGIME_ORDER.length}`}
         width={width}
         height={height}
         style={{ display: 'block' }}

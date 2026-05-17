@@ -383,6 +383,8 @@ export function RteSparkline({ curve }: { curve: number[] | undefined }) {
       onMouseLeave={() => tt.hide()}
     >
       <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}
+        role="img"
+        aria-label={`Round-trip-efficiency decay over ${valid.length} years; BOL ${(bol * 100).toFixed(1)}% to EOL ${(eol * 100).toFixed(1)}%`}
         style={{ display: 'block', overflow: 'visible' }}>
         <defs>
           <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">

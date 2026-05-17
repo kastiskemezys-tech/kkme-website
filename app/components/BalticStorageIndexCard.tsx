@@ -400,6 +400,10 @@ function Row({
 }
 
 function SparkRow({ label, values, labels }: { label: string; values: number[]; labels: string[] }) {
+  const valid = values.filter((v): v is number => typeof v === 'number' && isFinite(v));
+  const vMin = valid.length ? Math.min(...valid) : 0;
+  const vMax = valid.length ? Math.max(...valid) : 0;
+  const vLast = valid.length ? valid[valid.length - 1] : 0;
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
       <span style={{
@@ -411,7 +415,11 @@ function SparkRow({ label, values, labels }: { label: string; values: number[]; 
       }}>
         {label}
       </span>
-      <div style={{ flex: 1, minWidth: 0 }}>
+      <div
+        role="img"
+        aria-label={`${label} sparkline, ${valid.length} months; range €${vMin.toFixed(0)} to €${vMax.toFixed(0)} per MW per month; latest €${vLast.toFixed(0)}`}
+        style={{ flex: 1, minWidth: 0 }}
+      >
         <Sparkline
           values={values}
           labels={labels}

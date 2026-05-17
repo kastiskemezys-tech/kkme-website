@@ -47,7 +47,11 @@ export function SourceFooter({ source, sourceUrl, updatedAt, dataClass, methodol
   };
 
   return (
-    <div style={{
+    <div
+      role="status"
+      aria-live="polite"
+      aria-atomic="false"
+      style={{
       fontFamily: 'var(--font-mono)',
       fontSize: 'var(--font-sm)',
       color: 'var(--text-muted)',

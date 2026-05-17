@@ -495,7 +495,7 @@ function CountryToggle({ value, onChange, disabled }: {
   value: Country; onChange: (c: Country) => void; disabled: boolean;
 }) {
   return (
-    <span style={{ display: 'inline-flex', gap: '2px' }} aria-disabled={disabled}>
+    <span role="group" aria-label="Country" style={{ display: 'inline-flex', gap: '2px' }} aria-disabled={disabled}>
       {(['LT', 'LV', 'EE'] as const).map(c => {
         const active = !disabled && value === c;
         return (
@@ -503,6 +503,8 @@ function CountryToggle({ value, onChange, disabled }: {
             key={c}
             onClick={() => !disabled && onChange(c)}
             disabled={disabled}
+            aria-disabled={disabled}
+            aria-pressed={active}
             className="tap-target-mobile"
             style={{
               paddingTop: '2px', paddingRight: 'var(--space-xs)', paddingBottom: '2px', paddingLeft: 'var(--space-xs)', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
