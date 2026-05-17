@@ -1,7 +1,7 @@
 'use client';
 
 import {
-  useState, useEffect, useRef, forwardRef, useImperativeHandle,
+  useId, useState, useEffect, useRef, forwardRef, useImperativeHandle,
   type ReactNode, type ForwardedRef,
 } from 'react';
 import { createPortal } from 'react-dom';
@@ -29,6 +29,8 @@ export const DetailsDrawer = forwardRef(function DetailsDrawer(
   const [pendingAnchor, setPendingAnchor] = useState<string | null>(null);
   const prevOpen = useRef(defaultOpen);
   const containerRef = useRef<HTMLDivElement>(null);
+  const reactId = useId();
+  const drawerDomId = `drawer-${reactId.replace(/:/g, '')}`;
 
   useImperativeHandle(ref, () => ({
     open: (anchor) => {
@@ -96,11 +98,14 @@ export const DetailsDrawer = forwardRef(function DetailsDrawer(
   }, [open, pendingAnchor]);
 
   const drawerContent = (
-    <div style={{
-      overflow: 'hidden',
-      maxHeight: open ? '5000px' : '0',
-      transition: 'max-height 300ms ease',
-    }}>
+    <div
+      id={drawerDomId}
+      style={{
+        overflow: 'hidden',
+        maxHeight: open ? '5000px' : '0',
+        transition: 'max-height 300ms ease',
+      }}
+    >
       <div
         ref={containerRef}
         style={{
@@ -119,6 +124,8 @@ export const DetailsDrawer = forwardRef(function DetailsDrawer(
       <div>
         <button
           onClick={() => setOpen(!open)}
+          aria-expanded={open}
+          aria-controls={drawerDomId}
           style={{
             background: 'none',
             border: 'none',

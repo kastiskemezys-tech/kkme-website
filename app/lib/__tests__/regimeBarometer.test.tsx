@@ -56,8 +56,12 @@ describe('RegimeBarometer', () => {
     expect(on).toMatch(/>wide</);
   });
 
-  it('aria-label encodes the active regime', () => {
+  it('aria-label encodes the active regime position (data-derived, rule #6)', () => {
+    // Phase 19 — aria-label rewritten to data-derived form ("position N of 5")
+    // because the chart is a gauge without a visible regime word, so leaning on
+    // the regime word in aria-text would surface an editorial state-label to
+    // screen readers (discipline rule #6 spirit).
     const html = renderToStaticMarkup(<RegimeBarometer regime="compressed" />);
-    expect(html).toContain('aria-label="Regime barometer: compressed"');
+    expect(html).toContain('aria-label="Regime indicator: position 2 of 5"');
   });
 });

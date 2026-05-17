@@ -108,6 +108,7 @@ export function ContactForm() {
             value={type}
             onChange={e => setType(e.target.value as ContactType)}
             required
+            aria-required="true"
             style={{
               ...fieldStyle,
               appearance: 'none',
@@ -153,6 +154,7 @@ export function ContactForm() {
             value={name}
             onChange={e => setName(e.target.value)}
             required
+            aria-required="true"
             style={fieldStyle}
           />
         </div>
@@ -164,6 +166,7 @@ export function ContactForm() {
             value={email}
             onChange={e => setEmail(e.target.value)}
             required
+            aria-required="true"
             style={fieldStyle}
           />
         </div>
@@ -244,6 +247,7 @@ export function ContactForm() {
           value={message}
           onChange={e => setMessage(e.target.value)}
           required
+          aria-required="true"
           rows={4}
           style={{
             ...fieldStyle,

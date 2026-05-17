@@ -42,9 +42,9 @@ export default function Home() {
 
         {/* ═══ REVENUE SIGNALS ═══ */}
         <ScrollReveal>
-          <div className="section" id="revenue-drivers">
+          <section className="section" id="revenue-drivers" aria-labelledby="revenue-drivers-heading">
             <div style={{ marginBottom: 'var(--space-lg)' }}>
-              <h2 className="section-header" style={{ marginBottom: '6px' }}>Revenue signals</h2>
+              <h2 id="revenue-drivers-heading" className="section-header" style={{ marginBottom: '6px' }}>Revenue signals</h2>
               <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-base)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>Day-ahead price capture and balancing market revenue — capacity reservation, activation energy, and DA arbitrage.</p>
             </div>
             <div className="pull-quote">
@@ -59,16 +59,16 @@ export default function Home() {
               </div>
             </div>
             <SignalDrawerPanel />
-          </div>
+          </section>
         </ScrollReveal>
 
         <hr className="section-divider" />
 
         {/* ═══ BUILD SIGNALS ═══ */}
         <ScrollReveal>
-          <div className="section" id="build">
+          <section className="section" id="build" aria-labelledby="build-heading">
             <div style={{ marginBottom: 'var(--space-lg)' }}>
-              <h2 className="section-header" style={{ marginBottom: '6px' }}>Build conditions</h2>
+              <h2 id="build-heading" className="section-header" style={{ marginBottom: '6px' }}>Build conditions</h2>
               <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-base)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>Project costs, financing, and grid access — the practical constraints on buildability.</p>
             </div>
             <div className="grid-2">
@@ -79,16 +79,16 @@ export default function Home() {
                 <CardBoundary signal="S4"><S4Card /></CardBoundary>
               </div>
             </div>
-          </div>
+          </section>
         </ScrollReveal>
 
         <hr className="section-divider" />
 
         {/* ═══ STRUCTURAL MARKET DRIVERS ═══ */}
         <ScrollReveal>
-          <div className="section" id="structural">
+          <section className="section" id="structural" aria-labelledby="structural-heading">
             <div style={{ marginBottom: 'var(--space-md)' }}>
-              <h2 className="section-header" style={{ marginBottom: '6px' }}>Structural market drivers</h2>
+              <h2 id="structural-heading" className="section-header" style={{ marginBottom: '6px' }}>Structural market drivers</h2>
               <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-base)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>Renewable mix, residual load, price spreads, and commodity signals driving Baltic BESS dispatch economics.</p>
             </div>
 
@@ -113,14 +113,14 @@ export default function Home() {
               </div></ScrollReveal>
             </div>
 
-          </div>
+          </section>
         </ScrollReveal>
 
         {/* ═══ REVENUE ENGINE — elevated ═══ */}
         <ScrollReveal>
-          <div className="section-elevated" id="revenue">
+          <section className="section-elevated" id="revenue" aria-labelledby="revenue-heading">
             <div style={{ marginBottom: 'var(--space-lg)' }}>
-              <h2 className="section-header" style={{ marginBottom: '6px' }}>50 MW reference asset</h2>
+              <h2 id="revenue-heading" className="section-header" style={{ marginBottom: '6px' }}>50 MW reference asset</h2>
               <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-base)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>How timing, duration, and installed cost shape storage economics.</p>
             </div>
             <div className="pull-quote">
@@ -139,14 +139,14 @@ export default function Home() {
             <div className="inline-cta">
               <a href="#conversation">Looking at Baltic storage? Start the conversation ↗</a>
             </div>
-          </div>
+          </section>
         </ScrollReveal>
 
         {/* ═══ DISPATCH INTELLIGENCE ═══ */}
         <ScrollReveal>
-          <div className="section" id="trading">
+          <section className="section" id="trading" aria-labelledby="trading-heading">
             <div style={{ marginBottom: 'var(--space-lg)' }}>
-              <h2 className="section-header" style={{ marginBottom: '6px' }}>Dispatch intelligence</h2>
+              <h2 id="trading-heading" className="section-header" style={{ marginBottom: '6px' }}>Dispatch intelligence</h2>
               <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-base)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>How the KKME dispatch algorithm allocates a reference BESS across Baltic balancing and arbitrage.</p>
             </div>
             <div className="card card-tier1 card--revenue">
@@ -154,16 +154,16 @@ export default function Home() {
                 <TradingEngineCard />
               </CardBoundary>
             </div>
-          </div>
+          </section>
         </ScrollReveal>
 
         <hr className="section-divider" />
 
         {/* ═══ MARKET INTELLIGENCE ═══ */}
         <ScrollReveal>
-          <div className="section" id="intel">
+          <section className="section" id="intel" aria-labelledby="intel-heading">
             <div style={{ marginBottom: 'var(--space-md)' }}>
-              <h2 className="section-header" style={{ marginBottom: '6px' }}>Market intelligence</h2>
+              <h2 id="intel-heading" className="section-header" style={{ marginBottom: '6px' }}>Market intelligence</h2>
               <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-base)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
                 Developments that affect Baltic BESS revenue, buildability, and market structure.
               </p>
@@ -173,16 +173,16 @@ export default function Home() {
             </div>
             <RegulatoryPreview />
             <IntelFeed />
-          </div>
+          </section>
         </ScrollReveal>
 
         <hr className="section-divider" />
 
         {/* ═══ DISCUSS BALTIC STORAGE ═══ */}
         <ScrollReveal>
-          <div className="section" id="conversation">
+          <section className="section" id="conversation" aria-labelledby="conversation-heading">
             <div style={{ marginBottom: 'var(--space-lg)' }}>
-              <h2 className="section-header" style={{ marginBottom: '6px' }}>Discuss Baltic storage</h2>
+              <h2 id="conversation-heading" className="section-header" style={{ marginBottom: '6px' }}>Discuss Baltic storage</h2>
             </div>
             <div className="grid-2" style={{ alignItems: 'start' }}>
               {/* LEFT: Copy + credit */}
@@ -228,7 +228,7 @@ export default function Home() {
                 <ContactForm />
               </div>
             </div>
-          </div>
+          </section>
         </ScrollReveal>
 
         {/* ═══ FOOTER ═══ */}

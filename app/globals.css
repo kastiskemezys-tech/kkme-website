@@ -1098,6 +1098,16 @@ body,
 
 button:active { transform: scale(0.97); }
 
+/* Form-control placeholder contrast — the default browser placeholder color
+   falls back to a ~50%-opacity version of the input's text color, which in
+   the light theme reads as cream-on-cream and fails WCAG AA. Pin placeholders
+   to --text-muted across the cascade. */
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-muted);
+  opacity: 1;
+}
+
 /* ── Delta flash animation ───────────────────────────────────────────────── */
 @keyframes fadeOut {
   0%   { opacity: 1; }
@@ -1360,6 +1370,7 @@ img.logo-light { display: none; }
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+  border-radius: 2px;
 }
 
 /* KPI ticker (SignalBar) — desktop 6-col 1fr, tablet 3-col, mobile horizontal

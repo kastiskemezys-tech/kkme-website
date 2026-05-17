@@ -61,6 +61,12 @@ export function RevenueSensitivityTornado({
 
   const tt = useChartTooltipState();
 
+  const topBar = bars.reduce(
+    (a, b) => (Math.abs(b.deltaPp) > Math.abs(a.deltaPp) ? b : a),
+    bars[0],
+  );
+  const tornadoAria = `IRR sensitivity tornado — top driver: ${topBar.label} ${topBar.deltaPp >= 0 ? '+' : ''}${topBar.deltaPp.toFixed(1)} pp (axis ±${extent.toFixed(0)} pp over ${bars.length} drivers)`;
+
   return (
     <div onMouseLeave={() => tt.hide()}>
       <div style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-xs)',
@@ -71,7 +77,7 @@ export function RevenueSensitivityTornado({
       <svg
         viewBox={`0 0 ${width} ${height}`}
         preserveAspectRatio="xMidYMid meet"
-        role="img" aria-label="IRR sensitivity tornado chart"
+        role="img" aria-label={tornadoAria}
         style={{ display: 'block', width: '100%', height: 'auto', maxWidth: width, overflow: 'visible' }}>
         {/* Zero axis */}
         <line x1={zeroX} y1={20} x2={zeroX} y2={height - 4}
