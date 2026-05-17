@@ -7049,7 +7049,7 @@ export default {
     if (request.method === 'GET' && (url.pathname === '/s2/fleet' || url.pathname === '/s4/fleet')) {
       const raw = (await env.KKME_SIGNALS.get('s4_fleet').catch(() => null))
               || (await env.KKME_SIGNALS.get('s2_fleet').catch(() => null));
-      if (!raw) return jsonResp({ error: 'no fleet data yet' }, 404);
+      if (!raw) return jsonResp({ fleet: null, reason: 'Fleet data not yet computed — awaiting daily entity-resolver run' }, 200);
       return new Response(raw, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...CORS } });
     }
 
@@ -7134,7 +7134,7 @@ export default {
     // ── GET /s2/activation ──────────────────────────────────────────────────
     if (request.method === 'GET' && url.pathname === '/s2/activation') {
       const raw = await env.KKME_SIGNALS.get('s2_activation').catch(() => null);
-      if (!raw) return jsonResp({ error: 'no activation data yet' }, 404);
+      if (!raw) return jsonResp({ activation: null, reason: 'Activation KV not yet populated — awaiting BTD push' }, 200);
       return new Response(raw, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600', ...CORS } });
     }
 
@@ -8757,11 +8757,11 @@ export default {
         const dates = keys.keys.map(k => k.name)
           .filter(k => k.endsWith(`:${dur_h}h`) && !k.includes('post_drr'))
           .sort().reverse();
-        if (!dates.length) return jsonResp({ error: 'No dispatch data yet. Waiting for BTD push.' }, 404);
+        if (!dates.length) return jsonResp({ dispatch: null, reason: 'No dispatch data yet — awaiting BTD push (cron ~01:00 UTC)' }, 200);
 
         const current = await env.KKME_SIGNALS.get(dates[0]).catch(() => null);
         const postDrr = await env.KKME_SIGNALS.get(dates[0] + ':post_drr').catch(() => null);
-        if (!current) return jsonResp({ error: 'Dispatch data missing' }, 404);
+        if (!current) return jsonResp({ dispatch: null, reason: 'Latest dispatch key listed but body missing — KV eventual-consistency' }, 200);
 
         const result = JSON.parse(current);
         if (postDrr) {
@@ -8826,9 +8826,9 @@ export default {
     if (request.method === 'GET' && url.pathname === '/api/trading/latest') {
       const keys = await env.KKME_SIGNALS.list({ prefix: 'trading:202' });
       const dates = keys.keys.map(k => k.name).filter(k => !k.includes(':raw')).sort().reverse();
-      if (!dates.length) return jsonResp({ error: 'No trading data yet. Run fetch-btd.js with trading datasets.' }, 404);
+      if (!dates.length) return jsonResp({ trading: null, reason: 'No trading data yet — awaiting BTD push' }, 200);
       const latest = await env.KKME_SIGNALS.get(dates[0]);
-      if (!latest) return jsonResp({ error: 'Trading data missing' }, 404);
+      if (!latest) return jsonResp({ trading: null, reason: 'Latest trading date listed but body missing — KV eventual-consistency' }, 200);
       return new Response(latest, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=900', ...CORS } });
     }
 
@@ -8837,9 +8837,9 @@ export default {
     if (request.method === 'GET' && url.pathname === '/api/trading/signals') {
       const keys = await env.KKME_SIGNALS.list({ prefix: 'trading:202' });
       const dates = keys.keys.map(k => k.name).filter(k => !k.includes(':raw')).sort().reverse();
-      if (!dates.length) return jsonResp({ error: 'No trading data yet' }, 404);
+      if (!dates.length) return jsonResp({ signals: null, reason: 'No trading data yet — awaiting BTD push' }, 200);
       const raw = await env.KKME_SIGNALS.get(dates[0]);
-      if (!raw) return jsonResp({ error: 'Trading data missing' }, 404);
+      if (!raw) return jsonResp({ signals: null, reason: 'Latest trading body missing — KV eventual-consistency' }, 200);
       const d = JSON.parse(raw);
       return jsonResp({ date: d._meta?.date, signals: d.signals, totals: d.totals, strategy: d.strategy });
     }
@@ -9121,7 +9121,7 @@ export default {
     // ── GET /s1/capture — DA gross capture data ──────────────────────────────
     if (request.method === 'GET' && url.pathname === '/s1/capture') {
       const raw = await env.KKME_SIGNALS.get('s1_capture');
-      if (!raw) return jsonResp({ error: 'capture data not yet computed' }, 404);
+      if (!raw) return jsonResp({ capture: null, reason: 'Capture not yet computed — awaiting first S1 capture cron' }, 200);
       return new Response(raw, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=300', ...CORS } });
     }
 
@@ -9229,7 +9229,7 @@ export default {
         env.KKME_SIGNALS.get('s1_capture'),
         env.KKME_SIGNALS.get('extreme:latest').catch(() => null),
       ]);
-      if (!s1Raw) return jsonResp({ error: 'not yet populated' }, 404);
+      if (!s1Raw) return jsonResp({ s1: null, reason: 'S1 not yet computed — awaiting first cron run' }, 200);
       const s1 = JSON.parse(s1Raw);
       // Merge capture data if available and not already embedded
       if (capRaw && !s1.capture) {
