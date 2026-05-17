@@ -1882,6 +1882,53 @@ Then Tier 1 (12.12 + 12.14 + 7.7g). Phase 12.12 picks up:
 - After merge to main → Phase 30 §6 (three commits + push to `phase-30-methodology-research` branch) resumes from the same working tree per operator's latest message.
  phase-12-8-1-backtest-caption
 
+### Session 66 — 2026-05-17 — Phase 4G.2 — POST /curate entity-verification gate (Claude Code)
+
+**Headline:** Branch `phase-4g-2-curate-entity-verification` off clean main (`3676601`). Adds `validateCurationEntity(body)` as the next link in the curation validator chain at `workers/fetch-s1.js`. Reject-on-first-ship gate per discipline rule #3: if a Baltic legal-entity prefix is detected in `title` or `raw_text` AND `source_url` host is not in the authoritative-source allowlist, return HTTP 400 with operator-honest envelope. Closes the parallel leak path to 4G.1's mojibake gate. 4-test verification protocol passed against deployed worker (version `5440c37d-648e-433f-8e68-08eca70edf22`).
+
+**Bug-pattern context:** Phase 12.10.0 — "UAB Saulėtas Pasaulis," an entirely hallucinated entity, reached production via `POST /curate` operator-paste path. Manual delete by operator. No automated gate prevented landing. 4G.1 shipped the encoding gate (`1450e02`); 4G.2 shipped the entity-verification gate.
+
+**Pause A — corpus calibration:**
+
+- **Live `/feed` corpus inventory** (7 items): pulled titles + source URLs. All 7 items are Litgrid / APVA / VERT / Aplinkos ministerija — generic government/TSO content, no Baltic legal-entity prefix in titles. Both candidate regexes scored 0/7 hits → 0% false-positive baseline on live corpus.
+- **Positive entity tests** (9 hand-crafted): UAB Saulėtas Pasaulis, UAB Energy Cells, AB Ignitis Group, MB Saulės Parkai, SIA Latvenergo Trading, OÜ Elering Connect, MTÜ Estonian Storage Coalition, VšĮ Energetikos Fondas, mid-body raw_text "UAB Aurum Energy". Both regexes hit 9/9.
+- **Negative prose tests** (8 hand-crafted): "As Latvia and Lithuania scale BESS…", "Battery storage scales as renewables grow", "AB testing of dispatch flows continues", "MB capacity expanded by 12 GWh", "BESS capacity in the Baltics tops 500 MW", "Litgrid: 484 MW storage installed nationally", "The TSO and AB customers were notified", "Eesti Energia AS announced new tariff". Both regexes hit 0/8 — clean.
+- **Multi-word capture quality differs:** prompt regex `[A-ZĄČĘĖĮŠŲŪŻŽÄÅÖÕ][\w-]+` truncates at the first Baltic diacritic ("UAB Saul" instead of "UAB Saulėtas Pasaulis") because JS `\w` is ASCII-only. Refined regex with `u` flag + `\p{Lu}` / `\p{L}` captures the full multi-word entity, which the error envelope's `detected_entity` field surfaces back to the operator. Refined chosen.
+- **Refined regex** (shipped): `/\b(?:UAB|AB|MB|VšĮ|SIA|OÜ|MTÜ)\s+\p{Lu}[\p{L}\d-]*(?:\s+\p{Lu}[\p{L}\d-]*)*/u`. **Deltas vs prompt:** (1) added `u` flag + `\p{L}` for Unicode; (2) dropped `AKA` — not a Latvian commercial entity form (Latvian uses SIA / AS / IK / KS / Biedrība); (3) dropped `AS` — high false-positive risk at sentence-start ("As Latvia scales BESS…"). Cost: misses "AS Latvenergo" / "AS Eesti Energia" — both well-known state utilities with low hallucination risk. **4G.3 candidate filed** (see below).
+- **Authoritative-source allowlist** (suffix-matched: `host === d || host.endsWith('.' + d)`): commercial registries (registrucentras.lt, lursoft.lv, inforegister.ee), regulators (nra.lt, sprk.gov.lv, konkurentsiamet.ee, vert.lt), TSOs (litgrid.eu, ast.lv, elering.ee, nordpoolgroup.com), EU bodies (acer.europa.eu, entsoe.eu), gov roots (lrv.lt, gov.lv, valitsus.ee, eesti.ee), tier-1 Baltic press (lrt.lt, 15min.lt, delfi.lt/lv/ee, lsm.lv, err.ee, bnn-news.com, baltictimes.com). 25 entries total. Suffix match means `apva.lrv.lt`, `am.lrv.lt`, `e-services.registrucentras.lt` all pass without explicit listing.
+
+**Pause B — implementation + 4-test verification:**
+
+- Added `ENTITY_PATTERNS`, `AUTHORITATIVE_SOURCES`, `detectEntity()`, `isAuthoritativeSource()`, `extractHost()`, `validateCurationEntity()` at `workers/fetch-s1.js` directly after `validateCurationContent` (4G.1 sibling).
+- Wired into `POST /curate` handler at the line right after the encoding-gate check. Returns 400 with envelope `{error: 'entity_verification_failed', field: 'source_url', detected_entity, source_host, message}`. Envelope shape matches 4G.1's `{error, field, pattern, message}` convention per discipline rule #4.
+
+| Test | Body shape | Expected | Got |
+|---|---|---|---|
+| 1 | `title: "UAB Saulėtas Pasaulis…"` + `source_url: random-blog.com` | 400, full entity in envelope | **400** `detected_entity: "UAB Saulėtas Pasaulis"`, `source_host: "random-blog.com"` ✓ |
+| 2 | `title: "UAB Energy Cells…"` + `source_url: www.registrucentras.lt/...` | 201 (suffix-match) | **201** `id: mpa1pha5-boml40` ✓ |
+| 3 | `raw_text: "…UAB Aurum Energy claims 30 MW…"` + `source_url: random-blog.com` | 400 (raw_text path) | **400** `detected_entity: "UAB Aurum Energy"` ✓ |
+| 4 | `title: "Baltic grid load surged 14% midday"` + `source_url: random-blog.com` | 201 (no entity match — false-positive guard) | **201** `id: mpa1phys-i5i41v` ✓ |
+
+**Gate deltas vs baseline:** `npx tsc --noEmit` = 0 errors (silent). `npm run test` = 919/919 passed (60 files), no delta. `npm run lint` = 39 errors / 87 warnings pre-existing in `app/*` React components, **0 introduced** at the lines I touched in `workers/fetch-s1.js`. `npm run lint:no-raw-spacing` = clean. `npm run lint:no-editorial-chips` = clean. `npm run build` = compiled in 4.2s, 9/9 static pages generated.
+
+**Worker deploy:** `npx wrangler deploy fetch-s1.js` from `workers/`. Version `5440c37d-648e-433f-8e68-08eca70edf22`. Bundle 352.87 KiB / gzip 86.07 KiB. All 4 cron schedules preserved.
+
+**Operator-cleanup needed (test entries persisted to KV):**
+- `mpa1pha5-boml40` (Test 2 — UAB Energy Cells + registrucentras.lt fake URL)
+- `mpa1phys-i5i41v` (Test 4 — generic grid headline)
+- Both removable via `POST /feed/delete-by-id` with `UPDATE_SECRET` from operator shell (CC does not hold the secret).
+
+**Phase 4G.3 candidate filed (out of 4G.2 scope, operator appetite-dependent):**
+1. **Stricter `AS` matcher.** Reintroduce `AS` prefix coverage with a look-behind for sentence-end (`(?<=^|\.\s|\?\s|!\s)`) and a requirement for ≥2 following Title-Case words, so "AS Latvenergo Group" matches but sentence-start "As Latvia scales BESS…" does not. Empirical false-positive sweep against a larger corpus required before adoption (4G.2's 7-item baseline is too small for sentence-start FP rate estimation).
+2. **Auto-suggest URLs.** When entity is detected and `source_url` fails the allowlist, surface a curated list of canonical registry/regulator URLs alongside the 400 response so the operator can re-paste with one click rather than searching. Out of 4G.2 reject-on-first-ship policy.
+
+**Roadmap delta needed (Cowork applies per rule #5):**
+- Phase 4G.2 → Shipped appendix.
+- Update "Currently active" pointer (next operator-pick across Tier 1 threads unchanged: 7.7g-a-2 / 12.12 #1+#2 / 29).
+- File 4G.3 candidate (stricter `AS` matcher + auto-suggest URLs) in roadmap backlog.
+
+**Branch state:** `phase-4g-2-curate-entity-verification` pushed (commit pending). Operator opens PR + merges per `feedback_pr_workflow_minimal.md`.
+
 ### Session 65 — 2026-05-17 — Phase worker-404-empty-rationalization — 10 sibling routes flipped to 200 envelope (Claude Code)
 
 **Headline:** Generalization of Session 64. Branch `phase-worker-404-empty-rationalization` off clean main (`159b93a`). Inventoried 14 worker `, 404)` sites; 10 flipped to `{<field>: null, reason}` + 200, 2 stay-404 (user-input not-found), 2 deferred (admin-precondition POSTs, no frontend caller). Three caller-side guards added (S1Card, PeakForecastCard, SpreadCaptureCard) because their `useSignal`-based bails treat the new 200-envelope as data and proceed to render with undefined fields.
