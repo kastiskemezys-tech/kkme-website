@@ -3374,9 +3374,13 @@ async function computeS1(env) {
     }
   }
 
-  // Evening premium: mean(LT h17-21) - mean(LT h10-14) — peak vs shoulder
-  const ltEvening  = ltPrices.slice(17, 22);   // hours 17,18,19,20,21
-  const ltShoulder = ltPrices.slice(10, 15);   // hours 10,11,12,13,14
+  // Evening premium: mean(LT h17-21) - mean(LT h10-14) — peak vs shoulder.
+  // Resolution-aware: ltPrices is 24 entries on hourly days, 96 on 15-min ISP
+  // days, and occasionally 95 (ENTSO-E one-off). Map hour h to index Math.round(h*N/24);
+  // mirrors the inverse of the peak/trough idx→UTC-hour math at L3359-3360.
+  const N_evp = ltPrices.length;
+  const ltEvening  = ltPrices.slice(Math.round(17 * N_evp / 24), Math.round(22 * N_evp / 24));
+  const ltShoulder = ltPrices.slice(Math.round(10 * N_evp / 24), Math.round(15 * N_evp / 24));
   const lt_evening_premium = (ltEvening.length && ltShoulder.length)
     ? Math.round((avg(ltEvening) - avg(ltShoulder)) * 100) / 100
     : null;
