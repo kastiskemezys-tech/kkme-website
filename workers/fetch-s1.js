@@ -5139,6 +5139,69 @@ function validateCurationContent(body) {
   return { valid: true };
 }
 
+// Phase 4G.2 — Baltic legal-entity prefix detection.
+// `u` flag + \p{Lu}/\p{L} so detected_entity captures the full name through
+// Baltic diacritics (e.g. "UAB Saulėtas Pasaulis", not truncated "UAB Saul").
+// AS and AKA intentionally omitted: AS sentence-start ("As Latvia…") false-positives,
+// AKA is not a Latvian commercial entity form. Stricter AS matcher = 4G.3 candidate.
+const ENTITY_PATTERNS = [
+  /\b(?:UAB|AB|MB|VšĮ|SIA|OÜ|MTÜ)\s+\p{Lu}[\p{L}\d-]*(?:\s+\p{Lu}[\p{L}\d-]*)*/u,
+];
+
+// Suffix-matched: host === d OR host.endsWith('.' + d). Covers subdomains like
+// e-services.registrucentras.lt, apva.lrv.lt without per-subdomain entries.
+const AUTHORITATIVE_SOURCES = [
+  // Commercial registries (canonical per discipline rule #3)
+  'registrucentras.lt', 'lursoft.lv', 'inforegister.ee',
+  // Regulators
+  'nra.lt', 'sprk.gov.lv', 'konkurentsiamet.ee', 'vert.lt',
+  // TSOs / market operators
+  'litgrid.eu', 'ast.lv', 'elering.ee', 'nordpoolgroup.com',
+  // EU bodies
+  'acer.europa.eu', 'entsoe.eu',
+  // Government roots (suffix covers ministries: am.lrv.lt, apva.lrv.lt, …)
+  'lrv.lt', 'gov.lv', 'valitsus.ee', 'eesti.ee',
+  // Baltic tier-1 press
+  'lrt.lt', '15min.lt', 'delfi.lt', 'delfi.lv', 'delfi.ee',
+  'lsm.lv', 'err.ee', 'bnn-news.com', 'baltictimes.com',
+];
+
+function detectEntity(text) {
+  if (typeof text !== 'string') return null;
+  for (const p of ENTITY_PATTERNS) {
+    const m = text.match(p);
+    if (m) return m[0];
+  }
+  return null;
+}
+
+function isAuthoritativeSource(url) {
+  if (typeof url !== 'string' || !url) return false;
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return AUTHORITATIVE_SOURCES.some(d => host === d || host.endsWith('.' + d));
+  } catch {
+    return false;
+  }
+}
+
+function extractHost(url) {
+  try { return new URL(url).hostname.toLowerCase(); } catch { return null; }
+}
+
+function validateCurationEntity(body) {
+  const entity = detectEntity(body.title) || detectEntity(body.raw_text);
+  if (!entity) return null;
+  if (isAuthoritativeSource(body.source_url)) return null;
+  return {
+    error: 'entity_verification_failed',
+    field: 'source_url',
+    detected_entity: entity,
+    source_host: extractHost(body.source_url || ''),
+    message: 'Named-entity claim requires source URL from a commercial registry (registrucentras.lt / lursoft.lv / inforegister.ee), regulator (NRA / SPRK / Konkurentsiamet / VERT / TSO), EU body (ACER / ENTSO-E), Baltic government root (lrv.lt / gov.lv / valitsus.ee), or tier-1 Baltic press (LRT / LSM / ERR / Delfi / 15min / BNN / Baltic Times). Re-paste with a verifiable source URL.',
+  };
+}
+
 async function readIndex(kv) {
   const raw = await kv.get(KV_CURATIONS_INDEX);
   if (!raw) return [];
@@ -7424,6 +7487,13 @@ export default {
           pattern: validation.pattern,
           message: validation.message,
         }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json', ...CORS },
+        });
+      }
+      const entityErr = validateCurationEntity(body);
+      if (entityErr) {
+        return new Response(JSON.stringify(entityErr), {
           status: 400,
           headers: { 'Content-Type': 'application/json', ...CORS },
         });
