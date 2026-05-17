@@ -1882,6 +1882,81 @@ Then Tier 1 (12.12 + 12.14 + 7.7g). Phase 12.12 picks up:
 - After merge to main → Phase 30 §6 (three commits + push to `phase-30-methodology-research` branch) resumes from the same working tree per operator's latest message.
  phase-12-8-1-backtest-caption
 
+### Session 64 — 2026-05-17 — Phase api-dispatch — Forecast empty-KV 404 → 200 console-noise fix (Claude Code)
+
+**Headline:** Worker-only, 2-line, ~15min CC. Branch `phase-api-dispatch-forecast-no-content` off latest main (`c446713`, post-Phase-19 merge). `GET /api/dispatch?mode=forecast` was returning HTTP 404 when KV `da_tomorrow` is unpopulated (pre-~14:00 CET daily publish window), generating visible DevTools / axe-core / DOM-probe console errors despite the frontend's graceful `.catch(() => null)`. 404 was the wrong semantic — endpoint exists, data wasn't ready yet. Reframed pre-prompt by Cowork-side investigation as a **worker-design issue, not a bug**, per discipline rule #1. Two-pause-point execution per prompt.
+
+**Pause A — bug-shape confirmation + fix-shape pick:**
+
+| Check | Finding |
+|---|---|
+| `workers/fetch-s1.js:8784` | `if (!daTomorrowRaw) return jsonResp({error:'No DA tomorrow…'}, 404)` ✓ |
+| `workers/fetch-s1.js:8790` | `if (!daP.length) return jsonResp({error:'DA tomorrow prices empty'}, 404)` ✓ |
+| Pre-fix curl `dur=2h&mode=forecast` | `HTTP/2 404 {"error":"No DA tomorrow data yet (publishes ~14:00 CET)"}` — endpoint hot at 16:32 UTC / 17:32 CET (DA not yet published this day, confirming the noisy path) |
+| Frontend `TradingEngineCard.tsx:339-343` | `.then(r => r.ok ? r.json() : null).catch(() => null)` + `setForecast(f?.meta ? f : null)` — the `f?.meta` gate ALREADY filters non-payload responses. Returning 200 with `{forecast: null, reason: ...}` flows through `r.ok=true` → `r.json() → {forecast:null,reason}` → `.meta` undefined → `setForecast(null)`. **No frontend tweak needed.** Departed from prompt §Pause B step 2 (which proposed an envelope-detector `.then`) on this basis — operator approved the simplification. |
+| Fix pick | **(b) with simplification** — worker returns 200 `{forecast: null, reason: 'DA tomorrow publishes ~14:00 CET'}` at both 8784 + 8790; frontend untouched. |
+
+**Pause A inventory — other 404-as-empty worker routes (flagged for follow-up, NOT fixed here):**
+
+Routes where 404 means "KV key empty / data not yet computed" rather than "route doesn't exist" — same semantic mismatch, likely also generating production console noise wherever the corresponding frontend fetch runs on initial page load.
+
+| Line | Condition | Likely consumer |
+|---|---|---|
+| 6901 | `feed_index empty` | intel feed loader |
+| 7052 | `no fleet data yet` | S2Card / fleet KPIs |
+| 7109 | `Missing KV data` (cap_hist / s1_hist) | capacity-history sparklines |
+| 7137 | `no activation data yet` | activation card |
+| 8760 | dispatch realised — no dates | TradingEngineCard realised mode |
+| 8764 | dispatch realised — current missing | TradingEngineCard realised mode |
+| 8829 / 8831 | `/api/trading/latest` empty | TradingEngineCard fallback path |
+| 8840 / 8842 | `/api/trading/*` empty | trading-day lookup |
+| 9124 | `capture data not yet computed` | SpreadCaptureCard |
+| 9232 | `not yet populated` | (KV-backed card path) |
+
+Genuinely 404 (correctly status-coded): `feed_index/:id` no-such-id at 6908, `/api/trading?date=<specific>` at 8821 (user-supplied date may not exist).
+
+**Pause B — apply + verify:**
+
+Worker edit at `workers/fetch-s1.js:8784` + `:8790` — both replaced `…, 404)` with `{ forecast: null, reason: '…' }, 200)`. Frontend untouched per Pause A pick. Diff is 2 lines.
+
+**Verification gates (baseline reference: Session 63 post-Phase-19 — tsc 0 / vitest 919-passed / lint 125 problems / build success):**
+
+| Gate | Baseline | Post-edit | Δ |
+|---|---|---|---|
+| `npx tsc --noEmit` | 0 errors | 0 errors | 0 |
+| `npm run test` | 919/919 (60 files) | 919/919 (60 files) | 0 |
+| `npm run lint` | 125 problems (39 / 86) | 125 problems (39 / 86) | 0 (verified via `git stash` baseline diff — both pre and post show identical 126 problems / 39 errors / 87 warnings; the +1 vs Session 63's recorded 125 is a pre-existing change between Session 63's measurement and current main, not from this phase) |
+| `npm run lint:no-raw-spacing` | pass | pass | 0 |
+| `npm run lint:no-editorial-chips` | pass | pass | 0 |
+| `npm run build` | success | success (4.4s compile, 7/7 static) | 0 |
+
+**Worker deploy:** `npx wrangler deploy` → version `a718b2e8-359f-4b75-86a4-ff4c43b51896` (11.56s upload + 8.21s trigger deploy). Total payload 349.94 KiB / gzip 85.14 KiB.
+
+**Post-deploy reality check (live curl):**
+
+| Probe | Pre-fix | Post-fix |
+|---|---|---|
+| `GET /api/dispatch?dur=2h&mode=forecast` | `HTTP/2 404` `{"error":"No DA tomorrow data yet (publishes ~14:00 CET)"}` | `HTTP/2 200` `{"forecast":null,"reason":"DA tomorrow publishes ~14:00 CET"}` |
+| `GET /api/dispatch?dur=4h&mode=forecast` | (same pattern) | `HTTP/2 200` `{"forecast":null,"reason":"DA tomorrow publishes ~14:00 CET"}` |
+
+Both `dur` variants return 200 with the null-envelope. Browser DevTools / axe-core no longer surface a console error for the forecast path while DA tomorrow is unpopulated. Frontend behaviour unchanged: `setForecast(null)` exactly as before.
+
+**Out of scope (per prompt §"What NOT to do"):**
+- No engine math changes (dispatch computation logic identical).
+- No new response fields beyond `{forecast, reason}`.
+- No frontend UI changes (empty-state already rendered correctly when forecast was null).
+- No fixes to the other 12 404-as-empty sites (inventoried above for follow-up phase).
+- No roadmap edits per rule #5.
+
+**Roadmap delta needed — operator to apply Cowork-side after merge (per rule #5 + `feedback_cowork_cc_sequencing.md` step 10):**
+
+1. **Mark `/api/dispatch 404 worker fix` SHIPPED** in `docs/phases/_post-12-8-roadmap.md` with this Session 64 reference. Per prompt §Pause B: rename to **"/api/dispatch console-noise fix"** since it wasn't actually a bug (semantic mismatch, not broken behaviour).
+2. **File "Worker 404-as-empty status code rationalization" as a follow-up phase candidate** — apply the same 200-with-null-envelope pattern to the 12 inventoried sites (feed_index, fleet, activation, capacity-history, dispatch realised, trading latest, capture, etc.). Each needs a quick check that the consumer-side data-shape guard handles a null envelope (most do via `r?.meta` / `r?.data` / similar patterns already; pattern-matching against TradingEngineCard's `f?.meta` guard is the template).
+
+**Branch push:** `phase-api-dispatch-forecast-no-content` pushed to origin (`fcd8d03` on top of `c446713`). Operator opens PR + merges per `feedback_pr_workflow_minimal.md` (no body, no branch delete).
+
+---
+
 ### Session 63 — 2026-05-17 — Phase 19 — A11y MVP (Claude Code)
 
 **Headline:** First a11y pass after 13 phases of visual/data/structural polish. Branch `phase-19-a11y-mvp` off `a0f138a` (post-Phase-31 merge). **Three-pause-point session, frontend-only, 14 files touched, ~3h CC.** P1-3 (focus-visible) + P2-2 (chart aria + tooltip semantics) + audit-v2 P5 (form contrast + missing labels) addressed per the consolidated MVP a11y bundle. Eleven discrete fixes shipped, zero engine/schema/worker touch, zero new lint errors, zero new axe violations introduced.
