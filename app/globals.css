@@ -31,9 +31,10 @@
 
   /* Readability scale */
   --text-primary:   rgba(232, 226, 217, 0.92);
-  --text-secondary: rgba(232, 226, 217, 0.65);
-  --text-tertiary:  rgba(232, 226, 217, 0.55);
-  --text-muted:     rgba(232, 226, 217, 0.45);
+  /* Phase 19.2: WCAG 2.1 AA — rebalanced scale to clear 4.5:1 on all dark bgs (--text-muted was failing 3.73-3.79 across 99 nodes); A3 compromise preserves visual rank (muted < tertiary < secondary) without flattening to primary. */
+  --text-secondary: rgba(232, 226, 217, 0.70);
+  --text-tertiary:  rgba(232, 226, 217, 0.62);
+  --text-muted:     rgba(232, 226, 217, 0.55);
   --text-faint:     rgba(232, 226, 217, 0.22);
   --text-ghost:     rgba(232, 226, 217, 0.15);
   --accent-purple:  #7b5ea7;
@@ -285,7 +286,8 @@
   --text-primary:   rgba(26, 26, 31, 0.92);
   --text-secondary: rgba(26, 26, 31, 0.65);
   --text-tertiary:  rgba(26, 26, 31, 0.65);
-  --text-muted:     rgba(26, 26, 31, 0.60);
+  /* Phase 19.2: WCAG 2.1 AA — 4.22-4.40 → ~4.7 vs cream bgs; B3 accepts Phase 18's pre-existing tertiary/secondary collapse (muted joins them). */
+  --text-muted:     rgba(26, 26, 31, 0.65);
   --text-faint:     rgba(26, 26, 31, 0.30);
   --text-ghost:     rgba(26, 26, 31, 0.15);
 

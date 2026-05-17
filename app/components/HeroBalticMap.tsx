@@ -707,7 +707,7 @@ export function HeroBalticMap() {
           }}>
             {lr?.today_total_daily != null
               ? <AnimatedNumber value={Math.round(lr.today_total_daily)} prefix="€" decimals={0} />
-              : <>{'€'}{fmt(null)}</>}
+              : <span aria-hidden="true">{'€'}{fmt(null)}</span>}
           </div>
           <div style={{
             fontFamily: 'var(--font-mono)', fontSize: 'var(--type-body-md)', color: 'var(--text-secondary)',

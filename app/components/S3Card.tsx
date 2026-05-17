@@ -616,7 +616,7 @@ export function S3Card() {
       </div>
 
       {/* MODEL INPUT FOOTER */}
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-ghost)', marginTop: 'var(--space-sm)', paddingTop: 'var(--space-xs)', borderTop: '1px solid var(--border-card)' }}>MODEL INPUT → CAPEX reference · Financing cost</div>
+      <div aria-hidden="true" style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-ghost)', marginTop: 'var(--space-sm)', paddingTop: 'var(--space-xs)', borderTop: '1px solid var(--border-card)' }}>MODEL INPUT → CAPEX reference · Financing cost</div>
     </article>
   );
 }
