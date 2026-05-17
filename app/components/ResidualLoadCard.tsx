@@ -2,7 +2,7 @@
 
 import { useSignal } from '@/lib/useSignal';
 import { REFRESH_WARM } from '@/lib/refresh-cadence';
-import { SourceFooter } from '@/app/components/primitives';
+import { SourceFooter, DetailsDrawer } from '@/app/components/primitives';
 import { formatTimestamp } from '@/app/lib/freshness';
 
 const WORKER_URL = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
@@ -112,6 +112,25 @@ export function ResidualLoadCard() {
       </p>
 
       <SourceFooter source="ENTSO-E" updatedAt={formatTimestamp(ts)} dataClass="observed" />
+
+      <div style={{ marginTop: 'var(--space-xs)' }}>
+        <DetailsDrawer label="View residual load detail">
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 'var(--space-xs)' }}>Source</p>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+            ENTSO-E Transparency Platform load, wind, and solar actuals for the Baltic synchronous area. Aggregated by the S1 worker (`/s_wind`, `/s_solar`, `/s_load`), with per-country fields (`lt_mw`, `lv_mw`, `ee_mw`) and 7-day averages computed server-side.
+          </p>
+
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 'var(--space-xs)', marginTop: 'var(--space-sm)' }}>Computation</p>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+            residual_mw = load_mw − wind_mw − solar_mw, both for the regional aggregate and per-country (LT / LV / EE). Δ vs 7D uses the same formula applied to the rolling 7-day averages. Negative residual indicates a net renewable-surplus window (renewable generation exceeds demand).
+          </p>
+
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 'var(--space-xs)', marginTop: 'var(--space-sm)' }}>Limitations</p>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+            Residual conflates thermal generation, hydro, biomass, and net imports — it is not a pure thermal-only figure. Cross-border flows can mask the local generation mix at extreme renewable-surplus or deficit moments. ENTSO-E observed-data lag varies by TSO (typically &lt;1h).
+          </p>
+        </DetailsDrawer>
+      </div>
     </article>
   );
 }

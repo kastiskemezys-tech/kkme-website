@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSignal } from '@/lib/useSignal';
 import { REFRESH_HOT } from '@/lib/refresh-cadence';
-import { SourceFooter } from '@/app/components/primitives';
+import { SourceFooter, DetailsDrawer } from '@/app/components/primitives';
 import { Sparkline } from './Sparkline';
 import { CAPTURE_LABELS, vsCanonicalFootnote } from '@/app/lib/captureDefinitions';
 import { formatTimestamp } from '@/app/lib/freshness';
@@ -143,6 +143,25 @@ export function SpreadCaptureCard() {
       </p>
 
       <SourceFooter source="Nord Pool" updatedAt={formatTimestamp(data.updated_at)} dataClass="observed" />
+
+      <div style={{ marginTop: 'var(--space-xs)' }}>
+        <DetailsDrawer label="View spread capture detail">
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 'var(--space-xs)' }}>Source</p>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+            Nord Pool day-ahead hourly prices for the LT zone, ingested by the S1 worker (`/read`). The 14D swing history comes from `/s1/history`; the canonical 4h gross capture used in the vs-canonical footnote is sourced from `/s1/capture`. Today&apos;s 24h LT price curve is the worker&apos;s `lt_hourly_24` downsample (averaged across 15-min sub-bars where present).
+          </p>
+
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 'var(--space-xs)', marginTop: 'var(--space-sm)' }}>Computation</p>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+            Hero: gross_peak_trough_range = p_high_avg − p_low_avg (the raw DA envelope). Net: bess_net_capture deducts the regulated tariff RTE charge leg from the gross figure. Buy / Sell rows show the worker&apos;s averaged trough/peak prices used in the gross calculation. Cross-border: spread_eur_mwh = LT − SE4 average daily spread (sign matters; positive = LT premium).
+          </p>
+
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 'var(--space-xs)', marginTop: 'var(--space-sm)' }}>Limitations</p>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+            Day-ahead only — intraday opportunities are not captured here. The gross peak-trough range overstates achievable capture for BESS because it ignores cycle constraints and tariff drag (which the net figure corrects for). RTE charges are tariff-current; future tariff revisions will shift the gross-to-net gap.
+          </p>
+        </DetailsDrawer>
+      </div>
     </article>
   );
 }

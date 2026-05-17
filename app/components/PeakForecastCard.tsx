@@ -2,7 +2,7 @@
 
 import { useSignal } from '@/lib/useSignal';
 import { REFRESH_HOT } from '@/lib/refresh-cadence';
-import { SourceFooter } from '@/app/components/primitives';
+import { SourceFooter, DetailsDrawer } from '@/app/components/primitives';
 import { formatTomorrowLine } from '@/app/lib/peakForecast';
 import { formatHourEET } from '@/app/lib/hourLabels';
 import { formatTimestamp } from '@/app/lib/freshness';
@@ -114,18 +114,57 @@ export function PeakForecastCard() {
         </p>
       )}
 
-      {/* vs 90D context */}
-      {stats?.p50 != null && (
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: swing > (stats.p50 ?? 0) ? 'var(--teal)' : 'var(--text-muted)', marginBottom: '6px' }}>
-          90D median {'\u20AC'}{stats.p50.toFixed(0)} · P90 {'\u20AC'}{stats.p90?.toFixed(0)}
-        </p>
-      )}
+      {/* 90D distribution marker bar (P25 / P50 / P90 ticks + today cursor) */}
+      {stats?.p25 != null && stats?.p50 != null && stats?.p90 != null && (() => {
+        const p25 = stats.p25!;
+        const p50 = stats.p50!;
+        const p90 = stats.p90!;
+        const scaleMin = p25 * 0.7;
+        const scaleMax = p90 * 1.15;
+        const span = scaleMax - scaleMin;
+        const pos = (v: number) => `${Math.min(100, Math.max(0, ((v - scaleMin) / span) * 100))}%`;
+        return (
+          <div style={{ marginBottom: '6px' }}>
+            <div style={{ position: 'relative', height: '28px' }}>
+              <div style={{ position: 'absolute', left: 0, right: 0, top: '11px', height: '6px', borderRadius: '3px', background: 'var(--bg-elevated)' }} />
+              <div style={{ position: 'absolute', left: pos(p25), top: '8px', width: '1px', height: '12px', background: 'var(--text-muted)' }} />
+              <div style={{ position: 'absolute', left: pos(p50), top: '6px', width: '1.5px', height: '16px', background: 'var(--mint)' }} />
+              <div style={{ position: 'absolute', left: pos(p90), top: '8px', width: '1px', height: '12px', background: 'var(--text-muted)' }} />
+              <div style={{ position: 'absolute', left: pos(swing), top: '4px', width: '2px', height: '20px', background: 'var(--text-primary)', borderRadius: '1px' }} />
+            </div>
+            <div style={{ position: 'relative', height: '12px', fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--text-ghost)' }}>
+              <span style={{ position: 'absolute', left: pos(p25), transform: 'translateX(-50%)' }}>P25 {'€'}{p25.toFixed(0)}</span>
+              <span style={{ position: 'absolute', left: pos(p50), transform: 'translateX(-50%)' }}>P50 {'€'}{p50.toFixed(0)}</span>
+              <span style={{ position: 'absolute', left: pos(p90), transform: 'translateX(-50%)' }}>P90 {'€'}{p90.toFixed(0)}</span>
+            </div>
+          </div>
+        );
+      })()}
 
       <p className="tier3-interp" style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', lineHeight: 1.4, marginTop: 'var(--space-2xs)', marginRight: 0, marginBottom: 'var(--space-xs)', marginLeft: 0 }}>
         {interpretation(swing, stats)}
       </p>
 
       <SourceFooter source="Nord Pool via ENTSO-E" updatedAt={formatTimestamp(data.updated_at)} dataClass="observed" />
+
+      <div style={{ marginTop: 'var(--space-xs)' }}>
+        <DetailsDrawer label="View peak forecast detail">
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 'var(--space-xs)' }}>Source</p>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+            Nord Pool day-ahead hourly prices for the LT zone, ingested via ENTSO-E. Tomorrow&apos;s DA is published around 12:45 EET and surfaced once available; SE4 cross-zone reference uses the same feed.
+          </p>
+
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 'var(--space-xs)', marginTop: 'var(--space-sm)' }}>Computation</p>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+            daily_swing = lt_peak_price − lt_trough_price across the 24h DA schedule. Peak/trough hours are reported in EET (Europe/Vilnius). The 90D distribution (P25/P50/P75/P90) is computed by the worker on a rolling window and used as the marker-bar reference; today&apos;s cursor shows where the current swing falls in that distribution.
+          </p>
+
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 'var(--space-xs)', marginTop: 'var(--space-sm)' }}>Limitations</p>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+            Day-ahead only — no intraday or imbalance pricing. Cross-zone separation (LT vs SE4) is a structural reference, not a tradable arbitrage signal. The 90D window can lag genuine regime shifts by 1–2 weeks at its tail.
+          </p>
+        </DetailsDrawer>
+      </div>
     </article>
   );
 }
