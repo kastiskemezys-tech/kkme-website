@@ -8781,13 +8781,13 @@ export default {
           env.KKME_SIGNALS.get('da_tomorrow').catch(() => null),
           env.KKME_SIGNALS.get('s2_rolling_180d').catch(() => null),
         ]);
-        if (!daTomorrowRaw) return jsonResp({ error: 'No DA tomorrow data yet (publishes ~14:00 CET)' }, 404);
+        if (!daTomorrowRaw) return jsonResp({ forecast: null, reason: 'DA tomorrow publishes ~14:00 CET' }, 200);
 
         const daTomorrow = JSON.parse(daTomorrowRaw);
         const rolling = rollingRaw ? JSON.parse(rollingRaw) : null;
         const daP = daTomorrow.prices_24h || daTomorrow.lt_prices || [];
 
-        if (!daP.length) return jsonResp({ error: 'DA tomorrow prices empty' }, 404);
+        if (!daP.length) return jsonResp({ forecast: null, reason: 'DA tomorrow prices empty' }, 200);
 
         const synthBTD = rolling ? synthesizeBTDFromRolling(rolling, daTomorrow) : null;
 
