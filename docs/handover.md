@@ -1882,6 +1882,102 @@ Then Tier 1 (12.12 + 12.14 + 7.7g). Phase 12.12 picks up:
 - After merge to main → Phase 30 §6 (three commits + push to `phase-30-methodology-research` branch) resumes from the same working tree per operator's latest message.
  phase-12-8-1-backtest-caption
 
+### Session 65 — 2026-05-17 — Phase worker-404-empty-rationalization — 10 sibling routes flipped to 200 envelope (Claude Code)
+
+**Headline:** Generalization of Session 64. Branch `phase-worker-404-empty-rationalization` off clean main (`159b93a`). Inventoried 14 worker `, 404)` sites; 10 flipped to `{<field>: null, reason}` + 200, 2 stay-404 (user-input not-found), 2 deferred (admin-precondition POSTs, no frontend caller). Three caller-side guards added (S1Card, PeakForecastCard, SpreadCaptureCard) because their `useSignal`-based bails treat the new 200-envelope as data and proceed to render with undefined fields.
+
+**Pause A — per-route caller verification:**
+
+| # | Worker line | Endpoint | Caller(s) | Caller pattern | Disposition |
+|---|---|---|---|---|---|
+| 1 | 6901 | `POST /feed/delete-by-id` (admin, secret-guarded) | none in `app/` | n/a | **DEFER** — admin precondition; flipping would hide failure from operator curl |
+| 2 | 7052 | `GET /s2/fleet`/`/s4/fleet` | HeroBalticMap (r.ok pattern + `fleet?.…` chains) | safe | **flip → `{fleet:null,reason}`** |
+| 3 | 7109 | `POST /admin/backfill-s1-history` (admin, secret-guarded) | none in `app/` | n/a | **DEFER** — admin precondition |
+| 4 | 7137 | `GET /s2/activation` | **none** (data merged server-side into `/s2`) | n/a | **flip → `{activation:null,reason}`** (zero-risk; consistency) |
+| 5/6 | 8760/8764 | `GET /api/dispatch?mode=realised` | TradingEngineCard (`f?.meta` guard) + RevenueCard (`d?.revenue_per_mw?.daily_eur != null` guard) | safe | **flip → `{dispatch:null,reason}`** |
+| 7/8 | 8829/8831 | `GET /api/trading/latest` | **none** in `app/` | n/a | **flip → `{trading:null,reason}`** |
+| 9/10 | 8840/8842 | `GET /api/trading/signals` | SignalBar (optional-chained `data.trading?.…`) | safe | **flip → `{signals:null,reason}`** |
+| 11 | 9124 | `GET /s1/capture` | S1Card (`useSignal`, bails `if (!cap)`); SpreadCaptureCard (raw fetch, optional-chained); HeroBalticMap (r.ok pattern) | **S1Card needs guard** — envelope truthy past existing bail; raw + r.ok callers safe | **flip + S1Card guard** |
+| 12 | 9232 | `GET /read` | PeakForecastCard + SpreadCaptureCard via `useSignal` (bail `if (status === 'error' || !data)`); HeroMarketNow / SignalBar / StatusStrip / HeroBalticMap (raw fetch, optional-chained) | **PeakForecastCard + SpreadCaptureCard need guards** — envelope truthy past existing bail; raw callers safe | **flip + 2 caller guards** |
+
+Stay-as-404 (correctly status-coded per HTTP spec): line 6908 (`/feed/delete-by-id` no-such-id; user-supplied) + line 8821 (`/api/trading?date=<user>`).
+
+External / VPS sweep — `scripts/diagnose.sh` (hits `/health`, `/s1`, `/s2`, `/s8`, `/genload`), `scripts/validate-deploy.sh` (`/health/validate`, `/s2`), `scripts/vps/baltic_storage_index.py` (POST `/index/update`), `scripts/vps/fetch_entsoe_installed_capacity.py` (POST `/s4/buildability`), `scripts/hourly_grid.py` (POST `/kv/set`) — none of the 12 sites called externally; no status-code-dependent external integrations identified.
+
+**Pause B — apply + verify:**
+
+Worker edits — 6 hunks across 7 line locations covering 10 status-code flips, each with a route-specific operator-honest `reason` string (no engine-emitted state words per rule #6):
+
+| Line | Field | Reason copy |
+|---|---|---|
+| 7052 | `fleet` | "Fleet data not yet computed — awaiting daily entity-resolver run" |
+| 7137 | `activation` | "Activation KV not yet populated — awaiting BTD push" |
+| 8760 | `dispatch` | "No dispatch data yet — awaiting BTD push (cron ~01:00 UTC)" |
+| 8764 | `dispatch` | "Latest dispatch key listed but body missing — KV eventual-consistency" |
+| 8829 | `trading` | "No trading data yet — awaiting BTD push" |
+| 8831 | `trading` | "Latest trading date listed but body missing — KV eventual-consistency" |
+| 8840 | `signals` | "No trading data yet — awaiting BTD push" |
+| 8842 | `signals` | "Latest trading body missing — KV eventual-consistency" |
+| 9124 | `capture` | "Capture not yet computed — awaiting first S1 capture cron" |
+| 9232 | `s1` | "S1 not yet computed — awaiting first cron run" |
+
+Frontend caller guards — discriminator `data.updated_at` (universal on success payloads, absent on envelope) for the two useSignal `/read` consumers; `Array.isArray(cap.history)` (required field on `S1CaptureData`, absent on envelope) for the S1Card `/s1/capture` consumer:
+
+- `app/components/S1Card.tsx:102` — `if (!cap)` → `if (!cap || !Array.isArray(cap.history))`
+- `app/components/PeakForecastCard.tsx:61` — `if (status === 'error' || !data)` → `if (status === 'error' || !data || !data.updated_at)`
+- `app/components/SpreadCaptureCard.tsx:75` — same shape as PeakForecastCard
+
+**Verification gates (baseline reference: Session 64 — tsc 0 / vitest 919-passed / lint 126 problems = 39 errors + 87 warnings / build success):**
+
+| Gate | Baseline | Post-edit | Δ |
+|---|---|---|---|
+| `npx tsc --noEmit` | 0 errors | 0 errors | 0 |
+| `npm run test` | 919/919 (60 files) | 919/919 (60 files) | 0 |
+| `npm run lint` | 126 problems (39 / 87) | 126 problems (39 / 87) | 0 (verified via `git stash` baseline diff — identical pre/post; all errors are pre-existing on main) |
+| `npm run lint:no-raw-spacing` | pass | pass | 0 |
+| `npm run lint:no-editorial-chips` | pass | pass | 0 |
+| `npm run build` | success | success (7/7 static, prerender clean) | 0 |
+
+**Worker deploy:** `cd workers && npx wrangler deploy fetch-s1.js --name kkme-fetch-s1` → version `8736f778-caa6-44c9-a991-7613a395d924` (11.38s upload + 7.53s trigger deploy). Total payload 350.38 KiB / gzip 85.27 KiB.
+
+**Post-deploy reality check (live curl, success-path regression):**
+
+| Probe | Status | Body size |
+|---|---|---|
+| `GET /s1/capture` | 200 | 10239 B |
+| `GET /api/dispatch?dur=4h&mode=realised` | 200 | 19376 B |
+| `GET /api/trading/latest` | 200 | 46177 B |
+| `GET /api/trading/signals` | 200 | 867 B |
+| `GET /read` | 200 | 4122 B |
+| `GET /s2/activation` | 200 | 5150 B |
+| `GET /s2/fleet` | 200 | 21028 B |
+| `GET /api/trading?date=2099-01-01` (stay-404) | **404** | `{"error":"No trading data for this date","date":"2099-01-01"}` ✓ |
+
+All flipped routes return populated 200 (success path uncompromised). Empty-envelope path not exercised in production because all KV is currently populated — code-path correctness rests on tsc + tests + build; envelope shape verified by Read of modified worker. Stay-404 user-input route correctly preserved.
+
+**Grep evidence — only the 4 intentional 404s remain:**
+- 6901 (admin defer), 6908 (user-input stay), 7109 (admin defer), 8821 (user-input stay)
+
+**Out of scope (per prompt §"What NOT to do"):**
+- No engine math changes.
+- No new fields on successful responses; envelope only on empty path.
+- No status flips on the 2 user-input not-found routes (rule preserved).
+- No external-caller breakage (none use 404-status-dependent logic).
+- No editorial state labels in `reason` strings (rule #6 respected — operator-honest cron/cadence specifics only).
+- No roadmap edits per rule #5.
+
+**Deferred / follow-up candidates:**
+- Admin-precondition rationalization (lines 6901 + 7109) — if operator wants these flipped too, they can be done in a follow-up; deferring on the principle that admin precondition 404s aren't UI console noise and have operator value as failure signals.
+
+**Roadmap delta needed — operator to apply Cowork-side after merge (per rule #5 + `feedback_cowork_cc_sequencing.md` step 10):**
+
+1. **Mark "Worker 404-as-empty status code rationalization" SHIPPED** in `docs/phases/_post-12-8-roadmap.md` with this Session 65 reference.
+2. **File the 2 admin-precondition routes (6901 + 7109) as an optional follow-up candidate** — low-priority polish; only worth doing if a future audit re-surfaces them. Recommendation: leave as 404 (correct semantic).
+
+**Branch push:** `phase-worker-404-empty-rationalization` pushed to origin atop `159b93a`. Operator opens PR + merges per `feedback_pr_workflow_minimal.md` (no body, no branch delete).
+
+---
+
 ### Session 64 — 2026-05-17 — Phase api-dispatch — Forecast empty-KV 404 → 200 console-noise fix (Claude Code)
 
 **Headline:** Worker-only, 2-line, ~15min CC. Branch `phase-api-dispatch-forecast-no-content` off latest main (`c446713`, post-Phase-19 merge). `GET /api/dispatch?mode=forecast` was returning HTTP 404 when KV `da_tomorrow` is unpopulated (pre-~14:00 CET daily publish window), generating visible DevTools / axe-core / DOM-probe console errors despite the frontend's graceful `.catch(() => null)`. 404 was the wrong semantic — endpoint exists, data wasn't ready yet. Reframed pre-prompt by Cowork-side investigation as a **worker-design issue, not a bug**, per discipline rule #1. Two-pause-point execution per prompt.
