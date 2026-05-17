@@ -23,11 +23,13 @@ function dotColor(residual: number, avg: number): string {
   return 'var(--amber)';
 }
 
-function interpretation(residual: number, avg: number): string {
-  if (avg <= 0) return 'Insufficient data for comparison';
-  if (residual < avg * 0.8) return 'Residual well below norm — excess renewable supply, charging opportunity';
-  if (residual > avg * 1.2) return 'Tight system — thermal at high utilization, elevated evening prices likely';
-  return 'Balanced — residual load tracking weekly average';
+function interpretation(residualMw: number, totalLoad: number): string {
+  if (totalLoad <= 0) return 'Demand data unavailable';
+  if (residualMw < 0) {
+    return `Renewables exceed load by ${Math.abs(Math.round(residualMw)).toLocaleString()} MW (net export window).`;
+  }
+  const residualPct = (residualMw / totalLoad) * 100;
+  return `Thermal + imports cover ${Math.round(residualMw).toLocaleString()} MW (${residualPct.toFixed(0)}% of demand); renewables displace ${Math.round(totalLoad - residualMw).toLocaleString()} MW.`;
 }
 
 export function ResidualLoadCard() {
@@ -106,7 +108,7 @@ export function ResidualLoadCard() {
       )}
 
       <p className="tier3-interp" style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', lineHeight: 1.4, marginTop: 'var(--space-2xs)', marginRight: 0, marginBottom: 'var(--space-xs)', marginLeft: 0 }}>
-        {interpretation(residualMw, residual7d)}
+        {interpretation(residualMw, totalLoad)}
       </p>
 
       <SourceFooter source="ENTSO-E" updatedAt={formatTimestamp(ts)} dataClass="observed" />
