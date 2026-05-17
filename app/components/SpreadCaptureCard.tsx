@@ -32,11 +32,13 @@ function dotColor(capture: number): string {
   return 'var(--rose)';
 }
 
-function interpretation(capture: number): string {
-  if (capture > 200) return 'Wide envelope — supports 2+ profitable cycles before RTE losses';
-  if (capture > 100) return 'Moderate envelope — single-cycle viable at current stack';
-  if (capture < 50) return 'Thin envelope — hold or flex to ancillary services';
-  return 'Normal envelope — see Signals · S1 for cycle-normalised capture';
+function interpretation(grossCapture: number, netCapture: number | null | undefined): string {
+  if (netCapture == null || grossCapture <= 0) {
+    return `Gross €${grossCapture.toFixed(0)}/MWh.`;
+  }
+  const drag = grossCapture - netCapture;
+  const dragPct = ((1 - netCapture / grossCapture) * 100).toFixed(0);
+  return `Gross €${grossCapture.toFixed(0)}/MWh; net €${netCapture.toFixed(0)}/MWh after RTE losses — €${drag.toFixed(0)}/MWh drag (${dragPct}%).`;
 }
 
 export function SpreadCaptureCard() {
@@ -86,7 +88,6 @@ export function SpreadCaptureCard() {
 
   const label = CAPTURE_LABELS.da_peak_trough_range;
   const canonicalNote = vsCanonicalFootnote('da_peak_trough_range', canonicalGross4h);
-  const interpValue = grossCapture;
 
   return (
     <article style={{ width: '100%' }}>
@@ -138,7 +139,7 @@ export function SpreadCaptureCard() {
       )}
 
       <p className="tier3-interp" style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', lineHeight: 1.4, marginTop: 'var(--space-2xs)', marginRight: 0, marginBottom: 'var(--space-xs)', marginLeft: 0 }}>
-        {interpretation(interpValue)}
+        {interpretation(grossCapture, netCapture)}
       </p>
 
       <SourceFooter source="Nord Pool" updatedAt={formatTimestamp(data.updated_at)} dataClass="observed" />

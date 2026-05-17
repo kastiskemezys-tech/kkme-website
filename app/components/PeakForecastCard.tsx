@@ -40,11 +40,10 @@ function dotColor(swing: number, stats: S1Signal['swing_stats_90d']): string {
 }
 
 function interpretation(swing: number, stats: S1Signal['swing_stats_90d']): string {
-  if (!stats?.p50) return 'Spread data loading';
-  if (swing > (stats.p90 ?? Infinity)) return 'Exceptional spread day — above 90th percentile of last 90 days';
-  if (swing > (stats.p50 ?? 0)) return 'Above-average spread — favorable for 2-cycle dispatch';
-  if (swing < (stats.p25 ?? 0)) return 'Compressed spread — limited arbitrage value today';
-  return 'Normal spread conditions';
+  if (!stats?.p50 || !stats?.p90) return `Swing €${swing.toFixed(0)}/MWh`;
+  const ratioMedian = (swing / stats.p50).toFixed(2);
+  const ratioP90 = (swing / stats.p90).toFixed(2);
+  return `Swing €${swing.toFixed(0)}/MWh · ${ratioMedian}× the 90D median (€${stats.p50.toFixed(0)}), ${ratioP90}× the P90 (€${stats.p90.toFixed(0)}).`;
 }
 
 export function PeakForecastCard() {

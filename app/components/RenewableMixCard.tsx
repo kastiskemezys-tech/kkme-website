@@ -20,10 +20,18 @@ function dotColor(pct: number): string {
   return 'var(--text-muted)';
 }
 
-function interpretation(pct: number): string {
-  if (pct > 50) return 'High renewable penetration — midday surplus likely, charging window open';
-  if (pct > 30) return 'Moderate mix — spread capture depends on evening demand ramp';
-  return 'Thermal-dominated — flat profile, narrow BESS spreads expected';
+function interpretation(
+  renewablePct: number,
+  renewableMw: number,
+  totalLoad: number,
+  thermalMw: number,
+  thermalPct: number,
+): string {
+  if (renewableMw > totalLoad) {
+    const exportMw = Math.round(renewableMw - totalLoad);
+    return `Renewables ${renewablePct.toFixed(0)}% of ${Math.round(totalLoad).toLocaleString()} MW load (${Math.round(renewableMw).toLocaleString()} MW) — exceed demand by ${exportMw.toLocaleString()} MW (net export window).`;
+  }
+  return `Renewables ${renewablePct.toFixed(0)}% of ${Math.round(totalLoad).toLocaleString()} MW load (${Math.round(renewableMw).toLocaleString()} MW); thermal residual ${Math.round(thermalMw).toLocaleString()} MW (${thermalPct.toFixed(0)}%).`;
 }
 
 export function RenewableMixCard() {
@@ -104,7 +112,7 @@ export function RenewableMixCard() {
       )}
 
       <p className="tier3-interp" style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', lineHeight: 1.4, marginTop: 'var(--space-2xs)', marginRight: 0, marginBottom: 'var(--space-xs)', marginLeft: 0 }}>
-        {interpretation(renewablePct)}
+        {interpretation(renewablePct, renewableMw, totalLoad, thermalMw, thermalPct)}
       </p>
 
       <SourceFooter source="ENTSO-E" updatedAt={formatTimestamp(ts)} dataClass="observed" />
