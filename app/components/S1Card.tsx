@@ -99,7 +99,7 @@ export function S1Card() {
       </article>
     );
   }
-  if (!cap) return null;
+  if (!cap || !Array.isArray(cap.history)) return null;
 
   const history = cap.history ?? [];
   const monthly = cap.monthly ?? [];

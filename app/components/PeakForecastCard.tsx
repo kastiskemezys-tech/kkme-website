@@ -58,7 +58,7 @@ export function PeakForecastCard() {
       </article>
     );
   }
-  if (status === 'error' || !data) {
+  if (status === 'error' || !data || !data.updated_at) {
     return <article style={{ padding: 'var(--space-md)' }}><p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Peak forecast data unavailable</p></article>;
   }
 
