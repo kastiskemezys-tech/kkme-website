@@ -24,13 +24,13 @@ interface AssetDetailPanelProps {
 }
 
 const STATUS_STYLE: Record<string, { color: string; label: string }> = {
-  operational: { color: 'var(--teal)', label: 'Operational' },
-  under_construction: { color: 'var(--amber)', label: 'Construction' },
-  commissioned: { color: 'var(--teal)', label: 'Commissioned' },
+  operational: { color: 'var(--teal-accent-text)', label: 'Operational' },
+  under_construction: { color: 'var(--amber-accent-text)', label: 'Construction' },
+  commissioned: { color: 'var(--teal-accent-text)', label: 'Commissioned' },
   connection_agreement: { color: 'var(--text-tertiary)', label: 'Agreement' },
   application: { color: 'var(--text-muted)', label: 'Application' },
   announced: { color: 'var(--text-ghost)', label: 'Announced' },
-  pumped_hydro: { color: 'var(--amber)', label: 'Hydro' },
+  pumped_hydro: { color: 'var(--amber-accent-text)', label: 'Hydro' },
 };
 
 function StatusPill({ status, tech }: { status: string; tech?: string }) {
@@ -191,7 +191,7 @@ export function AssetDetailPanel({ isOpen, onClose, title, subtitle, assets, not
                   href={asset.source_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  style={{ color: 'var(--teal)', textDecoration: 'none' }}
+                  style={{ color: 'var(--teal-accent-text)', textDecoration: 'none' }}
                   onMouseEnter={e => (e.currentTarget.style.opacity = '0.8')}
                   onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
                 >

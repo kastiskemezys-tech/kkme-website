@@ -267,7 +267,7 @@ export function ContactForm() {
             background: 'var(--teal-bg)',
             border: '1px solid var(--teal-subtle)',
             borderRadius: '2px',
-            color: 'var(--teal)',
+            color: 'var(--teal-accent-text)',
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-sm)',
             letterSpacing: '0.06em',
@@ -289,7 +289,7 @@ export function ContactForm() {
           marginTop: 'var(--space-2xs)',
         }}>
           Something went wrong. Try emailing{' '}
-          <a href="mailto:kastytis@kkme.eu" style={{ color: 'var(--teal)', textDecoration: 'none' }}>
+          <a href="mailto:kastytis@kkme.eu" style={{ color: 'var(--teal-accent-text)', textDecoration: 'none' }}>
             kastytis@kkme.eu
           </a>{' '}
           directly.

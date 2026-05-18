@@ -92,7 +92,7 @@ export function WindCard() {
         {windInterpretation(trend)}
       </p>
 
-      <div className="tier3-impact" style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--teal-medium)', marginBottom: 'var(--space-xs)' }}>
+      <div className="tier3-impact" style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--teal-medium-accent-text)', marginBottom: 'var(--space-xs)' }}>
         {windImpact(trend)}
       </div>
 

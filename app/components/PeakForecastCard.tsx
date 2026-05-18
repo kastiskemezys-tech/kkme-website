@@ -35,7 +35,7 @@ interface S1Signal {
 function dotColor(swing: number, stats: S1Signal['swing_stats_90d']): string {
   if (!stats?.p50) return 'var(--text-muted)';
   if (swing > (stats.p90 ?? Infinity)) return 'var(--green)';
-  if (swing > (stats.p50 ?? 0)) return 'var(--amber)';
+  if (swing > (stats.p50 ?? 0)) return 'var(--amber-accent-text)';
   return 'var(--text-muted)';
 }
 
@@ -94,7 +94,7 @@ export function PeakForecastCard() {
             <span style={{ color: 'var(--text-secondary)', marginLeft: '6px' }}>{'\u20AC'}{peakPrice!.toFixed(1)}/MWh</span>
           </div>
           <div>
-            <span style={{ color: 'var(--teal)' }}>▼ Trough</span>
+            <span style={{ color: 'var(--teal-accent-text)' }}>▼ Trough</span>
             <span style={{ color: 'var(--text-muted)', marginLeft: '6px' }}>{formatHourEET(troughHour!, data.updated_at)}</span>
             <span style={{ color: 'var(--text-secondary)', marginLeft: '6px' }}>{'\u20AC'}{troughPrice!.toFixed(1)}/MWh</span>
           </div>

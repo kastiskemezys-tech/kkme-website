@@ -27,7 +27,7 @@ export function CardFooter({ period, compare, updated, timestamp, isStale, ageHo
       <span style={{ marginTop: 0, marginRight: '5px', marginBottom: 0, marginLeft: '5px', opacity: 0.35 }}>·</span>
       <span>{compare}</span>
       <span style={{ marginTop: 0, marginRight: '5px', marginBottom: 0, marginLeft: '5px', opacity: 0.35 }}>·</span>
-      <span style={{ color: isStale ? 'var(--amber)' : 'var(--text-muted)' }}>
+      <span style={{ color: isStale ? 'var(--amber-accent-text)' : 'var(--text-muted)' }}>
         <FreshnessDot timestamp={timestamp} />
         {updated}
         {isStale && ageHours != null ? ` · ${Math.round(ageHours)}h old` : ''}

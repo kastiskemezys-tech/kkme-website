@@ -28,7 +28,7 @@ interface HistoryEntry {
 
 function dotColor(capture: number): string {
   if (capture > 150) return 'var(--green)';
-  if (capture >= 80) return 'var(--amber)';
+  if (capture >= 80) return 'var(--amber-accent-text)';
   return 'var(--rose)';
 }
 

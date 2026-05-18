@@ -45,7 +45,7 @@ describe('CyclesBreakdownChart', () => {
       <CyclesBreakdownChart breakdown={FIXTURE} warrantyStatus="within" />,
     );
     expect(html).toContain('within warranty');
-    expect(html).toContain('var(--teal)');
+    expect(html).toContain('var(--teal-accent-text)');
   });
 
   it('warranty="premium-tier-required" renders an amber chip', () => {
@@ -53,7 +53,7 @@ describe('CyclesBreakdownChart', () => {
       <CyclesBreakdownChart breakdown={FIXTURE} warrantyStatus="premium-tier-required" />,
     );
     expect(html).toContain('premium tier required');
-    expect(html).toContain('var(--amber)');
+    expect(html).toContain('var(--amber-accent-text)');
   });
 
   it('warranty="unwarranted" renders a coral chip', () => {

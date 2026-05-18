@@ -98,7 +98,7 @@ export default function MethodologyPage() {
                 href={href}
                 target={href?.startsWith('http') ? '_blank' : undefined}
                 rel={href?.startsWith('http') ? 'noopener noreferrer' : undefined}
-                style={{ color: 'var(--teal)', textDecoration: 'none', borderBottom: '1px dotted var(--teal)' }}
+                style={{ color: 'var(--teal-accent-text)', textDecoration: 'none', borderBottom: '1px dotted var(--teal)' }}
               >
                 {children}
               </a>

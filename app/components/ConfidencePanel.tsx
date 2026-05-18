@@ -15,7 +15,7 @@ function Dots({ filled }: { filled: number }) {
   return (
     <span style={{ letterSpacing: '2px' }}>
       {Array.from({ length: 5 }, (_, i) => (
-        <span key={i} style={{ color: i < filled ? 'var(--teal)' : 'var(--text-ghost)' }}>
+        <span key={i} style={{ color: i < filled ? 'var(--teal-accent-text)' : 'var(--text-ghost)' }}>
           {i < filled ? '●' : '○'}
         </span>
       ))}
@@ -25,8 +25,8 @@ function Dots({ filled }: { filled: number }) {
 
 function LevelBadge({ level }: { level: string }) {
   const colors: Record<string, string> = {
-    high: 'var(--teal)',
-    medium: 'var(--amber)',
+    high: 'var(--teal-accent-text)',
+    medium: 'var(--amber-accent-text)',
     low: 'var(--rose)',
   };
   return (

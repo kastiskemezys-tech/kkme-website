@@ -208,7 +208,7 @@ export default function Home() {
                   <div style={{ display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
                     <a href="mailto:kastytis@kkme.eu" style={{
                       fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)',
-                      color: 'var(--teal)', textDecoration: 'none',
+                      color: 'var(--teal-accent-text)', textDecoration: 'none',
                     }}>kastytis@kkme.eu</a>
                     <a href="tel:+37069822225" style={{
                       fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)',
@@ -217,7 +217,7 @@ export default function Home() {
                     <a href="https://www.linkedin.com/in/kastytis-kemezys/"
                       target="_blank" rel="noopener noreferrer" style={{
                       fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)',
-                      color: 'var(--teal)', textDecoration: 'none',
+                      color: 'var(--teal-accent-text)', textDecoration: 'none',
                     }}>LinkedIn ↗</a>
                   </div>
                 </div>
@@ -263,7 +263,7 @@ export default function Home() {
               <span style={{ color: 'var(--text-muted)' }}>+370 698 22225</span>
               <a href="https://www.linkedin.com/in/kastytis-kemezys/"
                 target="_blank" rel="noopener noreferrer"
-                style={{ color: 'var(--teal)', textDecoration: 'none' }}>LinkedIn ↗</a>
+                style={{ color: 'var(--teal-accent-text)', textDecoration: 'none' }}>LinkedIn ↗</a>
             </div>
           </div>
           <div style={{

@@ -150,7 +150,7 @@ export default function StickyNav() {
             style={{
               fontFamily: 'var(--font-mono)',
               fontSize: 'var(--font-sm)',
-              color: 'var(--teal)',
+              color: 'var(--teal-accent-text)',
               textDecoration: 'none',
               letterSpacing: '0.04em',
               paddingTop: '10px', paddingRight: 'var(--space-md)', paddingBottom: '10px', paddingLeft: 'var(--space-md)',

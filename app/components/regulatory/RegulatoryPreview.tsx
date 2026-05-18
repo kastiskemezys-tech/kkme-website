@@ -71,7 +71,7 @@ export function RegulatoryPreview() {
           style={{
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--font-xs)',
-            color: 'var(--teal)',
+            color: 'var(--teal-accent-text)',
             textDecoration: 'none',
             letterSpacing: '0.04em',
             textTransform: 'uppercase',

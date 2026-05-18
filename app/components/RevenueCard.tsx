@@ -179,15 +179,15 @@ const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Se
 function irrColor(irr: number | null): string {
   if (irr === null) return 'var(--rose)';
   const pct = irr * 100;
-  if (pct >= 12) return 'var(--teal)';
-  if (pct >= 6) return 'var(--amber)';
+  if (pct >= 12) return 'var(--teal-accent-text)';
+  if (pct >= 6) return 'var(--amber-accent-text)';
   return 'var(--rose)';
 }
 
 function dscrColor(d: number | null): string {
   if (d === null) return 'var(--text-muted)';
-  if (d >= 1.20) return 'var(--teal)';
-  if (d >= 1.0) return 'var(--amber)';
+  if (d >= 1.20) return 'var(--teal-accent-text)';
+  if (d >= 1.0) return 'var(--amber-accent-text)';
   return 'var(--rose)';
 }
 
@@ -229,7 +229,7 @@ function ControlGroup({ label, options, value, onChange }: {
               borderColor: value === o.key ? 'var(--teal)' : 'var(--border-card)',
               borderRadius: 3,
               background: value === o.key ? 'var(--teal-bg)' : 'transparent',
-              color: value === o.key ? 'var(--teal)' : 'var(--text-secondary)',
+              color: value === o.key ? 'var(--teal-accent-text)' : 'var(--text-secondary)',
               transition: 'background var(--motion-fast), color var(--motion-fast), border-color var(--motion-fast)',
             }}>{o.label}</button>
         ))}
@@ -455,8 +455,8 @@ const PRODUCT_COLOR: Record<'fcr' | 'afrr' | 'mfrr' | 'da', string> = {
   da:   'var(--cycles-da)',
 };
 const WARRANTY_STYLE: Record<'within' | 'premium-tier-required' | 'unwarranted', { color: string; label: string }> = {
-  'within':                  { color: 'var(--teal)',   label: 'within warranty' },
-  'premium-tier-required':   { color: 'var(--amber)',  label: 'premium tier required' },
+  'within':                  { color: 'var(--teal-accent-text)',   label: 'within warranty' },
+  'premium-tier-required':   { color: 'var(--amber-accent-text)',  label: 'premium tier required' },
   'unwarranted':             { color: 'var(--coral)',  label: 'unwarranted' },
 };
 
@@ -1155,7 +1155,7 @@ function SensitivityTable({ matrix, currentCod, currentCapex }: {
     const irr = item.project_irr * 100;
     return {
       display: irr.toFixed(1),
-      color: irr >= 12 ? 'var(--text-primary)' : irr >= 6 ? 'var(--amber)' : 'var(--rose)',
+      color: irr >= 12 ? 'var(--text-primary)' : irr >= 6 ? 'var(--amber-accent-text)' : 'var(--rose)',
       bold: irr >= 12,
     };
   };
@@ -1192,7 +1192,7 @@ function SensitivityTable({ matrix, currentCod, currentCapex }: {
                     paddingTop: '5px', paddingRight: 'var(--space-xs)', paddingBottom: '5px', paddingLeft: 'var(--space-xs)', textAlign: 'right',
                     fontFamily: "var(--font-mono)", fontSize: 'var(--font-sm)',
                     background: isCurrent ? 'var(--bg-elevated)' : 'transparent',
-                    color: isCurrent ? 'var(--teal)' : cell.color,
+                    color: isCurrent ? 'var(--teal-accent-text)' : cell.color,
                     fontWeight: cell.bold || isCurrent ? 600 : 400,
                   }}>{cell.display}</td>
                 );
@@ -1694,7 +1694,7 @@ export function RevenueCard() {
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--type-mono-xs)',
                 color: 'var(--text-muted)' }}>{liveLabel.detail}</div>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
-                color: lr.delta_pct >= 0 ? 'var(--teal)' : 'var(--amber)', marginTop: 2 }}>
+                color: lr.delta_pct >= 0 ? 'var(--teal-accent-text)' : 'var(--amber-accent-text)', marginTop: 2 }}>
                 {lr.delta_pct >= 0 ? '+' : ''}{lr.delta_pct}% vs trailing avg</div>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
                 color: 'var(--text-muted)' }}>{fmtDate(lr.as_of)}</div>

@@ -182,7 +182,7 @@ function SourceLink({ href, children }: { href: string; children: React.ReactNod
         borderBottom: '1px dotted var(--text-muted)',
         transition: 'color 150ms',
       }}
-      onMouseEnter={e => (e.currentTarget.style.color = 'var(--teal)')}
+      onMouseEnter={e => (e.currentTarget.style.color = 'var(--teal-accent-text)')}
       onMouseLeave={e => (e.currentTarget.style.color = 'inherit')}
     >
       {children} ↗
@@ -196,8 +196,8 @@ const TAB_LABELS: Record<CountryTab, string> = { LT: 'Lithuania', LV: 'Latvia', 
 
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {
-    operational: 'var(--teal)',
-    under_construction: 'var(--amber)',
+    operational: 'var(--teal-accent-text)',
+    under_construction: 'var(--amber-accent-text)',
     announced: 'var(--text-muted)',
   };
   const labels: Record<string, string> = {
@@ -229,7 +229,7 @@ function AssetRow({ asset }: { asset: CountryAsset }) {
         {asset.source_url ? (
           <a href={asset.source_url} target="_blank" rel="noopener noreferrer"
             style={{ color: 'inherit', textDecoration: 'none', borderBottom: '1px dotted var(--text-muted)' }}
-            onMouseEnter={e => (e.currentTarget.style.color = 'var(--teal)')}
+            onMouseEnter={e => (e.currentTarget.style.color = 'var(--teal-accent-text)')}
             onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-secondary)')}>
             {asset.name} ↗
           </a>
@@ -538,8 +538,8 @@ export function S4Card() {
         marginBottom: 'var(--space-sm)',
         paddingLeft: '2px',
       }}>
-        <div><span style={{ color: 'var(--teal)' }}>●</span> Connected / operational: {formatMW(installedMw)} MW</div>
-        <div><span style={{ color: 'var(--amber)' }}>●</span> Under construction: ~291 MW</div>
+        <div><span style={{ color: 'var(--teal-accent-text)' }}>●</span> Connected / operational: {formatMW(installedMw)} MW</div>
+        <div><span style={{ color: 'var(--amber-accent-text)' }}>●</span> Under construction: ~291 MW</div>
         <div style={{ color: 'var(--text-secondary)' }}><span style={{ color: 'var(--text-tertiary)' }}>●</span> Grid agreement + tech project: ~700 MW</div>
         <div style={{ color: 'var(--text-tertiary)' }}><span style={{ color: 'var(--text-tertiary)' }}>●</span> Development permit only: ~3,600 MW</div>
         <div><span style={{ color: 'var(--text-tertiary)' }}>●</span> TSO reservation / protocol: {formatMW(tsoReservedMw)} MW</div>
@@ -551,11 +551,11 @@ export function S4Card() {
         {activeTab === 'EE' && (
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>
             <div style={{ marginBottom: '12px' }}>
-              <button onClick={() => openCountryAssets('EE', 'operational')} style={{ all: 'unset', color: 'var(--teal)', fontWeight: 600, cursor: 'pointer', borderBottom: '1px dotted var(--teal)' }}>
+              <button onClick={() => openCountryAssets('EE', 'operational')} style={{ all: 'unset', color: 'var(--teal-accent-text)', fontWeight: 600, cursor: 'pointer', borderBottom: '1px dotted var(--teal)' }}>
                 {formatMW(eeMw)} MW operational ↗
               </button>
               {' · '}
-              <button onClick={() => openCountryAssets('EE', 'under_construction')} style={{ all: 'unset', color: 'var(--amber)', cursor: 'pointer', borderBottom: '1px dotted var(--amber)' }}>
+              <button onClick={() => openCountryAssets('EE', 'under_construction')} style={{ all: 'unset', color: 'var(--amber-accent-text)', cursor: 'pointer', borderBottom: '1px dotted var(--amber)' }}>
                 {formatMW(sbc.EE?.under_construction_mw ?? 255)} MW under construction ↗
               </button>
             </div>
@@ -564,7 +564,7 @@ export function S4Card() {
             </p>
             {eeQuarantinedMw > 0 && (
               <p style={{
-                fontFamily: 'var(--font-serif)', fontSize: 'var(--font-xs)', color: 'var(--amber)',
+                fontFamily: 'var(--font-serif)', fontSize: 'var(--font-xs)', color: 'var(--amber-accent-text)',
                 lineHeight: 1.5, marginTop: 0, marginRight: 0, marginBottom: '10px', marginLeft: 0, paddingTop: '6px', paddingRight: '10px', paddingBottom: '6px', paddingLeft: '10px',
                 borderLeft: '2px solid var(--amber-subtle)',
               }}>
@@ -580,12 +580,12 @@ export function S4Card() {
         {activeTab === 'LV' && (
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>
             <div style={{ marginBottom: '12px' }}>
-              <span style={{ color: 'var(--teal)', fontWeight: 600 }}>{formatMW(lvMw)} MW operational</span>
+              <span style={{ color: 'var(--teal-accent-text)', fontWeight: 600 }}>{formatMW(lvMw)} MW operational</span>
               {' · TSO-owned'}
             </div>
             {lvQuarantinedMw > 0 && (
               <p style={{
-                fontFamily: 'var(--font-serif)', fontSize: 'var(--font-xs)', color: 'var(--amber)',
+                fontFamily: 'var(--font-serif)', fontSize: 'var(--font-xs)', color: 'var(--amber-accent-text)',
                 lineHeight: 1.5, marginTop: 'var(--space-2xs)', marginRight: 0, marginBottom: '10px', marginLeft: 0, paddingTop: '6px', paddingRight: '10px', paddingBottom: '6px', paddingLeft: '10px',
                 borderLeft: '2px solid var(--amber-subtle)',
               }}>
@@ -652,7 +652,7 @@ export function S4Card() {
       <div style={{
         fontFamily: 'var(--font-mono)',
         fontSize: 'var(--font-xs)',
-        color: 'var(--teal-medium)',
+        color: 'var(--teal-medium-accent-text)',
         marginBottom: 'var(--space-sm)',
       }}>
         {pipelineImpactDesc(installedMw, tsoReservedMw)}

@@ -20,7 +20,7 @@ function dotColor(residual: number, avg: number): string {
   if (avg <= 0) return 'var(--text-muted)';
   if (residual < avg * 0.8) return 'var(--green)';
   if (residual > avg * 1.2) return 'var(--rose)';
-  return 'var(--amber)';
+  return 'var(--amber-accent-text)';
 }
 
 function interpretation(residualMw: number, totalLoad: number): string {
@@ -102,7 +102,7 @@ export function ResidualLoadCard() {
 
       {/* vs 7D */}
       {residual7d > 0 && (
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: deltaMw > 0 ? 'var(--rose)' : 'var(--teal)', marginBottom: '6px' }}>
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: deltaMw > 0 ? 'var(--rose)' : 'var(--teal-accent-text)', marginBottom: '6px' }}>
           {deltaMw > 0 ? '↑' : '↓'} {Math.abs(Math.round(deltaMw)).toLocaleString()} MW vs 7D avg
         </p>
       )}

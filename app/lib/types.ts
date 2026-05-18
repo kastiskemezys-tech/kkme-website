@@ -6,8 +6,8 @@ export type GeographyClass = 'baltic_blended' | 'lt_led' | 'connected_market' | 
 
 export function sentimentColor(s: Sentiment): string {
   switch (s) {
-    case 'positive': return 'var(--teal)'
-    case 'caution': return 'var(--amber)'
+    case 'positive': return 'var(--teal-accent-text)'
+    case 'caution': return 'var(--amber-accent-text)'
     case 'negative': return 'var(--rose)'
     default: return 'var(--text-tertiary)'
   }

@@ -6,8 +6,8 @@ interface ConfidenceBadgeProps {
 }
 
 const LEVEL_COLORS: Record<string, string> = {
-  high: 'var(--teal)',
-  medium: 'var(--amber)',
+  high: 'var(--teal-accent-text)',
+  medium: 'var(--amber-accent-text)',
   low: 'var(--rose)',
 };
 

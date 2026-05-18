@@ -37,7 +37,7 @@ function regimeLabel(price: number | null | undefined): string {
 function dotColor(price: number | null | undefined): string {
   if (price == null) return 'var(--text-muted)';
   const ratio = price / CARBON_THRESHOLD;
-  if (ratio >= 1)   return 'var(--amber)';
+  if (ratio >= 1)   return 'var(--amber-accent-text)';
   if (ratio < 0.43) return 'var(--green)'; // < 30 €/t: carbon premium negligible
   return 'var(--text-muted)';
 }
@@ -111,7 +111,7 @@ export function S9Card() {
         {carbonInterpretation(data.eua_eur_t)}
       </p>
 
-      <div className="tier3-impact" style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--teal-medium)', marginBottom: 'var(--space-xs)' }}>
+      <div className="tier3-impact" style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--teal-medium-accent-text)', marginBottom: 'var(--space-xs)' }}>
         {carbonImpact(data.eua_eur_t)}
       </div>
 

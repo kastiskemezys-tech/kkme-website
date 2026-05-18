@@ -16,7 +16,7 @@ interface GenSignal {
 
 function dotColor(pct: number): string {
   if (pct > 40) return 'var(--green)';
-  if (pct >= 20) return 'var(--amber)';
+  if (pct >= 20) return 'var(--amber-accent-text)';
   return 'var(--text-muted)';
 }
 
@@ -103,14 +103,14 @@ export function RenewableMixCard() {
         Wind {windPct.toFixed(0)}% · Solar {solarPct.toFixed(0)}% · Thermal {thermalPct.toFixed(0)}%
       </p>
       {solarFootnote && (
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--amber)', marginBottom: 'var(--space-xs)', lineHeight: 1.5 }}>
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--amber-accent-text)', marginBottom: 'var(--space-xs)', lineHeight: 1.5 }}>
           {solarFootnote}
         </p>
       )}
 
       {/* vs 7D */}
       {loadAvg > 0 && (
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: deltaPp >= 0 ? 'var(--teal)' : 'var(--rose)', marginBottom: '6px' }}>
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: deltaPp >= 0 ? 'var(--teal-accent-text)' : 'var(--rose)', marginBottom: '6px' }}>
           {deltaPp >= 0 ? '↑' : '↓'} {Math.abs(deltaPp).toFixed(0)}pp vs 7D avg
         </p>
       )}

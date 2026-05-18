@@ -481,7 +481,7 @@ function ProductToggle({ value, onChange }: { value: Product; onChange: (p: Prod
           borderColor: value === p ? 'var(--teal)' : 'var(--border-card)',
           borderRadius: '3px',
           background: value === p ? 'var(--teal-bg)' : 'transparent',
-          color: value === p ? 'var(--teal)' : 'var(--text-secondary)',
+          color: value === p ? 'var(--teal-accent-text)' : 'var(--text-secondary)',
           transition: 'background var(--motion-fast), color var(--motion-fast), border-color var(--motion-fast)',
         }}>{p}</button>
       ))}
@@ -512,7 +512,7 @@ function CountryToggle({ value, onChange, disabled }: {
               borderColor: active ? 'var(--teal)' : 'var(--border-card)',
               borderRadius: '3px',
               background: active ? 'var(--teal-bg)' : 'transparent',
-              color: disabled ? 'var(--text-muted)' : (active ? 'var(--teal)' : 'var(--text-secondary)'),
+              color: disabled ? 'var(--text-muted)' : (active ? 'var(--teal-accent-text)' : 'var(--text-secondary)'),
               opacity: disabled ? 0.45 : 1,
               transition: 'background var(--motion-fast), color var(--motion-fast), border-color var(--motion-fast), opacity var(--motion-fast)',
             }}

@@ -73,7 +73,7 @@ export function SourceFooter({ source, sourceUrl, updatedAt, dataClass, methodol
             borderBottom: '1px dotted var(--text-muted)',
             transition: 'color 150ms',
           }}
-          onMouseEnter={e => (e.currentTarget.style.color = 'var(--teal)')}
+          onMouseEnter={e => (e.currentTarget.style.color = 'var(--teal-accent-text)')}
           onMouseLeave={e => (e.currentTarget.style.color = 'inherit')}
         >
           {source} ↗
@@ -98,7 +98,7 @@ export function SourceFooter({ source, sourceUrl, updatedAt, dataClass, methodol
           <a
             href={methodologyLink}
             style={{
-              color: 'var(--teal)',
+              color: 'var(--teal-accent-text)',
               textDecoration: 'none',
             }}
           >

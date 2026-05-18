@@ -718,7 +718,7 @@ export function HeroBalticMap() {
               <span
                 style={{
                   fontFamily: 'var(--font-mono)', fontSize: 'var(--type-body-sm)',
-                  color: lr.delta_pct < 0 ? 'var(--rose)' : 'var(--teal)',
+                  color: lr.delta_pct < 0 ? 'var(--rose)' : 'var(--teal-accent-text)',
                   fontVariantNumeric: 'tabular-nums',
                   cursor: 'help',
                 }}
@@ -749,7 +749,7 @@ export function HeroBalticMap() {
           {revenue?.project_irr != null && (
             <div
               style={{
-                fontFamily: 'var(--font-mono)', fontSize: 'var(--type-body-sm)', color: 'var(--amber-strong)',
+                fontFamily: 'var(--font-mono)', fontSize: 'var(--type-body-sm)', color: 'var(--amber-accent-text)',
                 marginTop: '6px', fontVariantNumeric: 'tabular-nums',
               }}
               title={IRR_LABELS.unlevered.long + ' — ' + IRR_LABELS.unlevered.detail}
@@ -832,7 +832,7 @@ export function HeroBalticMap() {
           })()}
           {(fleet?.baltic_quarantined_mw ?? 0) > 0 && (
             <div style={{
-              fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--amber)',
+              fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--amber-accent-text)',
               marginTop: '6px', letterSpacing: '0.04em',
             }}>
               {fmt(fleet?.baltic_quarantined_mw)} MW awaiting TSO confirmation
