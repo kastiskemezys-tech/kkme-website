@@ -548,7 +548,7 @@ export function TradingEngineCard() {
 
           {/* ── Source footer ── */}
           <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
-            color: 'var(--text-muted)', marginTop: 'var(--space-xs)', opacity: 0.7 }}>
+            color: 'var(--text-muted)', marginTop: 'var(--space-xs)' }}>
             v2 · {formatSourceFooterLabel(data.meta.sources)} · {data.meta.data_class} · {fmtDate(data.meta.as_of_iso)}
           </div>
 

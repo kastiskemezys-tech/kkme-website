@@ -448,7 +448,7 @@ export function S4Card() {
               }}
             >
               {TAB_LABELS[c]}
-              <span style={{ marginLeft: '5px', opacity: 0.5 }}>
+              <span style={{ marginLeft: '5px', color: 'var(--text-muted)' }}>
                 {formatMW(tabMw)}
               </span>
             </button>
@@ -470,7 +470,7 @@ export function S4Card() {
             background: 'var(--teal-strong)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
           }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-primary)', opacity: 0.9 }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-primary)' }}>
               {formatMW(installedMw)}
             </span>
           </div>
@@ -479,7 +479,7 @@ export function S4Card() {
             background: 'var(--amber-strong)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
           }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-primary)', opacity: 0.9 }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-primary)' }}>
               {(tsoReservedMw / 1000).toFixed(1)} GW
             </span>
           </div>
@@ -488,7 +488,7 @@ export function S4Card() {
             background: 'var(--amber-subtle)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
           }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', opacity: 0.8 }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-primary)' }}>
               {(intentionMw / 1000).toFixed(1)} GW
             </span>
           </div>
@@ -540,10 +540,10 @@ export function S4Card() {
       }}>
         <div><span style={{ color: 'var(--teal)' }}>●</span> Connected / operational: {formatMW(installedMw)} MW</div>
         <div><span style={{ color: 'var(--amber)' }}>●</span> Under construction: ~291 MW</div>
-        <div style={{ opacity: 0.7 }}><span style={{ color: 'var(--text-tertiary)' }}>●</span> Grid agreement + tech project: ~700 MW</div>
-        <div style={{ opacity: 0.5 }}><span style={{ color: 'var(--text-tertiary)' }}>●</span> Development permit only: ~3,600 MW</div>
-        <div style={{ opacity: 0.4 }}><span style={{ color: 'var(--text-tertiary)' }}>●</span> TSO reservation / protocol: {formatMW(tsoReservedMw)} MW</div>
-        <div style={{ opacity: 0.35, fontStyle: 'italic' }}><span style={{ color: 'var(--text-tertiary)' }}>○</span> APVA applied: ~{formatMW(pipe?.apva_applied_mw ?? 1545)} MW (operator estimate)</div>
+        <div style={{ color: 'var(--text-secondary)' }}><span style={{ color: 'var(--text-tertiary)' }}>●</span> Grid agreement + tech project: ~700 MW</div>
+        <div style={{ color: 'var(--text-tertiary)' }}><span style={{ color: 'var(--text-tertiary)' }}>●</span> Development permit only: ~3,600 MW</div>
+        <div><span style={{ color: 'var(--text-tertiary)' }}>●</span> TSO reservation / protocol: {formatMW(tsoReservedMw)} MW</div>
+        <div style={{ fontStyle: 'italic' }}><span style={{ color: 'var(--text-tertiary)' }}>○</span> APVA applied: ~{formatMW(pipe?.apva_applied_mw ?? 1545)} MW (operator estimate)</div>
       </div>
           </>
         )}
