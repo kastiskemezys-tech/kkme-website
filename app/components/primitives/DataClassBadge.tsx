@@ -21,7 +21,7 @@ interface DataClassBadgeProps {
 const STYLES: Record<string, { color: string; border: string; label: string; bg?: string; borderStyle?: string }> = {
   observed:           { color: 'var(--white)',        border: 'var(--mint)',             label: 'observed',     bg: 'var(--mint)' },
   derived:            { color: 'var(--mint)',         border: 'var(--mint)',             label: 'derived' },
-  proxy:              { color: 'var(--amber)',        border: 'var(--amber)',            label: 'proxy ⚠',      bg: 'var(--amber-bg)' },
+  proxy:              { color: 'var(--amber-accent-text)',        border: 'var(--amber)',            label: 'proxy ⚠',      bg: 'var(--amber-bg)' },
   modeled:            { color: 'var(--lavender)',     border: 'var(--lavender)',         label: 'modeled',      borderStyle: 'dashed' },
   reference:          { color: 'var(--ink-subtle)',   border: 'var(--border-card)',      label: 'reference' },
   reference_estimate: { color: 'var(--ink-subtle)',   border: 'var(--border-card)',      label: 'ref estimate', bg: 'var(--bg-elevated)' },

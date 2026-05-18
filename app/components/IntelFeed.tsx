@@ -197,21 +197,21 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
-  revenue: 'var(--teal)',
+  revenue: 'var(--teal-accent-text)',
   competition: 'var(--rose)',
-  buildability: 'var(--amber)',
-  market_design: 'var(--cat-design, var(--amber))',
+  buildability: 'var(--amber-accent-text)',
+  market_design: 'var(--cat-design, var(--amber-accent-text))',
   cost: 'var(--cat-cost, var(--text-tertiary))',
-  demand: 'var(--cat-demand, var(--teal))',
+  demand: 'var(--cat-demand, var(--teal-accent-text))',
   watchlist: 'var(--text-tertiary)',
-  support_procurement: 'var(--teal)',
-  project_stage: 'var(--amber)',
-  grid_buildability: 'var(--amber)',
-  route_to_market: 'var(--teal)',
+  support_procurement: 'var(--teal-accent-text)',
+  project_stage: 'var(--amber-accent-text)',
+  grid_buildability: 'var(--amber-accent-text)',
+  route_to_market: 'var(--teal-accent-text)',
   commodity_cost: 'var(--text-tertiary)',
   interconnector: 'var(--rose)',
   policy: 'var(--text-tertiary)',
-  financeability: 'var(--teal)',
+  financeability: 'var(--teal-accent-text)',
 };
 
 const HORIZON_LABELS: Record<string, string> = {
@@ -308,10 +308,10 @@ const SOURCE_TYPE_LABELS: Record<SourceType, string> = {
 };
 
 const SOURCE_TYPE_COLORS: Record<SourceType, string> = {
-  primary: 'var(--teal)',
+  primary: 'var(--teal-accent-text)',
   trade_press: 'var(--text-tertiary)',
   company: 'var(--text-muted)',
-  uncurated: 'var(--amber)',
+  uncurated: 'var(--amber-accent-text)',
 };
 
 function SourceTypeChip({ type }: { type: SourceType }) {
@@ -336,7 +336,7 @@ function OfficialBadge() {
       fontSize: 'var(--type-mono-xs)',
       letterSpacing: '0.1em',
       textTransform: 'uppercase',
-      color: 'var(--teal)',
+      color: 'var(--teal-accent-text)',
       border: '1px solid var(--teal-subtle)',
       background: 'var(--teal-bg)',
       paddingTop: '1px', paddingRight: '5px', paddingBottom: '1px', paddingLeft: '5px',
@@ -350,7 +350,7 @@ function OfficialBadge() {
 
 function MagnitudeChip({ mag }: { mag: Magnitude }) {
   const color =
-    mag.sign === 'positive' ? 'var(--teal)' :
+    mag.sign === 'positive' ? 'var(--teal-accent-text)' :
     mag.sign === 'negative' ? 'var(--rose)' :
     'var(--text-secondary)';
   return (
@@ -534,7 +534,7 @@ function IntelRow({ item, isExpanded, onToggle, isOlder = false }: {
                 rel="noopener noreferrer"
                 onClick={e => e.stopPropagation()}
                 style={{ color: 'inherit', textDecoration: 'none', borderBottom: '1px dotted var(--text-muted)' }}
-                onMouseEnter={e => (e.currentTarget.style.color = 'var(--teal)')}
+                onMouseEnter={e => (e.currentTarget.style.color = 'var(--teal-accent-text)')}
                 onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-primary)')}
               >
                 {item.title} ↗
@@ -675,7 +675,7 @@ function IntelRow({ item, isExpanded, onToggle, isOlder = false }: {
             <p style={{
               fontFamily: 'var(--font-mono)',
               fontSize: 'var(--font-xs)',
-              color: 'var(--teal-medium)',
+              color: 'var(--teal-medium-accent-text)',
               margin: 0,
               lineHeight: 1.5,
             }}>
@@ -715,7 +715,7 @@ function IntelRow({ item, isExpanded, onToggle, isOlder = false }: {
                       cursor: sectionId ? 'pointer' : 'default',
                       transition: 'color 150ms',
                     }}
-                    onMouseEnter={e => { if (sectionId) e.currentTarget.style.color = 'var(--teal)'; }}
+                    onMouseEnter={e => { if (sectionId) e.currentTarget.style.color = 'var(--teal-accent-text)'; }}
                     onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-tertiary)')}
                   >
                     {m}
@@ -758,7 +758,7 @@ function IntelRow({ item, isExpanded, onToggle, isOlder = false }: {
                 style={{
                   fontFamily: 'var(--font-mono)',
                   fontSize: 'var(--font-xs)',
-                  color: 'var(--teal)',
+                  color: 'var(--teal-accent-text)',
                   textDecoration: 'none',
                   opacity: 0.7,
                 }}
@@ -832,7 +832,7 @@ function FeaturedRow({ item }: { item: IntelItem }) {
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{ color: 'inherit', textDecoration: 'none', borderBottom: '1px dotted var(--text-muted)' }}
-                onMouseEnter={e => (e.currentTarget.style.color = 'var(--teal)')}
+                onMouseEnter={e => (e.currentTarget.style.color = 'var(--teal-accent-text)')}
                 onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-primary)')}
               >
                 {item.title} ↗
@@ -1119,7 +1119,7 @@ export function IntelFeed({ mode = 'homepage' }: IntelFeedProps = {}) {
                 border: 'none',
                 borderBottom: isActive ? '2px solid var(--teal)' : '2px solid transparent',
                 background: 'transparent',
-                color: isActive ? 'var(--teal)' : 'var(--text-muted)',
+                color: isActive ? 'var(--teal-accent-text)' : 'var(--text-muted)',
                 cursor: 'pointer',
                 transition: 'color 150ms, border-color 150ms',
               }}
@@ -1159,7 +1159,7 @@ export function IntelFeed({ mode = 'homepage' }: IntelFeedProps = {}) {
                   paddingTop: '5px', paddingRight: '10px', paddingBottom: '5px', paddingLeft: '10px',
                   border: `1px solid ${isActive ? 'var(--teal-subtle)' : 'var(--border-card)'}`,
                   background: isActive ? 'var(--teal-bg)' : 'transparent',
-                  color: isActive ? 'var(--teal-medium)' : 'var(--text-tertiary)',
+                  color: isActive ? 'var(--teal-medium-accent-text)' : 'var(--text-tertiary)',
                   cursor: 'pointer',
                   borderRadius: '2px',
                   transition: 'background 0.15s, border-color 0.15s, color 0.15s',
@@ -1248,7 +1248,7 @@ export function IntelFeed({ mode = 'homepage' }: IntelFeedProps = {}) {
               all: 'unset',
               fontFamily: 'var(--font-mono)',
               fontSize: 'var(--font-xs)',
-              color: 'var(--teal)',
+              color: 'var(--teal-accent-text)',
               cursor: 'pointer',
               marginLeft: 'var(--space-2xs)',
               opacity: 0.85,
@@ -1274,7 +1274,7 @@ export function IntelFeed({ mode = 'homepage' }: IntelFeedProps = {}) {
               <button
                 type="button"
                 onClick={() => setActiveFilter('all')}
-                style={{ all: 'unset', color: 'var(--teal)', cursor: 'pointer', marginLeft: '6px', opacity: 0.7, fontFamily: 'inherit', fontSize: 'inherit' }}
+                style={{ all: 'unset', color: 'var(--teal-accent-text)', cursor: 'pointer', marginLeft: '6px', opacity: 0.7, fontFamily: 'inherit', fontSize: 'inherit' }}
               >
                 Show all
               </button>
@@ -1301,7 +1301,7 @@ export function IntelFeed({ mode = 'homepage' }: IntelFeedProps = {}) {
             style={{
               fontFamily: 'var(--font-mono)',
               fontSize: 'var(--font-xs)',
-              color: 'var(--teal)',
+              color: 'var(--teal-accent-text)',
               textDecoration: 'none',
               letterSpacing: '0.04em',
               opacity: 0.85,

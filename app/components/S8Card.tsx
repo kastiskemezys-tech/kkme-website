@@ -120,7 +120,7 @@ export function S8Card() {
         {flowInterpretation(dominantSig, nbSig, lpSig)}
       </p>
 
-      <div className="tier3-impact" style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--teal-medium)', marginBottom: 'var(--space-xs)' }}>
+      <div className="tier3-impact" style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--teal-medium-accent-text)', marginBottom: 'var(--space-xs)' }}>
         {flowImpact(dominantSig)}
       </div>
 

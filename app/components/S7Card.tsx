@@ -36,7 +36,7 @@ function regimeLabel(price: number | null | undefined): string {
 function dotColor(price: number | null | undefined): string {
   if (price == null) return 'var(--text-muted)';
   const ratio = price / GAS_THRESHOLD;
-  if (ratio >= 1)   return 'var(--amber)';   // at or above arbitrage-support threshold
+  if (ratio >= 1)   return 'var(--amber-accent-text)';   // at or above arbitrage-support threshold
   if (ratio < 0.3)  return 'var(--green)';   // peaker margin compressed
   return 'var(--text-muted)';
 }
@@ -103,7 +103,7 @@ export function S7Card() {
         {gasInterpretation(data.ttf_eur_mwh)}
       </p>
 
-      <div className="tier3-impact" style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--teal-medium)', marginBottom: 'var(--space-xs)' }}>
+      <div className="tier3-impact" style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--teal-medium-accent-text)', marginBottom: 'var(--space-xs)' }}>
         {gasImpact(data.ttf_eur_mwh)}
       </div>
 

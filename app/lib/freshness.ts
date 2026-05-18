@@ -112,10 +112,10 @@ export function freshnessLabel(
 
   let label: FreshnessLabel;
   let colorToken: string;
-  if (hoursStale < 1) { label = 'LIVE'; colorToken = '--teal'; }
+  if (hoursStale < 1) { label = 'LIVE'; colorToken = '--teal-accent-text'; }
   else if (hoursStale < 6) { label = 'RECENT'; colorToken = '--text-secondary'; }
   else if (hoursStale < 24 && isSameVilniusDay(ts, now)) { label = 'TODAY'; colorToken = '--text-tertiary'; }
-  else if (hoursStale < 72) { label = 'STALE'; colorToken = '--amber'; }
+  else if (hoursStale < 72) { label = 'STALE'; colorToken = '--amber-accent-text'; }
   else { label = 'OUTDATED'; colorToken = '--rose'; }
 
   return { label, age, hoursStale, colorToken, absolute };

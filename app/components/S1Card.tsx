@@ -326,7 +326,7 @@ function DurationToggle({ value, onChange }: { value: Duration; onChange: (d: Du
           borderColor: value === d ? 'var(--teal)' : 'var(--border-card)',
           borderRadius: '3px',
           background: value === d ? 'var(--teal-bg)' : 'transparent',
-          color: value === d ? 'var(--teal)' : 'var(--text-secondary)',
+          color: value === d ? 'var(--teal-accent-text)' : 'var(--text-secondary)',
           transition: 'background var(--motion-fast), color var(--motion-fast), border-color var(--motion-fast)',
         }}>{d}</button>
       ))}

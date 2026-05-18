@@ -44,7 +44,7 @@ export function CopyButton({ value, label, variant = 'icon' }: CopyButtonProps) 
   }, [value]);
 
   const color = state === 'copied'
-    ? 'var(--teal)'
+    ? 'var(--teal-accent-text)'
     : state === 'failed'
     ? 'var(--rose)'
     : undefined; // inherit from hover styles

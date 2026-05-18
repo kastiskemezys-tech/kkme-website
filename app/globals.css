@@ -78,6 +78,15 @@
   --positive:       var(--success);
   --negative:       var(--danger);
 
+  /* Phase 18.2.1 — WCAG 2.1 AA dedicated text-on-cream tokens (dark defaults).
+     Sentiment palette stays locked (--positive ≡ --teal, --warning ≡ --amber);
+     these tokens route axe-flagged text sites through AA-passing darker hexes
+     in the light-mode override. Dark mode reuses primitives (passes already);
+     --teal-medium-accent-text bumps alpha 0.65 → 0.85 to clear 3.68 → 5.82. */
+  --teal-accent-text:        var(--teal);
+  --amber-accent-text:       var(--amber);
+  --teal-medium-accent-text: rgba(0,180,160,0.85);
+
   --ink:            var(--text-primary);
   --ink-muted:      var(--text-secondary);
   --ink-subtle:     var(--text-tertiary);
@@ -302,7 +311,8 @@
   --teal:   #137a65;
   --green:  #3d8a55;
   --amber:  #8a6620;
-  --rose:   #dc3535;
+  /* Phase 18.2.1 — WCAG 2.1 AA: shift from #dc3535 to #b82828 (4.08 → ~5.27 vs --bg-page cream; ~4.95 vs --bg-card). No sentiment overlap (--negative ≡ --accent-rose, distinct). 28 call-sites inherit automatically; charts pick up via chartTheme getComputedStyle. */
+  --rose:   #b82828;
   --red:    #c04848;
   --blue:   #3a6499;
   --violet: #6b4f94;
@@ -447,6 +457,13 @@
   /* Phase 18 — Baltic editorial: positive/negative aliases (mirror success/danger) */
   --positive:       var(--success);
   --negative:       var(--danger);
+
+  /* Phase 18.2.1 — WCAG 2.1 AA dedicated text-on-cream tokens (light override).
+     Sentiment locked (--positive ≡ --teal at #137a65 stays); these tokens
+     route axe-flagged text sites through AA-passing darker hexes. */
+  --teal-accent-text:        #0e6155;                /* 4.44 → ~6.23 vs --bg-card; ~5.44 vs tap-target hover bg */
+  --amber-accent-text:       #7a5a1c;                /* 4.44 → ~5.37 vs --bg-card */
+  --teal-medium-accent-text: rgba(14,97,85,0.95);    /* 3.19 → ~5.61 vs --bg-card */
 
   --ink:            var(--text-primary);
   --ink-muted:      var(--text-secondary);
@@ -986,7 +1003,7 @@ body,
 }
 
 .inline-cta a:hover {
-  color: var(--amber);
+  color: var(--amber-accent-text);
   border-color: var(--amber-subtle);
   background: var(--amber-bg);
 }
@@ -1295,7 +1312,7 @@ img.logo-light { display: none; }
   border-bottom: 1px dotted var(--text-tertiary);
   text-decoration: none;
 }
-.card-footnotes a:hover { color: var(--teal); }
+.card-footnotes a:hover { color: var(--teal-accent-text); }
 
 /* Phase 18 — editorial pull-quote (italic Newsreader, amber rules above + below) */
 .pull-quote {

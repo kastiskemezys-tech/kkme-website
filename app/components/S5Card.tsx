@@ -225,7 +225,7 @@ function LiveData({ data, isDefault, isStale, ageHours, defaultReason }: LiveDat
           display: 'inline-flex', alignItems: 'center',
           gap: '6px', marginTop: '12px',
           fontFamily: 'var(--font-mono)', fontSize: 'var(--type-body-md)',
-          color: 'var(--teal)',
+          color: 'var(--teal-accent-text)',
           textDecoration: 'none',
           opacity: 0.75,
           transition: 'opacity 0.15s ease',

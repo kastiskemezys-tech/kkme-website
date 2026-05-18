@@ -106,8 +106,8 @@ function fmtDate(iso: string): string {
 }
 
 function qualityColor(q: string): string {
-  if (q === 'high') return 'var(--teal)';
-  if (q === 'moderate') return 'var(--amber)';
+  if (q === 'high') return 'var(--teal-accent-text)';
+  if (q === 'moderate') return 'var(--amber-accent-text)';
   return 'var(--text-muted)';
 }
 
@@ -139,7 +139,7 @@ function Toggle({ options, value, onChange }: {
           borderColor: value === o.key ? 'var(--teal)' : 'var(--border-card)',
           borderRadius: 3,
           background: value === o.key ? 'var(--teal-bg)' : 'transparent',
-          color: value === o.key ? 'var(--teal)' : 'var(--text-secondary)',
+          color: value === o.key ? 'var(--teal-accent-text)' : 'var(--text-secondary)',
           transition: 'background var(--motion-fast), color var(--motion-fast), border-color var(--motion-fast)',
         }}>{o.label}</button>
       ))}
@@ -457,11 +457,11 @@ export function TradingEngineCard() {
               background: 'var(--teal-bg)',
             }}>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
-                color: 'var(--teal)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                color: 'var(--teal-accent-text)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 FCR market reopens ~{data.drr_note.derogation_expires_iso}
               </div>
               <div style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--type-display-md)',
-                color: 'var(--teal)', marginTop: 'var(--space-2xs)', fontWeight: 500 }}>
+                color: 'var(--teal-accent-text)', marginTop: 'var(--space-2xs)', fontWeight: 500 }}>
                 +€{data.scenarios.drr_uplift_eur_mw_day.toLocaleString('en-US')}/MW/day
               </div>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',

@@ -177,7 +177,7 @@ function Chip({
             ? 'color-mix(in srgb, var(--teal) 40%, transparent)'
             : 'var(--border-subtle)'
         }`,
-        color: active ? 'var(--teal)' : 'var(--text-secondary)',
+        color: active ? 'var(--teal-accent-text)' : 'var(--text-secondary)',
         fontFamily: 'var(--font-mono)',
         fontSize: 'var(--font-xs)',
         letterSpacing: '0.04em',

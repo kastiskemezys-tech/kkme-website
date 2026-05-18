@@ -138,7 +138,7 @@ export function RegulatoryItem({ item, impactTooltip, variant = 'full' }: Props)
           target="_blank"
           rel="noopener noreferrer"
           style={{
-            color: 'var(--teal)',
+            color: 'var(--teal-accent-text)',
             textDecoration: 'none',
             letterSpacing: '0.04em',
             textTransform: 'uppercase',

@@ -80,7 +80,7 @@ export function SignalIntel({ signalId }: { signalId: string }) {
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{ color: 'var(--text-secondary)', textDecoration: 'none', borderBottom: '1px dotted var(--text-muted)' }}
-                  onMouseEnter={e => (e.currentTarget.style.color = 'var(--teal)')}
+                  onMouseEnter={e => (e.currentTarget.style.color = 'var(--teal-accent-text)')}
                   onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-secondary)')}
                 >
                   {item.title} ↗

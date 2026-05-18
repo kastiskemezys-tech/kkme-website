@@ -211,7 +211,7 @@ export function S3Card() {
   const hasEnrichment = !!d.enrichment_annotations;
   const confLevel = computeConfidenceLevel(d.data_freshness, d.confidence?.level || 'benchmark-heavy', hasEnrichment);
 
-  const chipColor = (dir: string) => dir === 'easing' ? 'var(--teal)' : (dir === 'constrained' || dir === 'increasing') ? 'var(--amber)' : 'var(--text-secondary)';
+  const chipColor = (dir: string) => dir === 'easing' ? 'var(--teal-accent-text)' : (dir === 'constrained' || dir === 'increasing') ? 'var(--amber-accent-text)' : 'var(--text-secondary)';
   const magDots = (m: string) => m === 'weak' ? '●' : m === 'moderate' ? '●●' : '●●●';
 
   const handleCopy = () => {
@@ -255,7 +255,7 @@ export function S3Card() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--space-2xs)' }}>
         <div onClick={openDrawer} style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 500, cursor: 'pointer', transition: 'color 150ms' }} onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-secondary)')} onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-tertiary)')}>BESS cost &amp; technology</div>
         {confLevel.includes('degraded') && (
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--amber)', border: '1px solid var(--amber)', borderRadius: '3px', paddingTop: '1px', paddingRight: '6px', paddingBottom: '1px', paddingLeft: '6px' }}>{confLevel}</span>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--amber-accent-text)', border: '1px solid var(--amber)', borderRadius: '3px', paddingTop: '1px', paddingRight: '6px', paddingBottom: '1px', paddingLeft: '6px' }}>{confLevel}</span>
         )}
       </div>
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: 'var(--space-sm)' }}>Installed cost reference · scope-adjusted range</div>
@@ -264,14 +264,14 @@ export function S3Card() {
       <div style={{ display: 'flex', gap: 'var(--space-sm)', marginBottom: 'var(--space-sm)', alignItems: 'center' }}>
         <div style={{ display: 'flex' }}>
           {(['2h', '4h'] as Duration[]).map(v => (
-            <button key={v} onClick={() => setDuration(v)} style={{ background: 'none', border: 'none', cursor: 'pointer', paddingTop: 'var(--space-2xs)', paddingRight: '10px', paddingBottom: 'var(--space-2xs)', paddingLeft: '10px', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: duration === v ? 'var(--teal)' : 'var(--text-muted)', borderBottom: duration === v ? '1px solid var(--teal)' : '1px solid transparent', transition: 'color 0.15s, border-color 0.15s' }}>{v}</button>
+            <button key={v} onClick={() => setDuration(v)} style={{ background: 'none', border: 'none', cursor: 'pointer', paddingTop: 'var(--space-2xs)', paddingRight: '10px', paddingBottom: 'var(--space-2xs)', paddingLeft: '10px', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: duration === v ? 'var(--teal-accent-text)' : 'var(--text-muted)', borderBottom: duration === v ? '1px solid var(--teal)' : '1px solid transparent', transition: 'color 0.15s, border-color 0.15s' }}>{v}</button>
           ))}
         </div>
         <div style={{ width: '1px', height: '14px', background: 'var(--border-card)' }} />
         <div style={{ display: 'flex' }}>
           {(['Light', 'Heavy'] as const).map(s => {
             const val = s.toLowerCase() as GridScope;
-            return <button key={s} onClick={() => setGridScope(val)} style={{ background: 'none', border: 'none', cursor: 'pointer', paddingTop: 'var(--space-2xs)', paddingRight: '10px', paddingBottom: 'var(--space-2xs)', paddingLeft: '10px', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: gridScope === val ? 'var(--teal)' : 'var(--text-muted)', borderBottom: gridScope === val ? '1px solid var(--teal)' : '1px solid transparent', transition: 'color 0.15s, border-color 0.15s' }}>{s}</button>;
+            return <button key={s} onClick={() => setGridScope(val)} style={{ background: 'none', border: 'none', cursor: 'pointer', paddingTop: 'var(--space-2xs)', paddingRight: '10px', paddingBottom: 'var(--space-2xs)', paddingLeft: '10px', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: gridScope === val ? 'var(--teal-accent-text)' : 'var(--text-muted)', borderBottom: gridScope === val ? '1px solid var(--teal)' : '1px solid transparent', transition: 'color 0.15s, border-color 0.15s' }}>{s}</button>;
           })}
         </div>
       </div>
@@ -302,7 +302,7 @@ export function S3Card() {
             Copied
           </span>
         )}
-        {d.trend && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-body-lg)', color: d.trend.direction === 'easing' ? 'var(--teal)' : 'var(--amber)', marginLeft: '12px' }}>{d.trend.direction === 'easing' ? '↘' : d.trend.direction === 'rising' ? '↗' : '→'}</span>}
+        {d.trend && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-body-lg)', color: d.trend.direction === 'easing' ? 'var(--teal-accent-text)' : 'var(--amber-accent-text)', marginLeft: '12px' }}>{d.trend.direction === 'easing' ? '↘' : d.trend.direction === 'rising' ? '↗' : '→'}</span>}
       </div>
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', marginBottom: '2px' }}>€{kwRange[0]}–{kwRange[1]}/kW @ POI</div>
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '2px' }}>installed · ex-VAT · {duration} LFP · EU turnkey · grid-{gridScope}</div>
@@ -323,7 +323,7 @@ export function S3Card() {
 
       {/* DATA INTEGRITY WARNING */}
       {showIntegrityWarning && (
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--amber)', marginBottom: 'var(--space-2xs)' }}>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--amber-accent-text)', marginBottom: 'var(--space-2xs)' }}>
           ⚠ limited data quality — interpretation may be degraded
         </div>
       )}
@@ -345,7 +345,7 @@ export function S3Card() {
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', lineHeight: 1.3 }}>
               <span style={{ color: 'var(--text-muted)' }}>€120–{euLow}<br/>developer</span>
-              <span style={{ color: 'var(--teal)', fontWeight: 500 }}>€{euLow}–{euHigh} ←<br/>EU turnkey</span>
+              <span style={{ color: 'var(--teal-accent-text)', fontWeight: 500 }}>€{euLow}–{euHigh} ←<br/>EU turnkey</span>
               <span style={{ color: 'var(--text-muted)' }}>€{euHigh}–500+<br/>institutional</span>
             </div>
           </div>
@@ -366,7 +366,7 @@ export function S3Card() {
             {d.trend.twelve_month.split(' · ').map((part, i) => (
               <React.Fragment key={i}>
                 {i > 0 && <span style={{ color: 'var(--text-ghost)' }}> · </span>}
-                <span style={{ color: part.startsWith('↓') ? 'var(--teal)' : part.startsWith('↑') ? 'var(--amber)' : 'var(--text-secondary)' }}>{part}</span>
+                <span style={{ color: part.startsWith('↓') ? 'var(--teal-accent-text)' : part.startsWith('↑') ? 'var(--amber-accent-text)' : 'var(--text-secondary)' }}>{part}</span>
               </React.Fragment>
             ))}
           </div>
@@ -434,14 +434,14 @@ export function S3Card() {
               `Augmentation ${a.augmentation}`,
             ]; })().map(p => <Pill key={p}>{p}</Pill>)}
           </div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>Full computation → <a href="#revenue" onClick={e => { e.preventDefault(); document.getElementById('revenue')?.scrollIntoView({ behavior: 'smooth' }); }} style={{ color: 'var(--teal)', textDecoration: 'none' }}>Revenue Engine</a></div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>Full computation → <a href="#revenue" onClick={e => { e.preventDefault(); document.getElementById('revenue')?.scrollIntoView({ behavior: 'smooth' }); }} style={{ color: 'var(--teal-accent-text)', textDecoration: 'none' }}>Revenue Engine</a></div>
         </div>
       )}
 
       {/* 9. CROSS-LINKS */}
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', display: 'flex', gap: 'var(--space-sm)', marginBottom: 'var(--space-sm)' }}>
-        <span>Grid constraint → <a href="#build" onClick={e => { e.preventDefault(); document.getElementById('build')?.scrollIntoView({ behavior: 'smooth' }); }} style={{ color: 'var(--teal)', textDecoration: 'none' }}>S4</a></span>
-        <span>Revenue impact → <a href="#revenue" onClick={e => { e.preventDefault(); document.getElementById('revenue')?.scrollIntoView({ behavior: 'smooth' }); }} style={{ color: 'var(--teal)', textDecoration: 'none' }}>Revenue Engine</a></span>
+        <span>Grid constraint → <a href="#build" onClick={e => { e.preventDefault(); document.getElementById('build')?.scrollIntoView({ behavior: 'smooth' }); }} style={{ color: 'var(--teal-accent-text)', textDecoration: 'none' }}>S4</a></span>
+        <span>Revenue impact → <a href="#revenue" onClick={e => { e.preventDefault(); document.getElementById('revenue')?.scrollIntoView({ behavior: 'smooth' }); }} style={{ color: 'var(--teal-accent-text)', textDecoration: 'none' }}>Revenue Engine</a></span>
       </div>
 
       {/* SOURCE FOOTER */}
@@ -461,7 +461,7 @@ export function S3Card() {
         <div style={{ paddingTop: '10px', paddingRight: 0, paddingBottom: '10px', paddingLeft: 0, borderTop: '1px solid var(--border-card)', marginBottom: 'var(--space-xs)' }}>
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 'var(--space-xs)' }}>Recent intelligence · automated · {new Date(d.enrichment_annotations.enriched_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</div>
           {d.enrichment_annotations.headlines.map((h, i) => <div key={i} style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: 'var(--space-2xs)' }}>• {h.headline} <span style={{ color: 'var(--text-ghost)' }}>— {h.source}</span></div>)}
-          {d.enrichment_annotations.review_needed && <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--amber)', marginTop: '6px' }}>⚠ Range review recommended</div>}
+          {d.enrichment_annotations.review_needed && <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--amber-accent-text)', marginTop: '6px' }}>⚠ Range review recommended</div>}
         </div>
       )}
 
@@ -470,7 +470,7 @@ export function S3Card() {
       {/* A: Transactions */}
       {d.transactions && d.transactions.length > 0 && (
         <Drawer id="transactions" title="Baltic transaction evidence" open={openDrawers.has('transactions')} onToggle={toggleDrawer}>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--teal)', marginBottom: 'var(--space-xs)' }}>Observed references (highest reliability)</div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--teal-accent-text)', marginBottom: 'var(--space-xs)' }}>Observed references (highest reliability)</div>
           <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' as unknown as undefined }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', minWidth: '400px' }}>
               <thead><tr style={{ color: 'var(--text-tertiary)', textAlign: 'left' }}>
@@ -493,7 +493,7 @@ export function S3Card() {
               ))}</tbody>
             </table>
           </div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--amber)', marginTop: 'var(--space-xs)', marginBottom: '6px' }}>⚠ do not average — scope varies widely</div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--amber-accent-text)', marginTop: 'var(--space-xs)', marginBottom: '6px' }}>⚠ do not average — scope varies widely</div>
           <div style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.5 }}>Scope drives Baltic variance. Grid + substation can add 50–200% vs equipment-only.</div>
         </Drawer>
       )}
@@ -597,7 +597,7 @@ export function S3Card() {
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', marginBottom: '10px' }}>
               {Object.entries(d.data_freshness).map(([key, f]) => {
                 const label = freshnessLabel(f);
-                const statusColor = f.status === 'current' ? 'var(--teal)' : f.status === 'structural anchor' ? 'var(--text-muted)' : label === 'not tracked' ? 'var(--text-ghost)' : 'var(--amber)';
+                const statusColor = f.status === 'current' ? 'var(--teal-accent-text)' : f.status === 'structural anchor' ? 'var(--text-muted)' : label === 'not tracked' ? 'var(--text-ghost)' : 'var(--amber-accent-text)';
                 return (
                   <div key={key} style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '2px', paddingRight: 0, paddingBottom: '2px', paddingLeft: 0, borderBottom: '1px solid var(--border-card)' }}>
                     <span style={{ color: 'var(--text-tertiary)' }}>{key.replace(/_/g, ' ')}</span>
