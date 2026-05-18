@@ -132,7 +132,7 @@ export function LoadCard() {
             })}
           </div>
           {data.coverage_countries && (
-            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', opacity: 0.7 }}>
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>
               Coverage: {data.coverage_countries.join(', ')}
             </p>
           )}

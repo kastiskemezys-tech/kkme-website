@@ -1828,7 +1828,7 @@ export function RevenueCard() {
 
       {/* Source footer */}
       <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
-        color: 'var(--text-muted)', marginTop: 'var(--space-xs)', opacity: 0.7, cursor: 'pointer' }}
+        color: 'var(--text-muted)', marginTop: 'var(--space-xs)', cursor: 'pointer' }}
         onClick={openDrawer}>
         {data.model_version} · S1 €{si.s1_capture?.toFixed(0)}/MWh · S2 aFRR €{si.afrr_clearing?.toFixed(0)} · Euribor {si.euribor}% · {fmtDate(data.timestamp)}
       </div>
@@ -1847,7 +1847,7 @@ export function RevenueCard() {
           <div
             style={{
               fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)',
-              color: 'var(--text-muted)', marginTop: 'var(--space-2xs)', opacity: 0.65, lineHeight: 1.5,
+              color: 'var(--text-muted)', marginTop: 'var(--space-2xs)', lineHeight: 1.5,
             }}
             title="Replicate-the-IRR disclosure (Phase 12.10): without these inputs the headline IRR is not reproducible. Full assumptions panel + scenario alternatives in the drawer."
           >
