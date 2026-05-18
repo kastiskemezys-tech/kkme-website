@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { readFileSync } from 'fs';
 import { join } from 'path';
@@ -10,6 +10,20 @@ import { FreshnessBadge } from '../../components/primitives/FreshnessBadge';
 const HOUR = 3_600_000;
 
 describe('FreshnessBadge (Phase 8.3 extension)', () => {
+  // Phase 19.2.2 — freeze clock at mid-Vilnius-day so the TODAY-band assertion
+  // (which depends on `isSameVilniusDay` in freshness.ts) is deterministic
+  // regardless of when the suite runs. Otherwise: pre-noon Vilnius wall-clock
+  // makes `Date.now() - 12h` land on yesterday's Vilnius day and flips
+  // TODAY → STALE.
+  beforeAll(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-15T12:00:00+03:00'));
+  });
+
+  afterAll(() => {
+    vi.useRealTimers();
+  });
+
   it('component file does not duplicate threshold logic — defers to freshnessLabel()', () => {
     const src = readFileSync(
       join(process.cwd(), 'app/components/primitives/FreshnessBadge.tsx'),
