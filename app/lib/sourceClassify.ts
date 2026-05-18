@@ -126,6 +126,14 @@ const SOURCE_WEIGHT: Record<SourceType, number> = {
   primary: 1.0, trade_press: 0.7, company: 0.5, uncurated: 0.2,
 };
 
+// Featured-item promotion: max age in days. Items older than this can't be
+// Featured regardless of impact + source score. Hot-fix 2026-05-18:
+// pre-cap, ANY primary-source impact-positive/negative item produced
+// score ≥0.50 (impact 0.3×1.0 + source 0.2×1.0) — above FEATURED_SCORE_FLOOR
+// (0.4) — regardless of age. This bypassed recency entirely.
+// 30d cap: matches operator intuition that "Featured" implies "fresh".
+export const FEATURED_MAX_AGE_DAYS = 30;
+
 export function featuredScore(opts: {
   publishedAt: string;
   impact?: string;
@@ -135,9 +143,12 @@ export function featuredScore(opts: {
   if (opts.isPinned) return Infinity;
   const d = new Date(opts.publishedAt);
   const daysSince = (Date.now() - d.getTime()) / (1000 * 60 * 60 * 24);
-  const recency = Number.isFinite(daysSince) && daysSince >= 0
-    ? Math.exp(-daysSince / 14)
-    : 0;
+  // Hot-fix 2026-05-18: hard age cap. Items > FEATURED_MAX_AGE_DAYS old
+  // return a sub-floor score so they can't be promoted to Featured.
+  if (!Number.isFinite(daysSince) || daysSince < 0 || daysSince > FEATURED_MAX_AGE_DAYS) {
+    return -1;
+  }
+  const recency = Math.exp(-daysSince / 14);
   const impactScore = IMPACT_WEIGHT[opts.impact ?? 'neutral'] ?? 0.3;
   const sourceScore = SOURCE_WEIGHT[opts.sourceType] ?? 0.2;
   return 0.5 * recency + 0.3 * impactScore + 0.2 * sourceScore;
