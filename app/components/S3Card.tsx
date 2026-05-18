@@ -390,8 +390,8 @@ export function S3Card() {
             {drivers.map((drv, i) => {
               const stale = isComponentStale(drv.component, d.data_freshness);
               return (
-                <div key={i} onClick={() => setExpandedChip(expandedChip === i ? null : i)} style={{ background: 'var(--bg-elevated)', border: `1px solid ${expandedChip === i ? chipColor(drv.direction) : 'var(--border-card)'}`, borderRadius: '4px', paddingTop: 'var(--space-2xs)', paddingRight: 'var(--space-xs)', paddingBottom: 'var(--space-2xs)', paddingLeft: 'var(--space-xs)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 'var(--space-2xs)', transition: 'border-color 0.2s, opacity 0.2s', opacity: stale ? 0.35 : 1 }}>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: chipColor(drv.direction) }}>{drv.symbol} {drv.driver}</span>
+                <div key={i} onClick={() => setExpandedChip(expandedChip === i ? null : i)} style={{ background: 'var(--bg-elevated)', border: `1px solid ${expandedChip === i ? chipColor(drv.direction) : 'var(--border-card)'}`, borderRadius: '4px', paddingTop: 'var(--space-2xs)', paddingRight: 'var(--space-xs)', paddingBottom: 'var(--space-2xs)', paddingLeft: 'var(--space-xs)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 'var(--space-2xs)', transition: 'border-color 0.2s' }}>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: stale ? 'var(--text-muted)' : chipColor(drv.direction) }}>{drv.symbol} {drv.driver}</span>
                   <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--text-muted)', letterSpacing: '1px' }}>{magDots(drv.magnitude)}</span>
                 </div>
               );
