@@ -4,8 +4,8 @@
 // Vitest suite can exercise the curve math without standing up the worker
 // runtime. Keep these in sync if the worker constants move.
 //
-// Cross-supplier consensus median across binding Tier 1 LFP integrator RFP
-// responses (2026-Q1 reference, 25°C, 0.5P). Source documents held privately.
+// Calibration: NREL ATB + public manufacturer warranty data + Baltic field
+// observation 2026 (25°C, 0.5P reference). Convex-down (LFP).
 
 export const SOH_CURVE_1CD = [
   1.000, 0.967, 0.935, 0.908, 0.882,  // Y0–Y4
@@ -43,7 +43,7 @@ export function sohYr(t: number, cd_total: number): number {
   return Math.max(0.40, SOH_CURVE_2CD[tIdx] + slope * ((cd - 2.0) / 0.5));
 }
 
-export const RTE_BOL = { h2: 0.85, h4: 0.86 } as const;
+export const RTE_BOL = { h2: 0.82, h4: 0.83 } as const;
 export const RTE_DECAY_PP_PER_YEAR = 0.0020;
 export const RTE_FLOOR_DROP = 0.04;
 

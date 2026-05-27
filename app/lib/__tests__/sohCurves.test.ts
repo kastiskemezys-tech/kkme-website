@@ -119,11 +119,11 @@ describe('sohYr(t, cd_total) interpolation', () => {
 });
 
 describe('rteCurveFor — year-indexed RTE decay', () => {
-  it('2h BOL = 0.85', () => {
+  it('2h BOL = 0.82', () => {
     expect(rteCurveFor(2)[0]).toBeCloseTo(RTE_BOL.h2, 5);
   });
 
-  it('4h BOL = 0.86', () => {
+  it('4h BOL = 0.83', () => {
     expect(rteCurveFor(4)[0]).toBeCloseTo(RTE_BOL.h4, 5);
   });
 

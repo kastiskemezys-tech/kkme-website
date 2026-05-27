@@ -36,13 +36,13 @@ describe('throughput-derived cycles per year', () => {
     expect(r.warranty_status).toBe('within');
   });
 
-  it('warranty status thresholds: ≤730 within, ≤1460 premium-tier-required, >1460 unwarranted', () => {
+  it('warranty status thresholds: ≤730 within, >730 exceeds-base-warranty', () => {
     expect(warrantyStatus(500)).toBe('within');
     expect(warrantyStatus(730)).toBe('within');
-    expect(warrantyStatus(731)).toBe('premium-tier-required');
-    expect(warrantyStatus(1460)).toBe('premium-tier-required');
-    expect(warrantyStatus(1461)).toBe('unwarranted');
-    expect(warrantyStatus(2000)).toBe('unwarranted');
+    expect(warrantyStatus(731)).toBe('exceeds-base-warranty');
+    expect(warrantyStatus(1460)).toBe('exceeds-base-warranty');
+    expect(warrantyStatus(1461)).toBe('exceeds-base-warranty');
+    expect(warrantyStatus(2000)).toBe('exceeds-base-warranty');
   });
 
   it('every (scenario × duration) combo lands in [300, 750] EFCs/yr — physical band', () => {
