@@ -48,25 +48,18 @@ describe('CyclesBreakdownChart', () => {
     expect(html).toContain('var(--teal-accent-text)');
   });
 
-  it('warranty="premium-tier-required" renders an amber chip', () => {
+  it('warranty="exceeds-base-warranty" renders an amber chip', () => {
     const html = renderToStaticMarkup(
-      <CyclesBreakdownChart breakdown={FIXTURE} warrantyStatus="premium-tier-required" />,
+      <CyclesBreakdownChart breakdown={FIXTURE} warrantyStatus="exceeds-base-warranty" />,
     );
-    expect(html).toContain('premium tier required');
+    expect(html).toContain('exceeds base warranty');
     expect(html).toContain('var(--amber-accent-text)');
-  });
-
-  it('warranty="unwarranted" renders a coral chip', () => {
-    const html = renderToStaticMarkup(
-      <CyclesBreakdownChart breakdown={FIXTURE} warrantyStatus="unwarranted" />,
-    );
-    expect(html).toContain('var(--coral)');
   });
 
   it('without warranty status, no chip is rendered', () => {
     const html = renderToStaticMarkup(<CyclesBreakdownChart breakdown={FIXTURE} />);
     expect(html).not.toContain('within warranty');
-    expect(html).not.toContain('premium tier required');
+    expect(html).not.toContain('exceeds base warranty');
   });
 
   it('bar widths sum to roughly the chart width (proportional segments)', () => {

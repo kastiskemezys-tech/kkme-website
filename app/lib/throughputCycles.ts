@@ -57,7 +57,7 @@ export type ThroughputBreakdown = {
   total_mwh_yr:  number;
   total_efcs_yr: number;
   total_cd:      number;
-  warranty_status: 'within' | 'premium-tier-required' | 'unwarranted';
+  warranty_status: 'within' | 'exceeds-base-warranty';
 };
 
 export function computeCycles(args: { MW: number; dur_h: number; scenario: Scenario }): ThroughputBreakdown {
@@ -95,8 +95,7 @@ export function computeCycles(args: { MW: number; dur_h: number; scenario: Scena
   };
 }
 
-export function warrantyStatus(total_efcs_yr: number): 'within' | 'premium-tier-required' | 'unwarranted' {
-  if (total_efcs_yr <= 730)  return 'within';
-  if (total_efcs_yr <= 1460) return 'premium-tier-required';
-  return 'unwarranted';
+export function warrantyStatus(total_efcs_yr: number): 'within' | 'exceeds-base-warranty' {
+  if (total_efcs_yr <= 730) return 'within';
+  return 'exceeds-base-warranty';
 }

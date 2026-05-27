@@ -1000,11 +1000,10 @@ function computeThroughputBreakdown(MW, dur_h, sc) {
   };
 }
 
-// Warranty status indicator: standard cap 730 EFC/yr, premium tier 1,460 EFC/yr.
+// Warranty status indicator: base manufacturer warranty cap 730 EFC/yr.
 function warrantyStatusFor(total_efcs_yr) {
-  if (total_efcs_yr <= 730)  return 'within';
-  if (total_efcs_yr <= 1460) return 'premium-tier-required';
-  return 'unwarranted';
+  if (total_efcs_yr <= 730) return 'within';
+  return 'exceeds-base-warranty';
 }
 
 const RESERVE_PRODUCTS = {
@@ -4599,9 +4598,8 @@ const BESS_WORKER = {
 };
 
 // Empirical SOH fade — three rate-tagged curves at 1.0 / 1.5 / 2.0 c/d test
-// rates. Cross-supplier consensus median across binding Tier 1 LFP integrator
-// RFP responses (2026-Q1 reference, 25°C, 0.5P). Convex-down (LFP).
-// Source documents held privately; no supplier names appear in this repo.
+// rates. Calibration: NREL ATB + public manufacturer warranty data + Baltic
+// field observation 2026 (25°C, 0.5P reference). Convex-down (LFP).
 const SOH_CURVE_1CD = [
   1.000, 0.967, 0.935, 0.908, 0.882,  // Y0–Y4
   0.855, 0.830, 0.806, 0.785, 0.764,  // Y5–Y9
@@ -4622,8 +4620,8 @@ const SOH_CURVE_2CD = [
 ];
 
 // Interpolate SOH curve by computed actual cycling rate.
-// Above 2 c/d: linearly extrapolate from 1.5→2 slope (suppliers don't certify above 2).
-// Below 1 c/d: clamp at 1 c/d (suppliers don't characterize slower than 1).
+// Above 2 c/d: linearly extrapolate from 1.5→2 slope (manufacturers don't certify above 2).
+// Below 1 c/d: clamp at 1 c/d (manufacturers don't characterize slower than 1).
 // Floor at 0.40 to keep the engine from going negative on aggressive extrapolation.
 function sohYr(t, cd_total) {
   const tIdx = Math.max(0, Math.min(t, SOH_CURVE_1CD.length - 1));
@@ -4640,10 +4638,10 @@ function sohYr(t, cd_total) {
   return Math.max(0.40, SOH_CURVE_2CD[tIdx] + slope * ((cd - 2.0) / 0.5));
 }
 
-// RTE decay — cross-supplier consensus from binding RFP submissions, anonymized.
-// BOL per duration: 2h 0.85; 4h 0.86 (4h benefits from lower C-rate stress on
-// the PCS). Decay 0.20 pp/yr; floor at -4pp from BOL.
-const RTE_BOL = { h2: 0.85, h4: 0.86 };
+// RTE decay — calibration: NREL ATB + public manufacturer warranty data + Baltic
+// field observation 2026. BOL per duration: 2h 0.82; 4h 0.83 (4h benefits from
+// lower C-rate stress on the PCS). Decay 0.20 pp/yr; floor at -4pp from BOL.
+const RTE_BOL = { h2: 0.82, h4: 0.83 };
 const RTE_DECAY_PP_PER_YEAR = 0.0020;
 const RTE_FLOOR_DROP = 0.04;
 

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { computeCycles } from '../throughputCycles';
-import { sohYr, rteCurveFor } from '../sohCurves';
+import { sohYr, rteCurveFor, RTE_BOL } from '../sohCurves';
 
 // Phase 7.7d v7.3 — directional impact specs.
 //
@@ -61,7 +61,7 @@ describe('v7.3 directional impact', () => {
   it('RTE floor at -4pp prevents infinite decay', () => {
     const c = rteCurveFor(2, 50);  // 50-year horizon to hit floor
     const minVal = Math.min(...c);
-    expect(minVal).toBeGreaterThanOrEqual(0.85 - 0.04 - 1e-6);
+    expect(minVal).toBeGreaterThanOrEqual(RTE_BOL.h2 - 0.04 - 1e-6);
   });
 
   it('total_cd for stress 2h is below base 2h (less aggressive cycling)', () => {

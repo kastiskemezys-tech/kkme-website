@@ -96,7 +96,7 @@ interface AssumptionsPanelData {
   // cycles_breakdown when v7.3 shape is detected.
   cycles_per_year?: AssumptionRow;
   cycles_breakdown?: CyclesBreakdown;
-  warranty_status?: 'within' | 'premium-tier-required' | 'unwarranted';
+  warranty_status?: 'within' | 'exceeds-base-warranty';
   availability: AssumptionRow;
   hold_period: AssumptionRow;
   wacc: AssumptionRow;
@@ -454,10 +454,9 @@ const PRODUCT_COLOR: Record<'fcr' | 'afrr' | 'mfrr' | 'da', string> = {
   mfrr: 'var(--cycles-mfrr)',
   da:   'var(--cycles-da)',
 };
-const WARRANTY_STYLE: Record<'within' | 'premium-tier-required' | 'unwarranted', { color: string; label: string }> = {
-  'within':                  { color: 'var(--teal-accent-text)',   label: 'within warranty' },
-  'premium-tier-required':   { color: 'var(--amber-accent-text)',  label: 'premium tier required' },
-  'unwarranted':             { color: 'var(--coral)',  label: 'unwarranted' },
+const WARRANTY_STYLE: Record<'within' | 'exceeds-base-warranty', { color: string; label: string }> = {
+  'within':                { color: 'var(--teal-accent-text)',  label: 'within warranty' },
+  'exceeds-base-warranty': { color: 'var(--amber-accent-text)', label: 'exceeds base warranty' },
 };
 
 export function CyclesBreakdownChart({
@@ -465,7 +464,7 @@ export function CyclesBreakdownChart({
   warrantyStatus,
 }: {
   breakdown: CyclesBreakdown;
-  warrantyStatus?: 'within' | 'premium-tier-required' | 'unwarranted';
+  warrantyStatus?: 'within' | 'exceeds-base-warranty';
 }) {
   const tt = useChartTooltipState();
   const total = breakdown.total_efcs_yr || 1;
