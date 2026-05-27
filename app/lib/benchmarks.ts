@@ -1,6 +1,8 @@
 // Clean Horizon S1 2025 Lithuania — BESS benchmarks
 // All figures sourced from CH report unless noted
 
+import { RTE_BOL } from './sohCurves';
+
 export const BENCHMARKS = {
   bess: {
     // CAPEX (Q1 2026 market pricing, Eastern Europe/Lithuania, 50 MW reference)
@@ -29,7 +31,7 @@ export const BENCHMARKS = {
 
     // Technical
     availability: 0.97,
-    roundtrip_efficiency: 0.85,
+    roundtrip_efficiency: RTE_BOL.h2, // canonical RTE_BOL (duration-agnostic constant → h2)
     cycles_per_day: 1.5,
     project_life_years: 18,
     discount_rate: 0.10,

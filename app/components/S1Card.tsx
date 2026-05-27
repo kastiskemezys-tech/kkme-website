@@ -4,6 +4,7 @@ import { Fragment, useState, useEffect, useMemo, useRef, type ReactNode } from '
 import type { S1CaptureData, CaptureRolling, DailyCaptureEntry, MonthlyCapture, GrossToNetLine } from '@/lib/signals/s1';
 import { useSignal } from '@/lib/useSignal';
 import { REFRESH_HOT } from '@/lib/refresh-cadence';
+import { RTE_BOL } from '@/app/lib/sohCurves';
 import {
   AnimatedNumber, StatusChip, SourceFooter, DetailsDrawer, DrawerSection, DataClassBadge,
   ChartTooltipPortal, useChartTooltipState,
@@ -227,14 +228,14 @@ export function S1Card() {
           <S1WhatSection heroVal={heroVal} stats={stats} dur={dur} />
         </DrawerSection>
         <DrawerSection id="how" title="How we compute this">
-          <S1HowSection />
+          <S1HowSection dur={dur} />
         </DrawerSection>
         <DrawerSection id="monthly" title="Monthly trajectory">
           {monthly.length > 0 ? <MonthlyChart monthly={monthly} dur={dur} CC={CC} ttStyle={ttStyle} /> : <MutedLine text="No monthly history yet." />}
         </DrawerSection>
         <DrawerSection id="bridge" title="Gross → Net bridge">
           {cap.gross_to_net && cap.gross_to_net.length > 0
-            ? <BridgeChart bridge={cap.gross_to_net} chargePrice={cap.capture_2h?.avg_charge ?? null} rte={cap.capture_2h?.rte ?? 0.875} CC={CC} />
+            ? <BridgeChart bridge={cap.gross_to_net} chargePrice={cap.capture_2h?.avg_charge ?? null} rte={cap.capture_2h?.rte ?? RTE_BOL.h2} CC={CC} />
             : <MutedLine text="No bridge data yet." />}
           {cap.shape && <ShapeRow shape={cap.shape} refIso={cap.updated_at} />}
         </DrawerSection>
@@ -574,7 +575,7 @@ function BridgeChart({ bridge, chargePrice, rte, CC }: {
   rte: number;
   CC: ReturnType<typeof useChartColors>;
 }) {
-  // Loss fraction applied on the charge leg (e.g. 0.875 round-trip → 12.5%).
+  // Loss fraction applied on the charge leg (canonical RTE_BOL, e.g. 0.82 round-trip → 18%).
   const lossFrac = Math.max(0, 1 - rte);
   const lossPct = Math.round(lossFrac * 1000) / 10; // one decimal: 12.5
   const charge = chargePrice ?? 0;
@@ -752,7 +753,8 @@ function S1WhatSection({ heroVal, stats, dur }: {
   );
 }
 
-function S1HowSection() {
+function S1HowSection({ dur }: { dur: Duration }) {
+  const rtePct = Math.round((dur === '2h' ? RTE_BOL.h2 : RTE_BOL.h4) * 100);
   return (
     <ul style={{
       fontFamily: 'var(--font-serif)', fontSize: 'var(--font-sm)',
@@ -760,7 +762,7 @@ function S1HowSection() {
       marginTop: 0, marginRight: 0, marginBottom: 'var(--space-xs)', marginLeft: 0, paddingLeft: '18px',
     }}>
       <li>Peak-2h average price minus trough-2h average, on day-ahead clearing prices.</li>
-      <li>85% round-trip efficiency applied on the charge leg (gross → net).</li>
+      <li>{rtePct}% round-trip efficiency applied on the charge leg (gross → net).</li>
       <li>
         Source:{' '}
         <a href="https://energy-charts.info" target="_blank" rel="noreferrer" style={{ color: 'var(--text-secondary)' }}>energy-charts.info</a>

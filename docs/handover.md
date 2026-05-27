@@ -1882,6 +1882,44 @@ Then Tier 1 (12.12 + 12.14 + 7.7g). Phase 12.12 picks up:
 - After merge to main → Phase 30 §6 (three commits + push to `phase-30-methodology-research` branch) resumes from the same working tree per operator's latest message.
  phase-12-8-1-backtest-caption
 
+### Session 76 — 2026-05-27 — Phase 32.1 — Canonical RTE single-source + cross-card reconciliation (+ 32.2 dead-code delete) (Claude Code)
+
+**Headline:** Collapsed every "same physical battery round-trip" RTE literal across worker + frontend to the single canonical `RTE_BOL` ({h2:0.82, h4:0.83}) per operator option-1 + FULL-scope approval. Was a 3-way (really 7-site) inconsistency for one physical quantity. Branch `phase-32-1-canonical-rte` off main (`f208949`). Worker deployed (version `4150d0e0`). Added a Vitest worker↔TS mirror-assert so the single-source guarantee can't silently drift again. Folded in 32.2 (deleted dead `app/lib/revenueModel.ts`).
+
+**RTE-literal reconciliation table (before → after):**
+
+| Site | Before | After | Group |
+|---|---|---|---|
+| `fetch-s1.js:3076` `computeDayCapture` rte | `0.875 / 0.87` | `RTE_BOL.h2 / .h4` | A (S1 display) |
+| `fetch-s1.js:3399` `bess_net_capture` divisor | `/ 0.87` | `/ RTE_BOL.h2` | A |
+| `fetch-s1.js:3242` bridge label | hardcoded `"12.5%"` | derived `` `(${(1-rte)*100}%)` `` → 18% | A |
+| `S1Card.tsx:763` methodology bullet | `"85%"` | `{rtePct}%` (duration-aware: 82% 2h / 83% 4h) | A |
+| `S1Card.tsx:237` BridgeChart fallback | `?? 0.875` | `?? RTE_BOL.h2` | A |
+| `fetch-s1.js:545` `computeDispatchV2` | `0.855 / 0.852` ("OEM datasheet") | `RTE_BOL.h2 / .h4` | B |
+| `fetch-s1.js:509` `computeTradeSignals` | `/ 0.875` | `/ RTE_BOL.h2` | B |
+| `fetch-s1.js:2138` `computeTradingMix` T_base | `0.855` | `dur_h<=2 ? RTE_BOL.h2 : .h4` | B |
+| `fetch-s1.js:8720` `computeDispatch` arg | `rte: 0.875` | `RTE_BOL.h2` | B |
+| `fetch-s1.js` `BESS_WORKER.roundtrip_efficiency` | `0.85` | `RTE_BOL.h2` (block relocated above const to avoid TDZ) | B |
+| `benchmarks.ts:32` `roundtrip_efficiency` | `0.85` | `RTE_BOL.h2` (new import from sohCurves) | B |
+
+**Left distinct/dead (Group C, per approval):** `computeRevenue_legacy` `rte=0.87` — DEAD (zero callers; added explicit "DEAD CODE / not reconciled" comment). SOH curves, `trd_real`, availability, capacity-allocation fractions, SoC caps, spread-decay — distinct quantities, untouched.
+
+**Mirror-test guardrail (single-source goal, operator item #3):** new `app/lib/__tests__/rteMirror.test.ts` reads `workers/fetch-s1.js`, asserts its `RTE_BOL`/decay/floor mirror `app/lib/sohCurves.ts` exactly, asserts exactly one worker `RTE_BOL` def, and asserts `bess_net_capture` reads `RTE_BOL.h2` (blocks re-hardcoding). Replaces the prior by-convention/comment sync (no automated cross-file assert existed before).
+
+**Displayed-number impact:**
+- `bess_net_capture`: divisor 0.87→0.82 → LOWER (more conservative). Δ = `p_low_avg × 0.0701`. Today p_low_avg=€0.1 → ≈ €0 (trough near-zero). Typical trough €30–50 → −€2.1 to −€3.5/MWh. **Refreshes at next hourly cron** (`0 * * * *`) — recompute path is cron→KV, not compute-on-read.
+- `intraday_capture` (gross, no RTE) — unaffected.
+
+**Revenue-engine reconciliation (Group B verification, operator requirement):** `scripts/audit-stack.mjs --probe-v73` (drives `computeRevenueV7` directly) — IRR/LCOS/MOIC/DSCR all compute, **no NaN**, all in-band (base/2h IRR 17.08% / LCOS €97.7; base/4h 10.19% / €98.3; cons/2h 11.20% / €106.1; rte BOL 82.0%). **BEFORE = AFTER identical** — the V6 (served fallback) AND V7 cashflow were *already* on canonical RTE via `rteCurveFor` (since Phase 32). The one V7-path literal touched (`computeTradingMix` T_base 0.855→0.82) feeds a trading-fraction normalizer, NOT the IRR/LCOS cashflow → consistency cleanup (rule #4), not a number-mover. Direction (RTE↓→IRR↓) thus not observable here because the IRR path didn't change. Live `/revenue` is v6_fallback so V7 delta isn't curl-measurable anyway (reported honestly per operator note).
+
+**Gates:** tsc 0 · vitest 923/923 (918 baseline + 5 new mirror cases) · eslint 39err/94warn (baseline 39/95 → no regression, −1 warn from dead-file delete) · lint:no-raw-spacing 0 · lint:no-editorial-chips 0 · `next build` ✓ (7 routes) · local smoke-test 5 routes + 8 chunks all 200.
+
+**Visual artifact:** `docs/visual-audit/phase-32-1/spread-capture-card-rte-drawer.png` — SpreadCaptureCard (€138/MWh) with RTE-charge-leg drawer open (live consumer of `bess_net_capture`). **Limitation (honest):** S1Card itself renders empty today — `/s1/capture` returns only `{monthly, source}` (`daily:0`, no `capture_2h`), independent of this change — so the 82% bullet could not be screenshotted live. Bullet change verified instead at source + deployed-chunk level (chunk `fdaf6230…js` contains the dynamic `{rtePct}%` template, ZERO `"85%"` literals; per discipline rule #1 triangulation: code-grep + build-artifact).
+
+**Roadmap delta (Cowork applies per rule #5):** Phase 32.1 + 32.2 → Shipped. `computeDispatchV2` efficiency was **reconciled** (not left-distinct). File **Phase 32.3** (extend single-source to CAPEX / SOH / cycles / warranty) — those still carry per-site literals. Also note: no automated worker↔TS mirror existed before this phase for any constant other than RTE now; consider extending the mirror-test pattern.
+
+**Next operator action:** open PR (base `main`, head `phase-32-1-canonical-rte`); confirm commit on origin before merge (Session 74 lost-commit lesson); after merge, next hourly cron refreshes `bess_net_capture`.
+
 ### Session 73 — 2026-05-27 — Production incident: 20-day VPS pipeline outage (Cowork, VPS-side ops — no git commits)
 
 **Headline:** Operator returned after ~1 week away; Telegram watchdog flagged "S4: 16h old" (25 May) / "S4: 24h old" (26 May). Full backend audit found the real damage: **4 VPS inline crons silently frozen ~20 days** by a malformed `.env`. Root-caused, fixed, caught up, and hardened — all VPS-side, no repo changes.
