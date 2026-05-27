@@ -467,19 +467,19 @@ export function S4Card() {
         <div style={{ display: 'flex', height: '40px', gap: '1px', borderRadius: '2px', overflow: 'hidden' }}>
           <div style={{
             flex: installedPct,
-            background: 'var(--teal-strong)',
+            background: 'var(--pipeline-chip-mint)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
           }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-primary)' }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--pipeline-chip-text)' }}>
               {formatMW(installedMw)}
             </span>
           </div>
           <div style={{
             flex: reservedPct,
-            background: 'var(--amber-strong)',
+            background: 'var(--pipeline-chip-amber)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
           }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-primary)' }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--pipeline-chip-text)' }}>
               {(tsoReservedMw / 1000).toFixed(1)} GW
             </span>
           </div>

@@ -108,6 +108,15 @@
   --amber-subtle: rgba(212, 160, 60, 0.30);
   --amber-bg:     rgba(212, 160, 60, 0.06);
 
+  /* Phase 18.2.2 — S4Card pipeline-bar chip tokens. Scoped: consumed only by mint + amber chip
+     bg/text in app/components/S4Card.tsx pipeline bar. Solid hex (no alpha) — cream-white text
+     clears WCAG 2.1 AA 4.5:1 on both chip backgrounds (light + dark). Non-inverting --pipeline-
+     chip-text avoids the --white/--text-primary inversion that drives 3.02/3.61 ratios pre-fix.
+     Legend squares + other S4-card surfaces still use --teal-strong/--amber-strong (unchanged). */
+  --pipeline-chip-text:  #e8e2d9;
+  --pipeline-chip-mint:  #016b5d;
+  --pipeline-chip-amber: #7d5c1c;
+
   /* Accent alpha variants — rose */
   --rose-strong: rgba(214, 88, 88, 0.75);
   --rose-bg:     rgba(214, 88, 88, 0.08);
@@ -341,6 +350,10 @@
   --amber-strong: rgba(138, 102, 32, 0.90);
   --amber-subtle: rgba(138, 102, 32, 0.25);
   --amber-bg:     rgba(138, 102, 32, 0.04);
+
+  /* Phase 18.2.2 — light-mode pipeline-chip overrides (text inherits cream from :root). */
+  --pipeline-chip-mint:  #1c705c;
+  --pipeline-chip-amber: #7c601c;
 
   --rose-strong: rgba(192, 72, 72, 0.80);
   --rose-bg:     rgba(192, 72, 72, 0.06);
