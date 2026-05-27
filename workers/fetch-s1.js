@@ -506,7 +506,7 @@ function computeTradeSignals(daHourly, isps) {
       discharge_hours: dischargeHours,
       avg_charge_price: t_r2(avgCharge),
       avg_discharge_price: t_r2(avgDischarge),
-      net_capture: t_r2(avgDischarge - avgCharge / 0.875),
+      net_capture: t_r2(avgDischarge - avgCharge / RTE_BOL.h2), // canonical RTE_BOL (duration-agnostic signal → h2)
       confidence: avgDischarge - avgCharge > 40 ? 'HIGH' : avgDischarge - avgCharge > 20 ? 'MEDIUM' : 'LOW',
       data_class: 'derived',
     },
@@ -542,7 +542,7 @@ function computeDispatchV2(btdData, daHourly, opts = {}) {
   const mw = opts.mw || 50;
   const dur_h = opts.dur_h || 4;
   const mwh = mw * dur_h;
-  const rte = dur_h <= 2 ? 0.855 : 0.852; // source: OEM datasheet
+  const rte = dur_h <= 2 ? RTE_BOL.h2 : RTE_BOL.h4; // canonical RTE_BOL (same physical battery round-trip)
   const mode = opts.mode || 'realised';
   const drr_active = opts.drr_active !== false;
   const date_iso = opts.date_iso || btdData?.date || new Date().toISOString().slice(0, 10);
@@ -2135,7 +2135,7 @@ function switchingFriction(yr) {
 }
 
 function computeTradingMix(kv, dur_h, cal_year, scenario, sc, yr = 1) {
-  const rte = 0.855;
+  const rte = dur_h <= 2 ? RTE_BOL.h2 : RTE_BOL.h4; // canonical RTE_BOL (same physical battery round-trip)
   const trading_real = sc.trd_real || 0.85;
   const friction = switchingFriction(yr);
 
@@ -2675,6 +2675,9 @@ function computeLiveRate(kv, base_year, duration_h, sc) {
 }
 
 // ─── Revenue Engine v4 (legacy — kept for reference) ──────────────────────────
+// DEAD CODE: zero callers (verified Phase 32.1). Its internal `rte = 0.87` is a
+// stale parallel literal, NOT reconciled to canonical RTE_BOL because nothing
+// consumes it. Delete when the v4 reference is no longer wanted.
 
 function computeRevenue_legacy(systemKey, capexKey, grantKey, codYear, kv, mwParam, mwhParam) {
   const SYSTEMS = {
@@ -3072,8 +3075,8 @@ function computeDayCapture(prices, durationHours, resolutionMin = 60) {
   const avgCharge = chargeSlots.reduce((s, e) => s + e.price, 0) / n;
   const avgDischarge = dischargeSlots.reduce((s, e) => s + e.price, 0) / n;
 
-  // RTE: 87.5% for 2h (lower aux losses), 87% for 4h
-  const rte = durationHours <= 2 ? 0.875 : 0.87;
+  // RTE: canonical RTE_BOL (same physical battery round-trip as reference asset / revenue engine).
+  const rte = durationHours <= 2 ? RTE_BOL.h2 : RTE_BOL.h4;
 
   const grossCapture = avgDischarge - avgCharge;
   // Net: discharge revenue minus charge cost adjusted for RTE losses
@@ -3239,7 +3242,7 @@ async function computeCapture(env) {
   if (capture_2h) {
     grossToNet.push(
       { label: 'Gross spread (2h)', value: capture_2h.gross_eur_mwh, type: 'base' },
-      { label: 'RTE loss (12.5%)', value: -Math.round((capture_2h.avg_charge / capture_2h.rte - capture_2h.avg_charge) * 100) / 100, type: 'deduction' },
+      { label: `RTE loss (${Math.round((1 - capture_2h.rte) * 1000) / 10}%)`, value: -Math.round((capture_2h.avg_charge / capture_2h.rte - capture_2h.avg_charge) * 100) / 100, type: 'deduction' },
       { label: 'Net capture (2h)', value: capture_2h.net_eur_mwh, type: 'result' },
     );
   }
@@ -3396,7 +3399,7 @@ async function computeS1(env) {
     p_low_avg        = Math.round(bottom4.reduce((a, b) => a + b, 0) / 4 * 10) / 10;
     p_high_avg       = Math.round(top4.reduce((a, b) => a + b, 0) / 4 * 10) / 10;
     intraday_capture = Math.round((p_high_avg - p_low_avg) * 10) / 10;
-    bess_net_capture = Math.round((p_high_avg - p_low_avg / 0.87) * 10) / 10;
+    bess_net_capture = Math.round((p_high_avg - p_low_avg / RTE_BOL.h2) * 10) / 10;
   }
 
   console.log(`[S1] coupling_spread=${Math.round(spread*100)/100}€/MWh intraday_swing=${lt_daily_swing_eur_mwh}€/MWh evening_premium=${lt_evening_premium}€/MWh`);
@@ -4565,8 +4568,17 @@ function s2ShapePayload(reserves, direction, imbalance) {
   };
 }
 
-// ─── Revenue Engine — JS mirror of app/lib/benchmarks.ts + revenueModel.ts ────
+// ─── Revenue Engine — JS mirror of app/lib/benchmarks.ts ──────────────────────
 // Worker can't import TS modules directly — math duplicated here.
+
+// RTE decay — calibration: NREL ATB + public manufacturer warranty data + Baltic
+// field observation 2026. BOL per duration: 2h 0.82; 4h 0.83 (4h benefits from
+// lower C-rate stress on the PCS). Decay 0.20 pp/yr; floor at -4pp from BOL.
+// Canonical single source — mirrors app/lib/sohCurves.ts RTE_BOL (asserted by
+// app/lib/__tests__/rteMirror.test.ts). Every RTE consumer reads from here.
+const RTE_BOL = { h2: 0.82, h4: 0.83 };
+const RTE_DECAY_PP_PER_YEAR = 0.0020;
+const RTE_FLOOR_DROP = 0.04;
 
 const BESS_WORKER = {
   // Q1 2026: (83+28)€/kWh × duration_MWh/MW × 1000 + 35k€/MW fixed
@@ -4574,7 +4586,7 @@ const BESS_WORKER = {
   opex_pct_capex: 0.025,
   aggregator_pct_revenue: 0.08,
   availability: 0.97,
-  roundtrip_efficiency: 0.85,
+  roundtrip_efficiency: RTE_BOL.h2, // canonical RTE_BOL (duration-agnostic constant → h2)
   cycles_per_day: 1,  // 1 DA arbitrage cycle per day (model note: aFRR/mFRR + 1 DA cycle)
   // 2h system is SoC-constrained for sustained balancing activation windows
   // 4h system can sustain full aFRR/mFRR window → full 0.5 MW allocation
@@ -4637,13 +4649,6 @@ function sohYr(t, cd_total) {
   const slope = SOH_CURVE_2CD[tIdx] - SOH_CURVE_15CD[tIdx];
   return Math.max(0.40, SOH_CURVE_2CD[tIdx] + slope * ((cd - 2.0) / 0.5));
 }
-
-// RTE decay — calibration: NREL ATB + public manufacturer warranty data + Baltic
-// field observation 2026. BOL per duration: 2h 0.82; 4h 0.83 (4h benefits from
-// lower C-rate stress on the PCS). Decay 0.20 pp/yr; floor at -4pp from BOL.
-const RTE_BOL = { h2: 0.82, h4: 0.83 };
-const RTE_DECAY_PP_PER_YEAR = 0.0020;
-const RTE_FLOOR_DROP = 0.04;
 
 function rteCurveFor(dur_h, lifetime_yrs) {
   const yrs = lifetime_yrs ?? 18;
@@ -8717,7 +8722,7 @@ export default {
       await env.KKME_SIGNALS.put(`trading:${date}:raw`, JSON.stringify(body), { expirationTtl: 86400 * 90 });
 
       // Compute dispatch analysis — old format (backward compat) + new V2
-      const analysis = computeDispatch(body, { mw: 60, mwh: 130, rte: 0.875 });
+      const analysis = computeDispatch(body, { mw: 60, mwh: 130, rte: RTE_BOL.h2 }); // canonical RTE_BOL (2.2h duration → h2)
       await env.KKME_SIGNALS.put(`trading:${date}`, JSON.stringify(analysis), { expirationTtl: 86400 * 90 });
 
       // V2 dispatch: 50MW reference, 2H and 4H
