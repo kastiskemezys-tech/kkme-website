@@ -92,6 +92,19 @@ export default function StickyNav() {
               borderRadius: '2px',
             }}
           >Get in touch</a>
+          <a
+            href="https://portfolio.kkme.eu"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="tap-target-mobile"
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 'var(--type-body-md)',
+              color: 'var(--teal-accent-text)',
+              textDecoration: 'none',
+              letterSpacing: '0.04em',
+            }}
+          >Portfolio ↗</a>
         </div>
 
         {/* Mobile hamburger */}
@@ -156,6 +169,21 @@ export default function StickyNav() {
               paddingTop: '10px', paddingRight: 'var(--space-md)', paddingBottom: '10px', paddingLeft: 'var(--space-md)',
             }}
           >Get in touch</a>
+          <a
+            href="https://portfolio.kkme.eu"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => setMenuOpen(false)}
+            className="tap-target-mobile"
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 'var(--font-sm)',
+              color: 'var(--teal-accent-text)',
+              textDecoration: 'none',
+              letterSpacing: '0.04em',
+              paddingTop: '10px', paddingRight: 'var(--space-md)', paddingBottom: '10px', paddingLeft: 'var(--space-md)',
+            }}
+          >Portfolio ↗</a>
         </div>
       )}
 

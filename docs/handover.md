@@ -1882,6 +1882,16 @@ Then Tier 1 (12.12 + 12.14 + 7.7g). Phase 12.12 picks up:
 - After merge to main → Phase 30 §6 (three commits + push to `phase-30-methodology-research` branch) resumes from the same working tree per operator's latest message.
  phase-12-8-1-backtest-caption
 
+### Session 77 — 2026-06-08 — Ad-hoc: Portfolio ↗ link in StickyNav (Claude Code)
+
+**Scope:** Small one-link task. Added `Portfolio ↗` → `https://portfolio.kkme.eu` to the right side of `StickyNav` in both desktop row (after "Get in touch") and mobile dropdown. Opens in new tab (`target="_blank" rel="noopener noreferrer"`). Matches existing `LinkedIn ↗` cadence (mono, `var(--teal-accent-text)`, directional glyph) per discipline rule #1 (tokens only).
+
+**Branch:** `add-portfolio-link` off `origin/main`. Commit `78196c5` — single-file edit (`app/components/StickyNav.tsx`, +28 lines). PR opened against `main`.
+
+**Verification:** Visual sign-off at `localhost:3000`, dark theme; screenshots in `docs/visual-audit/portfolio-link-{desktop,mobile}.png`. `tsc --noEmit` clean. StickyNav still gated on `scrollY > 300` (existing behaviour, unchanged).
+
+**Caveat (flagged at Pause A, operator-approved):** StickyNav is home-page-only — sub-routes (`/intel`, `/methodology`, `/regulatory`) don't render it. True cross-route coverage would require lifting chrome into `app/layout.tsx`; out of scope for this task.
+
 ### Session 76 — 2026-05-27 — Phase 32.1 — Canonical RTE single-source + cross-card reconciliation (+ 32.2 dead-code delete) (Claude Code)
 
 **Headline:** Collapsed every "same physical battery round-trip" RTE literal across worker + frontend to the single canonical `RTE_BOL` ({h2:0.82, h4:0.83}) per operator option-1 + FULL-scope approval. Was a 3-way (really 7-site) inconsistency for one physical quantity. Branch `phase-32-1-canonical-rte` off main (`f208949`). Worker deployed (version `4150d0e0`). Added a Vitest worker↔TS mirror-assert so the single-source guarantee can't silently drift again. Folded in 32.2 (deleted dead `app/lib/revenueModel.ts`).
