@@ -159,6 +159,91 @@ function filterFleetEntries(entries) {
   return { accepted, dropped };
 }
 
+// ─── Phase 33.A.2 (W1a): operator-curated operational-confirmation allowlist ──
+// Pause A root cause: upstream kkme_sync.py has NO operational signal. The
+// litgrid/vert/elering loaders scrape permit/connection registers that never
+// emit state='operational', and merge_with_existing only blocks downgrades — so
+// a commercial BESS that actually commissions stays "announced" forever (4 of 5
+// known-operational projects were stale). This list is the operator's confirmed
+// truth, applied at POST /s2/fleet BEFORE filterFleetEntries: Phase 33.A turned
+// C-01 ('operational without TSO evidence') into a hard REJECT, so the flip must
+// also attach an operational-evidence `source`. Each row carries a verifiable
+// source_url (rule #3 named-entity). mw/mwh override the feed's collapsed
+// capacity; when they disagree a `_mw_disagreement` flag preserves both — this
+// is also where W3 lives, since the worker only ever receives one pre-collapsed
+// capacity_mw per project upstream (no independent multi-source disagreement
+// surface exists). Match = country + normalized name-substring (feed names carry
+// company prefixes, MW suffixes, smart-quotes, diacritics). Auvere held back per
+// the Pause A operator decision (left announced/75 MW untouched). Litgrid ArcGIS
+// auto-confirmation deferred to Phase 33.A.2.c.
+const KNOWN_OPERATIONAL = [
+  // Hertz 1 (Kiisa EE) — 100 MW / 200 MWh, entered operation 2026-02-03. Evecon/
+  // Corsica Sole/Mirova JV. Feed mislabels it 114.9 MW "Hertz 1 Jaago akupark".
+  { key: 'hertz-1',      country: 'EE', match: 'hertz 1',     mw: 100, mwh: 200,  cod: '2026-02-03',
+    source_url: 'https://en.evecon.ee/estonia-strengthens-energy-resilience-hertz-1-one-of-continental-europes-largest-battery-storage-parks-opens-in-kiisa/' },
+  // Vilnius/Trakai BESS — E energija group, 65 MW / 130 MWh, grid-connected
+  // Dec 2025 (balancing-market entry 2026-02-24). Feed names it "UAB Vilnius BESS"
+  // at 72 MW (vert permit SPV). Operator Pause-A estimate was 60 MW; verified
+  // primary source (TV3 + LRT cross-confirm) says 65 MW — using the cited figure.
+  { key: 'vilnius-bess', country: 'LT', match: 'vilnius bess', mw: 65, mwh: 130,  cod: '2025-12-01',
+    source_url: 'https://www.tv3.lt/naujiena/verslas/traku-rajone-pradejo-veikti-galingiausias-65-mw-komercinis-bateriju-parkas-n1497898' },
+  // Tausolos saulė (Telšiai LT) — 30 MW / 67.7 MWh, grid-connected 2026-03-23
+  // (LRT). DS1 EPC, CATL cells. Feed MW (30) matches; mwh corrected to 67.7.
+  { key: 'tausolos',     country: 'LT', match: 'tausolos',     mw: 30, mwh: 67.7,  cod: '2026-03-23',
+    source_url: 'https://www.lrt.lt/naujienos/verslas/4/2876270/prie-tinklo-prijungtas-treciasis-bateriju-parkas-30-mw-kaupikliai-telsiu-rajone' },
+  // Vėjo galia (Kaišiadorys LT) — UAB Vėjo galia, 41 MW / 107.3 MWh BESS,
+  // grid-connected Dec 2025 (LT's first commercial transmission-connected battery
+  // park). Co-located with a 50 MW solar park (Naujažeris): the feed's 50 MW is
+  // the SOLAR/connection figure, not the battery — corrected to the 41 MW BESS
+  // rating, _mw_disagreement{feed:50, operator:41} captures the solar-vs-BESS gap.
+  { key: 'vejo-galia',   country: 'LT', match: 'vejo galia',   mw: 41, mwh: 107.3, cod: '2025-12-10',
+    source_url: 'https://www.lrt.lt/naujienos/verslas/4/2781056/prie-elektros-perdavimo-tinklo-prisijunge-komercine-bateriju-kaupimo-sistema-lietuvoje' },
+];
+
+// Lowercase + strip diacritics + smart-quotes so feed names like
+// 'UAB „Vilnius BESS" 72.0' match the 'vilnius bess' needle.
+function normName(s) {
+  return (s || '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[„“”"']/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Apply the operational-confirmation allowlist to a fresh fleet batch. Mutates
+// matched entries in place — the POST handler replaces the full fleet on every
+// call, so per-batch mutation is idempotent. Returns { entries, flipped } where
+// flipped carries {key, name, from, mw_from, mw_to} for logging/verification.
+function applyKnownOperational(entries) {
+  const flipped = [];
+  if (!Array.isArray(entries)) return { entries, flipped };
+  for (const e of entries) {
+    if (!e || typeof e !== 'object') continue;
+    const n = normName(e.name);
+    const hit = KNOWN_OPERATIONAL.find(k => e.country === k.country && n.includes(k.match));
+    if (!hit) continue;
+    const fromStatus = e.status;
+    const feedMw = Number(e.mw);
+    // W3 — preserve feed/operator MW disagreement before overriding.
+    if (Number.isFinite(feedMw) && Math.abs(feedMw - hit.mw) >= 0.1) {
+      e._mw_disagreement = { feed_mw: feedMw, operator_mw: hit.mw, source_url: hit.source_url };
+    }
+    e.status = 'operational';
+    e.mw = hit.mw;
+    e.mwh = hit.mwh;
+    if (hit.cod) e.cod = hit.cod;
+    // C-01 reads entry.source — append an operational-evidence token (regex:
+    // TSO|Litgrid|Elering|AST|operational) so the flip survives filterFleetEntries
+    // while preserving the original upstream provenance string.
+    e.source = `${e.source || hit.key} · operator-confirmed operational`;
+    e.source_url = hit.source_url;
+    e.confidence = 'confirmed';
+    flipped.push({ key: hit.key, name: e.name, from: fromStatus, mw_from: feedMw, mw_to: hit.mw });
+  }
+  return { entries, flipped };
+}
+
 function freshnessScore(entry) {
   if (!entry.updated) return 0.5;
   const daysSince = (Date.now() - new Date(entry.updated).getTime()) / 86400000;
@@ -7227,6 +7312,16 @@ export default {
       try { body = await request.json(); } catch { return jsonResp({ error: 'Invalid JSON' }, 400); }
       const { entries: rawEntries, demand } = body;
       if (!Array.isArray(rawEntries) || rawEntries.length === 0) return jsonResp({ error: 'entries array required' }, 400);
+      // Phase 33.A.2 (W1a): apply the operator operational-confirmation allowlist
+      // BEFORE the gate. Flips known-commissioned projects announced→operational,
+      // corrects MW, and (W3) records feed/operator MW disagreement. Must run
+      // before filterFleetEntries: the flip sets operational status, which the
+      // C-01 gate would reject without the operational-evidence source the
+      // allowlist attaches.
+      const { flipped } = applyKnownOperational(rawEntries);
+      if (flipped.length) {
+        console.log(`[fleet/known-operational] flipped ${flipped.length}:`, JSON.stringify(flipped));
+      }
       // Phase 33.A: gate at the last hop before the public map. Drop non-Baltic
       // + HIGH-flag entries per-entry; never 400 the whole batch (kkme_sync POSTs
       // batched — a few polluters shouldn't reject the rest).
@@ -7247,7 +7342,7 @@ export default {
         env.KKME_SIGNALS.put('s2_fleet', json),  // backward compat
       ]);
       console.log(`[S4/fleet] seeded n=${entries.length} (dropped ${dropped.length}) sd_ratio=${fleet.sd_ratio} phase=${fleet.phase}`);
-      return jsonResp({ ok: true, accepted: entries.length, dropped_non_baltic: droppedNonBaltic, dropped_flagged: droppedFlagged, sd_ratio: fleet.sd_ratio, phase: fleet.phase, n: entries.length });
+      return jsonResp({ ok: true, accepted: entries.length, flipped_operational: flipped.length, dropped_non_baltic: droppedNonBaltic, dropped_flagged: droppedFlagged, sd_ratio: fleet.sd_ratio, phase: fleet.phase, n: entries.length });
     }
 
     // ── POST /s2/fleet/entry OR /s4/fleet/entry — single entry upsert ──
@@ -9570,5 +9665,6 @@ export default {
 export { computeRevenueV7, computeRevenueV6, computeBaseYear, computeTradingMix, computeLiveRate, capPrice };
 // Phase 33.A — Baltic allowlist + contradiction-flag ingest gate.
 export { BALTIC_COUNTRIES, filterFleetEntries, detectContradictions };
+export { KNOWN_OPERATIONAL, applyKnownOperational, normName };
 // Phase 33.B.3 — KV-persisted capacity-watch accumulator (pure helper for tests).
 export { accumulateCapacityWatch, CAPACITY_WATCH_FIELDS };
