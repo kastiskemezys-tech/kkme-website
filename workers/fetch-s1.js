@@ -198,6 +198,24 @@ const KNOWN_OPERATIONAL = [
   // rating, _mw_disagreement{feed:50, operator:41} captures the solar-vs-BESS gap.
   { key: 'vejo-galia',   country: 'LT', match: 'vejo galia',   mw: 41, mwh: 107.3, cod: '2025-12-10',
     source_url: 'https://www.lrt.lt/naujienos/verslas/4/2781056/prie-elektros-perdavimo-tinklo-prisijunge-komercine-bateriju-kaupimo-sistema-lietuvoje' },
+  // ── Phase 33.A.2.e — Estonia ──
+  // Enefit Auvere (Ida-Virumaa EE) — Eesti Energia / Enefit, 26.5 MW / 53.1 MWh,
+  // operational since 2025-02-01 (LG ES cells, Diotech). Feed (Elering) carries
+  // 75 MW = the Auvere industrial-complex permit, NOT the battery → correct to 26.5.
+  { key: 'enefit-auvere', country: 'EE', match: 'auvere', mw: 26.5, mwh: 53.1, cod: '2025-02-01',
+    source_url: 'https://www.energy-storage.news/first-large-scale-bess-in-estonia-online-with-lg-es-batteries/' },
+  // Rummu (Harju County EE) — Enery, BESS 9 MW / 18 MWh, operational since 2025-04
+  // (paired with a separate 20 MW PV). Feed "Rummu hübriidelektrijaam" 14 MW is the
+  // hybrid grid-connection rating, NOT the BESS nameplate → correct to 9 MW.
+  { key: 'rummu', country: 'EE', match: 'rummu', mw: 9, mwh: 18, cod: '2025-04-01',
+    source_url: 'https://enery.energy/en/press/enery-energizes-the-baltics-with-commissioning-of-rummu-battery-storage-system-a-flagship-in-renewable-integrated-flexibility/' },
+  // BSP Hertz 2 (Aruküla EE) — Evecon/Corsica Sole/Mirova, 100 MW / 200 MWh, UNDER
+  // CONSTRUCTION (COD ~end-2026; verified Corsica Sole + ess-news Feb 2026). NOT
+  // operational — target_status under_construction. Feed 113.5 MW → correct to 100.
+  // (The "200 MW / 400 MWh" figure is the combined Baltic Storage Platform, not H2.)
+  { key: 'hertz-2', country: 'EE', match: 'hertz 2', mw: 100, mwh: 200, cod: '2026-12-31',
+    target_status: 'under_construction',
+    source_url: 'https://corsicasole.com/en/realisations/hertz-2-energy-storage-facility/' },
 ];
 
 // Lowercase + strip diacritics + smart-quotes so feed names like
@@ -229,17 +247,28 @@ function applyKnownOperational(entries) {
     if (Number.isFinite(feedMw) && Math.abs(feedMw - hit.mw) >= 0.1) {
       e._mw_disagreement = { feed_mw: feedMw, operator_mw: hit.mw, source_url: hit.source_url };
     }
-    e.status = 'operational';
+    // Phase 33.A.2.e — per-entry target status (default 'operational'). Known
+    // pre-COD-but-confirmed projects (e.g. Hertz 2, under construction with a
+    // public COD) flip to 'under_construction' instead, lifting STATUS_WEIGHT
+    // 0.1→0.9 without falsely asserting operation.
+    const targetStatus = hit.target_status || 'operational';
+    e.status = targetStatus;
     e.mw = hit.mw;
     e.mwh = hit.mwh;
     if (hit.cod) e.cod = hit.cod;
-    // C-01 reads entry.source — append an operational-evidence token (regex:
-    // TSO|Litgrid|Elering|AST|operational) so the flip survives filterFleetEntries
-    // while preserving the original upstream provenance string.
-    e.source = `${e.source || hit.key} · operator-confirmed operational`;
+    // C-01 (operational-without-TSO-evidence) only fires for operational/
+    // commissioned, so only those need the evidence token appended. Idempotency
+    // guard: don't re-append on repeated POSTs (full-replace re-runs every push).
+    if (targetStatus === 'operational' || targetStatus === 'commissioned') {
+      const TOKEN = ' · operator-confirmed operational';
+      // Self-healing + idempotent: strip any prior token(s) then append exactly
+      // one. Repairs strings that bloated before the guard (e.g. Hertz 1 ×5).
+      const base = String(e.source || hit.key).split(TOKEN).join('').replace(/\s+$/, '');
+      e.source = `${base}${TOKEN}`;
+    }
     e.source_url = hit.source_url;
     e.confidence = 'confirmed';
-    flipped.push({ key: hit.key, name: e.name, from: fromStatus, mw_from: feedMw, mw_to: hit.mw });
+    flipped.push({ key: hit.key, name: e.name, from: fromStatus, to: targetStatus, mw_from: feedMw, mw_to: hit.mw });
   }
   return { entries, flipped };
 }

@@ -77,13 +77,15 @@ describe('applyKnownOperational — status flip', () => {
     expect(entries[0].status).toBe('announced');
   });
 
-  it('does not over-match Hertz 2 against the hertz-1 rule', () => {
+  it('Hertz 2 matches its own rule (under_construction), NOT the hertz-1 operational rule', () => {
+    // Phase 33.A.2.e: Hertz 2 is now handled (under_construction), but must not be
+    // caught by the hertz-1 rule (which would wrongly mark it operational).
     const entries: FleetEntry[] = [
       { id: 'h2', name: 'Hertz 2', country: 'EE', mw: 113.5, mwh: 227, status: 'announced', source: 'elering · Evecon Solar 435 OÜ' },
     ];
-    const { flipped } = applyKnownOperational(entries);
-    expect(flipped).toHaveLength(0);
-    expect(entries[0].status).toBe('announced');
+    applyKnownOperational(entries);
+    expect(entries[0].status).toBe('under_construction'); // not 'operational'
+    expect(entries[0].mw).toBe(100);
   });
 
   it('flips Vėjo galia and corrects the feed 50 MW (solar) to the 41 MW BESS rating', () => {
@@ -106,15 +108,8 @@ describe('applyKnownOperational — status flip', () => {
     expect(entries[0].status).toBe('announced');
   });
 
-  it('leaves Auvere untouched (held back per Pause A operator decision)', () => {
-    const entries: FleetEntry[] = [
-      { id: 'a', name: 'Auvere salvesti', country: 'EE', mw: 75, mwh: 150, status: 'announced', source: 'elering · Enefit Industry AS' },
-    ];
-    const { flipped } = applyKnownOperational(entries);
-    expect(flipped).toHaveLength(0);
-    expect(entries[0].status).toBe('announced');
-    expect(entries[0].mw).toBe(75);
-  });
+  // Note: Auvere was held back in 33.A.2 but is ADDED in 33.A.2.e (operational,
+  // 26.5 MW) — see the "Phase 33.A.2.e — Estonia additions" describe block below.
 });
 
 describe('applyKnownOperational — W3 MW disagreement', () => {
@@ -161,5 +156,84 @@ describe('applyKnownOperational → filterFleetEntries (C-01 survival invariant)
     applyKnownOperational(entries);
     // 'vert' alone would trip C-01; the appended 'operational' token saves it.
     expect(entries[0].source).toMatch(/TSO|Litgrid|Elering|AST|operational/i);
+  });
+});
+
+describe('Phase 33.A.2.e — Estonia additions', () => {
+  it('flips Auvere → operational and corrects 75 → 26.5 MW', () => {
+    const entries: FleetEntry[] = [
+      { id: 'a', name: 'Auvere salvesti', country: 'EE', mw: 75, mwh: 150, status: 'announced', source: 'elering · Enefit Industry AS' },
+    ];
+    applyKnownOperational(entries);
+    expect(entries[0].status).toBe('operational');
+    expect(entries[0].mw).toBe(26.5);
+    expect(entries[0].mwh).toBe(53.1);
+    expect(entries[0].cod).toBe('2025-02-01');
+    expect(entries[0]._mw_disagreement).toEqual({ feed_mw: 75, operator_mw: 26.5, source_url: expect.stringContaining('energy-storage.news') });
+  });
+
+  it('flips Rummu → operational and corrects the 14 MW hybrid rating → 9 MW BESS', () => {
+    const entries: FleetEntry[] = [
+      { id: 'r', name: 'Rummu hübriidelektrijaam', country: 'EE', mw: 14, mwh: 28, status: 'announced', source: 'elering · Rummu Päikesepark OÜ' },
+    ];
+    applyKnownOperational(entries);
+    expect(entries[0].status).toBe('operational');
+    expect(entries[0].mw).toBe(9);
+    expect(entries[0].mwh).toBe(18);
+    expect(entries[0]._mw_disagreement).toEqual({ feed_mw: 14, operator_mw: 9, source_url: expect.stringContaining('enery.energy') });
+  });
+
+  it('marks Hertz 2 under_construction (NOT operational) + corrects 113.5 → 100 MW', () => {
+    const entries: FleetEntry[] = [
+      { id: 'h2', name: 'Hertz 2', country: 'EE', mw: 113.5, mwh: 227, status: 'announced', source: 'elering · Evecon Solar 435 OÜ' },
+    ];
+    const { flipped } = applyKnownOperational(entries);
+    expect(entries[0].status).toBe('under_construction');
+    expect(entries[0].mw).toBe(100);
+    expect(entries[0]._mw_disagreement).toEqual({ feed_mw: 113.5, operator_mw: 100, source_url: expect.stringContaining('corsicasole') });
+    expect(flipped[0]).toMatchObject({ key: 'hertz-2', to: 'under_construction' });
+    // under_construction must NOT get the operational-evidence token appended.
+    expect(entries[0].source).not.toContain('operator-confirmed operational');
+  });
+
+  it('does not over-match Hertz 1 against the hertz-2 rule (or vice versa)', () => {
+    const entries: FleetEntry[] = [
+      { id: 'h1', name: 'Hertz 1 Jaago akupark', country: 'EE', mw: 114.9, mwh: 229.7, status: 'announced', source: 'elering · Evecon Solar 461 OÜ' },
+    ];
+    applyKnownOperational(entries);
+    expect(entries[0].status).toBe('operational'); // hertz-1 rule, not hertz-2
+    expect(entries[0].mw).toBe(100);
+  });
+
+  it('source-token append is idempotent across repeated applies', () => {
+    const entries: FleetEntry[] = [
+      { id: 'a', name: 'Auvere salvesti', country: 'EE', mw: 75, mwh: 150, status: 'announced', source: 'elering · Enefit' },
+    ];
+    applyKnownOperational(entries);
+    applyKnownOperational(entries);
+    applyKnownOperational(entries);
+    const count = (entries[0].source!.match(/operator-confirmed operational/g) || []).length;
+    expect(count).toBe(1); // not 3 — the idempotency guard holds
+  });
+
+  it('self-heals a string already bloated before the guard (Hertz 1 ×5 → ×1)', () => {
+    const entries: FleetEntry[] = [
+      { id: 'h1', name: 'Hertz 1 Jaago akupark', country: 'EE', mw: 114.9, mwh: 229.7, status: 'announced',
+        source: 'elering · Evecon · operator-confirmed operational · operator-confirmed operational · operator-confirmed operational · operator-confirmed operational · operator-confirmed operational' },
+    ];
+    applyKnownOperational(entries);
+    const count = (entries[0].source!.match(/operator-confirmed operational/g) || []).length;
+    expect(count).toBe(1);
+    expect(entries[0].source).toBe('elering · Evecon · operator-confirmed operational');
+  });
+
+  it('Hertz 2 (under_construction) survives the C-01 gate without an operational token', () => {
+    const entries: FleetEntry[] = [
+      { id: 'h2', name: 'Hertz 2', country: 'EE', mw: 113.5, mwh: 227, status: 'announced', source: 'elering · Evecon Solar 435 OÜ' },
+    ];
+    applyKnownOperational(entries);
+    const { accepted, dropped } = filterFleetEntries(entries);
+    expect(dropped).toHaveLength(0);
+    expect(accepted[0].status).toBe('under_construction');
   });
 });
