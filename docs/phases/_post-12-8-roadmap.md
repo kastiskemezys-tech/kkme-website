@@ -104,7 +104,29 @@
 
   **3 follow-up candidates filed below** (33.A.2.b LV coverage + Rēzekne, 33.A.2.c ArcGIS auto-confirm, 33.A.2.d display-dedup).
 
-- **Phase 33.A.2.b — Latvia coverage + manual-add endpoint + Rēzekne MW correction** (~2-3h, P1) — Two LV-side gaps surfaced in 33.A.2 Pause A: (1) `latvia_loader.py` pulls only 2 LV entries (Aretis + 1 other); Utilitas Wind (10MW, operational since Nov 2024) is entirely missing → AST has no scrapable register, so the fix is a `POST /admin/add-fleet-entry` admin endpoint (`X-Update-Secret` auth, country-filtered through `BALTIC_COUNTRIES`, operator manually adds Utilitas + future findings). (2) Curated `storage_by_country.LV` shows Rēzekne at 20 MW but actual is 60 MW per primary source — belongs to the frozen `installed_mw` ledger family, fold into same ship. **AJ Power (~9MW LV) is snippet-only/unverified; do NOT seed without primary URL** (rule #3). Automated AST scraper killed — no scrapable register exists.
+- ~~**Phase 33.A.2.b — Latvia coverage: curated inject + RSS tripwire + manual valve + Rēzekne fix**~~ **[SHIPPED 2026-06-15]** — PR `phase-33-a-2-b-lv-coverage` (commits `1b68481` impl, `151d721` evidence+handover) merged to main (`2f79083`). Worker deploy `5697a1e0`. Upstream `~/kkme-control-center` main at `dcb1157` (4 new scrapers + extractor wiring).
+
+  **The 7th consecutive rule-#1 correction:** prompt's framing of "broken scraper / over-filter" missed the architectural truth — `entity_resolver.py` has NO extractor for `sprk` / `bis` / `vvd` source systems, so the LV permit-register path could never resolve regardless of scraper health. CC's Pause A code-trace found this. AND deeper finding: the LV operational fleet is genuinely small (~4-6 stable projects), correctly counted — not a broken pipeline. Banked to memory `lv-bess-small-market` so the "why so few LV entries" question doesn't get re-litigated.
+
+  **Operational LV fleet shipped via curated W2 inject** (extends 33.A.2's W1a `KNOWN_OPERATIONAL` mechanism with add-not-just-flip semantics): Targale 10MW (utilitas.ee), AJ Power 9MW aggregate (ajpower.lv, 3 sub-5MW sites combined), Rēzekne 60MW (kursors.lv + AST events), Tume 20MW (AST events). All primary-source cited per rule #3.
+
+  **Architectural reconciliation (operator framing 2026-06-15: "automation is canonical, manual is defeat"):** the apparent tension between operator's automation pushback and rule-#3's primary-source discipline resolved cleanly: operational fleet = curated (small, stable, primary-source-verifiable, where rule #3 dominates); pipeline discovery = automated RSS tripwire feeding manual/curated review queue (where automation earns its keep without compromising entity verification). **NOT automation-vs-manual — curated for known-static, automation-for-forward-discovery.**
+
+  **W2 automation shipped (4 sources, all upstream):**
+  - `lv_press_scraper.py` (Delfi.lv + LSM RSS) — ✅ live, RSS tripwire → candidate-alert + Telegram, NOT auto-publish (rule #3 honored). 7 parser tests pass including battery-trains false-positive guard.
+  - `lv_entsoe_crosscheck.py` (ENTSO-E A68 LV bidding zone yearly aggregate) — ✅ live, independent EU validation. Live query: LV storage 90 MW vs our tracked 99 MW (~10% delta, in-band).
+  - `ast_events_scraper.py` (AST events page, Playwright headless for Cloudflare 403) — ⚠️ committed, parser tested, fail-soft, yields 0 live (Cloudflare bypass didn't pan out). Left UNSCHEDULED rather than run daily for nothing.
+  - `jrc_inventory_scraper.py` (JRC Energy Storage Inventory SPA, XHR-intercept) — ⚠️ committed, parser tested, fail-soft, yields 0 live (SPA-no-API, reverse-engineering needed). Left UNSCHEDULED.
+
+  **W3 Rēzekne ledger fix:** worker `fetch-s1.js:8456` Rēzekne 20→60 MW + `:8420` LV installed_storage_lv_mw 40→80 + `s4_buildability` KV assertion updated (rule #4 cross-card consistency — fixed in code default AND KV).
+
+  **W4 manual safety valve shipped:** `POST /admin/add-fleet-entry` with `X-Update-Secret` auth + `BALTIC_COUNTRIES` country filter + C-01 honesty gate, KV-persisted, re-merged on each POST. 401/400/400/200 all verified. Stays as last-resort path for edge cases automation can't reach.
+
+  **Live impact:** `/s4` LV projects 2 → 6; `baltic_operational_mw` 567 → 666 (+99: Targale 10 + AJ Power 9 + Rēzekne 60 + Tume 20; Rēzekne/Tume tagged `tso_bess` so excluded from revenue engine pipeline math); `sd_ratio` 2.08 → 2.10; **IRR 21% unchanged** (tso_bess exclusion + Phase 33's calibrated CPI floor binding). 973 worker tests + 16 upstream parser tests.
+
+  **2 follow-up candidates filed below** (33.A.2.b.1 AST/JRC extraction tuning, 33.A.2.d expanded to cover Rēzekne/Tume display dup now in both ledger + projects feed).
+
+- **Phase 33.A.2.b.1 — AST events + JRC extraction tuning (DEFERRED)** (~2-4h, P3) — Two upstream LV scrapers from 33.A.2.b shipped fail-soft but yield 0 live: (1) `ast_events_scraper.py` Cloudflare 403 — Playwright bypass needs deeper headless-detection tuning OR alternative source-path; (2) `jrc_inventory_scraper.py` SPA-no-API — XHR endpoint reverse-engineering needed OR close as infeasible. Both stay UNSCHEDULED until extraction works. Low priority — the lv_press tripwire + curated inject + manual valve cover the load-bearing work today. Triggers when either: (a) Operator finds a new operational LV project the press tripwire didn't catch (suggests AST or JRC would have caught it), OR (b) Cloudflare/JRC schema changes make extraction easier.
 
 - **Phase 33.A.2.c — Litgrid ArcGIS L2 auto-confirm supplement** (~1-2h, P3, DEFERRED) — Periodic Litgrid arcgis scrape to auto-confirm transmission-connected LT operational status. Currently zero net-new value (only confirms the 4×50MW Energy Cells already in the curated seed). **Triggers when:** ≥1 new transmission-connected LT operational commissioning needs confirmation that the W1a allowlist hasn't yet captured. Until then, manual allowlist additions cover the gap.
 
