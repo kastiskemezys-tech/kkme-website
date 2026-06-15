@@ -108,6 +108,15 @@ function computeRegime(signals) {
 
 // ─── Fleet contradiction + freshness helpers ────────────────────────────────
 
+// Phase 33.A: single-source allowlist gating the public Baltic BESS map.
+// Non-Baltic entries (ESN international energy-storage-news pollution — e.g.
+// Meralco PH, Saudi/Chile/US projects mislabeled tso:"Litgrid") are rejected at
+// POST /s2/fleet and purgeable retroactively via /admin/purge-non-baltic-fleet.
+// Blank country drops too (BALTIC_COUNTRIES.has('') === false) — verified safe:
+// real TSO-sourced Baltic entries always carry a country code; only the ESN
+// scraper emits blanks, and those are all foreign. Single-source per rule #4.
+const BALTIC_COUNTRIES = new Set(['LT', 'LV', 'EE']);
+
 function detectContradictions(entry) {
   const flags = [];
   if (entry.status === 'operational' && entry.source && !entry.source.match(/TSO|Litgrid|Elering|AST|operational|energis|grid permit/i))
@@ -120,6 +129,34 @@ function detectContradictions(entry) {
   if (entry.mw > 500)
     flags.push({ id: 'C-11', severity: 'MEDIUM', msg: `MW=${entry.mw} unusually large for Baltic BESS` });
   return flags;
+}
+
+// Phase 33.A: fleet ingest gate. Two rejections, single-sourced so POST and any
+// future fleet-touching code agree:
+//   1. non-Baltic country (allowlist) — drops ESN international pollution.
+//   2. HIGH-severity contradiction flag — C-01 (operational w/o TSO evidence) or
+//      C-07 (duration outside 0.5–12h). Phase 33.A escalates these from
+//      keep-but-quarantine (Phase 12.10) to reject: a HIGH flag means data
+//      integrity is broken at source, and ingesting known-bad is dishonest.
+//      C-11 (MW>500) is MEDIUM → kept, flag attached downstream as before.
+// Does NOT mutate inputs. Returns { accepted, dropped } where each dropped entry
+// carries a reason ('non_baltic' | 'high_severity_flag') for logging/audit.
+function filterFleetEntries(entries) {
+  const accepted = [];
+  const dropped = [];
+  for (const e of entries) {
+    if (!BALTIC_COUNTRIES.has(e.country)) {
+      dropped.push({ id: e.id, country: e.country ?? null, reason: 'non_baltic' });
+      continue;
+    }
+    const flags = detectContradictions(e);
+    if (flags.some(f => f.severity === 'HIGH')) {
+      dropped.push({ id: e.id, country: e.country, reason: 'high_severity_flag', flags });
+      continue;
+    }
+    accepted.push(e);
+  }
+  return { accepted, dropped };
 }
 
 function freshnessScore(entry) {
@@ -7110,8 +7147,19 @@ export default {
       if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
       let body;
       try { body = await request.json(); } catch { return jsonResp({ error: 'Invalid JSON' }, 400); }
-      const { entries, demand } = body;
-      if (!Array.isArray(entries) || entries.length === 0) return jsonResp({ error: 'entries array required' }, 400);
+      const { entries: rawEntries, demand } = body;
+      if (!Array.isArray(rawEntries) || rawEntries.length === 0) return jsonResp({ error: 'entries array required' }, 400);
+      // Phase 33.A: gate at the last hop before the public map. Drop non-Baltic
+      // + HIGH-flag entries per-entry; never 400 the whole batch (kkme_sync POSTs
+      // batched — a few polluters shouldn't reject the rest).
+      const { accepted: entries, dropped } = filterFleetEntries(rawEntries);
+      const droppedNonBaltic = dropped.filter(d => d.reason === 'non_baltic').length;
+      const droppedFlagged   = dropped.filter(d => d.reason === 'high_severity_flag').length;
+      if (dropped.length) {
+        console.log(`[fleet/allowlist] dropped ${droppedNonBaltic} non-Baltic + ${droppedFlagged} HIGH-flag of ${rawEntries.length}:`, JSON.stringify(dropped.slice(0, 5)));
+      }
+      // All entries rejected → refuse rather than overwrite KV with an empty fleet.
+      if (entries.length === 0) return jsonResp({ error: 'all entries rejected by allowlist/flags', dropped_non_baltic: droppedNonBaltic, dropped_flagged: droppedFlagged }, 400);
       const fleet = processFleet(entries, demand ?? null);
       fleet.raw_entries = entries;
       fleet.demand      = demand ?? { eff_demand_mw: 935 };
@@ -7120,8 +7168,8 @@ export default {
         env.KKME_SIGNALS.put('s4_fleet', json),
         env.KKME_SIGNALS.put('s2_fleet', json),  // backward compat
       ]);
-      console.log(`[S4/fleet] seeded n=${entries.length} sd_ratio=${fleet.sd_ratio} phase=${fleet.phase}`);
-      return jsonResp({ ok: true, sd_ratio: fleet.sd_ratio, phase: fleet.phase, n: entries.length });
+      console.log(`[S4/fleet] seeded n=${entries.length} (dropped ${dropped.length}) sd_ratio=${fleet.sd_ratio} phase=${fleet.phase}`);
+      return jsonResp({ ok: true, accepted: entries.length, dropped_non_baltic: droppedNonBaltic, dropped_flagged: droppedFlagged, sd_ratio: fleet.sd_ratio, phase: fleet.phase, n: entries.length });
     }
 
     // ── POST /s2/fleet/entry OR /s4/fleet/entry — single entry upsert ──
@@ -7154,6 +7202,37 @@ export default {
               || (await env.KKME_SIGNALS.get('s2_fleet').catch(() => null));
       if (!raw) return jsonResp({ fleet: null, reason: 'Fleet data not yet computed — awaiting daily entity-resolver run' }, 200);
       return new Response(raw, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...CORS } });
+    }
+
+    // ── POST /admin/purge-non-baltic-fleet — Phase 33.A one-shot cleanup ──
+    // Retroactively removes non-Baltic (ESN international pollution) entries from
+    // the stored fleet, then recomputes aggregates from the survivors. Idempotent:
+    // re-running after a clean purge returns { purged: 0 }.
+    if (request.method === 'POST' && url.pathname === '/admin/purge-non-baltic-fleet') {
+      const secret = request.headers.get('X-Update-Secret');
+      if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
+      const raw = (await env.KKME_SIGNALS.get('s4_fleet').catch(() => null))
+               || (await env.KKME_SIGNALS.get('s2_fleet').catch(() => null));
+      if (!raw) return jsonResp({ error: 'No fleet data' }, 404);
+      const current = JSON.parse(raw);
+      const entries = current.raw_entries ?? [];
+      const kept = entries.filter(e => BALTIC_COUNTRIES.has(e.country));
+      const purgedCount = entries.length - kept.length;
+      if (purgedCount === 0) return jsonResp({ purged: 0, remaining: entries.length });
+      const samplePurged = entries
+        .filter(e => !BALTIC_COUNTRIES.has(e.country))
+        .slice(0, 5)
+        .map(e => ({ id: e.id, name: e.name, country: e.country ?? null }));
+      const fleet = processFleet(kept, current.demand);
+      fleet.raw_entries = kept;
+      fleet.demand      = current.demand;
+      const json = JSON.stringify(fleet);
+      await Promise.all([
+        env.KKME_SIGNALS.put('s4_fleet', json),
+        env.KKME_SIGNALS.put('s2_fleet', json),  // backward compat
+      ]);
+      console.log(`[admin/purge-non-baltic] purged=${purgedCount} remaining=${kept.length}`);
+      return jsonResp({ purged: purgedCount, remaining: kept.length, sample_purged: samplePurged });
     }
 
     // ── POST /s4/migrate-fleet — one-time migration from s2_fleet → s4_fleet ──
@@ -9392,3 +9471,5 @@ export default {
 // ── Phase 33: named exports for unit/regression tests (Node import only). The
 // Workers runtime consumes the `export default` above and ignores these. ──
 export { computeRevenueV7, computeRevenueV6, computeBaseYear, computeTradingMix, computeLiveRate, capPrice };
+// Phase 33.A — Baltic allowlist + contradiction-flag ingest gate.
+export { BALTIC_COUNTRIES, filterFleetEntries, detectContradictions };
