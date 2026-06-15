@@ -1059,6 +1059,24 @@ const RESERVE_PRODUCTS = {
 // value (>50 €/MW/h ≈ >€438k/MW/yr capacity-only) and logs the clip so it can
 // be investigated rather than silently shipped. Single source for every site
 // that derives a capacity price (Phase 32.1 single-source pattern).
+//
+// Phase 33.B (empirical correction to Phase 33's framing) — BTD DOES carry Baltic
+// capacity-reservation prices, and the Mac-cron parser (kkme-cron/fetch-btd.js →
+// /s2/update → s2ShapePayload) ALREADY extracts them: `price_procured_reserves`
+// cols 10-14 land in s2.{fcr_avg, afrr_up_avg, afrr_down_avg, mfrr_up_avg,
+// mfrr_down_avg} — these are directional capacity €/MW/h, NOT activation €/MWh.
+// (Phase 33's "activation/capacity conflation" diagnosis was off; the real gap is
+// that the engine reads s2.*_cap_avg, which NO parser path ever produces → this
+// fallback is always active.) We deliberately do NOT remap *_up_avg → *_cap_avg
+// yet: post-CE-synchronisation those values run 2-177× these calibrated constants
+// (live ~2026-06: afrr_up 72.7 / mfrr_up 38.9 / fcr 63.7 vs 7.06 / 19.74 / 0.36;
+// FCR especially is anomalous, not a real sustainable FCR capacity price). Wiring
+// them in unreviewed would re-introduce exactly the silent IRR swing Phase 33's
+// bound exists to prevent. Calibrated constants stay canonical until the operator
+// signs off on the post-sync directional-capacity basis — one coherent review of
+// all three products at 2026-06-29 (Phase 33.B.2). The [revenue/s2-capacity-watch]
+// log (flagOutOfBandS2Capacity) surfaces the live values meanwhile; Phase 33.B.3
+// persists them to KV so 33.B.2 can reason about persistence vs transient spikes.
 const CAP_PRICE_FALLBACK = { fcr: 0.36, afrr: 7.06, mfrr: 19.74 }; // €/MW/h
 const CAP_PRICE_CEIL = 50; // €/MW/h — structural per-product ceiling (Phase 33)
 function capPrice(product, observed) {
@@ -1447,7 +1465,7 @@ function computeRevenueV7(params, kv) {
   const s1 = kv?.s1 || {};
   const act_parsed = kv?.s2_activation_parsed || {};
   const s1_cap = kv?.s1_capture || {};
-  const prices_source = s2.afrr_cap_avg != null ? 'BTD measured' : (s2.afrr_up_avg != null ? 'BTD partial' : 'proxy');
+  const prices_source = s2.afrr_cap_avg != null ? 'BTD measured' : (s2.afrr_up_avg != null ? 'BTD parsed; calibrated capacity (review pending)' : 'proxy');
 
   // v7.1 — per-product compression at COD year (cpi formula on per-product S/D)
   const cod_mix = computeTradingMix(kv, dur_h, cod_year, scenario_name, sc, 0);
@@ -1754,7 +1772,7 @@ function computeRevenueV6(params, kv) {
   const pmt = debt_initial * rate_allin / (1 - Math.pow(1 + rate_allin, -tenor));
 
   // Prices source
-  const prices_source = s2?.afrr_cap_avg != null ? 'BTD measured' : (s2?.afrr_up_avg != null ? 'BTD partial' : 'proxy');
+  const prices_source = s2?.afrr_cap_avg != null ? 'BTD measured' : (s2?.afrr_up_avg != null ? 'BTD parsed; calibrated capacity (review pending)' : 'proxy');
 
   // C. 20-year timeseries
   const years = [];
