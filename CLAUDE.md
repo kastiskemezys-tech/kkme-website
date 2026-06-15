@@ -21,7 +21,7 @@ Built by Kastytis Kemezys. Solo operator.
 ## Rules that apply to every session
 
 - Design tokens: always `var(--token-name)`, never raw rgba().
-- Worker: never cat whole file (7740 lines). Use grep.
+- Worker: never cat whole file (~9400 lines as of 2026-06-15). Use grep.
 - Card anatomy: header → hero metric → status → interpretation → viz → impact line → source footer → drawer.
 - Voice: terse, precise, numbers first, one interpretation line per card.
 - Verify with actual output before committing. See `docs/playbooks/verification.md`.
