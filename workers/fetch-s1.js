@@ -244,6 +244,80 @@ function applyKnownOperational(entries) {
   return { entries, flipped };
 }
 
+// ─── Phase 33.A.2.b (W2-curated): Latvia operational fleet inject ─────────────
+// Pause A diagnosis: the LV ingest pipeline is structurally dead — the SPRK/BIS/
+// VVD scraper produces only PDF-title garbage (no fresh output since 2026-04-24),
+// and entity_resolver has no extractor for sprk/bis/vvd, so LV permit data can't
+// resolve at all. The real LV operational fleet is genuinely SMALL (~4 projects,
+// dominated by AST's own 80 MW) and documented in PRESS, not registers. So these
+// 4 are curated-injected (the honest answer for a small, stable, primary-sourced
+// set; automation's payoff is forward pipeline discovery, handled upstream). Like
+// applyKnownOperational this runs at POST /s2/fleet and re-applies on every push,
+// so it survives kkme_sync full-replace. Each entry carries a primary source_url
+// (rule #3) and a C-01-satisfying `source` token. Rēzekne/Tume are TSO-owned →
+// type 'tso_bess' (excluded from the commercial weighted-supply S/D, like the
+// Litgrid Kaupikliai); Targale/AJ Power are commercial. Dedup by country + name
+// substring so a future upstream feed of the same project won't double-add.
+const CURATED_FLEET = [
+  // Utilitas Targale (Ventspils LV) — 10 MW / 20 MWh, operational Nov 2024,
+  // co-located with the 58.8 MW Tārgale wind park. Commercial.
+  { match: 'targale', id: 'utilitas-targale-lv', name: 'Utilitas Targale BESS', country: 'LV',
+    mw: 10, mwh: 20, status: 'operational', cod: '2024-11-01', tso: 'AST', confidence: 'confirmed',
+    source: 'Utilitas · operator-confirmed operational',
+    source_url: 'https://utilitas.ee/en/latvias-largest-battery-energy-storage-system-unveiled/' },
+  // AJ Power (Valmiera + Aizkraukle + Ilūkste LV) — 9 MW / 18 MWh aggregate across
+  // 3 solar-co-located sub-sites, operational 2025. Injected as one aggregate
+  // entry per operator decision (sub-5 MW individual sites; splittable later).
+  { match: 'aj power', id: 'aj-power-bess-lv', name: 'AJ Power BESS (3 sites)', country: 'LV',
+    mw: 9, mwh: 18, status: 'operational', cod: '2025-02-03', tso: 'AST', confidence: 'confirmed',
+    source: 'AJ Power · operator-confirmed operational',
+    source_url: 'https://ajpower.lv/en/investing-over-e6-million-in-bess-deployment/' },
+  // AST Rēzekne — 60 MW / 120 MWh, TSO-owned, balancing reserves from 2025-10-30.
+  { match: 'rezekne', id: 'ast-bess-rezekne-lv', name: 'AST BESS Rēzekne', country: 'LV',
+    mw: 60, mwh: 120, status: 'operational', cod: '2025-10-30', tso: 'AST', type: 'tso_bess', confidence: 'confirmed',
+    source: 'AST · TSO operational',
+    source_url: 'https://www.ast.lv/en/events/ast-battery-energy-storage-systems-rezekne-and-tume-will-start-providing-balancing-reserves' },
+  // AST Tume — 20 MW / 40 MWh, TSO-owned, balancing reserves from 2025-10-30.
+  { match: 'tume', id: 'ast-bess-tume-lv', name: 'AST BESS Tume', country: 'LV',
+    mw: 20, mwh: 40, status: 'operational', cod: '2025-10-30', tso: 'AST', type: 'tso_bess', confidence: 'confirmed',
+    source: 'AST · TSO operational',
+    source_url: 'https://www.ast.lv/en/events/ast-battery-energy-storage-systems-rezekne-and-tume-will-start-providing-balancing-reserves' },
+];
+
+// Inject curated fleet entries not already present in the batch. Mutates+appends
+// in place (idempotent per the full-replace POST). Returns { entries, injected }.
+function injectCuratedFleet(entries) {
+  const injected = [];
+  if (!Array.isArray(entries)) return { entries, injected };
+  for (const c of CURATED_FLEET) {
+    const exists = entries.some(e => e && e.country === c.country && normName(e.name).includes(c.match));
+    if (exists) continue;
+    const { match, ...entry } = c;
+    entries.push({ ...entry, _curated: true });
+    injected.push({ id: c.id, name: c.name, mw: c.mw });
+  }
+  return { entries, injected };
+}
+
+// Phase 33.A.2.b (W4): merge operator manual additions (persisted in the
+// s4_manual_additions KV) into a fresh batch. The safety valve for projects the
+// curated list + upstream feeds miss; re-applied on every POST so manual entries
+// survive kkme_sync's full-replace. Dedup by country + name substring. Returns
+// { entries, merged }.
+function injectManualAdditions(entries, manualList) {
+  const merged = [];
+  if (!Array.isArray(entries) || !Array.isArray(manualList)) return { entries, merged };
+  for (const m of manualList) {
+    if (!m || !m.name || !m.country) continue;
+    const mn = normName(m.name);
+    const exists = entries.some(e => e && e.country === m.country && normName(e.name) === mn);
+    if (exists) continue;
+    entries.push({ ...m, _manual: true });
+    merged.push({ id: m.id || m.name, name: m.name, mw: m.mw });
+  }
+  return { entries, merged };
+}
+
 function freshnessScore(entry) {
   if (!entry.updated) return 0.5;
   const daysSince = (Date.now() - new Date(entry.updated).getTime()) / 86400000;
@@ -7322,6 +7396,21 @@ export default {
       if (flipped.length) {
         console.log(`[fleet/known-operational] flipped ${flipped.length}:`, JSON.stringify(flipped));
       }
+      // Phase 33.A.2.b (W2-curated): inject the curated LV operational fleet
+      // (Targale, AJ Power, Rēzekne, Tume) when absent. Also runs before the gate
+      // so the injected operational entries carry C-01-satisfying sources.
+      const { injected } = injectCuratedFleet(rawEntries);
+      if (injected.length) {
+        console.log(`[fleet/curated-inject] injected ${injected.length}:`, JSON.stringify(injected));
+      }
+      // Phase 33.A.2.b (W4): merge operator manual additions (persisted in KV) so
+      // they survive kkme_sync's full-replace. Same pre-gate placement.
+      let manualList = [];
+      try { manualList = JSON.parse((await env.KKME_SIGNALS.get('s4_manual_additions')) || '[]'); } catch { manualList = []; }
+      const { merged } = injectManualAdditions(rawEntries, manualList);
+      if (merged.length) {
+        console.log(`[fleet/manual-additions] merged ${merged.length}:`, JSON.stringify(merged));
+      }
       // Phase 33.A: gate at the last hop before the public map. Drop non-Baltic
       // + HIGH-flag entries per-entry; never 400 the whole batch (kkme_sync POSTs
       // batched — a few polluters shouldn't reject the rest).
@@ -7342,7 +7431,7 @@ export default {
         env.KKME_SIGNALS.put('s2_fleet', json),  // backward compat
       ]);
       console.log(`[S4/fleet] seeded n=${entries.length} (dropped ${dropped.length}) sd_ratio=${fleet.sd_ratio} phase=${fleet.phase}`);
-      return jsonResp({ ok: true, accepted: entries.length, flipped_operational: flipped.length, dropped_non_baltic: droppedNonBaltic, dropped_flagged: droppedFlagged, sd_ratio: fleet.sd_ratio, phase: fleet.phase, n: entries.length });
+      return jsonResp({ ok: true, accepted: entries.length, flipped_operational: flipped.length, injected_curated: injected.length, merged_manual: merged.length, dropped_non_baltic: droppedNonBaltic, dropped_flagged: droppedFlagged, sd_ratio: fleet.sd_ratio, phase: fleet.phase, n: entries.length });
     }
 
     // ── POST /s2/fleet/entry OR /s4/fleet/entry — single entry upsert ──
@@ -7367,6 +7456,57 @@ export default {
         env.KKME_SIGNALS.put('s2_fleet', json),  // backward compat
       ]);
       return jsonResp({ ok: true, sd_ratio: fleet.sd_ratio, phase: fleet.phase, n: entries.length });
+    }
+
+    // ── POST /admin/add-fleet-entry — Phase 33.A.2.b (W4) manual safety valve ──
+    // Operator-curated add for projects the curated list + upstream feeds miss.
+    // Persists to the s4_manual_additions KV (re-merged on every POST /s2/fleet so
+    // it survives kkme_sync full-replace) AND re-applies to the stored fleet now so
+    // it shows immediately. UPDATE_SECRET-gated; BALTIC_COUNTRIES-enforced; an
+    // operational entry must carry C-01 (TSO/operational) source evidence.
+    if (request.method === 'POST' && url.pathname === '/admin/add-fleet-entry') {
+      const secret = request.headers.get('X-Update-Secret');
+      if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
+      let body;
+      try { body = await request.json(); } catch { return jsonResp({ error: 'Invalid JSON' }, 400); }
+      if (!body.name || !body.mw || !body.status || !body.country) return jsonResp({ error: 'name, mw, status, country required' }, 400);
+      if (!BALTIC_COUNTRIES.has(body.country)) return jsonResp({ error: `country must be one of ${[...BALTIC_COUNTRIES].join('/')}`, got: body.country }, 400);
+      // Honesty gate: operational entries must carry source evidence the C-01 gate
+      // will accept, else they'd be silently dropped at the next /s2/fleet ingest.
+      if ((body.status === 'operational' || body.status === 'commissioned')
+          && !(body.source && /TSO|Litgrid|Elering|AST|operational|energis|grid permit/i.test(body.source))) {
+        return jsonResp({ error: 'operational entry requires a source containing TSO/operational evidence (rule #3)' }, 400);
+      }
+      const entry = {
+        id: body.id || `${normName(body.name).replace(/\s+/g, '-')}-${body.country.toLowerCase()}`,
+        name: body.name, mw: Number(body.mw), mwh: body.mwh != null ? Number(body.mwh) : Number(body.mw) * 2,
+        status: body.status, cod: body.cod || '', country: body.country, tso: body.tso || null,
+        source: body.source || 'operator manual add', source_url: body.source_url || '',
+        confidence: body.confidence || 'probable', ...(body.type ? { type: body.type } : {}),
+      };
+      // 1. Persist to the manual-additions KV (upsert by id).
+      let manualList = [];
+      try { manualList = JSON.parse((await env.KKME_SIGNALS.get('s4_manual_additions')) || '[]'); } catch { manualList = []; }
+      const mi = manualList.findIndex(m => m.id === entry.id);
+      if (mi >= 0) manualList[mi] = entry; else manualList.push(entry);
+      await env.KKME_SIGNALS.put('s4_manual_additions', JSON.stringify(manualList));
+      // 2. Re-apply to the stored fleet now so it surfaces immediately.
+      const raw = (await env.KKME_SIGNALS.get('s4_fleet').catch(() => null))
+               || (await env.KKME_SIGNALS.get('s2_fleet').catch(() => null));
+      const current = raw ? JSON.parse(raw) : { raw_entries: [], demand: { eff_demand_mw: 935 } };
+      const entries = current.raw_entries ?? [];
+      injectManualAdditions(entries, manualList);
+      const { accepted } = filterFleetEntries(entries);
+      const fleet = processFleet(accepted, current.demand);
+      fleet.raw_entries = accepted;
+      fleet.demand = current.demand;
+      const json = JSON.stringify(fleet);
+      await Promise.all([
+        env.KKME_SIGNALS.put('s4_fleet', json),
+        env.KKME_SIGNALS.put('s2_fleet', json),
+      ]);
+      console.log(`[admin/add-fleet-entry] ${entry.id} (${entry.country} ${entry.mw}MW ${entry.status}); manual list n=${manualList.length}`);
+      return jsonResp({ ok: true, entry, manual_total: manualList.length, fleet_n: accepted.length, sd_ratio: fleet.sd_ratio });
     }
 
     // ── GET /s2/fleet OR /s4/fleet — fleet data ──
@@ -8417,7 +8557,7 @@ export default {
 
           // Storage by country — Baltic country breakdown
           const ltMw = getVal('installed_storage_lt_mw', 484);
-          const lvMw = getVal('installed_storage_lv_mw', 40);
+          const lvMw = getVal('installed_storage_lv_mw', 80);
           const eeMw = getVal('installed_storage_ee_mw', 127);
           const eeUcMw = getVal('under_construction_storage_ee_mw', 255);
 
@@ -8451,10 +8591,10 @@ export default {
               installed_mw_source_url: getUrl('installed_storage_lv_mw', 'https://www.ast.lv/'),
               source: 'AST',
               source_url: 'https://www.ast.lv/',
-              coverage_note: 'AST does not publish storage-specific reservation data. Latvia commercial BESS pipeline not publicly visible. Phase 12.10: ~19 MW commercial behind-the-meter (Utilitas Targale, AJ Power) tracked in fleet but flagged _quarantine pending TSO operational evidence.',
+              coverage_note: 'AST owns Rēzekne 60 MW + Tume 20 MW = 80 MW operational (balancing reserves from 2025-10-30, RRF/CEF-funded). Commercial LV fleet is small: Utilitas Targale (10 MW, op. Nov 2024) + AJ Power (9 MW agg, op. 2025) tracked in /s4.projects with primary sources (Phase 33.A.2.b). LV permit registers (SPRK/BIS/VVD) carry no clean BESS data; pipeline discovery via press-RSS tripwire.',
               assets: [
-                { id: 'ast-bess-rezekne', name: 'AST BESS (Rēzekne)', mw: 20, status: 'operational', tech: 'li-ion', note: 'TSO-owned. Rolls-Royce Solutions. EU Recovery/CEF funded.' },
-                { id: 'ast-bess-tume', name: 'AST BESS (Tume)', mw: 20, status: 'operational', tech: 'li-ion', note: 'TSO-owned. AST estimates €20M/yr savings from 2026.' },
+                { id: 'ast-bess-rezekne', name: 'AST BESS (Rēzekne)', mw: 60, status: 'operational', tech: 'li-ion', note: 'TSO-owned. 120 MWh. Rolls-Royce Solutions. RRF/CEF funded. Balancing reserves from 2025-10-30.' },
+                { id: 'ast-bess-tume', name: 'AST BESS (Tume)', mw: 20, status: 'operational', tech: 'li-ion', note: 'TSO-owned. 40 MWh. AST estimates €20M/yr savings from 2026.' },
               ],
             },
             EE: {
@@ -9666,5 +9806,6 @@ export { computeRevenueV7, computeRevenueV6, computeBaseYear, computeTradingMix,
 // Phase 33.A — Baltic allowlist + contradiction-flag ingest gate.
 export { BALTIC_COUNTRIES, filterFleetEntries, detectContradictions };
 export { KNOWN_OPERATIONAL, applyKnownOperational, normName };
+export { CURATED_FLEET, injectCuratedFleet, injectManualAdditions };
 // Phase 33.B.3 — KV-persisted capacity-watch accumulator (pure helper for tests).
 export { accumulateCapacityWatch, CAPACITY_WATCH_FIELDS };
