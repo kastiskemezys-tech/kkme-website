@@ -1012,6 +1012,42 @@ const RESERVE_PRODUCTS = {
   mfrr: { share: 0.50, dur_req_h: 0.25, cap_fallback: 22 },
 };
 
+// ── Phase 33: bounded capacity-price single-source ──────────────────────────
+// Capacity-reservation prices, €/MW/h. When the dedicated S2 *_cap_avg field is
+// absent (source gap — Litgrid "ordered capacity" page emptied; capacity moved
+// into BTD and not yet re-parsed), fall back to these conservative Baltic-
+// calibrated constants — NEVER to an aFRR/mFRR activation price (*_up_avg,
+// €/MWh), which conflates energy with capacity and 3×'d the published IRR.
+// The ceiling clamp catches any future source pushing a structurally impossible
+// value (>50 €/MW/h ≈ >€438k/MW/yr capacity-only) and logs the clip so it can
+// be investigated rather than silently shipped. Single source for every site
+// that derives a capacity price (Phase 32.1 single-source pattern).
+const CAP_PRICE_FALLBACK = { fcr: 0.36, afrr: 7.06, mfrr: 19.74 }; // €/MW/h
+const CAP_PRICE_CEIL = 50; // €/MW/h — structural per-product ceiling (Phase 33)
+function capPrice(product, observed) {
+  const v = (observed != null && Number.isFinite(observed)) ? observed : CAP_PRICE_FALLBACK[product];
+  const clamped = Math.min(CAP_PRICE_CEIL, Math.max(0, v));
+  if (clamped !== v) console.log(`[revenue/cap-clip] ${product} ${v}→${clamped} €/MW/h (Phase 33 ceiling)`);
+  return clamped;
+}
+
+// Phase 33 observability: when the dedicated S2 capacity prices (*_cap_avg) are
+// absent, the engine runs on the fallback constants. Surface the S2 energy /
+// legacy values that the pre-Phase-33 conflation would have (wrongly) used as
+// capacity, flagging any above the structural ceiling — so a genuine market
+// shift (e.g. FCR sustaining €50-60/MW/h post-synchronisation) shows up in logs
+// rather than silently re-inflating revenue. Goes quiet once *_cap_avg returns
+// and the watched values are back in band.
+function flagOutOfBandS2Capacity(s2) {
+  if (!s2) return;
+  const absent = ['afrr_cap_avg', 'mfrr_cap_avg', 'fcr_cap_avg'].filter((k) => s2[k] == null);
+  if (!absent.length) return;
+  const watch = ['fcr_avg', 'afrr_up_avg', 'mfrr_up_avg']
+    .map((k) => `${k}=${s2[k] ?? '—'}${(s2[k] != null && s2[k] > CAP_PRICE_CEIL) ? '⚠' : ''}`)
+    .join(' ');
+  console.log(`[revenue/s2-capacity-watch] *_cap_avg absent [${absent.join(',')}] → fallback constants in use; S2 energy/legacy values (NOT used for capacity): ${watch}`);
+}
+
 function calcIRR(cf) {
   // Robust IRR for mixed-sign cash flows. Many BESS PF streams turn slightly
   // negative in mothball years (Y17-20) when compression × degradation pulls
@@ -1592,8 +1628,9 @@ function computeRevenueV7(params, kv) {
         : (s1_cap.capture_4h?.gross_eur_mwh ?? (by_trading_per_mw > 0 ? by_trading_per_mw / (rte * da_mwh_per_mw_yr * (base_year.time_model?.effective_arb_pct || 0.115) * sc.trd_real) : 0)),
       afrr_clearing: act_parsed?.lt?.afrr_p50 ?? s2.afrr_up_avg ?? 170,
       mfrr_clearing: act_parsed?.lt?.mfrr_p50 ?? s2.mfrr_up_avg ?? 110,
-      afrr_cap: s2.afrr_cap_avg ?? s2.afrr_up_avg ?? 7.7,
-      mfrr_cap: s2.mfrr_cap_avg ?? s2.mfrr_up_avg ?? 21.5,
+      afrr_cap: capPrice('afrr', s2.afrr_cap_avg),
+      mfrr_cap: capPrice('mfrr', s2.mfrr_cap_avg),
+      fcr_cap: capPrice('fcr', s2.fcr_cap_avg),
       euribor: Math.round(euribor * 10000) / 100,
       rate_allin_pct: Math.round(rate_allin * 10000) / 100,
     },
@@ -1656,11 +1693,11 @@ function computeRevenueV6(params, kv) {
   const s1_capture = dur_h <= 2 ? s1_capture_2h : s1_capture_4h;
   const afrr_clearing = s2?.afrr_up_avg || 171;
   const mfrr_clearing = s2?.mfrr_up_avg || 81;
-  // Capacity prices: BTD bid averages (7.7 aFRR, 21.5 mFRR). RESERVE_PRODUCTS.cap_fallback
-  // (40, 22) are theoretical Baltic-calibrated assumptions — only for when S2 has zero data.
-  const afrr_cap = s2?.afrr_cap_avg || 7.7;
-  const mfrr_cap = s2?.mfrr_cap_avg || 21.5;
-  const fcr_cap = RESERVE_PRODUCTS.fcr.cap_fallback;
+  // Capacity prices via the Phase 33 single-source bound (never the *_up_avg
+  // activation price; falls to calibrated constants when *_cap_avg is absent).
+  const afrr_cap = capPrice('afrr', s2?.afrr_cap_avg);
+  const mfrr_cap = capPrice('mfrr', s2?.mfrr_cap_avg);
+  const fcr_cap = capPrice('fcr', s2?.fcr_cap_avg);
   const euribor = ((kv?.euribor?.euribor_nominal_3m ?? kv?.s3?.euribor_nominal_3m) || 2.01) / 100;
   const rate_allin = euribor + sc.debt_margin_bp / 10000;
 
@@ -2146,8 +2183,8 @@ function computeTradingMix(kv, dur_h, cal_year, scenario, sc, yr = 1) {
   // R base: per-product capacity + activation per MW-hour. Decomposed so each
   // product can carry its own forward S/D and bid-acceptance compression.
   const afrr_share = 0.40, mfrr_share = 0.60;
-  const afrr_cap = s2.afrr_cap_avg ?? s2.afrr_up_avg ?? 7.06;
-  const mfrr_cap = s2.mfrr_cap_avg ?? s2.mfrr_up_avg ?? 19.74;
+  const afrr_cap = capPrice('afrr', s2.afrr_cap_avg);
+  const mfrr_cap = capPrice('mfrr', s2.mfrr_cap_avg);
   const afrr_clearing = act.lt?.afrr_p50 ?? 171;
   const mfrr_clearing = act.lt?.mfrr_p50 ?? 81;
 
@@ -2428,9 +2465,9 @@ function computeBaseYear(kv, duration_h, sc) {
 
   // Current S2 averages as fallback
   const s2 = kv.s2 || {};
-  const fb_afrr_cap = s2.afrr_cap_avg ?? s2.afrr_up_avg ?? 7.7;
-  const fb_mfrr_cap = s2.mfrr_cap_avg ?? s2.mfrr_up_avg ?? 21.5;
-  const fb_fcr_cap  = s2.fcr_cap_avg  ?? s2.fcr_avg     ?? 0.36;
+  const fb_afrr_cap = capPrice('afrr', s2.afrr_cap_avg);
+  const fb_mfrr_cap = capPrice('mfrr', s2.mfrr_cap_avg);
+  const fb_fcr_cap  = capPrice('fcr',  s2.fcr_cap_avg);
   const fb_afrr_clearing = kv.s2_activation_parsed?.lt?.afrr_p50 ?? 170;
   const fb_mfrr_clearing = kv.s2_activation_parsed?.lt?.mfrr_p50 ?? 110;
 
@@ -2454,9 +2491,9 @@ function computeBaseYear(kv, duration_h, sc) {
     if (has_s2) s2_months_observed++;
 
     // Capacity prices (€/MW/h)
-    const afrr_cap_h = cap_m?.afrr_avg ?? fb_afrr_cap;
-    const mfrr_cap_h = cap_m?.mfrr_avg ?? fb_mfrr_cap;
-    const fcr_cap_h  = cap_m?.fcr_avg  ?? fb_fcr_cap;
+    const afrr_cap_h = cap_m?.afrr_avg != null ? capPrice('afrr', cap_m.afrr_avg) : fb_afrr_cap;
+    const mfrr_cap_h = cap_m?.mfrr_avg != null ? capPrice('mfrr', cap_m.mfrr_avg) : fb_mfrr_cap;
+    const fcr_cap_h  = cap_m?.fcr_avg  != null ? capPrice('fcr',  cap_m.fcr_avg)  : fb_fcr_cap;
 
     // Activation clearing (€/MWh) — use p50
     const afrr_clearing = afrr_act_m?.p50 ?? fb_afrr_clearing;
@@ -2633,9 +2670,9 @@ function computeLiveRate(kv, base_year, duration_h, sc) {
   // Compute balancing first, then derive trading from the Y1 price-ratio
 
   // Today's balancing from S2
-  const afrr_cap = s2.afrr_cap_avg ?? s2.afrr_up_avg ?? 7.7;
-  const mfrr_cap = s2.mfrr_cap_avg ?? s2.mfrr_up_avg ?? 21.5;
-  const fcr_cap  = s2.fcr_cap_avg  ?? s2.fcr_avg     ?? 0.36;
+  const afrr_cap = capPrice('afrr', s2.afrr_cap_avg);
+  const mfrr_cap = capPrice('mfrr', s2.mfrr_cap_avg);
+  const fcr_cap  = capPrice('fcr',  s2.fcr_cap_avg);
   const afrr_clearing = act.lt?.afrr_p50 ?? 170;
   const mfrr_clearing = act.lt?.mfrr_p50 ?? 110;
 
@@ -8450,6 +8487,7 @@ export default {
       }
 
       const kv = { fleet, s2, s1, s3, euribor: eur, s1_capture, s2_activation_parsed, capacity_monthly, dispatch_metrics };
+      flagOutOfBandS2Capacity(s2);
 
       // ── Primary result (v7: observed base year) ──
       const computeEngine = computeRevenueV7;
@@ -9346,3 +9384,7 @@ export default {
     return new Response('Method Not Allowed', { status: 405, headers: CORS });
   },
 };
+
+// ── Phase 33: named exports for unit/regression tests (Node import only). The
+// Workers runtime consumes the `export default` above and ignores these. ──
+export { computeRevenueV7, computeRevenueV6, computeBaseYear, computeTradingMix, computeLiveRate, capPrice };
