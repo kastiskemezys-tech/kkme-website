@@ -185,6 +185,20 @@ See [docs/map.md](map.md) for the full concept-to-file lookup table.
 
 ## Session log
 
+### Session 83 — 2026-06-15 — Phase 33.A.2.b: Latvia coverage — curated inject + Rēzekne fix + manual valve + discovery automation (Claude Code)
+
+**Worker:** `phase-33-a-2-b-lv-coverage` · commit `1b68481` · deploy `5697a1e0-f57f-4996-88d8-0ff7b4e0fa59`. **Upstream:** `~/kkme-control-center` main `dcb1157`. **Three pause points.** Evidence: `docs/visual-audit/phase-33-a-2-b/EVIDENCE.md`.
+
+**Rule #1 — 7th consecutive correction.** "Why only 2 LV entries" is not the prompt's a/b/c — it's **architectural**: `entity_resolver.py` has no sprk/bis/vvd extractor (+ no fallback), so LV permit data can never resolve to `project_entity`; the scraper also emits only SPRK-PDF-title garbage (no fresh file since 2026-04-24). **The significant reframe: the LV grid-scale BESS fleet is genuinely small (~4-6 projects), documented in press not registers — "so few entries" = small market correctly counted, not a broken pipeline.** Don't re-litigate this as a scraper bug. Operational coverage → curated (small/stable/primary-sourced); automation's payoff → forward *pipeline* discovery.
+
+**Shipped (worker).** W2-curated `injectCuratedFleet` extends W1a to ADD the 4 operational LV (Targale 10, AJ Power 9-agg, Rēzekne 60, Tume 20; Rēzekne/Tume `tso_bess`), primary-cited. **LV feed 2→6.** W3 Rēzekne ledger 20→60 + `installed_mw` 40→80 (override lived in `s4_buildability` KV assertion, not just code default — updated both). W4 `POST /admin/add-fleet-entry` safety valve (UPDATE_SECRET + BALTIC_COUNTRIES + C-01 gate, `s4_manual_additions` KV re-merged each push). 10 tests; 973 pass; clean.
+
+**Shipped (upstream automation, alert-only tripwire — rule #3, never auto-publish).** `lv_press_scraper` (Delfi+LSM RSS, grid-context guard rejects "battery trains") + `lv_entsoe_crosscheck` (A68 B25) **live-verified and wired into `/opt/kkme/cron_daily.sh`** (backup `*.bak-33a2b`). ENTSO-E live: **LV storage 90 MW** vs tracked 99 (−9 = distributed AJ Power) — independent EU validation. `ast_events_scraper` + `jrc_inventory_scraper` (Playwright) committed + parser-tested + fail-soft but **yield 0 live** (AST: Cloudflare-bypassed events page but listing anchors carry no MW; JRC: SPA, no interceptable JSON) → left **unscheduled** pending tuning (don't run daily headless for nothing).
+
+**Post-deploy verified.** `/s4` LV=6, ledger installed_mw=80 (assets 60+20, rule #4), op_mw 567→666, sd 2.10. `/revenue` IRR 21% unchanged (IRR-safe — only +19 commercial weighted; Rēzekne/Tume tso_bess-excluded). W4 401/400/400/200 all correct. Synthetic W4 test cleaned (KV edge-cache ~80s). Origin-SHA matched pre-deploy. 16 upstream parser tests pass on VPS.
+
+**Roadmap deltas (rule #5 — CC does not edit; operator/Cowork applies):** 33.A.2.b W2-curated+W3+W4 + lv_press/ENTSO-E automation = Shipped. File **33.A.2.b.1** (AST-events extraction tuning + JRC RE-or-close-as-infeasible). Still open: 33.A.2.c (Litgrid ArcGIS L2), 33.A.2.d (display-dedup: Rēzekne/Tume render in both ledger + projects feed). Worker PR for `phase-33-a-2-b-lv-coverage` ready to open (deploy already live).
+
 ### Session 82 — 2026-06-15 — Phase 33.A.2 (W1a): operational-confirmation allowlist + MW reconciliation (Claude Code)
 
 **Branch:** `phase-33-a-2-status-refresh-and-coverage` off main. **Commit:** `6cd05af`. **Worker deploy:** `7a285bf0-2dac-4152-a4e8-18d746da66b9`. **Three pause points.** Two-file change: `workers/fetch-s1.js` (+90/−1) + new `app/lib/__tests__/knownOperational.test.ts` (13 tests). Evidence: `docs/visual-audit/phase-33-a-2/EVIDENCE.md`.
