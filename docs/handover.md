@@ -185,6 +185,20 @@ See [docs/map.md](map.md) for the full concept-to-file lookup table.
 
 ## Session log
 
+### Session 84 — 2026-06-15 — Phase 33.A.2.e: Estonia operational status-refresh (Claude Code)
+
+**Worker:** `phase-33-a-2-e-ee-coverage` · commit `dc6a782` · deploy `a535130a-a6e6-433e-a26a-96ce2f9e44dd`. **Three pause points.** Worker-only (`fetch-s1.js` + `knownOperational.test.ts`). Evidence: `docs/visual-audit/phase-33-a-2-e/EVIDENCE.md`.
+
+**Rule #1 — 8th correction, and a qualitative first.** Prompt premise "Hertz 2 operational 100MW" is FALSE — Hertz 2 (Aruküla) is **under construction, COD ~end-2026** (independent fetch: Corsica Sole developer page + ess-news Feb 2026). The "200/400MWh" the operator cited is the COMBINED Baltic Storage Platform, not Hertz 2's nameplate. **First time the prompt premise was wrong DESPITE the operator citing primary sources** — citation carried an attribution error. Discipline takeaway (saved to memory `feedback_reverify_cited_sources`): even operator/Cowork-cited primary sources are hypotheses; independently re-fetch at Pause A.
+
+**Shipped.** `applyKnownOperational` gains optional `target_status` (default `operational`); Hertz 2 → `under_construction` (weight 0.1→0.9, no false operational claim). C-01 token-append now self-healing + idempotent (strip-then-append-once) — fixed + repaired the Hertz 1 source-string bloat (×5 → ×1 across prior POSTs). +3 EE in `KNOWN_OPERATIONAL`, all primary-cited: Auvere operational 75→26.5MW/53.1MWh (energy-storage.news; 75 was the industrial-complex permit); Rummu operational 14→9MW/18MWh (enery.energy; 14 was the hybrid grid-connection rating); Hertz 2 under_construction 113.5→100MW (corsicasole.com). Each carries `_mw_disagreement`.
+
+**A.2** — elering_loader/scraper read connection-queue status (application/offer/contract/connected → connection_agreement max), never operational. Same W1a structural reality; no 33.A.2.e.1 loader-wireup needed.
+
+**Post-deploy verified.** `/s4` EE 17 announced / 3 operational / 1 under_construction; all 4 with disagreement flags. op_mw 666→702, sd 2.10→2.22, cpi→0.30 (floor). `/revenue` IRR 21.0→21.4 (+0.4pp, IRR-safe — rule #1 #6 holds). Source self-heal ×5→×1 confirmed live. 0 dropped (Hertz 2 UC survives C-01 w/o operational token). 979 tests; origin-SHA matched (incl. amended self-heal redeploy).
+
+**Roadmap deltas (rule #5 — operator/Cowork applies):** 33.A.2.e Shipped. Hertz 2 → re-verify + flip operational when it energizes (~end-2026). 33.A.2.d display-dedup now also spans Hertz 1 (curated EE ledger vs projects feed). Worker PR for `phase-33-a-2-e-ee-coverage` ready to open (deploy already live).
+
 ### Session 83 — 2026-06-15 — Phase 33.A.2.b: Latvia coverage — curated inject + Rēzekne fix + manual valve + discovery automation (Claude Code)
 
 **Worker:** `phase-33-a-2-b-lv-coverage` · commit `1b68481` · deploy `5697a1e0-f57f-4996-88d8-0ff7b4e0fa59`. **Upstream:** `~/kkme-control-center` main `dcb1157`. **Three pause points.** Evidence: `docs/visual-audit/phase-33-a-2-b/EVIDENCE.md`.
