@@ -63,7 +63,23 @@
 
   Outputs: coherent calibration document covering all three products + operator sign-off + worker constants updated (or explicit decision to keep calibrated baseline) + Session-N handover entry recording the decision rationale.
 
-- **Phase 33.B.3 — KV-persisted `[revenue/s2-capacity-watch]` accumulator + `:2793` label fix** (~30-45 min, P3) — Replace the ephemeral `console.log` in `flagOutOfBandS2Capacity()` at `:8569` with a daily-summary KV write: `s2_capacity_watch_<YYYY-MM-DD>` storing `{date, fcr_avg, afrr_up_avg, mfrr_up_avg, afrr_down_avg, mfrr_down_avg, clip_events_count}`. Retention: append to a rolling 30-day list KV; let TTL expire older. Lets 33.B.2 actually reason about persistence vs transient. Also folds in: relabel `fcr_avg` source string at `fetch-s1.js:2793` from `'BTD measured'` → consistent with Phase 33.B's `prices_source` wording (or honest "BTD parsed; review pending" if symmetric is wanted). Combined micro-ship.
+- ~~**Phase 33.B.3 — KV-persisted capacity-watch accumulator + `:2871` label fix**~~ **[SHIPPED 2026-06-15]** — PR `phase-33-b-3-kv-watch-accumulator` (commit `6105e5e` code+test, `27da235` handover+evidence) merged to main. Worker deploy `7928299a-441d-4eb3-a299-034a4c904ecf`. 2 files / +82/−1 worker + new `app/lib/__tests__/capacityWatch.test.ts` (9-case pure-function suite).
+
+  **Two CC Pause-A refinements over the prompt's design (rule #1, 5th consecutive phase):**
+  - **Colon KV key** — `s2_capacity_watch:<YYYY-MM-DD>` matches the existing date-series precedent (`raw:s1:<date>`, `trading:<date>:raw`, `da_tomorrow:lastgood`, `extreme:latest`). Prompt's underscore guess corrected against actual codebase convention.
+  - **Throttle by `s2.timestamp` dedup** — s2 only refreshes ~6×/day (Mac cron `0 */4 * * *`); per-`/revenue`-call writes would have been quota risk + meaningless noise. Live-confirmed: 15 `/revenue` calls produced `samples: 1` (one distinct s2 snapshot). Throttle bounds writes to ~6/day; `samples` field now reflects actual data points, the meaningful unit for 33.B.2 trend reasoning.
+
+  **Shape:** `{date, first_seen_at, last_seen_at, last_s2_timestamp, samples, fcr_avg:{min,max,last,above_50_pct}, afrr_up_avg:…, mfrr_up_avg:…, afrr_down_avg:…, mfrr_down_avg:…, clip_events_count, prices_source}`. Up+down both tracked per operator approval (33.B.2 needs both to answer "symmetric vs asymmetric capacity basis").
+
+  **Endpoints:** `GET /admin/capacity-watch?days=N` (default 14, cap 60), `X-Update-Secret` auth (401 w/o). Persistence via `ctx.waitUntil(persistCapacityWatch(env, s2))` — off the `/revenue` response path, zero added latency. 30-day TTL on each daily KV.
+
+  **`:2871` label** — `'BTD measured'` → `'BTD parsed; calibrated capacity (review pending)'` (exact match with Phase 33.B's `prices_source` wording, rule #4 cross-card consistency).
+
+  **Process change memorialized:** from the next phase onwards, CC runs `npx wrangler deploy` directly after the origin-SHA equality check passes — no more operator round-trip (memory `feedback_cc_runs_deploy_after_origin_check.md`). This phase still used the round-trip since the rule landed mid-flight.
+
+  **Gates:** worker syntax (node --check) OK · vitest 950/950 (+9 new) · tsc=0 · lint:no-raw-spacing=0 · lint:no-editorial-chips=0 · build=7 routes · origin-SHA verified twice.
+
+  **33.B.2 is now unblocked-and-accumulating** — 2026-06-29 review will have ~14 distinct snapshots × 4 days of trend data (write started 2026-06-15 mid-day, full days from 2026-06-16).
 
 - **Phase 33.A.2 — Frozen `installed_mw` pipeline investigation** (BLOCKED on operator-input sample) — `/s4.storage_by_country.LT.installed_mw = 484 (as-of 2026-03-23)` unchanged by Phase 33's VPS cron catch-up; separate pipeline, ~3 months stale. Operator gut-check confirms real Baltic operational fleet has grown materially since March. Three diagnosis paths: (a) TSO operational ledger lag (Litgrid energy_storage_balance / Elering / AST register projects later than commissioning), (b) source coverage gap (no positive Baltic feed for fresh commissionings), (c) ingestion field-mapping bug. **Unblocks when:** operator jots down 5-10 known-operational Baltic BESS projects not on the map (name, MW, country, COD if known) — sample diagnoses which of (a/b/c) is dominant. Memory `s4-installed-mw-frozen-pipeline`.
 
