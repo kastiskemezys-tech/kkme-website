@@ -1103,6 +1103,66 @@ function flagOutOfBandS2Capacity(s2) {
   console.log(`[revenue/s2-capacity-watch] *_cap_avg absent [${absent.join(',')}] → fallback constants in use; S2 energy/legacy values (NOT used for capacity): ${watch}`);
 }
 
+// Phase 33.B.3 — KV-persisted capacity-watch, feeding the 2026-06-29 capacity-
+// basis review (33.B.2). The s2 KV is refreshed by the Mac cron every 4h (~6
+// snapshots/day), so we accumulate per *distinct s2 snapshot* (deduped by
+// s2.timestamp), NOT per /revenue call — `samples` then counts real data points,
+// and KV writes stay ~6/day instead of one per request. Up- AND down-direction
+// tracked: 33.B.2 needs to decide whether the engine's symmetric *_cap should
+// read *_up_avg or a blend of up+down.
+const CAPACITY_WATCH_FIELDS = ['fcr_avg', 'afrr_up_avg', 'mfrr_up_avg', 'afrr_down_avg', 'mfrr_down_avg'];
+
+// Pure accumulator (no Date/Math.random — nowIso passed in for testability).
+// Returns the SAME `prev` reference when the snapshot is already recorded today,
+// so the caller can skip the KV write via `next === prev`.
+function accumulateCapacityWatch(prev, s2, nowIso) {
+  const date = nowIso.slice(0, 10);
+  const s2ts = (s2 && s2.timestamp) || null;
+  if (prev && prev.date === date && prev.last_s2_timestamp === s2ts) return prev; // dedup → no write
+  const next = (prev && prev.date === date)
+    ? { ...prev }
+    : { date, first_seen_at: nowIso, last_seen_at: nowIso, last_s2_timestamp: null,
+        samples: 0, clip_events_count: 0,
+        prices_source: 'BTD parsed; calibrated capacity (review pending)' };
+  next.last_seen_at = nowIso;
+  next.last_s2_timestamp = s2ts;
+  next.samples += 1;
+  let anyClip = false;
+  for (const k of CAPACITY_WATCH_FIELDS) {
+    const v = s2 ? s2[k] : null;
+    if (v == null || !Number.isFinite(v)) { if (!(k in next)) next[k] = null; continue; }
+    const pb = (next[k] && typeof next[k] === 'object') ? next[k] : null;
+    const b = pb ? { ...pb } : { min: v, max: v, last: v, n: 0, above_50_count: 0, above_50_pct: 0 };
+    b.min = Math.min(b.min, v); b.max = Math.max(b.max, v); b.last = v; b.n += 1;
+    if (v > CAP_PRICE_CEIL) { b.above_50_count += 1; anyClip = true; }
+    b.above_50_pct = Math.round((b.above_50_count / b.n) * 1000) / 10;
+    next[k] = b;
+  }
+  if (anyClip) next.clip_events_count += 1;
+  return next;
+}
+
+// Async wrapper: read today's summary, accumulate, write back (30-day TTL).
+// Invoked via ctx.waitUntil so it never adds latency to /revenue. Parallel calls
+// within the same day can race on read-modify-write; per the design this is
+// acceptable (a few-sample min/max/last drift doesn't affect trend reasoning),
+// and the snapshot-dedup keeps the racing window to the first writes of each
+// new s2 snapshot only. Non-fatal on any error.
+async function persistCapacityWatch(env, s2) {
+  try {
+    if (!s2) return;
+    const nowIso = new Date().toISOString();
+    const key = 's2_capacity_watch:' + nowIso.slice(0, 10);
+    const prevRaw = await env.KKME_SIGNALS.get(key).catch(() => null);
+    const prev = prevRaw ? JSON.parse(prevRaw) : null;
+    const next = accumulateCapacityWatch(prev, s2, nowIso);
+    if (next === prev) return; // snapshot already recorded → skip write
+    await env.KKME_SIGNALS.put(key, JSON.stringify(next), { expirationTtl: 30 * 86400 });
+  } catch (e) {
+    console.error('[capacity-watch/persist]', e);
+  }
+}
+
 function calcIRR(cf) {
   // Robust IRR for mixed-sign cash flows. Many BESS PF streams turn slightly
   // negative in mothball years (Y17-20) when compression × degradation pulls
@@ -2808,7 +2868,7 @@ function computeRevenue_legacy(systemKey, capexKey, grantKey, codYear, kv, mwPar
     afrr: { price: s2?.afrr_up_avg  ?? 40, avail: 0.85 },
     mfrr: { price: s2?.mfrr_up_avg  ?? 22, avail: 0.80 },
   };
-  const prices_source = s2?.fcr_avg != null ? 'BTD measured' : 'proxy';
+  const prices_source = s2?.fcr_avg != null ? 'BTD parsed; calibrated capacity (review pending)' : 'proxy';
 
   const ACT = {
     afrr: { rate: 0.18, depth: 0.55, margin: 40 },
@@ -7253,6 +7313,24 @@ export default {
       return jsonResp({ purged: purgedCount, remaining: kept.length, sample_purged: samplePurged });
     }
 
+    // ── GET /admin/capacity-watch?days=N — Phase 33.B.3 ──────────────────────
+    // Returns the last N daily capacity-watch summaries (oldest first) for the
+    // 33.B.2 capacity-basis review. Auth via X-Update-Secret like other /admin/*.
+    if (request.method === 'GET' && url.pathname === '/admin/capacity-watch') {
+      const secret = request.headers.get('X-Update-Secret');
+      if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
+      const days = Math.min(60, Math.max(1, parseInt(url.searchParams.get('days')) || 14));
+      const todayMs = Date.now();
+      const keys = [];
+      for (let i = days - 1; i >= 0; i--) {
+        const d = new Date(todayMs - i * 86400000).toISOString().slice(0, 10);
+        keys.push('s2_capacity_watch:' + d);
+      }
+      const raws = await Promise.all(keys.map(k => env.KKME_SIGNALS.get(k).catch(() => null)));
+      const summaries = raws.map(r => { try { return r ? JSON.parse(r) : null; } catch { return null; } }).filter(Boolean);
+      return jsonResp({ days_requested: days, days_returned: summaries.length, summaries });
+    }
+
     // ── POST /s4/migrate-fleet — one-time migration from s2_fleet → s4_fleet ──
     if (request.method === 'POST' && url.pathname === '/s4/migrate-fleet') {
       const secret = request.headers.get('X-Update-Secret');
@@ -8585,6 +8663,7 @@ export default {
 
       const kv = { fleet, s2, s1, s3, euribor: eur, s1_capture, s2_activation_parsed, capacity_monthly, dispatch_metrics };
       flagOutOfBandS2Capacity(s2);
+      ctx.waitUntil(persistCapacityWatch(env, s2)); // Phase 33.B.3 — KV-persist, off the response path
 
       // ── Primary result (v7: observed base year) ──
       const computeEngine = computeRevenueV7;
@@ -9491,3 +9570,5 @@ export default {
 export { computeRevenueV7, computeRevenueV6, computeBaseYear, computeTradingMix, computeLiveRate, capPrice };
 // Phase 33.A — Baltic allowlist + contradiction-flag ingest gate.
 export { BALTIC_COUNTRIES, filterFleetEntries, detectContradictions };
+// Phase 33.B.3 — KV-persisted capacity-watch accumulator (pure helper for tests).
+export { accumulateCapacityWatch, CAPACITY_WATCH_FIELDS };
