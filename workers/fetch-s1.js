@@ -9213,8 +9213,12 @@ export default {
       }
       const { key, value } = await request.json();
       if (!key) return jsonResp({ error: 'key required' }, 400);
-      // Allowlist: only permit known keys from ingestion pipeline
-      const ALLOWED_KEYS = ['s1_capture', 'revenue_trailing', 's1_trailing_12m', 's2_trailing_12m', 'capacity_monthly', 's2_rolling_180d', 'genload'];
+      // Allowlist: only permit known keys from ingestion pipeline.
+      // 's1_capture' deliberately EXCLUDED (Phase 33): the worker's computeCapture
+      // is the SOLE writer — it builds .monthly from a 400-day rolling
+      // s1_capture_history. A VPS push (≤3-month DB depth) clobbers that and drops
+      // the engine to v6_fallback. Worker owns capture; VPS may still push the rest.
+      const ALLOWED_KEYS = ['revenue_trailing', 's1_trailing_12m', 's2_trailing_12m', 'capacity_monthly', 's2_rolling_180d', 'genload'];
       if (!ALLOWED_KEYS.includes(key)) {
         return jsonResp({ error: `key '${key}' not in allowlist` }, 400);
       }
