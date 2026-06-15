@@ -185,6 +185,22 @@ See [docs/map.md](map.md) for the full concept-to-file lookup table.
 
 ## Session log
 
+### Session 82 — 2026-06-15 — Phase 33.A.2 (W1a): operational-confirmation allowlist + MW reconciliation (Claude Code)
+
+**Branch:** `phase-33-a-2-status-refresh-and-coverage` off main. **Commit:** `6cd05af`. **Worker deploy:** `7a285bf0-2dac-4152-a4e8-18d746da66b9`. **Three pause points.** Two-file change: `workers/fetch-s1.js` (+90/−1) + new `app/lib/__tests__/knownOperational.test.ts` (13 tests). Evidence: `docs/visual-audit/phase-33-a-2/EVIDENCE.md`.
+
+**Why.** `/s4.projects` had 163/170 `announced`, only 7 `operational` (all curated `litgrid-layer3` Kaupikliai). Pause A traced status upstream: `kkme_sync.py` reads `map_status(pe.state, pe.permit_stage)`, and **no loader ever writes `state='operational'`** — they scrape permit/connection registers; `merge_with_existing` only blocks downgrades. So commissioned commercial BESS sit `announced` forever (4 of 5 operator-known-operational were stale).
+
+**Shipped (W1a + W3).** `KNOWN_OPERATIONAL` allowlist (`fetch-s1.js:~179`) + `applyKnownOperational()`, applied at POST `/s2/fleet` **before** `filterFleetEntries` (Phase 33.A made C-01 `operational`-without-TSO a *reject*, so the flip appends an operational-evidence `source` token). Flips `announced→operational`, corrects MW/MWh/COD, emits `_mw_disagreement{feed,operator,source_url}` when feed MW differs (**W3 folds in** — worker only gets one collapsed `capacity_mw` upstream). **Seed (4, all primary-source cited per rule #3):** Hertz 1 (EE 114.9→100), Vilnius/E energija (LT 72→65), Vėjo galia (LT feed-50=solar→41 BESS), Tausolos (LT 30, mwh→67.7). Auvere held per Pause A.
+
+**Rule #1 — 6th consecutive correction.** Prompt's A.4 premise (`sd_ratio=pipeline/operational=42.5`→compress→IRR down) is empirically false. Engine: `sd_ratio = baltic_weighted/eff_demand` (status-weighted). Flips push it 1.86→2.08 (**UP**), but per-product IRR CPIs are already pinned at the 0.30 floor → ~zero IRR move. **No IRR-gate.** Saved to memory `fleet_sd_ratio_irr_coupling`.
+
+**Pause B scope changes (operator).** Split: W2 (LV add-endpoint) → 33.A.2.b. W1b (Litgrid ArcGIS auto-confirm) dropped (L2 shows only the 4 existing Energy Cells = zero new data) → 33.A.2.c. Pause-B verification corrected the seed: Vilnius is **65 MW** (TV3+LRT, not operator's recalled 60); Tausolos **67.7 MWh** (not 130); Vėjo galia's feed 50 MW is the co-located Naujažeris **solar** park, BESS is **41 MW** (LRT 2× fetched).
+
+**Post-deploy verified** (applied via authenticated full-fleet round-trip POST on VPS, sourcing `/opt/kkme/config/.env`; browser UA needed — CF 1010 blocks urllib UA). `/s4`: 159 announced / 11 operational; all 4 flipped with corrected fields + 3 disagreement flags (Tausolos none); `baltic_operational_mw 567`, `baltic_pipeline_mw 13800`, sd_ratio 2.08. `/revenue` IRR 20%→21% (+1pp, within ±5pp). 401 w/o secret. 0 dropped (C-01-survival held). Origin-SHA matched before deploy. **Durable:** worker re-flips on every future `kkme_sync` POST.
+
+**Roadmap (rule #5 — CC does not edit; operator applies via Cowork):** 33.A.2 W1a Shipped; file 33.A.2.b (W2 LV add-endpoint + AST Rēzekne 60 MW curated-fix), 33.A.2.c (Litgrid ArcGIS L2 auto-confirm), 33.A.2.d (display-dedup: E energija renders twice — curated assets vs flipped projects feed). 33.A.3 (upstream `cod` extraction) still open.
+
 ### Session 81 — 2026-06-15 — Phase 33.B.3: KV-persisted capacity-watch accumulator + `:2871` label fix (Claude Code)
 
 **Branch:** `phase-33-b-3-kv-watch-accumulator` off main. **Commit:** `6105e5e`. **Worker deploy:** `7928299a-441d-4eb3-a299-034a4c904ecf`. **Three pause points.** Two-file change: `workers/fetch-s1.js` (+82/−1) + new `app/lib/__tests__/capacityWatch.test.ts` (9 tests). No engine math change. Evidence: `docs/visual-audit/phase-33-b-3/EVIDENCE.md`.
