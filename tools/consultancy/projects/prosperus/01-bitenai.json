@@ -1,0 +1,21 @@
+{
+  "project_id": "bitenai",
+  "name": "Bitėnai",
+  "mw": 48,
+  "mwh": 96,
+  "cod": "2028-01",
+  "first_operating_year": 2028,
+  "operational_months_y1": 12,
+  "capex_eur_kwh": 164,
+  "grid_allowance_mw": 50,
+  "warranty_efc_yr": 730,
+  "scenario": "base",
+  "meta": {
+    "municipality": "Pagėgių sav.",
+    "spv": "UAB \"Baltakis Capital\"",
+    "vert_permit": "L-7441",
+    "vert_permit_date": "2026-04-24",
+    "source": "public-register",
+    "source_note": "VERT permit register + Litgrid connection queue. No client-confidential input used."
+  }
+}

@@ -1410,12 +1410,27 @@ function calcIRR(cf) {
  * Falls back to v6 if base year data is insufficient.
  */
 function computeRevenueV7(params, kv) {
-  const mw = params.mw || 50;
-  const dur_h = params.dur_h || 4;
+  // ── Phase 34.1 — per-project parameterisation ─────────────────────────────
+  // `params.project_config` is the consultancy seam: an optional project config
+  // (tools/consultancy/projects/*.json) that supplies system geometry, COD and
+  // partial-year handling for a client asset. When it is ABSENT the engine runs
+  // exactly the pre-34.1 code path — which is what the public /revenue route
+  // does, so the public site is unaffected by construction, not by testing.
+  // When present it is the single source for those quantities (rule #4), and
+  // the result gains one extra top-level `project` key.
+  const pcfg = params.project_config || null;
+  const mw = pcfg ? pcfg.mw : (params.mw || 50);
+  const dur_h = pcfg ? (pcfg.duration_h ?? pcfg.mwh / pcfg.mw) : (params.dur_h || 4);
   const mwh = mw * dur_h;
   const sc = REVENUE_SCENARIOS[params.scenario || 'base'] || REVENUE_SCENARIOS.base;
-  const capex_kwh = params.capex_kwh || 164;
-  const cod_year = params.cod_year || 2028;
+  const capex_kwh = pcfg ? pcfg.capex_eur_kwh : (params.capex_kwh || 164);
+  const cod_year = pcfg ? pcfg.cod_year : (params.cod_year || 2028);
+
+  // Partial operating year 1 (e.g. Stoniškiai COD 2028-06 → 7 months). Scales
+  // Y1 revenue and OPEX linearly. Fixed annual fees (BRP) and the degradation
+  // curve are deliberately NOT pro-rated — both readings are conservative
+  // (lower net revenue, faster ageing). See DECISIONS.md A4.
+  const op_frac_y1 = pcfg ? (pcfg.operational_months_y1 ?? 12) / 12 : 1;
 
   // Throughput-derived cycle accounting (per MW installed). total_cd is the
   // computed actual cycling rate (cycles/day) summed across all stacked
@@ -1473,6 +1488,10 @@ function computeRevenueV7(params, kv) {
   let crossover_year = null;
   let revenue_crossover_year = null;
   for (let yr = 1; yr <= 20; yr++) {
+    // Partial-year factor: 1 for every year except a partial Y1 (see above).
+    // Exactly 1 on the public path, so every product below is bit-identical.
+    const yr_op_frac = yr === 1 ? op_frac_y1 : 1;
+
     // C1. Degradation — keyed off throughput-derived total_cd, not duration label.
     const retention = getDegradation(yr, total_cd);
     let usable_mwh_per_mw = dur_h * retention;
@@ -1528,7 +1547,7 @@ function computeRevenueV7(params, kv) {
     const R_now = mix_now.R;
     const bal_calibration = by_balancing_per_mw > 0 && R_now > 0 ? by_balancing_per_mw / R_now : 1;
     // R elasticity already compresses activation (included in R_base derivation)
-    const rev_bal = R_yr * bal_calibration * mw * Math.min(1.0, bal_scale);
+    const rev_bal = R_yr * bal_calibration * mw * Math.min(1.0, bal_scale) * yr_op_frac;
 
     // Trading: capture × RTE × realisation × MWh × fraction × depth discount
     // Use rolling 30d mean (stable) for forward projection, not spot capture
@@ -1548,13 +1567,13 @@ function computeRevenueV7(params, kv) {
     // formula is for arbitrage specifically.
     const rev_trd = yr_capture * spread_mult * depth * rte_yr * trading_real
                   * da_mwh_per_mw_yr
-                  * mix.trading_fraction * sc.avail * deg_ratio_vs_y1 * mw;
+                  * mix.trading_fraction * sc.avail * deg_ratio_vs_y1 * mw * yr_op_frac;
 
     // C7. Gross → Net
     // Revenue floor: even in saturated markets, BESS earns from trading + minimum FCR
     // UK FFR at peak saturation: £40-60k/MW/yr. €50k = realistic floor.
     const REVENUE_FLOOR_PER_MW = 50000; // €50k/MW/yr minimum
-    const rev_gross = Math.max(REVENUE_FLOOR_PER_MW * mw, rev_bal + rev_trd);
+    const rev_gross = Math.max(REVENUE_FLOOR_PER_MW * mw * yr_op_frac, rev_bal + rev_trd);
     const rtm_fee = rev_gross * sc.rtm_fee_pct;
     const brp_fee = sc.brp_fee_yr * Math.pow(1 + sc.opex_esc, yr - 1);
     const rev_net = rev_gross - rtm_fee - brp_fee;
@@ -1562,7 +1581,7 @@ function computeRevenueV7(params, kv) {
     const rev_act = rev_bal * 0.35;
 
     // C8. OPEX
-    const opex_full = sc.opex_per_kw_yr * mw * 1000 * Math.pow(1 + sc.opex_esc, yr - 1);
+    const opex_full = sc.opex_per_kw_yr * mw * 1000 * Math.pow(1 + sc.opex_esc, yr - 1) * yr_op_frac;
 
     // C9. EBITDA (mothball if cash-negative: standby OPEX = 20%)
     let opex = opex_full;
@@ -1963,6 +1982,41 @@ function computeRevenueV7(params, kv) {
       compression_scenario_mult: comp_mult,
       effective_compression: effective_compression,
     },
+
+    // ── Phase 34.1 — per-project block ────────────────────────────────────
+    // Present ONLY when a project config was supplied. Spreading `{}` on the
+    // public path leaves the payload untouched, key-for-key.
+    ...(pcfg ? {
+      project: {
+        project_id: pcfg.project_id,
+        name: pcfg.name,
+        mw, mwh, duration_h: dur_h,
+        cod: pcfg.cod,
+        cod_year,
+        // Engine labels operating years cal_year = cod_year + yr, so year 1
+        // lands here. Configs declare this directly; cod_year is derived from it.
+        first_operating_year: pcfg.first_operating_year ?? (cod_year + 1),
+        capex_eur_kwh: capex_kwh,
+        grid_allowance_mw: pcfg.grid_allowance_mw ?? null,
+        grid_headroom_mw: pcfg.grid_allowance_mw != null ? pcfg.grid_allowance_mw - mw : null,
+        warranty_efc_yr: pcfg.warranty_efc_yr ?? null,
+        // Positive = the modelled duty cycle sits inside the warranty envelope.
+        warranty_headroom_efc_yr: pcfg.warranty_efc_yr != null
+          ? Math.round(pcfg.warranty_efc_yr - total_efcs_yr)
+          : null,
+        operational_months_y1: pcfg.operational_months_y1 ?? 12,
+        partial_year_y1: op_frac_y1 < 1 ? {
+          months: pcfg.operational_months_y1,
+          fraction: Math.round(op_frac_y1 * 10000) / 10000,
+          pro_rated: ['rev_bal', 'rev_trd', 'revenue_floor', 'opex'],
+          not_pro_rated: ['brp_fee (fixed annual platform fee)', 'degradation (full-year ageing assumed)'],
+          note: 'Both exclusions are the conservative reading — lower net revenue, faster ageing.',
+        } : null,
+        brp_fee_basis: 'flat_per_spv',
+        brp_fee_note: `€${sc.brp_fee_yr.toLocaleString('en-US')}/yr, MW-independent — €${Math.round(sc.brp_fee_yr / mw)}/MW/yr at ${mw} MW`,
+        meta: pcfg.meta ?? null,
+      },
+    } : {}),
   };
 }
 

@@ -31,7 +31,16 @@ export async function loadEngine() {
 
 // ── Project configs ────────────────────────────────────────────────────────
 
-const REQUIRED_KEYS = ['project_id', 'name', 'mw', 'mwh', 'cod', 'cod_year', 'capex_eur_kwh'];
+const REQUIRED_KEYS = ['project_id', 'name', 'mw', 'mwh', 'cod', 'first_operating_year', 'capex_eur_kwh'];
+
+/**
+ * The engine labels its operating years `cal_year = cod_year + yr`, so year 1
+ * lands on `cod_year + 1` — i.e. its `cod_year` param means "the year the asset
+ * finishes commissioning", and revenue starts the year after. Configs declare
+ * the unambiguous quantity (`first_operating_year`) and this is the single
+ * place the engine's convention is applied. See DECISIONS.md A4b.
+ */
+export const codYearForEngine = (first_operating_year) => first_operating_year - 1;
 
 /**
  * Validate a project config and fill derived fields.
@@ -60,6 +69,27 @@ export function validateConfig(cfg) {
     throw new Error(`project config "${cfg.project_id}": operational_months_y1 must be in (0, 12]`);
   }
 
+  if (!Number.isInteger(cfg.first_operating_year)) {
+    throw new Error(`project config "${cfg.project_id}": first_operating_year must be an integer year`);
+  }
+  const cod_year = codYearForEngine(cfg.first_operating_year);
+
+  // Rule #2 (no hardcoded temporal label): the declared operational months must
+  // be derivable from the declared COD month, not asserted independently.
+  const codMonth = /^(\d{4})-(\d{2})$/.exec(cfg.cod ?? '');
+  if (codMonth) {
+    const [, y, m] = codMonth;
+    if (Number(y) === cfg.first_operating_year) {
+      const implied = 12 - Number(m) + 1;
+      if (implied !== months) {
+        throw new Error(
+          `project config "${cfg.project_id}": cod ${cfg.cod} implies ${implied} operational ` +
+          `months in ${cfg.first_operating_year}, config declares ${months}`
+        );
+      }
+    }
+  }
+
   // Grid allowance is non-binding for every current project. Rather than
   // silently clipping a future one, fail loudly (Pause A / A3).
   if (cfg.grid_allowance_mw != null && cfg.mw > cfg.grid_allowance_mw) {
@@ -70,7 +100,7 @@ export function validateConfig(cfg) {
     );
   }
 
-  return { ...cfg, duration_h, operational_months_y1: months };
+  return { ...cfg, duration_h, operational_months_y1: months, cod_year };
 }
 
 export function loadConfig(path) {
