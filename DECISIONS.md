@@ -631,3 +631,142 @@ PDF section) AND the same code is a vitest suite that runs on every future
 change. That was the stated platform value of this phase and it is the reason
 the checks are written as data with subjects and sources attached rather than
 as bare assertions.
+
+---
+
+## 34.6 — Excel deliverable generator
+
+### 34.6-A — exceljs, decided by spike rather than by reputation
+
+The prompt named the requirement that decides the library: the scenario
+selector needs a data-validation dropdown, INDEX/MATCH formulas, cell styling,
+and (ideally) sheet protection with individually unlocked cells. A spike wrote
+a workbook exercising all four, wrote it to disk, and read it back with a
+fresh `Workbook` instance. All four survived the round-trip:
+
+- dropdown — `dataValidation {type: 'list'}` read back intact
+- formula — `INDEX(Data!B2:B4,MATCH($B$1,Data!A2:A4,0))` read back intact
+- styling — column width, `numFmt`, bold, solid fill, strikethrough, merged
+  cells and frozen panes all read back intact
+- protection — `sheetProtection.sheet === true` with `B1.protection.locked
+  === false`
+
+The decision rests on that positive evidence, not on a claim about what
+SheetJS CE cannot do. devDep only; nothing ships to the worker or the site.
+
+### 34.6-B — the Bridge Y1 tab carries two blocks, because one would have lied
+
+The first build put each project's own year-1 column next to the portfolio
+year-1 column. The round-trip test caught that the columns do not sum — off by
+€4.43M on gross.
+
+The cause is 34.3-B, already decided: portfolio "Y1" is the first **calendar**
+year (2028), while Eigirdžiai's own year 1 is 2029. Both readings are correct
+and the client wants both, but side by side in one table they read as a
+portfolio total that does not add up.
+
+The tab now carries:
+
+- **Block A — calendar 2028.** Each project's contribution to that year;
+  Eigirdžiai is blank and labelled "not operating in 2028"; Stoniškiai is
+  labelled "7 of 12 months". The portfolio column is the exact sum, verified
+  line by line against `portfolio.json` (all 12 lines tie to the euro, checked
+  across the full 21-year span as well).
+- **Block B — each project's own first operating year**, headed with that
+  project's calendar year and operating months, with **no total column** and a
+  note saying the columns are deliberately not summed.
+
+The revenue sub-line block and the cost sub-line block were moved onto the
+calendar-2028 basis for the same reason.
+
+### 34.6-C — the per-MW column divides by operational MW-years
+
+`€k per operational MW-yr` divides the portfolio column by 74.25 MW-years —
+nameplate weighted by months actually operated in 2028 (48 × 12/12 + 45 × 7/12
++ 30 × 0/12) — not by the 123 MW nameplate. Dividing by nameplate would
+understate the figure by ~40% in the staggered first year, which reads as a
+weak asset rather than as a partly-commissioned portfolio. The denominator is
+computed from the contributor list the portfolio runner already emits, stated
+on the tab, and pinned by test (it must be strictly below nameplate).
+
+### 34.6-D — the ten contracted revenue lines are mapped, not invented
+
+The contract names ten revenue lines. At annual resolution the engine computes
+two revenue quantities (`rev_bal`, `rev_trd`) plus the rebuilt charging cost.
+Presenting ten separately-settled cash lines would require splitting figures
+the engine never computed.
+
+The tab therefore states, per contracted line, which engine quantity carries it
+and the formula the engine actually evaluates — transcribed from
+`workers/fetch-s1.js`, not paraphrased from the contract. Three disclosures go
+with it:
+
+1. **No FCR revenue is claimed anywhere.** FCR enters `computeTradingMix` only
+   as a saturation diagnostic; `R_yr` is built from aFRR and mFRR alone. The
+   two FCR rows say so and are shaded. If Baltic FCR procurement deepens, that
+   is upside outside these numbers.
+2. **The capacity/activation split is indicative.** `rev_cap = rev_bal × 0.65`
+   and `rev_act = rev_bal × 0.35` are the engine's reporting split, labelled as
+   such on the row itself. `rev_bal` is the computed quantity.
+3. **Intraday is not resolved separately** from day-ahead — the engine captures
+   one blended spread. Stated on the two intraday rows.
+
+Resolving all ten into settled cash lines is v1.0 hourly-dispatch scope.
+
+### 34.6-E — deliverable-notes.json holds prose, but never a second copy of a fact
+
+`deliverable-notes.json` is the single source for wording shared between the
+Excel and the PDF, per the prompt. The rule applied while filling it: it holds
+**prose the generators cannot derive**, never a restatement of something a
+runner already computes.
+
+Two things were removed from the draft on that basis:
+
+- **The correlation disclosure.** The portfolio runner computes it
+  (`portfolio.correlation_note`, LT zone correlation 0.97). A hand-written copy
+  here would have been a second source for the same claim — rule #4. The key is
+  now a comment pointing at the runner output, and both generators read the
+  runner.
+- **Two wrong glossary definitions**, caught against `docs/glossary.md`: CPI is
+  the **Competition Pressure Index**, not a "cannibalisation-price index"; and
+  a "NUS" entry was drafted for a term that appears nowhere in the codebase and
+  was dropped entirely. The glossary now follows `docs/glossary.md` term for
+  term, so the deliverable cannot define a term differently from the engine
+  that computes it.
+
+### 34.6-F — sheet protection is a signalling device, not security
+
+The Assumptions tab is protected with an empty password and every `override`
+cell individually unlocked. This is not a security control — an empty password
+is trivially removed and it is meant to be. It marks which single column the
+client is expected to edit and stops accidental typing into the engine-derived
+columns. The tab also states plainly that overrides are applied by re-running
+the KKME engine and that Excel does not recompute the model; the workbook must
+not imply a live model it does not contain.
+
+### 34.6-G — the scenario selector is a chooser over three real runs
+
+`INDEX/MATCH` over the three pre-computed scenario columns, driven by a
+validated dropdown. Every headline figure it displays came from a full engine
+run under that scenario's six locked drivers. The tab labels it exactly that
+("Selector over three pre-computed engine runs — not a live model") and repeats
+that changing an assumption elsewhere in the workbook does not feed it. Pinned
+by test: the six formulas must match the INDEX/MATCH shape, and the MATCH range
+must resolve to the header row carrying the three scenario names.
+
+### 34.6-H — one sign convention across the workbook
+
+Deduction lines carry positive values under a `less:` label on every tab. The
+first 20-yr CF build negated them, giving "less: maintenance CAPEX  −192,000"
+against "less: maintenance CAPEX  192,000" two tabs earlier. Same convention
+everywhere now; the bridge identities are asserted inside the emitted sheet,
+not only in the source JSON, so a sign flip fails a test.
+
+### 34.6-I — the generator refuses to build on inconsistent inputs
+
+Before writing a cell, `loadInputs` asserts that every runner output agrees on
+`engine_version`, that none was computed against an unverified KV snapshot, and
+that the register row count matches the count the notes promise. A deliverable
+assembled from a mixed run would tie out internally and still be wrong. Missing
+runner outputs throw with the command to run, rather than yielding a partial
+workbook — pinned by test against an empty directory.
