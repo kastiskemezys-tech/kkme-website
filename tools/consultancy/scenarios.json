@@ -1,0 +1,48 @@
+{
+  "_note": "Phase 34.4 — the three client-facing cases as driver-override sets. Locked with the client via prosperus-mockup-v5.html. Central's six values ARE the engine's shipped base constants, so a Central run must reproduce the batch-1 numbers exactly; that is asserted, not assumed. Driver semantics, engine bindings and reachability live in scenario-overlay.mjs (DRIVERS) — this file carries values only, so there is one source for each (discipline rule #4).",
+  "_direction": "fleet_realisation_pct is the fraction of the Baltic pipeline that actually gets built: HIGHER means more competing supply, so Downside carries the highest value. Every other driver reads in the intuitive direction.",
+  "order": ["downside", "central", "upside"],
+  "scenarios": {
+    "downside": {
+      "label": "Downside",
+      "note": "Pipeline builds out faster than the central dropout assumption, spreads compress, execution and availability slip, and the TSO clears capacity below today's level.",
+      "drivers": {
+        "fleet_realisation_pct": 65,
+        "spread_growth_pct_yr": -1.0,
+        "availability_pct": 95,
+        "trading_realisation": 0.78,
+        "cap_price_delta_pct": -25,
+        "cpi_floor": 0.28
+      }
+    },
+    "central": {
+      "label": "Central",
+      "note": "The engine's calibrated base case. Every driver equals the shipped engine constant, so no overlay substitution is applied and the output is the unpatched engine's.",
+      "drivers": {
+        "fleet_realisation_pct": 50,
+        "spread_growth_pct_yr": 2.0,
+        "availability_pct": 97,
+        "trading_realisation": 0.85,
+        "cap_price_delta_pct": 0,
+        "cpi_floor": 0.3
+      }
+    },
+    "upside": {
+      "label": "Upside",
+      "note": "Pipeline dropout is heavier than central, renewable-driven spread widening runs ahead of BESS smoothing, and post-synchronisation reserve scarcity lifts capacity clearing prices.",
+      "drivers": {
+        "fleet_realisation_pct": 35,
+        "spread_growth_pct_yr": 3.5,
+        "availability_pct": 98,
+        "trading_realisation": 0.88,
+        "cap_price_delta_pct": 20,
+        "cpi_floor": 0.35
+      }
+    }
+  },
+  "sensitivity_only": {
+    "_note": "Two further drivers perturbed one-at-a-time in run-sensitivity.mjs. They are not part of the client's scenario table; the down/up values are the 34.4 scope figures.",
+    "optimiser_pct_gross": { "down": 15, "up": 8 },
+    "rte_decay_pp_yr": { "down": 0.3, "up": 0.1 }
+  }
+}

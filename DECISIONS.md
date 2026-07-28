@@ -344,3 +344,290 @@ Correlation is disclosed as data (`lt_zone_price_correlation: 0.97`,
 `spatial_diversification: "negligible"`), and a test asserts consolidated revenue
 carries no uplift over the plain sum. Three 2-hour BESS in one price zone bidding
 into the same markets have no diversification benefit to claim.
+
+---
+
+# Phase 34 batch-2 — `phase-34-batch-2`
+
+Same rules, plus one more: **`workers/fetch-s1.js` is READ-ONLY for the whole
+batch.** Anything that looked like it wanted a worker edit is logged below as a
+batch-3 candidate and solved at the runner level instead. `git diff main --
+workers/` is asserted empty at the wrap.
+
+---
+
+## 34.4 — client scenarios + sensitivity
+
+### 34.4-A — driver mapping: none of the six is reachable through `params`
+
+Pause-A verification first, per discipline rule #1. The prompt's expected
+mappings were hypotheses; two of the three it named were right about *where*
+the driver lives and wrong about whether it can be reached.
+
+Every one of the six client drivers is a **module-level constant selected by
+the scenario NAME**, not a value the engine will accept from `params`:
+
+| Driver | Engine binding | Site | Reachable via `params`? |
+|---|---|---|---|
+| `fleet_realisation_pct` | `PIPELINE_REALISATION.base` | `projectFleet()` — looked up by scenario string | **no** |
+| `spread_growth_pct_yr` | `SPREAD_GROWTH.base` | `computeTradingMix()` — looked up by scenario string | **no** |
+| `availability_pct` | `REVENUE_SCENARIOS.base.avail` | energy-stacking constraint + `rev_trd` chain | **no** |
+| `trading_realisation` | `TRADING_REALISATION.base` → `sc.trd_real` | `rev_trd` chain + `T_base` | **no** |
+| `cap_price_delta_pct` | `capPrice()` return | feeds `R_cap` in `computeTradingMix()` | **no** |
+| `cpi_floor` | `cpiCurve()` floor | `cpi_{fcr,afrr,mfrr}_at_cod` only | **no** |
+| `optimiser_pct_gross` (sens.) | `bridge.mjs COST_DEFAULTS` | client 4-line cost stack | **yes — runner-level already** |
+| `rte_decay_pp_yr` (sens.) | `RTE_DECAY_PP_PER_YEAR` | `rteCurveFor()` | **no** |
+
+`computeRevenueV7(params, kv)` takes `params.scenario` as one of three strings.
+So the only driver values the engine can produce are the three sets the worker
+ships, and the client's Downside/Upside values are not among them —
+`fleet_realisation` 65/35 vs the shipped 0.53/0.62, `availability` 95/98 vs
+0.96/0.94, and so on. The prompt's specific guess that `fleet_realisation_pct`
+maps to `fleet_context.pipeline_realisation` is half right: that field is the
+engine's *echo* of `PIPELINE_REALISATION[scenario_name]`, an output not an
+input. It is used below as the verification signal precisely because of that.
+
+### 34.4-B — the runner-level mechanism: source overlay, not post-hoc adjustment
+
+The prompt directed post-hoc adjustment of the affected revenue lines for
+unreachable drivers. **Rejected, and this is the batch's one substantive
+departure from a prompt instruction.**
+
+A post-hoc multiplier is a second implementation of the engine's maths living
+next to the first. Its failure mode is a plausible wrong number that nothing in
+the repo can contradict — precisely the class of defect the ±2% reconciliation
+and the tie-out asserts exist to prevent, and a direct violation of rule #4's
+one-canonical-source principle. For a €10k deliverable whose selling point is
+an independent, checkable model, that is the wrong trade.
+
+Built instead: `tools/consultancy/scenario-overlay.mjs`. It reads the worker
+source, substitutes the six constants by **exact anchored replacement**, and
+imports the result as a separate ES module instance via a `data:` URL (the
+worker's relative imports rewritten to absolute `file://` so they still
+resolve). Nothing is written to disk; `workers/fetch-s1.js` is never modified.
+A scenario run is then the engine's own arithmetic under different constants,
+not an approximation of it.
+
+Three properties keep it from being clever-but-fragile:
+
+1. **Every anchor must match exactly once** or the load throws
+   (`OverlayAnchorError`). A worker edit that moves a constant fails loudly
+   instead of silently returning unperturbed numbers. Pinned by test.
+2. **Every driver verifies against the engine's own echo.** Five of the seven
+   overlay drivers are reported back in the engine output
+   (`fleet_context.pipeline_realisation`, `fleet_context.spread_growth`,
+   `assumptions_panel.availability.value`, `assumptions.trading_realisation`,
+   `signal_inputs.afrr_cap`, `project.arb_energy_20yr[].rte`); each carries a
+   `verify()` that asserts the substitution landed. A silent no-op is not
+   possible.
+3. **Central patches nothing.** Central's six values *are* the shipped base
+   constants, so `patchSource()` skips every identity substitution and returns
+   the source character-identical. Asserted by test.
+
+**Batch-3 candidate (worker edit):** promote the seven constants to optional
+`params` overrides — `params.scenario_overrides` alongside the existing
+`params.project_config` seam — and delete the overlay. Same additive shape as
+the 34.1 seam, so the public path stays byte-identical by construction. The
+overlay exists only because the worker is frozen this batch.
+
+### 34.4-C — two of the client's six drivers move nothing, and are reported as zero
+
+Established empirically by `run-scenarios.mjs --verify-mapping`, not assumed.
+This is the finding the operator most needs before the numbers reach the client.
+
+**`spread_growth_pct_yr` — zero effect.** The constant is substituted correctly
+(the engine echoes 0.02 → −0.01), but `SPREAD_GROWTH` enters revenue only
+through `T_yr` in `computeTradingMix`, and `T_yr` is used only to set
+`trading_fraction = min(0.70, T/(T+R) × 0.75)`. Observed `T/(T+R)` is ~0.965 in
+Y1 and rises with renewable share, so the raw fraction is ~0.72 and **the 0.70
+clamp binds in all 20 years for all three projects** (verified: `trading_fraction`
+is 0.700 in years 1, 5, 10 and 20). The multiplier that actually widens
+captured spreads in the revenue line is `mix.spread_mult =
+spreadMultiplierYr(cal_year)` — a pure function of calendar year and Lithuanian
+renewable share, with no scenario term at all.
+
+Re-pointing the client's driver at `spreadMultiplierYr` was considered and
+rejected: it would be inventing an elasticity the engine does not model, which
+is exactly what rule #1 exists to stop. Reported as zero with the mechanism
+named.
+
+**`cpi_floor` — zero effect, by design.** `cpiCurve()` is called at exactly
+three sites in `computeRevenueV7` — `cpi_fcr_at_cod`, `cpi_afrr_at_cod`,
+`cpi_mfrr_at_cod` — all disclosure fields. The revenue path compresses through
+`reservePrice()` (its own `floor_fraction` 0.04) and `bidAcceptanceFactor()`
+(its own floor 0.50). The CPI floor being decoupled from revenue is deliberate
+engine design, not an oversight: it is what keeps fleet status and MW edits
+revenue-safe (no IRR gate). Reported as zero.
+
+**Consequence for the deliverable.** Four of the six client drivers move the
+numbers; the scenario spread is real and is dominated by `cap_price_delta_pct`.
+But the client believes six drivers matter and two do not, and the sensitivity
+table now says so explicitly. **Operator eyes needed** before delivery: this is
+a defensible and arguably valuable finding ("your spread-growth assumption does
+not drive this model; reserve capacity price does"), but it is a conversation to
+have deliberately rather than to let the client discover in a tornado chart.
+
+**Batch-3 candidate (engine, not just plumbing):** `trading_fraction` sitting on
+its 0.70 ceiling in every year of every project — including the public reference
+asset — means the S/D mix model is not discriminating at the current market
+state. That is a pre-existing engine calibration question, not something this
+phase introduced, and it deserves its own look.
+
+### 34.4-D — sign sanity is read in the value frame, on the 20-year basis
+
+Two framing decisions, both of which initially produced false breaches:
+
+**Value frame, not probe-slot frame.** The down/up probe slots are already
+ordered by economic outcome — the "down" slot holds whatever value the client's
+Downside case carries. In slot terms every well-behaved driver looks 'direct'
+and the check proves nothing. The question worth asking is whether a *higher
+driver value* raises or lowers EBITDA, which is what "higher availability →
+higher EBITDA" actually means. `observedDirection()` re-expresses in that frame.
+`fleet_realisation_pct` and `optimiser_pct_gross` correctly read 'inverse'.
+
+**20-year basis, not Y1.** The RTE curve is evaluated at `t = 0` in operating
+year 1, so **every decay rate gives the identical Y1 number** and a Y1-based
+check scores `rte_decay_pp_yr` as a dead driver. It is not — its 20-year swing
+is €1.56M. Sign sanity and the impact ranking both run on the lifetime figure;
+the Δ columns are reported on both bases.
+
+### 34.4-E — the Central invariant is checked in-process, not against a stored artefact
+
+`tools/consultancy/output/` is gitignored, so there is no committed batch-1
+artefact to compare against. Pinning the batch-1 numbers into a fixture would
+create the parallel literal rule #4 forbids and would go stale on the next KV
+refresh. Instead `centralDiff()` runs `runPortfolio()` — batch-1's own entry
+point — live in the same process against the same KV, and compares **every
+bridge line in every calendar year, every per-project total, and the portfolio
+NPV/MOIC/payback/CAPEX**. So the check measures code, never data drift.
+
+Result: **exact, zero differing fields.** A companion test asserts a Downside
+run *does* differ, so the invariant has teeth rather than passing vacuously.
+
+### 34.4-F — the scenario name is pinned to 'base'
+
+The overlay moves the constants the scenario name would have selected, so
+`runScenario()` always drives the engine at `scenario: 'base'`. Passing
+`'conservative'` or `'stress'` on top would apply a second, undeclared set of
+deltas (different `rtm_fee_pct`, `opex_per_kw_yr`, `act_rate_*`,
+`mwh_per_mw_yr_*`, `debt_margin_bp`, …) that the client never agreed to. The
+client's scenario table is the whole scenario definition.
+
+### 34.4-G — minor finding, logged not fixed
+
+`assumptions_panel.rte.decay_pp_per_yr` is the hardcoded literal `0.20`, not
+derived from `RTE_DECAY_PP_PER_YEAR`. It is a display label asserting a value it
+does not compute — discipline rule #2's shape, on a public payload field. It is
+correct today, so this is latent, not a live defect. **Batch-3 candidate:**
+`decay_pp_per_yr: RTE_DECAY_PP_PER_YEAR * 100`. Not touched here because the
+worker is frozen and it would move the public payload.
+
+---
+
+## 34.5 — assumptions register + reconciliation harness
+
+### 34.5-A — the register is 44 rows, not 39
+
+The prompt asks for 39 rows and then names a category breakdown — technical 7 ·
+market 9 · saturation 4 · cost 7 · capex 5 · project-specific 3 ·
+scenario-driver 6 — that sums to **41**. The arc doc and the client contract
+both say "39-row register". The three numbers cannot all be right.
+
+Decision: **build the coverage, not the count.** The breakdown is the
+substantive spec (it says what has to be documented); 39 is a round number
+carried forward from the arc doc. Built to the named counts everywhere except
+CAPEX, where 5 rows cannot hold the schedule without dropping a real lever —
+augmentation and replacement each have a year, a depth and a unit cost, and
+`replacement_year` (a EUR 10.2M event at the reference asset) is not a
+reasonable thing to omit to hit a target. CAPEX is 8. Total 44.
+
+Three rows the prompt's breakdown would have duplicated were deduplicated
+instead: `trading_realisation` and `spread_growth` are scenario drivers, not
+separate market rows, and `pipeline_realisation` is a scenario driver, not a
+separate saturation row. Having the same quantity in two rows is exactly the
+parallel-literal problem rule #4 forbids, even when both rows bind to the same
+source. Their slots went to `cap_price_ceiling`,
+`reserve_price_floor_fraction` and `lt_zone_price_correlation` — all real
+assumptions that were otherwise undocumented.
+
+**Operator decision needed:** the client-facing scope line says "39-row
+register". It is now 44. Restating it as 44 is the honest option and the
+schema test pins the number either way.
+
+### 34.5-B — every row is bound; nothing is documented-only
+
+The prompt allowed for unbound rows ("where a register value has an
+`engine_binding`"). In the event **all 44 rows bind to live code**, through five
+namespaces: `worker:` (anchored regex against the frozen worker source),
+`engine:` (a field the engine emits), `bridge:`, `portfolio:`, `driver:` and
+`config:`. So the register cannot contain an assumption the model does not
+actually use, and cannot state a value the model does not actually hold. The
+`rteMirror` pattern generalised from one constant to the whole surface.
+
+Two details that make the binding real rather than decorative:
+
+- `rte_decay_pp_yr` binds to `worker:RTE_DECAY_PP_PER_YEAR`, **not** to
+  `assumptions_panel.rte.decay_pp_per_yr`. The latter is the hardcoded display
+  literal from 34.4-G and would keep reporting 0.20 whatever the constant
+  became — binding to it would have produced a test that passes while the
+  register is wrong. Pinned by its own test.
+- Worker-source extraction asserts each pattern matches exactly once, same
+  discipline as the scenario overlay's anchors.
+
+### 34.5-C — live-market rows sync from the frozen fixture
+
+Capacity prices, clearing prices and fleet MW move daily. Binding those rows to
+production would make the register's test a market-movement detector rather
+than a code gate, and it would go red overnight for reasons no one can fix.
+They sync from `fixtures/regression-kv.json` — the same fixture the public
+regression gate uses — and carry `basis: "live-kv"` so the Excel and PDF
+generators know to refresh them from the run that actually produced the client
+numbers. `register.mjs --sync` regenerates against any KV.
+
+### 34.5-D — the override mechanism never overwrites the derived value
+
+`override` is applied by the runner in place of `value`; `value` is never
+rewritten. So a Prosperus edit and the engine-derived figure stay side by side
+and the delta is always visible in the register itself. `override: 0` is
+honoured as an override rather than treated as absent — pinned by test, because
+a zero fee or a zero delta is a legitimate client input.
+
+### 34.5-E — internal bank runs 8 checks, not 7
+
+The seven contracted identities are all present. One more was added:
+`internal_8_all_years_tie` holds the three bridge identities across **all
+twenty years**, not only year 1. The contracted seven are year-1 assertions;
+an augmentation or replacement year is exactly where a bridge would break, and
+those land in years 8 and 15.
+
+73 internal assertions across 10 subjects (reference + 3 projects × 3 scenarios
++ 3 portfolios). All pass, exactly — the euro tolerances exist for integer
+rounding across rows and are not being consumed.
+
+### 34.5-F — external bank: the WARN/FAIL split, and the one live WARN
+
+Per the prompt: FAIL-level for Central and the reference asset, WARN-level for
+Downside and Upside. The reasoning recorded in every row: an external band is a
+calibration signal rather than an arithmetic identity, and a deliberately
+extreme scenario leaving a band calibrated on central-case market observations
+is information, not error.
+
+59 of 60 external checks pass. The single WARN is real and is worth the
+operator's eye:
+
+**Bitėnai Upside project IRR 33.2%, against the Clean Horizon Baltic band of
+6–31%.** It clears the top of the published range by 2.2pp. That is what an
+upside case is for — but it means the Upside column in the client deliverable
+carries a return above anything Clean Horizon has published for the market.
+Defensible with the driver stack stated (capacity prices +20%, pipeline
+realisation 35%, availability 98%), and the harness surfaces it rather than
+letting it pass silently. A test pins the existence of at least one WARN, so
+the split cannot become untested by drifting into all-pass.
+
+### 34.5-G — the harness is a permanent gate, not a one-off artifact
+
+`reconciliation-report.json` is a deliverable (it feeds the Excel tab and the
+PDF section) AND the same code is a vitest suite that runs on every future
+change. That was the stated platform value of this phase and it is the reason
+the checks are written as data with subjects and sources attached rather than
+as bare assertions.
