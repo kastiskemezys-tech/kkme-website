@@ -1142,3 +1142,183 @@ total, no sensitivity footer, no reconciliation, no expander, no 2038/2048
 cash-flow columns, no scenario names. Plus a structural check that the rendered
 `<h2>` set is exactly the sample's two headings, which scopes past the CTA copy
 without depending on wording.
+
+---
+
+## Phase 36.B1 — Pause A (data audit + design verification)
+
+Full audit: `docs/phases/phase-36-b1-pause-a-audit.md`. Nothing built; checkpoint
+pending operator approval.
+
+### 36.B1-A — the ENTSO-E token was never a blocker
+
+The arc doc scheduled an operator action for day 1: register for an ENTSO-E API
+token, 24-48 h approval, needed by B2. The token already exists — worker secret
+`ENTSOE_API_KEY` (wrangler.toml checklist step 3) and locally in `.env.local` —
+and `workers/fetch-s1.js` already calls A44 in four places. Probed live: LT
+day-ahead hourly serves back to **2015-01-01**, LV and EE likewise. B2's data
+dependency is satisfied today.
+
+### 36.B1-B — 11 years of history, not 2, and that changes B2
+
+The arc set "minimum viable history" at 2 calendar years. The real figure is
+11+. The arc's own honesty constraint — that percentiles beyond a 2-3 year
+sample are extrapolation — largely dissolves. Pre-Feb-2025 years remain
+pre-synchronisation (BRELL), so the arc's rule stands: full sample for DA
+shape, post-sync window only for balancing calibration.
+
+### 36.B1-C — engine lives Node-side, decided on measurement not assumption
+
+Benchmarked before deciding: `computeRevenueV7` = 16.0 ms for a full 20-year
+projection; a scalar 8760 × 20-yr hour loop = 3.5 ms. Runtime does not
+constrain the choice on either side. Decided `tools/consultancy/lib/dispatch.mjs`
+on architecture: `engine.mjs:27` already imports the worker cleanly into Node,
+so every canonical constant is reachable with no duplication, and with nothing
+under `workers/` the `/revenue` byte-identity rule becomes true by construction
+rather than by gate. Session 88's finding #2 — that the 54/54 gate does not
+cover the route layer — is the reason "provable" is worth more than "asserted".
+
+### 36.B1-D — the reserve-energy reservation needs no new assumption
+
+`RESERVE_PRODUCTS[p].dur_req_h` (FCR 0.5 h, aFRR 1.0 h, mFRR 0.25 h) is the
+prequalification energy requirement per committed MW, and it is already
+canonical. Committing 1 MW of aFRR reserves 1.0 MWh of SoC headroom in each
+direction. Today that physics is approximated by one scalar, `HEADROOM_DRAG =
+0.70`. Replacing the scalar with the enforced hourly constraint is the phase's
+reason to exist, and the delta between them is the headline reconciliation
+number.
+
+### 36.B1-E — `computeDispatchV2` overstates arbitrage revenue, logged not fixed
+
+`workers/fetch-s1.js:848` applies RTE as a cap on discharge *power* while
+decrementing SoC by the *delivered* energy, so a full cycle buys 1 MWh and
+sells 1 MWh with no round-trip loss charged. `:950` then clamps net-negative
+arbitrage days to zero. Both errors run toward overstatement, and the function
+is public-facing (the dispatch card, and `dispatch:<date>:<dur>h` in KV). Also:
+SoC resets to 0.50 each day (`:790`), `cycles_per_day_count` (`:928`) reports an
+SoC range rather than a cycle count, and `annual_eur` is `daily × 365`.
+
+Not fixed here. Correcting a live public revenue number inside a phase whose
+entire risk story is "changes nothing public" would trade away that guarantee,
+and the dispatch card sits on a route the 54/54 gate does not cover. Logged for
+its own phase; raised to the operator as decision D2.
+
+### 36.B1-F — the 15-min MTU transition is 2025-10-01
+
+Probed: LT day-ahead is PT60M through 2025-09-29 and PT15M from 2025-10-01. The
+worker comment at `:675` says "since Sep 2025", a month early. B3's backtest
+window (2025-07 → 2026-06) straddles the boundary — roughly 3 months hourly, 9
+months quarter-hourly. Recommended resolution (operator decision D1): average
+15-min years down to hourly for B1's gates, which is the conservative direction,
+and report the two-resolution delta at B3 as a measured test of the asserted
+`RYSTAD_15MIN_UPLIFT_DECIMAL = 0.14`.
+
+### 36.B1-G — BTD is the sole reserve-price source, and it is down
+
+ENTSO-E A84/A85/A86 return "no matching data" for LT and for the Baltic SCA, so
+the arc's "BTD/ENTSO-E" for balancing is BTD alone. That feed has failed its
+last 17 consecutive cron runs (TLS handshake abort; last clean run
+2026-07-17), which is why `dispatch:*`, `trading:*` and `s2_btd_history` all
+stall within days of that date. The deepest reserve-price series anywhere in the
+estate is 110 daily points. B3's DA side is fully feasible; its reserve side is
+not, on current data.
+
+## Phase 36.B1 — Pause B (build)
+
+### 36.B1-H — the export block, and a correction to 36.B1-C
+
+Pause A decided the engine would live Node-side partly so that
+`git diff main -- workers/` stayed empty and `/revenue` byte-identity became
+true by construction. That did not survive contact with rule #4: `RESERVE_PRODUCTS`,
+`RTE_BOL`, `sohYr`, `rteCurveFor`, `computeThroughputBreakdown` and
+`computeDispatchV2` are all module-private, and a dispatch engine that cannot
+import them would have to restate them — which is the exact duplication rule #4
+exists to prevent.
+
+Reuse outranks the convenience of an empty diff. `workers/fetch-s1.js` gains one
+additive export block and nothing else. Export statements are compile-time
+bindings and add no runtime path, so the guarantee is preserved by evidence
+rather than by construction: the 54/54 engine gate is green, and
+`scripts/_phase-36-b1-route-probe.mjs` drives the real `fetch` handler over all
+54 public parameter combinations on this branch and on `main` and gets identical
+responses.
+
+### 36.B1-I — activation ENERGY comes from the throughput anchors, not act_rate
+
+The first working version drove SoC drain from `sc.act_rate_afrr` / `act_rate_mfrr`.
+Those are revenue coefficients in `computeTradingMix`; the energy quantity is
+`mwh_per_mw_yr_*`, which is what `computeThroughputBreakdown` uses to derive the
+678 EFC figure. Conflating them overstated activation energy ~4.6× and inverted
+the charge/discharge balance (2 509 charge hours against 158 discharge hours).
+
+Caught by the arc's own gate #3, not by inspection. Pinned by a test that triples
+`act_rate_*` and asserts activation energy does not move.
+
+### 36.B1-J — annual anchors pro-rate against a year, never against the window
+
+`(mwh_per_mw_yr × MW) / hours` used `hours = prices.length`, so a 90-day run
+received a full year's activation energy spread over 2 160 hours — 4× too much,
+with no visible symptom. Full-year runs were correct, which is why it survived
+the first round of checks. Phase 36.B3 replays day by day and would have
+inherited it silently. Now `hours_per_year`, defaulted and asserted by test.
+
+### 36.B1-K — charging cost is attributed to where the energy went
+
+Stored energy leaves either as merchant discharge or as activation delivery, and
+both were paid for on the same charge legs. Booking the whole charging cost
+against arbitrage made the arbitrage line negative in 2021, 2022 and 2023 while
+flattering activation. `revenue.attributed` splits it pro rata by delivered MWh;
+`gross` is unchanged and a test asserts the split still sums to it. The raw
+lines are kept alongside — this is an additional view, not a restatement.
+
+### 36.B1-L — the policy will not buy energy the day cannot sell
+
+The greedy policy charged whenever price fell in the cheap quartile, regardless
+of whether the day's own shape could clear the round trip. On flat days that
+books a guaranteed loss, which is not conservatism but a modelling error. Charge
+now requires `discharge_threshold × RTE > price` — same-day, post-auction
+information only, no added foresight.
+
+### 36.B1-M — activation is modelled UP-ONLY, and the negative line is an artefact
+
+Committed reserve MW is assumed called upward: SoC drains and the energy is
+bought back. Real aFRR is symmetric, and a down-activation both fills the
+battery and is generally paid for. The KV `trading:<date>:raw` archive carries
+`afrr_up` and `afrr_dn` separately, so the asymmetry is visible in the data and
+simply is not modelled yet.
+
+With the whole canonical throughput anchor treated as up-drain, and activation
+priced at the observed p50 (€13.5/MWh aFRR, €14.5/MWh mFRR — a heavily skewed
+distribution whose monthly means run several times higher), the attributed
+activation line comes out net negative. **That is a conservative artefact of an
+incomplete model, not a finding that activation destroys value, and it must not
+be reported as one.** Stated in the module header and in every output file's
+`basis` block so it cannot travel without its caveat. Closing it is 36.B3/36.B5.
+
+### 36.B1-N — gate #3 is reported as a documented deviation, not re-thresholded
+
+The arc set dispatch-derived cycles within ±10 % of the throughput-derived
+figure. The hourly run lands at 221 EFC against 678, and the decomposition is
+the finding rather than noise: aFRR reconciles to +1.2 %, mFRR to −16 % (the SoC
+reservation cuts committed MW), FCR to −100 % (DRR derogation), and DA to
+−79 %. Re-thresholding the gate to pass would have buried exactly the result the
+phase exists to produce, so it reports `pass: false` with
+`expected_deviation: true` and carries the per-product attribution.
+
+A second gate carries the defensible pass criterion instead: DA throughput must
+fall in proportion to the MW that reserve commitment leaves free. Across
+2021-2025 free-MW share runs 26.1-27.8 % and DA-achieved-against-revenue-anchor
+27.5-29.4 % — agreement within ~2 pp every year, which is the physical sanity
+check on the hour loop.
+
+### 36.B1-O — the engine carries two DA throughput figures that disagree
+
+Found while attributing gate #3, verified by reading both call sites rather than
+inferred. Cycle accounting uses the full `mwh_per_mw_yr_da_2h` at nameplate
+(`computeThroughputBreakdown`, :1287). Revenue bills the same figure scaled by
+`trading_fraction` = 0.70 (`computeBaseYear`, :3178). So the shipped engine
+charges cell wear for ~43 % more day-ahead throughput than it earns revenue on.
+
+Both directions are conservative — more wear, less income — which is why it has
+gone unnoticed. It is still a contradictory branch of the kind bankability
+test #5 asks about. Reported, not changed: reconciling it is 36.B5's scope.

@@ -10260,3 +10260,26 @@ export { KNOWN_OPERATIONAL, applyKnownOperational, normName };
 export { CURATED_FLEET, injectCuratedFleet, injectManualAdditions };
 // Phase 33.B.3 — KV-persisted capacity-watch accumulator (pure helper for tests).
 export { accumulateCapacityWatch, CAPACITY_WATCH_FIELDS };
+// Phase 36.B1 — the chronological hourly dispatch engine
+// (tools/consultancy/lib/dispatch.mjs) reuses these rather than restating them.
+// Discipline rule #4: one canonical implementation per quantity. Export
+// statements are compile-time bindings and add no runtime code path, so
+// /revenue is unaffected — asserted by the 54/54 gate and a route-level probe.
+export {
+  RESERVE_PRODUCTS,
+  RESERVE_MW_CAP_FRACTION,
+  RTE_BOL,
+  RTE_DECAY_PP_PER_YEAR,
+  RTE_FLOOR_DROP,
+  RYSTAD_15MIN_UPLIFT_DECIMAL,
+  TRADING_REALISATION,
+  rteCurveFor,
+  sohYr,
+  computeThroughputBreakdown,
+  warrantyStatusFor,
+  computeEffectiveArbPct,
+  computeDispatchV2,
+  bidAcceptanceFactor,
+  reservePrice,
+  marketDepthFactor,
+};

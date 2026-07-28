@@ -188,6 +188,117 @@ See [docs/map.md](map.md) for the full concept-to-file lookup table.
 
 ## Session log
 
+### Session 89 — 2026-07-28 — Phase 36.B1: data audit + chronological hourly dispatch engine (Claude Code, semi-autonomous with one checkpoint)
+
+**Branch:** `phase-36-b1-hourly-dispatch` off `78558ee` · 3 commits. **NOT DEPLOYED.** Decision log: `DECISIONS.md` (36.B1-A…O). Audit artefact: `docs/phases/phase-36-b1-pause-a-audit.md`.
+
+**Worker deploy status:** `workers/fetch-s1.js` gains an **additive export block only** — +23 lines, 0 deletions, no runtime path changed. `/revenue` verified byte-identical at both the engine layer (54/54) and the route layer (54/54 vs `main`). Deploy is optional and operator-sequenced; nothing on the live site depends on it.
+
+---
+
+#### The headline artifact — reconciliation, reference asset (50 MW / 100 MWh / 2 h)
+
+Day-ahead prices are real per-year ENTSO-E; reserve prices are held flat (no multi-year sub-daily Baltic reserve series exists — see the Pause A audit). Revenue lines are shown **attributed**, i.e. with charging cost split across the two ways energy leaves the battery.
+
+| Year | Gross | Capacity | Activation | Arbitrage | Cost of simultaneity | EFC | free MW | DA/anchor |
+|---|---|---|---|---|---|---|---|---|
+| 2021 | €4.21M | €4.37M | −€0.65M | €0.49M | 20.8 % | 210.5 | 28.6 % | 26.8 % |
+| 2022 | €3.85M | €4.53M | −€1.89M | €1.21M | 24.8 % | 217.9 | 26.6 % | 28.4 % |
+| 2023 | €4.54M | €4.49M | −€0.65M | €0.70M | 16.9 % | 218.3 | 27.1 % | 28.6 % |
+| 2024 | €4.85M | €4.43M | −€0.51M | €0.93M | 16.5 % | 219.9 | 27.9 % | 29.1 % |
+| 2025 | €5.09M | €4.46M | −€0.44M | €1.07M | 14.5 % | 219.1 | 27.5 % | 28.9 % |
+
+**"The hourly simulation confirms 84.0 % of the revenue stack is simultaneously achievable"** (LT 2024; 75–86 % across 2021-2025) once committed reserve MW must also hold the state of charge to deliver on it. That sentence is the phase's deliverable and it is measured, not asserted: the same year is run twice with one variable moving — the SoC reservation on or off — so the delta is attributable to the constraint alone rather than confounded with a price basis.
+
+**The negative activation line is an artefact, not a finding.** Activation is modelled up-only (drains SoC, buys the energy back) while real aFRR is symmetric and the paid, SoC-filling down direction is not yet modelled; and it is priced at the observed p50 of a heavily skewed distribution. Stated in the module header and in every output file's `basis` block so it cannot travel without its caveat. **Do not quote it.** Closing it is 36.B3/36.B5.
+
+---
+
+#### Operator decision D2 — the dispatch card's overstatement, quantified
+
+You asked for the magnitude, not a fix. All 366 days of LT 2024, arbitrage leg isolated:
+
+| | |
+|---|---|
+| As published (negative days clamped to 0) | €3,310,050 |
+| With the round-trip loss charged correctly | €2,358,860 |
+| **Overstatement** | **40.3 %  ·  €19,024/MW/yr** |
+| — attributable to the RTE ledger defect | €949,918 |
+| — attributable to the negative-day clamp | €1,272 |
+| Days where corrected arbitrage is a **loss** | 30 of 366 |
+
+**The RTE ledger defect is essentially the whole of it; the clamp is noise.** That should simplify the urgency call: it is one arithmetic error in one function, not a design problem, and 40 % on a public-facing revenue figure is a single-commit fix whenever you want it scheduled. Reproduce with `node tools/consultancy/run-dispatch.mjs --year 2024 --quantify-v2`.
+
+---
+
+#### What shipped
+
+| File | What |
+|---|---|
+| `tools/consultancy/lib/dispatch.mjs` | The hour loop. SoC continuity across day boundaries, reserve-energy reservation, availability blocks, POI limits, negative-price rule, cycle governor, RTE charged once on the charge leg. |
+| `tools/consultancy/backfill-entsoe.mjs` + `data/` | LT hourly day-ahead **2015-2026**, 100 % coverage on every complete year, 648 KB committed. Handles curveType A03 carry-forward and the 2025-10-01 15-min transition. |
+| `tools/consultancy/run-dispatch.mjs` | 8760-row CSV + summary JSON + gates + the D2 quantifier. |
+| `scripts/_phase-36-b1-route-probe.mjs` | Makes Session 88's ad-hoc route-level check repeatable, with a validity assertion so it cannot pass trivially. |
+| `tools/consultancy/__tests__/dispatch.test.ts` | 34 tests. |
+
+#### Gates
+
+| Gate | Result |
+|---|---|
+| Energy balance, exact identity | **4.3 × 10⁻¹⁶ relative** — machine precision |
+| Zero constraint violations | **0 over 8 784 hours**, every year |
+| `/revenue` byte-identity, engine layer | **54/54** |
+| `/revenue` byte-identity, **route layer** vs `main` | **54/54** |
+| vitest | **1339 pass** / 76 files (+34) |
+| tsc · lint:no-editorial-chips · lint:no-raw-spacing | clean · clean · clean |
+| `wrangler deploy --dry-run` | bundles |
+| Cycle count vs 678 EFC | **documented deviation — see below** |
+
+#### Gate #3 did not pass, and that is the second finding
+
+221 EFC against the throughput-derived 678. Reported as `pass: false` with `expected_deviation: true` rather than re-thresholded, because the decomposition is the result:
+
+- **aFRR +1.2 %** — reconciles almost exactly
+- **mFRR −16 %** — the SoC reservation cuts committed MW
+- **FCR −100 %** — DRR derogation, no commitment before 2028
+- **DA −79 %** — the whole gap
+
+The substitute gate that *does* carry a pass criterion: day-ahead throughput must fall in proportion to the MW reserve commitment leaves free. Across five years free-MW share runs 26.6-28.6 % and DA-achieved-against-revenue-anchor 26.8-29.1 % — agreement within ~2 pp every year. That is the physical sanity check on the whole hour loop, and it holds.
+
+#### Three defects found during construction, all pinned by test
+
+1. **Activation energy driven from a revenue coefficient.** `act_rate_*` is a `computeTradingMix` coefficient; the energy quantity is `mwh_per_mw_yr_*`. Overstated activation energy ~4.6× and inverted the charge/discharge balance. Caught by the arc's own gate #3.
+2. **Annual anchors pro-rated against the simulated window, not a year.** A 90-day run received a full year's activation energy — 4× too much, **with no visible symptom**, and full-year runs were correct so it survived the first checks. 36.B3 replays day by day and would have inherited it silently.
+3. **Charging cost booked entirely to arbitrage**, which made arbitrage negative in 2021-23 while flattering activation.
+
+Plus a policy correction: the greedy policy bought energy in the cheap quartile without checking the day could sell it at a profit. Charging now requires `discharge_threshold × RTE > price` — same-day, post-auction information only, no added foresight.
+
+#### An engine inconsistency for 36.B5
+
+Found while attributing gate #3, verified by reading both call sites. Cycle accounting uses the full `mwh_per_mw_yr_da_2h` at nameplate (`:1287`); revenue bills the same figure scaled by `trading_fraction` = 0.70 (`:3178`). **The engine charges cell wear for ~43 % more day-ahead throughput than it earns revenue on.** Both directions are conservative — more wear, less income — which is why it has gone unnoticed. Still a contradictory branch of the kind bankability test #5 asks about. Reported, not changed.
+
+#### Implications for B2 / B3
+
+- **B2 is unblocked and better than scoped.** 11 years of committed hourly day-ahead, not the 2 the arc assumed. Primary sample 2021-2026 per decision D4, full 2015-2026 as sensitivity. The arc's honesty constraint about small-N extrapolation largely dissolves — though pre-Feb-2025 years stay DA-shape-only, which now governs 10 of 11 years.
+- **B3's day-ahead side is ready**; the reserve side is not, per decision D3. Split the deliverable as agreed.
+- **B3 must pass `hours_per_year` explicitly** when replaying sub-year windows. Defect #2 above is exactly that trap, now guarded and tested.
+- The **15-min/hourly delta** (decision D1) is measurable the moment B3 runs: 2025 has 6 550 PT60M hours and 2 210 PT15M hours in one file, and `native_resolution_hours` records the split per year.
+
+#### Not done / out of scope
+
+- No deploy. No fix to `computeDispatchV2` (D2 — quantify, don't fix).
+- B2 bootstrap · B3 backtest · B4 overlay · B5 loop/dur_h · B6 governance — all follow per the arc.
+- Public-site cutover to hourly numbers — Phase 37 conversation.
+- `docs/phases/_post-12-8-roadmap.md` NOT edited (rule #5). Needs a Phase 36.B entry.
+- Reserve procured-volume ceilings are not modelled per hour; product share caps bind instead. No sub-daily procurement series exists to model them from.
+
+#### Next operator action
+
+1. Review the reconciliation table and the D2 magnitude; decide when `computeDispatchV2` gets superseded (Phase 37 or sooner).
+2. Open PR: base `main`, head `phase-36-b1-hourly-dispatch`.
+3. Optional: `npx wrangler deploy` — additive export block only, both byte-identity gates green. Nothing live depends on it.
+4. Roadmap: add Phase 36.B1 shipped; point next CC job at 36.B2 + 36.B3 (batch B-2, autonomous).
+
 ### Session 88 — 2026-07-28 — Phase 35 batch-1 (35.1 + 35.2): BESS Revenue Calculator — /calculate endpoint + /calculator page (Claude Code, autonomous batch)
 
 **Branch:** `phase-35-batch-1` · 2 commits · head **`2f357e1`** (origin verified equal). **NOT DEPLOYED — operator action required, sequence below.** Decision log: `DECISIONS.md` (35.1-A…F, 35.2-A…D).
