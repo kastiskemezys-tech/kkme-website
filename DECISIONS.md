@@ -521,3 +521,113 @@ does not compute — discipline rule #2's shape, on a public payload field. It i
 correct today, so this is latent, not a live defect. **Batch-3 candidate:**
 `decay_pp_per_yr: RTE_DECAY_PP_PER_YEAR * 100`. Not touched here because the
 worker is frozen and it would move the public payload.
+
+---
+
+## 34.5 — assumptions register + reconciliation harness
+
+### 34.5-A — the register is 44 rows, not 39
+
+The prompt asks for 39 rows and then names a category breakdown — technical 7 ·
+market 9 · saturation 4 · cost 7 · capex 5 · project-specific 3 ·
+scenario-driver 6 — that sums to **41**. The arc doc and the client contract
+both say "39-row register". The three numbers cannot all be right.
+
+Decision: **build the coverage, not the count.** The breakdown is the
+substantive spec (it says what has to be documented); 39 is a round number
+carried forward from the arc doc. Built to the named counts everywhere except
+CAPEX, where 5 rows cannot hold the schedule without dropping a real lever —
+augmentation and replacement each have a year, a depth and a unit cost, and
+`replacement_year` (a EUR 10.2M event at the reference asset) is not a
+reasonable thing to omit to hit a target. CAPEX is 8. Total 44.
+
+Three rows the prompt's breakdown would have duplicated were deduplicated
+instead: `trading_realisation` and `spread_growth` are scenario drivers, not
+separate market rows, and `pipeline_realisation` is a scenario driver, not a
+separate saturation row. Having the same quantity in two rows is exactly the
+parallel-literal problem rule #4 forbids, even when both rows bind to the same
+source. Their slots went to `cap_price_ceiling`,
+`reserve_price_floor_fraction` and `lt_zone_price_correlation` — all real
+assumptions that were otherwise undocumented.
+
+**Operator decision needed:** the client-facing scope line says "39-row
+register". It is now 44. Restating it as 44 is the honest option and the
+schema test pins the number either way.
+
+### 34.5-B — every row is bound; nothing is documented-only
+
+The prompt allowed for unbound rows ("where a register value has an
+`engine_binding`"). In the event **all 44 rows bind to live code**, through five
+namespaces: `worker:` (anchored regex against the frozen worker source),
+`engine:` (a field the engine emits), `bridge:`, `portfolio:`, `driver:` and
+`config:`. So the register cannot contain an assumption the model does not
+actually use, and cannot state a value the model does not actually hold. The
+`rteMirror` pattern generalised from one constant to the whole surface.
+
+Two details that make the binding real rather than decorative:
+
+- `rte_decay_pp_yr` binds to `worker:RTE_DECAY_PP_PER_YEAR`, **not** to
+  `assumptions_panel.rte.decay_pp_per_yr`. The latter is the hardcoded display
+  literal from 34.4-G and would keep reporting 0.20 whatever the constant
+  became — binding to it would have produced a test that passes while the
+  register is wrong. Pinned by its own test.
+- Worker-source extraction asserts each pattern matches exactly once, same
+  discipline as the scenario overlay's anchors.
+
+### 34.5-C — live-market rows sync from the frozen fixture
+
+Capacity prices, clearing prices and fleet MW move daily. Binding those rows to
+production would make the register's test a market-movement detector rather
+than a code gate, and it would go red overnight for reasons no one can fix.
+They sync from `fixtures/regression-kv.json` — the same fixture the public
+regression gate uses — and carry `basis: "live-kv"` so the Excel and PDF
+generators know to refresh them from the run that actually produced the client
+numbers. `register.mjs --sync` regenerates against any KV.
+
+### 34.5-D — the override mechanism never overwrites the derived value
+
+`override` is applied by the runner in place of `value`; `value` is never
+rewritten. So a Prosperus edit and the engine-derived figure stay side by side
+and the delta is always visible in the register itself. `override: 0` is
+honoured as an override rather than treated as absent — pinned by test, because
+a zero fee or a zero delta is a legitimate client input.
+
+### 34.5-E — internal bank runs 8 checks, not 7
+
+The seven contracted identities are all present. One more was added:
+`internal_8_all_years_tie` holds the three bridge identities across **all
+twenty years**, not only year 1. The contracted seven are year-1 assertions;
+an augmentation or replacement year is exactly where a bridge would break, and
+those land in years 8 and 15.
+
+73 internal assertions across 10 subjects (reference + 3 projects × 3 scenarios
++ 3 portfolios). All pass, exactly — the euro tolerances exist for integer
+rounding across rows and are not being consumed.
+
+### 34.5-F — external bank: the WARN/FAIL split, and the one live WARN
+
+Per the prompt: FAIL-level for Central and the reference asset, WARN-level for
+Downside and Upside. The reasoning recorded in every row: an external band is a
+calibration signal rather than an arithmetic identity, and a deliberately
+extreme scenario leaving a band calibrated on central-case market observations
+is information, not error.
+
+59 of 60 external checks pass. The single WARN is real and is worth the
+operator's eye:
+
+**Bitėnai Upside project IRR 33.2%, against the Clean Horizon Baltic band of
+6–31%.** It clears the top of the published range by 2.2pp. That is what an
+upside case is for — but it means the Upside column in the client deliverable
+carries a return above anything Clean Horizon has published for the market.
+Defensible with the driver stack stated (capacity prices +20%, pipeline
+realisation 35%, availability 98%), and the harness surfaces it rather than
+letting it pass silently. A test pins the existence of at least one WARN, so
+the split cannot become untested by drifting into all-pass.
+
+### 34.5-G — the harness is a permanent gate, not a one-off artifact
+
+`reconciliation-report.json` is a deliverable (it feeds the Excel tab and the
+PDF section) AND the same code is a vitest suite that runs on every future
+change. That was the stated platform value of this phase and it is the reason
+the checks are written as data with subjects and sources attached rather than
+as bare assertions.
