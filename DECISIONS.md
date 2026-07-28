@@ -1142,3 +1142,83 @@ total, no sensitivity footer, no reconciliation, no expander, no 2038/2048
 cash-flow columns, no scenario names. Plus a structural check that the rendered
 `<h2>` set is exactly the sample's two headings, which scopes past the CTA copy
 without depending on wording.
+
+---
+
+## Phase 36.B1 — Pause A (data audit + design verification)
+
+Full audit: `docs/phases/phase-36-b1-pause-a-audit.md`. Nothing built; checkpoint
+pending operator approval.
+
+### 36.B1-A — the ENTSO-E token was never a blocker
+
+The arc doc scheduled an operator action for day 1: register for an ENTSO-E API
+token, 24-48 h approval, needed by B2. The token already exists — worker secret
+`ENTSOE_API_KEY` (wrangler.toml checklist step 3) and locally in `.env.local` —
+and `workers/fetch-s1.js` already calls A44 in four places. Probed live: LT
+day-ahead hourly serves back to **2015-01-01**, LV and EE likewise. B2's data
+dependency is satisfied today.
+
+### 36.B1-B — 11 years of history, not 2, and that changes B2
+
+The arc set "minimum viable history" at 2 calendar years. The real figure is
+11+. The arc's own honesty constraint — that percentiles beyond a 2-3 year
+sample are extrapolation — largely dissolves. Pre-Feb-2025 years remain
+pre-synchronisation (BRELL), so the arc's rule stands: full sample for DA
+shape, post-sync window only for balancing calibration.
+
+### 36.B1-C — engine lives Node-side, decided on measurement not assumption
+
+Benchmarked before deciding: `computeRevenueV7` = 16.0 ms for a full 20-year
+projection; a scalar 8760 × 20-yr hour loop = 3.5 ms. Runtime does not
+constrain the choice on either side. Decided `tools/consultancy/lib/dispatch.mjs`
+on architecture: `engine.mjs:27` already imports the worker cleanly into Node,
+so every canonical constant is reachable with no duplication, and with nothing
+under `workers/` the `/revenue` byte-identity rule becomes true by construction
+rather than by gate. Session 88's finding #2 — that the 54/54 gate does not
+cover the route layer — is the reason "provable" is worth more than "asserted".
+
+### 36.B1-D — the reserve-energy reservation needs no new assumption
+
+`RESERVE_PRODUCTS[p].dur_req_h` (FCR 0.5 h, aFRR 1.0 h, mFRR 0.25 h) is the
+prequalification energy requirement per committed MW, and it is already
+canonical. Committing 1 MW of aFRR reserves 1.0 MWh of SoC headroom in each
+direction. Today that physics is approximated by one scalar, `HEADROOM_DRAG =
+0.70`. Replacing the scalar with the enforced hourly constraint is the phase's
+reason to exist, and the delta between them is the headline reconciliation
+number.
+
+### 36.B1-E — `computeDispatchV2` overstates arbitrage revenue, logged not fixed
+
+`workers/fetch-s1.js:848` applies RTE as a cap on discharge *power* while
+decrementing SoC by the *delivered* energy, so a full cycle buys 1 MWh and
+sells 1 MWh with no round-trip loss charged. `:950` then clamps net-negative
+arbitrage days to zero. Both errors run toward overstatement, and the function
+is public-facing (the dispatch card, and `dispatch:<date>:<dur>h` in KV). Also:
+SoC resets to 0.50 each day (`:790`), `cycles_per_day_count` (`:928`) reports an
+SoC range rather than a cycle count, and `annual_eur` is `daily × 365`.
+
+Not fixed here. Correcting a live public revenue number inside a phase whose
+entire risk story is "changes nothing public" would trade away that guarantee,
+and the dispatch card sits on a route the 54/54 gate does not cover. Logged for
+its own phase; raised to the operator as decision D2.
+
+### 36.B1-F — the 15-min MTU transition is 2025-10-01
+
+Probed: LT day-ahead is PT60M through 2025-09-29 and PT15M from 2025-10-01. The
+worker comment at `:675` says "since Sep 2025", a month early. B3's backtest
+window (2025-07 → 2026-06) straddles the boundary — roughly 3 months hourly, 9
+months quarter-hourly. Recommended resolution (operator decision D1): average
+15-min years down to hourly for B1's gates, which is the conservative direction,
+and report the two-resolution delta at B3 as a measured test of the asserted
+`RYSTAD_15MIN_UPLIFT_DECIMAL = 0.14`.
+
+### 36.B1-G — BTD is the sole reserve-price source, and it is down
+
+ENTSO-E A84/A85/A86 return "no matching data" for LT and for the Baltic SCA, so
+the arc's "BTD/ENTSO-E" for balancing is BTD alone. That feed has failed its
+last 17 consecutive cron runs (TLS handshake abort; last clean run
+2026-07-17), which is why `dispatch:*`, `trading:*` and `s2_btd_history` all
+stall within days of that date. The deepest reserve-price series anywhere in the
+estate is 110 daily points. B3's DA side is fully feasible; its reserve side is
+not, on current data.
