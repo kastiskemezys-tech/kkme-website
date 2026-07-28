@@ -124,8 +124,8 @@ export function loadConfigDir(dir) {
  * param is derived from it so there is exactly one source for each quantity
  * (discipline rule #4).
  */
-export async function runProject(cfg, kv, { scenario } = {}) {
-  const engine = await loadEngine();
+export async function runProject(cfg, kv, { scenario, engine: engineOverride } = {}) {
+  const engine = engineOverride ?? (await loadEngine());
   const config = validateConfig(cfg);
   const params = {
     mw: config.mw,
