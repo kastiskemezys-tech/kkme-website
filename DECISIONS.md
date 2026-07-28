@@ -1496,3 +1496,97 @@ needs its own byte-identity analysis over every consumer. Logged as its own
 candidate phase — and it is a prerequisite for trusting any negative-price
 behaviour in the dispatch policy, including the charge-preferred-in-negative-hours
 rule the arc specifies for B1.
+
+## Phase 36.B batch-2 — Part 1 (36.B2 historical-year bootstrap)
+
+### 36.B2-A — 2026 is not a shape-year, so the primary sample is five years
+
+The batch prompt set the primary sample at 2021-2026. The committed 2026 file is
+**57.5 % covered** (5 038 of 8 760 hours, year to date), and a partial year cannot
+be replayed as an annual dispatch. Primary is therefore **2021-2025 (5 years)** and
+the sensitivity is **2015-2025 (11 years)**, both complete at 100 % coverage.
+Checked, not assumed — every other year in the estate is 100 %.
+
+### 36.B2-B — the factor basis had to be the ATTRIBUTED revenue lines
+
+The first working version took shape-year factors from `revenue.arbitrage`, the
+raw line. `lib/dispatch.mjs` books the entire charging cost against arbitrage, so
+that line is negative in 2021, 2022 and 2023 (36.B1-K). Ratios of negatives gave
+2022 an arbitrage factor of **−1.401**, which scales the engine's trading revenue
+through zero and out the other side — a nonsense distribution that still produced
+a plausible-looking percentile table and three green gates.
+
+`revenue.attributed` splits charging cost pro rata by delivered MWh and its
+arbitrage line is positive in every shape-year, which is what makes it a valid
+ratio base. `shapeYearFactors` now throws on any non-positive factor rather than
+propagating one, and a test pins the 2022 case specifically.
+
+### 36.B2-C — activation is measured but not applied
+
+`activation_net` is negative in all eleven shape-years — the conservative up-only
+artefact of 36.B1-M. Its variation between years is driven by attributed charging
+cost, not by any day-ahead signal: activation energy comes from flat annual
+anchors and its price is flat under D3. Scaling the engine's positive `rev_act` by
+the ratio of two artefacts would import that artefact into a client deliverable,
+so the factor is pinned at 1.0 and the measured ratio is carried beside it as
+`activation_measured`.
+
+Capacity's factor IS applied. It is small (0.81-1.02 across the eleven years) but
+genuine: in low-price years the round-trip test bars charging, SoC drifts to the
+floor, and a battery sitting empty cannot hold the up-reserve headroom its
+committed MW implies — so committable MW falls. That is a real simultaneity
+effect and precisely what this arc exists to surface.
+
+### 36.B2-D — the sample cannot resolve P90 at all, and says so
+
+Empirical exceedance percentiles on Weibull plotting positions: with N samples the
+i-th smallest carries exceedance (N − i + 1)/(N + 1), so a sample of N resolves
+only **[1/(N+1), N/(N+1)]**.
+
+| sample | N | resolves | P50 | P75 | P90 | P99 |
+|---|---|---|---|---|---|---|
+| primary 2021-2025 | 5 | P17-P83 | ✓ | ✓ | **✗** | **✗** |
+| sensitivity 2015-2025 | 11 | P8-P92 | ✓ | ✓ | ✓ | **✗** |
+
+So the headline five-year sample **cannot produce a measured P90** — the debt-sizing
+percentile. It is reported with `resolved: false`, clamped to the sample minimum,
+and carries the reason string in the payload. Eleven years buys a genuine P90 and
+still cannot reach P99 (that needs ~99 years).
+
+This is the arc's honesty constraint made mechanical rather than editorial. An
+advisor who sees `resolved: false` next to a P90 learns more than one who sees a
+confident number built on five observations.
+
+### 36.B2-E — P50 vs Central: −3.9 % on the primary sample, −22.8 % on the sensitivity
+
+Both are correct, and the second is the more interesting number.
+
+Factors are struck against a FIXED reference year (2025, the most recent complete
+one) rather than against the sample mean, deliberately: normalising to the mean
+would have made the P50-vs-Central gate tautological. Against a fixed reference the
+gate can fail, and on the eleven-year sample it does — by −22.8 %.
+
+That is not a reconciliation failure. Pre-crisis LT day-ahead ran at €34-50/MWh mean
+(2015-2020) against €85-95 post-2021, and Central is calibrated on current market
+state. The gap measures the regime difference, which is exactly why operator
+decision D4 set the primary sample post-2021. Reported as `expected_deviation: true`
+on the sensitivity run, following the 36.B1-N precedent; the primary sample is the
+gated one and passes at −3.9 %.
+
+### 36.B2-F — percentile bridges are built from whole shape-year paths
+
+A per-year percentile table is a band, not a path: year 3's P90 and year 12's P90
+can come from different shape-years, so reading down the column is not a scenario
+anything could deliver. Both views ship, but the client bridges at P50 and P90 are
+built from a single real shape-year's entire 20-year projection, named in the
+output. That is what keeps the batch prompt's "every distribution input traceable
+to a shape-year, no synthetic draws" literally true of the delivered bridge.
+
+### 36.B2-G — what this distribution structurally understates
+
+Reserve prices are flat across every shape-year under D3, so capacity revenue
+varies only through committable MW and never through price. **The spread reported
+here is a day-ahead spread.** Total revenue variance is larger — the reserve stack
+is **67.9 % of Y1 gross and 71.9 % of lifetime gross** in the reference case, and
+contributes almost no variance to this distribution. Carried as `reserve_basis: "calibrated-flat (see D3)"` in every
+output payload so the number cannot travel without the caveat.
