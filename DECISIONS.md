@@ -1322,3 +1322,119 @@ charges cell wear for ~43 % more day-ahead throughput than it earns revenue on.
 Both directions are conservative — more wear, less income — which is why it has
 gone unnoticed. It is still a contradictory branch of the kind bankability
 test #5 asks about. Reported, not changed: reconciling it is 36.B5's scope.
+
+## Phase 36.B batch-2 — Part 0 (computeDispatchV2 micro-fix)
+
+### 36.B0-A — the RTE defect is real, but its net effect is duration-dependent
+
+Pause A's correction #17 said the energy-balance defect "inflates revenue". The
+first half is confirmed exactly: `soc += maxCharge / mwh` credited the battery
+with every purchased MWh, so a full cycle bought 1 MWh and sold 1 MWh and the
+round-trip loss was never charged. Now `soc += maxCharge * rte / mwh`, matching
+`lib/dispatch.mjs` — the loss is charged once, on the charge leg.
+
+What #17 did not say is that the *same line* carried a compensating
+understatement. `maxDischarge = arbMW * rte / 4` applied RTE a second time as a
+cap on discharge **power**, which is not a physical constraint at all: an
+inverter's rating does not shrink by its round-trip efficiency. Removing it
+returns discharge to the full arbitrage MW, exactly as the hourly engine does.
+
+Measured over every day of two real LT price years, reserves neutralised so the
+arbitrage line is isolated (mean €/MW/day, 50 MW reference):
+
+| year | dur | main | +guard | +RTE re-leg | full |
+|---|---|---|---|---|---|
+| 2024 | 2h | 180.9 | 181.6 (+0.4 %) | 164.3 (−9.2 %) | 165.5 (**−8.5 %**) |
+| 2024 | 4h | 350.6 | 351.8 (+0.3 %) | 344.4 (−1.8 %) | 346.2 (**−1.3 %**) |
+| 2025 | 2h | 209.4 | 209.7 (+0.2 %) | 196.7 (−6.0 %) | 197.2 (**−5.8 %**) |
+| 2025 | 4h | 383.9 | 384.3 (+0.1 %) | 389.3 (+1.4 %) | 389.8 (**+1.5 %**) |
+
+So the batch prompt's expected "≈ −40 % on arbitrage" is not what the corrected
+maths produces — it is **−6 to −9 % at 2h and roughly flat to slightly positive
+at 4h**. The two errors were largely offsetting, and which one dominates depends
+on whether SoC or power is the binding constraint: at 2h energy is scarce and
+the uncharged loss dominated, at 4h energy is plentiful and the bogus discharge
+cap dominated. Rule #1 — the −40 % was a hypothesis, and it is now measured.
+
+### 36.B0-B — the clamp was desynchronising the card from its own total
+
+`Math.max(0, totalArbRev)` floored the reported arbitrage line at zero while
+`daily_eur` had always carried the true negative. On the live KV day
+(2026-07-14, 2h) the card published capacity €825 + activation €720 +
+arbitrage €0 against a daily total of €1 376 — three components that do not sum
+to their own headline, because €169/MW/day of loss was hidden. The same clamp
+sat in `split_pct`, so the three shares summed to 112 %.
+
+Both are unclamped. A day whose shape never covers the round trip loses money on
+arbitrage and the honest number says so.
+
+### 36.B0-C — the round-trip guard had to ship with the fix
+
+The batch prompt's validation gate asks for computeDispatchV2's corrected daily
+arbitrage to sit "within a small explained delta" of `lib/dispatch.mjs`. It does
+not, on low-spread days, until the same guard the hourly engine gained in 36.B1-L
+is present here: on a perfectly flat day p25 == p75, so `daPrice <= chargeThreshold`
+is true in all 96 ISPs and the old policy charged in every one of them and booked
+a guaranteed loss. Mirror delta on that shape was **−430 %** without the guard and
+−13 % with it. It is one line inside the same function, it adds no foresight
+(same-day, post-auction information only), and the gate cannot be met without it.
+
+Mirror residual after the fix, over spread / flat / shallow shapes at 2h and 4h:
+computeDispatchV2 lands **7-14 % BELOW** the hourly engine, never above. Two
+causes, both revenue-removing and therefore conservative: it works a narrower SoC
+window (0.10-0.90 of nameplate against the engine's 0.05-0.95 of SOH-derated
+usable MWh), and it commits in 15-minute blocks so it reaches its bounds sooner
+inside a price run. Pinned by `workers/__tests__/dispatchV2.test.ts`, which fails
+if the card ever starts claiming MORE than the bankable engine.
+
+### 36.B0-D — `da_hourly` is a 192-point 15-minute array read as 24 hourly prices
+
+Found while quantifying the fix against the real KV inputs, not by inspection.
+`trading:2026-07-14:raw` carries `da_hourly` with **192** entries — two days at
+PT15M, the resolution LT day-ahead has used since 2025-10-01 (36.B1-F). But
+`computeDispatchV2` does `daH = (daHourly || []).slice(0, 24)` and then indexes
+`daH[Math.floor(i / 4)]`, i.e. it treats the first 24 quarter-hours as if they
+were 24 hourly prices. **The card has been dispatching against the first six
+hours of the day, stretched over 24, since 2025-10-01.**
+
+The distortion is not subtle. Hourly-averaged, that day runs 146 → 12 (midday
+solar trough) → 181 (evening peak), a €169 spread. The slice the function
+actually sees runs 151 → 127 → 144, a €24 spread — and it is monotone early
+morning, so the p25/p75 triggers fire on noise.
+
+This is a larger defect than the one Part 0 was scoped to fix, and it is the
+dominant term in what the live card currently shows. **Not fixed here** — it is
+out of the stated Part-0 scope, it changes the public number far more than the
+RTE fix does, and there is an operator STOP at exactly this point. Raised for
+decision rather than folded in silently.
+
+### 36.B0-E — the live card cannot be verified today, for two independent reasons
+
+`/api/dispatch?mode=realised` does not compute anything: it reads the
+precomputed `dispatch:<date>:<dur>h` KV value written by the cron. Those keys
+were last written **2026-07-17** for market day **2026-07-14** — BTD has been
+failing since (36.B1-G, now 11+ days). So deploying this fix changes the
+realised card **not at all** until BTD returns and the cron rewrites KV.
+
+`mode=forecast` does compute live through `computeDispatchV2`, so it would show
+the corrected number — but it returned `{forecast: null, reason: "DA tomorrow
+publishes ~14:00 CET"}` on both durations at the time of writing.
+
+Deploy remains correct and safe; post-deploy live verification is simply not
+available on demand. Quantification was done instead by replaying the exact
+stored KV inputs through both code paths locally, which is what the card will
+show once the feed returns.
+
+### 36.B0-F — two adjacent defects logged, deliberately not fixed
+
+Kept out to keep the public delta attributable to exactly the mandated change:
+
+- `capture_eur_mwh` (`:918-921`) silently substitutes a *theoretical*
+  `(daMax − daMin) × rte × 0.5` whenever `totalArbRev <= 0`, so a losing day can
+  publish a healthy-looking capture spread (€70.18/MWh on one shape tested).
+  A display value asserting something it did not measure — rule #2 territory.
+  Unchanged by this commit on the live path (9.97 / 10.09 before and after).
+- The other #17 defects stand: SoC resets to 0.50 at each day boundary (no
+  cross-day continuity), `cycles_per_day_count` reports an SoC *range* labelled
+  as a cycle count, and `annual_eur = daily × 365` with no seasonality or
+  availability haircut.

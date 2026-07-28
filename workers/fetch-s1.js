@@ -835,17 +835,37 @@ function computeDispatchV2(btdData, daHourly, opts = {}) {
     let arbRev = 0;
     let arbAction = 'hold';
 
+    // Only buy energy the day's own shape can sell at a profit: 1 MWh bought
+    // yields `rte` MWh sellable, so the trip clears when the discharge trigger
+    // beats the purchase price after losses. Same-day, post-auction information
+    // only — no foresight is added. Without this the policy charged in the
+    // cheap quartile unconditionally and booked a guaranteed loss on every
+    // low-spread day (on a perfectly flat day p25 == p75, so it charged in all
+    // 96 ISPs). That is a modelling error, not conservatism, and it is the same
+    // defect the hourly engine fixed in 36.B1-L.
+    const roundTripClears = dischargeThreshold * rte > daPrice;
+
     if (arbMW > 0 && daPrice > 0) {
-      if (daPrice <= chargeThreshold && soc < 0.85) {
-        const maxCharge = Math.min(arbMW / 4, (0.90 - soc) * mwh);
+      if (daPrice <= chargeThreshold && soc < 0.85 && roundTripClears) {
+        // Grid-side purchase. The round-trip loss is charged once, on the
+        // charge leg: buying `maxCharge` MWh raises SoC by `maxCharge × rte`.
+        // Before Phase 36.B batch-2 this credited SoC with the full purchased
+        // energy while applying `rte` as a cap on discharge *power* instead, so
+        // a full cycle bought 1 MWh and sold 1 MWh and the round-trip loss was
+        // never charged at all. Same treatment as the canonical hourly engine
+        // in tools/consultancy/lib/dispatch.mjs; the two are pinned to each
+        // other by the mirror test in workers/__tests__/dispatchV2.test.ts.
+        const maxCharge = Math.min(arbMW / 4, (0.90 - soc) * mwh / rte);
         if (maxCharge > 0) {
-          soc += maxCharge / mwh;
+          soc += maxCharge * rte / mwh;
           arbRev = -maxCharge * daPrice;
           arbAction = 'charge';
           chargeISPs.push(i);
         }
       } else if (daPrice >= dischargeThreshold && soc > 0.15) {
-        const maxDischarge = Math.min(arbMW * rte / 4, (soc - 0.10) * mwh);
+        // Discharge delivers exactly what leaves SoC. RTE is deliberately NOT
+        // applied again here — it was already charged on the way in.
+        const maxDischarge = Math.min(arbMW / 4, (soc - 0.10) * mwh);
         if (maxDischarge > 0) {
           soc -= maxDischarge / mwh;
           arbRev = maxDischarge * daPrice;
@@ -947,12 +967,18 @@ function computeDispatchV2(btdData, daHourly, opts = {}) {
       annual_eur: t_r0(totalRev / mw) * 365,
       capacity_eur_day: t_r0(totalCapRev / mw),
       activation_eur_day: t_r0(totalActRev / mw),
-      arbitrage_eur_day: t_r0(Math.max(0, totalArbRev) / mw),
+      // No floor at zero. A day whose price shape never covers the round trip
+      // loses money on arbitrage, and clamping that to zero both overstated the
+      // line and desynchronised it from `daily_eur` (which has always included
+      // the negative). The honest number includes the losing days.
+      arbitrage_eur_day: t_r0(totalArbRev / mw),
     },
     split_pct: totalRev > 0 ? {
       capacity: Math.round(totalCapRev / totalRev * 100),
       activation: Math.round(totalActRev / totalRev * 100),
-      arbitrage: Math.round(Math.max(0, totalArbRev) / totalRev * 100),
+      // Unclamped for the same reason: with the floor in place the three shares
+      // summed to >100 % on any day with negative arbitrage.
+      arbitrage: Math.round(totalArbRev / totalRev * 100),
     } : { capacity: 0, activation: 0, arbitrage: 0 },
     mw_allocation: {
       avg_reserves_mw: t_r1(totalReserveMW / 96),
