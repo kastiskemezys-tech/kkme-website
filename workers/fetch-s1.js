@@ -764,6 +764,62 @@ const POST_DRR_FCR_PRICE_EUR_MW_H = 42;
 // Source: enspired German portfolio behavior (Dec 2025).
 const RESERVE_MW_CAP_FRACTION = 0.70;
 
+/**
+ * Day-ahead price array → exactly 24 hourly values for the TARGET day.
+ *
+ * ENTSO-E A44 for LT is PT60M through 2025-09-29 and PT15M from 2025-10-01
+ * (probed, 36.B1-F), and `extractPrices` regex-scrapes every `price.amount` in
+ * the document without reading its resolution tag. What reaches here is a flat
+ * concatenation: 24 points on an old day, 96 on a current one, and 192 when the
+ * fetch window returns two days — which is what `trading:<date>:raw` actually
+ * holds.
+ *
+ * Before Phase 36.B batch-2 this was `slice(0, 24)` indexed by
+ * `Math.floor(isp / 4)`, so from 2025-10-01 the card dispatched against the
+ * first SIX HOURS of the day stretched across 24. On 2026-07-14 the real day
+ * spanned €12-181 (midday solar trough, evening peak); the slice it saw spanned
+ * €127-151 of monotone early morning, so the p25/p75 triggers fired on noise.
+ *
+ * Detection is by payload length, never by date: the resolution is a property
+ * of the data, and a hardcoded cutover would be a display-affecting label
+ * asserting something it did not compute (discipline rule #2 — and the worker's
+ * own PT15M comment at :675 is a month wrong, which is exactly how that fails).
+ * Bucketing reuses the engine's established `Math.round(h * N / 24)` idiom
+ * (:4085-4098, Phase 31.A.2), which handles exact and ragged divisions alike.
+ */
+function daPricesToHourly24(daHourly) {
+  const all = Array.isArray(daHourly) ? daHourly : [];
+  if (!all.length) return [];
+
+  // LT day-ahead has only ever been PT60M or PT15M, so an exact divisor
+  // identifies resolution and day-count together: 192 → 96×2, 96 → 96×1,
+  // 48 → 24×2, 24 → 24×1.
+  let dayPoints = 0;
+  for (const c of [96, 24]) {
+    if (all.length % c === 0 && all.length / c <= 3) { dayPoints = c; break; }
+  }
+  // Ragged lengths: a DST day is 92 or 100 quarter-hours (23 or 25 hours), and
+  // ENTSO-E has been observed serving 95. Fall back to a resolution threshold.
+  if (!dayPoints) dayPoints = all.length >= 92 ? 96 : 24;
+
+  const day = all.slice(0, Math.min(dayPoints, all.length));
+  const N = day.length;
+  const out = [];
+  for (let h = 0; h < 24; h++) {
+    const lo = Math.round((h * N) / 24);
+    const hi = Math.max(lo + 1, Math.round(((h + 1) * N) / 24));
+    const bucket = day.slice(lo, Math.min(hi, N)).filter(p => Number.isFinite(p));
+    if (bucket.length) {
+      out.push(bucket.reduce((a, b) => a + b, 0) / bucket.length);
+    } else {
+      // Hold the previous hour rather than inventing a zero, which would read
+      // as a free-energy hour and pull the charge trigger down.
+      out.push(out.length ? out[out.length - 1] : 0);
+    }
+  }
+  return out;
+}
+
 function computeDispatchV2(btdData, daHourly, opts = {}) {
   const mw = opts.mw || 50;
   const dur_h = opts.dur_h || 4;
@@ -777,8 +833,8 @@ function computeDispatchV2(btdData, daHourly, opts = {}) {
   const max_reserve_mw = mw * RESERVE_MW_CAP_FRACTION;
   const min_arb_mw = mw * (1 - RESERVE_MW_CAP_FRACTION);
 
-  // DA price analysis
-  const daH = (daHourly || []).slice(0, 24);
+  // DA price analysis — resolution-aware, always 24 hourly values for the day.
+  const daH = daPricesToHourly24(daHourly);
   let chargeThreshold = 40, dischargeThreshold = 80;
   if (daH.length >= 20) {
     const sorted = [...daH].sort((a, b) => a - b);
@@ -10305,6 +10361,7 @@ export {
   warrantyStatusFor,
   computeEffectiveArbPct,
   computeDispatchV2,
+  daPricesToHourly24,
   bidAcceptanceFactor,
   reservePrice,
   marketDepthFactor,

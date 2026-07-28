@@ -30,6 +30,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   computeDispatchV2,
+  daPricesToHourly24,
   RTE_BOL,
   REVENUE_SCENARIOS_FOR_TEST,
 } from '../fetch-s1.js';
@@ -87,6 +88,65 @@ function energyFromTrace(result: Any, dur_h: number) {
   }
   return { charged, delivered, socEnd: socPrev, socStart: 0.50, mwh };
 }
+
+describe('daPricesToHourly24 — resolution awareness', () => {
+  /** Build a day whose hour h has a known mean, at `ppH` points per hour. */
+  const dayAt = (ppH: number, hourly: number[]) =>
+    hourly.flatMap(v => Array.from({ length: ppH }, (_, k) =>
+      // Spread each hour's points around its mean so averaging is actually
+      // exercised rather than trivially returning a repeated value.
+      v + (k - (ppH - 1) / 2)));
+
+  it('passes an already-hourly day through unchanged', () => {
+    expect(daPricesToHourly24(SHAPE_SPREAD)).toEqual(SHAPE_SPREAD);
+  });
+
+  it('averages a PT15M day (96 points) into 24 hours', () => {
+    const out = daPricesToHourly24(dayAt(4, SHAPE_SPREAD));
+    out.forEach((v: number, h: number) => expect(v).toBeCloseTo(SHAPE_SPREAD[h], 9));
+  });
+
+  it('takes the FIRST day from a two-day PT15M payload (192 points)', () => {
+    // The shape the live KV entry actually has. The second day is deliberately
+    // different, so leaking it in would move the answer.
+    const dayTwo = SHAPE_SPREAD.map(v => v * 3 + 500);
+    const out = daPricesToHourly24([...dayAt(4, SHAPE_SPREAD), ...dayAt(4, dayTwo)]);
+    out.forEach((v: number, h: number) => expect(v).toBeCloseTo(SHAPE_SPREAD[h], 9));
+  });
+
+  it('takes the FIRST day from a two-day hourly payload (48 points)', () => {
+    const dayTwo = SHAPE_SPREAD.map(v => v * 3 + 500);
+    expect(daPricesToHourly24([...SHAPE_SPREAD, ...dayTwo])).toEqual(SHAPE_SPREAD);
+  });
+
+  it('still returns 24 values on ragged DST-length payloads', () => {
+    for (const n of [23, 25, 92, 95, 100]) {
+      const src = Array.from({ length: n }, (_, i) => 50 + i);
+      const out = daPricesToHourly24(src);
+      expect(out).toHaveLength(24);
+      expect(out.every((v: number) => Number.isFinite(v))).toBe(true);
+      // Never invent a price outside the source range.
+      expect(Math.min(...out)).toBeGreaterThanOrEqual(Math.min(...src));
+      expect(Math.max(...out)).toBeLessThanOrEqual(Math.max(...src));
+    }
+  });
+
+  it('returns nothing for an empty or absent payload', () => {
+    expect(daPricesToHourly24([])).toEqual([]);
+    expect(daPricesToHourly24(undefined)).toEqual([]);
+  });
+
+  it('pins the defect: the old slice(0,24) saw only the first six hours', () => {
+    const src = dayAt(4, SHAPE_SPREAD);
+    const oldWay = src.slice(0, 24);                       // what shipped
+    const newWay = daPricesToHourly24(src) as number[];
+    // The old path's 24 "hourly" values are really hours 0-5, so its spread
+    // collapses. Assert the corrected path recovers the real one.
+    const spread = (a: number[]) => Math.max(...a) - Math.min(...a);
+    expect(spread(oldWay)).toBeLessThan(spread(newWay) / 2);
+    expect(spread(newWay)).toBeCloseTo(spread(SHAPE_SPREAD), 9);
+  });
+});
 
 describe('computeDispatchV2 — energy balance', () => {
   for (const dur_h of [2, 4]) {

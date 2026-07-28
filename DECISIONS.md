@@ -1403,10 +1403,21 @@ actually sees runs 151 → 127 → 144, a €24 spread — and it is monotone ea
 morning, so the p25/p75 triggers fire on noise.
 
 This is a larger defect than the one Part 0 was scoped to fix, and it is the
-dominant term in what the live card currently shows. **Not fixed here** — it is
-out of the stated Part-0 scope, it changes the public number far more than the
-RTE fix does, and there is an operator STOP at exactly this point. Raised for
-decision rather than folded in silently.
+dominant term in what the live card currently shows. Raised at the operator STOP
+rather than folded in silently — **operator directed it be folded into Part 0**,
+on the grounds that one complete public correction beats two visible changes in a
+week, that the RTE maths operates on inputs this bug corrupts (so the two
+validate as one coherent check), and that the context was already loaded.
+
+Fixed by `daPricesToHourly24`, which derives resolution from payload length and
+averages sub-hourly points into the hour using the engine's established
+`Math.round(h * N / 24)` bucketing (:4085-4098, Phase 31.A.2). Detection is by
+length and never by date — a hardcoded cutover would be a label asserting
+something it did not compute (rule #2), and the worker's own PT15M comment at
+:675 is a month wrong, which is precisely how that fails. Exact divisors identify
+resolution and day-count together (192 → 96×2, 96 → 96×1, 48 → 24×2, 24 → 24×1);
+ragged DST lengths (23, 25, 92, 95, 100) fall back to a threshold and are pinned
+by test.
 
 ### 36.B0-E — the live card cannot be verified today, for two independent reasons
 
@@ -1438,3 +1449,50 @@ Kept out to keep the public delta attributable to exactly the mandated change:
   cross-day continuity), `cycles_per_day_count` reports an SoC *range* labelled
   as a cycle count, and `annual_eur = daily × 365` with no seasonality or
   availability haircut.
+
+### 36.B0-G — the dispatch card's forecast panel is structurally dead
+
+Checked because the operator planned to spot-check `mode=forecast` after 14:00
+CET once deployed. It will not work, and not because of timing.
+
+`/api/dispatch?mode=forecast` reads `daTomorrow.prices_24h || daTomorrow.lt_prices`
+(:9835). Both writers of the `da_tomorrow` key store the return of
+`npShapeMetrics` — `{lt_peak, lt_trough, lt_avg, se4_avg, spread_pct}` plus
+`delivery_date` and `timestamp`. **Neither field is ever written.** The
+`/da_tomorrow/update` endpoint accepts a raw `lt_prices` array but passes it
+through `npShapeMetrics` and stores only the metrics, dropping the array.
+
+So the branch can return exactly two things: `"DA tomorrow publishes ~14:00 CET"`
+when the key is absent, and `"DA tomorrow prices empty"` once it exists. It has
+never served a forecast. `TradingEngineCard` fetches it on every render and
+silently gets null.
+
+Not fixed here — it is a data-plumbing change (persist the hourly array
+alongside the metrics), not a dispatch-maths one, and it would widen a commit
+that is already carrying two public corrections. But it removes the only
+on-demand live verification path, which is why 36.B0-E's replay-through-both-
+paths is not merely a convenience.
+
+### 36.B0-H — `extractPrices` silently DROPS negative-price hours
+
+Found while reasoning about what `daPricesToHourly24` must tolerate. The regex is
+`/<price\.amount>([\d.]+)<\/price\.amount>/g`, and `[\d.]+` cannot match a
+leading minus. The expectation would be a lost sign; the reality is worse —
+the whole element fails to match and is skipped, so a day with two negative
+hours yields a 94-point array instead of 96 **and every subsequent index shifts**.
+
+Verified directly: the pattern run over
+`<price.amount>-5.2</price.amount><price.amount>10.5</price.amount>` returns
+`[10.5]`.
+
+Negative day-ahead hours are routine in LT summer solar troughs, so this is live.
+2026-07-14 happens to bottom out at €8.9 and is unaffected, which is why the
+figures in 36.B0-A/D are clean. `daPricesToHourly24` degrades sensibly on the
+resulting ragged lengths rather than throwing, but the misalignment is upstream
+of it and stays.
+
+Not fixed here: `extractPrices` is shared with other routes, so correcting it
+needs its own byte-identity analysis over every consumer. Logged as its own
+candidate phase — and it is a prerequisite for trusting any negative-price
+behaviour in the dispatch policy, including the charge-preferred-in-negative-hours
+rule the arc specifies for B1.
