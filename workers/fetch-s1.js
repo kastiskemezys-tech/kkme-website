@@ -764,6 +764,62 @@ const POST_DRR_FCR_PRICE_EUR_MW_H = 42;
 // Source: enspired German portfolio behavior (Dec 2025).
 const RESERVE_MW_CAP_FRACTION = 0.70;
 
+/**
+ * Day-ahead price array → exactly 24 hourly values for the TARGET day.
+ *
+ * ENTSO-E A44 for LT is PT60M through 2025-09-29 and PT15M from 2025-10-01
+ * (probed, 36.B1-F), and `extractPrices` regex-scrapes every `price.amount` in
+ * the document without reading its resolution tag. What reaches here is a flat
+ * concatenation: 24 points on an old day, 96 on a current one, and 192 when the
+ * fetch window returns two days — which is what `trading:<date>:raw` actually
+ * holds.
+ *
+ * Before Phase 36.B batch-2 this was `slice(0, 24)` indexed by
+ * `Math.floor(isp / 4)`, so from 2025-10-01 the card dispatched against the
+ * first SIX HOURS of the day stretched across 24. On 2026-07-14 the real day
+ * spanned €12-181 (midday solar trough, evening peak); the slice it saw spanned
+ * €127-151 of monotone early morning, so the p25/p75 triggers fired on noise.
+ *
+ * Detection is by payload length, never by date: the resolution is a property
+ * of the data, and a hardcoded cutover would be a display-affecting label
+ * asserting something it did not compute (discipline rule #2 — and the worker's
+ * own PT15M comment at :675 is a month wrong, which is exactly how that fails).
+ * Bucketing reuses the engine's established `Math.round(h * N / 24)` idiom
+ * (:4085-4098, Phase 31.A.2), which handles exact and ragged divisions alike.
+ */
+function daPricesToHourly24(daHourly) {
+  const all = Array.isArray(daHourly) ? daHourly : [];
+  if (!all.length) return [];
+
+  // LT day-ahead has only ever been PT60M or PT15M, so an exact divisor
+  // identifies resolution and day-count together: 192 → 96×2, 96 → 96×1,
+  // 48 → 24×2, 24 → 24×1.
+  let dayPoints = 0;
+  for (const c of [96, 24]) {
+    if (all.length % c === 0 && all.length / c <= 3) { dayPoints = c; break; }
+  }
+  // Ragged lengths: a DST day is 92 or 100 quarter-hours (23 or 25 hours), and
+  // ENTSO-E has been observed serving 95. Fall back to a resolution threshold.
+  if (!dayPoints) dayPoints = all.length >= 92 ? 96 : 24;
+
+  const day = all.slice(0, Math.min(dayPoints, all.length));
+  const N = day.length;
+  const out = [];
+  for (let h = 0; h < 24; h++) {
+    const lo = Math.round((h * N) / 24);
+    const hi = Math.max(lo + 1, Math.round(((h + 1) * N) / 24));
+    const bucket = day.slice(lo, Math.min(hi, N)).filter(p => Number.isFinite(p));
+    if (bucket.length) {
+      out.push(bucket.reduce((a, b) => a + b, 0) / bucket.length);
+    } else {
+      // Hold the previous hour rather than inventing a zero, which would read
+      // as a free-energy hour and pull the charge trigger down.
+      out.push(out.length ? out[out.length - 1] : 0);
+    }
+  }
+  return out;
+}
+
 function computeDispatchV2(btdData, daHourly, opts = {}) {
   const mw = opts.mw || 50;
   const dur_h = opts.dur_h || 4;
@@ -777,8 +833,8 @@ function computeDispatchV2(btdData, daHourly, opts = {}) {
   const max_reserve_mw = mw * RESERVE_MW_CAP_FRACTION;
   const min_arb_mw = mw * (1 - RESERVE_MW_CAP_FRACTION);
 
-  // DA price analysis
-  const daH = (daHourly || []).slice(0, 24);
+  // DA price analysis — resolution-aware, always 24 hourly values for the day.
+  const daH = daPricesToHourly24(daHourly);
   let chargeThreshold = 40, dischargeThreshold = 80;
   if (daH.length >= 20) {
     const sorted = [...daH].sort((a, b) => a - b);
@@ -835,17 +891,37 @@ function computeDispatchV2(btdData, daHourly, opts = {}) {
     let arbRev = 0;
     let arbAction = 'hold';
 
+    // Only buy energy the day's own shape can sell at a profit: 1 MWh bought
+    // yields `rte` MWh sellable, so the trip clears when the discharge trigger
+    // beats the purchase price after losses. Same-day, post-auction information
+    // only — no foresight is added. Without this the policy charged in the
+    // cheap quartile unconditionally and booked a guaranteed loss on every
+    // low-spread day (on a perfectly flat day p25 == p75, so it charged in all
+    // 96 ISPs). That is a modelling error, not conservatism, and it is the same
+    // defect the hourly engine fixed in 36.B1-L.
+    const roundTripClears = dischargeThreshold * rte > daPrice;
+
     if (arbMW > 0 && daPrice > 0) {
-      if (daPrice <= chargeThreshold && soc < 0.85) {
-        const maxCharge = Math.min(arbMW / 4, (0.90 - soc) * mwh);
+      if (daPrice <= chargeThreshold && soc < 0.85 && roundTripClears) {
+        // Grid-side purchase. The round-trip loss is charged once, on the
+        // charge leg: buying `maxCharge` MWh raises SoC by `maxCharge × rte`.
+        // Before Phase 36.B batch-2 this credited SoC with the full purchased
+        // energy while applying `rte` as a cap on discharge *power* instead, so
+        // a full cycle bought 1 MWh and sold 1 MWh and the round-trip loss was
+        // never charged at all. Same treatment as the canonical hourly engine
+        // in tools/consultancy/lib/dispatch.mjs; the two are pinned to each
+        // other by the mirror test in workers/__tests__/dispatchV2.test.ts.
+        const maxCharge = Math.min(arbMW / 4, (0.90 - soc) * mwh / rte);
         if (maxCharge > 0) {
-          soc += maxCharge / mwh;
+          soc += maxCharge * rte / mwh;
           arbRev = -maxCharge * daPrice;
           arbAction = 'charge';
           chargeISPs.push(i);
         }
       } else if (daPrice >= dischargeThreshold && soc > 0.15) {
-        const maxDischarge = Math.min(arbMW * rte / 4, (soc - 0.10) * mwh);
+        // Discharge delivers exactly what leaves SoC. RTE is deliberately NOT
+        // applied again here — it was already charged on the way in.
+        const maxDischarge = Math.min(arbMW / 4, (soc - 0.10) * mwh);
         if (maxDischarge > 0) {
           soc -= maxDischarge / mwh;
           arbRev = maxDischarge * daPrice;
@@ -947,12 +1023,18 @@ function computeDispatchV2(btdData, daHourly, opts = {}) {
       annual_eur: t_r0(totalRev / mw) * 365,
       capacity_eur_day: t_r0(totalCapRev / mw),
       activation_eur_day: t_r0(totalActRev / mw),
-      arbitrage_eur_day: t_r0(Math.max(0, totalArbRev) / mw),
+      // No floor at zero. A day whose price shape never covers the round trip
+      // loses money on arbitrage, and clamping that to zero both overstated the
+      // line and desynchronised it from `daily_eur` (which has always included
+      // the negative). The honest number includes the losing days.
+      arbitrage_eur_day: t_r0(totalArbRev / mw),
     },
     split_pct: totalRev > 0 ? {
       capacity: Math.round(totalCapRev / totalRev * 100),
       activation: Math.round(totalActRev / totalRev * 100),
-      arbitrage: Math.round(Math.max(0, totalArbRev) / totalRev * 100),
+      // Unclamped for the same reason: with the floor in place the three shares
+      // summed to >100 % on any day with negative arbitrage.
+      arbitrage: Math.round(totalArbRev / totalRev * 100),
     } : { capacity: 0, activation: 0, arbitrage: 0 },
     mw_allocation: {
       avg_reserves_mw: t_r1(totalReserveMW / 96),
@@ -10279,6 +10361,14 @@ export {
   warrantyStatusFor,
   computeEffectiveArbPct,
   computeDispatchV2,
+  daPricesToHourly24,
+  // Phase 36.B3 — the backtest measures `trading_realisation` as achievable ÷
+  // perfect foresight. The register defines that denominator as "x of perfect
+  // foresight" on the S1 SORT-AND-DISPATCH capture, and this is that function.
+  // Restating it in the consultancy tree would put the measured value on a
+  // different denominator from the assumed value it replaces, making the two
+  // incomparable — which is the whole point of the measurement (rule #4).
+  computeDayCapture,
   bidAcceptanceFactor,
   reservePrice,
   marketDepthFactor,

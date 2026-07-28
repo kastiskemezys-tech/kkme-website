@@ -85,58 +85,27 @@ export async function buildReserveInputs(kv, sc, engine) {
 }
 
 /**
- * Quantify the overstatement in the shipped `computeDispatchV2` (Pause A
- * correction #17, operator decision D2: quantify, do not fix).
+ * RETIRED — Phase 36.B batch-2 Part 0 fixed the defect this measured.
  *
- * Runs V2 and this engine over the same days with the same prices, and isolates
- * the round-trip-loss error by re-deriving V2's arbitrage with the RTE loss
- * correctly charged on the charge leg.
+ * This estimated the shipped `computeDispatchV2`'s arbitrage overstatement under
+ * operator decision D2 ("quantify, do not fix") by re-deriving V2's arbitrage
+ * with the round-trip loss charged on the charge leg — valid only while V2 did
+ * NOT charge it. V2 now does (36.B0-A), so re-applying `r * rte` to its output
+ * would double-count the loss and report an overstatement that no longer exists.
+ *
+ * Deliberately fails rather than being deleted: the `--quantify-v2` flag lives
+ * in operator notes and prior handovers, and a flag that silently returns a
+ * wrong number is worse than one that explains itself. The measurement it used
+ * to produce is preserved in DECISIONS.md 36.B1-E and 36.B0-A; the two
+ * implementations are now pinned to each other permanently by the mirror class
+ * in `workers/__tests__/dispatchV2.test.ts`.
  */
-export function quantifyV2Overstatement(engine, prices, config, days) {
-  const { computeDispatchV2, RTE_BOL } = engine;
-  const dur_h = config.duration_h ?? config.mwh / config.mw;
-  const rte = dur_h <= 2 ? RTE_BOL.h2 : RTE_BOL.h4;
-
-  // V2 is driven with `btdData = null`, so its capacity and activation legs are
-  // zero and only the arbitrage leg is exercised. That is deliberate: the defect
-  // being measured is in the arbitrage SoC ledger, and isolating it keeps the
-  // number attributable rather than blended with reserve assumptions.
-  const out = [];
-  for (const d of days) {
-    const daHourly = prices.slice(d * 24, d * 24 + 24);
-    if (daHourly.length < 24 || daHourly.some((p) => p == null)) continue;
-
-    const v2 = computeDispatchV2(null, daHourly, {
-      mw: config.mw,
-      dur_h,
-      date_iso: `day-${d}`,
-      mode: 'realised',
-    });
-
-    // V2 decrements SoC by the delivered energy while capping discharge power by
-    // RTE, so a round trip returns as much energy as it took in. Re-derive the
-    // arbitrage with the loss charged once, on the charge leg, holding every
-    // other V2 behaviour fixed.
-    let corrected = 0;
-    let asReported = 0;
-    for (const isp of v2.isp_dispatch) {
-      const r = isp.revenue.arbitrage;
-      asReported += r;
-      // Discharge revenue is overstated by the factor the charge leg never paid.
-      corrected += r > 0 ? r * rte : r;
-    }
-
-    out.push({
-      day: d,
-      da_avg: v2.market_context.da_avg_eur_mwh,
-      v2_arb_reported_eur: asReported,
-      v2_arb_reported_clamped_eur: Math.max(0, asReported),
-      arb_rte_corrected_eur: corrected,
-      overstatement_eur: Math.max(0, asReported) - corrected,
-      clamp_effect_eur: Math.max(0, asReported) - asReported,
-    });
-  }
-  return out;
+export function quantifyV2Overstatement() {
+  throw new Error(
+    'quantifyV2Overstatement is retired: Phase 36.B batch-2 Part 0 corrected the ' +
+    'computeDispatchV2 RTE ledger, so this would double-charge the loss. See ' +
+    'DECISIONS.md 36.B0-A and workers/__tests__/dispatchV2.test.ts.'
+  );
 }
 
 function toCsv(rows) {
@@ -404,7 +373,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const zone = arg('zone', 'LT');
   const scenario = arg('scenario', 'base');
 
-  const { payload, prices, engine } = await runDispatch({
+  const { payload } = await runDispatch({
     config, year, zone, scenario, kv, writeCsv: !argv.includes('--no-csv'),
   });
 
@@ -437,49 +406,18 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     console.log(`${mark} ${name}: ${g.detail}`);
   }
 
-  // Operator decision D2 — quantify the shipped dispatch card's overstatement.
+  // Operator decision D2 — retired by Phase 36.B batch-2 Part 0, which fixed the
+  // defect instead of only measuring it. Left in place so the flag explains
+  // itself rather than silently producing a number that no longer means anything.
   if (argv.includes('--quantify-v2')) {
-    // Every day of the year, not a sample — the estimate is cheap and a
-    // seven-day sample would carry a sampling caveat into an operator decision.
-    const allDays = Array.from({ length: Math.floor(prices.length / 24) }, (_, i) => i);
-    const rowsV2 = quantifyV2Overstatement(engine, prices, config, allDays);
-    const sumRep = rowsV2.reduce((s, x) => s + x.v2_arb_reported_clamped_eur, 0);
-    const sumCor = rowsV2.reduce((s, x) => s + x.arb_rte_corrected_eur, 0);
-    const sumRaw = rowsV2.reduce((s, x) => s + x.v2_arb_reported_eur, 0);
-    const lossDays = rowsV2.filter((x) => x.arb_rte_corrected_eur < 0);
-    const clampDays = rowsV2.filter((x) => x.v2_arb_reported_eur < 0);
-    const pct = (a, b) => (b !== 0 ? ((a - b) / Math.abs(b)) * 100 : null);
-
-    console.log(`\n── computeDispatchV2 arbitrage overstatement · ${zone} ${year} · ${rowsV2.length} days ──`);
-    console.log(`as published (negative days clamped to 0)   €${Math.round(sumRep).toLocaleString('en-US')}`);
-    console.log(`as computed before the clamp                €${Math.round(sumRaw).toLocaleString('en-US')}`);
-    console.log(`with the round-trip loss charged correctly  €${Math.round(sumCor).toLocaleString('en-US')}`);
-    console.log(`\noverstatement vs corrected                  ${pct(sumRep, sumCor)?.toFixed(1)}%`);
-    console.log(`  of which the RTE ledger defect            €${Math.round(sumRaw - sumCor).toLocaleString('en-US')}`);
-    console.log(`  of which the negative-day clamp           €${Math.round(sumRep - sumRaw).toLocaleString('en-US')}`);
-    console.log(`\ndays where corrected arbitrage is a LOSS    ${lossDays.length} of ${rowsV2.length}`);
-    console.log(`days the clamp hid a negative result        ${clampDays.length} of ${rowsV2.length}`);
-    console.log(
-      `\nper MW-yr: published €${Math.round(sumRep / config.mw).toLocaleString('en-US')} ` +
-      `vs corrected €${Math.round(sumCor / config.mw).toLocaleString('en-US')} ` +
-      `→ €${Math.round((sumRep - sumCor) / config.mw).toLocaleString('en-US')}/MW/yr overstated`
+    console.error(
+      '\n--quantify-v2 is retired. Part 0 of Phase 36.B batch-2 corrected the\n' +
+      'computeDispatchV2 RTE ledger and the negative-day clamp, so there is no\n' +
+      'overstatement left to measure and this estimator would double-charge the\n' +
+      'round-trip loss. See DECISIONS.md 36.B0-A for the measured before/after,\n' +
+      'and workers/__tests__/dispatchV2.test.ts for the permanent mirror gate.\n'
     );
-
-    payload.v2_overstatement = {
-      zone, year, days: rowsV2.length,
-      published_eur: sumRep,
-      pre_clamp_eur: sumRaw,
-      rte_corrected_eur: sumCor,
-      overstatement_pct: pct(sumRep, sumCor),
-      rte_defect_eur: sumRaw - sumCor,
-      clamp_effect_eur: sumRep - sumRaw,
-      loss_days: lossDays.length,
-      clamped_days: clampDays.length,
-      per_mw_yr_overstated_eur: (sumRep - sumCor) / config.mw,
-      scope: 'arbitrage leg only — V2 driven with btdData=null so capacity/activation are zero',
-      daily: rowsV2,
-    };
-    writeFileSync(join(OUTPUT_DIR, `v2-overstatement-${zone}-${year}.json`), JSON.stringify(payload.v2_overstatement, null, 2) + '\n');
+    process.exit(2);
   }
 
   if (payload.files) console.log(`\nwrote ${payload.files.join(', ')}`);

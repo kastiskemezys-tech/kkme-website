@@ -1322,3 +1322,385 @@ charges cell wear for ~43 % more day-ahead throughput than it earns revenue on.
 Both directions are conservative — more wear, less income — which is why it has
 gone unnoticed. It is still a contradictory branch of the kind bankability
 test #5 asks about. Reported, not changed: reconciling it is 36.B5's scope.
+
+## Phase 36.B batch-2 — Part 0 (computeDispatchV2 micro-fix)
+
+### 36.B0-A — the RTE defect is real, but its net effect is duration-dependent
+
+Pause A's correction #17 said the energy-balance defect "inflates revenue". The
+first half is confirmed exactly: `soc += maxCharge / mwh` credited the battery
+with every purchased MWh, so a full cycle bought 1 MWh and sold 1 MWh and the
+round-trip loss was never charged. Now `soc += maxCharge * rte / mwh`, matching
+`lib/dispatch.mjs` — the loss is charged once, on the charge leg.
+
+What #17 did not say is that the *same line* carried a compensating
+understatement. `maxDischarge = arbMW * rte / 4` applied RTE a second time as a
+cap on discharge **power**, which is not a physical constraint at all: an
+inverter's rating does not shrink by its round-trip efficiency. Removing it
+returns discharge to the full arbitrage MW, exactly as the hourly engine does.
+
+Measured over every day of two real LT price years, reserves neutralised so the
+arbitrage line is isolated (mean €/MW/day, 50 MW reference):
+
+| year | dur | main | +guard | +RTE re-leg | full |
+|---|---|---|---|---|---|
+| 2024 | 2h | 180.9 | 181.6 (+0.4 %) | 164.3 (−9.2 %) | 165.5 (**−8.5 %**) |
+| 2024 | 4h | 350.6 | 351.8 (+0.3 %) | 344.4 (−1.8 %) | 346.2 (**−1.3 %**) |
+| 2025 | 2h | 209.4 | 209.7 (+0.2 %) | 196.7 (−6.0 %) | 197.2 (**−5.8 %**) |
+| 2025 | 4h | 383.9 | 384.3 (+0.1 %) | 389.3 (+1.4 %) | 389.8 (**+1.5 %**) |
+
+So the batch prompt's expected "≈ −40 % on arbitrage" is not what the corrected
+maths produces — it is **−6 to −9 % at 2h and roughly flat to slightly positive
+at 4h**. The two errors were largely offsetting, and which one dominates depends
+on whether SoC or power is the binding constraint: at 2h energy is scarce and
+the uncharged loss dominated, at 4h energy is plentiful and the bogus discharge
+cap dominated. Rule #1 — the −40 % was a hypothesis, and it is now measured.
+
+### 36.B0-B — the clamp was desynchronising the card from its own total
+
+`Math.max(0, totalArbRev)` floored the reported arbitrage line at zero while
+`daily_eur` had always carried the true negative. On the live KV day
+(2026-07-14, 2h) the card published capacity €825 + activation €720 +
+arbitrage €0 against a daily total of €1 376 — three components that do not sum
+to their own headline, because €169/MW/day of loss was hidden. The same clamp
+sat in `split_pct`, so the three shares summed to 112 %.
+
+Both are unclamped. A day whose shape never covers the round trip loses money on
+arbitrage and the honest number says so.
+
+### 36.B0-C — the round-trip guard had to ship with the fix
+
+The batch prompt's validation gate asks for computeDispatchV2's corrected daily
+arbitrage to sit "within a small explained delta" of `lib/dispatch.mjs`. It does
+not, on low-spread days, until the same guard the hourly engine gained in 36.B1-L
+is present here: on a perfectly flat day p25 == p75, so `daPrice <= chargeThreshold`
+is true in all 96 ISPs and the old policy charged in every one of them and booked
+a guaranteed loss. Mirror delta on that shape was **−430 %** without the guard and
+−13 % with it. It is one line inside the same function, it adds no foresight
+(same-day, post-auction information only), and the gate cannot be met without it.
+
+Mirror residual after the fix, over spread / flat / shallow shapes at 2h and 4h:
+computeDispatchV2 lands **7-14 % BELOW** the hourly engine, never above. Two
+causes, both revenue-removing and therefore conservative: it works a narrower SoC
+window (0.10-0.90 of nameplate against the engine's 0.05-0.95 of SOH-derated
+usable MWh), and it commits in 15-minute blocks so it reaches its bounds sooner
+inside a price run. Pinned by `workers/__tests__/dispatchV2.test.ts`, which fails
+if the card ever starts claiming MORE than the bankable engine.
+
+### 36.B0-D — `da_hourly` is a 192-point 15-minute array read as 24 hourly prices
+
+Found while quantifying the fix against the real KV inputs, not by inspection.
+`trading:2026-07-14:raw` carries `da_hourly` with **192** entries — two days at
+PT15M, the resolution LT day-ahead has used since 2025-10-01 (36.B1-F). But
+`computeDispatchV2` does `daH = (daHourly || []).slice(0, 24)` and then indexes
+`daH[Math.floor(i / 4)]`, i.e. it treats the first 24 quarter-hours as if they
+were 24 hourly prices. **The card has been dispatching against the first six
+hours of the day, stretched over 24, since 2025-10-01.**
+
+The distortion is not subtle. Hourly-averaged, that day runs 146 → 12 (midday
+solar trough) → 181 (evening peak), a €169 spread. The slice the function
+actually sees runs 151 → 127 → 144, a €24 spread — and it is monotone early
+morning, so the p25/p75 triggers fire on noise.
+
+This is a larger defect than the one Part 0 was scoped to fix, and it is the
+dominant term in what the live card currently shows. Raised at the operator STOP
+rather than folded in silently — **operator directed it be folded into Part 0**,
+on the grounds that one complete public correction beats two visible changes in a
+week, that the RTE maths operates on inputs this bug corrupts (so the two
+validate as one coherent check), and that the context was already loaded.
+
+Fixed by `daPricesToHourly24`, which derives resolution from payload length and
+averages sub-hourly points into the hour using the engine's established
+`Math.round(h * N / 24)` bucketing (:4085-4098, Phase 31.A.2). Detection is by
+length and never by date — a hardcoded cutover would be a label asserting
+something it did not compute (rule #2), and the worker's own PT15M comment at
+:675 is a month wrong, which is precisely how that fails. Exact divisors identify
+resolution and day-count together (192 → 96×2, 96 → 96×1, 48 → 24×2, 24 → 24×1);
+ragged DST lengths (23, 25, 92, 95, 100) fall back to a threshold and are pinned
+by test.
+
+### 36.B0-E — the live card cannot be verified today, for two independent reasons
+
+`/api/dispatch?mode=realised` does not compute anything: it reads the
+precomputed `dispatch:<date>:<dur>h` KV value written by the cron. Those keys
+were last written **2026-07-17** for market day **2026-07-14** — BTD has been
+failing since (36.B1-G, now 11+ days). So deploying this fix changes the
+realised card **not at all** until BTD returns and the cron rewrites KV.
+
+`mode=forecast` does compute live through `computeDispatchV2`, so it would show
+the corrected number — but it returned `{forecast: null, reason: "DA tomorrow
+publishes ~14:00 CET"}` on both durations at the time of writing.
+
+Deploy remains correct and safe; post-deploy live verification is simply not
+available on demand. Quantification was done instead by replaying the exact
+stored KV inputs through both code paths locally, which is what the card will
+show once the feed returns.
+
+### 36.B0-F — two adjacent defects logged, deliberately not fixed
+
+Kept out to keep the public delta attributable to exactly the mandated change:
+
+- `capture_eur_mwh` (`:918-921`) silently substitutes a *theoretical*
+  `(daMax − daMin) × rte × 0.5` whenever `totalArbRev <= 0`, so a losing day can
+  publish a healthy-looking capture spread (€70.18/MWh on one shape tested).
+  A display value asserting something it did not measure — rule #2 territory.
+  Unchanged by this commit on the live path (9.97 / 10.09 before and after).
+- The other #17 defects stand: SoC resets to 0.50 at each day boundary (no
+  cross-day continuity), `cycles_per_day_count` reports an SoC *range* labelled
+  as a cycle count, and `annual_eur = daily × 365` with no seasonality or
+  availability haircut.
+
+### 36.B0-G — the dispatch card's forecast panel is structurally dead
+
+Checked because the operator planned to spot-check `mode=forecast` after 14:00
+CET once deployed. It will not work, and not because of timing.
+
+`/api/dispatch?mode=forecast` reads `daTomorrow.prices_24h || daTomorrow.lt_prices`
+(:9835). Both writers of the `da_tomorrow` key store the return of
+`npShapeMetrics` — `{lt_peak, lt_trough, lt_avg, se4_avg, spread_pct}` plus
+`delivery_date` and `timestamp`. **Neither field is ever written.** The
+`/da_tomorrow/update` endpoint accepts a raw `lt_prices` array but passes it
+through `npShapeMetrics` and stores only the metrics, dropping the array.
+
+So the branch can return exactly two things: `"DA tomorrow publishes ~14:00 CET"`
+when the key is absent, and `"DA tomorrow prices empty"` once it exists. It has
+never served a forecast. `TradingEngineCard` fetches it on every render and
+silently gets null.
+
+Not fixed here — it is a data-plumbing change (persist the hourly array
+alongside the metrics), not a dispatch-maths one, and it would widen a commit
+that is already carrying two public corrections. But it removes the only
+on-demand live verification path, which is why 36.B0-E's replay-through-both-
+paths is not merely a convenience.
+
+### 36.B0-H — `extractPrices` silently DROPS negative-price hours
+
+Found while reasoning about what `daPricesToHourly24` must tolerate. The regex is
+`/<price\.amount>([\d.]+)<\/price\.amount>/g`, and `[\d.]+` cannot match a
+leading minus. The expectation would be a lost sign; the reality is worse —
+the whole element fails to match and is skipped, so a day with two negative
+hours yields a 94-point array instead of 96 **and every subsequent index shifts**.
+
+Verified directly: the pattern run over
+`<price.amount>-5.2</price.amount><price.amount>10.5</price.amount>` returns
+`[10.5]`.
+
+Negative day-ahead hours are routine in LT summer solar troughs, so this is live.
+2026-07-14 happens to bottom out at €8.9 and is unaffected, which is why the
+figures in 36.B0-A/D are clean. `daPricesToHourly24` degrades sensibly on the
+resulting ragged lengths rather than throwing, but the misalignment is upstream
+of it and stays.
+
+Not fixed here: `extractPrices` is shared with other routes, so correcting it
+needs its own byte-identity analysis over every consumer. Logged as its own
+candidate phase — and it is a prerequisite for trusting any negative-price
+behaviour in the dispatch policy, including the charge-preferred-in-negative-hours
+rule the arc specifies for B1.
+
+## Phase 36.B batch-2 — Part 1 (36.B2 historical-year bootstrap)
+
+### 36.B2-A — 2026 is not a shape-year, so the primary sample is five years
+
+The batch prompt set the primary sample at 2021-2026. The committed 2026 file is
+**57.5 % covered** (5 038 of 8 760 hours, year to date), and a partial year cannot
+be replayed as an annual dispatch. Primary is therefore **2021-2025 (5 years)** and
+the sensitivity is **2015-2025 (11 years)**, both complete at 100 % coverage.
+Checked, not assumed — every other year in the estate is 100 %.
+
+### 36.B2-B — the factor basis had to be the ATTRIBUTED revenue lines
+
+The first working version took shape-year factors from `revenue.arbitrage`, the
+raw line. `lib/dispatch.mjs` books the entire charging cost against arbitrage, so
+that line is negative in 2021, 2022 and 2023 (36.B1-K). Ratios of negatives gave
+2022 an arbitrage factor of **−1.401**, which scales the engine's trading revenue
+through zero and out the other side — a nonsense distribution that still produced
+a plausible-looking percentile table and three green gates.
+
+`revenue.attributed` splits charging cost pro rata by delivered MWh and its
+arbitrage line is positive in every shape-year, which is what makes it a valid
+ratio base. `shapeYearFactors` now throws on any non-positive factor rather than
+propagating one, and a test pins the 2022 case specifically.
+
+### 36.B2-C — activation is measured but not applied
+
+`activation_net` is negative in all eleven shape-years — the conservative up-only
+artefact of 36.B1-M. Its variation between years is driven by attributed charging
+cost, not by any day-ahead signal: activation energy comes from flat annual
+anchors and its price is flat under D3. Scaling the engine's positive `rev_act` by
+the ratio of two artefacts would import that artefact into a client deliverable,
+so the factor is pinned at 1.0 and the measured ratio is carried beside it as
+`activation_measured`.
+
+Capacity's factor IS applied. It is small (0.81-1.02 across the eleven years) but
+genuine: in low-price years the round-trip test bars charging, SoC drifts to the
+floor, and a battery sitting empty cannot hold the up-reserve headroom its
+committed MW implies — so committable MW falls. That is a real simultaneity
+effect and precisely what this arc exists to surface.
+
+### 36.B2-D — the sample cannot resolve P90 at all, and says so
+
+Empirical exceedance percentiles on Weibull plotting positions: with N samples the
+i-th smallest carries exceedance (N − i + 1)/(N + 1), so a sample of N resolves
+only **[1/(N+1), N/(N+1)]**.
+
+| sample | N | resolves | P50 | P75 | P90 | P99 |
+|---|---|---|---|---|---|---|
+| primary 2021-2025 | 5 | P17-P83 | ✓ | ✓ | **✗** | **✗** |
+| sensitivity 2015-2025 | 11 | P8-P92 | ✓ | ✓ | ✓ | **✗** |
+
+So the headline five-year sample **cannot produce a measured P90** — the debt-sizing
+percentile. It is reported with `resolved: false`, clamped to the sample minimum,
+and carries the reason string in the payload. Eleven years buys a genuine P90 and
+still cannot reach P99 (that needs ~99 years).
+
+This is the arc's honesty constraint made mechanical rather than editorial. An
+advisor who sees `resolved: false` next to a P90 learns more than one who sees a
+confident number built on five observations.
+
+### 36.B2-E — P50 vs Central: −3.9 % on the primary sample, −22.8 % on the sensitivity
+
+Both are correct, and the second is the more interesting number.
+
+Factors are struck against a FIXED reference year (2025, the most recent complete
+one) rather than against the sample mean, deliberately: normalising to the mean
+would have made the P50-vs-Central gate tautological. Against a fixed reference the
+gate can fail, and on the eleven-year sample it does — by −22.8 %.
+
+That is not a reconciliation failure. Pre-crisis LT day-ahead ran at €34-50/MWh mean
+(2015-2020) against €85-95 post-2021, and Central is calibrated on current market
+state. The gap measures the regime difference, which is exactly why operator
+decision D4 set the primary sample post-2021. Reported as `expected_deviation: true`
+on the sensitivity run, following the 36.B1-N precedent; the primary sample is the
+gated one and passes at −3.9 %.
+
+### 36.B2-F — percentile bridges are built from whole shape-year paths
+
+A per-year percentile table is a band, not a path: year 3's P90 and year 12's P90
+can come from different shape-years, so reading down the column is not a scenario
+anything could deliver. Both views ship, but the client bridges at P50 and P90 are
+built from a single real shape-year's entire 20-year projection, named in the
+output. That is what keeps the batch prompt's "every distribution input traceable
+to a shape-year, no synthetic draws" literally true of the delivered bridge.
+
+### 36.B2-G — what this distribution structurally understates
+
+Reserve prices are flat across every shape-year under D3, so capacity revenue
+varies only through committable MW and never through price. **The spread reported
+here is a day-ahead spread.** Total revenue variance is larger — the reserve stack
+is **67.9 % of Y1 gross and 71.9 % of lifetime gross** in the reference case, and
+contributes almost no variance to this distribution. Carried as `reserve_basis: "calibrated-flat (see D3)"` in every
+output payload so the number cannot travel without the caveat.
+
+## Phase 36.B batch-2 — Part 2 (36.B3 dispatch backtest)
+
+### 36.B3-A — trading realisation measures 0.7234 against an assumed 0.85
+
+Twelve months of realised LT day-ahead prices, 2025-07-01 → 2026-06-30, 365 days
+evaluated, 349 traded, 16 declined. Volume-weighted **0.7234**; simple mean
+0.7321; daily distribution min 0.187 · p25 0.628 · median 0.756 · p75 0.849 ·
+max 0.997. Monthly volume-weighted range 0.654 (2025-09) to 0.815 (2026-05).
+
+The measurement is **0.1266 below the assumption**, and it sits below the
+register's own declared sensitivity range for that driver, `[0.78, 0.88]` — so
+the range is understated, not merely the point value. Per the batch prompt's own
+instruction, whatever it is, it ships: a measured 0.72 with a stated method beats
+an assumed 0.85 sourced to an industry range.
+
+### 36.B3-B — the denominator had to be the engine's own sort-and-dispatch
+
+The register defines `trading_realisation` as "x of perfect foresight" against
+the S1 **sort-and-dispatch** capture — sort a day's prices, charge in the
+cheapest N intervals, discharge in the dearest N, take the spread. That is
+`computeDayCapture` in the worker.
+
+Restating it in the consultancy tree would have put the measured value on a
+different denominator from the assumed value it is meant to replace, making the
+two incomparable — which would have destroyed the entire point of measuring it.
+So the function is exported and imported (rule #4). That is a deliberate
+deviation from this batch's "Parts 1-2 are `tools/consultancy/` only" rule,
+taken on the 36.B1-H precedent (*"reuse outranks the convenience of an empty
+diff"*) and paid for with evidence: `/revenue` is byte-identical at the route
+layer, 54/54, with the export in place.
+
+The numerator is the same construct from the B1 policy: volume-weighted average
+discharge price minus volume-weighted average charge price, on the same day and
+the same asset with reserves neutralised.
+
+### 36.B3-C — three look-ahead checks, run whether or not the answer was convenient
+
+The prompt asks for a leakage hunt only if the figure exceeds 0.90. All three
+checks run unconditionally, because a clean bill of health conditional on the
+answer being comfortable is not worth having.
+
+| check | result |
+|---|---|
+| no day beats perfect foresight | 0 of 349 days score > 1.0 (max 0.997) |
+| headline below the 0.90 tripwire | 0.7234 |
+| realisation uncorrelated with day quality | Pearson r = **−0.093** |
+
+The correlation check is the substantive one: a policy that scored best exactly
+on the widest-spread days would be a policy that knew which days those were. It
+is very slightly NEGATIVE, which is the expected sign for a threshold rule (wide
+days offer more spread than p25/p75 triggers can reach).
+
+### 36.B3-D — declined days are excluded, not scored as zero
+
+The policy declined to trade on 16 of 365 days. Scoring those as 0.0 would drag
+the headline to about 0.69. It would also be wrong: refusing a spread that cannot
+cover the round trip is the round-trip guard working, not a missed opportunity.
+They are counted, reported separately, and excluded from both aggregates.
+
+### 36.B3-E — the 15-minute uplift is measured at 0.0885 against an asserted 0.14
+
+`RYSTAD_15MIN_UPLIFT_DECIMAL = 0.14` is applied to the public dispatch card's
+published capture. Operator decision D1(c) asked for it to be tested, and LT
+day-ahead has been natively PT15M since 2025-10-01, so it is directly testable.
+
+The committed year files average sub-hourly points into the hour under D1, so
+`run-15min-delta.mjs` re-fetches the same days at native resolution and runs
+`computeDayCapture` at 15 and at 60 minutes on identical days. Over **273
+complete PT15M days**: weighted uplift **0.0885**, simple mean 0.0979, median
+0.0815, range 0.0005-0.845.
+
+So the asserted constant is roughly **58 % higher than measured**. Reported, not
+changed — it is a worker constant on the public dispatch path, and this batch has
+already made one public correction. `parseA44` gained an opt-in `keepPoints` flag
+to make the measurement possible; the hourly path is untouched by default.
+
+### 36.B3-F — the measurement is recorded in the register, NOT adopted
+
+The prompt asked for `trading_realisation` to "become measured", with the assumed
+value kept as a comparison row. Implementing that literally collided with two
+things the register itself asserts:
+
+1. `__tests__/register.test.ts` requires **every** row to carry an
+   `engine_binding`, with a per-row assertion that the row's value equals what
+   the code holds. `driver:<id>` resolves to the Central value in scenarios.json.
+   A measured observation has no code constant to bind to, so adding it as a row
+   means weakening a governance assertion.
+2. Writing 0.7234 into the bound row would force scenarios.json to move with it —
+   and moving the Central driver moves client IRR. That is a cutover, and the
+   arc's standing rule is that new capability lands alongside and cutover is a
+   separate, explicit operator decision.
+
+Attempting it produced exactly these failures (4 register/deliverable tests red,
+plus a schema error when the new row inherited the assumed driver's `[0.78, 0.88]`
+range and fell outside it). Rather than re-fit the invariant to the change, the
+measurement lands in the **changelog** — metadata, not a row — with the observed
+monthly range attached, and the bound row gains a note pointing at it. The
+assumption can no longer be read without meeting the evidence, and no delivered
+number moved.
+
+**This needs an operator decision.** Adopting 0.7234 is a one-line change to
+`scenarios.json` Central. It will reduce client IRR. Giving `basis: "measured"`
+rows a first-class unbound slot in the register is the cleaner long-term fix and
+belongs with B6's assumption-versioning work.
+
+### 36.B3-G — reserve realisation remains unmeasured, and says so
+
+Operator decision D3, unchanged: BTD is the sole Baltic reserve-price source, the
+deepest series anywhere in the estate is 110 daily points, and the feed has been
+down since 2026-07-17. Only the day-ahead component is measurable. The backtest's
+`basis` block states this, and states what else the number excludes — intraday
+execution, bid rejection, imbalance exposure and balancing forecast error are all
+outside it. It measures day-ahead policy quality and nothing more.
