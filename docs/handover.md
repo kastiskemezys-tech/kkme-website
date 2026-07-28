@@ -188,6 +188,71 @@ See [docs/map.md](map.md) for the full concept-to-file lookup table.
 
 ## Session log
 
+### Session 87 — 2026-07-28 — Phase 34 batch-3 (34.6 + 34.7): Excel generator, branded deliverable, delivery packaging (Claude Code, autonomous batch)
+
+**Branch:** `phase-34-batch-3` · 2 commits · head `6d22b52` (origin verified equal). **NO DEPLOY, nothing to deploy** — `workers/fetch-s1.js` READ-ONLY for the whole batch; `git diff main..HEAD -- workers/` empty. Decision log: `DECISIONS.md` (34.6-A…I, 34.7-A…G). **Phase 34 arc complete — v0.5 is built and packaged.**
+
+**Gates after each commit:** tsc clean · vitest **1212 pass** (62 new across 2 files) · consistency gate green · reconciliation 73/73 internal, 59/60 external · `git diff main..HEAD -- workers/` empty.
+
+#### Delivery bundle — `tools/consultancy/output/delivery/` (gitignored, regenerate with `build-all.mjs`)
+
+| File | Size | What |
+|---|---|---|
+| `Prosperus_BESS_Model_v0.5.xlsx` | 41.9 kB | 8 tabs · 44 editable overrides · scenario selector |
+| `Prosperus_BESS_Model_v0.5_Summary.pdf` | 1 624.8 kB | 16 pp · sections 01-10 · p.7 landscape |
+| `Prosperus_BESS_Methodology_Annex.pdf` | 643.4 kB | 11 pp · `docs/methodology.md` in full |
+| `README.txt` | 3.3 kB | Inventory · how overrides work · contact |
+
+**One command rebuilds everything:** `node tools/consultancy/build-all.mjs` (runners → portfolio → scenarios → sensitivity → reconciliation → xlsx → HTML+gate → PDFs → package). `--offline` for rehearsal (stamps a do-not-deliver warning), `--skip-runners` to reuse runner JSON.
+
+#### Library decision — exceljs, by spike (34.6-A)
+
+Spiked the four things the scenario selector needs, wrote to disk, read back with a fresh `Workbook`. All four survived: list data-validation, `INDEX/MATCH`, styling (widths, `numFmt`, fills, strike, merges, frozen panes), and sheet protection with individually unlocked cells. Decision rests on that positive evidence, not on a claim about SheetJS. devDep only. `marked` added as a devDep for the annex markdown render.
+
+#### Template handling — split by anchor, regenerate by section (34.7-A)
+
+The prompt asked for anchored replacement. The template turned out to be a **structure mockup** whose numbers are placeholders typed into prose (`€64.2 M`, `23 728`, `39 rows`) — several hundred, many mid-sentence. Anchored find-and-replace over that surface produces the worst artefact available: a document mixing real and placeholder figures with nothing distinguishing them. The prompt anticipated this ("surgical DOM-aware substitution is fine").
+
+| Part | Content | Treatment |
+|---|---|---|
+| 1 | through `<body>` | verbatim — fonts, all CSS, print rules |
+| 2 | banner → §10 | **regenerated** from runner JSON |
+| 3 | scope divider → EOF | verbatim — greyed v1.0 upsell + pricing |
+
+Both anchors asserted unique; a template edit that moves them throws. A test asserts the output still starts with part 1 and ends with part 3 byte-for-byte, so the approved design and the upsell cannot be damaged by a generator change. **Part 2 carries no numeric literals at all** — that is what makes the consistency gate meaningful rather than decorative.
+
+#### Four defects the gates caught (all fixed, all in the deliverable)
+
+1. **Bridge Y1 conflated two different years** (34.6-B). Each project's own Y1 sat beside the portfolio's calendar Y1; the columns were **€4.43M off from summing**, because Eigirdžiai's Y1 is 2029 while the portfolio's is 2028 (34.3-B). Now two blocks: a calendar-2028 block that ties out to the euro on all 12 lines, and an own-first-year block with **no total column** and a note saying the columns are deliberately not summed.
+2. **€k/MW-yr divided by nameplate** (34.6-C). In a staggered first year that understates by ~40%. Now divides by **74.25 operational MW-years**, derived from the contributor list, stated on the tab, pinned by test.
+3. **The placeholder blocklist failed a correct build.** A live re-run computed gross Y1 = €12 947 097 — colliding with the mockup's `€12.9 M` / `12 947` placeholders. A static numeric blocklist is unsound; asserted values are now exempt, textual markers stay unconditional.
+4. **Three operator notes carried figures the model no longer produced** (34.7-C). The same re-run moved upside IRR 33.2%→33.1%, partial-year 4.6–5.7%→3.8–4.7%, top-driver swing €82.6M→€82.5M. Wording stays operator-owned; the **figures** are now `{{TOKEN}}`s resolved by `resolveNotes()` in the shared loader, so Excel and PDF get the same sentence by construction. An unresolved token throws.
+
+#### The ten contracted revenue lines are mapped, not invented (34.6-D)
+
+The engine computes two revenue quantities at annual resolution (`rev_bal`, `rev_trd`) plus the rebuilt charging cost. Each contracted line is shown against the quantity that carries it and the formula the engine actually evaluates, transcribed from `workers/fetch-s1.js`. Three disclosures ride with it:
+
+- **No FCR revenue is claimed anywhere.** FCR enters `computeTradingMix` only as a saturation diagnostic; `R_yr` is aFRR + mFRR alone. The two FCR rows say so and are shaded.
+- **The capacity/activation split is indicative** — `rev_cap = rev_bal × 0.65` is the engine's reporting split, labelled on the row.
+- **Intraday is not resolved separately** from day-ahead; the engine captures one blended spread.
+
+#### Two content corrections against canonical sources
+
+- **CPI is the Competition Pressure Index**, per `docs/glossary.md` — the draft glossary called it a "cannibalisation-price index". A drafted "NUS" entry was for a term that appears nowhere in the codebase and was dropped. The glossary now follows `docs/glossary.md` term for term.
+- **The correlation disclosure was removed from `deliverable-notes.json`** and is read from `portfolio.correlation_note` instead — a hand-written copy would have been a second source for a computed claim (rule #4).
+
+#### Needs operator eyes
+
+1. **Numbers moved between batch-2 and the delivery build** (34.7-G). The prompt quoted NPV €43.3M / MOIC 3.73 from batch-2; the delivery run recomputed against live KV and lands at **NPV €44.1M · MOIC 3.764 · 20-yr pre-fin CF €151.9M · Y1 gross €12.95M / EBITDA €8.49M / pre-fin CF €8.19M**. Nothing changed in the engine or bridge — the runners re-fetched market state, which is the product working as designed. All four delivery files carry the same figures from the same run and the gate verified it. **The expectations note to Prosperus should say the figures are computed at generation time**, and the generation date is stamped on the cover, banner and README for that reason.
+2. **The summary is 16 pp, the annex 11 pp** — the prompt scoped 8-10 pp and 4 pp. The annex ships `docs/methodology.md` complete: cutting a methodology annex to a page target means KKME choosing which limitations the client reads. Operator call if a shorter summary is wanted; the material is all commissioned scope.
+3. **Section 05 takes an A4 landscape page.** The 21-column cash-flow table was silently clipping past ~2043 in print. Verified by parsing the PDF `MediaBox` — p.7 is 843×596pt, every other page 596×843.
+4. **Register is 44 rows** — the client-facing scope line still says 39 (carried from Session 86 item 3). The deliverables all say 44 and the gate forbids "39 rows" reappearing.
+5. **The two dead drivers** (Session 86 item 1) are now disclosed in both the workbook and §07/§09 of the summary with their full engine reasons. Still the one genuinely client-facing judgement call before sending.
+
+**NDA:** unchanged — all project data public-register (VERT permits + Litgrid queue). `output/` including `delivery/` is gitignored; no client deliverable is committed.
+
+**PR:** https://github.com/kastiskemezys-tech/kkme-website/compare/main...phase-34-batch-3
+
 ### Session 86 — 2026-07-28 — Phase 34 batch-2 (34.4 + 34.5): scenarios, sensitivity, assumptions register, reconciliation (Claude Code, autonomous batch)
 
 **Branch:** `phase-34-batch-2` · 2 commits · head `f7a92da` (origin verified equal). **NO DEPLOY, and nothing to deploy** — `workers/fetch-s1.js` was READ-ONLY for the whole batch and `git diff main -- workers/` is empty. Decision log: `DECISIONS.md` (34.4-A…G, 34.5-A…G). Both phases complete.
