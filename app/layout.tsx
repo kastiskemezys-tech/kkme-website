@@ -19,6 +19,13 @@ import "./globals.css";
 // (data/labels) per spec P3-1.
 
 export const metadata: Metadata = {
+  // Phase 33.C (2026-07-28) — canonical fix. The previous fixed
+  // `canonical: 'https://kkme.eu'` cascaded the HOMEPAGE canonical onto every
+  // route (/intel, /methodology, /regulatory), so Google excluded all
+  // sub-pages from its index ("Alternative page with proper canonical tag",
+  // Search Console 2026-07-28). metadataBase + relative './' resolves the
+  // canonical per-route: / → kkme.eu, /intel → kkme.eu/intel, etc.
+  metadataBase: new URL('https://kkme.eu'),
   title: 'KKME — Baltic Flexibility Market Intelligence & Storage Economics',
   description:
     'Live supply/demand ratio, structural drivers, competition pressure, and reference-asset economics for Baltic energy storage. Updated every 4 hours.',
@@ -39,7 +46,7 @@ export const metadata: Metadata = {
     description: 'Live supply/demand ratio and reference-asset economics for Baltic energy storage.',
   },
   alternates: {
-    canonical: 'https://kkme.eu',
+    canonical: './',
   },
 };
 
