@@ -181,3 +181,118 @@ already parameterised) but the tooling floor — vm loader, KV snapshot + verifi
 regression harness — is larger. Net: unchanged. Proceeding with all three phases.
 
 **Pause A verdict: proceed.** No operator-blocking ambiguity found.
+
+---
+
+## 34.1 — outcome
+
+Shipped in two commits (tooling, then the seam). Regression gate green throughout.
+
+**Pause B sub-stop (project numbers vs mockup, ±20%) — documented, continued.**
+All three inside the band, so no operator stop was warranted even under the
+non-batch rules:
+
+| Project | MW/MWh | Y1 mo | Engine gross Y1 | Full-year equiv | Mockup | Δ |
+|---|---|---|---|---|---|---|
+| Bitėnai | 48/96 | 12 | €8.35M | €8.35M | €9.26M | −9.8% |
+| Stoniškiai | 45/90 | 7 | €4.57M | €7.83M | €8.68M | −9.8% |
+| Eigirdžiai | 30/60 | 10 | €4.20M | €5.04M | €5.79M | −13.0% |
+
+Cause of the gap is understood, not residual: the mockup took one per-MW figure
+(€193k/MW/yr) and scaled it linearly across all three projects. The engine prices
+each project at its own COD year against the saturation trajectory, so Bitėnai and
+Stoniškiai (operations from 2028) earn ~€174k/MW/yr while Eigirdžiai (2029) earns
+~€168k/MW/yr. Internal consistency was checked both ways: at equal COD year,
+revenue is exactly proportional to MW (pinned by test); at equal MW, the later COD
+earns less.
+
+### 34.1-A4b — engine year labelling (decided during Pause B)
+
+`cal_year = cod_year + yr` means the engine's year 1 lands on `cod_year + 1`; its
+`cod_year` param means "commissioning completes in this year". Bitėnai commissions
+2028-01, so its first operating year is 2028 and the engine input is `cod_year:
+2027`. Rather than putting an off-by-one year in every config file, configs declare
+`first_operating_year` and `engine.mjs::codYearForEngine()` is the single place the
+convention is applied.
+
+Considered and rejected: keeping `cod_year` = the literal COD year, which would
+have modelled every project a year deeper into the saturation trajectory. That is
+the more conservative number but the wrong one — the client is buying an
+independent model, and a deliberately mislabelled timeline is a defect, not
+prudence. Conservatism is not a licence to be wrong about which year it is.
+
+Config validation cross-checks `operational_months_y1` against the declared COD
+month and refuses a config where they disagree (discipline rule #2 — no asserted
+temporal label that isn't derived).
+
+---
+
+## 34.2 — cost decomposition + CAPEX schedule
+
+### 34.2-A — engine emits arbitrage energy, conditionally
+
+The client bridge needs an explicit charging-cost line, but the engine prices
+arbitrage on a captured DA *spread* — its trading revenue is already net of
+charging, and the charged/discharged MWh exist only inside the year loop. Rather
+than re-deriving those volumes downstream (rule #4), the engine now collects them
+into `project.arb_energy_20yr`. Collection is gated on `project_config` being
+present, so the public payload is untouched and the byte-identity gate stays
+structural.
+
+Charging cost = engine's charged MWh × the observed mean charging price (the same
+`lcos_charge_price` the LCOS calculation uses — one source). Gross is then charging
++ engine gross, so `gross − charging = engine gross` holds by construction rather
+than by tolerance.
+
+### 34.2-B — percentage base for the three fee lines
+
+The optimiser/grid/market lines take `gross_market_revenues` — the bridge's own top
+line — as their base. It is the line the contract literally calls "gross revenue",
+and it is the larger of the two candidate bases, so it is also the conservative
+reading.
+
+### 34.2-C — reconciliation calibration (the ±2% requirement)
+
+Reference asset, before calibration:
+
+- engine stack = RTM €840 350 + BRP €180 000 + OPEX €1 950 000 = **€2 970 350**
+- client stack = 16% × gross €8 853 139 + €29/kW × 50 000 kW = **€2 866 502**
+- delta **−€103 848 = −3.50%**
+
+−3.5% is outside the contracted ±2% but inside the batch rule's ±5% band, which
+directs "proceed with a documented constant". Applied: **€2.08/kW/yr** on the
+operating line (€103 848 ÷ 50 000 kW), which brings the reference to **+0.01%**.
+
+Two things were deliberately not done. The sourced €29/kW/yr build-up (O&M 18 +
+insurance 5 + warranty 4 + BOS 2) was *not* silently rewritten to €31.08 — the
+calibration rides alongside it as a separately named quantity so the assumptions
+register can show both. And the constant is *not* re-fitted per project: doing so
+would make every project agree with the engine by construction and destroy the
+reconciliation's value as a check. A vitest re-derives the constant from the
+reference asset and holds the committed value to it, so it cannot go stale unnoticed.
+
+Post-calibration deltas: reference +0.01%, Bitėnai +0.34%, Stoniškiai −4.59%,
+Eigirdžiai −5.71%.
+
+**The two partial-year projects diverge for one identifiable reason,** not drift:
+the engine charges its flat €180k BRP fee in full in a partial year (the 34.1-A4
+conservative decision) while all four client lines are pro-rated. The gap equals
+that fee's un-pro-rated remainder — asserted as such in the test suite, so if
+anything *else* starts diverging the test fails. Reported in every output under
+`cost_basis.reconciliation.partial_year_divergence`, not absorbed. Note the
+direction: the client stack is lighter, so the bridge shows slightly *higher*
+EBITDA than the engine for those two projects. Flagged for operator review.
+
+### 34.2-D — CAPEX event timing
+
+Augmentation (Y8) and replacement (Y15) count in operating years from COD, so they
+land on the same operating year for every project and on the calendar year that
+project reaches it (Bitėnai Y8 = 2035, Eigirdžiai Y8 = 2036). Maintenance is
+pro-rated by operational months in a partial first year; the two events are not.
+Per the 34.2 decision rule.
+
+Note the scale of these events against the client's 8-line bridge: at the reference
+asset, augmentation is €3.2M and replacement €10.2M against a ~€5.4M annual EBITDA.
+Both land as single-year cash-flow craters in `pre_financing_cf`. That is the
+contracted treatment (no smoothing, no reserve account), and it is worth the
+operator's eye before the numbers reach the client.

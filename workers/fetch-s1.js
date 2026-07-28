@@ -1483,6 +1483,12 @@ function computeRevenueV7(params, kv) {
 
   // ── 20-year timeseries ──
   const years = [];
+  // Phase 34.2 — arbitrage energy volumes, collected only on the consultancy
+  // path. The client bridge needs an explicit charging-cost line, and the
+  // charged/discharged MWh behind the trading revenue live only inside this
+  // loop. Emitting them here keeps the volumes derived from the engine's own
+  // arithmetic instead of re-deriving them downstream (discipline rule #4).
+  const arb_energy = pcfg ? [] : null;
   let debt_bal = debt_initial;
   let min_dscr = Infinity;
   let crossover_year = null;
@@ -1568,6 +1574,19 @@ function computeRevenueV7(params, kv) {
     const rev_trd = yr_capture * spread_mult * depth * rte_yr * trading_real
                   * da_mwh_per_mw_yr
                   * mix.trading_fraction * sc.avail * deg_ratio_vs_y1 * mw * yr_op_frac;
+
+    if (arb_energy) {
+      // Same factor chain as rev_trd above, minus the price terms: MWh through
+      // the cells from DA arbitrage. Discharged = charged × RTE.
+      const mwh_charged = da_mwh_per_mw_yr * mix.trading_fraction * sc.avail
+                        * deg_ratio_vs_y1 * mw * yr_op_frac;
+      arb_energy.push({
+        yr, cal_year,
+        mwh_charged: Math.round(mwh_charged),
+        mwh_discharged: Math.round(mwh_charged * rte_yr),
+        rte: Math.round(rte_yr * 10000) / 10000,
+      });
+    }
 
     // C7. Gross → Net
     // Revenue floor: even in saturated markets, BESS earns from trading + minimum FCR
@@ -2012,6 +2031,12 @@ function computeRevenueV7(params, kv) {
           not_pro_rated: ['brp_fee (fixed annual platform fee)', 'degradation (full-year ageing assumed)'],
           note: 'Both exclusions are the conservative reading — lower net revenue, faster ageing.',
         } : null,
+        // DA arbitrage energy behind the trading line, for the client's
+        // explicit charging-cost bridge line (Phase 34.2). `avg_charge` is the
+        // observed mean charging price for this duration; `lcos_charge_price`
+        // is the same value the LCOS calculation uses, so there is one source.
+        arb_energy_20yr: arb_energy,
+        avg_charge_eur_mwh: lcos_charge_price,
         brp_fee_basis: 'flat_per_spv',
         brp_fee_note: `€${sc.brp_fee_yr.toLocaleString('en-US')}/yr, MW-independent — €${Math.round(sc.brp_fee_yr / mw)}/MW/yr at ${mw} MW`,
         meta: pcfg.meta ?? null,
