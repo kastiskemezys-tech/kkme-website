@@ -1,11 +1,11 @@
 {
   "_note": "Phase 34.6 — the single source for every piece of client-facing prose that appears in more than one deliverable. The Excel generator (generate-xlsx.mjs) and the HTML/PDF generator (generate-deliverable.mjs) both read from here, so the two artefacts are incapable of describing the same thing in two different ways (discipline rule #4, applied to prose). Values marked 'operator-verbatim' were decided by the operator and must not be reworded by a generator.",
-  "_provenance": "operator-verbatim (34.6 prompt) unless the key carries its own note",
+  "_provenance": "operator-verbatim (34.6 prompt) unless the key carries its own note. WORDING is operator-owned and must not be reworded by a generator; the {{TOKENS}} inside three of the notes are FIGURES, resolved at build time from the runner outputs by resolveNotes() in generate-xlsx.mjs. They were literals until a live-KV re-run moved the model and left the prose asserting numbers the engine no longer produced (33.2% vs 33.1%, 4.6–5.7% vs 3.8–4.7%). A generator throws if any token is left unresolved. See DECISIONS.md 34.7-D.",
 
   "npv_label": "NPV @ 8% — pre-financing, pre-tax (the commissioned bridge carries no tax line)",
-  "dead_drivers_note": "Spread growth and CPI floor were tested and move no cash flow in this model — trading revenue sits on its allocation clamp and the CPI floor is a disclosure threshold. Capacity prices dominate sensitivity by an order of magnitude (€82.6M 20-yr swing). Reported as computed; no synthetic elasticity invented.",
-  "upside_warn_note": "Upside IRR (Bitėnai 33.2%) clears the Clean Horizon published range (6–31%) by design — the band describes central expectations.",
-  "partial_year_note": "Stoniškiai/Eigirdžiai Y1 bridge EBITDA runs 4.6–5.7% above the engine figure — exactly the flat BRP fee remainder against pro-rated part-year lines; asserted per project, never absorbed.",
+  "dead_drivers_note": "{{DEAD_DRIVERS}} were tested and move no cash flow in this model — trading revenue sits on its allocation clamp and the CPI floor is a disclosure threshold. {{TOP_DRIVER}} dominates sensitivity by an order of magnitude ({{TOP_DRIVER_SWING}} 20-yr swing). Reported as computed; no synthetic elasticity invented.",
+  "upside_warn_note": "Upside IRR ({{WARN_SUBJECT}} {{WARN_IRR}}) clears the Clean Horizon published range ({{WARN_BAND}}) by design — the band describes central expectations.",
+  "partial_year_note": "{{PARTIAL_PROJECTS}} Y1 bridge EBITDA runs {{PARTIAL_RANGE}} above the engine figure — exactly the flat BRP fee remainder against pro-rated part-year lines; asserted per project, never absorbed.",
   "capex_note": "Augmentation (Y8) and replacement (Y15) CAPEX are shown unsmoothed per the commissioned bridge; reserve-account smoothing is a financing structure and out of scope.",
   "register_count": 44,
 

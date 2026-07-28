@@ -45,6 +45,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "exceljs": "^4.4.0",
+    "marked": "^18.0.7",
     "playwright": "^1.60.0",
     "tailwindcss": "^4",
     "typescript": "^5",

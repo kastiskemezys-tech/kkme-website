@@ -66,6 +66,72 @@ const readJSON = (path) => {
 };
 
 /**
+ * Resolve the `{{TOKEN}}` figures inside the operator-owned notes.
+ *
+ * The notes were literals until a live-KV re-run moved the model and left the
+ * prose asserting numbers the engine no longer produced — the upside IRR had
+ * gone 33.2% → 33.1%, the partial-year spread 4.6–5.7% → 3.8–4.7%. The WORDING
+ * stays exactly as the operator wrote it; only the figures are derived, so the
+ * prose cannot drift from the model again. An unresolved token throws.
+ *
+ * Both generators call this through `loadInputs`, so the Excel and the PDF get
+ * the same resolved sentence by construction.
+ */
+export function resolveNotes(notes, { reconciliation, sensitivity, projects }) {
+  const pct1 = (v) => `${(v * 100).toFixed(1)}%`;
+
+  const warn = reconciliation.external.find((c) => c.status === 'warn');
+  const ranked = [...sensitivity.drivers].sort(
+    (a, b) => Math.abs(b.swing_20yr) - Math.abs(a.swing_20yr));
+  const dead = ranked.filter((d) => d.zero_effect_reason);
+  const top = ranked[0];
+
+  // Partial-year projects: the flat BRP fee does not pro-rate, so a part-year
+  // project's bridge EBITDA sits above the engine's. Range measured, not assumed.
+  const partial = projects
+    .filter((p) => (p.config.operational_months_y1 ?? 12) < 12)
+    .map((p) => ({
+      name: p.config.name,
+      delta: p.bridge_y1.project_ebitda / p.engine.years[0].ebitda - 1,
+    }));
+  const deltas = partial.map((p) => p.delta);
+
+  const tokens = {
+    '{{WARN_SUBJECT}}': warn
+      ? (projects.find((p) => p.config.project_id === warn.subject.split('/')[0])
+        ?.config.name ?? warn.subject)
+      : '—',
+    '{{WARN_IRR}}': warn ? pct1(warn.actual) : '—',
+    '{{WARN_BAND}}': warn ? `${(warn.band[0] * 100).toFixed(0)}–${(warn.band[1] * 100).toFixed(0)}%` : '—',
+    '{{DEAD_DRIVERS}}': dead.length
+      ? dead.map((d) => d.label).join(' and ')
+      : 'No driver',
+    '{{TOP_DRIVER}}': top.label,
+    '{{TOP_DRIVER_SWING}}': `€${(Math.abs(top.swing_20yr) / 1e6).toFixed(1)}M`,
+    '{{PARTIAL_PROJECTS}}': partial.map((p) => p.name).join('/'),
+    // One % sign, on the range, not on each end.
+    '{{PARTIAL_RANGE}}': deltas.length
+      ? `${(Math.min(...deltas) * 100).toFixed(1)}–${pct1(Math.max(...deltas))}`
+      : '—',
+  };
+
+  const out = { ...notes };
+  for (const key of ['dead_drivers_note', 'upside_warn_note', 'partial_year_note']) {
+    let text = out[key];
+    for (const [tok, val] of Object.entries(tokens)) text = text.split(tok).join(val);
+    const left = text.match(/\{\{[A-Z_]+\}\}/g);
+    if (left) {
+      throw new Error(
+        `deliverable note "${key}" has unresolved token(s) ${left.join(', ')} — ` +
+        `resolveNotes() must be taught how to compute them`
+      );
+    }
+    out[key] = text;
+  }
+  return out;
+}
+
+/**
  * Load every runner output the workbook is built from, and refuse to build on
  * inputs that disagree about which engine produced them or that were computed
  * against an unverified KV snapshot. A deliverable assembled from a mixed run
@@ -115,6 +181,7 @@ export function loadInputs({ outputDir = OUTPUT_DIR, here = HERE } = {}) {
       `${inputs.notes.register_count} — one of them is stale`
     );
   }
+  inputs.notes = resolveNotes(inputs.notes, inputs);
   return inputs;
 }
 
