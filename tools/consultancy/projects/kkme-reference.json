@@ -1,0 +1,17 @@
+{
+  "project_id": "kkme-reference",
+  "name": "KKME reference asset",
+  "mw": 50,
+  "mwh": 100,
+  "cod": "2029-01",
+  "first_operating_year": 2029,
+  "operational_months_y1": 12,
+  "capex_eur_kwh": 164,
+  "grid_allowance_mw": null,
+  "warranty_efc_yr": 730,
+  "scenario": "base",
+  "meta": {
+    "source": "kkme-public-default",
+    "note": "The asset the public /revenue route serves by default (dur=2h, capex=mid, cod=2028, scenario=base). Present so the reference is just another config rather than a parallel literal (discipline rule #4); a vitest asserts it reproduces the no-config engine output field-for-field. `cod=2028` on the public route means commissioning completes in 2028 and operating year 1 is 2029 — hence first_operating_year 2029."
+  }
+}

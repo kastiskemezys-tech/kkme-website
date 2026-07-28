@@ -1,0 +1,23 @@
+{
+  "project_id": "eigirdziai",
+  "name": "Eigirdžiai",
+  "mw": 30,
+  "mwh": 60,
+  "cod": "2029-03",
+  "first_operating_year": 2029,
+  "operational_months_y1": 10,
+  "capex_eur_kwh": 164,
+  "grid_allowance_mw": 30,
+  "warranty_efc_yr": 730,
+  "scenario": "base",
+  "meta": {
+    "municipality": "Telšių r.",
+    "spv": "UAB „Prosperus bess 1\"",
+    "vert_permit": "L-7179",
+    "vert_permit_date": "2025-08-22",
+    "source": "public-register",
+    "source_note": "VERT permit register + Litgrid connection queue. No client-confidential input used.",
+    "cod_note": "Arc doc gives COD as 2029-Q1; modelled at the conservative end of the quarter (2029-03) → 10 operational months in 2029.",
+    "grid_note": "POI allowance 30 MW equals nameplate — zero discharge headroom. Non-binding at nameplate, but any future uprate needs a POI review."
+  }
+}

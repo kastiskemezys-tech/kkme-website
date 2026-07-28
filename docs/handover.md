@@ -185,6 +185,47 @@ See [docs/map.md](map.md) for the full concept-to-file lookup table.
 
 ## Session log
 
+### Session 85 — 2026-07-28 — Phase 34 batch (34.1 + 34.2 + 34.3): consultancy revenue-model engine (Claude Code, autonomous batch)
+
+**Branch:** `phase-34-batch-1` · 4 commits · head `5fdb32c` (origin verified equal). **NO DEPLOY** — batch rule; deploy decision is the operator's. Decision log: `DECISIONS.md` on the branch. All three phases complete.
+
+**Regression gate green throughout.** `tools/consultancy/regression-reference.mjs` — 54 public parameter combinations (dur × capex × cod × scenario), `computeRevenueV7` output sha256'd with `timestamp` stripped, against a frozen production-KV fixture. Baseline captured against the UNMODIFIED engine before any edit, then re-run after every commit: 54/54 byte-identical, four times. Deliberately offline — hitting the live worker would make the gate measure data drift instead of code change.
+
+**Rule #1 — 10th correction.** The 34.1 premise "the engine computes ONE hardcoded reference asset (50 MW / 100 MWh)" is **empirically false**. `computeRevenueV7` has accepted `{mw, dur_h, capex_kwh, cod_year, scenario, grant_pct}` since v6; `/revenue` already parameterises all six from query params; `audit-stack.mjs` already drives it with arbitrary geometry outside the worker. 50/100 is a *default*, not a hardcode. `16400000` / `9020000` / `7380000` appear **nowhere** as literals — all three are derived. Real residue mapped in DECISIONS.md A1: the flat `brp_fee_yr`, the `h2`/`h4` back-compat block that ignores `?mw=` (pre-existing, out of scope, backlogged), and the `/api/dispatch` 50 MW block.
+
+**Seam.** Prompt proposed `computeRevenueV7(config, …)`. Rejected — changing the first argument's meaning touches every call site (route ×6, back-test, audit-stack ×4, vitest ×4) for zero gain, since `params` already *is* the config object. Built instead as **`params.project_config`, additive and optional**: absent ⇒ the pre-34.1 code path verbatim, which is what the public route does. Public-site safety is structural, not tested-in.
+
+**Real production data, verified.** `wrangler kv key get` needs an interactive login, so `kv-snapshot.mjs` reconstructs the KV the `/revenue` route builds from the worker's public GET routes (`/read`, `/s1/capture`, `/s2`, `/s3`, `/euribor`, `/s4/fleet`, `/s2/activation`). `trading:metrics` has no public route — its two activation rates are recovered by inverting the published `base_year.time_model.reserve_hours_*` and searching the 2-dp grid. The reconstruction is then **verified**, not assumed: a local reference run matches the live `/revenue` on all 22 headline fields exactly. Every output carries `kv_verified`.
+
+**Headline — 3 Prosperus projects + portfolio** (live KV 2026-07-28, base scenario, client 8-line bridge, pre-financing pre-tax):
+
+| | MW/MWh | Y1 mo | Gross Y1 | EBITDA Y1 | Pre-fin CF Y1 | 20-yr EBITDA | NPV @8% | MOIC | Engine IRR |
+|---|---|---|---|---|---|---|---|---|---|
+| Bitėnai | 48/96 | 12 | €8.78M | €5.45M | €5.26M | €76.57M | €18.30M | 3.80 | 24.9% |
+| Stoniškiai | 45/90 | 7 | €4.80M | €2.98M | €2.88M | €69.65M | €15.25M | 3.66 | 22.0% |
+| Eigirdžiai | 30/60 | 10 | €4.43M | €2.72M | €2.62M | €46.87M | €10.56M | 3.70 | 22.3% |
+| **Portfolio** | 123/246 | 2028 | **€13.58M** | **€8.43M** | **€8.14M** | **€193.09M** | **€43.33M** | **3.73** | — |
+
+CAPEX €40.34M · calendar span 2028–2048 · payback 4 yr from first draw.
+
+**vs the v4 mockup placeholders — all inside ±20%, no operator stop warranted.** Bitėnai gross −9.8% (mockup €9.26M), Stoniškiai −9.8% on a full-year-equivalent basis (€7.83M vs €8.68M), Eigirdžiai −13.0% (€5.04M vs €5.79M). Cause understood, not residual: the mockup scaled one per-MW figure (€193k) linearly across all three; the engine prices each project at its own COD year against the saturation trajectory, so the 2028 starters earn ~€174k/MW/yr and the 2029 starter ~€168k. Checked both ways — at equal COD year revenue is exactly proportional to MW (pinned by test); at equal MW the later COD earns less.
+
+**34.1 — per-project parameterisation.** Partial Y1 pro-rates `rev_bal`, `rev_trd`, the revenue floor and OPEX by `operational_months_y1/12`. The flat BRP fee and the degradation curve are **not** pro-rated — both the conservative reading, both flagged in output. Timeline convention (A4b): `cal_year = cod_year + yr` means engine year 1 lands on `cod_year+1`, so configs declare `first_operating_year` and `codYearForEngine()` is the single place the off-by-one is applied. Config validation cross-checks declared operational months against the declared COD month and refuses disagreement (rule #2). The reference asset is now a committed config, proven by test to reproduce the no-config output field-for-field (rule #4).
+
+**34.2 — cost decomposition + CAPEX schedule.** Four cost lines (optimiser 12% / grid 3% / market 1% of gross, operating €29/kW/yr), each with basis and override handle. Reconciliation against the engine's RTM+BRP+OPEX stack came out −3.50% at the reference asset — outside the contracted ±2%, inside the batch's ±5% "documented constant" band. Closed with **€2.08/kW/yr** on the operating line, *derived* (€103 848 ÷ 50 000 kW), taking the reference to +0.01%. The sourced €29 build-up is left intact with the calibration riding alongside as a separately named quantity — no silent rewrite to €31.08 — and a vitest re-derives the constant from the reference asset so it cannot go stale. Deliberately **not** re-fitted per project: that would make every project agree with the engine by construction and destroy the check. Charging costs made explicit by having the engine emit `project.arb_energy_20yr` (gated on `project_config`), so gross − charging returns engine gross by construction. CAPEX: maintenance €4/kW/yr, augmentation Y8 (40% × €80/kWh), replacement Y15 (85% × €120/kWh), counted in operating years from COD.
+
+**34.3 — portfolio.** Consolidation asserts `portfolio = Σ projects` on every line, every year — a line that isn't the sum throws. Calendar span is **21 years (2028–2048), not the 20 the prompt specified**: Eigirdžiai starts a year later and runs to 2048, and truncating would break the sum the same prompt names as tie-breaker. Portfolio "Y1" = first calendar year (2028: Bitėnai 12mo + Stoniškiai 7mo, Eigirdžiai absent); every row names its contributors and their months. NPV and MOIC read one shared cash-flow array (pinned by test), `t=0` = first CAPEX draw (2027). Correlation disclosed as data (LT zone 0.97, spatial diversification negligible) with a test asserting no uplift over the plain sum.
+
+**Needs operator eyes (nothing blocking):**
+1. **NPV basis.** Portfolio NPV is pre-financing **pre-tax** because the contracted 8-line bridge has no tax row — not comparable with the engine's post-tax `npv_at_wacc` (both carried per project). Quoting a single NPV to the client means deciding whether the bridge gains a tax line. Scope question, not a modelling call.
+2. **Partial-year reconciliation direction.** Stoniškiai −4.59% and Eigirdžiai −5.71% against the engine stack, entirely because the engine charges its flat €180k BRP fee in full in a partial year while all four client lines pro-rate. The client stack is *lighter*, so the bridge shows slightly **higher** EBITDA than the engine for those two. Asserted as exactly the fee remainder, so anything else diverging fails the tests. Reported per project, never absorbed.
+3. **CAPEX event scale.** Augmentation €3.2M (Y8) and replacement €10.2M (Y15) at the reference asset land as single-year craters in `pre_financing_cf` against ~€5.4M annual EBITDA. That is the contracted treatment — no smoothing, no reserve account — but worth a look before it reaches the client.
+4. **Deploy.** Worker changed in 34.1/34.2 (additive only, public path unaffected). Not deployed per batch rule.
+
+**Gates:** vitest 1054 pass (75 new across 3 files) · tsc clean · both lint gates · `next build` · worker syntax · regression 54/54. **NDA:** all project data is public-register (VERT permits + Litgrid queue); "Prosperus" appears only in `tools/consultancy/projects/prosperus/` paths, never in worker code or on the public site.
+
+**PR:** https://github.com/kastiskemezys-tech/kkme-website/compare/main...phase-34-batch-1
+
 ### Session 84 — 2026-06-15 — Phase 33.A.2.e: Estonia operational status-refresh (Claude Code)
 
 **Worker:** `phase-33-a-2-e-ee-coverage` · commit `dc6a782` · deploy `a535130a-a6e6-433e-a26a-96ce2f9e44dd`. **Three pause points.** Worker-only (`fetch-s1.js` + `knownOperational.test.ts`). Evidence: `docs/visual-audit/phase-33-a-2-e/EVIDENCE.md`.
