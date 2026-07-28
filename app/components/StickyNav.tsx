@@ -93,6 +93,17 @@ export default function StickyNav() {
             }}
           >Get in touch</a>
           <a
+            href="/calculator"
+            className="tap-target-mobile"
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 'var(--type-body-md)',
+              color: 'var(--teal-accent-text)',
+              textDecoration: 'none',
+              letterSpacing: '0.04em',
+            }}
+          >Calculator</a>
+          <a
             href="https://portfolio.kkme.eu"
             target="_blank"
             rel="noopener noreferrer"
@@ -169,6 +180,19 @@ export default function StickyNav() {
               paddingTop: '10px', paddingRight: 'var(--space-md)', paddingBottom: '10px', paddingLeft: 'var(--space-md)',
             }}
           >Get in touch</a>
+          <a
+            href="/calculator"
+            onClick={() => setMenuOpen(false)}
+            className="tap-target-mobile"
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 'var(--font-sm)',
+              color: 'var(--teal-accent-text)',
+              textDecoration: 'none',
+              letterSpacing: '0.04em',
+              paddingTop: '10px', paddingRight: 'var(--space-md)', paddingBottom: '10px', paddingLeft: 'var(--space-md)',
+            }}
+          >Calculator</a>
           <a
             href="https://portfolio.kkme.eu"
             target="_blank"
