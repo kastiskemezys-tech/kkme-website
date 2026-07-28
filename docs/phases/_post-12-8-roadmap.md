@@ -23,6 +23,14 @@
   5. ⏳ **Phase 18.3** (~2-3h CC) — animation activation per spec P2-1. 11 dormant keyframes; useCountUp hook (closes V-10 dropped idea per `project_visual_vision.md`); copy-button feedback; card hover-lift.
 - **Next CC pick — Phase 18.3.** Operator fire via `cc` alias.
 
+### Phase 34 arc — Consultancy revenue-model engine (2026-07-22 → 07-31)
+
+Canonical scope: `docs/phases/phase-34-arc.md` (operator-owned). Client engagement: Prosperus 3-project BESS revenue model, €10k v0.5 due 2026-07-31. Every phase dual-use: client deliverable + permanent platform capability.
+
+- ~~**Phase 34.1-34.3 (batch-1)**~~ **[SHIPPED 2026-07-28, autonomous batch]** — branch `phase-34-batch-1` (5 commits, head `01f80da`) merged to main. Per-project engine seam (additive `params.project_config` — 10th rule-#1 correction: engine took params since v6, claimed hardcode literals didn't exist) + cost decomposition (4 opex lines + CAPEX schedule + client 8-line bridge) + portfolio aggregation (staggered COD, Σ-exact asserts, NPV/MOIC, honest correlation note). Regression gate: `/revenue` byte-identical 54/54 param combos after every commit. First autonomous batch (no pause stops, DECISIONS.md log) — validated the mode. Portfolio: gross Y1 €13.58M · EBITDA €8.43M · NPV@8% €43.3M · MOIC 3.73. Worker changes additive-only, deployed post-merge by operator. vitest 1054 (+75).
+- **Phase 34.4 + 34.5 (batch-2)** — scenarios + sensitivity; assumptions register + reconciliation harness. Prompts authored 2026-07-28; runner-path only (zero worker edits).
+- **Phase 34.6 + 34.7** — Excel generator; branded PDF + delivery QC. Due Wed-Thu.
+
 ### Newly filed candidates (2026-06-15 Phase 33 follow-ups)
 
 - ~~**Phase 33.A — Map feed Baltic allowlist + reject-on-flag + purge endpoint**~~ **[SHIPPED 2026-06-15]** — PR `phase-33-a-baltic-allowlist` (commit `7619785` code+test, `7cd4f01` handover+evidence) merged to main (`3bf629e`). Worker deploy `2306c828-8728-4e97-b2b6-525e3b4b79a2`. 196 → 170 entries in `/s4.projects` (26 polluters purged: 18 foreign-country + 8 blank-country, all `source: "esn · …"` with mislabeled `tso: "Litgrid"`). Single-source `BALTIC_COUNTRIES = new Set(['LT','LV','EE'])` constant + `filterFleetEntries()` gate at POST-before-processFleet (allowlist + HIGH-flag reject in one pass; doesn't mutate inputs) + new `POST /admin/purge-non-baltic-fleet` admin endpoint (UPDATE_SECRET auth, idempotent, recomputes aggregates from survivors). 2 files / +85/−4 in worker + 10-case test (`fleetAllowlist.test.ts`).
