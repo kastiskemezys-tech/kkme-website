@@ -96,3 +96,4 @@ skills-lock.json
 # committed code.
 docs/_private/
 docs/_clients/
+.wrangler/

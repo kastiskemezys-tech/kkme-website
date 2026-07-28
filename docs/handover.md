@@ -188,6 +188,92 @@ See [docs/map.md](map.md) for the full concept-to-file lookup table.
 
 ## Session log
 
+### Session 88 — 2026-07-28 — Phase 35 batch-1 (35.1 + 35.2): BESS Revenue Calculator — /calculate endpoint + /calculator page (Claude Code, autonomous batch)
+
+**Branch:** `phase-35-batch-1` · 2 commits · head **`2f357e1`** (origin verified equal). **NOT DEPLOYED — operator action required, sequence below.** Decision log: `DECISIONS.md` (35.1-A…F, 35.2-A…D).
+**PR:** https://github.com/kastiskemezys-tech/kkme-website/compare/main...phase-35-batch-1
+
+---
+
+#### ⚠️ OPERATOR POST-MERGE SEQUENCE — run in this order
+
+```bash
+# 1. Choose the calculator password. NOT the admin secret — this one gets typed
+#    into a browser. Until this runs, /calculator/login returns 503 and the
+#    sample tier works normally.
+npx wrangler secret put CALC_SECRET
+
+# 2. Ship the 35.1 endpoints (/calculate, /calculator/login).
+npx wrangler deploy
+
+# 3. Merge the PR → Cloudflare Pages ships the /calculator page.
+
+# 4. Live test:
+#    visit https://kkme.eu/calculator
+#    → Compute with the defaults (50 / 100 / 2028 / 164) → sample tier
+#    → click "KKME" in the results footer → password → full tier
+```
+
+Step 2 before step 3 matters: if the page ships first, Compute returns the
+405 the pre-deploy click-through showed.
+
+---
+
+#### What shipped
+
+**35.1 — `POST /calculate` + `POST /calculator/login` + client scenario port**
+
+- **Sample tier** (no auth): Y1 headline (gross / net / EBITDA / pre-fin CF / margin) + the 8-line bridge, `sample_note`, CTA copy. Per-IP per-UTC-day KV rate limit, 10 runs, then 429 with the CTA attached.
+- **Full tier** (bearer token): 20-yr cash flow, three client scenarios, one-at-a-time sensitivity over 8 drivers, reconciliation, NPV/MOIC/payback, capex schedule, warranty headroom. Bridge/CAPEX/NPV logic **imported from `tools/consultancy/`**, not reimplemented.
+- **Auth:** HMAC-SHA256 over `calc:<expiry>` with `CALC_SECRET`, 30-day expiry signed into the message. No user or session store. Invalid/expired token degrades to the sample tier.
+- **Scenario port:** `client_downside` / `client_upside` are now named engine scenarios. They reproduce batch-2's `scenario-overlay.mjs` output **exactly** for all three Prosperus configs; Central asserted identical to base. `scenario-overlay.mjs` untouched and still green (233 batch-2 tests pass).
+
+**35.2 — `/calculator` page (soft launch)**
+
+Site design language, own metadata + canonical. Input card with Advanced expander, sample tier with SAMPLE treatment and CTA, discreet `KKME` footer sign-in → full tier with expandable per-line bases, scenario cards, sensitivity, 20-yr table, reconciliation.
+
+**Soft launch asserted:** `git diff main --name-only -- app/` is **empty**. All new files under `app/calculator/`; `grep -rn "/calculator" app` finds nothing outside it. No nav, footer or homepage link — the route lives only at its URL until you decide.
+
+---
+
+#### Gates
+
+| Gate | Result |
+|---|---|
+| `/revenue` byte-identity (engine, 54 configs) | **54/54** green after both commits |
+| `/revenue` byte-identity (**route level**, vs `main`'s worker) | **54/54** identical |
+| vitest | **1305 pass** / 75 files (93 new across 2 files) |
+| batch-2 consultancy suite | 233 pass — overlay anchors intact |
+| Overlay parity, 3 configs × 3 cases | exact on every field |
+| tsc | clean |
+| eslint / no-editorial-chips / no-raw-spacing | at `main`'s baseline, both greps pass |
+| `wrangler deploy --dry-run` | bundles, 104 KiB gzip |
+| **Build + serve click-through** | all 5 routes + sampled chunks 200, both tiers driven in Chrome, console clean |
+| Leak test | endpoint level **and** UI level |
+
+---
+
+#### Three findings worth your attention
+
+1. **The engine is calibrated at exactly two durations (35.1-A).** Verified before designing validation rather than assumed. `net_mw_yr` is a *step function* of `dur_h` — flat at or below 2h, flat at or above 3h, with a middle band that mixes 4h throughput constants with the 2h RTE curve because `computeThroughputBreakdown` branches on `<= 2` while `rteCurveFor` branches on `>= 3`. That band is a latent engine inconsistency; it is unreachable from `/revenue` (DUR_MAP offers only 2h/4h) and I left it alone rather than fix engine internals inside a productisation phase. **Possible follow-up phase.** The calculator clamps to the nearest calibration point, compensates CAPEX to your real MWh, and states the direction of the resulting bias.
+
+2. **The 54/54 gate does not cover the route layer (35.1-D).** Extracting `/revenue`'s KV assembly into `loadEngineKV()` so `/calculate` reads identical inputs *broke `/revenue`* — and the regression gate stayed green throughout, because it calls `computeRevenueV7` directly and never touches the route. Caught by a route-level probe, then closed by replaying all 54 public parameter combinations through the real `fetch` handler against `main`'s worker. Standing limitation, now documented.
+
+3. **The build gate caught what no test could (35.2-A).** Build green, 1305 tests green, tsc and lints clean — and the page still scrolled horizontally, because a single-column implicit grid track let the 20-yr table stretch `<main>` and then the document. Component tests render to static markup where nothing has a layout. The Phase 18.1.1 precedent, repeating.
+
+A fourth, smaller: my first CPI-floor port re-floored the curve on the assumption the 0.28 floor never binds in the Baltic range. **Batch-2's own driver-echo test failed and proved the assumption false** — the aFRR S/D ratio at COD is above the binding threshold. Rewritten as an exact substitution (35.1-C). Rule #1 applied to my own reasoning.
+
+---
+
+#### Not done / out of scope
+
+- No deploy of anything (yours, above).
+- No nav or footer link (your call after reviewing the live page).
+- Batch-3 (34.6/34.7 Excel + PDF) stays parked as the paid-service delivery workflow.
+- Saved project configs / multi-project portfolio UI — Phase 35.3 candidate.
+- `docs/phases/_post-12-8-roadmap.md` NOT edited (rule #5). Needs a Phase 35 entry when you next touch it.
+
+
 ### Session 87 — 2026-07-28 — Phase 34 batch-3 (34.6 + 34.7): Excel generator, branded deliverable, delivery packaging (Claude Code, autonomous batch)
 
 **Branch:** `phase-34-batch-3` · 2 commits · head `6d22b52` (origin verified equal). **NO DEPLOY, nothing to deploy** — `workers/fetch-s1.js` READ-ONLY for the whole batch; `git diff main..HEAD -- workers/` empty. Decision log: `DECISIONS.md` (34.6-A…I, 34.7-A…G). **Phase 34 arc complete — v0.5 is built and packaged.**
