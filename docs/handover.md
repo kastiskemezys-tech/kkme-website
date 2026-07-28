@@ -188,6 +188,81 @@ See [docs/map.md](map.md) for the full concept-to-file lookup table.
 
 ## Session log
 
+### Session 90 — 2026-07-28 — Phase 36.B batch-2: dispatch-card correction + 36.B2 bootstrap + 36.B3 backtest (Claude Code, one operator checkpoint)
+
+**Branch:** `phase-36-b-batch-2` off `4707092` · 4 commits · origin SHA **`133cc63`**.
+**PR:** https://github.com/kastiskemezys-tech/kkme-website/compare/main...phase-36-b-batch-2
+**DEPLOYED:** version `eeb4d5da-04f4-4183-8d51-02e477ea4dbd` (Part 0 only). Decision log: `DECISIONS.md` (36.B0-A…H, 36.B2-A…G, 36.B3-A…G).
+
+---
+
+#### Headline artifact 1 — the dispatch card, corrected
+
+Two defects, one public correction. Folded into a single commit-pair on operator direction so the card changes once, not twice.
+
+| | 2h | 4h |
+|---|---|---|
+| daily €/MW | €1 376 → **€1 571** (+14.2 %) | €1 440 → **€1 544** (+7.2 %) |
+| arbitrage €/MW/day | 0 *(hiding −169)* → **+26** | 0 *(hiding −105)* → **−1** |
+| split sums to | 112 % → **101 %** | 107 % → **100 %** |
+
+1. **RTE was never charged on the cycle.** SoC was credited with every purchased MWh while RTE was applied as a cap on discharge *power* — not a physical constraint. Both corrected to the hourly engine's treatment. Measured over 2024+2025 at true hourly prices: **−8.5 %/−1.3 % (2024), −5.8 %/+1.5 % (2025)** for 2h/4h. The prompt's expected ≈−40 % was wrong: the two errors largely offset.
+2. **Day-ahead prices were read at the wrong resolution.** `da_hourly` in KV is a 192-point PT15M array; the function took `slice(0,24)` as 24 hourly prices, so since **2025-10-01 the card dispatched against the first six hours of the day**. On 2026-07-14 the real day spans €12-181; the slice it saw spanned €127-151.
+
+Permanent mirror test (`workers/__tests__/dispatchV2.test.ts`) pins the card to `lib/dispatch.mjs`: it must never claim MORE than the bankable engine (it sits 7-14 % below on every shape).
+
+#### Headline artifact 2 — 36.B2 revenue percentiles (kkme-reference, Central, lifetime gross)
+
+| | primary 2021-2025 (N=5) | sensitivity 2015-2025 (N=11) |
+|---|---|---|
+| resolves | P17-P83 | P8-P92 |
+| P50 | €136.64M ✓ *(2024)* | €109.82M ✓ *(2020)* |
+| P75 | €124.17M ✓ *(2021)* | €97.80M ✓ |
+| **P90** | €119.31M **NOT RESOLVED** | €93.97M ✓ |
+| P99 | €119.31M **NOT RESOLVED** | €93.70M **NOT RESOLVED** |
+| vs Central €142.21M | **−3.9 %** ✓ | −22.8 % *(expected — regime gap)* |
+
+**The five-year sample cannot produce a measured P90** — the debt-sizing percentile. Eleven years buys one; nothing realistic buys a P99. Reported as `resolved: false` with a reason string rather than a confident number built on five observations. 2026 is excluded on evidence (57.5 % covered).
+
+**Structural limit, in every payload:** reserve prices are flat across shape-years (D3), so this is a **day-ahead** spread. The reserve stack is 67.9 % of Y1 and 71.9 % of lifetime gross and contributes almost no variance to it.
+
+#### Headline artifact 3 — 36.B3 measured realisation + 15-minute delta
+
+| assumption | assumed | **measured** | delta |
+|---|---|---|---|
+| `trading_realisation` | 0.8500 | **0.7234** | −0.1266 |
+| `RYSTAD_15MIN_UPLIFT_DECIMAL` | 0.1400 | **0.0885** | −0.0515 |
+
+Realisation: 2025-07 → 2026-06, 349 traded / 16 declined days, monthly 0.654-0.815. It falls **below the register's own declared range** `[0.78, 0.88]` — the range is understated, not just the point value. Three look-ahead checks run unconditionally and all pass (max day 0.997, Pearson r = −0.093).
+
+15-min uplift: 273 complete native PT15M days, re-fetched at native resolution.
+
+**Both are RECORDED, not adopted.** See the operator decisions below.
+
+---
+
+#### Operator decisions waiting
+
+1. **Adopt measured `trading_realisation` 0.7234?** One-line change to `scenarios.json` Central. **It will reduce client IRR.** Writing it into the register directly collided with the register's every-row-is-bound invariant and turned 4 tests red; rather than re-fit the invariant, the measurement lives in the changelog with the bound row pointing at it (36.B3-F).
+2. **Adopt measured 15-min uplift 0.0885?** Worker constant on the public dispatch path — a second public change.
+3. **`basis: "measured"` rows need a first-class unbound slot in the register.** Belongs with B6's assumption-versioning.
+
+#### Defects found and logged, NOT fixed
+
+- **36.B0-G — the dispatch card's forecast panel is structurally dead.** `/api/dispatch?mode=forecast` reads `daTomorrow.prices_24h || .lt_prices`; **neither field is ever written** by either writer of `da_tomorrow` (both store `npShapeMetrics` output only). It has never served a forecast. This removed the only on-demand live verification path.
+- **36.B0-H — `extractPrices` silently DROPS negative-price hours.** `[\d.]+` cannot match a leading minus, so the element fails to match entirely and **every later index shifts**. Verified directly. Live on any LT summer solar day. Shared with other routes, so it needs its own byte-identity analysis. Prerequisite for the arc's negative-price charging rule.
+- **36.B0-F** — `capture_eur_mwh` substitutes a *theoretical* spread whenever arbitrage ≤ 0; SoC still resets daily; `cycles_per_day_count` is an SoC range mislabelled as a cycle count.
+
+#### Batch-rule deviation, declared
+
+Parts 1-2 were scoped to `tools/consultancy/` only. **36.B3 exports `computeDayCapture` from the worker** — the register defines `trading_realisation` against that exact construct, and restating it would have put the measured value on a different denominator from the assumed one it replaces. Taken on the 36.B1-H precedent ("reuse outranks the convenience of an empty diff") and paid for with evidence: `/revenue` byte-identical at the route layer, 54/54, with the export in place. Worker diff vs `main` = the Part-0 fix + this one export.
+
+#### Verification
+
+Suite **1395/1395** (79 files, 47 new assertions) · `/revenue` route-level **54/54 identical vs main** · register schema valid, all 44 bindings tie · live card verified byte-identical pre/post deploy exactly as predicted (KV-served, frozen at 2026-07-14 since BTD went down 2026-07-17) · `/health/validate` reports a **pre-existing** FAIL (`ALL mature CPI identical (0.3)` — the documented floor, not this batch).
+
+---
+
 ### Session 89 — 2026-07-28 — Phase 36.B1: data audit + chronological hourly dispatch engine (Claude Code, semi-autonomous with one checkpoint)
 
 **Branch:** `phase-36-b1-hourly-dispatch` off `78558ee` · 3 commits. **NOT DEPLOYED.** Decision log: `DECISIONS.md` (36.B1-A…O). Audit artefact: `docs/phases/phase-36-b1-pause-a-audit.md`.
