@@ -296,3 +296,51 @@ asset, augmentation is €3.2M and replacement €10.2M against a ~€5.4M annua
 Both land as single-year cash-flow craters in `pre_financing_cf`. That is the
 contracted treatment (no smoothing, no reserve account), and it is worth the
 operator's eye before the numbers reach the client.
+
+---
+
+## 34.3 — portfolio aggregation
+
+### 34.3-A — calendar span runs to 21 years, not 20
+
+The prompt specified a 2028–2047 portfolio timeline. With staggered COD that is
+wrong by one year: Bitėnai and Stoniškiai run 2028–2047 but Eigirdžiai, starting
+2029, runs to 2048. Truncating at 2047 would drop a full operating year of the
+third project and break `portfolio = Σ projects` — which the same prompt names as
+the tie-breaker ("prefer the interpretation that keeps portfolio = Σ projects
+exact"). Span is therefore 2028–2048, 21 calendar years, and the assert holds.
+
+### 34.3-B — portfolio "Y1" means the first calendar year, not any project's Y1
+
+With staggered commissioning these are different things. Portfolio Y1 = calendar
+2028 = Bitėnai (12 mo) + Stoniškiai (7 mo) + Eigirdžiai (absent). Each consolidated
+row carries a `contributors` array naming who is in it and for how many months, so
+the number is never a bare total whose composition has to be inferred.
+
+### 34.3-C — NPV basis is pre-financing and PRE-TAX
+
+The contracted 8-line bridge has no tax row, and debt/interest/DSCR are excluded
+from the engagement, so the portfolio NPV discounts the bridge's `pre_financing_cf`
+directly. That is **not** comparable with the engine's `npv_at_wacc`, which is
+post-tax. Rather than invent a tax treatment the client did not ask for, each
+project carries `engine_npv_post_tax` alongside `npv_pre_financing_pre_tax` and the
+basis is spelled out in the output. **Operator eyes needed:** if the deliverable is
+to quote a single NPV, it should be the post-tax one, which means adding a tax line
+to the bridge — a scope question for the client, not a modelling call for CC.
+
+`t = 0` is the first CAPEX draw year (2027), matching the engine's convention that
+CAPEX lands at `cod_year` and revenue begins the year after. Each project draws in
+its own year, so Eigirdžiai is discounted from 2028 rather than penalised at t=0.
+
+### 34.3-D — MOIC and NPV read one array
+
+`buildCashflows()` produces a single `{cal_year, t, capex_outflow, operating_cf,
+net_cf}` array; NPV discounts it, MOIC divides Σ operating by Σ CAPEX. Pinned by
+test, so the two can never drift onto different cash flows.
+
+### 34.3-E — no portfolio-effect maths
+
+Correlation is disclosed as data (`lt_zone_price_correlation: 0.97`,
+`spatial_diversification: "negligible"`), and a test asserts consolidated revenue
+carries no uplift over the plain sum. Three 2-hour BESS in one price zone bidding
+into the same markets have no diversification benefit to claim.
