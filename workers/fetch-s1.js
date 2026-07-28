@@ -10362,6 +10362,13 @@ export {
   computeEffectiveArbPct,
   computeDispatchV2,
   daPricesToHourly24,
+  // Phase 36.B3 — the backtest measures `trading_realisation` as achievable ÷
+  // perfect foresight. The register defines that denominator as "x of perfect
+  // foresight" on the S1 SORT-AND-DISPATCH capture, and this is that function.
+  // Restating it in the consultancy tree would put the measured value on a
+  // different denominator from the assumed value it replaces, making the two
+  // incomparable — which is the whole point of the measurement (rule #4).
+  computeDayCapture,
   bidAcceptanceFactor,
   reservePrice,
   marketDepthFactor,

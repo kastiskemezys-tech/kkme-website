@@ -1590,3 +1590,117 @@ here is a day-ahead spread.** Total revenue variance is larger — the reserve s
 is **67.9 % of Y1 gross and 71.9 % of lifetime gross** in the reference case, and
 contributes almost no variance to this distribution. Carried as `reserve_basis: "calibrated-flat (see D3)"` in every
 output payload so the number cannot travel without the caveat.
+
+## Phase 36.B batch-2 — Part 2 (36.B3 dispatch backtest)
+
+### 36.B3-A — trading realisation measures 0.7234 against an assumed 0.85
+
+Twelve months of realised LT day-ahead prices, 2025-07-01 → 2026-06-30, 365 days
+evaluated, 349 traded, 16 declined. Volume-weighted **0.7234**; simple mean
+0.7321; daily distribution min 0.187 · p25 0.628 · median 0.756 · p75 0.849 ·
+max 0.997. Monthly volume-weighted range 0.654 (2025-09) to 0.815 (2026-05).
+
+The measurement is **0.1266 below the assumption**, and it sits below the
+register's own declared sensitivity range for that driver, `[0.78, 0.88]` — so
+the range is understated, not merely the point value. Per the batch prompt's own
+instruction, whatever it is, it ships: a measured 0.72 with a stated method beats
+an assumed 0.85 sourced to an industry range.
+
+### 36.B3-B — the denominator had to be the engine's own sort-and-dispatch
+
+The register defines `trading_realisation` as "x of perfect foresight" against
+the S1 **sort-and-dispatch** capture — sort a day's prices, charge in the
+cheapest N intervals, discharge in the dearest N, take the spread. That is
+`computeDayCapture` in the worker.
+
+Restating it in the consultancy tree would have put the measured value on a
+different denominator from the assumed value it is meant to replace, making the
+two incomparable — which would have destroyed the entire point of measuring it.
+So the function is exported and imported (rule #4). That is a deliberate
+deviation from this batch's "Parts 1-2 are `tools/consultancy/` only" rule,
+taken on the 36.B1-H precedent (*"reuse outranks the convenience of an empty
+diff"*) and paid for with evidence: `/revenue` is byte-identical at the route
+layer, 54/54, with the export in place.
+
+The numerator is the same construct from the B1 policy: volume-weighted average
+discharge price minus volume-weighted average charge price, on the same day and
+the same asset with reserves neutralised.
+
+### 36.B3-C — three look-ahead checks, run whether or not the answer was convenient
+
+The prompt asks for a leakage hunt only if the figure exceeds 0.90. All three
+checks run unconditionally, because a clean bill of health conditional on the
+answer being comfortable is not worth having.
+
+| check | result |
+|---|---|
+| no day beats perfect foresight | 0 of 349 days score > 1.0 (max 0.997) |
+| headline below the 0.90 tripwire | 0.7234 |
+| realisation uncorrelated with day quality | Pearson r = **−0.093** |
+
+The correlation check is the substantive one: a policy that scored best exactly
+on the widest-spread days would be a policy that knew which days those were. It
+is very slightly NEGATIVE, which is the expected sign for a threshold rule (wide
+days offer more spread than p25/p75 triggers can reach).
+
+### 36.B3-D — declined days are excluded, not scored as zero
+
+The policy declined to trade on 16 of 365 days. Scoring those as 0.0 would drag
+the headline to about 0.69. It would also be wrong: refusing a spread that cannot
+cover the round trip is the round-trip guard working, not a missed opportunity.
+They are counted, reported separately, and excluded from both aggregates.
+
+### 36.B3-E — the 15-minute uplift is measured at 0.0885 against an asserted 0.14
+
+`RYSTAD_15MIN_UPLIFT_DECIMAL = 0.14` is applied to the public dispatch card's
+published capture. Operator decision D1(c) asked for it to be tested, and LT
+day-ahead has been natively PT15M since 2025-10-01, so it is directly testable.
+
+The committed year files average sub-hourly points into the hour under D1, so
+`run-15min-delta.mjs` re-fetches the same days at native resolution and runs
+`computeDayCapture` at 15 and at 60 minutes on identical days. Over **273
+complete PT15M days**: weighted uplift **0.0885**, simple mean 0.0979, median
+0.0815, range 0.0005-0.845.
+
+So the asserted constant is roughly **58 % higher than measured**. Reported, not
+changed — it is a worker constant on the public dispatch path, and this batch has
+already made one public correction. `parseA44` gained an opt-in `keepPoints` flag
+to make the measurement possible; the hourly path is untouched by default.
+
+### 36.B3-F — the measurement is recorded in the register, NOT adopted
+
+The prompt asked for `trading_realisation` to "become measured", with the assumed
+value kept as a comparison row. Implementing that literally collided with two
+things the register itself asserts:
+
+1. `__tests__/register.test.ts` requires **every** row to carry an
+   `engine_binding`, with a per-row assertion that the row's value equals what
+   the code holds. `driver:<id>` resolves to the Central value in scenarios.json.
+   A measured observation has no code constant to bind to, so adding it as a row
+   means weakening a governance assertion.
+2. Writing 0.7234 into the bound row would force scenarios.json to move with it —
+   and moving the Central driver moves client IRR. That is a cutover, and the
+   arc's standing rule is that new capability lands alongside and cutover is a
+   separate, explicit operator decision.
+
+Attempting it produced exactly these failures (4 register/deliverable tests red,
+plus a schema error when the new row inherited the assumed driver's `[0.78, 0.88]`
+range and fell outside it). Rather than re-fit the invariant to the change, the
+measurement lands in the **changelog** — metadata, not a row — with the observed
+monthly range attached, and the bound row gains a note pointing at it. The
+assumption can no longer be read without meeting the evidence, and no delivered
+number moved.
+
+**This needs an operator decision.** Adopting 0.7234 is a one-line change to
+`scenarios.json` Central. It will reduce client IRR. Giving `basis: "measured"`
+rows a first-class unbound slot in the register is the cleaner long-term fix and
+belongs with B6's assumption-versioning work.
+
+### 36.B3-G — reserve realisation remains unmeasured, and says so
+
+Operator decision D3, unchanged: BTD is the sole Baltic reserve-price source, the
+deepest series anywhere in the estate is 110 daily points, and the feed has been
+down since 2026-07-17. Only the day-ahead component is measurable. The backtest's
+`basis` block states this, and states what else the number excludes — intraday
+execution, bid rejection, imbalance exposure and balancing forecast error are all
+outside it. It measures day-ahead policy quality and nothing more.

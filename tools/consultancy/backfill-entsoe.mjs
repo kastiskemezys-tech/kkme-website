@@ -38,7 +38,7 @@ import { join } from 'node:path';
 import { HERE } from './engine.mjs';
 
 export const DATA_DIR = join(HERE, 'data');
-const ENTSOE_API = 'https://web-api.tp.entsoe.eu/api';
+export const ENTSOE_API = 'https://web-api.tp.entsoe.eu/api';
 
 /** Bidding-zone EICs. Verified live in Pause A: all three serve A44 back to 2015. */
 export const ZONE_EIC = {
@@ -81,8 +81,9 @@ function allBlocks(xml, tag) {
  * built from, which the output file reports so a reader can see exactly which
  * part of a year is post-MTU-change.
  */
-export function parseA44(xml) {
+export function parseA44(xml, { keepPoints = false } = {}) {
   const acc = new Map();
+  const raw = keepPoints ? [] : null;
   let points = 0;
 
   for (const series of allBlocks(xml, 'TimeSeries')) {
@@ -123,12 +124,17 @@ export function parseA44(xml) {
         cur.n += 1;
         cur.native = resolution;
         acc.set(hourKey, cur);
+        // Phase 36.B3 (decision D1) needs the sub-hourly points themselves to
+        // measure what averaging them away costs. Off by default — the hourly
+        // path must stay byte-identical, and a year of quarter-hours is 35k
+        // objects nobody else wants.
+        if (raw) raw.push({ ts, price: last, resolution });
         points += 1;
       }
     }
   }
 
-  return { acc, points };
+  return { acc, points, raw };
 }
 
 // ── Fetching ───────────────────────────────────────────────────────────────
