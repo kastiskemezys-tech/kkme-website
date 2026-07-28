@@ -1065,3 +1065,80 @@ Rate limiting is per-IP per-UTC-day in KV, 10 sample runs, full tier unlimited.
 KV is eventually consistent so a cross-colo burst can overshoot slightly; that
 is the right trade for a lead-gen form, where the alternative is a Durable
 Object. Counter failures never fail a run — the calculator degrades open.
+
+---
+
+## Phase 35.2 — /calculator page
+
+### 35.2-A — the build gate earned its keep: a single-column grid stretched the page
+
+`npm run build` was green, all 1305 vitest tests passed, tsc and both lints were
+clean — and the page still scrolled horizontally in a real browser. Every
+component test renders to static markup, where nothing has a layout, so nothing
+could have caught it.
+
+Cause: the result sections sit in a single-column `display: grid` with no
+declared template. An implicit grid track is sized `min-width: auto`, so the
+20-year cash-flow table — 20+ columns inside its own `overflow-x: auto`
+container — stretched its grid track, then `<main>`, then the document.
+Measured `documentElement.scrollWidth` 1736 against `clientWidth` 1459, with
+`<main>` reporting `clientWidth` 980 but `scrollWidth` 1496.
+
+Fix: single-column grids declare `gridTemplateColumns: 'minmax(0, 1fr)'`, and
+the section wrappers that hold wide tables carry `minWidth: 0`. Verified in the
+browser before and after — `scrollWidth === clientWidth`, `<main>` back to 980,
+and at a 390px layout width `main.scrollWidth === main.clientWidth` with zero
+elements escaping a scroll container.
+
+This is the Phase 18.1.1 precedent repeating in a new shape: green CI, broken
+page. The gate is not a formality.
+
+### 35.2-B — what the click-through actually covered
+
+`npm run build && npx serve out`, then driven in Chrome:
+
+- All five routes 200 (`/`, `/calculator`, `/intel`, `/methodology`,
+  `/regulatory`); six sampled chunks from the built HTML 200.
+- Built HTML emits `<link rel="canonical" href="https://kkme.eu/calculator"/>`
+  — the 33.C relative-canonical pattern resolving correctly for a new route.
+- **Compute against the real production worker** → HTTP 405 rendered as the
+  page's honest error state. That is the pre-deploy truth (the route ships with
+  the operator's `wrangler deploy`) and it proves the whole client path works:
+  chunks loaded, React hydrated, handler fired, network call made, error
+  rendered. No ChunkLoadError.
+- **Both success tiers driven through the real client bundle** with genuine
+  engine payloads captured from the actual worker `fetch` handler against the
+  frozen KV fixture, injected by overriding `window.fetch` for the two
+  calculator endpoints only. Sample tier: headline, 8-line bridge, SAMPLE
+  treatment, CTA. Full tier: returns, expandable bridge, three scenarios,
+  sensitivity, 20-year cash flow (augmentation in operating year 8 and
+  replacement in year 15 both visible), reconciliation.
+- Login flow: password → token → localStorage → full tier; token survived a
+  reload; sign-out returned the page to the public view.
+- Clamped duration: 50 MW / 150 MWh rendered the 3h → 4h note with the CAPEX
+  basis and the OVERSTATED direction.
+- Console clean — no errors, no hydration warnings.
+
+Not covered locally: the live worker. `/calculate` and `/calculator/login` do
+not exist in production until the operator deploys, so the success tiers were
+exercised against captured-real rather than live-real payloads. The endpoint
+itself is covered by the worker suite, which drives the actual `fetch` handler.
+
+### 35.2-C — soft launch, asserted
+
+`git diff main --name-only -- app/` is **empty**. The whole page is new files
+under `app/calculator/`, and `grep -rn "/calculator" app` returns nothing
+outside that directory — no nav entry, no footer link, no homepage mention. The
+route exists only at its URL until the operator reviews it and decides.
+
+### 35.2-D — the leak test at the UI level, and why it is not word-based
+
+The first version asserted the rendered sample HTML contained no full-tier
+section words, and failed immediately on "20-year cash flow" — which is in the
+CTA, deliberately, because the CTA's job is to name what the full tier adds.
+
+Rewritten to assert on full-tier **data**: no MOIC, no IRR, no NPV, no CAPEX
+total, no sensitivity footer, no reconciliation, no expander, no 2038/2048
+cash-flow columns, no scenario names. Plus a structural check that the rendered
+`<h2>` set is exactly the sample's two headings, which scopes past the CTA copy
+without depending on wording.
