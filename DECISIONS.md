@@ -920,3 +920,148 @@ and both PDFs in `output/delivery/` all carry the same figures from the same
 run, which the gate verified. Anything regenerated later will be internally
 consistent too — just not identical to what was delivered. The generation date
 is stamped on the cover, the banner and the README for exactly this reason.
+
+---
+
+## Phase 35.1 — BESS Revenue Calculator: endpoint, auth, scenario port
+
+### 35.1-A — the engine is calibrated at exactly two durations, and the calculator says so
+
+The prompt asked to verify what `dur_h` values the engine supports before
+designing validation rather than assuming. Swept 0.25h→10h against the frozen
+KV fixture at 50 MW / mid CAPEX / COD 2028 / base. `net_mw_yr` is a **step
+function** with three plateaus and no interpolation anywhere:
+
+| `dur_h` | net €/MW/yr | what the engine used |
+|---|---|---|
+| ≤ 2 | 147 154 | 2h throughput constants, 2h RTE curve |
+| 2 → 3 (exclusive) | 157 651 | **4h** throughput constants, **2h** RTE curve |
+| ≥ 3 | 158 369 | 4h throughput constants, 4h RTE curve |
+
+Every revenue-side duration branch is discrete (`mwh_per_mw_yr_da_{2h,4h}`,
+`RTE_BOL.{h2,h4}`); only CAPEX scales continuously. So a 10h battery is modelled
+as a 4h battery costing 2.5× as much, and its IRR is meaningless. The middle
+band is worse than coarse — it is internally inconsistent, because
+`computeThroughputBreakdown` branches on `dur_h <= 2` while `rteCurveFor`
+branches on `dur_h >= 3`, so between 2h and 3h the two disagree about which
+battery is being modelled. That band is a latent engine bug, not a feature; it
+is not reachable from `/revenue` (DUR_MAP offers only 2h and 4h) and is left
+untouched here rather than fixed inside a productisation phase.
+
+**Decision.** Accept 0.5h–8h as the prompt specifies, and clamp the duration
+handed to the engine to the nearest calibration point — 2h below 3h, 4h at or
+above. The midpoint coincides with the engine's own RTE branch, so clamping
+removes the inconsistent band by construction rather than by luck.
+
+CAPEX is **compensated** rather than clamped: the engine derives
+`gross_capex = capex_kwh × mw × dur_h × 1000`, so the clamped duration alone
+would quote a 3h project at 4h CAPEX. The rate handed to the engine is scaled by
+`actual_mwh / engine_mwh`, landing gross CAPEX on the user's true €/kWh × true
+MWh. Revenue is the calibration point's; cost is theirs.
+
+`inputs_echo.duration_note` states the calibration point, that CAPEX is
+unclamped, and **the direction of the resulting bias** — overstated when
+modelled above the actual duration, understated when below. Exact 2h and 4h
+inputs (every Prosperus config and the public reference asset) clamp to
+themselves and carry no note. Reporting the bias direction is the honest
+alternative to silently picking a number the engine cannot produce.
+
+### 35.1-B — a client scenario is a context, not a name
+
+The 34.4 overlay reached six locked drivers by rewriting the worker's source.
+Four sit on scenario-keyed tables and port by adding a key. The other two —
+reserve capacity price delta and the CPI floor — are **global** in the engine
+(`capPrice()`, `cpiCurve()`), and so is the observed base year, because the
+overlay rewrote `REVENUE_SCENARIOS.base` itself, which is the object
+`computeBaseYear` is handed.
+
+The consequence only shows up in the bankability probe: `computeRevenueV7`
+re-runs itself at `scenario: 'conservative'` to derive `min_dscr_conservative`,
+and under the overlay that re-run saw the global substitutions too. A port that
+resolved drivers from the scenario name alone diverged there — caught by the
+parity check at ~0.01–0.02 DSCR, small enough to have shipped unnoticed.
+
+So `params.client_scenario` carries the context explicitly and is passed into
+the re-run. It is null for base/conservative/stress, where it resolves to ×1.0,
+the built-in 0.30 floor and `REVENUE_SCENARIOS.base` — today's behaviour.
+
+**Parity result:** worker-native `client_downside` / `client_upside` reproduce
+batch-2's overlay output **exactly** for all three Prosperus configs, on every
+field except the `scenario` label itself (correctly `client_downside` natively
+vs `base`-with-patched-constants under the overlay). Central is byte-identical,
+confirming Central ≡ base. Asserted in vitest against the live overlay, so the
+port cannot drift from the numbers batch-2 published.
+
+### 35.1-C — re-flooring the CPI curve was wrong, and the batch-2 test caught it
+
+First attempt applied the scenario floor as `Math.max(floor, cpiCurve(sd))`,
+reasoning that max() is idempotent above the built-in 0.30 and that below it the
+floor "never binds in the Baltic range". The second half of that was an
+assumption, and it was false: batch-2's driver-echo test failed, proving the
+aFRR S/D ratio at COD is above 2.25 and Downside's 0.28 floor is a floor the
+engine actually reaches. Re-flooring silently clamped it back to 0.30.
+
+`cpiCurveScenario` now delegates to `cpiCurve` at the built-in floor — so every
+pre-35.1 path has one evaluated path AND the overlay's textual substitution
+still reaches the reported value — and restates the curve with the floor
+substituted only for a genuinely different floor. That restatement is the one
+duplicated formula in the port; a vitest sweeps `cpiCurveScenario(sd, 0.30)`
+against `cpiCurve(sd)` across sd ∈ [0, 4] so it cannot drift.
+
+`cpiCurve` itself was not re-parameterised: its text is load-bearing twice over
+— the public `/revenue` path, and the 34.4 overlay's substitution anchor.
+Re-parameterising it would delete the anchor and break every batch-2 runner.
+
+This is discipline rule #1 applied to my own reasoning: a premise about what the
+engine reaches is a hypothesis, and the existing test was the triangulation.
+
+### 35.1-D — the 54/54 gate does not cover the route layer
+
+Extracting `/revenue`'s KV assembly into `loadEngineKV()` so `/calculate` feeds
+the engine from identical inputs (rule #4 — two copies of that key list is
+exactly how the calculator and the public site drift apart) broke `/revenue`:
+the route body still referenced the locals the block had declared. **The 54/54
+regression gate stayed green through it**, because it calls `computeRevenueV7`
+directly with a fixture KV and never exercises the route.
+
+Caught by a route-level probe written for this phase, and then closed properly:
+`/revenue` was replayed through the actual `fetch` handler for all 54 public
+parameter combinations against **`main`'s worker**, output stripped of
+`timestamp` — **54/54 identical**. Worth recording as a standing limitation of
+the engine-level gate: any future change to route-level assembly needs its own
+verification, because the byte-identity gate will not see it.
+
+Permanent guards added: `loadEngineKV` is asserted to request exactly the nine
+documented KV keys, and the worker source is asserted to contain exactly two
+`await loadEngineKV(env)` call sites, so re-inlining a key list into either
+route fails the suite.
+
+### 35.1-E — tier separation is structural, not filtered
+
+`buildSample` is a different function from `buildFull` and **never receives the
+engine result** — it takes the four narrowed values it renders. A sample
+response therefore cannot leak full-tier data by omission of a filter, because
+there is no filter; the data is not in scope.
+
+Tested at two levels: the built object's top-level keys must equal
+`SAMPLE_ALLOWED_KEYS` exactly, no key in `FULL_TIER_MARKER_KEYS` may appear at
+**any depth**, no array anywhere may reach 20 elements, and passing a bridge
+object salted with `bridge_20yr`/`years` keys must not widen the output.
+
+### 35.1-F — auth choices
+
+`CALC_SECRET` is a new secret, never `UPDATE_SECRET`: the admin secret
+authorises data mutation and must not be typed into a browser. Token is
+`<expiry-ms>.<HMAC-SHA256("calc:<expiry-ms>", CALC_SECRET)>` — the expiry is
+inside the signed message, so editing it invalidates the signature (tested). No
+user or session store; there is one operator.
+
+An invalid or expired token **degrades to the sample tier** rather than
+erroring, so a stale localStorage token yields the public view instead of a dead
+page. Login returns 503 when `CALC_SECRET` is unset — the pre-deploy state —
+while the sample tier keeps working regardless.
+
+Rate limiting is per-IP per-UTC-day in KV, 10 sample runs, full tier unlimited.
+KV is eventually consistent so a cross-colo burst can overshoot slightly; that
+is the right trade for a lead-gen form, where the alternative is a Durable
+Object. Counter failures never fail a run — the calculator degrades open.

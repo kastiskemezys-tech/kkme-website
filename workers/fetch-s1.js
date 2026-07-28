@@ -25,6 +25,7 @@ import { DEFAULTS, STALE_THRESHOLDS_HOURS } from './lib/defaults.js';
 import { kvWrite, checkBounds, checkRequired } from './lib/kv.js';
 import { notifyTelegram } from './lib/notify.js';
 import { computeEUATrend } from './lib/eua_trend.js';
+import * as CALC from './lib/calculator.js';
 
 const ENTSOE_API    = 'https://web-api.tp.entsoe.eu/api';
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
@@ -1066,7 +1067,10 @@ function getDegradation(year, cyclesPerDay) {
 const TRADING_REALISATION = {
   base: 0.85,          // good optimizer (Capalo AI claims 85-90%)
   conservative: 0.80,  // slightly less efficient optimizer
-  stress: 0.75         // weaker execution or market impact
+  stress: 0.75,        // weaker execution or market impact
+  // Phase 35.1 client scenario sets — see CLIENT_SCENARIO_DRIVERS below.
+  client_downside: 0.78,
+  client_upside: 0.88,
 };
 
 // Pipeline realisation rate: fraction of pipeline MW that actually gets built.
@@ -1074,7 +1078,12 @@ const TRADING_REALISATION = {
 const PIPELINE_REALISATION = {
   base: 0.50,          // 50% of pipeline built — typical dropout
   conservative: 0.53,  // 53% — slightly more competition
-  stress: 0.62         // 62% — strong competition
+  stress: 0.62,        // 62% — strong competition
+  // Phase 35.1 client scenario sets. Direction is inverted versus intuition:
+  // a HIGHER realisation rate means more competing supply, so the client's
+  // Downside carries the higher value. See CLIENT_SCENARIO_DRIVERS below.
+  client_downside: 0.65,
+  client_upside: 0.35,
 };
 
 // Pipeline deployment speed (years from 2026).
@@ -1085,7 +1094,12 @@ const PIPELINE_DEPLOY_YEARS = 4;
 const SPREAD_GROWTH = {
   base: 0.02,          // spreads grow 2%/yr (more renewables)
   conservative: 0.00,  // flat (BESS smoothing offsets renewable growth)
-  stress: -0.01        // slight compression (large BESS fleet smooths)
+  stress: -0.01,       // slight compression (large BESS fleet smooths)
+  // Phase 35.1 client scenario sets. Documented zero-effect driver: it reaches
+  // its engine site correctly but the only revenue path it feeds
+  // (trading_fraction) is pinned at its 0.70 ceiling. See 34.4-C / DECISIONS.
+  client_downside: -0.01,
+  client_upside: 0.035,
 };
 
 // Intraday uplift: real operators trade DA + intraday auction + continuous.
@@ -1190,6 +1204,70 @@ const REVENUE_SCENARIOS = {
   },
 };
 
+// ── Phase 35.1 — client scenario sets (Downside / Upside) ───────────────────
+//
+// Phase 34.4 locked six client-facing scenario drivers. Every one of them is a
+// module constant selected by scenario NAME, so batch-2 could only reach them
+// from Node by substituting the worker's own source text
+// (tools/consultancy/scenario-overlay.mjs). That is unusable inside the running
+// worker, which is what /calculate needs. This ports the two non-Central sets
+// into the engine as named scenarios alongside base/conservative/stress.
+//
+// Central is NOT ported: the client's Central driver values ARE the engine's
+// shipped base constants, so Central ≡ base by construction. A vitest asserts
+// that identity rather than trusting it.
+//
+// Four of the six drivers land on scenario-keyed tables and are ported by
+// adding a key (TRADING_REALISATION, PIPELINE_REALISATION, SPREAD_GROWTH, and
+// `avail` here). The remaining two — reserve capacity price delta and the
+// cannibalisation-index floor — are not scenario-keyed in the engine, so they
+// are carried in CLIENT_SCENARIO_DRIVERS below and threaded to their sites.
+//
+// Two of the six move no money and are ported anyway, because reporting a
+// driver the client named as "not implemented" is worse than reporting it as
+// measured-zero: spread_growth is pinned behind the 0.70 trading_fraction
+// ceiling, and the CPI floor feeds disclosure fields only. Both findings are
+// batch-2's, re-stated here at the constants they set (DECISIONS 34.4-C).
+//
+// Derived from base by spread so that every constant these sets do NOT change
+// keeps exactly one source (discipline rule #4).
+REVENUE_SCENARIOS.client_downside = {
+  ...REVENUE_SCENARIOS.base,
+  avail: 0.95,
+  trd_real: TRADING_REALISATION.client_downside,
+};
+REVENUE_SCENARIOS.client_upside = {
+  ...REVENUE_SCENARIOS.base,
+  avail: 0.98,
+  trd_real: TRADING_REALISATION.client_upside,
+};
+
+/**
+ * The two drivers with no scenario-keyed home in the engine.
+ *
+ * `cap_price_mult` multiplies the resolved reserve capacity price BEFORE the
+ * €50/MW/h structural ceiling, matching where the 34.4 overlay applied it.
+ * `cpi_floor` re-floors the cannibalisation curve.
+ *
+ * base / conservative / stress carry the engine's shipped values (×1.0 and the
+ * built-in 0.30 floor), so every pre-35.1 code path multiplies by exactly 1 and
+ * floors at exactly the literal it already used — the public /revenue payload
+ * is unchanged by construction, not by testing.
+ */
+const CPI_FLOOR_BUILTIN = 0.30;
+const CLIENT_SCENARIO_DRIVERS = {
+  base:            { cap_price_mult: 1.0,  cpi_floor: CPI_FLOOR_BUILTIN },
+  conservative:    { cap_price_mult: 1.0,  cpi_floor: CPI_FLOOR_BUILTIN },
+  stress:          { cap_price_mult: 1.0,  cpi_floor: CPI_FLOOR_BUILTIN },
+  client_downside: { cap_price_mult: 0.75, cpi_floor: 0.28 },
+  client_upside:   { cap_price_mult: 1.20, cpi_floor: 0.35 },
+};
+const scenarioDrivers = (name) => CLIENT_SCENARIO_DRIVERS[name] || CLIENT_SCENARIO_DRIVERS.base;
+
+// The client-case → engine-scenario mapping lives in workers/lib/calculator.js
+// (CLIENT_SCENARIO_KEYS), which is the only consumer. One source (rule #4).
+const CLIENT_SCENARIO_NAMES = new Set(['client_downside', 'client_upside']);
+
 // Throughput-derived cycle accounting — cross-product helper.
 // Returns total_mwh_yr and per-product MWh through the cells per MW installed.
 // DA arbitrage uses per-duration anchors (mwh_per_mw_yr_da_{2h,4h}) that
@@ -1267,11 +1345,102 @@ const RESERVE_PRODUCTS = {
 // persists them to KV so 33.B.2 can reason about persistence vs transient spikes.
 const CAP_PRICE_FALLBACK = { fcr: 0.36, afrr: 7.06, mfrr: 19.74 }; // €/MW/h
 const CAP_PRICE_CEIL = 50; // €/MW/h — structural per-product ceiling (Phase 33)
-function capPrice(product, observed) {
+// `mult` (Phase 35.1) is the client scenario's reserve capacity price delta. It
+// is applied BEFORE the structural ceiling, which is where the 34.4 overlay
+// applied it, so a ported scenario clears at the same price the overlay
+// produced. It defaults to 1 and every pre-35.1 caller leaves it defaulted, so
+// those paths compute `v * 1` — exactly `v` for every finite value.
+//
+// The `const v = …` line below is also the overlay's substitution anchor and
+// must stay byte-identical; the multiplier is deliberately a separate statement
+// rather than folded into it.
+function capPrice(product, observed, mult = 1) {
   const v = (observed != null && Number.isFinite(observed)) ? observed : CAP_PRICE_FALLBACK[product];
-  const clamped = Math.min(CAP_PRICE_CEIL, Math.max(0, v));
-  if (clamped !== v) console.log(`[revenue/cap-clip] ${product} ${v}→${clamped} €/MW/h (Phase 33 ceiling)`);
+  const scaled = v * mult;
+  const clamped = Math.min(CAP_PRICE_CEIL, Math.max(0, scaled));
+  if (clamped !== scaled) console.log(`[revenue/cap-clip] ${product} ${scaled}→${clamped} €/MW/h (Phase 33 ceiling)`);
   return clamped;
+}
+
+/**
+ * Assemble the `kv` object the revenue engine reads, from the KV namespace.
+ *
+ * Phase 35.1 — extracted verbatim from the /revenue route so that /calculate
+ * runs the engine on identically-sourced inputs. This is the single place the
+ * engine's KV dependencies are named; anything that needs to drive
+ * computeRevenueV7 from a request should call this rather than re-listing keys.
+ *
+ * Side-effect free: the capacity-watch logging and KV persistence stay on
+ * /revenue, where they belong (they track the public payload's data quality,
+ * and mirroring them here would multiply KV writes per calculator run).
+ */
+async function loadEngineKV(env) {
+  const [s1Raw, s2Raw, s3Raw, fleetRaw, eurRaw, s1CaptureRaw, s2ActivationRaw, btdHistRaw, tradingMetricsRaw] = await Promise.all([
+    env.KKME_SIGNALS.get('s1'),
+    env.KKME_SIGNALS.get('s2'),
+    env.KKME_SIGNALS.get('s3'),
+    (env.KKME_SIGNALS.get('s4_fleet').catch(() => null))
+      .then(r => r || env.KKME_SIGNALS.get('s2_fleet').catch(() => null)),
+    env.KKME_SIGNALS.get('euribor'),
+    env.KKME_SIGNALS.get('s1_capture').catch(() => null),
+    env.KKME_SIGNALS.get('s2_activation').catch(() => null),
+    env.KKME_SIGNALS.get('s2_btd_history').catch(() => null),
+    env.KKME_SIGNALS.get('trading:metrics').catch(() => null),
+  ]);
+  const s1    = s1Raw    ? JSON.parse(s1Raw)    : null;
+  const s2    = s2Raw    ? JSON.parse(s2Raw)    : null;
+  const s3    = s3Raw    ? JSON.parse(s3Raw)    : null;
+  const fleet = fleetRaw ? JSON.parse(fleetRaw) : null;
+  const eur   = eurRaw   ? JSON.parse(eurRaw)   : null;
+
+  // Parse S1 capture (monthly capture data)
+  const s1_capture = s1CaptureRaw ? JSON.parse(s1CaptureRaw) : null;
+
+  // Parse S2 activation into the shape v7 expects
+  let s2_activation_parsed = null;
+  if (s2ActivationRaw) {
+    try {
+      const actRaw = JSON.parse(s2ActivationRaw);
+      const lt = actRaw.countries?.Lithuania;
+      const lv = actRaw.countries?.Latvia;
+      const ee = actRaw.countries?.Estonia;
+      s2_activation_parsed = {
+        lt: {
+          afrr_p50: lt?.afrr_recent_3m?.avg_p50 ?? null,
+          mfrr_p50: lt?.mfrr_recent_3m?.avg_p50 ?? null,
+        },
+        lv: {
+          afrr_p50: lv?.afrr_recent_3m?.avg_p50 ?? null,
+          mfrr_p50: lv?.mfrr_recent_3m?.avg_p50 ?? null,
+        },
+        ee: {
+          afrr_p50: ee?.afrr_recent_3m?.avg_p50 ?? null,
+          mfrr_p50: ee?.mfrr_recent_3m?.avg_p50 ?? null,
+        },
+        lt_monthly_afrr: lt?.afrr_up ?? {},
+        lt_monthly_mfrr: lt?.mfrr_up ?? {},
+        lv_monthly_afrr: lv?.afrr_up ?? {},
+        lv_monthly_mfrr: lv?.mfrr_up ?? {},
+        ee_monthly_afrr: ee?.afrr_up ?? {},
+        ee_monthly_mfrr: ee?.mfrr_up ?? {},
+        compression: actRaw.compression_trajectory ?? null,
+      };
+    } catch { /* ignore */ }
+  }
+
+  // Parse BTD history for capacity monthly
+  let capacity_monthly = [];
+  if (btdHistRaw) {
+    try { capacity_monthly = computeCapacityMonthly(JSON.parse(btdHistRaw)); } catch { /* ignore */ }
+  }
+
+  // Parse dispatch metrics for reserve availability
+  let dispatch_metrics = null;
+  if (tradingMetricsRaw) {
+    try { dispatch_metrics = JSON.parse(tradingMetricsRaw); } catch { /* ignore */ }
+  }
+
+  return { fleet, s2, s1, s3, euribor: eur, s1_capture, s2_activation_parsed, capacity_monthly, dispatch_metrics };
 }
 
 // Phase 33 observability: when the dedicated S2 capacity prices (*_cap_avg) are
@@ -1422,9 +1591,56 @@ function computeRevenueV7(params, kv) {
   const mw = pcfg ? pcfg.mw : (params.mw || 50);
   const dur_h = pcfg ? (pcfg.duration_h ?? pcfg.mwh / pcfg.mw) : (params.dur_h || 4);
   const mwh = mw * dur_h;
-  const sc = REVENUE_SCENARIOS[params.scenario || 'base'] || REVENUE_SCENARIOS.base;
+  const sc_scenario = REVENUE_SCENARIOS[params.scenario || 'base'] || REVENUE_SCENARIOS.base;
   const capex_kwh = pcfg ? pcfg.capex_eur_kwh : (params.capex_kwh || 164);
   const cod_year = pcfg ? pcfg.cod_year : (params.cod_year || 2028);
+
+  // ── Phase 35.1 — client scenario context ───────────────────────────────────
+  //
+  // Two of the six client drivers (capacity price delta, CPI floor) are GLOBAL
+  // in the engine, not scenario-keyed: the 34.4 overlay reached them by
+  // rewriting capPrice() and cpiCurve(), which every scenario then read. The
+  // observed base year is global in the same way — the overlay rewrote
+  // REVENUE_SCENARIOS.base, which is the object computeBaseYear is handed.
+  //
+  // So a client scenario is not just a name in REVENUE_SCENARIOS; it is a
+  // context that has to survive the internal `scenario: 'conservative'` re-run
+  // below (the bankability DSCR probe), exactly as the overlay's substitutions
+  // did. `client_scenario` carries it. It is derived from the scenario name on
+  // first entry and passed explicitly into the re-run.
+  //
+  // Null for base / conservative / stress, where it resolves to ×1.0, the
+  // built-in 0.30 floor and REVENUE_SCENARIOS.base — i.e. today's behaviour.
+  const client_scenario = params.client_scenario
+    ?? (CLIENT_SCENARIO_NAMES.has(params.scenario) ? params.scenario : null);
+  const base_year_scenario = client_scenario || 'base';
+
+  // `driver_overrides` is the sensitivity runner's one-at-a-time probe: a
+  // single named driver moved off its scenario value, everything else left
+  // alone. Absent on every other call, including all of /revenue, so `drv` is
+  // then exactly the scenario's own set.
+  //
+  // `avail` and `trd_real` are scenario-object fields rather than free-standing
+  // constants, so they are applied to `sc` instead of riding in `drv`.
+  const overrides = params.driver_overrides || null;
+  const scenario_drv = scenarioDrivers(client_scenario || params.scenario || 'base');
+  const drv = overrides ? { ...scenario_drv, ...overrides } : scenario_drv;
+  // Applied to whichever scenario object is in play. The overlay patched
+  // REVENUE_SCENARIOS.base, so it moved the run scenario AND the base-year
+  // context together; applying to both here reproduces that.
+  const applyScOverrides = (base) =>
+    (overrides && (overrides.avail != null || overrides.trd_real != null))
+      ? {
+          ...base,
+          ...(overrides.avail != null ? { avail: overrides.avail } : {}),
+          ...(overrides.trd_real != null ? { trd_real: overrides.trd_real } : {}),
+        }
+      : base;
+  const sc = applyScOverrides(sc_scenario);
+  // Sensitivity-only driver (34.4 §3). Undefined on every non-sensitivity call,
+  // so rteCurveFor falls back to its shipped constant. Global in the same way,
+  // so it rides through the re-run on `...params`.
+  const rte_decay = params.rte_decay;
 
   // Partial operating year 1 (e.g. Stoniškiai COD 2028-06 → 7 months). Scales
   // Y1 revenue and OPEX linearly. Fixed annual fees (BRP) and the degradation
@@ -1439,11 +1655,15 @@ function computeRevenueV7(params, kv) {
   const tp = computeThroughputBreakdown(1, dur_h, sc);
   const total_cd     = tp.total_cd;
   const da_mwh_per_mw_yr = tp.da_mwh;        // for 1 MW: MWh/yr from DA arbitrage
-  const rte_curve    = rteCurveFor(dur_h);  // year-indexed RTE curve
+  const rte_curve    = rteCurveFor(dur_h, undefined, rte_decay);  // year-indexed RTE curve
   const rte          = rte_curve[0];        // BOL value used by single-value consumers
 
   // ── Observed base year (always computed with base params — observed data is scenario-independent) ──
-  const base_year = computeBaseYear(kv, dur_h, REVENUE_SCENARIOS.base);
+  // Phase 35.1: "base params" stays REVENUE_SCENARIOS.base for the three public
+  // scenarios. Under a client scenario it is that scenario's set, because the
+  // overlay rewrote REVENUE_SCENARIOS.base itself — see client_scenario above.
+  const base_year_sc = applyScOverrides(REVENUE_SCENARIOS[base_year_scenario] || REVENUE_SCENARIOS.base);
+  const base_year = computeBaseYear(kv, dur_h, base_year_sc, base_year_scenario, rte_decay, drv);
   const compression = deriveCompression(kv);
 
   // Gate: need at least 6 months of S1 data to use v7
@@ -1534,10 +1754,10 @@ function computeRevenueV7(params, kv) {
 
     // C4. S/D elasticity mix model: R from reserve price curve, T from renewable trajectory
     const cal_year = cod_year + yr;
-    const mix = computeTradingMix(kv, dur_h, cal_year, scenario_name, sc, yr);
+    const mix = computeTradingMix(kv, dur_h, cal_year, scenario_name, sc, yr, drv);
 
     // Compress: R decay for balancing calibration, R+T for reporting
-    const mix_now = computeTradingMix(kv, dur_h, 2026, scenario_name, sc, 0);
+    const mix_now = computeTradingMix(kv, dur_h, 2026, scenario_name, sc, 0, drv);
     const RT_now = mix_now.R + mix_now.T;
     const RT_yr = mix.R + mix.T;
     const compress_total = RT_now > 0 ? RT_yr / RT_now : 1.0;
@@ -1712,7 +1932,9 @@ function computeRevenueV7(params, kv) {
   // Bankability
   let cons_min_dscr = min_dscr;
   if (params.scenario !== 'conservative' && !params._skip_cons) {
-    const cons_result = computeRevenueV7({ ...params, scenario: 'conservative', _skip_cons: true }, kv);
+    // `client_scenario` is passed explicitly: it is the global-driver context,
+    // and the overlay's substitutions were visible to this probe too.
+    const cons_result = computeRevenueV7({ ...params, scenario: 'conservative', client_scenario, _skip_cons: true }, kv);
     cons_min_dscr = cons_result.min_dscr;
   }
   const bankability = cons_min_dscr >= 1.20 ? 'Pass'
@@ -1754,10 +1976,10 @@ function computeRevenueV7(params, kv) {
   const prices_source = s2.afrr_cap_avg != null ? 'BTD measured' : (s2.afrr_up_avg != null ? 'BTD parsed; calibrated capacity (review pending)' : 'proxy');
 
   // v7.1 — per-product compression at COD year (cpi formula on per-product S/D)
-  const cod_mix = computeTradingMix(kv, dur_h, cod_year, scenario_name, sc, 0);
-  const cpi_fcr_at_cod  = Math.round(cpiCurve(cod_mix.per_product.fcr.sd_ratio)  * 100) / 100;
-  const cpi_afrr_at_cod = Math.round(cpiCurve(cod_mix.per_product.afrr.sd_ratio) * 100) / 100;
-  const cpi_mfrr_at_cod = Math.round(cpiCurve(cod_mix.per_product.mfrr.sd_ratio) * 100) / 100;
+  const cod_mix = computeTradingMix(kv, dur_h, cod_year, scenario_name, sc, 0, drv);
+  const cpi_fcr_at_cod  = Math.round(cpiCurveScenario(cod_mix.per_product.fcr.sd_ratio,  drv.cpi_floor) * 100) / 100;
+  const cpi_afrr_at_cod = Math.round(cpiCurveScenario(cod_mix.per_product.afrr.sd_ratio, drv.cpi_floor) * 100) / 100;
+  const cpi_mfrr_at_cod = Math.round(cpiCurveScenario(cod_mix.per_product.mfrr.sd_ratio, drv.cpi_floor) * 100) / 100;
 
   // ── v7.3 — Throughput-derived cycle accounting + empirical SOH/RTE ──────
   // Per-product breakdown for assumptions_panel + warranty status surface.
@@ -1969,9 +2191,9 @@ function computeRevenueV7(params, kv) {
         : (s1_cap.capture_4h?.gross_eur_mwh ?? (by_trading_per_mw > 0 ? by_trading_per_mw / (rte * da_mwh_per_mw_yr * (base_year.time_model?.effective_arb_pct || 0.115) * sc.trd_real) : 0)),
       afrr_clearing: act_parsed?.lt?.afrr_p50 ?? s2.afrr_up_avg ?? 170,
       mfrr_clearing: act_parsed?.lt?.mfrr_p50 ?? s2.mfrr_up_avg ?? 110,
-      afrr_cap: capPrice('afrr', s2.afrr_cap_avg),
-      mfrr_cap: capPrice('mfrr', s2.mfrr_cap_avg),
-      fcr_cap: capPrice('fcr', s2.fcr_cap_avg),
+      afrr_cap: capPrice('afrr', s2.afrr_cap_avg, drv.cap_price_mult),
+      mfrr_cap: capPrice('mfrr', s2.mfrr_cap_avg, drv.cap_price_mult),
+      fcr_cap: capPrice('fcr', s2.fcr_cap_avg, drv.cap_price_mult),
       euribor: Math.round(euribor * 10000) / 100,
       rate_allin_pct: Math.round(rate_allin * 10000) / 100,
     },
@@ -2460,11 +2682,49 @@ function cpiCurve(sd_ratio) {
 }
 
 /**
+ * Phase 35.1 — cpiCurve under a client scenario's floor.
+ *
+ * cpiCurve() above keeps its literal 0.30 floor rather than taking a parameter,
+ * because its text is load-bearing twice over: it is the public /revenue path,
+ * and it is the 34.4 overlay's substitution anchor. Re-parameterising it would
+ * delete the anchor and break every batch-2 scenario runner.
+ *
+ * At the built-in floor this delegates, so there is exactly one evaluated path
+ * for every pre-35.1 caller AND the overlay's substitution still reaches the
+ * value the engine reports. Only a genuinely different floor takes the branch
+ * below, which restates the curve with the floor substituted — the substitution
+ * the overlay performed textually, performed numerically instead.
+ *
+ * That restatement is the one place in this port where a formula appears twice.
+ * It is held to the original by a vitest sweeping cpiCurveScenario(sd, 0.30)
+ * against cpiCurve(sd), so the copy cannot drift silently.
+ *
+ * Re-flooring the already-floored curve was tried first and is WRONG: the
+ * built-in 0.30 binds at S/D ≥ 2.25, and the aFRR S/D ratio at COD is above
+ * that in the Prosperus configs — so Downside's 0.28 is a floor the engine
+ * actually reaches, not a dead parameter. (Caught by the batch-2 driver-echo
+ * test, which is precisely what it exists for.)
+ *
+ * The field is disclosure-only either way — cpi_* have no revenue, EBITDA or
+ * cash-flow path (batch-2's finding, DECISIONS 34.4-C) — but a disclosed number
+ * that silently ignores the driver behind it is still a wrong number.
+ */
+function cpiCurveScenario(sd_ratio, floor = CPI_FLOOR_BUILTIN) {
+  if (floor === CPI_FLOOR_BUILTIN) return cpiCurve(sd_ratio);
+  if (sd_ratio < 0.6) return Math.min(1.0 + (0.6 - sd_ratio) * 2.5, 2.0);
+  if (sd_ratio < 1.0) return Math.max(floor, 1.0 - (sd_ratio - 0.6) * 1.5);
+  return Math.max(floor, 0.40 - (sd_ratio - 1.0) * 0.08);
+}
+
+/**
  * projectFleet: fleet supply projection per calendar year.
  * Uses S4 weighted_supply (confidence-weighted current fleet), applies
  * pipeline realisation rate to ADDITIONAL pipeline MW, then organic growth.
  */
-function projectFleet(cal_year, kv, scenario) {
+// `realisation_override` (Phase 35.1) is the sensitivity runner's one-at-a-time
+// pipeline-realisation probe. Undefined everywhere else, so the scenario-keyed
+// lookup below is unchanged.
+function projectFleet(cal_year, kv, scenario, realisation_override) {
   const fleet = kv.fleet || kv.s2 || {};
 
   // Current competitive supply from S4 (already confidence-weighted)
@@ -2474,7 +2734,7 @@ function projectFleet(cal_year, kv, scenario) {
   const pipeline_raw = fleet.baltic_pipeline_mw || 866;
 
   // Apply pipeline realisation (dropout rate)
-  const realisation = PIPELINE_REALISATION[scenario] || 0.50;
+  const realisation = realisation_override ?? (PIPELINE_REALISATION[scenario] || 0.50);
   const pipeline_effective = pipeline_raw * realisation;
 
   // Pipeline deploys on S-curve from 2026 (not all at once)
@@ -2553,7 +2813,17 @@ function switchingFriction(yr) {
   return 0.75;
 }
 
-function computeTradingMix(kv, dur_h, cal_year, scenario, sc, yr = 1) {
+// `drv` (Phase 35.1) carries the scenario drivers that have no scenario-keyed
+// home in the engine, plus the one-at-a-time overrides the sensitivity runner
+// needs. It defaults to the set the scenario NAME implies — ×1.0 and no
+// overrides for all three public scenarios, so /revenue is unchanged.
+//
+// It is passed explicitly where the run scenario and the client scenario differ:
+// the bankability DSCR probe re-runs at 'conservative' while still sitting
+// inside a client scenario, and the 34.4 overlay's capPrice substitution was
+// global, so that probe saw the delta too.
+function computeTradingMix(kv, dur_h, cal_year, scenario, sc, yr = 1, drv = scenarioDrivers(scenario)) {
+  const cap_mult = drv.cap_price_mult;
   const rte = dur_h <= 2 ? RTE_BOL.h2 : RTE_BOL.h4; // canonical RTE_BOL (same physical battery round-trip)
   const trading_real = sc.trd_real || 0.85;
   const friction = switchingFriction(yr);
@@ -2565,8 +2835,8 @@ function computeTradingMix(kv, dur_h, cal_year, scenario, sc, yr = 1) {
   // R base: per-product capacity + activation per MW-hour. Decomposed so each
   // product can carry its own forward S/D and bid-acceptance compression.
   const afrr_share = 0.40, mfrr_share = 0.60;
-  const afrr_cap = capPrice('afrr', s2.afrr_cap_avg);
-  const mfrr_cap = capPrice('mfrr', s2.mfrr_cap_avg);
+  const afrr_cap = capPrice('afrr', s2.afrr_cap_avg, cap_mult);
+  const mfrr_cap = capPrice('mfrr', s2.mfrr_cap_avg, cap_mult);
   const afrr_clearing = act.lt?.afrr_p50 ?? 171;
   const mfrr_clearing = act.lt?.mfrr_p50 ?? 81;
 
@@ -2591,7 +2861,7 @@ function computeTradingMix(kv, dur_h, cal_year, scenario, sc, yr = 1) {
   const T_base = s1_capture_ref * rte * trading_real / (2 * REFERENCE_CYCLE_H);
 
   // Aggregate S/D (kept for trading_fraction price-ratio + payload reporting)
-  const supply = projectFleet(cal_year, kv, scenario);
+  const supply = projectFleet(cal_year, kv, scenario, drv.fleet_realisation);
   const demand_growth = sc.demand_growth ?? 0.02;
   const demand = projectDemand(cal_year, kv, demand_growth);
   const sd_yr = supply / demand;
@@ -2634,7 +2904,7 @@ function computeTradingMix(kv, dur_h, cal_year, scenario, sc, yr = 1) {
   const T_floor = 5.0;
   const spread_mult = spreadMultiplierYr(cal_year);
   // Scenario adjustment: conservative = no additional RES boost, stress = negative
-  const scenario_spread_adj = SPREAD_GROWTH[scenario] ?? 0.02;
+  const scenario_spread_adj = drv.spread_growth ?? SPREAD_GROWTH[scenario] ?? 0.02;
   const scenario_factor = Math.pow(1 + scenario_spread_adj, yrs_from_2026);
   const T_yr = Math.max(T_floor, T_base * spread_mult * scenario_factor);
 
@@ -2742,8 +3012,12 @@ function computeEffectiveArbPctForYear(kv, sc, reserve_shift) {
  * All values are per MW installed.
  * Time-sliced: arb only earns in ISPs where reserves aren't procured.
  */
-function computeBaseYear(kv, duration_h, sc) {
-  const rte_curve = rteCurveFor(duration_h);
+// `drivers` / `rte_decay` (Phase 35.1) carry the client scenario's non-keyed
+// drivers. Both default to the engine's shipped behaviour, so every pre-35.1
+// caller — including the whole public /revenue path — is unaffected.
+function computeBaseYear(kv, duration_h, sc, scenario_name = 'base', rte_decay, drv = scenarioDrivers(scenario_name)) {
+  const cap_mult = drv.cap_price_mult;
+  const rte_curve = rteCurveFor(duration_h, undefined, rte_decay);
   const rte = rte_curve[0];
   // v7.3: throughput-derived DA daily MWh per MW (replaces dur_h × cycles).
   const tp = computeThroughputBreakdown(1, duration_h, sc);
@@ -2829,7 +3103,7 @@ function computeBaseYear(kv, duration_h, sc) {
 
   // ── Price-ratio mix for Y1 (used to split monthly trading/balancing) ──
   // Base year uses current S/D (2026 calendar year) — no forward compression
-  const y1_mix = computeTradingMix(kv, duration_h, 2026, 'base', sc);
+  const y1_mix = computeTradingMix(kv, duration_h, 2026, scenario_name, sc, 1, drv);
   time_model.trading_fraction = y1_mix.trading_fraction;
   time_model.R_base = y1_mix.R_base;
   time_model.T_base = y1_mix.T_base;
@@ -2847,9 +3121,9 @@ function computeBaseYear(kv, duration_h, sc) {
 
   // Current S2 averages as fallback
   const s2 = kv.s2 || {};
-  const fb_afrr_cap = capPrice('afrr', s2.afrr_cap_avg);
-  const fb_mfrr_cap = capPrice('mfrr', s2.mfrr_cap_avg);
-  const fb_fcr_cap  = capPrice('fcr',  s2.fcr_cap_avg);
+  const fb_afrr_cap = capPrice('afrr', s2.afrr_cap_avg, cap_mult);
+  const fb_mfrr_cap = capPrice('mfrr', s2.mfrr_cap_avg, cap_mult);
+  const fb_fcr_cap  = capPrice('fcr',  s2.fcr_cap_avg,  cap_mult);
   const fb_afrr_clearing = kv.s2_activation_parsed?.lt?.afrr_p50 ?? 170;
   const fb_mfrr_clearing = kv.s2_activation_parsed?.lt?.mfrr_p50 ?? 110;
 
@@ -2873,9 +3147,9 @@ function computeBaseYear(kv, duration_h, sc) {
     if (has_s2) s2_months_observed++;
 
     // Capacity prices (€/MW/h)
-    const afrr_cap_h = cap_m?.afrr_avg != null ? capPrice('afrr', cap_m.afrr_avg) : fb_afrr_cap;
-    const mfrr_cap_h = cap_m?.mfrr_avg != null ? capPrice('mfrr', cap_m.mfrr_avg) : fb_mfrr_cap;
-    const fcr_cap_h  = cap_m?.fcr_avg  != null ? capPrice('fcr',  cap_m.fcr_avg)  : fb_fcr_cap;
+    const afrr_cap_h = cap_m?.afrr_avg != null ? capPrice('afrr', cap_m.afrr_avg, cap_mult) : fb_afrr_cap;
+    const mfrr_cap_h = cap_m?.mfrr_avg != null ? capPrice('mfrr', cap_m.mfrr_avg, cap_mult) : fb_mfrr_cap;
+    const fcr_cap_h  = cap_m?.fcr_avg  != null ? capPrice('fcr',  cap_m.fcr_avg,  cap_mult)  : fb_fcr_cap;
 
     // Activation clearing (€/MWh) — use p50
     const afrr_clearing = afrr_act_m?.p50 ?? fb_afrr_clearing;
@@ -5069,11 +5343,15 @@ function sohYr(t, cd_total) {
   return Math.max(0.40, SOH_CURVE_2CD[tIdx] + slope * ((cd - 2.0) / 0.5));
 }
 
-function rteCurveFor(dur_h, lifetime_yrs) {
+// `decay` (Phase 35.1) is the sensitivity runner's RTE-decay driver, as a
+// fraction per year. It defaults to the shipped constant, so every other caller
+// is unchanged.
+function rteCurveFor(dur_h, lifetime_yrs, decay) {
   const yrs = lifetime_yrs ?? 18;
+  const d = decay ?? RTE_DECAY_PP_PER_YEAR;
   const bol = (dur_h ?? 4) >= 3 ? RTE_BOL.h4 : RTE_BOL.h2;
   return Array.from({ length: yrs }, (_, t) =>
-    Math.round(Math.max(bol - RTE_DECAY_PP_PER_YEAR * t, bol - RTE_FLOOR_DROP) * 10000) / 10000
+    Math.round(Math.max(bol - d * t, bol - RTE_FLOOR_DROP) * 10000) / 10000
   );
 }
 
@@ -8919,6 +9197,123 @@ export default {
       );
     }
 
+    // ── POST /calculator/login ───────────────────────────────────────────────
+    // Phase 35.1 — BESS Revenue Calculator, operator auth.
+    //
+    // CALC_SECRET is a NEW secret, deliberately not UPDATE_SECRET: the admin
+    // secret authorises data mutation and must never be typed into a browser.
+    if (request.method === 'POST' && url.pathname === '/calculator/login') {
+      if (!env.CALC_SECRET) {
+        return new Response(
+          JSON.stringify({ error: CALC.CALC_COPY.auth_unconfigured }),
+          { status: 503, headers: { 'Content-Type': 'application/json', ...CORS } },
+        );
+      }
+      let body = {};
+      try { body = await request.json(); } catch { /* handled below */ }
+      const password = body?.password;
+      if (typeof password !== 'string' || !CALC.timingSafeEqual(password, env.CALC_SECRET)) {
+        return new Response(
+          JSON.stringify({ error: CALC.CALC_COPY.auth_failed }),
+          { status: 401, headers: { 'Content-Type': 'application/json', ...CORS } },
+        );
+      }
+      const expires = Date.now() + CALC.CALC_TOKEN_TTL_MS;
+      const token = await CALC.signCalcToken(env.CALC_SECRET, expires);
+      return new Response(
+        JSON.stringify({ token, expires }),
+        { status: 200, headers: { 'Content-Type': 'application/json', ...CORS } },
+      );
+    }
+
+    // ── POST /calculate ──────────────────────────────────────────────────────
+    // Two tiers off one engine run path. No auth → sample; bearer token → full.
+    // Additive: /revenue is untouched by this route.
+    if (request.method === 'POST' && url.pathname === '/calculate') {
+      let body = null;
+      try { body = await request.json(); } catch {
+        return new Response(
+          JSON.stringify({ errors: ['Request body must be valid JSON.'] }),
+          { status: 400, headers: { 'Content-Type': 'application/json', ...CORS } },
+        );
+      }
+
+      const v = CALC.validateCalcInput(body);
+      if (!v.ok) {
+        return new Response(
+          JSON.stringify({ errors: v.errors }),
+          { status: 400, headers: { 'Content-Type': 'application/json', ...CORS } },
+        );
+      }
+      const inputs = v.inputs;
+
+      // Tier resolution. An invalid or expired token is NOT an error — it falls
+      // back to the sample tier, so a stale localStorage token degrades to the
+      // public view instead of a dead page.
+      const token = CALC.bearerToken(request);
+      const auth = token ? await CALC.verifyCalcToken(env.CALC_SECRET, token) : { ok: false };
+      const full = auth.ok === true;
+
+      if (!full) {
+        const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+        const rl = await CALC.checkSampleRateLimit(env.KKME_SIGNALS, ip);
+        if (!rl.allowed) {
+          return new Response(
+            JSON.stringify({
+              error: CALC.CALC_COPY.rate_limited,
+              limit: rl.limit,
+              upsell: CALC.CALC_COPY.upsell,
+            }),
+            { status: 429, headers: { 'Content-Type': 'application/json', ...CORS } },
+          );
+        }
+      }
+
+      try {
+        const kv = await loadEngineKV(env);
+        const configs = CALC.buildConfigs(inputs);
+        const scenarioKey = CALC.CLIENT_SCENARIO_KEYS[inputs.scenario];
+        const { result, bridge, config } = CALC.runOne(
+          computeRevenueV7, kv, configs, inputs, scenarioKey
+        );
+        const inputs_echo = CALC.inputsEcho(inputs, configs);
+        const engine_version = result.model_version;
+
+        // The sample builder is handed the narrowed pieces only — the engine
+        // result is not in its scope, so there is nothing for a later edit to
+        // leak by accident. Asserted by the leak test at both levels.
+        const payload = full
+          ? CALC.buildFull({
+              result,
+              bridge,
+              config,
+              scenarios: CALC.runScenarios(computeRevenueV7, kv, configs, inputs),
+              sensitivity: CALC.runSensitivity(
+                computeRevenueV7, kv, configs, inputs, bridge.bridge_y1.project_ebitda
+              ),
+              inputs_echo,
+              engine_version,
+            })
+          : CALC.buildSample({
+              headline: CALC.headlineOf(bridge.bridge_y1),
+              bridge_y1: bridge.bridge_y1,
+              inputs_echo,
+              engine_version,
+            });
+
+        return new Response(JSON.stringify(payload), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...CORS },
+        });
+      } catch (e) {
+        console.error('[calculate] failed:', e.message, e.stack);
+        return new Response(
+          JSON.stringify({ errors: ['The engine could not compute this configuration. ' + e.message] }),
+          { status: 500, headers: { 'Content-Type': 'application/json', ...CORS } },
+        );
+      }
+    }
+
     // ── GET /revenue ─────────────────────────────────────────────────────────
     // Revenue Engine v4: 3-scenario, DSCR, COD sensitivity, CPI-based pricing.
     // Query params: system=2h|2.4h|4h  capex=low|mid|high  grant=none|partial  cod=2027|2028|2029
@@ -8939,72 +9334,12 @@ export default {
       const capex_kwh = CAPEX_MAP[capexParam] || parseInt(capexParam) || 164;
 
       // ── Read KV data (v7: additional keys for observed base year) ──
-      const [s1Raw, s2Raw, s3Raw, fleetRaw, eurRaw, s1CaptureRaw, s2ActivationRaw, btdHistRaw, tradingMetricsRaw] = await Promise.all([
-        env.KKME_SIGNALS.get('s1'),
-        env.KKME_SIGNALS.get('s2'),
-        env.KKME_SIGNALS.get('s3'),
-        (env.KKME_SIGNALS.get('s4_fleet').catch(() => null))
-          .then(r => r || env.KKME_SIGNALS.get('s2_fleet').catch(() => null)),
-        env.KKME_SIGNALS.get('euribor'),
-        env.KKME_SIGNALS.get('s1_capture').catch(() => null),
-        env.KKME_SIGNALS.get('s2_activation').catch(() => null),
-        env.KKME_SIGNALS.get('s2_btd_history').catch(() => null),
-        env.KKME_SIGNALS.get('trading:metrics').catch(() => null),
-      ]);
-      const s1    = s1Raw    ? JSON.parse(s1Raw)    : null;
-      const s2    = s2Raw    ? JSON.parse(s2Raw)    : null;
-      const s3    = s3Raw    ? JSON.parse(s3Raw)    : null;
-      const fleet = fleetRaw ? JSON.parse(fleetRaw) : null;
-      const eur   = eurRaw   ? JSON.parse(eurRaw)   : null;
-
-      // Parse S1 capture (monthly capture data)
-      const s1_capture = s1CaptureRaw ? JSON.parse(s1CaptureRaw) : null;
-
-      // Parse S2 activation into the shape v7 expects
-      let s2_activation_parsed = null;
-      if (s2ActivationRaw) {
-        try {
-          const actRaw = JSON.parse(s2ActivationRaw);
-          const lt = actRaw.countries?.Lithuania;
-          const lv = actRaw.countries?.Latvia;
-          const ee = actRaw.countries?.Estonia;
-          s2_activation_parsed = {
-            lt: {
-              afrr_p50: lt?.afrr_recent_3m?.avg_p50 ?? null,
-              mfrr_p50: lt?.mfrr_recent_3m?.avg_p50 ?? null,
-            },
-            lv: {
-              afrr_p50: lv?.afrr_recent_3m?.avg_p50 ?? null,
-              mfrr_p50: lv?.mfrr_recent_3m?.avg_p50 ?? null,
-            },
-            ee: {
-              afrr_p50: ee?.afrr_recent_3m?.avg_p50 ?? null,
-              mfrr_p50: ee?.mfrr_recent_3m?.avg_p50 ?? null,
-            },
-            lt_monthly_afrr: lt?.afrr_up ?? {},
-            lt_monthly_mfrr: lt?.mfrr_up ?? {},
-            lv_monthly_afrr: lv?.afrr_up ?? {},
-            lv_monthly_mfrr: lv?.mfrr_up ?? {},
-            ee_monthly_afrr: ee?.afrr_up ?? {},
-            ee_monthly_mfrr: ee?.mfrr_up ?? {},
-            compression: actRaw.compression_trajectory ?? null,
-          };
-        } catch { /* ignore */ }
-      }
-
-      // Parse BTD history for capacity monthly
-      let capacity_monthly = [];
-      if (btdHistRaw) {
-        try { capacity_monthly = computeCapacityMonthly(JSON.parse(btdHistRaw)); } catch { /* ignore */ }
-      }
-
-      // Parse dispatch metrics for reserve availability
-      let dispatch_metrics = null;
-      if (tradingMetricsRaw) {
-        try { dispatch_metrics = JSON.parse(tradingMetricsRaw); } catch { /* ignore */ }
-      }
-
-      const kv = { fleet, s2, s1, s3, euribor: eur, s1_capture, s2_activation_parsed, capacity_monthly, dispatch_metrics };
+      // Phase 35.1: extracted to loadEngineKV() so /calculate feeds the engine
+      // from exactly the same keys and the same parsing. Two copies of this
+      // block is precisely how the calculator and the public site would drift
+      // apart without anyone noticing (discipline rule #4).
+      const kv = await loadEngineKV(env);
+      const { s1, s2, euribor: eur, s1_capture } = kv;
       flagOutOfBandS2Capacity(s2);
       ctx.waitUntil(persistCapacityWatch(env, s2)); // Phase 33.B.3 — KV-persist, off the response path
 
@@ -9911,6 +10246,14 @@ export default {
 // ── Phase 33: named exports for unit/regression tests (Node import only). The
 // Workers runtime consumes the `export default` above and ignores these. ──
 export { computeRevenueV7, computeRevenueV6, computeBaseYear, computeTradingMix, computeLiveRate, capPrice };
+// Phase 35.1 test hooks — the client scenario port's assertions need to read
+// the scenario table and both cannibalisation curves directly.
+export {
+  REVENUE_SCENARIOS as REVENUE_SCENARIOS_FOR_TEST,
+  cpiCurve as cpiCurveForTest,
+  cpiCurveScenario as cpiCurveScenarioForTest,
+  loadEngineKV,
+};
 // Phase 33.A — Baltic allowlist + contradiction-flag ingest gate.
 export { BALTIC_COUNTRIES, filterFleetEntries, detectContradictions };
 export { KNOWN_OPERATIONAL, applyKnownOperational, normName };
