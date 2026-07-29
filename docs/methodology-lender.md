@@ -436,24 +436,26 @@ This is deliberately mechanical rather than editorial. An advisor who sees `reso
 
 ### 4.4 Result
 
-Lifetime gross by shape-year, reference asset, Central:
+Lifetime gross by shape-year, reference asset, Central, **as at the market state captured 2026-07-29**:
 
 | shape-year | lifetime gross |
 |---|---:|
-| 2021 | €116.58M |
-| 2022 | €141.92M |
-| 2023 | €125.13M |
-| 2024 | €131.48M |
-| 2025 | €136.26M |
+| 2021 | €114.63M |
+| 2022 | €138.31M |
+| 2023 | €122.69M |
+| 2024 | €128.53M |
+| 2025 | €132.99M |
 
 | percentile | lifetime gross | resolved | drawn from |
 |---|---:|:-:|---|
-| P50 | €131.48M | ✓ | 2024 |
-| P75 | €120.85M | ✓ | 2023 |
-| P90 | €116.58M | **✗** | 2021 (sample minimum) |
-| P99 | €116.58M | **✗** | 2021 (sample minimum) |
+| P50 | €128.53M | ✓ | 2024 |
+| P75 | €118.66M | ✓ | 2023 |
+| P90 | €114.63M | **✗** | 2021 (sample minimum) |
+| P99 | €114.63M | **✗** | 2021 (sample minimum) |
 
-**Gates:** P50 sits −3.5 % from Central; strict percentile ordering holds in all 20 years; all five shape-years ≥ 95 % covered; no constraint violations in any replay.
+**Gates:** P50 sits −3.4 % from Central; strict percentile ordering holds in all 20 years; all five shape-years ≥ 95 % covered; no constraint violations in any replay.
+
+> **These figures move; the measured parameters do not.** The shape-year *factors* in §4.2 are properties of the historical price series and are stable. The euro amounts above are the engine's forward projection scaled by those factors, so they are computed against the market state at generation time and will differ on a later run — the run ID on the delivered artefact identifies which market state produced any given set. The measurements in §03 and §05 do not move: they are records of what was observed over a stated window.
 
 **Percentile bridges are built from whole shape-year paths.** A per-year percentile table is a *band*, not a path: year 3's P90 and year 12's P90 can come from different shape-years, so reading down the column describes a scenario nothing could deliver. Both views ship, but the client bridges at P50 and P90 are each built from a single real shape-year's entire 20-year projection, named in the output.
 
@@ -576,33 +578,33 @@ Binding is asserted exact at the boundary: short binds, equal does not.
 
 ### 6.3 The illustrative floor is derived from the model, not quoted from a note
 
-A floor level had to come from somewhere, and an unsourced number in a client-facing artefact is exactly what KKME's named-entity discipline forbids. Rather than quote a tolling price from a market note, the default is derived from the asset itself: **the level the merchant case's Y1 net revenue exceeds in 75 % of shape-year outcomes** — €139 000/MW/yr at the reference asset (raw €138 855).
+A floor level had to come from somewhere, and an unsourced number in a client-facing artefact is exactly what KKME's named-entity discipline forbids. Rather than quote a tolling price from a market note, the default is derived from the asset itself: **the level the merchant case's Y1 net revenue exceeds in 75 % of shape-year outcomes** — €137 000/MW/yr at the reference asset (raw €137 232) on the market state captured 2026-07-29. It is derived per run, so it tracks the asset rather than ageing into a stale quote.
 
 P75 and not P90 because P90 is outside what five shape-years resolve (§4.3). A floor written at an unresolved percentile would be the sample minimum wearing a percentile's label.
 
 Every output carries a counterparty note defaulted to *"ILLUSTRATIVE — no counterparty. Structure test at a model-derived floor level, not a term sheet and not an offer received."* The contract normaliser **throws** if a live contract (non-zero floor, share and term) carries no counterparty basis at all. A real term sheet is two CLI flags away; a floor nobody can trace cannot be run by accident.
 
-### 6.4 Result — reference asset, term 10 years, floor €139 000/MW/yr
+### 6.4 Result — reference asset, term 10 years, floor €137 000/MW/yr
 
 | structure | contracted | 20-yr EBITDA | P50 lifetime | P75 lifetime | P90 lifetime * | years floor binds |
 |---|---:|---:|---:|---:|---:|---:|
-| merchant | 0 % | €74.03M | €131.48M | €120.85M | €116.58M | 0 |
-| blended | 30 % | €74.11M | €132.00M | €122.86M | €119.26M | 4 |
-| blended | 50 % | €74.16M | €132.34M | €124.20M | €121.04M | 4 |
-| floor-only | 30 % | €73.48M | €131.63M | €122.82M | €119.26M | 4 |
-| floor-only | 50 % | €73.11M | €131.74M | €124.13M | €121.04M | 4 |
+| merchant | 0 % | €71.27M | €128.53M | €118.66M | €114.63M | 0 |
+| blended | 30 % | €71.45M | €129.18M | €120.73M | €117.33M | 5 |
+| blended | 50 % | €71.56M | €129.62M | €122.11M | €119.13M | 5 |
+| floor-only | 30 % | €70.94M | €128.88M | €120.69M | €117.33M | 5 |
+| floor-only | 50 % | €70.71M | €129.12M | €122.04M | €119.13M | 5 |
 
 \* P90 is **not resolved** at five shape-years and is the sample minimum wearing a percentile's name (§4.3), carried through unchanged rather than quietly dropped because this section would read better without it.
 
-**The asymmetry is the product.** At 50 % contracted the median rises 0.65 % while the P90 tail rises 3.8 % — a lift of roughly 5× at the tail relative to the median. A test asserts the tail must lift strictly *more* than the median, so an overlay that merely added revenue everywhere would fail; it would not be a floor.
+**The asymmetry is the product.** At 50 % contracted the median rises 0.85 % while the P90 tail rises 3.9 % — a lift of roughly 4.6× at the tail relative to the median. A test asserts the tail must lift strictly *more* than the median, so an overlay that merely added revenue everywhere would fail; it would not be a floor.
 
-The spread between structures is real money: at 50 % contracted, blended is worth €0.13M more than merchant over the lifetime and floor-only is worth €0.92M *less* — a €1.05M gap between two structures a client might actually be offered.
+The spread between structures is real money: at 50 % contracted, blended 20-year EBITDA is €0.29M above merchant and floor-only is €0.56M *below* it — an €0.85M gap between two structures a client might actually be offered.
 
 ### 6.5 Conservative treatments, stated and quantified
 
 The 4-line cost stack is applied to floor revenue exactly as to merchant revenue. In a real full toll the offtaker takes the trading rights, so the optimiser fee on the contracted share would not arise — meaning **this overlay understates the toll case's EBITDA**.
 
-Rather than pick a side, the overlay reports the figure needed to undo the conservatism: **€2.50M at 30 % contracted, €4.17M at 50 %**. The conservative number ships; the correction ships beside it. An advisor who disagrees with the treatment can adjust without re-running anything, which is the difference between a conservative model and an opaque one.
+Rather than pick a side, the overlay reports the figure needed to undo the conservatism: **€2.47M at 30 % contracted, €4.11M at 50 %**. The conservative number ships; the correction ships beside it. An advisor who disagrees with the treatment can adjust without re-running anything, which is the difference between a conservative model and an opaque one.
 
 The floor is also **nominal** — it does not escalate while opex does, so protection thins in real terms across the term. Stated, not corrected: that is how term sheets are usually written, and the direction is conservative.
 

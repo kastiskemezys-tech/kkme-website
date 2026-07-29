@@ -151,6 +151,18 @@ describe('the honesty constraints survive into the document', () => {
     expect(doc).toContain('year-dependent');
   });
 
+  // Market-state-dependent euro figures are NOT bound to the runner outputs:
+  // binding them would make this suite a market-movement detector rather than a
+  // code gate (the 34.5-C reasoning). What IS gated is that they carry their
+  // as-at stamp and say plainly that they move — so a reader can never mistake
+  // a projection for a measurement.
+  it('stamps the market state behind every figure that moves with it', () => {
+    expect(doc).toMatch(/\*\*as at the market state captured \d{4}-\d{2}-\d{2}\*\*/);
+    expect(doc).toContain('**These figures move; the measured parameters do not.**');
+    expect(doc).toMatch(/floor €[\d\s]+\/MW\/yr/);
+    expect(doc).toMatch(/on the market state captured \d{4}-\d{2}-\d{2}/);
+  });
+
   it('does not claim the degradation loop converges in two passes', () => {
     expect(doc).toContain('Convergence takes **three**');
     expect(doc).not.toMatch(/converges in (two|2) passes(?!.*does not)/);

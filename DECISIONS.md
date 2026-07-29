@@ -2549,3 +2549,71 @@ A4, inside the 25-40 pp target.
 It is named `KKME_Lender_Methodology_Annex.pdf`, not `Prosperus_*`: it describes
 the engine rather than the engagement, so it ships with any delivery and is a
 KKME asset in its own right.
+
+## Phase 36.B batch-4 — Part 4 (render + regenerate + arc close)
+
+### 36.B6-O — the delivery build ran on a fresh LIVE snapshot, and it verified
+
+The build could have reused the cached 2026-07-28 snapshot. It captured a fresh
+one instead, and the reconstruction reproduced live `/revenue` **exactly on all
+22 verification fields** — including `cycles_per_year 498` and the
+measured-basis IRR, which confirms the batch-3 cutover is what production is
+actually serving.
+
+That is the meaningful check: the client deliverable and the public site are
+demonstrably the same engine on the same market state, not two things that
+agree by assertion.
+
+### 36.B6-P — regenerating moved the market-dependent tables, and the document was corrected
+
+Between the 2026-07-28 snapshot the methodology was drafted against and the
+2026-07-29 delivery capture, the forward projection moved:
+
+| figure | drafted | delivery build |
+|---|---:|---:|
+| P50 lifetime gross | €131.48M | €128.53M |
+| P75 | €120.85M | €118.66M |
+| P90 (unresolved) | €116.58M | €114.63M |
+| derived contract floor | €139 000/MW/yr | €137 000/MW/yr |
+| years the floor binds | 4 | 5 |
+| merchant 20-yr EBITDA | €74.03M | €71.27M |
+
+Unmoved: every measurement. The simultaneity range, the shape-year factors, the
+0.7234 realisation, the 0.0885 uplift and the degradation fixed point are
+identical, because they are properties of committed price history and the code,
+not of today's market state.
+
+**That split is the point, and the document now states it explicitly** in a
+callout: *"These figures move; the measured parameters do not."* The euro tables
+carry an as-at stamp naming the capture date; the measurements do not need one
+because they name their window.
+
+The market-dependent figures are deliberately **NOT** bound by test. Binding them
+would make the suite a market-movement detector rather than a code gate (34.5-C's
+reasoning). What IS gated is the discipline: a test asserts the as-at stamps and
+the callout are present, so a future edit cannot quietly drop the distinction and
+let a projection read as a measurement.
+
+### 36.B6-Q — the committed registry is one clean build, and the -dirty flag earned its keep
+
+The first delivery build recorded `d02acf5…-dirty`, correctly: the methodology
+had been edited after the last commit. Rather than ship a governance log whose
+first entry says the engine was uncommitted, the document changes were committed
+and the build re-run against a clean tree.
+
+The mechanism worked as designed on its first real use — it caught exactly the
+condition it exists to catch, on the person who wrote it.
+
+The shipped registry is 28 lines: 22 runner runs covering the whole arc's
+evidence (5 dispatch shape-years · 2 bootstrap samples · backtest · contracted ·
+degradation · 15-min uplift · 4 project runs · portfolio · 3 scenarios ·
+scenario summary · sensitivity · reconciliation) and 6 artefacts under one
+delivery id. One engine sha, one register version, four data-vintage kinds.
+
+### 36.B6-R — a Part-1 bug the runners caught, not the tests
+
+`run-backtest.mjs` referenced an undefined `scenarioName` inside the registry
+spec added in Part 1. Vitest never touched it — the CLI block is not under test —
+and it surfaced only on the first real invocation. Fixed, and worth recording as
+the reason Part 4 re-runs every runner rather than trusting a green suite: eleven
+runners were wired, and the only way to know all eleven still run is to run them.
