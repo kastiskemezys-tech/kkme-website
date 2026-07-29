@@ -351,10 +351,19 @@ async function assumptionsTab(wb, inp) {
     r.getCell(1).font = { size: 9, color: { argb: C.sea } };
     r.getCell(4).numFmt = Number.isInteger(row.value) ? MONEY : NUM3;
     r.getCell(4).font = { bold: true, size: 9.5 };
-    // The override cell is the one thing in this workbook the client edits.
-    r.getCell(8).protection = { locked: false };
-    r.getCell(8).fill = fill(C.amberGlaze);
-    r.getCell(8).numFmt = Number.isInteger(row.value) ? MONEY : NUM3;
+    if (row.basis === 'superseded') {
+      // Provenance, not an input. Offering an override cell here would invite an
+      // edit that nothing reads — the row exists so the client can see what the
+      // number used to be and what replaced it.
+      r.font = { size: 9.5, italic: true, color: { argb: C.sea } };
+      r.getCell(8).value = `superseded ${row.superseded_on} → ${row.superseded_by}`;
+      r.getCell(8).font = { size: 8.5, italic: true };
+    } else {
+      // The override cell is the one thing in this workbook the client edits.
+      r.getCell(8).protection = { locked: false };
+      r.getCell(8).fill = fill(C.amberGlaze);
+      r.getCell(8).numFmt = Number.isInteger(row.value) ? MONEY : NUM3;
+    }
   }
   const lastDataRow = ws.lastRow.number;
 
