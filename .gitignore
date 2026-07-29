@@ -40,8 +40,10 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# logs
-logs/*.log
+# logs — runtime artifacts written by the local BTD/Litgrid fetch cron.
+# logs/btd.log was tracked by accident (f551934); it churns on every run, which
+# blocked a rebase and contributed to two stale deploys on 2026-07-29.
+logs/
 
 # doc artifacts (screenshots, traces — point-in-time verification, not reference)
 docs/**/*.png
