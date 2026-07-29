@@ -837,7 +837,7 @@ function computeDispatchV2(btdData, daHourly, opts = {}) {
   const mw = opts.mw || 50;
   const dur_h = opts.dur_h || 4;
   const mwh = mw * dur_h;
-  const rte = dur_h <= 2 ? RTE_BOL.h2 : RTE_BOL.h4; // canonical RTE_BOL (same physical battery round-trip)
+  const rte = rteBolFor(dur_h); // canonical RTE_BOL under the 36.B5 duration policy
   const mode = opts.mode || 'realised';
   const drr_active = opts.drr_active !== false;
   const date_iso = opts.date_iso || btdData?.date || new Date().toISOString().slice(0, 10);
@@ -1401,7 +1401,7 @@ function computeThroughputBreakdown(MW, dur_h, sc) {
   const fcr_mwh   = fcr_alloc_MW  * sc.mwh_per_mw_yr_fcr;
   const afrr_mwh  = afrr_alloc_MW * sc.mwh_per_mw_yr_afrr;
   const mfrr_mwh  = mfrr_alloc_MW * sc.mwh_per_mw_yr_mfrr;
-  const da_mwh    = MW            * (dur_h <= 2 ? sc.mwh_per_mw_yr_da_2h : sc.mwh_per_mw_yr_da_4h);
+  const da_mwh    = MW            * durBlend(dur_h, sc.mwh_per_mw_yr_da_2h, sc.mwh_per_mw_yr_da_4h);
 
   const total_mwh_yr = fcr_mwh + afrr_mwh + mfrr_mwh + da_mwh;
   const capacity_mwh = MW * dur_h;
@@ -1895,9 +1895,9 @@ function computeRevenueV7(params, kv) {
     // Trading: capture × RTE × realisation × MWh × fraction × depth discount
     // Use rolling 30d mean (stable) for forward projection, not spot capture
     const s1_cap = kv.s1_capture || {};
-    const yr_capture = dur_h <= 2
-      ? (s1_cap.rolling_30d?.stats_2h?.mean ?? s1_cap.capture_2h?.gross_eur_mwh ?? 140)
-      : (s1_cap.rolling_30d?.stats_4h?.mean ?? s1_cap.capture_4h?.gross_eur_mwh ?? 125);
+    const yr_capture = durBlend(dur_h,
+      s1_cap.rolling_30d?.stats_2h?.mean ?? s1_cap.capture_2h?.gross_eur_mwh ?? 140,
+      s1_cap.rolling_30d?.stats_4h?.mean ?? s1_cap.capture_4h?.gross_eur_mwh ?? 125);
     const trading_real = sc.trd_real || 0.85;
     const rte_yr = rte_curve[Math.min(yr - 1, rte_curve.length - 1)];
     const depth = marketDepthFactor(mix.sd_ratio);
@@ -2124,9 +2124,9 @@ function computeRevenueV7(params, kv) {
     / (Math.pow(1 + LCOS_WACC, LCOS_LIFETIME_YRS) - 1);
   const lcos_capex_recovery = gross_capex_total * lcos_crf;
   const lcos_fixed_om = y1 ? y1.opex : 0;
-  const lcos_charge_price = dur_h <= 2
-    ? (s1_cap.capture_2h?.avg_charge ?? 35)
-    : (s1_cap.capture_4h?.avg_charge ?? 30);
+  const lcos_charge_price = durBlend(dur_h,
+    s1_cap.capture_2h?.avg_charge ?? 35,
+    s1_cap.capture_4h?.avg_charge ?? 30);
   const lcos_mwh_discharged_yr = tp.total_efcs_yr * dur_h * mw * sc.avail;
   const lcos_mwh_charged_yr = rte > 0 ? lcos_mwh_discharged_yr / rte : 0;
   const lcos_charging_cost = lcos_charge_price * lcos_mwh_charged_yr;
@@ -2303,9 +2303,9 @@ function computeRevenueV7(params, kv) {
 
     // Signal inputs used
     signal_inputs: {
-      s1_capture: dur_h <= 2
-        ? (s1_cap.capture_2h?.gross_eur_mwh ?? (by_trading_per_mw > 0 ? by_trading_per_mw / (rte * da_mwh_per_mw_yr * (base_year.time_model?.effective_arb_pct || 0.115) * sc.trd_real) : 0))
-        : (s1_cap.capture_4h?.gross_eur_mwh ?? (by_trading_per_mw > 0 ? by_trading_per_mw / (rte * da_mwh_per_mw_yr * (base_year.time_model?.effective_arb_pct || 0.115) * sc.trd_real) : 0)),
+      s1_capture: durBlend(dur_h,
+        s1_cap.capture_2h?.gross_eur_mwh ?? (by_trading_per_mw > 0 ? by_trading_per_mw / (rte * da_mwh_per_mw_yr * (base_year.time_model?.effective_arb_pct || 0.115) * sc.trd_real) : 0),
+        s1_cap.capture_4h?.gross_eur_mwh ?? (by_trading_per_mw > 0 ? by_trading_per_mw / (rte * da_mwh_per_mw_yr * (base_year.time_model?.effective_arb_pct || 0.115) * sc.trd_real) : 0)),
       afrr_clearing: act_parsed?.lt?.afrr_p50 ?? s2.afrr_up_avg ?? 170,
       mfrr_clearing: act_parsed?.lt?.mfrr_p50 ?? s2.mfrr_up_avg ?? 110,
       afrr_cap: capPrice('afrr', s2.afrr_cap_avg, drv.cap_price_mult),
@@ -2414,7 +2414,7 @@ function computeRevenueV6(params, kv) {
     || (s1?.spread_eur_mwh != null ? s1.spread_eur_mwh * 1.5 : null) || 134;
   const s1_capture_2h = s1?.capture_2h_gross || s1?.gross_2h
     || (s1_capture_4h * 1.12) || 149;
-  const s1_capture = dur_h <= 2 ? s1_capture_2h : s1_capture_4h;
+  const s1_capture = durBlend(dur_h, s1_capture_2h, s1_capture_4h);
   const afrr_clearing = s2?.afrr_up_avg || 171;
   const mfrr_clearing = s2?.mfrr_up_avg || 81;
   // Capacity prices via the Phase 33 single-source bound (never the *_up_avg
@@ -2944,7 +2944,7 @@ function switchingFriction(yr) {
 // global, so that probe saw the delta too.
 function computeTradingMix(kv, dur_h, cal_year, scenario, sc, yr = 1, drv = scenarioDrivers(scenario)) {
   const cap_mult = drv.cap_price_mult;
-  const rte = dur_h <= 2 ? RTE_BOL.h2 : RTE_BOL.h4; // canonical RTE_BOL (same physical battery round-trip)
+  const rte = rteBolFor(dur_h); // canonical RTE_BOL under the 36.B5 duration policy
   const trading_real = sc.trd_real || 0.85;
   const friction = switchingFriction(yr);
 
@@ -3255,9 +3255,9 @@ function computeBaseYear(kv, duration_h, sc, scenario_name = 'base', rte_decay, 
     const days = m.days || 30;
 
     // ── Capture for this month (used for trading value calculation) ──
-    const capture = duration_h <= 2
-      ? (m.avg_gross_2h || m.avg_net_2h || 140)
-      : (m.avg_gross_4h || m.avg_net_4h || 125);
+    const capture = durBlend(duration_h,
+      m.avg_gross_2h || m.avg_net_2h || 140,
+      m.avg_gross_4h || m.avg_net_4h || 125);
 
     // ── Balancing revenue ──
     const afrr_act_m = lt_afrr_monthly[month];
@@ -3436,11 +3436,11 @@ function computeLiveRate(kv, base_year, duration_h, sc) {
 
   // Today's capture from S1 (use the capture endpoint data first, then spread-based)
   const s1_cap = kv.s1_capture || {};
-  const capture = duration_h <= 2
-    ? (s1_cap.capture_2h?.gross_eur_mwh || s1?.capture_2h_gross || s1?.gross_2h
-       || (s1.spread_eur_mwh != null ? s1.spread_eur_mwh * 1.5 * 1.12 : 140))
-    : (s1_cap.capture_4h?.gross_eur_mwh || s1?.capture_4h_gross || s1?.gross_4h
-       || (s1.spread_eur_mwh != null ? s1.spread_eur_mwh * 1.5 : 125));
+  const capture = durBlend(duration_h,
+    s1_cap.capture_2h?.gross_eur_mwh || s1?.capture_2h_gross || s1?.gross_2h
+      || (s1.spread_eur_mwh != null ? s1.spread_eur_mwh * 1.5 * 1.12 : 140),
+    s1_cap.capture_4h?.gross_eur_mwh || s1?.capture_4h_gross || s1?.gross_4h
+      || (s1.spread_eur_mwh != null ? s1.spread_eur_mwh * 1.5 : 125));
 
   // Price-ratio mix: today's trading = balancing × (tf / (1 - tf))
   // Compute balancing first, then derive trading from the Y1 price-ratio
@@ -3907,7 +3907,7 @@ function computeDayCapture(prices, durationHours, resolutionMin = 60) {
   const avgDischarge = dischargeSlots.reduce((s, e) => s + e.price, 0) / n;
 
   // RTE: canonical RTE_BOL (same physical battery round-trip as reference asset / revenue engine).
-  const rte = durationHours <= 2 ? RTE_BOL.h2 : RTE_BOL.h4;
+  const rte = rteBolFor(durationHours);
 
   const grossCapture = avgDischarge - avgCharge;
   // Net: discharge revenue minus charge cost adjusted for RTE losses
@@ -5411,6 +5411,55 @@ const RTE_BOL = { h2: 0.82, h4: 0.83 };
 const RTE_DECAY_PP_PER_YEAR = 0.0020;
 const RTE_FLOOR_DROP = 0.04;
 
+// ── Duration-anchor interpolation policy — Phase 36.B5 ──────────────────────
+//
+// The engine is calibrated at exactly TWO durations, 2h and 4h. Everything
+// duration-dependent — round-trip efficiency, day-ahead throughput, observed
+// capture, the LCOS charge price, the SOH cycling intensity — has a value at
+// each anchor and nothing in between.
+//
+// Before this policy every site invented its own branch, and they did not
+// agree. Twelve sites read `dur_h <= 2 ? …2h : …4h`, while `rteCurveFor` read
+// `dur_h >= 3 ? h4 : h2`. At dur_h = 2.5 that produced a **2h round-trip
+// efficiency on 4h day-ahead throughput** — two different calibrations inside
+// one run, which is the contradictory-branch failure bankability test #5 exists
+// to catch (batch-35 finding, arc 36.B5).
+//
+// ONE policy replaces all of them: linear in dur_h between the anchors, clamped
+// outside [2h, 4h]. Two properties make it safe to adopt everywhere:
+//
+//   ON-ANCHOR IDENTITY  at dur_h ≤ 2 the weight is exactly 0 and the 2h value is
+//                       RETURNED, not recomputed; at dur_h ≥ 4 likewise for 4h.
+//                       No float arithmetic touches an anchor, so /revenue —
+//                       which serves 2h and 4h only — is byte-identical.
+//   NO MIXED ANCHORS    every duration-dependent quantity moves on the SAME
+//                       weight, so RTE and throughput can never again come from
+//                       different calibrations.
+//
+// Outside [2, 4] the policy clamps rather than extrapolating. A 1h or an 8h
+// asset is outside the calibration and the honest answer is the nearest anchor's
+// value, not a linear guess about physics nobody measured. That is a documented
+// flat region, not a discontinuity.
+function durAnchorWeight(dur_h) {
+  const d = Number.isFinite(dur_h) ? dur_h : 4;
+  return Math.min(1, Math.max(0, (d - 2) / 2));
+}
+
+/** Blend a 2h-anchored value and a 4h-anchored value under the one policy. */
+function durBlend(dur_h, at2h, at4h) {
+  if (at2h == null) return at4h;
+  if (at4h == null) return at2h;
+  const w = durAnchorWeight(dur_h);
+  if (w === 0) return at2h;   // on-anchor: return, never recompute
+  if (w === 1) return at4h;
+  return at2h + w * (at4h - at2h);
+}
+
+/** Beginning-of-life round-trip efficiency for any duration. */
+function rteBolFor(dur_h) {
+  return durBlend(dur_h, RTE_BOL.h2, RTE_BOL.h4);
+}
+
 const BESS_WORKER = {
   // Q1 2026: (83+28)€/kWh × duration_MWh/MW × 1000 + 35k€/MW fixed
   capex_per_mw: { h2: 257, h4: 479 }, // €k/MW (Q1 2026: equipment €83/kWh + EPC €28/kWh + HV €35k/MW)
@@ -5487,7 +5536,7 @@ function sohYr(t, cd_total) {
 function rteCurveFor(dur_h, lifetime_yrs, decay) {
   const yrs = lifetime_yrs ?? 18;
   const d = decay ?? RTE_DECAY_PP_PER_YEAR;
-  const bol = (dur_h ?? 4) >= 3 ? RTE_BOL.h4 : RTE_BOL.h2;
+  const bol = rteBolFor(dur_h ?? 4);
   return Array.from({ length: yrs }, (_, t) =>
     Math.round(Math.max(bol - d * t, bol - RTE_FLOOR_DROP) * 10000) / 10000
   );
@@ -5544,7 +5593,7 @@ function computeRevenueWorker(prices, duration_h) {
   // representative dispatch intensity for each duration: 2h → ~1.3 c/d
   // (active merchant), 4h → ~1.0 c/d (gentler cycling). Connects cell
   // aging to operation rather than treating all dispatch identically.
-  const cd_for_soh = duration_h <= 2 ? 1.3 : 1.0;
+  const cd_for_soh = durBlend(duration_h, 1.3, 1.0);
   function npv(rate) {
     let n = -capex;
     for (let t = 1; t <= B.project_life_years; t++) {
@@ -9630,9 +9679,9 @@ export default {
 
       const capMonthly = (s1_capture?.monthly || []).filter(m => m.month && m.days >= 15);
       const backtest = capMonthly.map(m => {
-        const capture = dur_h <= 2
-          ? (m.avg_gross_2h || m.avg_net_2h || 140)
-          : (m.avg_gross_4h || m.avg_net_4h || 125);
+        const capture = durBlend(dur_h,
+          m.avg_gross_2h || m.avg_net_2h || 140,
+          m.avg_gross_4h || m.avg_net_4h || 125);
 
         // Balancing revenue per MW per day (current capacity+activation prices)
         const bal_daily = (
@@ -10432,4 +10481,10 @@ export {
   // real recorded ENTSO-E response, which means the test has to call the same
   // function the fetch paths call rather than a copy of its regex.
   extractPrices,
+  // Phase 36.B5 — the one duration-anchor interpolation policy. Exported so the
+  // property test sweeps the SAME function every engine site reads, rather than
+  // a restatement of it that could drift away from the engine it is meant to pin.
+  durAnchorWeight,
+  durBlend,
+  rteBolFor,
 };
