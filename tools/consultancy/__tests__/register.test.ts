@@ -287,13 +287,33 @@ describe('reconciliation — external bank', () => {
     expect(Object.keys(EXTERNAL_BANDS)).toHaveLength(6);
   });
 
-  it('Central and the reference asset are FAIL-level and currently clean', async () => {
+  it('Central and the reference asset are FAIL-level, with every breach declared', async () => {
     const report = await reportPromise;
     const strict = report.external.filter(
       (c: Any) => c.subject.endsWith('/central') || c.subject.startsWith('reference/'));
     expect(strict.length).toBeGreaterThan(0);
     for (const c of strict) expect(c.status, `${c.subject} ${c.id}`).not.toBe('warn');
-    expect(strict.filter((c: Any) => c.status === 'fail')).toEqual([]);
+    // No UNDECLARED breach. A breach may survive only by carrying an
+    // `expected_deviation` reason in code, with its band untouched — the 36.B1-N
+    // rule. Silence is still a failure.
+    const undeclared = strict.filter(
+      (c: Any) => c.status === 'fail' && !c.expected_deviation);
+    expect(undeclared, JSON.stringify(undeclared.slice(0, 3), null, 2)).toEqual([]);
+  });
+
+  it('the one declared deviation is the 36.B5 cycling metric, and its band was not moved', async () => {
+    const report = await reportPromise;
+    const declared = report.external.filter((c: Any) => c.expected_deviation);
+    expect(declared.length).toBeGreaterThan(0);
+    for (const c of declared) {
+      expect(c.id).toBe('external_3_cycles_yr');
+      // The band is the sourced one, unchanged. Re-fitting it to pass would be
+      // the failure this whole mechanism exists to make impossible.
+      expect(c.band).toEqual([EXTERNAL_BANDS.cycles_yr.lo, EXTERNAL_BANDS.cycles_yr.hi]);
+      expect(c.actual).toBeLessThan(EXTERNAL_BANDS.cycles_yr.lo);
+      expect(c.expected_deviation).toMatch(/36\.B5/);
+    }
+    expect(report.summary.expected_deviations).toHaveLength(declared.length);
   });
 
   it('Downside and Upside are WARN-level — a breach there is information, not error', async () => {
@@ -339,7 +359,11 @@ describe('reconciliation — report shape', () => {
     expect(report.summary.internal.total).toBe(report.internal.length);
     expect(report.summary.external.total).toBe(report.external.length);
     expect(report.summary.internal.fail).toBe(0);
-    expect(report.summary.external.fail).toBe(0);
+    // External fails are permitted ONLY where declared; the count is asserted
+    // equal to the number of declared deviations, so an undeclared one shows up
+    // here as well as in the check above.
+    expect(report.summary.external.fail).toBe(report.external.filter(
+      (c: Any) => c.expected_deviation && c.status === 'fail').length);
     expect(report.summary.severity_split).toMatch(/warn/i);
   });
 

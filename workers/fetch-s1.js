@@ -1393,15 +1393,37 @@ const CLIENT_SCENARIO_NAMES = new Set(['client_downside', 'client_upside']);
 // Allocation fractions match RESERVE_PRODUCTS (FCR 0.16, aFRR 0.34,
 // mFRR 0.50) so cycle accounting tracks the same MW allocation the
 // revenue formulas use; DA uses full nameplate.
-function computeThroughputBreakdown(MW, dur_h, sc) {
+/**
+ * @param {object} opts
+ * @param {number} [opts.da_utilisation=1] Fraction of the day-ahead throughput
+ *   ANCHOR the asset actually trades — the reserve commitment takes the rest.
+ * @param {number} [opts.availability=1] Forced-outage + maintenance haircut.
+ *
+ * Phase 36.B5. The anchor `mwh_per_mw_yr_da_{2h,4h}` is what a merchant asset
+ * cycles trading full time. The revenue path never billed that: it bills
+ * `anchor × trading_fraction × avail`, because the asset is simultaneously
+ * holding reserve MW. Cycle accounting used the bare anchor, so the engine aged
+ * the battery for ~43 % more day-ahead energy than it earned on (36.B1-O).
+ *
+ * With both options supplied, `total_mwh_yr` / `total_efcs_yr` / `total_cd` are
+ * DELIVERED throughput — energy that actually moved through the cells — so
+ * every consumer reads one figure and none of them re-applies availability.
+ * Both default to 1, so a caller that supplies neither gets the unchanged
+ * nameplate-anchor behaviour.
+ */
+function computeThroughputBreakdown(MW, dur_h, sc, opts = {}) {
+  const da_utilisation = opts.da_utilisation ?? 1;
+  const availability   = opts.availability ?? 1;
+
   const fcr_alloc_MW   = MW * 0.16;  // RESERVE_PRODUCTS.fcr.share
   const afrr_alloc_MW  = MW * 0.34;  // RESERVE_PRODUCTS.afrr.share
   const mfrr_alloc_MW  = MW * 0.50;  // RESERVE_PRODUCTS.mfrr.share
 
-  const fcr_mwh   = fcr_alloc_MW  * sc.mwh_per_mw_yr_fcr;
-  const afrr_mwh  = afrr_alloc_MW * sc.mwh_per_mw_yr_afrr;
-  const mfrr_mwh  = mfrr_alloc_MW * sc.mwh_per_mw_yr_mfrr;
-  const da_mwh    = MW            * durBlend(dur_h, sc.mwh_per_mw_yr_da_2h, sc.mwh_per_mw_yr_da_4h);
+  const fcr_mwh   = fcr_alloc_MW  * sc.mwh_per_mw_yr_fcr  * availability;
+  const afrr_mwh  = afrr_alloc_MW * sc.mwh_per_mw_yr_afrr * availability;
+  const mfrr_mwh  = mfrr_alloc_MW * sc.mwh_per_mw_yr_mfrr * availability;
+  const da_anchor_mwh = MW        * durBlend(dur_h, sc.mwh_per_mw_yr_da_2h, sc.mwh_per_mw_yr_da_4h);
+  const da_mwh    = da_anchor_mwh * da_utilisation * availability;
 
   const total_mwh_yr = fcr_mwh + afrr_mwh + mfrr_mwh + da_mwh;
   const capacity_mwh = MW * dur_h;
@@ -1410,6 +1432,9 @@ function computeThroughputBreakdown(MW, dur_h, sc) {
 
   return {
     fcr_mwh, afrr_mwh, mfrr_mwh, da_mwh,
+    // Both figures are reported so the gap between what the asset COULD cycle
+    // and what it is modelled as cycling is visible rather than implicit.
+    da_anchor_mwh, da_utilisation, availability,
     total_mwh_yr, capacity_mwh,
     fcr_efcs:  capacity_mwh > 0 ? fcr_mwh  / capacity_mwh : 0,
     afrr_efcs: capacity_mwh > 0 ? afrr_mwh / capacity_mwh : 0,
@@ -1769,9 +1794,31 @@ function computeRevenueV7(params, kv) {
   // computed actual cycling rate (cycles/day) summed across all stacked
   // products — fed to getDegradation so cell aging tracks real operation
   // rather than a duration-label assumption (sc.cycles_{2h,4h} is now legacy).
-  const tp = computeThroughputBreakdown(1, dur_h, sc);
+  //
+  // Phase 36.B5 — ONE day-ahead throughput figure, not two. The anchor
+  // `mwh_per_mw_yr_da_{2h,4h}` is full-time merchant cycling; the revenue path
+  // has always billed `anchor × trading_fraction × avail` because the asset is
+  // simultaneously holding reserve MW. Cycle accounting used the bare anchor, so
+  // the engine charged cell wear for ~43 % more day-ahead energy than it earned
+  // on (36.B1-O). Both sides now read the SAME delivered throughput.
+  //
+  // The utilisation is taken from operating year 1 and held for life, because
+  // `total_cd` is itself a lifetime scalar fed to the degradation curve — a
+  // year-varying wear rate would be a different model, not a consistency fix.
+  // `trading_fraction` is pinned at its 0.70 ceiling in every year of every
+  // project at current market state (34.4-C), so Y1 is not a special case; if
+  // the ceiling ever stops binding, this becomes the Y1 approximation it is
+  // described as, and the residual is reported in `cycles_breakdown`.
+  const da_utilisation = Math.min(1, Math.max(0,
+    computeTradingMix(kv, dur_h, cod_year + 1, params.scenario || 'base', sc, 1, drv)
+      .trading_fraction));
+  const tp = computeThroughputBreakdown(1, dur_h, sc,
+    { da_utilisation, availability: sc.avail });
   const total_cd     = tp.total_cd;
-  const da_mwh_per_mw_yr = tp.da_mwh;        // for 1 MW: MWh/yr from DA arbitrage
+  // The REVENUE base stays the full anchor: the year loop applies
+  // `trading_fraction × avail × deg_ratio × op_frac` itself, per year, and
+  // pre-multiplying here would double-count the very factor being aligned.
+  const da_mwh_per_mw_yr = tp.da_anchor_mwh; // for 1 MW: MWh/yr from DA arbitrage
   const rte_curve    = rteCurveFor(dur_h, undefined, rte_decay);  // year-indexed RTE curve
   const rte          = rte_curve[0];        // BOL value used by single-value consumers
 
@@ -2127,7 +2174,9 @@ function computeRevenueV7(params, kv) {
   const lcos_charge_price = durBlend(dur_h,
     s1_cap.capture_2h?.avg_charge ?? 35,
     s1_cap.capture_4h?.avg_charge ?? 30);
-  const lcos_mwh_discharged_yr = tp.total_efcs_yr * dur_h * mw * sc.avail;
+  // `tp.total_efcs_yr` is DELIVERED throughput (36.B5): availability is already
+  // inside it, so re-applying it here would haircut the same energy twice.
+  const lcos_mwh_discharged_yr = tp.total_efcs_yr * dur_h * mw;
   const lcos_mwh_charged_yr = rte > 0 ? lcos_mwh_discharged_yr / rte : 0;
   const lcos_charging_cost = lcos_charge_price * lcos_mwh_charged_yr;
   const lcos_eur_mwh = lcos_mwh_discharged_yr > 0
@@ -2157,6 +2206,15 @@ function computeRevenueV7(params, kv) {
       da:   efc_breakdown.da,
       total_cd: Math.round(tp.total_cd * 100) / 100,
       total_efcs_yr: total_efcs_yr,
+      // Phase 36.B5 — the wear model and the revenue model read one day-ahead
+      // throughput. Disclosed rather than implicit: the anchor is what the asset
+      // could cycle trading full time, the utilisation is the share left after
+      // reserve commitment, and the difference is energy the engine no longer
+      // charges cell wear for while billing no revenue on it (36.B1-O).
+      da_anchor_mwh_per_mw_yr: Math.round(tp.da_anchor_mwh),
+      da_delivered_mwh_per_mw_yr: Math.round(tp.da_mwh),
+      da_utilisation: Math.round(tp.da_utilisation * 1000) / 1000,
+      basis: 'Wear and revenue share one delivered day-ahead throughput (anchor × trading fraction × availability).',
       label: 'Cycles per year (throughput-derived)',
     },
     warranty_status: warranty_status,
@@ -2397,10 +2455,15 @@ function computeRevenueV6(params, kv) {
   const capex_total = capex_kwh * dur_h * 1000; // per MW → total uses mw later
   const cod_year = params.cod_year || 2028;
 
-  // v7.3 throughput-derived cycle accounting.
-  const tp = computeThroughputBreakdown(1, dur_h, sc);
+  // v7.3 throughput-derived cycle accounting, on the 36.B5 delivered basis so
+  // the fallback path cannot disagree with the live one about how fast the cells
+  // age. Revenue still reads the ANCHOR and applies its own factors per year.
+  const v6_da_utilisation = Math.min(1, Math.max(0,
+    computeTradingMix(kv, dur_h, cod_year + 1, params.scenario || 'base', sc, 1).trading_fraction));
+  const tp = computeThroughputBreakdown(1, dur_h, sc,
+    { da_utilisation: v6_da_utilisation, availability: sc.avail });
   const total_cd     = tp.total_cd;
-  const da_mwh_per_mw_yr = tp.da_mwh;
+  const da_mwh_per_mw_yr = tp.da_anchor_mwh;
   const rte_curve    = rteCurveFor(dur_h);
   const rte          = rte_curve[0];
 

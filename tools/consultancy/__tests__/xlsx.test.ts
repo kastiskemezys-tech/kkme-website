@@ -370,17 +370,24 @@ describe('Reconciliation', () => {
   it('renders every internal and external check', () => {
     const ws = wb.getWorksheet('Reconciliation');
     const rec = inp.reconciliation;
-    let pass = 0; let warn = 0; let fail = 0;
+    let pass = 0; let warn = 0; let fail = 0; let declared = 0;
     ws.eachRow((row: any) => {
       const s = row.getCell(7).value;
       if (s === 'PASS') pass += 1;
       if (s === 'WARN') warn += 1;
       if (s === 'FAIL') fail += 1;
+      if (s === 'DECLARED') declared += 1;
     });
+    // A breach declared in code with a stated reason renders as DECLARED, not
+    // FAIL: the band is untouched and the miss is shown at full size, but the
+    // client sees an explained finding rather than an unexplained failure.
+    const withReason = rec.external.filter((c: Any) => c.expected_deviation);
+    expect(declared).toBe(withReason.length);
     expect(pass).toBe(rec.summary.internal.pass + rec.summary.external.pass);
-    expect(warn).toBe(rec.summary.internal.warn + rec.summary.external.warn);
+    expect(warn + declared).toBe(
+      rec.summary.internal.warn + rec.summary.external.warn + rec.summary.external.fail);
     expect(fail).toBe(0);
-    expect(pass + warn + fail).toBe(rec.internal.length + rec.external.length);
+    expect(pass + warn + fail + declared).toBe(rec.internal.length + rec.external.length);
   });
 
   it('carries the single WARN with its by-design explanation', () => {

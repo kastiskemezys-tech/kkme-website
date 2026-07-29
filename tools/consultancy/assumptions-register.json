@@ -70,33 +70,37 @@
       "id": "cycles_efc_yr",
       "category": "technical",
       "label": "Equivalent full cycles per year",
-      "value": 678,
+      "value": 498,
       "unit": "EFC/yr",
       "source": "Throughput-derived from the per-product MWh anchors (Modo / GEM / enspired 2025 Baltic + EU merchant-battery research), not assumed",
-      "sensitivity_range": [
-        550,
-        720
-      ],
+      "sensitivity_range": null,
       "override": null,
       "engine_binding": "engine:assumptions_panel.cycles_breakdown.total_efcs_yr",
       "basis": "derived",
-      "note": "Computed, not an input: FCR + aFRR + mFRR + DA throughput summed at the reference asset. Carried in the register because it is the figure the warranty is tested against."
+      "note": "Computed, not an input: FCR + aFRR + mFRR + DA throughput summed at the reference asset. Carried in the register because it is the figure the warranty is tested against. Phase 36.B5: re-based from 678 to 498 EFC/yr when cycle accounting and revenue were put on ONE day-ahead throughput figure (36.B1-O). The metric changed meaning — it was the nameplate anchor plus reserves, it is now DELIVERED throughput (anchor x trading fraction x availability). The observed band that used to be this row's sensitivity_range is retained as benchmark_band: the delivered figure falls below it, which is a reported finding and not a re-fitted band. B1's hourly physical simulation lands lower still (221 EFC/yr).",
+      "benchmark_band": [
+        550,
+        720
+      ],
+      "benchmark_source": "Modo Energy / GEM Baltic merchant-battery cycling research 2025 — MEASURED cycling of real assets. Retained as disclosure; the model now sits BELOW it (see reconciliation external_3_cycles_yr, declared deviation)."
     },
     {
       "id": "cycles_per_day",
       "category": "technical",
       "label": "Total cycling rate",
-      "value": 1.86,
+      "value": 1.36,
       "unit": "cycles/day",
       "source": "Same throughput derivation as the EFC figure; feeds the SOH curve interpolation directly",
-      "sensitivity_range": [
-        1.4,
-        2.1
-      ],
+      "sensitivity_range": null,
       "override": null,
       "engine_binding": "engine:assumptions_panel.cycles_breakdown.total_cd",
       "basis": "derived",
-      "note": "Drives cell degradation. The engine keys degradation off this computed rate rather than off a duration label."
+      "note": "Drives cell degradation. The engine keys degradation off this computed rate rather than off a duration label. Phase 36.B5: re-based from 1.86 to 1.36 cycles/day when cycle accounting and revenue were put on ONE day-ahead throughput figure (36.B1-O). The metric changed meaning — it was the nameplate anchor plus reserves, it is now DELIVERED throughput (anchor x trading fraction x availability). The observed band that used to be this row's sensitivity_range is retained as benchmark_band: the delivered figure falls below it, which is a reported finding and not a re-fitted band. B1's hourly physical simulation lands lower still (221 EFC/yr).",
+      "benchmark_band": [
+        1.4,
+        2.1
+      ],
+      "benchmark_source": "Modo Energy / GEM Baltic merchant-battery cycling research 2025 — MEASURED cycling of real assets. Retained as disclosure; the model now sits BELOW it (see reconciliation external_3_cycles_yr, declared deviation)."
     },
     {
       "id": "soh_aug_restore",
@@ -753,6 +757,16 @@
       "reason": "ADOPTED. Operator decision 2026-07-28: the measured sub-hourly uplift replaces the Rystad placeholder in RYSTAD_15MIN_UPLIFT_DECIMAL, and the constant gains a register row so it can never again be carried unmeasured. Moves the public dispatch card only — capture_eur_mwh_15min_uplifted falls 4.52% at any capture level; /revenue and every client deliverable number are untouched. Realised-mode card moves only once BTD returns and the cron rewrites dispatch:<date> KV (stored payloads carry the old factor until then, 90-day TTL); forecast-mode computes live but is structurally dead (36.B0-G).",
       "source": "tools/consultancy/run-15min-delta.mjs",
       "phase": "36.B batch-3 Part 0"
+    },
+    {
+      "date": "2026-07-28",
+      "id": "cycles_efc_yr",
+      "old": 678,
+      "new": 498,
+      "reason": "Consequential, not a decision. Cycle accounting charged cell wear on the full day-ahead throughput anchor while revenue billed anchor x trading_fraction x availability, so the engine aged the battery for ~43% more day-ahead energy than it earned on (36.B1-O). Both now read one DELIVERED figure. The metric changed basis, so its declared sensitivity_range — the observed merchant-cycling band — was moved to benchmark_band rather than widened to fit: the model now sits below the observed band and says so. cycles_per_day follows at 1.86 -> 1.36.",
+      "source": "workers/fetch-s1.js computeThroughputBreakdown({da_utilisation, availability})",
+      "phase": "36.B5"
     }
-  ]
+  ],
+  "synced_at": "2026-07-29T06:14:24.819Z"
 }
