@@ -21,6 +21,7 @@ import { readFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import ExcelJS from 'exceljs';
 import { HERE, OUTPUT_DIR } from './engine.mjs';
+import { deliveryRunId, sourceRunIds, recordArtefact } from './lib/runs.mjs';
 
 export const XLSX_NAME = 'Prosperus_BESS_Model_v0.5.xlsx';
 
@@ -181,6 +182,31 @@ export function loadInputs({ outputDir = OUTPUT_DIR, here = HERE } = {}) {
       `${inputs.notes.register_count} — one of them is stale`
     );
   }
+
+  // ── Provenance (36.B6) ──────────────────────────────────────────────────
+  // Every consumed runner output must carry the run block `writeRunOutput`
+  // stamps on it. An untraced input is a number in a client report that the
+  // registry cannot account for, which is the one thing the registry exists to
+  // prevent — so this refuses rather than degrading to "provenance unknown".
+  const traced = [
+    ['portfolio', inputs.portfolio],
+    ...inputs.projects.map((p) => [p.config.project_id, p]),
+    ...Object.entries(inputs.scenarios).map(([k, v]) => [`scenario-${k}`, v]),
+    ['sensitivity', inputs.sensitivity],
+    ['reconciliation', inputs.reconciliation],
+  ];
+  const untraced = traced.filter(([, v]) => !v?.run?.run_id).map(([k]) => k);
+  if (untraced.length) {
+    throw new Error(
+      `runner output(s) carry no run-registry block (${untraced.join(', ')}) — ` +
+      `regenerate with the current runners: node tools/consultancy/build-all.mjs`
+    );
+  }
+  inputs.run_sources = Object.fromEntries(traced.map(([k, v]) => [k, v.run.run_id]));
+  inputs.build = deliveryRunId(sourceRunIds(traced.map(([, v]) => v)), {
+    registerVersion: inputs.register.version?.id ?? null,
+  });
+
   inputs.notes = resolveNotes(inputs.notes, inputs);
   return inputs;
 }
@@ -253,6 +279,9 @@ function coverTab(wb, inp, meta) {
     ['Prepared by', e.provider],
     ['Contact', e.provider_contact],
     ['Engine version', `KKME revenue engine ${e.engine_version}`],
+    ['Run ID', inp.build.run_id],
+    ['Engine commit', inp.portfolio.run.engine_git_sha],
+    ['Register version', inp.register.version?.id ?? '—'],
     ['Market state captured', inp.portfolio.kv_captured_at ?? inp.portfolio.generated_at],
     ['Portfolio', `${inp.portfolio.portfolio.projects} projects · ${inp.portfolio.portfolio.mw} MW / ${inp.portfolio.portfolio.mwh} MWh · ${inp.portfolio.portfolio.calendar_span}`],
     ['Discount rate', `${(inp.portfolio.portfolio.wacc * 100).toFixed(1)}% WACC`],
@@ -295,6 +324,15 @@ function coverTab(wb, inp, meta) {
   moic.getCell(2).alignment = { horizontal: 'left' };
   const pb = ws.addRow(['Payback', `${p.payback_years} years from first CAPEX draw`]);
   pb.getCell(1).font = { size: 10 };
+
+  blank(ws);
+  heading(ws, 'Provenance — run registry', { width: 2 });
+  note(ws, inp.notes.run_registry_note, { width: 2, italic: false, height: 60 });
+  for (const [k, v] of Object.entries(inp.run_sources)) {
+    const r = ws.addRow([k, v]);
+    r.getCell(1).font = { size: 10 };
+    r.getCell(2).font = { name: 'Menlo', size: 9.5 };
+  }
 
   blank(ws);
   heading(ws, 'Tabs in this workbook', { width: 2 });
@@ -1029,6 +1067,7 @@ export async function generateXlsx({ outputDir = OUTPUT_DIR, filename = XLSX_NAM
   mkdirSync(outputDir, { recursive: true });
   const path = join(outputDir, filename);
   await wb.xlsx.writeFile(path);
+  recordArtefact({ build: inputs.build, artefact: filename, path });
   return { path, inputs };
 }
 

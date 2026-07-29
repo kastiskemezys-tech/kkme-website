@@ -12,9 +12,10 @@
  */
 
 import { join } from 'node:path';
-import { loadConfig, loadConfigDir, runProject, writeOutput, PROJECTS_DIR, eur } from './engine.mjs';
+import { loadConfig, loadConfigDir, runProject, PROJECTS_DIR, eur } from './engine.mjs';
 import { getKV } from './kv-snapshot.mjs';
 import { buildBridge } from './bridge.mjs';
+import { writeRunOutput, kvVintage } from './lib/runs.mjs';
 
 /** Attach the consultancy-side derivations (34.2) to a raw engine result. */
 export function decorate(result, config, meta) {
@@ -61,7 +62,11 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const rows = [];
   for (const cfg of configs) {
     const out = await runOne(cfg, kv, meta);
-    const path = writeOutput(`${cfg.project_id}.json`, out);
+    const { path } = writeRunOutput(`${cfg.project_id}.json`, out, {
+      runner: 'project', subject: cfg.project_id,
+      inputs: { config: cfg, scenario: cfg.scenario ?? 'base' },
+      data_vintage: kvVintage(meta),
+    });
     rows.push({ cfg, out });
     console.log(`  ${cfg.project_id.padEnd(16)} → ${path}`);
   }

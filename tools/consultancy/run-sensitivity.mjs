@@ -27,7 +27,8 @@
  */
 
 import { join } from 'node:path';
-import { loadConfigDir, writeOutput, PROJECTS_DIR, eur } from './engine.mjs';
+import { loadConfigDir, PROJECTS_DIR, eur } from './engine.mjs';
+import { writeRunOutput, kvVintage } from './lib/runs.mjs';
 import { getKV } from './kv-snapshot.mjs';
 import { DEFAULT_WACC } from './portfolio.mjs';
 import { DRIVERS, DRIVER_IDS, CENTRAL_DRIVERS } from './scenario-overlay.mjs';
@@ -238,7 +239,11 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       upside: interactionResidual(rows, central, upFull, 'up'),
     },
   };
-  const path = writeOutput('sensitivity.json', payload);
+  const { path } = writeRunOutput('sensitivity.json', payload, {
+    runner: 'sensitivity', subject: 'prosperus-portfolio',
+    inputs: { configs, wacc, source_dir: dir, drivers: rows.map((r) => r.driver) },
+    data_vintage: kvVintage(meta),
+  });
 
   const pad = (s, n) => String(s).padStart(n);
   console.log(`\n  Sensitivity — portfolio Y1 EBITDA, Central = ${eur(central.ebitda_y1)}\n`);

@@ -27,6 +27,7 @@ import { HERE, OUTPUT_DIR } from './engine.mjs';
 import { generateXlsx, XLSX_NAME } from './generate-xlsx.mjs';
 import { generateDeliverable, HTML_NAME } from './generate-deliverable.mjs';
 import { generatePdfs, SUMMARY_PDF, ANNEX_PDF } from './generate-pdf.mjs';
+import { recordArtefact } from './lib/runs.mjs';
 
 export const DELIVERY_DIR = join(OUTPUT_DIR, 'delivery');
 
@@ -64,6 +65,7 @@ function readme(inp, files, meta) {
     `${e.deliverable} — ${e.version}`,
     `Prepared for ${e.client} · ${e.client_contact}`,
     `Generated ${meta.generatedAt} · KKME engine ${e.engine_version}`,
+    `Run ${inp.build.run_id} · register ${inp.register.version?.id ?? '—'} · commit ${inp.portfolio.run.engine_git_sha}`,
     '',
     '='.repeat(72),
     'FILES IN THIS DELIVERY',
@@ -101,6 +103,14 @@ function readme(inp, files, meta) {
       + `${rec.external.warn ? `, with ${rec.external.warn} flagged` : ''}. `
       + `Full detail is on the Reconciliation tab of the workbook and in section 02 of the summary.`),
     ...(rec.external.warn ? ['', ...wrap(inp.notes.upside_warn_note)] : []),
+    '',
+    '='.repeat(72),
+    'PROVENANCE',
+    '='.repeat(72),
+    '',
+    ...wrap(inp.notes.run_registry_note),
+    '',
+    ...Object.entries(inp.run_sources).map(([k, v]) => `  ${k.padEnd(22)} ${v}`),
     '',
     '='.repeat(72),
     'CONTACT',
@@ -150,7 +160,7 @@ export async function buildAll({ offline = false, skipRunners = false, generated
   step(++n, `Deliverable HTML + consistency gate${''.padEnd(11)} ✓  ${kb(htmlPath)} kB`);
 
   const pdfs = await generatePdfs({
-    generatedAt: stamp, engineVersion: inputs.portfolio.engine_version,
+    generatedAt: stamp, engineVersion: inputs.portfolio.engine_version, build: inputs.build,
   });
   step(++n, `Summary PDF (${String(pdfs.summary.pages).padStart(2)} pp)${''.padEnd(28)} ✓  ${kb(pdfs.summary.path)} kB`
     + (pdfs.summary.fontsLoaded ? '' : '  [webfonts unavailable]'));
@@ -172,6 +182,7 @@ export async function buildAll({ offline = false, skipRunners = false, generated
 
   const readmePath = join(DELIVERY_DIR, 'README.txt');
   writeFileSync(readmePath, readme(inputs, files, { generatedAt: stamp }), 'utf8');
+  recordArtefact({ build: inputs.build, artefact: 'README.txt', path: readmePath });
   files.push({ name: 'README.txt', size: kb(readmePath), what: 'File inventory, how overrides work, contact' });
   step(++n, `Packaged to output/delivery/${''.padEnd(20)} ✓  ${files.length} files`);
 

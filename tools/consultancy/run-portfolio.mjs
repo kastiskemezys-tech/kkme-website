@@ -10,7 +10,8 @@
  */
 
 import { join } from 'node:path';
-import { loadConfigDir, runProject, writeOutput, PROJECTS_DIR, eur } from './engine.mjs';
+import { loadConfigDir, runProject, PROJECTS_DIR, eur } from './engine.mjs';
+import { writeRunOutput, kvVintage } from './lib/runs.mjs';
 import { getKV } from './kv-snapshot.mjs';
 import { buildBridge } from './bridge.mjs';
 import { buildPortfolio, DEFAULT_WACC } from './portfolio.mjs';
@@ -66,7 +67,11 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     source_dir: dir,
     ...out,
   };
-  const path = writeOutput('portfolio.json', payload);
+  const { path } = writeRunOutput('portfolio.json', payload, {
+    runner: 'portfolio', subject: 'prosperus-portfolio',
+    inputs: { configs, wacc, source_dir: dir },
+    data_vintage: kvVintage(meta),
+  });
 
   const pad = (s, n) => String(s).padStart(n);
   const p = out.portfolio;

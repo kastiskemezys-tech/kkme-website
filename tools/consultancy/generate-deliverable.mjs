@@ -29,6 +29,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { HERE, OUTPUT_DIR } from './engine.mjs';
+import { recordArtefact } from './lib/runs.mjs';
 import { loadInputs, operationalMwYears } from './generate-xlsx.mjs';
 
 export const TEMPLATE_PATH = join(HERE, 'templates/prosperus-deliverable-template.html');
@@ -122,6 +123,7 @@ function masthead(inp, meta) {
     <strong>Version ${esc(e.version)} · scope-locked</strong><br>
     Prepared for UAB ${esc(e.client)} · generated ${esc(meta.generatedAt)}<br>
     KKME engine ${esc(e.engine_version)} · market state ${esc(meta.kvCaptured)}<br>
+    Run ${esc(inp.build.run_id)} · register ${esc(inp.register.version?.id ?? '—')}<br>
     Confidential · UAB KKME · ${esc(e.provider_contact.split(' · ')[1])}
   </div>
 </header>`;
@@ -947,6 +949,11 @@ export function verifyDeliverable(html, inp) {
     mustNot(ph, 'mockup placeholder');
   }
 
+  // Provenance (36.B6): the delivered document must name the run that produced
+  // it. A report whose figures cannot be traced back to a registry entry is
+  // exactly the artefact the registry exists to make impossible.
+  must(esc(inp.build.run_id), 'run registry id');
+
   // The extended-scope block must survive untouched — it is the v1.0 upsell.
   must('EXTENDED SCOPE — NOT IN v0.5', 'extended-scope stamp');
   must('Boundary · v0.5 → v1.0', 'scope divider');
@@ -968,6 +975,7 @@ export function generateDeliverable({ outputDir = OUTPUT_DIR, generatedAt } = {}
   mkdirSync(outputDir, { recursive: true });
   const path = join(outputDir, HTML_NAME);
   writeFileSync(path, html, 'utf8');
+  recordArtefact({ build: inputs.build, artefact: HTML_NAME, path });
   return { path, html, inputs };
 }
 

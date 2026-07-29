@@ -23,9 +23,10 @@
  *   node tools/consultancy/run-15min-delta.mjs --from 2025-10-01 --to 2026-06-30
  */
 
-import { writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { loadEngine, OUTPUT_DIR, REPO_ROOT } from './engine.mjs';
+import { loadEngine, REPO_ROOT } from './engine.mjs';
+import { writeRunOutput, hashOf } from './lib/runs.mjs';
 import { parseA44, ZONE_EIC, ENTSOE_API } from './backfill-entsoe.mjs';
 
 /** Read ENTSOE_API_KEY from the environment or .env.local. */
@@ -201,7 +202,19 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     daily: m.rows,
   };
 
-  const out = join(OUTPUT_DIR, `uplift-15min-${zone}-${fromIso}-${toIso}.json`);
-  writeFileSync(out, JSON.stringify(payload, null, 2) + '\n');
+  const { path: out } = writeRunOutput(
+    `uplift-15min-${zone}-${fromIso}-${toIso}.json`, payload,
+    {
+      runner: 'uplift-15min', subject: `${zone}/${fromIso}→${toIso}`,
+      inputs: { zone, from: fromIso, to: toIso, asserted },
+      data_vintage: {
+        kind: 'entsoe-live-fetch',
+        source: payload.meta.source,
+        zone, from: fromIso, to: toIso,
+        n_days: payload.daily?.length ?? null,
+        content_hash: hashOf(payload.daily ?? []),
+      },
+    }
+  );
   console.log(`\nwrote ${out}`);
 }

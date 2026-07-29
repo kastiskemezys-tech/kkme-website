@@ -37,6 +37,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadConfig, loadEngine, runProject, HERE, OUTPUT_DIR, PROJECTS_DIR } from './engine.mjs';
 import { loadPriceYear } from './backfill-entsoe.mjs';
+import { writeRunOutput, priceVintage } from './lib/runs.mjs';
 import { simulateYear } from './lib/dispatch.mjs';
 
 const SNAPSHOT = join(OUTPUT_DIR, 'kv-snapshot.json');
@@ -337,7 +338,12 @@ export async function runDispatch({ config, year, zone = 'LT', scenario = 'base'
   if (writeFiles) {
     mkdirSync(OUTPUT_DIR, { recursive: true });
     const base = `dispatch-${config.project_id}-${zone}-${year}`;
-    writeFileSync(join(OUTPUT_DIR, `${base}.json`), JSON.stringify(payload, null, 2) + '\n');
+    const { run } = writeRunOutput(`${base}.json`, payload, {
+      runner: 'dispatch', subject: `${config.project_id}/${zone}-${year}`,
+      inputs: { config, zone, year, scenario },
+      data_vintage: priceVintage(priceFile, { zone }),
+    });
+    payload.run = run;
     payload.files = [`${base}.json`];
     if (writeCsv && constrained.hours_detail) {
       writeFileSync(join(OUTPUT_DIR, `${base}.csv`), toCsv(constrained.hours_detail));

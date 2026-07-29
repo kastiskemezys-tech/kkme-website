@@ -10,7 +10,7 @@
  * Nothing in this directory reimplements engine maths.
  */
 
-import { readFileSync, readdirSync, mkdirSync, writeFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -141,12 +141,13 @@ export async function runProject(cfg, kv, { scenario, engine: engineOverride } =
 
 // ── Output helpers ─────────────────────────────────────────────────────────
 
-export function writeOutput(filename, data) {
-  mkdirSync(OUTPUT_DIR, { recursive: true });
-  const path = join(OUTPUT_DIR, filename);
-  writeFileSync(path, JSON.stringify(data, null, 2) + '\n');
-  return path;
-}
+/**
+ * Runner outputs are written by `lib/runs.mjs::writeRunOutput`, which stamps
+ * the run registry provenance block on the way through. The bare `writeOutput`
+ * that used to live here was removed in Phase 36.B6 rather than left beside it:
+ * two ways to emit a runner output means one of them emits an unregistered
+ * number, which is the exact hole the registry exists to close.
+ */
 
 export const eur = (n) =>
   n == null ? '—' : `€${(n / 1e6).toFixed(2)}M`;

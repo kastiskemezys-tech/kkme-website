@@ -2287,3 +2287,93 @@ IRR, which is the hourly-engine cutover the arc reserves as a separate operator
 decision (Phase 37). What this phase delivers is the measurement of what that
 cutover would be worth, plus proof the iteration is well-behaved enough to base
 one on.
+
+## Phase 36.B batch-4 — Part 0 (repo hygiene) + Part 1 (run registry)
+
+### 36.B6-A — `logs/btd.log` was never repo content
+
+Tracked by accident in `f551934` (the v7.2 frontend commit) and rewritten by the
+local BTD/Litgrid fetch cron on every run since, so it has been permanently
+"modified" in every working tree — every session handover from 19 onwards lists
+it under "left as-is". It blocked a rebase and contributed to two stale deploys
+on 2026-07-29.
+
+`git rm --cached` (the local file stays — it is the evidence base for the 36.B1
+Pause-A feed-failure audit, 178 parsed runs) and `.gitignore` widened from
+`logs/*.log` to `logs/`, because the pattern that let one log in would let the
+next one in too. `git ls-files logs/` was checked first: that one file was the
+only thing tracked under the directory.
+
+### 36.B6-B — run_id is a content fingerprint, not an invocation counter
+
+`run_id = <runner>-<12 hex of sha256(engine_git_sha ‖ input_hash ‖ output_hash)>`.
+
+A random UUID per invocation answers "which invocation was this". It cannot
+answer the question a lender's advisor actually asks — *"can I reproduce this
+number?"* A content fingerprint can: re-running the same engine over the same
+inputs yields the SAME run_id, so a reproduction is self-evident and a failure
+to reproduce is a finding rather than an ambiguity.
+
+The cost is accepted deliberately: the registry can carry one run_id twice.
+That is a recorded reproduction, not duplication — each line carries its own
+timestamp — and deduplicating would delete the evidence. Pinned by a test that
+asserts two identical runs append two lines with one id.
+
+For the fingerprint to mean anything, `output_hash` must be computed on what the
+run COMPUTED rather than on when it ran, so `generated_at`, `synced_at`,
+`fetched_at`, `timestamp` and the `run` block itself are stripped before
+hashing. Declaring `run` volatile is what lets the stamp live inside the payload
+it describes without perturbing its own hash.
+
+`canonicalJson` drops `undefined` object values rather than hashing them as
+`null`, so the hash describes the PERSISTED form — `JSON.stringify` drops them
+on the way to disk, and two byte-identical files that hashed differently would
+have made the whole mechanism unsound. Caught by the test, not by inspection.
+
+### 36.B6-C — the engine sha carries `-dirty`, and the registry does not dirty itself
+
+A number produced from an uncommitted tree is not reproducible from the repo
+alone. `engineGitSha()` says so with a `-dirty` suffix rather than implying a
+clean provenance it does not have.
+
+One exclusion, and it is principled rather than convenient: `runs.jsonl` itself
+is excluded from the dirty check. It is an append-only LOG of what the code did,
+not an input to it, so a build would otherwise mark itself dirty purely because
+it had just recorded itself.
+
+The committed registry starts at the batch-4 delivery build. Rehearsal runs made
+against a dirty tree while the tool was being written are runs of a tool that had
+not shipped, and seeding the governance log with them would have made its first
+dozen lines noise.
+
+### 36.B6-D — one funnel, and `writeOutput` was deleted rather than left beside it
+
+All eleven runners now emit through `lib/runs.mjs::writeRunOutput`, which stamps
+the payload, writes it, and appends the registry line as one operation.
+`engine.mjs::writeOutput` — the bare writer five runners used — was removed, not
+kept as a convenience: two ways to emit a runner output means one of them emits
+an unregistered number, which is the exact hole the registry exists to close.
+
+The stamp goes INSIDE the payload (`payload.run`) as well as into the registry,
+so an output file handed to an advisor on its own still answers which engine,
+which data vintage and which register version produced it.
+
+`loadInputs()` refuses to build a deliverable from any runner output lacking a
+run block, on the same footing as its existing refusals (mixed `engine_version`,
+unverified KV). An untraced input is a number in a client report the registry
+cannot account for.
+
+### 36.B6-E — the delivery build has its own id, derived from the runs it consumed
+
+`deliveryRunId()` fingerprints the SET of source run_ids plus the register
+version, so the workbook, the HTML, both PDFs and the README all carry one id
+and every one of them traces to the same eleven runner runs. Each artefact is
+then recorded with a hash of its own bytes under that id.
+
+The generation DATE is deliberately not in it: re-rendering identical numbers on
+a later day is the same build, and minting a new id would imply a change that
+did not happen. The date is already stamped on the cover, the banner and the
+README (34.7-G) and is the right place for it.
+
+The deliverable's consistency gate now asserts the run_id appears in the emitted
+HTML, so a delivered document that does not name its own run fails the build.

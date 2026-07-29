@@ -25,6 +25,7 @@ import { chromium } from 'playwright';
 import { marked } from 'marked';
 import { HERE, REPO_ROOT, OUTPUT_DIR } from './engine.mjs';
 import { TEMPLATE_PATH, HTML_NAME } from './generate-deliverable.mjs';
+import { recordArtefact } from './lib/runs.mjs';
 
 export const SUMMARY_PDF = 'Prosperus_BESS_Model_v0.5_Summary.pdf';
 export const ANNEX_PDF = 'Prosperus_BESS_Methodology_Annex.pdf';
@@ -38,9 +39,23 @@ export function brandRoot(template = readFileSync(TEMPLATE_PATH, 'utf8')) {
   return m[0];
 }
 
-/** Wrap docs/methodology.md in a minimal same-brand shell. */
-export function buildAnnexHtml({ generatedAt, engineVersion }) {
-  const md = readFileSync(METHODOLOGY_PATH, 'utf8');
+/**
+ * Wrap a markdown document in the minimal same-brand shell.
+ *
+ * Defaults to `docs/methodology.md` — the published methodology annex that has
+ * shipped since 34.7. `sourcePath`/`title`/`lede` exist so the lender-grade
+ * methodology (36.B6) renders through the SAME wrapper rather than growing a
+ * second, near-identical one that could drift out of brand.
+ *
+ * @param {{
+ *   generatedAt?: string, engineVersion?: string, runId?: string|null,
+ *   sourcePath?: string, title?: string, lede?: string,
+ * }} [opts]
+ */
+export function buildAnnexHtml({
+  generatedAt, engineVersion, runId = null, sourcePath = METHODOLOGY_PATH, title, lede,
+} = {}) {
+  const md = readFileSync(sourcePath, 'utf8');
   marked.setOptions({ gfm: true, breaks: false });
   const body = marked.parse(md);
 
@@ -92,11 +107,11 @@ strong { font-weight: 600; }
 <body>
 <div class="annex-head">
   <div class="wordmark">KKME<span class="amber-dot">.</span></div>
-  <span class="annex-tag">Methodology annex · engine ${engineVersion} · generated ${generatedAt}</span>
-  <h1 style="margin-top: 14px;">How these numbers are computed</h1>
+  <span class="annex-tag">Methodology annex · engine ${engineVersion} · generated ${generatedAt}${runId ? ` · run ${runId}` : ''}</span>
+  <h1 style="margin-top: 14px;">${title ?? 'How these numbers are computed'}</h1>
 </div>
 <div class="annex-note">
-This annex is KKME's published methodology document, reproduced in full and unedited. It describes the engine that produced every figure in the accompanying model and summary — the same engine that runs the public platform at kkme.eu, not a bespoke one built for this engagement. Nothing has been omitted for this delivery: where the methodology states a limitation, that limitation applies to your numbers too.
+${lede ?? "This annex is KKME's published methodology document, reproduced in full and unedited. It describes the engine that produced every figure in the accompanying model and summary — the same engine that runs the public platform at kkme.eu, not a bespoke one built for this engagement. Nothing has been omitted for this delivery: where the methodology states a limitation, that limitation applies to your numbers too."}
 </div>
 ${body}
 </body>
@@ -133,7 +148,7 @@ export function pdfPageCount(path) {
   return matches ? matches.length : null;
 }
 
-export async function generatePdfs({ outputDir = OUTPUT_DIR, generatedAt, engineVersion } = {}) {
+export async function generatePdfs({ outputDir = OUTPUT_DIR, generatedAt, engineVersion, build = null } = {}) {
   mkdirSync(outputDir, { recursive: true });
   const summaryHtml = join(outputDir, HTML_NAME);
   if (!statSync(summaryHtml, { throwIfNoEntry: false })) {
@@ -144,6 +159,7 @@ export async function generatePdfs({ outputDir = OUTPUT_DIR, generatedAt, engine
   writeFileSync(annexHtmlPath, buildAnnexHtml({
     generatedAt: generatedAt ?? new Date().toISOString().slice(0, 10),
     engineVersion: engineVersion ?? 'v7.3',
+    runId: build?.run_id ?? null,
   }), 'utf8');
 
   const browser = await chromium.launch();
@@ -152,6 +168,10 @@ export async function generatePdfs({ outputDir = OUTPUT_DIR, generatedAt, engine
     const annexPdf = join(outputDir, ANNEX_PDF);
     const a = await renderPdf(browser, summaryHtml, summaryPdf);
     const b = await renderPdf(browser, annexHtmlPath, annexPdf);
+    if (build) {
+      recordArtefact({ build, artefact: SUMMARY_PDF, path: summaryPdf });
+      recordArtefact({ build, artefact: ANNEX_PDF, path: annexPdf });
+    }
     return {
       summary: { path: summaryPdf, pages: pdfPageCount(summaryPdf), ...a },
       annex: { path: annexPdf, pages: pdfPageCount(annexPdf), ...b },

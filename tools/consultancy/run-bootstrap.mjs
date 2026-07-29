@@ -15,13 +15,14 @@
  *   node tools/consultancy/run-bootstrap.mjs --scenario downside
  */
 
-import { existsSync, writeFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  loadConfig, loadEngine, runProject, OUTPUT_DIR, PROJECTS_DIR, eur,
+  loadConfig, loadEngine, runProject, PROJECTS_DIR, eur,
 } from './engine.mjs';
 import { getKV } from './kv-snapshot.mjs';
 import { loadPriceYear } from './backfill-entsoe.mjs';
+import { writeRunOutput, priceVintage } from './lib/runs.mjs';
 import { buildReserveInputs } from './run-dispatch.mjs';
 import { simulateYear } from './lib/dispatch.mjs';
 import { buildBridge } from './bridge.mjs';
@@ -326,8 +327,16 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   // Distinct file per sample: the sensitivity run answers a different question
   // and must not silently replace the gated primary result.
   const suffix = argv.includes('--sensitivity') ? '-sensitivity' : '';
-  const out = join(OUTPUT_DIR, `bootstrap-${config.project_id}-${scenarioName}${suffix}.json`);
-  writeFileSync(out, JSON.stringify(payload, null, 2) + '\n');
+  const { path: out } = writeRunOutput(
+    `bootstrap-${config.project_id}-${scenarioName}${suffix}.json`, payload,
+    {
+      runner: 'bootstrap', subject: `${config.project_id}/${scenarioName}${suffix}`,
+      inputs: { config, scenario: scenarioName, shape_years: payload.meta.shape_years },
+      data_vintage: priceVintage(
+        payload.meta.shape_years.map((y) => loadPriceYear(zone, y)), { zone }
+      ),
+    }
+  );
   console.log(`\nwrote ${out}`);
   process.exit(failed > 0 ? 1 : 0);
 }

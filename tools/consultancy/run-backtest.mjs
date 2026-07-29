@@ -25,6 +25,7 @@ import {
 } from './engine.mjs';
 import { getKV } from './kv-snapshot.mjs';
 import { loadPriceYear } from './backfill-entsoe.mjs';
+import { writeRunOutput, priceVintage } from './lib/runs.mjs';
 import { buildReserveInputs } from './run-dispatch.mjs';
 import { simulateYear } from './lib/dispatch.mjs';
 import {
@@ -351,8 +352,15 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     console.log(`${c.pass ? '✓' : '✗'} ${c.check}: ${c.detail}`);
   }
 
-  const out = join(OUTPUT_DIR, `backtest-${config.project_id}-${payload.meta.window.from}-${payload.meta.window.to}.json`);
-  writeFileSync(out, JSON.stringify(payload, null, 2) + '\n');
+  const { path: out } = writeRunOutput(
+    `backtest-${config.project_id}-${payload.meta.window.from}-${payload.meta.window.to}.json`,
+    payload,
+    {
+      runner: 'backtest', subject: `${config.project_id}/${payload.meta.window.from}→${payload.meta.window.to}`,
+      inputs: { config, zone, window: payload.meta.window, scenario: scenarioName },
+      data_vintage: priceVintage([loadPriceYear(zone, 2025), loadPriceYear(zone, 2026)], { zone }),
+    }
+  );
   console.log(`\nwrote ${out}`);
 
   if (argv.includes('--write-register')) {
