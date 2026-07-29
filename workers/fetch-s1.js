@@ -752,9 +752,22 @@ function computeTradeSignals(daHourly, isps) {
 // Source: audit findings Apr 2026. Replaces hardcoded 60MW/130MWh with
 // parameterized 50MW + dur_h. Adds per-ISP co-optimization with reserve cap.
 
-// Rystad Dec 2025: Lithuania 15-min DA arbitrage = 14% uplift over hourly.
-// Proxy until Nord Pool 15-min API integrated.
-const RYSTAD_15MIN_UPLIFT_DECIMAL = 0.14;
+// Sub-hourly capture uplift — how much more spread a quarter-hourly day-ahead
+// shape offers than the same day averaged into hours.
+//
+// Phase 36.B batch-3 — MEASURED, not proxied. The asserted 0.14 was a Rystad
+// Dec-2025 figure for Lithuania carried as a placeholder until the market itself
+// could be read; LT day-ahead has been natively PT15M since 2025-10-01, so it is
+// now directly testable. `tools/consultancy/run-15min-delta.mjs` re-fetches the
+// same days at native resolution and runs the worker's own `computeDayCapture`
+// at 15 and at 60 minutes on identical days: over 273 complete PT15M days
+// (2025-10-01 → 2026-06-30) the volume-weighted uplift is 0.0885, simple mean
+// 0.0979, median 0.0815, range 0.0005-0.845.
+//
+// The asserted constant was ~58 % higher than what the market actually paid.
+// Same denominator, same function, same days — it is the sourced figure that is
+// being corrected, not the method. Remeasure annually with the register row.
+const RYSTAD_15MIN_UPLIFT_DECIMAL = 0.0885;
 
 // Elering 2026 forecast: post-DRR FCR clearing ~€40-45/MW/h
 // based on continental FCR averages and Baltic demand 28 MW.

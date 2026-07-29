@@ -206,6 +206,37 @@
       "note": "Theoretical perfect-foresight capture. The trading-realisation driver discounts it to an achievable figure."
     },
     {
+      "id": "dispatch_15min_uplift",
+      "category": "market",
+      "label": "Sub-hourly capture uplift (15-min vs hourly)",
+      "value": 0.0885,
+      "unit": "x of hourly capture",
+      "source": "KKME 15-minute delta run 2025-10-01 → 2026-06-30, 273 complete PT15M LT day-ahead days: worker computeDayCapture at 15-min vs 60-min resolution on identical days. Volume-weighted 0.0885; simple mean 0.0979; median 0.0815; range 0.0005-0.845.",
+      "sensitivity_range": [
+        0.0815,
+        0.0979
+      ],
+      "override": null,
+      "engine_binding": "worker:RYSTAD_15MIN_UPLIFT_DECIMAL",
+      "basis": "measured",
+      "note": "MEASURED, not proxied (adopted Phase 36.B batch-3 Part 0). Applied on the public dispatch card only (computeDispatchV2 → capture_eur_mwh_15min_uplifted); it does not reach /revenue or any client deliverable number. The declared range is the measurement's own median-to-mean spread, not an external band. One market year of PT15M data, and the pre-2025-10-01 period is structurally hourly so it cannot be extended backwards — REMEASURE ANNUALLY. Superseded assertion kept as dispatch_15min_uplift_asserted_prior."
+    },
+    {
+      "id": "dispatch_15min_uplift_asserted_prior",
+      "category": "market",
+      "label": "Sub-hourly capture uplift — prior assertion (superseded)",
+      "value": 0.14,
+      "unit": "x of hourly capture",
+      "source": "Rystad Dec 2025, Lithuania 15-minute day-ahead arbitrage uplift over hourly. Carried as a placeholder proxy 2026-04 → 2026-07-28, never measured against the market.",
+      "sensitivity_range": null,
+      "override": null,
+      "engine_binding": null,
+      "basis": "superseded",
+      "superseded_by": "dispatch_15min_uplift",
+      "superseded_on": "2026-07-28",
+      "note": "Roughly 58% higher than what the LT market actually paid over the 273 measurable days. Kept so the correction is legible: the method did not change, only the sourced figure. Not an input: nothing reads this row."
+    },
+    {
       "id": "euribor_3m",
       "category": "market",
       "label": "EURIBOR 3M",
@@ -712,6 +743,15 @@
       "new": 2.56,
       "reason": "Consequential, not a decision. The constant closes the engine-vs-client cost-taxonomy gap AT the reference asset's revenue level; adopting the measured trading realisation lowered that revenue, and the engine's two flat cost lines did not follow it down, so the gap widened by EUR 24 245/yr at 50 MW. Re-derived by bridgeCalibration() rather than re-fitted by hand. Without it the reference asset stops closing within the contracted ±2%.",
       "source": "tools/consultancy/bridge.mjs — bridgeCalibration(reference asset, frozen KV fixture)",
+      "phase": "36.B batch-3 Part 0"
+    },
+    {
+      "date": "2026-07-28",
+      "id": "dispatch_15min_uplift",
+      "old": 0.14,
+      "new": 0.0885,
+      "reason": "ADOPTED. Operator decision 2026-07-28: the measured sub-hourly uplift replaces the Rystad placeholder in RYSTAD_15MIN_UPLIFT_DECIMAL, and the constant gains a register row so it can never again be carried unmeasured. Moves the public dispatch card only — capture_eur_mwh_15min_uplifted falls 4.52% at any capture level; /revenue and every client deliverable number are untouched. Realised-mode card moves only once BTD returns and the cron rewrites dispatch:<date> KV (stored payloads carry the old factor until then, 90-day TTL); forecast-mode computes live but is structurally dead (36.B0-G).",
+      "source": "tools/consultancy/run-15min-delta.mjs",
       "phase": "36.B batch-3 Part 0"
     }
   ]

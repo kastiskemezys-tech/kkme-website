@@ -6,7 +6,7 @@
   "upside_warn_note": "Upside IRR ({{WARN_SUBJECT}} {{WARN_IRR}}) clears the Clean Horizon published range ({{WARN_BAND}}) by design — the band describes central expectations.",
   "partial_year_note": "{{PARTIAL_PROJECTS}} Y1 bridge EBITDA runs {{PARTIAL_RANGE}} above the engine figure — exactly the flat BRP fee remainder against pro-rated part-year lines; asserted per project, never absorbed.",
   "capex_note": "Augmentation (Y8) and replacement (Y15) CAPEX are shown unsmoothed per the commissioned bridge; reserve-account smoothing is a financing structure and out of scope.",
-  "register_count": 45,
+  "register_count": 47,
   "engagement": {
     "client": "Prosperus",
     "client_contact": "Indrė Lukošaitienė",

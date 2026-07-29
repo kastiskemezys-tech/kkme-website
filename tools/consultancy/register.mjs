@@ -79,6 +79,7 @@ const WORKER_CONSTANTS = {
   'REVENUE_SCENARIOS.base.rtm_fee_pct': {
     re: /rtm_fee_pct: ([\d.]+), brp_fee_yr: \d+,/, scale: 100,
   },
+  RYSTAD_15MIN_UPLIFT_DECIMAL: { re: /const RYSTAD_15MIN_UPLIFT_DECIMAL = ([\d.]+);/, scale: 1 },
   CAP_PRICE_CEIL: { re: /const CAP_PRICE_CEIL = (\d+);/, scale: 1 },
   'reservePrice.floor_fraction': { re: /  const floor_fraction = ([\d.]+);/, scale: 1 },
 };
