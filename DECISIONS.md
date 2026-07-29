@@ -1910,3 +1910,111 @@ All 133 reconciliation assertions still pass (73 internal, 60 external, 1 known
 Bitėnai-Upside IRR warn, 0 fail), and the Central invariant is still EXACT —
 Central reproduces the unpatched engine field-for-field. The model is internally
 consistent at the new values; it is simply worth less.
+
+## Phase 36.B batch-3 — Part 1 (36.B4 contracted-revenue overlay)
+
+### 36.B4-A — a floor and a toll are different products, so both are computed
+
+The arc asks for "blended + floor-only". It would be easy to read floor-only as
+a reporting view of blended with the upside stripped for display. It is not:
+
+- **BLENDED** — the contracted share earns `max(merchant, floor)`. The floor is
+  an option the asset holds. Downside protected, upside retained.
+- **FLOOR_ONLY** — the contracted share earns the floor and nothing else. This
+  is the full-toll structure, and it is a *strictly lower* revenue path whenever
+  merchant beats the floor.
+
+At the reference asset, 50 % contracted over a 10-year term: blended 20-yr
+EBITDA €74.16M, floor-only €73.11M against a merchant €74.03M. Blended is worth
+€0.13M more than merchant; floor-only is worth €0.92M *less*. Reporting one as
+a view of the other would have hidden a €1.05M spread between two structures a
+client might actually be offered. Both are computed, and a gate asserts
+floor-only can never exceed blended.
+
+### 36.B4-B — the floor is measured against NET market revenue, and the share, and the months
+
+Three places this construct can be quietly wrong, each pinned by a test:
+
+1. **Against what.** The floor compares to the engine's `rev_gross`, which is
+   already net of charging cost (the engine prices arbitrage on a captured
+   spread). The client bridge's top line grosses charging cost back up — using
+   *that* would let the cost of buying energy count towards clearing the floor,
+   and the floor would bind less often than it should.
+2. **Against which share.** The comparison is contracted-share merchant revenue
+   vs contracted-share entitlement, never whole-asset revenue vs the
+   entitlement. €4M of whole-asset revenue clears a €2.5M floor comfortably —
+   but if only half the asset is contracted, the contracted half earned €2M and
+   the floor binds. A test pins exactly this case.
+3. **Over how many months.** A partial first operating year pro-rates the
+   entitlement. Stoniškiai's first year is seven months; measured against a
+   twelve-month floor it would appear short and the floor would bind spuriously
+   in year one of every contracted case.
+
+Binding is asserted exact at the boundary: short binds, equal does not.
+
+### 36.B4-C — the conservative fee treatment is stated and quantified, not assumed away
+
+The 4-line cost stack is applied to floor revenue exactly as to merchant
+revenue. In a real full toll the offtaker takes the trading rights, so the
+optimiser fee on the contracted share does not arise — meaning this overlay
+**understates** the toll case's EBITDA.
+
+Rather than pick a side, the overlay reports `toll_fee_understatement_eur` =
+optimiser % × contracted revenue. The conservative number ships; the figure
+needed to undo the conservatism ships beside it. An advisor who disagrees with
+the treatment can adjust without re-running anything, which is the difference
+between a conservative model and an opaque one.
+
+The floor is also **nominal** — it does not escalate while opex does, so
+protection thins in real terms across the term. Stated, not corrected: that is
+how term sheets are usually written, and the direction is conservative.
+
+### 36.B4-D — the percentiles come from B2's paths, not from a second distribution
+
+The whole point of the phase is "what does a floor do to P90". That comparison
+is only meaningful if the contracted P90 and the merchant P90 are the same
+construct measured on the same sample. So `runBootstrap` was split: the
+shape-year replay, the factors and the scaled projections now come out of
+`bootstrapPaths()`, and B4 applies the contract to those exact paths. One
+source, one sample, one method (rule #4). Rebuilding a distribution here would
+have made the with/without delta a mixture of a contracting effect and a method
+difference, with no way to separate them.
+
+Result at the reference asset — lifetime gross, blended, term 10 yr, floor
+€139 000/MW/yr (derived, see 36.B4-E):
+
+| contracted | P50 | P75 | P90 * | lift P90 vs P50 |
+|---|---:|---:|---:|---:|
+| 0 % | €131.48M | €120.85M | €116.58M | — |
+| 30 % | €132.00M | €122.86M | €119.26M | 4.2× |
+| 50 % | €132.34M | €124.20M | €121.04M | 5.3× |
+
+\* P90 is NOT resolved at five shape-years (the sample resolves [P17, P83]) and
+is the sample minimum wearing a percentile's name — B2's honesty constraint,
+carried through unchanged rather than quietly dropped because this phase would
+read better without it.
+
+The asymmetry is the product: at 50 % contracted the median rises 0.65 % and the
+tail rises 3.8 %. A test asserts the tail must lift strictly *more* than the
+median, so an overlay that merely added revenue everywhere would fail — it would
+not be a floor.
+
+### 36.B4-E — the illustrative floor is derived from the model, not asserted
+
+A floor level had to come from somewhere, and rule #3 forbids putting an
+unsourced number in a client-facing artefact. Rather than quote a tolling price
+from a market note, the default is derived from the asset itself: **the level the
+merchant case's Y1 net revenue exceeds in 75 % of shape-year outcomes**,
+€139 000/MW/yr at the reference asset.
+
+P75 and not P90 because P90 is outside what five shape-years resolve — a floor
+written at an unresolved percentile would be the sample minimum with a
+percentile's label on it, which is the exact failure mode B2 built machinery to
+prevent.
+
+Every output carries `counterparty_note` defaulted to "ILLUSTRATIVE — no
+counterparty. Structure test at a model-derived floor level, not a term sheet
+and not an offer received." `normaliseContract` **throws** if a live contract
+(non-zero floor, share and term) carries no counterparty basis at all. A real
+term sheet is `--floor <x> --term <n>` away; a floor that nobody can trace
+cannot be run by accident.
