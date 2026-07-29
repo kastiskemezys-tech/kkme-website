@@ -15,7 +15,7 @@ Install (crontab -e), matching the existing VPS idiom — `SHELL=/bin/bash` is
 already set at the top of the crontab and is load-bearing: these lines use
 `. .env`, which is a bashism that silently no-ops under dash.
 
-    0 */4 * * * . /opt/kkme/config/.env ; export UPDATE_SECRET && cd /opt/kkme/app && /opt/kkme/venv/bin/python3 scripts/vps/fetch_btd.py >> /opt/kkme/logs/btd.log 2>&1
+    0 */4 * * * . /opt/kkme/config/.env ; export UPDATE_SECRET && cd /opt/kkme/app && /opt/kkme/venv/bin/python3 sync/fetch_btd.py >> /opt/kkme/logs/btd.log 2>&1
 
 Note the log directory must exist before this runs — see DECISIONS.md, "cron
 redirects open before the command".

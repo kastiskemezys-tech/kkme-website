@@ -22,7 +22,7 @@ and the same effort yields ~300 days instead. Default range starts 2025-10-01.
 
 Usage (on the VPS):
     . /opt/kkme/config/.env ; export UPDATE_SECRET
-    /opt/kkme/venv/bin/python3 scripts/vps/backfill_btd_daily.py [START] [END]
+    /opt/kkme/venv/bin/python3 sync/backfill_btd_daily.py [START] [END]
 
 Idempotent — re-importing a date replaces it.
 """

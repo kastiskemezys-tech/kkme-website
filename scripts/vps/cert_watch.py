@@ -16,7 +16,7 @@ below 7 days remaining — or on an inspection that fails outright, since "the
 origin returned no certificate" is exactly the 07-17 signature.
 
 Install:
-    0 5 * * * . /opt/kkme/config/.env ; export UPDATE_SECRET && cd /opt/kkme/app && /opt/kkme/venv/bin/python3 scripts/vps/cert_watch.py >> /opt/kkme/logs/cert_watch.log 2>&1
+    0 5 * * * . /opt/kkme/config/.env ; export UPDATE_SECRET && cd /opt/kkme/app && /opt/kkme/venv/bin/python3 sync/cert_watch.py >> /opt/kkme/logs/cert_watch.log 2>&1
 """
 
 import json
