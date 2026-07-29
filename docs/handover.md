@@ -188,6 +188,136 @@ See [docs/map.md](map.md) for the full concept-to-file lookup table.
 
 ## Session log
 
+### Session 92 — 2026-07-29 — Phase 36.B batch-4: 36.B6 governance + lender methodology — **THE 36.B ARC CLOSES** (Claude Code, fully autonomous)
+
+**Branch:** `phase-36-b-batch-4` off `fc6bf1c` · 5 code commits + this handover.
+**PR:** https://github.com/kastiskemezys-tech/kkme-website/compare/main...phase-36-b-batch-4
+**NOT DEPLOYED — and nothing here needs a deploy.** `git diff main -- workers/` is **empty** and `git diff main -- app/` is **empty**: this batch is tooling and documentation only. Session 91's batch-3 deploy is still the pending one.
+Decision log: `DECISIONS.md` (36.B6-A…R).
+
+---
+
+#### What shipped
+
+| part | what | commit |
+|---|---|---|
+| 0 | `logs/btd.log` untracked; `.gitignore` widened to `logs/` | `c8f60b0` |
+| 1 | Run registry — 11 runners through one funnel, content-fingerprint run_ids, artefact stamping | `f1f19ee` |
+| 2 | Register versioning + governed changelog; a value can no longer move silently or anonymously | `293bcee` |
+| 3 | `docs/methodology-lender.md` — 11 sections, 25 pp rendered, 20 binding tests | `d02acf5` |
+| 4 | Delivery regeneration on a fresh verified live snapshot; annex corrected to it; registry leak fixed | `6224a82`, `2801eab` + this |
+
+**Gates at close:** vitest **1536/1536** · regression **54/54** byte-identical · `next build` 8 routes · tsc 21 (baseline) · lint gates pass · `git diff main -- workers/` and `-- app/` both empty.
+
+**One defect the registry found in itself:** `recordArtefact` could not be pointed at a test registry, so the suite appended a line to the committed governance log on every run. Caught by reconciling a count in this handover against the file on disk — not by a test. Fixed, and the test now asserts no such line exists in the real registry (36.B6-S).
+
+---
+
+#### The run registry, and the one thing it proves
+
+`tools/consultancy/runs.jsonl` is committed with **29 lines from one clean build**: 22 runner runs covering the whole arc's evidence, 6 artefacts under delivery id **`delivery-24005a477053`**, and one deliberate reproduction (below). All on engine sha `2801eab`, register `r1.35c74b94`.
+
+`run_id` is a **content fingerprint**, not a serial number — `sha256(engine_git_sha ‖ input_hash ‖ output_hash)`, first 12 hex. The claim was tested in unit form and then demonstrated on real data: re-running `reconcile.mjs` against the same snapshot produced **`reconcile-5fbf740b66d1` with the identical output hash and a different timestamp** — line 29 of the committed log, kept precisely because it is the evidence. A reproduction is self-evident; a figure that fails to reproduce shows up as a mismatched ID rather than as an argument.
+
+The registry records the sha of the commit *before* the one that adds it, which is unavoidable: a log of a build cannot contain the hash of the commit that ships the log.
+
+The `-dirty` flag earned its keep on its first real use, on me: the first delivery build recorded `d02acf5…-dirty` because the methodology had been edited after the last commit. The document changes were committed and the build re-run against a clean tree rather than shipping a governance log whose first entry admits the engine was uncommitted.
+
+#### The register can no longer move quietly
+
+Version `r1.35c74b94` = `r<seq>.<8 hex of a content hash over every live row's {id, value, override}>`. Two gates weld it to the content and **both can fail**: schema validation fails when the stored hash does not describe the register, and `bumpVersion` throws when a value moved with no reason / source / `decided_by` / phase.
+
+`decided_by` is a closed vocabulary of four — operator / measurement / derived / governance. The six founding entries split **2 / 2 / 2**, which says something true about the arc: of four value movements, two were decisions and two were consequences of those decisions.
+
+The three cutovers carry a full evidence block rather than a bare delta (window, sample, distribution, leakage checks, corroborations, declared breach, quantified client impact).
+
+#### The lender annex — 25 pp, and section 09 is the point
+
+`docs/methodology-lender.md`, rendered as `KKME_Lender_Methodology_Annex.pdf` and shipped in the delivery bundle. Named for KKME rather than the engagement because it describes the engine, so it ships with any delivery.
+
+Section 09 is the honest list: reserve realisation assumed (and it covers **71 % of gross revenue**), reserve prices flat in the bootstrap, a single-year realisation window, P90 outside what five shape-years resolve, activation up-only, the cycle governor's second-order effect on the contracted stack, the assumption↔calibration-constant dependency, the route-layer gate gap, and the public dispatch-card defects that are logged and unfixed.
+
+A methodology that asserts a value the code no longer holds is discipline rule #2's defect in document form, so **20 tests bind every quoted figure with a live source** — the realisation ladder, the client-scenario anchors, the sub-hourly uplift, the reserve prequalification durations, the register version and row count, the `decided_by` vocabulary, the cycling benchmark band. Proven to fail before being trusted.
+
+---
+
+#### ⚠ THREE FIGURES FROM THE ARC LOG DID NOT SURVIVE RE-MEASUREMENT
+
+Rule #1 applied to the arc's own record. All three were corrected in the annex.
+
+| claim | source | measured now |
+|---|---|---|
+| "the 84.0 % simultaneity measurement" | batch-4 prompt | **not reproducible at any shape-year.** 79.2 / 75.2 / 83.1 / 83.5 / 85.5 % for 2021-25. Reported as the **range 75.2-85.5 %**, year-dependence explained |
+| reserve stack = 67.9 % Y1 / 71.9 % lifetime | 36.B2-G | **71.1 % / 74.2 %.** It rose because the trading-realisation cutover lowered the arbitrage line |
+| B1 hourly cycling "221 EFC" | 36.B1-N / 36.B5-D | **219.1 (2025) / 219.9 (2024).** The corroboration with B5's closed loop (222.35) still holds; the specific figure does not reproduce post-B5 |
+
+The reserve-share correction is the one worth carrying forward: **the measured correction made the model more dependent on the component that has not been measured.** The annex says so in those words.
+
+#### The delivery bundle, regenerated on the measured basis
+
+Fresh live KV capture, and it **verified exactly on all 22 fields** against production `/revenue` — including `cycles_per_year 498` and the measured-basis IRR, which confirms batch-3's cutover is what production actually serves. The client deliverable and the public site are demonstrably one engine on one market state.
+
+Regenerating moved every market-dependent figure and **nothing measured**:
+
+| moved (market state) | drafted | delivery build |
+|---|---:|---:|
+| P50 lifetime gross | €131.48M | €128.53M |
+| derived contract floor | €139 000/MW/yr | €137 000/MW/yr |
+| years the floor binds | 4 | 5 |
+| merchant 20-yr EBITDA | €74.03M | €71.27M |
+
+Unmoved: the simultaneity range, the shape-year factors, 0.7234, 0.0885, the degradation fixed point. The annex now states that split in a callout rather than leaving a reader to infer it, and a test gates the as-at stamps — but the moving figures are deliberately **not** bound by test, or the suite becomes a market-movement detector (34.5-C).
+
+Bundle: `Prosperus_BESS_Model_v0.5.xlsx` (44.7 kB) · `..._Summary.pdf` (16 pp) · `..._Methodology_Annex.pdf` (11 pp) · `KKME_Lender_Methodology_Annex.pdf` (**25 pp**) · `README.txt` with the full provenance block.
+
+---
+
+#### 36.B ARC — CLOSING SUMMARY
+
+Six phases, four batches, over three sessions. The directive was *"the real logic, guidelines, how to make sure it's actually really bankable first."*
+
+| phase | delivered | the number that came out of it |
+|---|---|---|
+| **B1** | chronological hourly dispatch engine, SoC continuity, reserve-energy reservation enforced hourly | simultaneity **75.2-85.5 %** of the unconstrained stack; 88 % of the cost lands on *capacity*, not trading |
+| **B2** | historical-shape bootstrap over 5 complete price years | P50 −3.4 % from Central; **P90 unresolvable at N=5** and reported as such |
+| **B3** | dispatch backtest, day-ahead information only | trading realisation **0.7234 measured** against 0.85 assumed; 15-min uplift **0.0885** against 0.14 asserted |
+| **B4** | contracted floor / toll overlay on B2's own paths | at 50 % contracted the tail lifts **4.6× more than the median** — that asymmetry is the product |
+| **B5** | degradation loop closed, one duration policy, wear aligned to delivered throughput | **222.35 EFC/yr** closed-loop against B1's independently measured 219; convergence takes **three** passes, not the arc's claimed two |
+| **B6** | run registry, register versioning + governed changelog, 25 pp lender annex | every delivered number traces to a reproducible run |
+
+**The measured-vs-assumed ledger at arc close:**
+
+| parameter | status | value | evidence |
+|---|---|---:|---|
+| trading realisation (day-ahead) | **measured, adopted** | 0.7234 | 349 traded days |
+| sub-hourly capture uplift | **measured, adopted** | 0.0885 | 273 PT15M days |
+| cycling / EFC per year | **derived, doubly corroborated** | 498 engine / 219-222 physical | B1 + B5, independent routes |
+| duration interpolation | **one documented policy** | 2h/4h anchors, clamped outside | property test, 1h→8h |
+| reserve realisation | **still assumed** | acceptance factors | no data exists — BTD down since 2026-07-17 |
+| reserve prices | **still assumed, flat** | live-KV | deepest series in the estate: 110 daily points |
+
+**What the arc did to the numbers.** Public `/revenue` reference asset: IRR 24.16 % → **22.46 %**, LCOS €69.7 → **€87.4/MWh**. Prosperus portfolio Central NPV €43.33M → **€37.35M**. Every step is attributable to a named decision or a named consequence, and every one is in the changelog.
+
+**What the arc did NOT do.** It did not cut the public site over to the hourly engine. B1's dispatch, B5's closed loop and B2's distribution are capabilities that sit *alongside* `computeRevenueV7`; the public numbers still come from the shipped engine. That cutover would move IRR materially upward (222 EFC/yr instead of 498) and is a separate operator decision.
+
+---
+
+#### OPEN ITEMS ROUTED OUT OF THE ARC
+
+| item | where it goes | why it is not closed here |
+|---|---|---|
+| **B0-G — dispatch forecast panel structurally dead** | own phase, small | `/api/dispatch?mode=forecast` reads two fields no writer ever writes. Data-plumbing fix (persist the hourly array beside the metrics), not dispatch maths |
+| **BTD feed down since 2026-07-17** | **operator, trigger 2026-08-01** | 12 days at handover. If it has not returned, the reserve-price path needs a fallback decision — it is the sole Baltic source and it blocks measuring reserve realisation |
+| **Reserve-price fallback** | operator decision | ENTSO-E A84/A85/A86 return no data for LT/Baltic SCA. Options: pay for a feed, scrape, or formally accept the assumption and say so |
+| **Dispatch-card cutover to the hourly engine** | **Phase 37 candidate** | the arc's reserved decision. Moves public IRR upward; needs its own before/after table and a deploy plan |
+| **`capture_eur_mwh` publishes a theoretical spread on losing days** | with the card cutover | rule #2 shape on a public display field (36.B0-F) |
+| **SoC resets daily / `annual_eur = daily × 365` on the card** | with the card cutover | same function, same phase |
+| **Cycling below the observed merchant band (498 vs 550-720)** | calibration question, no owner yet | declared, band unmoved. Two independent routes say the modelled asset under-cycles; the open question is the benchmark fleet's reserve/DA mix |
+| **Activation modelled up-only** | model extension | the KV archive already carries `afrr_up`/`afrr_dn` separately, so the data exists |
+| **Register `--sync` now requires a reason** | operator awareness | a routine sync that moves live-KV values will refuse without `--reason` / `--by` / `--phase`. That is intended; it is also new |
+
+**Next-session pointer:** the batch-3 deploy is still pending and is the only thing in flight that touches production. Nothing in batch-4 changes what the site serves.
+
 ### Session 91 — 2026-07-29 — Phase 36.B batch-3: measured-value cutover + 36.B4 contracted overlay + 36.B0-H parser fix + 36.B5 (Claude Code, fully autonomous)
 
 **Branch:** `phase-36-b-batch-3` off `c0f9f47` · 9 code commits + this handover · code head **`e800647`**.

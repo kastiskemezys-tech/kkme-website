@@ -25,8 +25,9 @@
 
 import { join } from 'node:path';
 import {
-  loadConfig, loadConfigDir, loadEngine, runProject, writeOutput, PROJECTS_DIR,
+  loadConfig, loadConfigDir, loadEngine, runProject, PROJECTS_DIR,
 } from './engine.mjs';
+import { writeRunOutput, kvVintage } from './lib/runs.mjs';
 import { getKV } from './kv-snapshot.mjs';
 import { loadFixtureKV } from './regression-reference.mjs';
 import { buildBridge, BRIDGE_LINES } from './bridge.mjs';
@@ -364,7 +365,11 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     kv_verified: meta.verified,
     ...report,
   };
-  const path = writeOutput('reconciliation-report.json', payload);
+  const { path } = writeRunOutput('reconciliation-report.json', payload, {
+    runner: 'reconcile', subject: 'all-subjects',
+    inputs: { fixture: useFixture, checks: report.summary },
+    data_vintage: kvVintage(meta),
+  });
 
   const s = report.summary;
   console.log(`\n  Reconciliation — ${s.internal.total} internal assertions (${s.distinct_internal_checks} distinct checks) · ` +

@@ -21,12 +21,14 @@
  *   node tools/consultancy/run-contracted.mjs --project prosperus/bitenai.json
  */
 
-import { existsSync, writeFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { loadConfig, loadEngine, OUTPUT_DIR, PROJECTS_DIR, eur } from './engine.mjs';
+import { loadConfig, loadEngine, PROJECTS_DIR, eur } from './engine.mjs';
 import { getKV } from './kv-snapshot.mjs';
 import { buildBridge, resolveCosts } from './bridge.mjs';
 import { bootstrapPaths, PRIMARY_YEARS } from './run-bootstrap.mjs';
+import { loadPriceYear } from './backfill-entsoe.mjs';
+import { writeRunOutput, priceVintage } from './lib/runs.mjs';
 import {
   EXCEEDANCE_LEVELS, buildPercentiles, exceedancePercentile, resolvableBand,
 } from './lib/bootstrap.mjs';
@@ -287,8 +289,17 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     console.log(`${g.pass ? '✓' : '✗'} ${name}: ${g.detail}`);
   }
 
-  const out = join(OUTPUT_DIR, `contracted-${config.project_id}-${scenarioName}.json`);
-  writeFileSync(out, JSON.stringify(payload, null, 2) + '\n');
+  const { path: out } = writeRunOutput(
+    `contracted-${config.project_id}-${scenarioName}.json`, payload,
+    {
+      runner: 'contracted', subject: `${config.project_id}/${scenarioName}`,
+      inputs: { config, scenario: scenarioName, contract: payload.meta.contract },
+      data_vintage: priceVintage(
+        payload.meta.shape_years.map((y) => loadPriceYear(payload.meta.zone, y)),
+        { zone: payload.meta.zone }
+      ),
+    }
+  );
   console.log(`\nwrote ${out}`);
   process.exit(failed > 0 ? 1 : 0);
 }

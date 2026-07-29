@@ -14,11 +14,12 @@
  *   node tools/consultancy/run-degradation.mjs --year 2024 --years 20
  */
 
-import { existsSync, writeFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { loadConfig, loadEngine, OUTPUT_DIR, PROJECTS_DIR } from './engine.mjs';
+import { loadConfig, loadEngine, PROJECTS_DIR } from './engine.mjs';
 import { getKV } from './kv-snapshot.mjs';
 import { loadPriceYear } from './backfill-entsoe.mjs';
+import { writeRunOutput, priceVintage } from './lib/runs.mjs';
 import { buildReserveInputs } from './run-dispatch.mjs';
 import { simulateYear } from './lib/dispatch.mjs';
 import {
@@ -200,8 +201,14 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   console.log(`contraction   ${c.contraction == null ? 'n/a' : c.contraction.toFixed(4)}  (< 1 ⇒ the map contracts)`);
   console.log(`\n${c.arc_claim}`);
 
-  const out = join(OUTPUT_DIR, `degradation-${config.project_id}-${'LT'}${shapeYear}.json`);
-  writeFileSync(out, JSON.stringify(payload, null, 2) + '\n');
+  const { path: out } = writeRunOutput(
+    `degradation-${config.project_id}-LT${shapeYear}.json`, payload,
+    {
+      runner: 'degradation', subject: `${config.project_id}/LT-${shapeYear}`,
+      inputs: { config, shape_year: shapeYear, years, tolerance: payload.convergence?.tolerance },
+      data_vintage: priceVintage(loadPriceYear('LT', shapeYear), { zone: 'LT' }),
+    }
+  );
   console.log(`\nwrote ${out}`);
   process.exit(c.converged ? 0 : 1);
 }

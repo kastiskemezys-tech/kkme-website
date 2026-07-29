@@ -4,6 +4,8 @@
   "_value_basis": "Rows marked `basis: \"live-kv\"` carry a market observation rather than a modelling choice, synced from the frozen KV fixture so the binding tests gate code rather than detect overnight market movement. The delivery run refreshes them from the KV that produced the client numbers.",
   "_superseded_rows": "Rows marked `basis: \"superseded\"` record a value the model USED to hold, kept beside the value that replaced it. They are provenance, not inputs: nothing reads them, they carry no engine_binding and no override, and each names the row that superseded it and the date. Every other row is bound to live code and asserted equal to it. Those are the only two kinds of row there are.",
   "_sensitivity_range": "The plausible band for the assumption, for the tornado/sensitivity view. It is a disclosure of uncertainty, not a hard bound — the scenario driver values are the ones the client locked.",
+  "_changelog": "Every register value change appends an entry: {date, id, old, new, reason, source, decided_by, phase, register_version}. `decided_by` is a closed vocabulary — operator (a human decision that moves delivered numbers) / measurement (evidence recorded, no value moved) / derived (a consequential re-derivation forced by another change) / governance (a change to the mechanism itself). The six entries dated before 2026-07-29 predate the versioning mechanism and carry register_version null; r1 pins the content as it stood when versioning was introduced. Enforced by validateRegister + __tests__/register.test.ts, not merely documented.",
+  "_version": "`version.id` is r<seq>.<first 8 hex of a sha256 over every LIVE row's {id, value, override}, sorted by id>. seq counts MODEL changes, not tool invocations. Superseded rows are excluded from the hash because they are provenance, not inputs. validateRegister fails when the stored hash does not describe the current content, so a value cannot move without a bump and bumpVersion refuses a bump with no attributable reason. Every delivered report quotes this id; the changelog up to that version is the set of assumptions the report ran on.",
   "synced_from": "fixtures/regression-kv.json",
   "rows": [
     {
@@ -720,7 +722,9 @@
       ],
       "reason": "Measured over 12 months of realised LT day-ahead prices. The assumed driver (0.85) is UNCHANGED and still engine-bound; this entry records the evidence and the gap (-0.1266) pending an operator cutover decision. The measurement sits below the assumption's declared sensitivity range [0.78, 0.88], so the range itself is understated, not just the point value.",
       "source": "KKME dispatch backtest 2025-07-01 → 2026-06-30 (349 trading days, LT day-ahead): B1 greedy policy capture ÷ perfect-foresight sort-and-dispatch capture",
-      "phase": "36.B3"
+      "decided_by": "measurement",
+      "phase": "36.B3",
+      "register_version": null
     },
     {
       "date": "2026-06-30",
@@ -729,7 +733,9 @@
       "new": null,
       "reason": "Measured at 0.0885 over 273 complete PT15M days (2025-10-01 → 2026-06-30) against the engine's asserted 0.14. Constant left unchanged — it is a worker constant on the public dispatch path and changing it is a separate decision. Reported, not adopted.",
       "source": "tools/consultancy/run-15min-delta.mjs",
-      "phase": "36.B3"
+      "decided_by": "measurement",
+      "phase": "36.B3",
+      "register_version": null
     },
     {
       "date": "2026-07-28",
@@ -738,7 +744,55 @@
       "new": 0.7234,
       "reason": "ADOPTED. Operator decision 2026-07-28: the measured value replaces the assumption as the Central driver, and the engine constant TRADING_REALISATION.base moved with it so Central still equals the shipped constant. Downside/Upside re-anchored from [0.78, 0.88] to the measurement's own monthly extremes [0.6535, 0.8155]; the declared sensitivity range follows, so it now contains the value it describes (it did not before). The engine ladder (conservative −5pp, stress −10pp) kept its shipped steps and re-anchored on the measurement. This moves published /revenue numbers — see the batch-3 handover for the quantified public delta.",
       "source": "KKME dispatch backtest 2025-07-01 → 2026-06-30 (349 trading days, LT day-ahead)",
-      "phase": "36.B batch-3 Part 0"
+      "decided_by": "operator",
+      "phase": "36.B batch-3 Part 0",
+      "evidence": {
+        "measurement": {
+          "window": "2025-07-01 → 2026-06-30 (LT day-ahead)",
+          "days_evaluated": 365,
+          "days_traded": 349,
+          "days_declined": 16,
+          "volume_weighted": 0.7234,
+          "simple_mean": 0.7321,
+          "daily_distribution": {
+            "min": 0.187,
+            "p25": 0.628,
+            "median": 0.756,
+            "p75": 0.849,
+            "max": 0.997
+          },
+          "monthly_band": {
+            "low": 0.6535,
+            "low_month": "2025-09",
+            "high": 0.8155,
+            "high_month": "2026-05"
+          },
+          "denominator": "the engine's own computeDayCapture sort-and-dispatch perfect-foresight capture, imported rather than restated, so the measured value sits on the same denominator as the assumption it replaced",
+          "declined_days_treatment": "excluded from both aggregates, not scored as zero — refusing a spread that cannot cover the round trip is the guard working, not a missed opportunity. Scoring them zero would have read 0.69."
+        },
+        "leakage_checks": [
+          "no day beats perfect foresight: 0 of 349 score > 1.0 (max 0.997)",
+          "headline below the 0.90 tripwire: 0.7234",
+          "realisation uncorrelated with day quality: Pearson r = -0.093 (slightly negative, the expected sign for a threshold rule)"
+        ],
+        "ladder": {
+          "conservative": 0.6734,
+          "stress": 0.6234,
+          "basis": "the shipped 5pp steps kept and re-anchored on the measurement; both rungs land inside the measured daily distribution (p25 0.628, median 0.756), so stress is 'a year made entirely of bottom-quartile trading days' rather than '20% worse than an assumption'"
+        },
+        "client_impact_frozen_fixture": {
+          "gross_y1_pct": -4.52,
+          "ebitda_y1_pct": -6.53,
+          "prefin_cf_y1_pct": -6.77,
+          "gross_20yr_pct": -3.99,
+          "ebitda_20yr_pct": -7.11,
+          "npv_pct": -16.05,
+          "moic_pct": -9.15,
+          "note": "measured on the frozen KV fixture so the delta is code-attributable in full. The gearing is the story: a 4.5% revenue correction lands as a 16% NPV correction. Stoniskiai's Downside NPV crosses zero (EUR 2 234 571 to -EUR 1 299)."
+        },
+        "limitation": "ONE market year. The band is an observed range, not a distribution; twelve monthly observations from a single year cannot separate seasonality from trend. Remeasure annually — run-backtest.mjs refuses to adopt a disagreeing remeasurement without a fresh operator decision."
+      },
+      "register_version": null
     },
     {
       "date": "2026-07-28",
@@ -747,7 +801,9 @@
       "new": 2.56,
       "reason": "Consequential, not a decision. The constant closes the engine-vs-client cost-taxonomy gap AT the reference asset's revenue level; adopting the measured trading realisation lowered that revenue, and the engine's two flat cost lines did not follow it down, so the gap widened by EUR 24 245/yr at 50 MW. Re-derived by bridgeCalibration() rather than re-fitted by hand. Without it the reference asset stops closing within the contracted ±2%.",
       "source": "tools/consultancy/bridge.mjs — bridgeCalibration(reference asset, frozen KV fixture)",
-      "phase": "36.B batch-3 Part 0"
+      "decided_by": "derived",
+      "phase": "36.B batch-3 Part 0",
+      "register_version": null
     },
     {
       "date": "2026-07-28",
@@ -756,7 +812,29 @@
       "new": 0.0885,
       "reason": "ADOPTED. Operator decision 2026-07-28: the measured sub-hourly uplift replaces the Rystad placeholder in RYSTAD_15MIN_UPLIFT_DECIMAL, and the constant gains a register row so it can never again be carried unmeasured. Moves the public dispatch card only — capture_eur_mwh_15min_uplifted falls 4.52% at any capture level; /revenue and every client deliverable number are untouched. Realised-mode card moves only once BTD returns and the cron rewrites dispatch:<date> KV (stored payloads carry the old factor until then, 90-day TTL); forecast-mode computes live but is structurally dead (36.B0-G).",
       "source": "tools/consultancy/run-15min-delta.mjs",
-      "phase": "36.B batch-3 Part 0"
+      "decided_by": "operator",
+      "phase": "36.B batch-3 Part 0",
+      "evidence": {
+        "measurement": {
+          "window": "2025-10-01 → 2026-06-30, 273 complete PT15M days",
+          "weighted_uplift": 0.0885,
+          "simple_mean": 0.0979,
+          "median": 0.0815,
+          "range": [
+            0.0005,
+            0.845
+          ],
+          "method": "computeDayCapture run at 15 and at 60 minutes on identical days, re-fetched at native resolution (the committed year files are averaged into the hour under decision D1)",
+          "vs_asserted": "the Rystad placeholder 0.14 is ~58% higher than measured"
+        },
+        "reach": {
+          "revenue_route": "unaffected — /revenue 54/54 byte-identical, asserted; the constant is read at exactly two sites, both display fields on the public dispatch card",
+          "dispatch_realised": "moves only once BTD returns and the ingest cron rewrites dispatch:<date> KV (stored payloads carry the old factor, 90-day TTL)",
+          "dispatch_forecast": "computes live but the branch is structurally dead (36.B0-G)"
+        },
+        "limitation": "a display correction, not a model one — no client deliverable number moves."
+      },
+      "register_version": null
     },
     {
       "date": "2026-07-28",
@@ -765,8 +843,36 @@
       "new": 498,
       "reason": "Consequential, not a decision. Cycle accounting charged cell wear on the full day-ahead throughput anchor while revenue billed anchor x trading_fraction x availability, so the engine aged the battery for ~43% more day-ahead energy than it earned on (36.B1-O). Both now read one DELIVERED figure. The metric changed basis, so its declared sensitivity_range — the observed merchant-cycling band — was moved to benchmark_band rather than widened to fit: the model now sits below the observed band and says so. cycles_per_day follows at 1.86 -> 1.36.",
       "source": "workers/fetch-s1.js computeThroughputBreakdown({da_utilisation, availability})",
-      "phase": "36.B5"
+      "decided_by": "derived",
+      "phase": "36.B5",
+      "evidence": {
+        "cause": "36.B1-O: cycle accounting charged wear on the full day-ahead throughput anchor while revenue billed anchor x trading_fraction x availability, so the engine aged the battery for ~43% more day-ahead energy than it earned on. Closing it by RAISING revenue to the anchor was rejected — it would have added ~43% published revenue and is contradicted by B1's hourly simulation, which finds achieved day-ahead throughput at ~27% of the revenue anchor.",
+        "corroboration": [
+          "36.B1 hourly chronological simulation, single-year gate: 221 EFC/yr",
+          "36.B5 degradation fixed point, 20-year multi-pass: 222 EFC/yr",
+          "two independent routes — one a single-year hourly run, one a multi-year fixed point — landing on the same physical answer"
+        ],
+        "declared_breach": {
+          "check": "external_3_cycles_yr",
+          "band": [
+            550,
+            720
+          ],
+          "band_source": "Modo / GEM measured merchant-battery research",
+          "actual": 498,
+          "treatment": "the band keeps its sourced value and the breach is reported at full size and counted in the summary; only the build-failing status is lifted, under expected_deviation with a stated reason. The row's sensitivity_range moved to benchmark_band rather than being widened to contain the new value."
+        },
+        "side_effect": "less cycling means slower degradation means higher IRR (+0.9% relative on the reference asset). A consistency fix that improves the answer deserves more scrutiny than one that worsens it, which is why the benchmark consequence was chased rather than accepted quietly."
+      },
+      "register_version": null
     }
   ],
-  "synced_at": "2026-07-29T06:14:24.819Z"
+  "synced_at": "2026-07-29T06:14:24.819Z",
+  "version": {
+    "id": "r1.35c74b94",
+    "seq": 1,
+    "hash": "35c74b94e60163067847726350beef2d06f16b52aeb10b37f91c020161e6a40c",
+    "effective_from": "2026-07-29",
+    "changelog_entries": 6
+  }
 }

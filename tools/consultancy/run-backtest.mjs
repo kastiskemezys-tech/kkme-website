@@ -25,13 +25,17 @@ import {
 } from './engine.mjs';
 import { getKV } from './kv-snapshot.mjs';
 import { loadPriceYear } from './backfill-entsoe.mjs';
+import { writeRunOutput, priceVintage } from './lib/runs.mjs';
+import { bumpVersion, REGISTER_PATH } from './register.mjs';
 import { buildReserveInputs } from './run-dispatch.mjs';
 import { simulateYear } from './lib/dispatch.mjs';
 import {
   byDay, measureRealisation, aggregateRealisation, byMonth, leakageChecks,
 } from './lib/backtest.mjs';
 
-export const REGISTER_PATH = join(HERE, 'assumptions-register.json');
+// The register's own module owns its path and its versioning (rule #4); this
+// module is a remeasurement harness, not a second opinion about either.
+export { REGISTER_PATH } from './register.mjs';
 
 /** Observed monthly volume-weighted spread, rounded outward to 2dp. */
 export function monthlyRange(monthly) {
@@ -281,7 +285,9 @@ export function updateRegister(register, { measured, window, n_days, engine_valu
         `(gap ${(value - prev.value).toFixed(4)}). The bound driver is UNCHANGED; adopting ` +
         `the new measurement is a cutover that moves client IRR and is an operator decision.`,
     source,
+    decided_by: 'measurement',
     phase: '36.B3',
+    register_version: register.version?.id ?? null,
   });
 
   if (uplift != null) {
@@ -300,11 +306,17 @@ export function updateRegister(register, { measured, window, n_days, engine_valu
           `2026-06-30) against an engine holding ${held ?? 'an unregistered constant'}. ` +
           `Reported, not adopted — it is a worker constant on the public dispatch path.`,
       source: 'tools/consultancy/run-15min-delta.mjs',
+      decided_by: 'measurement',
       phase: '36.B3',
+      register_version: register.version?.id ?? null,
     });
   }
 
-  return out;
+  // A remeasurement records evidence; it never moves a bound value (36.B3-K), so
+  // the version sequence must NOT advance here. bumpVersion with no moved values
+  // refreshes the entry count and leaves seq alone — and would throw if this
+  // function ever started moving one without an attributable reason.
+  return bumpVersion(out, { date: window.to });
 }
 
 // ── CLI ────────────────────────────────────────────────────────────────────
@@ -323,7 +335,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const snapshot = await getKV({ offline: argv.includes('--offline') });
   const kv = snapshot.kv || snapshot;
 
-  const payload = await runBacktest({ config, kv, zone: arg('zone', 'LT') });
+  const zone = arg('zone', 'LT');
+  const payload = await runBacktest({ config, kv, zone });
   const m = payload.measurement;
   const a = m.aggregate;
 
@@ -351,8 +364,15 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     console.log(`${c.pass ? '✓' : '✗'} ${c.check}: ${c.detail}`);
   }
 
-  const out = join(OUTPUT_DIR, `backtest-${config.project_id}-${payload.meta.window.from}-${payload.meta.window.to}.json`);
-  writeFileSync(out, JSON.stringify(payload, null, 2) + '\n');
+  const { path: out } = writeRunOutput(
+    `backtest-${config.project_id}-${payload.meta.window.from}-${payload.meta.window.to}.json`,
+    payload,
+    {
+      runner: 'backtest', subject: `${config.project_id}/${payload.meta.window.from}→${payload.meta.window.to}`,
+      inputs: { config, zone, window: payload.meta.window },
+      data_vintage: priceVintage([loadPriceYear(zone, 2025), loadPriceYear(zone, 2026)], { zone }),
+    }
+  );
   console.log(`\nwrote ${out}`);
 
   if (argv.includes('--write-register')) {

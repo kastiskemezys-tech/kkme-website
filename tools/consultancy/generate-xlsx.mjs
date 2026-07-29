@@ -21,6 +21,7 @@ import { readFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import ExcelJS from 'exceljs';
 import { HERE, OUTPUT_DIR } from './engine.mjs';
+import { deliveryRunId, sourceRunIds, recordArtefact } from './lib/runs.mjs';
 
 export const XLSX_NAME = 'Prosperus_BESS_Model_v0.5.xlsx';
 
@@ -181,6 +182,31 @@ export function loadInputs({ outputDir = OUTPUT_DIR, here = HERE } = {}) {
       `${inputs.notes.register_count} — one of them is stale`
     );
   }
+
+  // ── Provenance (36.B6) ──────────────────────────────────────────────────
+  // Every consumed runner output must carry the run block `writeRunOutput`
+  // stamps on it. An untraced input is a number in a client report that the
+  // registry cannot account for, which is the one thing the registry exists to
+  // prevent — so this refuses rather than degrading to "provenance unknown".
+  const traced = [
+    ['portfolio', inputs.portfolio],
+    ...inputs.projects.map((p) => [p.config.project_id, p]),
+    ...Object.entries(inputs.scenarios).map(([k, v]) => [`scenario-${k}`, v]),
+    ['sensitivity', inputs.sensitivity],
+    ['reconciliation', inputs.reconciliation],
+  ];
+  const untraced = traced.filter(([, v]) => !v?.run?.run_id).map(([k]) => k);
+  if (untraced.length) {
+    throw new Error(
+      `runner output(s) carry no run-registry block (${untraced.join(', ')}) — ` +
+      `regenerate with the current runners: node tools/consultancy/build-all.mjs`
+    );
+  }
+  inputs.run_sources = Object.fromEntries(traced.map(([k, v]) => [k, v.run.run_id]));
+  inputs.build = deliveryRunId(sourceRunIds(traced.map(([, v]) => v)), {
+    registerVersion: inputs.register.version?.id ?? null,
+  });
+
   inputs.notes = resolveNotes(inputs.notes, inputs);
   return inputs;
 }
@@ -253,6 +279,9 @@ function coverTab(wb, inp, meta) {
     ['Prepared by', e.provider],
     ['Contact', e.provider_contact],
     ['Engine version', `KKME revenue engine ${e.engine_version}`],
+    ['Run ID', inp.build.run_id],
+    ['Engine commit', inp.portfolio.run.engine_git_sha],
+    ['Register version', inp.register.version?.id ?? '—'],
     ['Market state captured', inp.portfolio.kv_captured_at ?? inp.portfolio.generated_at],
     ['Portfolio', `${inp.portfolio.portfolio.projects} projects · ${inp.portfolio.portfolio.mw} MW / ${inp.portfolio.portfolio.mwh} MWh · ${inp.portfolio.portfolio.calendar_span}`],
     ['Discount rate', `${(inp.portfolio.portfolio.wacc * 100).toFixed(1)}% WACC`],
@@ -297,6 +326,15 @@ function coverTab(wb, inp, meta) {
   pb.getCell(1).font = { size: 10 };
 
   blank(ws);
+  heading(ws, 'Provenance — run registry', { width: 2 });
+  note(ws, inp.notes.run_registry_note, { width: 2, italic: false, height: 60 });
+  for (const [k, v] of Object.entries(inp.run_sources)) {
+    const r = ws.addRow([k, v]);
+    r.getCell(1).font = { size: 10 };
+    r.getCell(2).font = { name: 'Menlo', size: 9.5 };
+  }
+
+  blank(ws);
   heading(ws, 'Tabs in this workbook', { width: 2 });
   const inventory = [
     ['Cover', 'This page — engagement, scope, headline figures.'],
@@ -325,7 +363,7 @@ async function assumptionsTab(wb, inp) {
   const ws = wb.addWorksheet('Assumptions', { properties: { tabColor: { argb: C.sea } } });
   widths(ws, 26, 15, 44, 12, 12, 58, 16, 14);
 
-  heading(ws, `Assumptions register — ${inp.register.rows.length} rows`, { width: 8 });
+  heading(ws, `Assumptions register — ${inp.register.rows.length} rows · version ${inp.register.version?.id ?? '—'}`, { width: 8 });
   note(ws, inp.notes.override_mechanism, { width: 8, italic: false, height: 58 });
   note(ws, inp.register._value_basis, { width: 8, height: 44 });
   blank(ws);
@@ -370,6 +408,31 @@ async function assumptionsTab(wb, inp) {
   blank(ws);
   note(ws, inp.register._note, { width: 8, height: 58 });
   note(ws, inp.register._sensitivity_range, { width: 8, height: 30 });
+
+  // ── Change history ──────────────────────────────────────────────────────
+  // The register's version answers "which assumptions", the changelog answers
+  // "and what moved since". A client re-reading last month's model against this
+  // one needs the second question answered without diffing two workbooks.
+  blank(ws);
+  heading(ws, `Change history — ${inp.register.changelog.length} entries`, { width: 8 });
+  note(ws, inp.register._changelog, { width: 8, height: 74 });
+  const chHdr = headerRow(ws, [
+    'date', 'assumption', 'from', 'to', 'decided by', 'why', 'source', 'version',
+  ]);
+  chHdr.getCell(5).fill = fill(C.sea);
+  for (const e of inp.register.changelog) {
+    const r = ws.addRow([
+      e.date, e.id, e.old ?? '—', e.new ?? '—', e.decided_by, e.reason, e.source,
+      e.register_version ?? 'pre-versioning',
+    ]);
+    r.alignment = { wrapText: true, vertical: 'top' };
+    r.font = { size: 9 };
+    r.getCell(2).font = { size: 9, color: { argb: C.sea } };
+    // An operator decision moved a delivered number; the other kinds did not.
+    // Marking which is which is the difference between a log and an audit trail.
+    if (e.decided_by === 'operator') r.getCell(5).font = { size: 9, bold: true, color: { argb: C.rust } };
+    r.height = Math.max(28, Math.ceil(String(e.reason).length / 90) * 11);
+  }
 
   // Protection is a signal, not a security measure: it keeps the engine-derived
   // columns from being edited by accident while leaving the override column open.
@@ -1029,6 +1092,7 @@ export async function generateXlsx({ outputDir = OUTPUT_DIR, filename = XLSX_NAM
   mkdirSync(outputDir, { recursive: true });
   const path = join(outputDir, filename);
   await wb.xlsx.writeFile(path);
+  recordArtefact({ build: inputs.build, artefact: filename, path });
   return { path, inputs };
 }
 

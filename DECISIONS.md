@@ -2287,3 +2287,353 @@ IRR, which is the hourly-engine cutover the arc reserves as a separate operator
 decision (Phase 37). What this phase delivers is the measurement of what that
 cutover would be worth, plus proof the iteration is well-behaved enough to base
 one on.
+
+## Phase 36.B batch-4 — Part 0 (repo hygiene) + Part 1 (run registry)
+
+### 36.B6-A — `logs/btd.log` was never repo content
+
+Tracked by accident in `f551934` (the v7.2 frontend commit) and rewritten by the
+local BTD/Litgrid fetch cron on every run since, so it has been permanently
+"modified" in every working tree — every session handover from 19 onwards lists
+it under "left as-is". It blocked a rebase and contributed to two stale deploys
+on 2026-07-29.
+
+`git rm --cached` (the local file stays — it is the evidence base for the 36.B1
+Pause-A feed-failure audit, 178 parsed runs) and `.gitignore` widened from
+`logs/*.log` to `logs/`, because the pattern that let one log in would let the
+next one in too. `git ls-files logs/` was checked first: that one file was the
+only thing tracked under the directory.
+
+### 36.B6-B — run_id is a content fingerprint, not an invocation counter
+
+`run_id = <runner>-<12 hex of sha256(engine_git_sha ‖ input_hash ‖ output_hash)>`.
+
+A random UUID per invocation answers "which invocation was this". It cannot
+answer the question a lender's advisor actually asks — *"can I reproduce this
+number?"* A content fingerprint can: re-running the same engine over the same
+inputs yields the SAME run_id, so a reproduction is self-evident and a failure
+to reproduce is a finding rather than an ambiguity.
+
+The cost is accepted deliberately: the registry can carry one run_id twice.
+That is a recorded reproduction, not duplication — each line carries its own
+timestamp — and deduplicating would delete the evidence. Pinned by a test that
+asserts two identical runs append two lines with one id.
+
+For the fingerprint to mean anything, `output_hash` must be computed on what the
+run COMPUTED rather than on when it ran, so `generated_at`, `synced_at`,
+`fetched_at`, `timestamp` and the `run` block itself are stripped before
+hashing. Declaring `run` volatile is what lets the stamp live inside the payload
+it describes without perturbing its own hash.
+
+`canonicalJson` drops `undefined` object values rather than hashing them as
+`null`, so the hash describes the PERSISTED form — `JSON.stringify` drops them
+on the way to disk, and two byte-identical files that hashed differently would
+have made the whole mechanism unsound. Caught by the test, not by inspection.
+
+### 36.B6-C — the engine sha carries `-dirty`, and the registry does not dirty itself
+
+A number produced from an uncommitted tree is not reproducible from the repo
+alone. `engineGitSha()` says so with a `-dirty` suffix rather than implying a
+clean provenance it does not have.
+
+One exclusion, and it is principled rather than convenient: `runs.jsonl` itself
+is excluded from the dirty check. It is an append-only LOG of what the code did,
+not an input to it, so a build would otherwise mark itself dirty purely because
+it had just recorded itself.
+
+The committed registry starts at the batch-4 delivery build. Rehearsal runs made
+against a dirty tree while the tool was being written are runs of a tool that had
+not shipped, and seeding the governance log with them would have made its first
+dozen lines noise.
+
+### 36.B6-D — one funnel, and `writeOutput` was deleted rather than left beside it
+
+All eleven runners now emit through `lib/runs.mjs::writeRunOutput`, which stamps
+the payload, writes it, and appends the registry line as one operation.
+`engine.mjs::writeOutput` — the bare writer five runners used — was removed, not
+kept as a convenience: two ways to emit a runner output means one of them emits
+an unregistered number, which is the exact hole the registry exists to close.
+
+The stamp goes INSIDE the payload (`payload.run`) as well as into the registry,
+so an output file handed to an advisor on its own still answers which engine,
+which data vintage and which register version produced it.
+
+`loadInputs()` refuses to build a deliverable from any runner output lacking a
+run block, on the same footing as its existing refusals (mixed `engine_version`,
+unverified KV). An untraced input is a number in a client report the registry
+cannot account for.
+
+### 36.B6-E — the delivery build has its own id, derived from the runs it consumed
+
+`deliveryRunId()` fingerprints the SET of source run_ids plus the register
+version, so the workbook, the HTML, both PDFs and the README all carry one id
+and every one of them traces to the same eleven runner runs. Each artefact is
+then recorded with a hash of its own bytes under that id.
+
+The generation DATE is deliberately not in it: re-rendering identical numbers on
+a later day is the same build, and minting a new id would imply a change that
+did not happen. The date is already stamped on the cover, the banner and the
+README (34.7-G) and is the right place for it.
+
+The deliverable's consistency gate now asserts the run_id appears in the emitted
+HTML, so a delivered document that does not name its own run fails the build.
+
+## Phase 36.B batch-4 — Part 2 (assumption changelog + register versioning)
+
+### 36.B6-F — the version hashes the model's INPUTS, and only those
+
+`version.id` is `r<seq>.<first 8 hex of sha256 over every LIVE row's {id, value,
+override}, sorted by id>`. Three properties, each chosen against an alternative:
+
+- **Superseded rows are excluded.** They are provenance, not inputs —
+  `effectiveRegister` already excludes them for exactly that reason — so
+  rewording a historical row must not present itself as the model having
+  changed. Pinned by a test that adds a superseded row and asserts the hash is
+  unmoved.
+- **Prose is excluded.** Label, note and source can be expanded without a bump.
+  A version that moved every time someone improved a sentence would train its
+  readers to ignore it.
+- **`override` is included.** An override IS the effective value the runner
+  uses, so a client edit changes what the model runs on and must move the
+  version. `valueDiff` reports it as an override change so the changelog can say
+  which kind it was.
+
+`seq` counts MODEL changes, not tool invocations: `bumpVersion` on an unchanged
+register is a no-op that refreshes the entry count and leaves the sequence
+alone.
+
+### 36.B6-G — the version and the content are welded together by the schema gate
+
+`validateRegister` now fails when the stored hash does not describe the current
+content — "a value moved without a version bump", with the exact re-run command.
+Because the reconciliation suite and the register tests both call
+`validateRegister`, a hand-edited value cannot reach a build.
+
+The other half is `bumpVersion`, which **throws** when a value moved and no
+`reason` / `source` / `decided_by` / `phase` was supplied. So a value cannot move
+silently and cannot move anonymously. `register.mjs --sync` surfaces this as a
+refusal that prints the moved values and the command that would authorise them.
+
+This cost the existing tests their bare `{rows: [...]}` fixtures: a row-set with
+no version is no longer a valid register. They build versioned fixtures now
+rather than the invariant being relaxed to accommodate them — the 36.B3-H
+precedent (*sharpen, don't re-fit*).
+
+### 36.B6-H — `decided_by` is a closed vocabulary of four
+
+`operator` (a human decision that moves delivered numbers) · `measurement`
+(evidence recorded, no value moved) · `derived` (a consequential re-derivation
+forced by another change) · `governance` (a change to the mechanism itself).
+
+An open text field would let the interesting case — *a human moved this* — hide
+inside prose. With four values the workbook can render operator decisions in a
+different weight from consequential ones, which is the difference between a log
+and an audit trail. The advisor's first question about any changelog is "who
+decided this and did they know what it cost", and the schema now forces both
+halves to be answerable.
+
+The six migrated entries split 2 measurement / 2 operator / 2 derived, which is
+itself informative: of the arc's four value movements, exactly two were
+decisions and two were consequences of those decisions.
+
+### 36.B6-I — the founding entries carry evidence, not just a delta
+
+The three cutovers are the register's founding history, and an `old → new` pair
+is not enough for the advisor who will ask where the number came from. Each now
+carries an `evidence` block:
+
+- **trading realisation 0.85 → 0.7234** — window, 365 evaluated / 349 traded /
+  16 declined, volume-weighted and simple means, the full daily distribution,
+  the monthly band with its months, the denominator (the engine's own
+  `computeDayCapture`, imported not restated), the declined-day treatment and
+  what scoring them zero would have read, all three leakage checks with results,
+  the re-anchored ladder, the quantified client impact on the frozen fixture
+  (NPV −16.05 %), and the one-market-year limitation.
+- **15-min uplift 0.14 → 0.0885** — 273 complete PT15M days, the measurement
+  method, and a per-route reach table showing `/revenue` untouched at 54/54.
+- **cycling 678 → 498** — the cause, the direction NOT taken and why, both
+  independent corroborations (B1's 221, B5's 222), the declared band breach with
+  its source, and the honest note that a consistency fix which *improves* the
+  answer deserves more scrutiny than one that worsens it.
+
+`register_version` is null on all six: they predate the mechanism, and back-dating
+a version onto them would be fabricating a history the repo cannot support. r1
+pins the content as it stood when versioning was introduced; everything after
+carries the version it produced.
+
+### 36.B6-J — the remeasurement harness records but cannot bump
+
+`run-backtest.mjs --write-register` now ends in `bumpVersion(out, {date})` with
+no moved values. That is deliberate and load-bearing: a remeasurement records
+evidence and never moves a bound value (36.B3-K), so the sequence must not
+advance — and if the harness ever started moving one, `bumpVersion` would throw
+for want of an attributable reason rather than quietly re-cutting the model.
+
+It also stopped keeping its own copy of `REGISTER_PATH` and imports the
+register's own. A remeasurement harness is not a second opinion about where the
+register lives.
+
+## Phase 36.B batch-4 — Part 3 (lender-grade methodology)
+
+### 36.B6-K — the arc's "84.0 % simultaneity" is not reproducible, and the honest answer is a range
+
+The batch prompt asked the methodology to carry "the 84.0 % simultaneity
+measurement". Re-run across all five primary shape-years, no year produces it:
+
+| shape-year | simultaneously achievable |
+|---|---:|
+| 2021 | 79.2 % |
+| 2022 | 75.2 % |
+| 2023 | 83.1 % |
+| 2024 | 83.5 % |
+| 2025 | 85.5 % |
+
+The closest is 2024 at 83.5 %. Rather than print a figure that cannot be
+reproduced, the methodology reports the **range 75.2–85.5 %** and says the
+measurement is year-dependent — with the low year (2022, the price crisis)
+explained: a wider day-ahead shape makes the SoC reservation cost more in
+foregone arbitrage. Discipline rule #1 applied to a number in the prompt.
+
+The 2025 decomposition ships beside it, because where the cost falls is the
+finding: 88 % of the delta lands on **capacity**, not on trading. The constraint
+does not mainly stop the battery trading, it stops it committing.
+
+### 36.B6-L — two figures inherited from the arc log were stale, and were re-measured
+
+Written into the document only after checking against the current engine:
+
+- **Reserve stack share.** The arc log records 67.9 % of Y1 gross / 71.9 % of
+  lifetime. Measured now: **71.1 % / 74.2 %**. It moved because adopting the
+  measured trading realisation lowered the arbitrage line, which raises the
+  reserve stack's share of the total. That direction is worth stating out loud
+  and the document does: *the measured correction made the model more dependent
+  on the component that has not been measured.*
+- **The dur_h step table.** Its gross-revenue columns reproduce exactly today
+  (2 h = €7 999 249, 4 h = €8 553 517) but its IRR and EFC columns were taken
+  before the throughput alignment and now read 0.2246 / 498 and 0.1061 / 317.
+  The table is kept in its original form — it is the evidence for the
+  discontinuity — with a reading note giving the current values. Re-cutting it
+  against the later engine would blur two separate corrections into one.
+
+Also re-derived from the committed price files rather than transcribed: the
+negative-hour lineage table (537 negative hours over 101 470 covered hours, 125
+days = 2.96 %) reproduces the batch-3 figures exactly.
+
+### 36.B6-M — the document is a display surface, so rule #2 applies to it
+
+A methodology that asserts a value the code no longer holds is the same defect
+as a card label that does — and it is worse, because a lender's advisor is
+reading it precisely to check. `__tests__/methodologyLender.test.ts` binds every
+quoted figure that has a live source: the trading-realisation ladder, the
+client-scenario anchors, the sub-hourly uplift, the reserve prequalification
+durations, the register version and row count, the category table's sum, the
+`decided_by` vocabulary, and the cycling benchmark band with the model's
+position relative to it.
+
+The gate was proven to fail before being trusted: rewriting the ladder to the
+old assumed values in the document turns the suite red and names the sentence.
+
+**Historical measurements are deliberately NOT bound** — a backtest window, a
+client-impact delta measured at a past commit. Those are records of what was
+observed on a date, and re-cutting them against a later engine would destroy
+their meaning. The distinction is the whole design: bind what the model *holds*,
+never what it *observed*.
+
+### 36.B6-N — the lender annex renders through the same wrapper, and carries KKME's name
+
+`buildAnnexHtml` gained `sourcePath` / `title` / `lede` rather than a second
+near-identical wrapper being written — rule #4 applied to branding, so the two
+annexes cannot drift out of brand independently. The document renders at **25 pp**
+A4, inside the 25-40 pp target.
+
+It is named `KKME_Lender_Methodology_Annex.pdf`, not `Prosperus_*`: it describes
+the engine rather than the engagement, so it ships with any delivery and is a
+KKME asset in its own right.
+
+## Phase 36.B batch-4 — Part 4 (render + regenerate + arc close)
+
+### 36.B6-O — the delivery build ran on a fresh LIVE snapshot, and it verified
+
+The build could have reused the cached 2026-07-28 snapshot. It captured a fresh
+one instead, and the reconstruction reproduced live `/revenue` **exactly on all
+22 verification fields** — including `cycles_per_year 498` and the
+measured-basis IRR, which confirms the batch-3 cutover is what production is
+actually serving.
+
+That is the meaningful check: the client deliverable and the public site are
+demonstrably the same engine on the same market state, not two things that
+agree by assertion.
+
+### 36.B6-P — regenerating moved the market-dependent tables, and the document was corrected
+
+Between the 2026-07-28 snapshot the methodology was drafted against and the
+2026-07-29 delivery capture, the forward projection moved:
+
+| figure | drafted | delivery build |
+|---|---:|---:|
+| P50 lifetime gross | €131.48M | €128.53M |
+| P75 | €120.85M | €118.66M |
+| P90 (unresolved) | €116.58M | €114.63M |
+| derived contract floor | €139 000/MW/yr | €137 000/MW/yr |
+| years the floor binds | 4 | 5 |
+| merchant 20-yr EBITDA | €74.03M | €71.27M |
+
+Unmoved: every measurement. The simultaneity range, the shape-year factors, the
+0.7234 realisation, the 0.0885 uplift and the degradation fixed point are
+identical, because they are properties of committed price history and the code,
+not of today's market state.
+
+**That split is the point, and the document now states it explicitly** in a
+callout: *"These figures move; the measured parameters do not."* The euro tables
+carry an as-at stamp naming the capture date; the measurements do not need one
+because they name their window.
+
+The market-dependent figures are deliberately **NOT** bound by test. Binding them
+would make the suite a market-movement detector rather than a code gate (34.5-C's
+reasoning). What IS gated is the discipline: a test asserts the as-at stamps and
+the callout are present, so a future edit cannot quietly drop the distinction and
+let a projection read as a measurement.
+
+### 36.B6-Q — the committed registry is one clean build, and the -dirty flag earned its keep
+
+The first delivery build recorded `d02acf5…-dirty`, correctly: the methodology
+had been edited after the last commit. Rather than ship a governance log whose
+first entry says the engine was uncommitted, the document changes were committed
+and the build re-run against a clean tree.
+
+The mechanism worked as designed on its first real use — it caught exactly the
+condition it exists to catch, on the person who wrote it.
+
+The shipped registry is 28 lines: 22 runner runs covering the whole arc's
+evidence (5 dispatch shape-years · 2 bootstrap samples · backtest · contracted ·
+degradation · 15-min uplift · 4 project runs · portfolio · 3 scenarios ·
+scenario summary · sensitivity · reconciliation) and 6 artefacts under one
+delivery id. One engine sha, one register version, four data-vintage kinds.
+
+### 36.B6-R — a Part-1 bug the runners caught, not the tests
+
+`run-backtest.mjs` referenced an undefined `scenarioName` inside the registry
+spec added in Part 1. Vitest never touched it — the CLI block is not under test —
+and it surfaced only on the first real invocation. Fixed, and worth recording as
+the reason Part 4 re-runs every runner rather than trusting a green suite: eleven
+runners were wired, and the only way to know all eleven still run is to run them.
+
+### 36.B6-S — the test suite was writing to the committed governance log
+
+Found by counting: the shipped registry came back **one line longer** than the
+build that produced it, carrying an artefact called `Model.xlsx` that no build
+emits. `recordArtefact` took the artefact's file path but had no way to override
+the *registry* path, so it always appended to the real `runs.jsonl` — and the
+delivery-build test therefore added a line to the committed audit trail on every
+`vitest run`.
+
+A governance log that its own test suite writes into is not an audit trail. Fixed
+by threading `registryPath` through, and the test now asserts both halves: the
+line lands in the temporary registry it was given, **and** no `Model.xlsx` line
+exists in the real one. That second assertion is the one that matters — it fails
+loudly if the leak ever returns.
+
+Worth noting how it surfaced: not from a test, but from reconciling a count in
+the handover against the file on disk. The registry's value is that it makes
+that kind of discrepancy visible, and the first thing it made visible was a
+defect in itself.

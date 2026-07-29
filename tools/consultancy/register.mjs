@@ -37,9 +37,23 @@
  * runner applies it in place of `value`. Overrides are never written back into
  * `value`, so the engine-derived figure and the client's edit stay distinct.
  *
+ * ── Versioning + changelog (Phase 36.B6) ──────────────────────────────────
+ *
+ * The register carries a `version` block — `r<seq>.<8 hex of the content hash>`
+ * — and a `changelog` in which every value change records {date, id, old, new,
+ * reason, source, decided_by, phase, register_version}. The version is the
+ * handle a delivered report quotes: read it off the footer and the changelog up
+ * to that version IS the set of assumptions that report ran on.
+ *
+ * The two are welded together by `validateRegister`, which fails when the
+ * stored version does not hash the current content. A value therefore cannot
+ * move without a bump, and a bump cannot happen without an attributable reason
+ * (`bumpVersion` throws otherwise). Governance is enforced, not documented.
+ *
  * Usage:
  *   node tools/consultancy/register.mjs            # check register vs live bindings
- *   node tools/consultancy/register.mjs --sync     # rewrite values from bindings
+ *   node tools/consultancy/register.mjs --version  # stored vs computed version
+ *   node tools/consultancy/register.mjs --sync --reason "…" --by operator --phase 36.B6
  */
 
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -52,10 +66,104 @@ import { DEFAULT_WACC, CORRELATION_NOTE } from './portfolio.mjs';
 import { DRIVERS } from './scenario-overlay.mjs';
 import { workerSource } from './scenario-overlay.mjs';
 import { loadFixtureKV } from './regression-reference.mjs';
+import { hashOf } from './lib/runs.mjs';
 
 export const REGISTER_PATH = join(HERE, 'assumptions-register.json');
 
 export const CATEGORIES = ['technical', 'market', 'saturation', 'cost', 'capex', 'project', 'scenario-driver'];
+
+// ── Versioning + changelog (Phase 36.B6) ───────────────────────────────────
+
+/**
+ * Who a change is attributable to. A closed vocabulary, because "why did this
+ * number move" has exactly four honest answers and an open text field would
+ * let the interesting one (a human moved it) hide inside prose.
+ */
+export const DECIDED_BY = {
+  operator: 'a human decision that moves delivered numbers',
+  measurement: 'evidence recorded; no model value changed',
+  derived: 'consequential re-derivation forced by another change; no independent decision',
+  governance: 'a change to the register mechanism itself, not to an assumption',
+};
+
+export const CHANGELOG_REQUIRED = ['date', 'id', 'old', 'new', 'reason', 'source', 'decided_by', 'phase'];
+
+/**
+ * The content hash the register version is built on: every LIVE row's id, value
+ * and override, sorted by id.
+ *
+ * Superseded rows are excluded deliberately — they are provenance, not inputs
+ * (`effectiveRegister` excludes them for the same reason), so editing the text
+ * of a historical row must not present itself as the model having changed. What
+ * the version pins is the set of numbers the model actually runs on.
+ */
+export function registerContentHash(register) {
+  const rows = liveRows(register)
+    .map((r) => ({ id: r.id, value: roundTo(r.value), override: r.override ?? null }))
+    .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  return hashOf(rows);
+}
+
+export const registerVersionId = (seq, hash) => `r${seq}.${hash.slice(0, 8)}`;
+
+/**
+ * The version the register's CURRENT content deserves, at its current sequence.
+ * Compare against the stored block to detect a value that moved without a bump.
+ */
+export function computeVersion(register) {
+  const hash = registerContentHash(register);
+  const seq = register.version?.seq ?? 1;
+  return { id: registerVersionId(seq, hash), seq, hash };
+}
+
+/** True when the stored version block still describes the register's content. */
+export const versionMatchesContent = (register) =>
+  register.version?.hash === registerContentHash(register);
+
+/**
+ * Changelog schema. The register's central governance claim is that no value
+ * moves without a dated, sourced, attributed reason — this is where that claim
+ * is enforced rather than merely stated.
+ */
+export function validateChangelog(register) {
+  const problems = [];
+  const log = register.changelog ?? [];
+  if (!Array.isArray(log)) return ['changelog must be an array'];
+
+  let prevDate = '';
+  for (const [i, e] of log.entries()) {
+    const where = `changelog[${i}] (${e?.id ?? '?'})`;
+    for (const k of CHANGELOG_REQUIRED) {
+      if (!(k in e)) problems.push(`${where}: missing key "${k}"`);
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(e.date ?? '')) {
+      problems.push(`${where}: date must be YYYY-MM-DD`);
+    } else if (e.date < prevDate) {
+      problems.push(`${where}: dated ${e.date}, before the entry above it (${prevDate}) — the changelog is chronological`);
+    } else {
+      prevDate = e.date;
+    }
+    if (e.old === undefined || e.new === undefined) {
+      problems.push(`${where}: old and new must both be present (null is a legitimate value, absent is not)`);
+    } else if (e.old === null && e.new === null) {
+      problems.push(`${where}: an entry that moved nothing and recorded nothing is not a change`);
+    }
+    if (typeof e.reason !== 'string' || e.reason.trim().length < 40) {
+      problems.push(`${where}: reason must say why, in a sentence a reader can check (>= 40 chars)`);
+    }
+    if (typeof e.source !== 'string' || e.source.trim().length < 8) {
+      problems.push(`${where}: every change must cite the evidence it rests on`);
+    }
+    if (!(e.decided_by in DECIDED_BY)) {
+      problems.push(`${where}: decided_by must be one of ${Object.keys(DECIDED_BY).join(' / ')}`);
+    }
+    if ('register_version' in e && e.register_version !== null
+        && !/^r\d+\.[0-9a-f]{8}$/.test(e.register_version)) {
+      problems.push(`${where}: register_version must look like r<seq>.<8 hex> or be null`);
+    }
+  }
+  return problems;
+}
 
 // ── Worker-source constant extraction ──────────────────────────────────────
 
@@ -255,6 +363,29 @@ export function validateRegister(register) {
       }
     }
   }
+
+  // ── Governance (36.B6) ──────────────────────────────────────────────────
+  problems.push(...validateChangelog(register));
+
+  const v = register.version;
+  if (!v) {
+    problems.push('register carries no version block — run `register.mjs --version`');
+  } else {
+    if (!Number.isInteger(v.seq) || v.seq < 1) problems.push('version.seq must be a positive integer');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(v.effective_from ?? '')) {
+      problems.push('version.effective_from must be YYYY-MM-DD');
+    }
+    const computed = computeVersion(register);
+    if (v.hash !== computed.hash) {
+      problems.push(
+        `version ${v.id} does not describe this register's content (content hashes to ` +
+        `${computed.hash.slice(0, 8)}…) — a value moved without a version bump. ` +
+        `Re-run: register.mjs --sync --reason "…" --by <${Object.keys(DECIDED_BY).join('|')}> --phase <n>`
+      );
+    } else if (v.id !== computed.id) {
+      problems.push(`version.id ${v.id} disagrees with seq ${v.seq} + hash ${v.hash.slice(0, 8)}`);
+    }
+  }
   return problems;
 }
 
@@ -305,6 +436,81 @@ export function categoryCounts(register) {
   return out;
 }
 
+// ── Version bumps ──────────────────────────────────────────────────────────
+
+/** Every live row whose value or override differs between two registers. */
+export function valueDiff(before, after) {
+  const prior = Object.fromEntries(liveRows(before).map((r) => [r.id, r]));
+  const moved = [];
+  for (const row of liveRows(after)) {
+    const was = prior[row.id];
+    if (!was) { moved.push({ id: row.id, old: null, new: roundTo(row.value) }); continue; }
+    if (roundTo(was.value) !== roundTo(row.value)) {
+      moved.push({ id: row.id, old: roundTo(was.value), new: roundTo(row.value) });
+    } else if ((was.override ?? null) !== (row.override ?? null)) {
+      moved.push({ id: row.id, old: was.override ?? null, new: row.override ?? null, override: true });
+    }
+  }
+  return moved;
+}
+
+/**
+ * Stamp the register with the version its content deserves, appending one
+ * changelog entry per moved value.
+ *
+ * The sequence advances only when the CONTENT changed. Re-stamping an unchanged
+ * register is a no-op, so the version number counts model changes rather than
+ * how many times someone ran the tool.
+ *
+ * Every appended entry carries the version it PRODUCED, which is what turns the
+ * changelog from a list of edits into a history a reader can walk: pick any
+ * delivered report, read its register version off the footer, and the entries up
+ * to and including that version are the assumptions it ran on.
+ */
+/**
+ * @param {any} register
+ * @param {{
+ *   moved?: Array<{id: string, old: any, new: any, override?: boolean}>,
+ *   reason?: string, source?: string, decided_by?: string, phase?: string,
+ *   date?: string, notes?: string,
+ * }} [bump]
+ */
+export function bumpVersion(register, { moved = [], reason, source, decided_by, phase, date, notes } = {}) {
+  const hash = registerContentHash(register);
+  const stored = register.version;
+  const changed = stored?.hash !== hash;
+  const seq = changed ? (stored?.seq ?? 0) + 1 : (stored?.seq ?? 1);
+  const id = registerVersionId(seq, hash);
+  const on = date ?? new Date().toISOString().slice(0, 10);
+
+  const out = { ...register };
+  if (changed && moved.length) {
+    if (!reason || !source || !(decided_by in DECIDED_BY) || !phase) {
+      throw new Error(
+        `${moved.length} register value(s) moved (${moved.map((m) => m.id).join(', ')}) — ` +
+        `a bump needs reason, source, decided_by (${Object.keys(DECIDED_BY).join('|')}) and phase. ` +
+        `Governance is the point: a value that moves without an attributable reason is exactly ` +
+        `what this register exists to make impossible.`
+      );
+    }
+    out.changelog = [
+      ...(register.changelog ?? []),
+      ...moved.map((m) => ({
+        date: on, id: m.id, old: m.old, new: m.new,
+        reason, source, decided_by, phase, register_version: id,
+        ...(m.override ? { override_change: true } : {}),
+        ...(notes ? { notes } : {}),
+      })),
+    ];
+  }
+  out.version = {
+    id, seq, hash,
+    effective_from: changed ? on : (stored?.effective_from ?? on),
+    changelog_entries: (out.changelog ?? []).length,
+  };
+  return out;
+}
+
 // ── CLI ────────────────────────────────────────────────────────────────────
 
 if (import.meta.url === `file://${process.argv[1]}`) {
@@ -316,18 +522,50 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const { checked, drift } = checkBindings(register, ctx);
   const counts = categoryCounts(register);
 
+  const arg = (name) => {
+    const i = argv.indexOf(`--${name}`);
+    return i >= 0 && argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[i + 1] : null;
+  };
+
   if (argv.includes('--sync')) {
     const synced = syncRegister(register, ctx);
-    synced.synced_at = new Date().toISOString();
-    writeFileSync(REGISTER_PATH, JSON.stringify(synced, null, 2) + '\n');
+    const moved = valueDiff(register, synced);
+    let stamped;
+    try {
+      stamped = bumpVersion(synced, {
+        moved,
+        reason: arg('reason'), source: arg('source') ?? 'register.mjs --sync against the live bindings',
+        decided_by: arg('by'), phase: arg('phase'), date: arg('date'),
+      });
+    } catch (err) {
+      console.error(`\n  REFUSED — ${err.message}\n`);
+      for (const m of moved) console.error(`    ${m.id}: ${m.old} → ${m.new}`);
+      console.error('');
+      process.exit(1);
+    }
+    stamped.synced_at = new Date().toISOString();
+    writeFileSync(REGISTER_PATH, JSON.stringify(stamped, null, 2) + '\n');
     console.log(`synced ${checked} bound rows → ${REGISTER_PATH}`);
-    if (drift.length) for (const d of drift) console.log(`  ${d.id}: ${d.register} → ${d.live}`);
+    console.log(`register version ${stamped.version.id}` +
+      (moved.length ? ` (${moved.length} value(s) moved, changelog appended)` : ' (content unchanged)'));
+    for (const m of moved) console.log(`  ${m.id}: ${m.old} → ${m.new}`);
     process.exit(0);
   }
 
-  console.log(`\n  Assumptions register — ${register.rows.length} rows`);
+  if (argv.includes('--version')) {
+    const computed = computeVersion(register);
+    console.log(`\n  stored   ${register.version?.id ?? '— none —'}`);
+    console.log(`  computed ${computed.id}`);
+    console.log(`  ${versionMatchesContent(register) ? 'the version describes the content' : 'MISMATCH — a value moved without a bump'}`);
+    console.log(`  changelog: ${(register.changelog ?? []).length} entries\n`);
+    process.exit(versionMatchesContent(register) ? 0 : 1);
+  }
+
+  console.log(`\n  Assumptions register — ${register.rows.length} rows · version ${register.version?.id ?? '— none —'}`);
   console.log('  ' + Object.entries(counts).map(([c, n]) => `${c} ${n}`).join(' · '));
   console.log(`  bound to live code: ${checked} · superseded (provenance, not inputs): ${supersededRows(register).length}`);
+  console.log(`  changelog: ${(register.changelog ?? []).length} entries · ` +
+    `${versionMatchesContent(register) ? 'version ties to content' : 'VERSION DOES NOT TIE TO CONTENT'}`);
   console.log(`  schema: ${problems.length ? `${problems.length} PROBLEM(S)` : 'valid'}`);
   console.log(`  bindings: ${drift.length ? `${drift.length} DRIFTED` : 'all tie to the code'}\n`);
   for (const p of problems.slice(0, 20)) console.log(`    schema  ${p}`);

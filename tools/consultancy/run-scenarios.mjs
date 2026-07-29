@@ -25,8 +25,9 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  loadConfigDir, loadEngine, runProject, writeOutput, PROJECTS_DIR, HERE, eur,
+  loadConfigDir, loadEngine, runProject, PROJECTS_DIR, HERE, eur,
 } from './engine.mjs';
+import { writeRunOutput, kvVintage } from './lib/runs.mjs';
 import { getKV } from './kv-snapshot.mjs';
 import { buildBridge, COST_DEFAULTS } from './bridge.mjs';
 import { buildPortfolio, DEFAULT_WACC } from './portfolio.mjs';
@@ -252,7 +253,11 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   // ── Mapping verification ────────────────────────────────────────────────
   if (argv.includes('--verify-mapping')) {
     const report = await verifyMapping(configs[0], kv, scenarios);
-    const path = writeOutput('driver-mapping.json', report);
+    const { path } = writeRunOutput('driver-mapping.json', report, {
+      runner: 'driver-mapping', subject: report.probe_project,
+      inputs: { config: configs[0], scenarios: scenarios.order },
+      data_vintage: kvVintage(meta),
+    });
     console.log(`\n  Driver mapping — probed on ${report.probe_project}` +
       ` (Y1 gross ${eur(report.baseline_gross_y1)}, EBITDA ${eur(report.baseline_ebitda_y1)})\n`);
     console.log('  driver                   reach         central → probe        echo ok   Δ gross Y1     Δ EBITDA Y1');
@@ -283,7 +288,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     const portfolio = await runScenario(configs, kv, drivers, { wacc, baseline });
     results[name] = portfolio;
     headlines[name] = headlineOf(portfolio);
-    writeOutput(`scenario-${name}.json`, {
+    writeRunOutput(`scenario-${name}.json`, {
       generated_at: new Date().toISOString(),
       scenario: name,
       label: sc.label,
@@ -292,6 +297,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       kv_source: meta.kv_source,
       kv_verified: meta.verified,
       ...portfolio,
+    }, {
+      runner: 'scenario', subject: name,
+      inputs: { configs, drivers, wacc, source_dir: dir },
+      data_vintage: kvVintage(meta),
     });
   }
 
@@ -330,7 +339,11 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       breaches,
     },
   };
-  const path = writeOutput('scenario-summary.json', summary);
+  const { path } = writeRunOutput('scenario-summary.json', summary, {
+    runner: 'scenario-summary', subject: 'prosperus-portfolio',
+    inputs: { configs, wacc, order, drivers: summary.drivers, source_dir: dir },
+    data_vintage: kvVintage(meta),
+  });
 
   const pad = (s, n) => String(s).padStart(n);
   console.log('\n  Scenario comparison — portfolio consolidated\n');
