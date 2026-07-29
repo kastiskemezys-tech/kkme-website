@@ -1092,7 +1092,7 @@ function computeDispatchV2(btdData, daHourly, opts = {}) {
 }
 
 // Synthesize a BTD-like payload from rolling 180d averages (for forecast mode)
-function synthesizeBTDFromRolling(rolling, daTomorrow) {
+export function synthesizeBTDFromRolling(rolling, daTomorrow) {
   if (!rolling?.products) return null;
   const afrr = rolling.products.aFRR || rolling.products.afrr || {};
   const mfrr = rolling.products.mFRR || rolling.products.mfrr || {};
@@ -1109,17 +1109,36 @@ function synthesizeBTDFromRolling(rolling, daTomorrow) {
     afrr_up: 120, // source: Baltic aFRR demand
     mfrr_up: 604, // source: Baltic mFRR demand
   }));
-  // Activation shape: higher during high-DA-price hours
+  // Activation shape: higher during high-DA-price ISPs.
+  //
+  // Phase 36.C — this indexing was `daP[Math.floor(i / 4)]`, which assumes daP
+  // is a 24-slot HOURLY array. Day-ahead is now published at PT15M, so daP
+  // carries ~96 slots and `Math.floor(i / 4)` only ever reaches index 23 — the
+  // first six hours of the day, stretched across all 96 ISPs. Every activation
+  // and direction decision would be made from the wrong part of the day, with
+  // the evening peak that drives BESS revenue never seen at all.
+  //
+  // It was latent until now only because `prices_24h` was never populated (the
+  // B0-G defect), so this function never ran with real prices. Fixing the
+  // plumbing without fixing this would have shipped a forecast that serves
+  // confidently and is wrong — worse than one that returns null.
+  //
+  // Proportional mapping handles every cadence, including DST-short/long days
+  // and partially-published windows (93 slots is a real observed length), and
+  // needs no branch per resolution.
   const daP = daTomorrow?.prices_24h || daTomorrow?.lt_prices || [];
   const daMax = daP.length ? Math.max(...daP) : 100;
+  const priceAtISP = (i) => {
+    if (!daP.length) return 50;
+    const idx = Math.min(daP.length - 1, Math.floor(i * daP.length / 96));
+    return daP[idx] ?? 50;
+  };
   const activation_prices = Array.from({ length: 96 }, (_, i) => {
-    const h = Math.floor(i / 4);
-    const p = daP[h] || 50;
+    const p = priceAtISP(i);
     return { up: p > daMax * 0.6 ? (afrr.act_avg || 170) : 0, down: 0 };
   });
   const direction = Array.from({ length: 96 }, (_, i) => {
-    const h = Math.floor(i / 4);
-    const p = daP[h] || 50;
+    const p = priceAtISP(i);
     return p > daMax * 0.5 ? 1 : -1; // short when high price
   });
 
@@ -7515,6 +7534,28 @@ export default {
       await env.KKME_SIGNALS.put(`raw:s1:${new Date().toISOString().slice(0,10)}`, JSON.stringify({ fetched: new Date().toISOString(), data: d }), { expirationTtl: 604800 });
       console.log(`[S1] ${d.state} spread=${d.spread_eur_mwh}€/MWh swing=${d.lt_daily_swing_eur_mwh}€/MWh sep=${d.separation_pct}% rsi_30d=${d.rsi_30d}`);
 
+      // Phase 36.C (B0-G) — feed the forecast path from the source that works.
+      //
+      // `GET /api/dispatch?mode=forecast` reads the `da_tomorrow` KV. That key
+      // had only two writers, both fed by NordPool
+      // (data.nordpoolgroup.com/api/v1/auction/prices/areas), which now returns
+      // HTML rather than JSON — verified from two independent networks, so it is
+      // an upstream endpoint change, not an egress problem. Meanwhile computeS1
+      // was already computing tomorrow's day-ahead from ENTSO-E and storing it
+      // at `s1.da_tomorrow`, a DIFFERENT key the forecast consumer never reads.
+      //
+      // So the working source and the starving consumer were one key apart.
+      // Mirroring it here closes that gap and takes the forecast path off the
+      // broken dependency entirely.
+      if (d.da_tomorrow?.prices_24h?.length) {
+        const daBody = JSON.stringify({ ...d.da_tomorrow, timestamp: new Date().toISOString(), source: 'entsoe-a44' });
+        await Promise.all([
+          env.KKME_SIGNALS.put('da_tomorrow', daBody),
+          env.KKME_SIGNALS.put('da_tomorrow:lastgood', daBody),
+        ]);
+        console.log(`[S1/tomorrow] mirrored to da_tomorrow KV — ${d.da_tomorrow.slots} slots @ ${d.da_tomorrow.resolution}, delivery ${d.da_tomorrow.delivery_date}`);
+      }
+
       // S1 capture: DA gross capture from energy-charts.info
       try {
         const cap = await withTimeout(computeCapture(env), 25000);
@@ -10236,9 +10277,19 @@ export default {
 
         const synthBTD = rolling ? synthesizeBTDFromRolling(rolling, daTomorrow) : null;
 
+        // Phase 36.C — the delivery date must come from the payload, not from a
+        // clock. This read was `daTomorrow.date`, a field no writer produces
+        // (they all emit `delivery_date`), so it silently fell through to
+        // "whatever tomorrow is" on every request. The forecast would therefore
+        // label itself with tomorrow's date regardless of which day's prices it
+        // actually held — a date asserting "when" without deriving it, which is
+        // exactly what discipline rule #2 forbids.
+        const deliveryDate = daTomorrow.delivery_date || daTomorrow.date
+          || new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+
         const current = computeDispatchV2(synthBTD, daP, {
           mw: 50, dur_h, mode: 'forecast',
-          date_iso: daTomorrow.date || new Date(Date.now() + 86400000).toISOString().slice(0, 10),
+          date_iso: deliveryDate,
         });
         const postDrr = computeDispatchV2(synthBTD, daP, {
           mw: 50, dur_h, mode: 'forecast', drr_active: false,
