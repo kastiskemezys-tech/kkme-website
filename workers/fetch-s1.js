@@ -26,6 +26,16 @@ import { kvWrite, checkBounds, checkRequired } from './lib/kv.js';
 import { notifyTelegram } from './lib/notify.js';
 import { computeEUATrend } from './lib/eua_trend.js';
 import * as CALC from './lib/calculator.js';
+import {
+  addressableDemandMw,
+  absorptionMw,
+  productDemandMap,
+  litgridLtSupplyMw,
+  VERSION as DEMAND_FORECAST_VERSION,
+} from './lib/demand-forecast.js';
+import {
+  WATCH_TARGETS, fingerprintPage, diffPages, buildAlert, fingerprintKey, isDue,
+} from './lib/publication-watcher.js';
 
 const ENTSOE_API    = 'https://web-api.tp.entsoe.eu/api';
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
@@ -416,18 +426,36 @@ function processFleet(entries, demand) {
   const baltic_operational = Object.values(countries).reduce((s, c) => s + c.operational_mw, 0);
   const baltic_weighted    = Object.values(countries).reduce((s, c) => s + c.weighted_mw, 0);
   const baltic_pipeline    = Object.values(countries).reduce((s, c) => s + c.pipeline_mw, 0);
-  const eff_demand = demand?.eff_demand_mw || 752;
-  const sd_ratio   = baltic_weighted / eff_demand;
+  // Phase 36.D — demand comes from the canonical module, year-indexed. The
+  // `demand` argument is no longer a source: it carried two different hardcoded
+  // defaults (752 here, 935 in the KV write path) and the published S/D
+  // oscillated between them depending on which cron wrote last. It is now
+  // accepted only as an explicit operator override, and echoed as such.
+  // An override must SAY it is one. Honouring a bare `eff_demand_mw` would let
+  // the stale 935 still sitting in KV keep governing until the next full POST —
+  // exactly the failure being retired here, one deploy later.
+  const currentYear   = new Date().getUTCFullYear();
+  const isOverride    = demand?.override === true && Number.isFinite(demand?.eff_demand_mw) && demand.eff_demand_mw > 0;
+  const eff_demand    = isOverride ? demand.eff_demand_mw : addressableDemandMw(currentYear);
+  const demand_source = isOverride ? 'operator_override' : 'demand-forecast-module';
+
+  // MW contracted away from the merchant reserve pool by LT services KKME has
+  // no revenue line for (GAGAP, LT-PL, and the legally-reserved IZDR). Deducted
+  // from supply rather than added to demand: those MW compete for a different
+  // buyer, they do not enlarge ours. See workers/lib/demand-forecast.js.
+  const absorption      = absorptionMw(currentYear);
+  const baltic_weighted_net = Math.max(0, baltic_weighted - absorption);
+  const sd_ratio        = baltic_weighted_net / eff_demand;
 
   // Per-product S/D ratios — worst-case stress view (all fleet allocated to single product)
-  const PRODUCT_DEMAND = { fcr: 28, afrr: 120, mfrr: 604 };
+  const PRODUCT_DEMAND = productDemandMap(currentYear);
   const product_sd = {};
   for (const [prod, dem] of Object.entries(PRODUCT_DEMAND)) {
-    const r = dem > 0 ? baltic_weighted / dem : null;
+    const r = dem > 0 ? baltic_weighted_net / dem : null;
     const rounded = r !== null ? Math.round(r * 100) / 100 : null;
     product_sd[prod] = {
       demand_mw: dem,
-      supply_mw: Math.round(baltic_weighted),
+      supply_mw: Math.round(baltic_weighted_net),
       ratio: rounded,
       sd_ratio: rounded,
       phase: r === null ? null : r < 0.6 ? 'SCARCITY' : r < 1.0 ? 'COMPRESS' : 'MATURE',
@@ -443,12 +471,27 @@ function processFleet(entries, demand) {
   } else {
     phase = 'MATURE';   cpi = Math.max(0.30, 0.40 - (sd_ratio - 1.0) * 0.08);
   }
-  // 5-year trajectory (0.15 sd_ratio growth/yr — conservative new entrant assumption)
+  // 5-year trajectory.
+  //
+  // Phase 36.D — the growth assumption is unchanged in substance but had to
+  // change units. It was "+0.15 S/D per year", which only means anything while
+  // the denominator is a constant. With demand year-indexed, the same
+  // assumption is carried as its MW equivalent at the base year
+  // (0.15 × eff_demand ≈ 113 MW/yr of new weighted supply), so the numerator
+  // grows on the original calibration while the denominator follows the TSOs'
+  // published series and absorption follows the module's own trajectory. At
+  // i = 0 this reproduces `sd_ratio` exactly, so the base year is continuous.
+  //
+  // This series is display-only: it feeds the cannibalisation chart via
+  // `fleet_trajectory`. Revenue takes a different path (projectFleet /
+  // projectDemand in computeTradingMix).
   const trajectory = [];
-  const baseYear = new Date().getUTCFullYear();
+  const baseYear = currentYear;
+  const TRAJECTORY_SUPPLY_GROWTH_MW_YR = 0.15 * eff_demand;
   for (let i = 0; i <= 5; i++) {
-    const r  = sd_ratio + i * 0.15;
     const yr = baseYear + i;
+    const supply_yr = baltic_weighted + i * TRAJECTORY_SUPPLY_GROWTH_MW_YR;
+    const r = Math.max(0, supply_yr - absorptionMw(yr)) / addressableDemandMw(yr);
     const ph = r < 0.6 ? 'SCARCITY' : r < 1.0 ? 'COMPRESS' : 'MATURE';
     let tc;
     if (r < 0.6) tc = Math.min(1.0 + (0.6 - r) * 2.5, 2.0);
@@ -489,8 +532,21 @@ function processFleet(entries, demand) {
     baltic_quarantined_mw:        Math.round(baltic_quarantined * 10) / 10,
     baltic_pipeline_mw:    Math.round(baltic_pipeline),
     baltic_weighted_mw:    Math.round(baltic_weighted),
+    // Phase 36.D — gross weighted supply is retained above (it is the published
+    // fleet statistic the map and the counts tell a story about). The S/D
+    // numerator is the NET figure: gross less the MW contracted away to LT
+    // services KKME earns nothing from. Both are surfaced so the subtraction is
+    // inspectable rather than implied.
+    baltic_weighted_net_mw: Math.round(baltic_weighted_net),
+    absorption_mw:          Math.round(absorption),
     non_commercial_mw:     Math.round(non_commercial_mw),
     eff_demand_mw:         eff_demand,
+    demand_basis: {
+      source: demand_source,
+      module_version: DEMAND_FORECAST_VERSION.version,
+      scope: DEMAND_FORECAST_VERSION.scope,
+      year: currentYear,
+    },
     sd_ratio:              Math.round(sd_ratio * 100) / 100,
     phase,
     cpi:                   Math.round(cpi * 100) / 100,
@@ -1104,10 +1160,14 @@ export function synthesizeBTDFromRolling(rolling, daTomorrow) {
     afrr_up: afrr.cap_avg || 0,
     mfrr_up: mfrr.cap_avg || 0,
   }));
+  // Phase 36.D — from the canonical module. The comments were right about the
+  // provenance ("Baltic mFRR demand") and wrong about the vintage: these are
+  // the 2026 row of a series published to 2035.
+  const _procured = productDemandMap(new Date().getUTCFullYear());
   const procured_mw = Array.from({ length: 96 }, () => ({
-    fcr_sym: 28, // source: Elering Baltic FCR demand
-    afrr_up: 120, // source: Baltic aFRR demand
-    mfrr_up: 604, // source: Baltic mFRR demand
+    fcr_sym: _procured.fcr,
+    afrr_up: _procured.afrr,
+    mfrr_up: _procured.mfrr,
   }));
   // Activation shape: higher during high-DA-price ISPs.
   //
@@ -2068,6 +2128,11 @@ function computeRevenueV7(params, kv) {
       trading_fraction: Math.round(mix.trading_fraction * 1000) / 1000,
       switching_friction: mix.switching_friction,
       sd_ratio: mix.sd_ratio,
+      // Phase 36.D — the demand and absorption this year's S/D was computed
+      // from. Published so the reconciliation harness can tie the engine to the
+      // canonical module year by year instead of taking the ratio on trust.
+      demand_mw: Math.round(projectDemand(cal_year, kv, sc.demand_growth ?? 0.02)),
+      absorption_mw: absorptionMw(Math.round(cal_year)),
       R: mix.R, T: mix.T, price_ratio: mix.price_ratio,
       spread_mult: mix.spread_mult, renewable_share: mix.renewable_share,
       market_depth: Math.round(depth * 1000) / 1000,
@@ -2365,7 +2430,17 @@ function computeRevenueV7(params, kv) {
       current_sd: fleet?.sd_ratio ?? null,
       weighted_supply: fleet?.baltic_weighted_mw ?? fleet?.baltic_operational_mw ?? null,
       pipeline_mw: fleet?.baltic_pipeline_mw ?? null,
-      demand_mw: fleet?.eff_demand_mw ?? 752,
+      // Phase 36.D — this reported `fleet.eff_demand_mw`, i.e. whatever the KV
+      // payload was last stamped with. That is now a stale echo rather than an
+      // input: the engine takes demand from the canonical module. Report what
+      // is actually used, and surface the absorption deduction alongside it so
+      // the S/D the client sees can be reconstructed from the panel.
+      // Anchored on the first projected operating year, not on the wall clock:
+      // this panel has to stay deterministic for the byte-identity gate.
+      demand_mw: Math.round(projectDemand(years[0]?.cal_year ?? cod_year, kv)),
+      demand_basis: 'demand-forecast-module',
+      demand_module_version: DEMAND_FORECAST_VERSION.version,
+      absorption_mw: absorptionMw(years[0]?.cal_year ?? cod_year),
       pipeline_realisation: PIPELINE_REALISATION[scenario_name],
       intraday_uplift: INTRADAY_UPLIFT,
       switching_friction: { immature: FRICTION_IMMATURE, mature: FRICTION_MATURE, maturity_years: MATURITY_YEARS },
@@ -2926,14 +3001,53 @@ function cpiCurveScenario(sd_ratio, floor = CPI_FLOOR_BUILTIN) {
 // `realisation_override` (Phase 35.1) is the sensitivity runner's one-at-a-time
 // pipeline-realisation probe. Undefined everywhere else, so the scenario-keyed
 // lookup below is unchanged.
+/**
+ * Phase 36.D — supply basis for the named "Litgrid L TrSc basis" client
+ * scenario. `false` is KKME's own projection and is what the public path
+ * always uses; the 34.4 overlay flips it for that one scenario. Declared as a
+ * module constant so the overlay has an anchor and the public path is
+ * byte-identical by construction while it is off.
+ */
+const LITGRID_LT_SUPPLY_BASIS = false;
+
 function projectFleet(cal_year, kv, scenario, realisation_override) {
   const fleet = kv.fleet || kv.s2 || {};
 
-  // Current competitive supply from S4 (already confidence-weighted)
+  // Current competitive supply from S4 (already confidence-weighted).
+  // GROSS: the year-indexed absorption deduction is applied below, because how
+  // much merchant capacity is contracted away changes with the year and this
+  // function is called once per projected year.
   const current_weighted = fleet.baltic_weighted_mw || fleet.baltic_operational_mw || 672;
 
   // Additional pipeline MW (not yet built — raw, pre-realisation)
   const pipeline_raw = fleet.baltic_pipeline_mw || 866;
+
+  // ── Named scenario: Litgrid's own Lithuanian build-out, as published ──────
+  //
+  // Replaces the LT share of projected supply with Litgrid's L TrSc series
+  // verbatim — no realisation rate, no S-curve, no haircut of ours. EE and LV
+  // stay on KKME's projection because Litgrid forecasts Lithuania and nothing
+  // else, and Kruonis stays additive because the series is battery storage.
+  //
+  // Falls back to the standard projection for years Litgrid does not publish
+  // (before 2028) rather than inventing a value for them.
+  if (LITGRID_LT_SUPPLY_BASIS) {
+    const lt = litgridLtSupplyMw(Math.round(cal_year));
+    const countries = fleet.countries || {};
+    if (lt !== null && countries.LT) {
+      const nonLtWeighted = Object.entries(countries)
+        .filter(([c]) => c !== 'LT')
+        .reduce((s, [, v]) => s + (v.weighted_mw || 0), 0);
+      const nonLtPipeline = Object.entries(countries)
+        .filter(([c]) => c !== 'LT')
+        .reduce((s, [, v]) => s + (v.pipeline_mw || 0), 0);
+      const realis = realisation_override ?? (PIPELINE_REALISATION[scenario] || 0.50);
+      const yrsIn = Math.max(0, cal_year - 2026);
+      const deployF = Math.min(1.0, 1.0 / (1 + Math.exp(-0.6 * (yrsIn - 3.5))));
+      const nonLt = nonLtWeighted + nonLtPipeline * realis * deployF;
+      return Math.max(0, lt + nonLt + 205 - absorptionMw(Math.round(cal_year)));
+    }
+  }
 
   // Apply pipeline realisation (dropout rate)
   const realisation = realisation_override ?? (PIPELINE_REALISATION[scenario] || 0.50);
@@ -2962,18 +3076,40 @@ function projectFleet(cal_year, kv, scenario, realisation_override) {
     organic = Math.min(organic, base_total * 0.5);
   }
 
-  return current_weighted + pipeline_deployed + kruonis + organic;
+  // Phase 36.D — deduct the MW contracted away from the merchant reserve pool
+  // in THIS year by LT services KKME has no revenue line for. The trajectory
+  // matters: 200 MW today (Energy Cells' legally-reserved IZDR), 500 MW from
+  // 2028 once GAGAP and the LT-PL service are procured, back to 354 MW from
+  // 2033 when the IZDR reservation lapses and the LT-PL service ends with
+  // Harmony Link. Never below zero.
+  const absorbed = absorptionMw(Math.round(cal_year));
+  return Math.max(0, current_weighted + pipeline_deployed + kruonis + organic - absorbed);
 }
 
 /**
  * projectDemand: reserve demand projection per calendar year.
- * 2%/yr growth from growing renewable variability (ENTSO-E projections).
+ *
+ * Phase 36.D — was `base_demand × 1.02^(y−2026)`: an unsourced level (935, via
+ * the KV write path) compounded at an unsourced rate. Both halves are now the
+ * tri-TSO Baltic LFC-block procurement series, published year by year to 2035
+ * and extrapolated per component beyond it. For the record the old 2.00 %/yr
+ * guess was close — the published series grows at 2.29 %/yr — but the level was
+ * 24 % above the TSOs' own 2026 figure.
+ *
+ * `demand_growth` is retained as a scenario driver: it now scales the module's
+ * published trajectory rather than replacing it, so a client scenario can still
+ * ask "what if reserve demand grows faster than the TSOs project" without
+ * detaching from the source. At the default 0.02 the multiplier is 1.0 and the
+ * module's series is used unmodified.
  */
-function projectDemand(cal_year, kv, demand_growth = 0.02) {
-  const fleet = kv.fleet || kv.s2 || {};
-  const base_demand = fleet.eff_demand_mw || 752;
-  const years_from_base = Math.max(0, cal_year - 2026);
-  return base_demand * Math.pow(1 + demand_growth, years_from_base);
+const DEMAND_GROWTH_BASELINE = 0.02;
+
+function projectDemand(cal_year, kv, demand_growth = DEMAND_GROWTH_BASELINE) {
+  const year = Math.round(cal_year);
+  const published = addressableDemandMw(year);
+  if (demand_growth === DEMAND_GROWTH_BASELINE) return published;
+  const yrs = Math.max(0, year - 2026);
+  return published * Math.pow((1 + demand_growth) / (1 + DEMAND_GROWTH_BASELINE), yrs);
 }
 
 /**
@@ -3072,11 +3208,20 @@ function computeTradingMix(kv, dur_h, cal_year, scenario, sc, yr = 1, drv = scen
   // RESERVE_PRODUCTS share into that product (hierarchy-driven SoC allocation),
   // not full nameplate. So sd = (fleet × share) / TSO procurement.
   // FCR exposed as diagnostic; aFRR + mFRR drive the actual R formula.
-  const PRODUCT_DEMAND_FALLBACK = { fcr: 28, afrr: 120, mfrr: 604 };
+  //
+  // Phase 36.D — per-product demand now comes from the same canonical module as
+  // the aggregate, year-indexed. It used to read `kv.fleet.product_sd[p]`,
+  // i.e. the CURRENT-year figure the fleet payload happened to carry, and
+  // compound it at the aggregate growth rate; the products have different
+  // published trajectories (mFRR 604→754, FCR 28→48, aFRR flat), so one shared
+  // rate was wrong for all three. `demand_growth` still applies as a scenario
+  // multiplier, on the same relative basis as projectDemand.
   const yrs_from_2026 = Math.max(0, cal_year - 2026);
-  const dem_growth_factor = Math.pow(1 + demand_growth, yrs_from_2026);
-  const product_demand = (p) =>
-    (kv.fleet?.product_sd?.[p]?.demand_mw ?? PRODUCT_DEMAND_FALLBACK[p]) * dem_growth_factor;
+  const dem_scenario_factor = demand_growth === DEMAND_GROWTH_BASELINE
+    ? 1
+    : Math.pow((1 + demand_growth) / (1 + DEMAND_GROWTH_BASELINE), yrs_from_2026);
+  const product_demand_map = productDemandMap(Math.round(cal_year));
+  const product_demand = (p) => product_demand_map[p] * dem_scenario_factor;
   const fcr_sd_yr  = (supply * RESERVE_PRODUCTS.fcr.share)  / product_demand('fcr');
   const afrr_sd_yr = (supply * RESERVE_PRODUCTS.afrr.share) / product_demand('afrr');
   const mfrr_sd_yr = (supply * RESERVE_PRODUCTS.mfrr.share) / product_demand('mfrr');
@@ -4772,7 +4917,7 @@ async function syncLitgridFleet(env) {
 
   const raw = (await env.KKME_SIGNALS.get('s4_fleet').catch(() => null))
            || (await env.KKME_SIGNALS.get('s2_fleet').catch(() => null));
-  const current = raw ? JSON.parse(raw) : { raw_entries: [], demand: { eff_demand_mw: 935 } };
+  const current = raw ? JSON.parse(raw) : { raw_entries: [], demand: null };
   const entries = current.raw_entries ?? [];
 
   // Remove old Layer 3 records and the stale "Energy Cells (Kruonis)" aggregate
@@ -4794,6 +4939,81 @@ async function syncLitgridFleet(env) {
   ]);
   console.log(`[S4/layer3] fleet synced: ${merged.length} entries (${kaupikliai.length} from Layer 3, ${preserved.length} preserved), sd_ratio=${fleet.sd_ratio}`);
   return { synced: kaupikliai.length, total: merged.length, sd_ratio: fleet.sd_ratio };
+}
+
+/**
+ * Phase 36.D — Litgrid publication tripwire.
+ *
+ * Weekly page-diff on the three indexes the demand module depends on. Alerts
+ * and stops. It never ingests, never touches the module, and never changes a
+ * number: adoption is a human reading the document and running an adoption
+ * pass. See workers/lib/publication-watcher.js for why that separation is not
+ * negotiable.
+ *
+ * First run per target stores the fingerprint and stays silent — otherwise
+ * every target would alert once on deploy, which trains the operator to ignore
+ * it. Fail-soft per target: a page that 403s or times out must not take the
+ * cron down with it.
+ */
+async function checkLitgridPublications(env, { force = false } = {}) {
+  const now = Date.now();
+  const results = [];
+  for (const target of WATCH_TARGETS) {
+    const key = fingerprintKey(target.id);
+    try {
+      const raw = await env.KKME_SIGNALS.get(key).catch(() => null);
+      const prev = raw ? JSON.parse(raw) : null;
+      if (!force && !isDue(prev?.checked_at, now)) {
+        results.push({ id: target.id, skipped: 'not due' });
+        continue;
+      }
+      const res = await fetch(target.url, {
+        headers: { 'User-Agent': 'kkme-publication-watcher/1.0 (+https://kkme.eu)' },
+      });
+      if (!res.ok) {
+        results.push({ id: target.id, error: `HTTP ${res.status}` });
+        continue;
+      }
+      const html = await res.text();
+      const fp = fingerprintPage(html);
+      if (!fp) {
+        // No document links found at all. That is far more likely to be a CMS
+        // change than Litgrid deleting its publications, and treating it as
+        // "everything removed" would fire a false alarm. Report, do not alert.
+        results.push({ id: target.id, error: 'no document links found — selector may need updating' });
+        continue;
+      }
+      if (prev?.fingerprint === undefined) {
+        // First sight of this target: record and stay silent.
+        await env.KKME_SIGNALS.put(key, JSON.stringify({
+          fingerprint: fp, checked_at: new Date(now).toISOString(),
+        }));
+        // The raw HTML is kept alongside so the NEXT run can diff link-for-link
+        // and say WHAT changed, not merely that something did.
+        await env.KKME_SIGNALS.put(`${key}:html`, html);
+        results.push({ id: target.id, seeded: true });
+        continue;
+      }
+      const changed = prev.fingerprint !== fp;
+      if (changed) {
+        const prevHtml = (await env.KKME_SIGNALS.get(`${key}:html`).catch(() => null)) || '';
+        const diff = diffPages(prevHtml, html);
+        const alert = buildAlert(target, diff, DEMAND_FORECAST_VERSION.version);
+        if (alert) {
+          await notifyTelegram(env, alert).catch((e) => console.error('[litgrid-watch/notify]', String(e)));
+        }
+        await env.KKME_SIGNALS.put(`${key}:html`, html);
+      }
+      await env.KKME_SIGNALS.put(key, JSON.stringify({
+        fingerprint: fp, checked_at: new Date(now).toISOString(),
+      }));
+      results.push({ id: target.id, changed });
+    } catch (e) {
+      results.push({ id: target.id, error: String(e) });
+    }
+  }
+  console.log('[litgrid-watch]', JSON.stringify(results));
+  return results;
 }
 
 // ─── S3 — Cell Cost Stack ───────────────────────────────────────────────────────
@@ -7599,6 +7819,15 @@ export default {
       console.error('[S4] cron failed:', s4Result.reason);
     }
 
+    // Phase 36.D — Litgrid publication tripwire. Rides the 4-hourly cron; the
+    // weekly rate limit lives in the function, so this costs three HEAD-sized
+    // fetches a week rather than three per tick.
+    try {
+      await withTimeout(checkLitgridPublications(env), 20000);
+    } catch (e) {
+      console.error('[litgrid-watch] cron failed:', String(e));
+    }
+
     // Sync Litgrid Layer 3 Kaupikliai projects into fleet KV
     try {
       const sync = await withTimeout(syncLitgridFleet(env), 20000);
@@ -8227,7 +8456,14 @@ export default {
       if (entries.length === 0) return jsonResp({ error: 'all entries rejected by allowlist/flags', dropped_non_baltic: droppedNonBaltic, dropped_flagged: droppedFlagged }, 400);
       const fleet = processFleet(entries, demand ?? null);
       fleet.raw_entries = entries;
-      fleet.demand      = demand ?? { eff_demand_mw: 935 };
+      // Phase 36.D — this used to write `{ eff_demand_mw: 935 }` when the caller
+      // sent no demand. Nothing read it here (processFleet had its own default of
+      // 752), but syncLitgridFleet and the single-entry upsert read it BACK and
+      // passed it into processFleet — promoting a cosmetic default into the
+      // arithmetic and making the published S/D oscillate 3.17x <-> 2.55x on cron
+      // order. Now null means null: processFleet falls through to the canonical
+      // module, and only a genuine operator override is ever persisted.
+      fleet.demand      = demand ?? null;
       const json = JSON.stringify(fleet);
       await Promise.all([
         env.KKME_SIGNALS.put('s4_fleet', json),
@@ -8246,7 +8482,7 @@ export default {
       if (!body.name || !body.mw || !body.status) return jsonResp({ error: 'name, mw, status required' }, 400);
       const raw     = (await env.KKME_SIGNALS.get('s4_fleet').catch(() => null))
                    || (await env.KKME_SIGNALS.get('s2_fleet').catch(() => null));
-      const current = raw ? JSON.parse(raw) : { raw_entries: [], demand: { eff_demand_mw: 935 } };
+      const current = raw ? JSON.parse(raw) : { raw_entries: [], demand: null };
       const entries = current.raw_entries ?? [];
       const idx     = entries.findIndex(e => e.name === body.name);
       if (idx >= 0) entries[idx] = body; else entries.push(body);
@@ -8296,7 +8532,7 @@ export default {
       // 2. Re-apply to the stored fleet now so it surfaces immediately.
       const raw = (await env.KKME_SIGNALS.get('s4_fleet').catch(() => null))
                || (await env.KKME_SIGNALS.get('s2_fleet').catch(() => null));
-      const current = raw ? JSON.parse(raw) : { raw_entries: [], demand: { eff_demand_mw: 935 } };
+      const current = raw ? JSON.parse(raw) : { raw_entries: [], demand: null };
       const entries = current.raw_entries ?? [];
       injectManualAdditions(entries, manualList);
       const { accepted } = filterFleetEntries(entries);
@@ -8523,10 +8759,18 @@ export default {
           : { ...DEFAULTS.s2, unavailable: true, _serving: 'static_defaults' };
         // Fleet data stripped from /s2 — now served via /s4
         // Balancing demand context (kept for S2 card):
-        base.demand_mw       = 752;
-        base.afrr_demand_mw  = 120;
-        base.mfrr_demand_mw  = 604;
-        base.fcr_demand_mw   = 28;
+        // Phase 36.D — from the canonical module, year-indexed. These were the
+        // 2026 row of the tri-TSO Baltic dimensioning forecasts all along; they
+        // are now that row by construction, and they move with the year.
+        {
+          const _y = new Date().getUTCFullYear();
+          const _p = productDemandMap(_y);
+          base.demand_mw       = addressableDemandMw(_y);
+          base.afrr_demand_mw  = _p.afrr;
+          base.mfrr_demand_mw  = _p.mfrr;
+          base.fcr_demand_mw   = _p.fcr;
+          base.demand_basis    = { source: 'demand-forecast-module', module_version: DEMAND_FORECAST_VERSION.version, year: _y };
+        }
         // Phase 12.10 — Elering €74M Baltic frequency-reserve cost (2025) macro
         // anchor. Annual figure published once/year by Elering (TSO transparency
         // press release); annual hardcode is fine — no staleness risk before the
@@ -10511,10 +10755,45 @@ export default {
         }
       } catch { /* ignore */ }
 
+      // Phase 36.D — the Litgrid publication watcher's own liveness.
+      //
+      // The watcher IS the alerting mechanism for the demand module going
+      // stale, which means that if the watcher itself dies it dies silently and
+      // by definition nothing alerts. Failure-mode B8: every silent-skip path
+      // gets a staleness surface. This is the watcher's.
+      //
+      // The cadence is weekly by design (the source documents move biennially
+      // to annually), so `stale` here means "the watcher has not run", not
+      // "Litgrid has published something".
+      const demand_watch = { module_version: DEMAND_FORECAST_VERSION.version, targets: {} };
+      await Promise.all(WATCH_TARGETS.map(async (t) => {
+        try {
+          const raw = await env.KKME_SIGNALS.get(fingerprintKey(t.id));
+          if (!raw) {
+            demand_watch.targets[t.id] = { status: 'never_checked', checked_at: null, stale: true };
+            return;
+          }
+          const st = JSON.parse(raw);
+          const ageH = st.checked_at ? (Date.now() - new Date(st.checked_at).getTime()) / 3600000 : null;
+          demand_watch.targets[t.id] = {
+            status: 'present',
+            checked_at: st.checked_at ?? null,
+            age_hours: ageH !== null ? parseFloat(ageH.toFixed(1)) : null,
+            // Two missed weekly runs before it reads as stale, so a single
+            // skipped tick does not cry wolf.
+            stale: ageH !== null ? ageH > 24 * 15 : true,
+          };
+        } catch (e) {
+          demand_watch.targets[t.id] = { status: 'error', error: e.message, stale: true };
+        }
+      }));
+      demand_watch.all_current = Object.values(demand_watch.targets).every((t) => t.stale === false);
+
       const health = {
         checked_at: new Date().toISOString(),
         all_fresh:  allFresh,
         signals,
+        demand_watch,
         mac_cron:   macCron,
       };
 

@@ -31,7 +31,7 @@ import { loadConfigDir, PROJECTS_DIR, eur } from './engine.mjs';
 import { writeRunOutput, kvVintage } from './lib/runs.mjs';
 import { getKV } from './kv-snapshot.mjs';
 import { DEFAULT_WACC } from './portfolio.mjs';
-import { DRIVERS, DRIVER_IDS, CENTRAL_DRIVERS } from './scenario-overlay.mjs';
+import { DRIVERS, SENSITIVITY_DRIVER_IDS, CENTRAL_DRIVERS } from './scenario-overlay.mjs';
 import { loadScenarios, runScenario, headlineOf } from './run-scenarios.mjs';
 
 /**
@@ -41,7 +41,7 @@ import { loadScenarios, runScenario, headlineOf } from './run-scenarios.mjs';
  */
 export function probeValues(scenarios) {
   const out = {};
-  for (const id of DRIVER_IDS) {
+  for (const id of SENSITIVITY_DRIVER_IDS) {
     const down = scenarios.scenarios.downside.drivers[id] ?? scenarios.sensitivity_only[id]?.down;
     const up = scenarios.scenarios.upside.drivers[id] ?? scenarios.sensitivity_only[id]?.up;
     if (down === undefined || up === undefined) {
@@ -110,7 +110,7 @@ export async function runSensitivity(configs, kv, scenarios, { wacc = DEFAULT_WA
   const central20yr = central.bridge_totals.project_ebitda;
 
   const rows = [];
-  for (const id of DRIVER_IDS) {
+  for (const id of SENSITIVITY_DRIVER_IDS) {
     const def = DRIVERS[id];
     const { down, up } = probes[id];
 

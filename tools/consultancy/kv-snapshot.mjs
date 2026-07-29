@@ -90,15 +90,27 @@ function reconstructDispatchMetrics(liveTimeModel) {
 /** Trim s4_fleet to the fields the engine actually reads (drops ~110 KB of raw_entries). */
 export function trimFleet(fleet) {
   if (!fleet) return null;
+  // Phase 36.D — `countries` is now read by projectFleet under the named
+  // "Litgrid L TrSc basis" scenario, which replaces the LT share of projected
+  // supply. Only the three aggregate MW fields are kept; per-country `entries`
+  // are dropped with the rest of the raw fleet.
   const {
     trajectory, sd_ratio, phase, cpi, product_sd,
     baltic_operational_mw, baltic_weighted_mw, baltic_pipeline_mw,
-    baltic_operational_mw_strict, non_commercial_mw, eff_demand_mw, demand, updated_at,
+    baltic_operational_mw_strict, baltic_weighted_net_mw, absorption_mw,
+    non_commercial_mw, eff_demand_mw, demand_basis, demand, updated_at, countries,
   } = fleet;
+  const trimCountries = countries
+    ? Object.fromEntries(Object.entries(countries).map(([c, v]) => [c, {
+        weighted_mw: v?.weighted_mw, pipeline_mw: v?.pipeline_mw, operational_mw: v?.operational_mw,
+      }]))
+    : undefined;
   return {
     trajectory, sd_ratio, phase, cpi, product_sd,
     baltic_operational_mw, baltic_weighted_mw, baltic_pipeline_mw,
-    baltic_operational_mw_strict, non_commercial_mw, eff_demand_mw, demand, updated_at,
+    baltic_operational_mw_strict, baltic_weighted_net_mw, absorption_mw,
+    non_commercial_mw, eff_demand_mw, demand_basis, demand, updated_at,
+    countries: trimCountries,
   };
 }
 

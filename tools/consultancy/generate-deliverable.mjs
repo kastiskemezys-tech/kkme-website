@@ -927,7 +927,19 @@ export function verifyDeliverable(html, inp) {
   mustNot('39 assumptions', 'mockup register count');
 
   // Sensitivity: every driver named, both zero-effect drivers disclosed.
-  for (const dr of inp.sensitivity.drivers) must(esc(dr.label), `sensitivity driver ${dr.driver}`);
+  // Phase 36.D — the driver LABEL was asserted but none of its rendered NUMBERS
+  // were, which left the placeholder scan a blind spot: any computed figure the
+  // gate did not explicitly assert could collide with a mockup string and fail
+  // the build as a false positive. It did — a 20-year swing landed on €23.7 M
+  // when the demand basis moved, and the gate could not tell that from leftover
+  // mockup text. Asserting the numbers closes the hole by SHARPENING the gate
+  // rather than by shortening the placeholder list.
+  for (const dr of inp.sensitivity.drivers) {
+    must(esc(dr.label), `sensitivity driver ${dr.driver}`);
+    if (dr.swing_20yr) must(eurM(Math.abs(dr.swing_20yr)), `sensitivity swing for ${dr.driver}`);
+    if (dr.delta_ebitda_down) must(signedM(dr.delta_ebitda_down), `sensitivity down-delta for ${dr.driver}`);
+    if (dr.delta_ebitda_up) must(signedM(dr.delta_ebitda_up), `sensitivity up-delta for ${dr.driver}`);
+  }
   for (const dr of inp.sensitivity.drivers.filter((x) => x.zero_effect_reason)) {
     must(esc(dr.zero_effect_reason), `zero-effect reason for ${dr.driver}`);
   }
@@ -945,7 +957,16 @@ export function verifyDeliverable(html, inp) {
     'STRUCTURE MOCKUP', 'Placeholder numbers scaled from',
   ];
   for (const ph of MOCKUP_PLACEHOLDERS) {
-    if (produced.has(ph)) continue; // this run genuinely computed that value
+    // The escape is "this run genuinely computed that value", and it used to be
+    // an EXACT match against `produced`. But the placeholders are written as
+    // prefixes ('€23.7') while the rendered figures carry their unit
+    // ('€23.7 M'), so the escape could never fire for the numeric ones — every
+    // legitimate collision was an unconditional build failure waiting for the
+    // day some figure landed on a mockup number. Phase 36.D was that day.
+    // Containment is the correct test, and it does not loosen the gate: a
+    // placeholder like 'STRUCTURE MOCKUP' is not a substring of any computed
+    // figure.
+    if ([...produced].some((v) => typeof v === 'string' && v.includes(ph))) continue;
     mustNot(ph, 'mockup placeholder');
   }
 

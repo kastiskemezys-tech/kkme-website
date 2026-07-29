@@ -16,7 +16,7 @@ import { loadFixtureKV } from '../regression-reference.mjs';
 import { runPortfolio } from '../run-portfolio.mjs';
 import { COST_DEFAULTS } from '../bridge.mjs';
 import {
-  DRIVERS, DRIVER_IDS, OVERLAY_DRIVER_IDS, CENTRAL_DRIVERS,
+  DRIVERS, DRIVER_IDS, OVERLAY_DRIVER_IDS, SENSITIVITY_DRIVER_IDS, CENTRAL_DRIVERS,
   workerSource, patchSource, loadEngineWithDrivers, verifyDrivers, OverlayAnchorError,
 } from '../scenario-overlay.mjs';
 import {
@@ -40,8 +40,13 @@ const baselinePromise = (async () =>
   runProject(configs[0], kv, { engine: await loadEngine(), scenario: 'base' }))();
 
 describe('driver mapping', () => {
-  it('declares all six client drivers plus the two sensitivity-only ones', () => {
-    expect(DRIVER_IDS).toHaveLength(8);
+  it('declares all six client drivers, the two sensitivity-only ones, and the named-alternative basis', () => {
+    // Phase 36.D added litgrid_lt_supply_basis. It is deliberately NOT in the
+    // three client cases — those are the table locked via prosperus-mockup-v5
+    // and this phase does not touch a contract — so it reaches the engine only
+    // through the named `litgrid_ltrsc` alternative.
+    expect(DRIVER_IDS).toHaveLength(9);
+    expect(D.litgrid_lt_supply_basis).toBeDefined();
     for (const id of Object.keys(scenarios.scenarios.central.drivers)) {
       expect(D[id]).toBeDefined();
     }
@@ -95,7 +100,13 @@ describe('driver mapping', () => {
 
   it.each(OVERLAY_DRIVER_IDS)('%s reaches the engine — its own output echoes the new value', async (id) => {
     const baseline = await baselinePromise;
-    const probe = scenarios.scenarios.downside.drivers[id] ?? scenarios.sensitivity_only[id].down;
+    // Probe value: the client table first, then the sensitivity table, then a
+    // named alternative — every overlay driver must be exercisable from one of
+    // the three, or it is unreachable and this test is why we would know.
+    const probe = scenarios.scenarios.downside.drivers[id]
+      ?? scenarios.sensitivity_only[id]?.down
+      ?? (Object.values(scenarios.scenarios) as Any[]).map((s) => s.drivers[id]).find((v) => v != null);
+    expect(probe, `no probe value for ${id}`).toBeDefined();
     const drivers = { ...CENTRAL_DRIVERS, [id]: probe };
     const engine = await loadEngineWithDrivers(drivers);
     const result = await runProject(configs[0], kv, { engine, scenario: 'base' }) as Any;
@@ -195,7 +206,12 @@ describe('sensitivity', () => {
 
   it('probe values come from scenarios.json, with no driver left unprobed', () => {
     const probes = probeValues(scenarios) as Any;
-    expect(Object.keys(probes).sort()).toEqual([...DRIVER_IDS].sort());
+    // Every driver the sweep perturbs is probed. litgrid_lt_supply_basis is
+    // deliberately not among them: it swaps the supply model for the TSO's
+    // rather than varying a number, so it has no down/up pair to sweep.
+    expect(Object.keys(probes).sort()).toEqual([...SENSITIVITY_DRIVER_IDS].sort());
+    expect(SENSITIVITY_DRIVER_IDS).not.toContain('litgrid_lt_supply_basis');
+    expect(DRIVER_IDS).toContain('litgrid_lt_supply_basis');
     expect(probes.availability_pct).toEqual({ down: 95, up: 98 });
     expect(probes.rte_decay_pp_yr).toEqual({ down: 0.3, up: 0.1 });
   });
@@ -219,6 +235,20 @@ describe('scenarios.json', () => {
       'trading_realisation', 'cap_price_delta_pct', 'cpi_floor'];
     for (const name of scenarios.order) {
       expect(Object.keys(scenarios.scenarios[name].drivers).sort()).toEqual([...six].sort());
+    }
+  });
+
+  it('the named Litgrid alternative is Central plus one driver, and stays out of `order`', () => {
+    // Phase 36.D. It is not a fourth spread point: its direction against Central
+    // is not monotonic by construction (below our LT projection at 2028, well
+    // above it in conservatism from 2030), so it must not enter the ordered
+    // client table or the monotonicity invariant.
+    const alt = scenarios.scenarios.litgrid_ltrsc;
+    expect(scenarios.order).not.toContain('litgrid_ltrsc');
+    expect(alt.named_alternative).toBe(true);
+    expect(alt.drivers.litgrid_lt_supply_basis).toBe(1);
+    for (const [k, v] of Object.entries(scenarios.scenarios.central.drivers)) {
+      expect(alt.drivers[k], `${k} must match Central`).toBe(v);
     }
   });
 

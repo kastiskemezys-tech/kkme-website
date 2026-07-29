@@ -235,13 +235,34 @@ describe('reconciliation — internal bank', () => {
     expect(failures, JSON.stringify(failures.slice(0, 5), null, 2)).toEqual([]);
   });
 
-  it('runs the seven contracted checks, plus the all-years extension', async () => {
+  it('runs the seven contracted checks, the all-years extension, and the demand-side four', async () => {
+    // 1-7 are the contracted bank; 8 extends the bridge identities across all
+    // twenty years; 9-12 are Phase 36.D. The bridge checks prove the deliverable
+    // is internally consistent — which a deliverable built on a wrong
+    // denominator would also be. 9-12 tie the denominator to the TSOs' own
+    // published tables, which is the part a reader can actually go and check.
     const report = await reportPromise;
     const ids = [...new Set(report.internal.map((c: Any) => c.id))] as string[];
-    expect(ids).toHaveLength(8);
-    for (const n of [1, 2, 3, 4, 5, 6, 7, 8]) {
+    expect(ids).toHaveLength(12);
+    for (const n of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]) {
       expect(ids.some((id) => id.startsWith(`internal_${n}_`)), `internal_${n}`).toBe(true);
     }
+  });
+
+  it('the demand-side checks are live, not vacuous', async () => {
+    // internal_9 walks engine.years[].demand_mw. If the engine ever stops
+    // publishing that field the loop would find nothing to compare and the
+    // check would pass by having asserted nothing — the failure mode that makes
+    // a green harness worse than no harness.
+    const report = await reportPromise;
+    const nine = report.internal.filter((c: Any) => c.id === 'internal_9_demand_ties_to_module');
+    expect(nine.length).toBeGreaterThan(0);
+    for (const c of nine) expect(c.status).toBe('pass');
+    const ten = report.internal.find((c: Any) => c.id === 'internal_10_demand_base_year_ties_to_752');
+    expect(ten.actual).toBe(752);
+    const twelve = report.internal.find((c: Any) => c.id === 'internal_12_absorption_applied');
+    expect(twelve.actual).toBeGreaterThan(0);
+    expect(twelve.actual).toBe(twelve.expected);
   });
 
   it('covers the reference asset, all three projects and all three scenarios', async () => {

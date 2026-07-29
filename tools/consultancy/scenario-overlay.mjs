@@ -164,6 +164,40 @@ export const DRIVERS = {
     echo: (result) => result.signal_inputs?.afrr_cap,
   },
 
+  litgrid_lt_supply_basis: {
+    label: 'Litgrid LT supply basis',
+    unit: 'on/off',
+    central: 0,
+    reach: 'overlay',
+    engine_binding: 'LITGRID_LT_SUPPLY_BASIS',
+    engine_site: 'workers/fetch-s1.js — projectFleet() supply projection, LT share only',
+    // Excluded from the one-at-a-time sensitivity sweep. A tornado bar
+    // answers "how much does this number matter"; this driver does not vary a
+    // number, it swaps the supply model for another institution's. There is no
+    // down/up pair to perturb, and putting a boolean on a tornado chart next to
+    // a realisation rate would imply a comparability that is not there.
+    sensitivity: false,
+    effect:
+      'Replaces the Lithuanian share of projected supply with Litgrid\'s own L TrSc series ' +
+      '(1 260 → 2 652 MW, 2028-2035, as published — no realisation rate, no S-curve, no ' +
+      'haircut). EE and LV stay on KKME\'s projection; Kruonis stays additive. Moves supply ' +
+      '→ S/D → market depth and per-product bid acceptance.',
+    // Direction is NOT monotonic against Central and that is the finding: at
+    // 2028 Litgrid's series is BELOW our Central LT projection (1 260 vs ~2 401
+    // MW), and from 2030 it is well above ours in conservatism — our Central
+    // builds 2.0-2.6x more LT capacity than the TSO's own scenario assumes. So
+    // this scenario raises revenue in the years that dominate a 20-year IRR.
+    // It is a named, attributed alternative, not a spread around Central.
+    expected_direction: 'none',
+    toEngine: (v) => Boolean(v),
+    anchor: 'const LITGRID_LT_SUPPLY_BASIS = false;',
+    replace: (v) => `const LITGRID_LT_SUPPLY_BASIS = ${Boolean(v)};`,
+    verify: () => true,
+    // Echo the projected S/D, which is what this driver actually moves —
+    // pipeline_realisation is untouched by it and would echo a false negative.
+    echo: (result) => result.years?.[0]?.sd_ratio ?? null,
+  },
+
   cpi_floor: {
     label: 'Cannibalisation-index floor',
     unit: '×',
@@ -241,6 +275,8 @@ export const DRIVERS = {
 
 export const DRIVER_IDS = Object.keys(DRIVERS);
 export const OVERLAY_DRIVER_IDS = DRIVER_IDS.filter((id) => DRIVERS[id].reach === 'overlay');
+/** Drivers the one-at-a-time sensitivity sweep perturbs. Excludes named-alternative bases. */
+export const SENSITIVITY_DRIVER_IDS = DRIVER_IDS.filter((id) => DRIVERS[id].sensitivity !== false);
 export const CENTRAL_DRIVERS = Object.fromEntries(
   DRIVER_IDS.map((id) => [id, DRIVERS[id].central])
 );

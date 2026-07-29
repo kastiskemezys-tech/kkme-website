@@ -323,17 +323,18 @@
       "id": "reserve_demand_mw",
       "category": "saturation",
       "label": "Baltic reserve demand",
-      "value": 935,
+      "value": 817,
       "unit": "MW",
-      "source": "TSO procurement volumes across FCR + aFRR + mFRR, grown 2%/yr on ENTSO-E variability projections",
+      "source": "Tri-TSO Baltic LFC block dimensioning forecasts (Elering + AST + LITGRID): mFRR upward + aFRR upward + FCR, published year by year 2026-2035. Canonical module workers/lib/demand-forecast.js.",
       "sensitivity_range": [
         700,
         1200
       ],
       "override": null,
       "engine_binding": "engine:fleet_context.demand_mw",
-      "basis": "live-kv",
-      "note": "Fleet-global and project-independent by construction — it does not scale with the asset being modelled."
+      "basis": "primary-source",
+      "note": "Fleet-global and project-independent by construction — it does not scale with the asset being modelled. Phase 36.D: was 935, an undocumented literal from fb088c4 kept alive by a cosmetic KV default read back into processFleet. The value shown is the first projected operating year of the reference asset; the module carries the full series (752 in 2026 to 922 in 2035, then component-trend).",
+      "review_cycle": "litgrid-biennial"
     },
     {
       "id": "lt_zone_price_correlation",
@@ -410,7 +411,7 @@
       "id": "operating_calibration_eur_kw_yr",
       "category": "cost",
       "label": "Operating cost, reconciling adjustment",
-      "value": 2.56,
+      "value": 2.57,
       "unit": "EUR/kW/yr",
       "source": "Derived, not sourced: closes the 4.4% gap between the engine's cost taxonomy (RTM + BRP + OPEX) and the client's 4-line stack at the reference asset",
       "sensitivity_range": [
@@ -865,14 +866,36 @@
         "side_effect": "less cycling means slower degradation means higher IRR (+0.9% relative on the reference asset). A consistency fix that improves the answer deserves more scrutiny than one that worsens it, which is why the benchmark consequence was chased rather than accepted quietly."
       },
       "register_version": null
+    },
+    {
+      "date": "2026-07-29",
+      "id": "reserve_demand_mw",
+      "old": 935,
+      "new": 817,
+      "reason": "Phase 36.D — demand basis moves from the unsourced 935 (undocumented literal, fb088c4) to the tri-TSO Baltic LFC-block procurement series, year-indexed 2026-2035; operator signed CP-1 decisions 2, 5 and 6. Bridge calibration re-derives as a consequence of the resulting revenue movement, not as an independent decision.",
+      "source": "Baltic LFC block FRR + FCR dimensioning forecasts 2026-2035 (Elering, AST, LITGRID); Litgrid Lankstumo poreikiu ataskaita 2026 for component structure",
+      "decided_by": "operator",
+      "phase": "36.D",
+      "register_version": "r2.eb8712f9"
+    },
+    {
+      "date": "2026-07-29",
+      "id": "operating_calibration_eur_kw_yr",
+      "old": 2.56,
+      "new": 2.57,
+      "reason": "Phase 36.D — demand basis moves from the unsourced 935 (undocumented literal, fb088c4) to the tri-TSO Baltic LFC-block procurement series, year-indexed 2026-2035; operator signed CP-1 decisions 2, 5 and 6. Bridge calibration re-derives as a consequence of the resulting revenue movement, not as an independent decision.",
+      "source": "Baltic LFC block FRR + FCR dimensioning forecasts 2026-2035 (Elering, AST, LITGRID); Litgrid Lankstumo poreikiu ataskaita 2026 for component structure",
+      "decided_by": "operator",
+      "phase": "36.D",
+      "register_version": "r2.eb8712f9"
     }
   ],
-  "synced_at": "2026-07-29T06:14:24.819Z",
+  "synced_at": "2026-07-29T10:20:15.615Z",
   "version": {
-    "id": "r1.35c74b94",
-    "seq": 1,
-    "hash": "35c74b94e60163067847726350beef2d06f16b52aeb10b37f91c020161e6a40c",
+    "id": "r2.eb8712f9",
+    "seq": 2,
+    "hash": "eb8712f91bee04797a96410f10f8cc03adc9d0ad889a0c6e6d2e06bb81fee651",
     "effective_from": "2026-07-29",
-    "changelog_entries": 6
+    "changelog_entries": 8
   }
 }

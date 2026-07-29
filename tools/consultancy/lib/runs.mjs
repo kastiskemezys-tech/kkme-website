@@ -55,6 +55,7 @@ import { execFileSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { HERE, OUTPUT_DIR, REPO_ROOT } from '../engine.mjs';
+import { VERSION as DEMAND_FORECAST_VERSION } from '../../../workers/lib/demand-forecast.js';
 
 export const RUNS_PATH = join(HERE, 'runs.jsonl');
 
@@ -194,19 +195,31 @@ export class RunRegistryError extends Error {}
  *   register_version?: string|null, timestamp?: string,
  *   engine_git_sha?: string, notes?: string|null,
  * }} spec
+ *
+ * Phase 36.D — `demand_module_version` joins the input hash. Every number in a
+ * deliverable divides by the demand series, so a run made against a superseded
+ * TSO forecast must not be reproducible as a run made against the current one.
+ * Omitting it would be worse than a missing field: the run_ids would collide,
+ * and the registry would positively assert that two different answers were the
+ * same answer.
  */
 export function buildEntry({
   runner, subject = null, kind = 'runner', inputs, output, artefact = null,
-  data_vintage = null, register_version = registerVersion(), timestamp = new Date().toISOString(),
+  data_vintage = null, register_version = registerVersion(),
+  demand_module_version = DEMAND_FORECAST_VERSION.version,
+  timestamp = new Date().toISOString(),
   engine_git_sha = engineGitSha(), notes = null,
 }) {
   if (!runner) throw new RunRegistryError('a run must name its runner');
-  const input_hash = hashOf({ runner, subject, kind, inputs, data_vintage, register_version });
+  const input_hash = hashOf({
+    runner, subject, kind, inputs, data_vintage, register_version, demand_module_version,
+  });
   const output_hash = typeof output === 'string' ? output : hashPayload(output);
   const run_id = `${runner}-${sha256(`${engine_git_sha} ${input_hash} ${output_hash}`).slice(0, 12)}`;
   return {
     run_id, timestamp, runner, kind, subject, artefact,
-    engine_git_sha, input_hash, output_hash, data_vintage, register_version,
+    engine_git_sha, input_hash, output_hash, data_vintage,
+    register_version, demand_module_version,
     ...(notes ? { notes } : {}),
   };
 }
