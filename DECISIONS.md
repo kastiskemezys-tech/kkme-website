@@ -1704,3 +1704,209 @@ down since 2026-07-17. Only the day-ahead component is measurable. The backtest'
 `basis` block states this, and states what else the number excludes — intraday
 execution, bid rejection, imbalance exposure and balancing forecast error are all
 outside it. It measures day-ahead policy quality and nothing more.
+
+## Phase 36.B batch-3 — Part 0 (measured-value cutover)
+
+Entries continue 36.B3's sequence because Part 0 IS the adoption of 36.B3's
+measurement, taken as an operator decision dated 2026-07-28.
+
+### 36.B3-H — the invariant was sharpened, not relaxed
+
+The prompt's instruction was explicit: go through the register's governance
+invariants "properly this time — re-fit the bindings and scenario resolution so
+the invariants HOLD with the measured values, don't relax them."
+
+Batch-2's four red tests all traced to one rule: *every row carries an
+`engine_binding`, and its value is asserted equal to what the code holds*. A
+measured-but-not-adopted observation has no code constant, so recording it as a
+row meant deleting that rule.
+
+The re-fit splits the rule in two rather than weakening either half:
+
+| row kind | binding | must carry |
+|---|---|---|
+| live | asserted equal to the code | `engine_binding` |
+| superseded | none, and none permitted | `basis: "superseded"` + `superseded_by` + `superseded_on`, no override |
+
+`validateRegister` now enforces BOTH directions, which is strictly stronger than
+before: an unbound row with no supersession declaration used to be caught only
+by an assertion in the test file, and is now a schema failure in the library.
+Superseded rows are excluded from `effectiveRegister` (provenance is not an
+input), untouched by `--sync`, and rendered in the client workbook with the
+override cell replaced by "superseded &lt;date&gt; → &lt;row&gt;". The per-row
+test loop split too: live rows assert their binding, superseded rows assert
+their pointer resolves to a live row whose value actually differs — so a
+superseded row cannot quietly come back into agreement and start looking live.
+
+Then the four "red tests" simply went green with the measured values in place,
+because the values now tie to the code: the binding resolves through
+`driver:trading_realisation` → scenarios.json Central → the shipped worker
+constant, and all three moved together.
+
+### 36.B3-I — the whole ladder had to move, because the public card shows all of it
+
+The cutover names one value. `TRADING_REALISATION` holds five.
+
+`RevenueCard` carries a base/conservative/stress selector and reads
+`data.all_scenarios` for all three at once (`app/components/RevenueCard.tsx:1586,
+1808`), and the regression matrix serves all three from `/revenue?scenario=`.
+Moving `base` to 0.7234 and leaving `conservative` at 0.80 would have published a
+"conservative" case whose trading assumption was *more optimistic* than the base
+case — an internal contradiction on the public site, and precisely the class of
+defect the arc's bankability row 5 exists to catch.
+
+So the ladder moved with its anchor and kept its shipped 5pp steps
+(0.6734 / 0.6234) rather than being re-invented. Two checks on that choice:
+
+- it is the smallest change that preserves the existing structure — one anchor
+  moved, no step re-derived, so nothing new was invented;
+- the resulting rungs land inside the measurement's own daily distribution
+  (p25 = 0.628, median = 0.756), so the ladder stays empirically plausible at
+  every rung rather than merely arithmetically consistent. `stress` ≈ the
+  measured p25 — "a year made entirely of bottom-quartile trading days" — which
+  is a better-defended stress case than "20 % worse than an assumption".
+
+A test now pins the steps, so a future edit to `base` alone fails loudly.
+
+### 36.B3-J — Downside and Upside are the measurement's own monthly extremes
+
+The prompt proposed monthly-min and monthly-max and asked for the choice to be
+documented. Taken, at the exact figures rather than the rounded ones quoted in
+the arc: **0.6535** (2025-09) and **0.8155** (2026-05), not 0.654/0.815.
+
+The reason to prefer them over a spread around the point estimate is that they
+are *observed*: an advisor can ask what the Downside case means and be told "the
+worst month this policy actually had, on real prices", instead of "the central
+value minus seven points". The register's declared sensitivity range is set to
+the same band, so the disclosure and the scenario table are one number in two
+places — with a test asserting they cannot drift apart.
+
+It also fixes the batch-2 finding directly: the old range `[0.78, 0.88]` did not
+contain the measurement. The new range contains its own value by construction.
+
+The honest limitation, stated in the row: this is ONE market year, so the band
+is an observed range and not a distribution. Twelve monthly observations from a
+single year cannot separate seasonality from trend. The row says "remeasure
+annually and widen the band if a second year disagrees", and the runner enforces
+that a disagreeing remeasurement cannot silently re-cut the model (36.B3-K).
+
+### 36.B3-K — the backtest runner became a remeasurement harness, and kept its refusal
+
+`run-backtest.mjs` hardcoded `const assumed = 0.85`. After the cutover that
+literal would have been a second, stale copy of a value the engine already holds
+— rule #4 territory. It now reads `sc.trd_real` from the engine and reports
+`engine_value` / `measured` / `delta` / `adopted`.
+
+The interesting part is what `updateRegister` does with a *disagreeing* rerun. It
+would be easy to make adoption the new default now that the operator has adopted
+once. It does the opposite:
+
+- **agrees** → refresh the row's provenance (source, window, day count, monthly
+  band) and log "nothing moved". No value changes.
+- **disagrees** → the bound row keeps its value, gains a `REMEASURED at …`
+  pointer, and the changelog records the gap as pending an operator decision.
+
+So next year's measurement can inform the model but cannot move it. That is the
+same boundary batch-2 drew, preserved on the other side of the cutover — a
+cutover is an operator decision every time, not just the first time. The
+superseded row is explicitly left alone by both branches: history is not
+rewritten by a later run.
+
+### 36.B3-L — a cost constant moved as a consequence, and that is the reconciliation working
+
+`OPERATING_CALIBRATION_EUR_KW_YR` went 2.08 → 2.56 and it is worth being clear
+that this was not a decision.
+
+The constant closes the gap between two cost taxonomies — the engine's
+(RTM % + flat BRP fee + OPEX) and the client's contracted 4-line stack (16 % of
+gross + €29/kW/yr) — **at the reference asset's revenue level**. Lower the
+revenue and the client stack's percentage lines fall while the engine's two flat
+lines do not, so the gap widens: €103 848 → €128 104, or €2.077 → €2.562 per kW.
+
+`bridgeCalibration()` re-derives it from the reference asset and a vitest holds
+the constant to that derivation — the mechanism 34.2 built precisely so this
+could not go silently stale. It fired on the first change that exercised it. The
+constant was re-derived, not re-fitted by hand, and the register row synced with
+it. Without the move the reference asset stops closing within the contracted ±2 %
+(it lands at −4.4 %, still inside the ±5 % decision rule but outside the tighter
+promise).
+
+Worth noting for B6: this is a second-order dependency between an assumption and
+a reconciliation constant that no one would find by reading either file alone.
+It belongs in the lender methodology's known-limitations list.
+
+### 36.B3-M — the 15-minute uplift moves a card, not a model
+
+The two adopted values look symmetrical and are not.
+
+`trading_realisation` is a model input: it multiplies the arbitrage revenue line
+in `computeRevenueV7` and reaches every delivered number. `RYSTAD_15MIN_UPLIFT_
+DECIMAL` is read at exactly two sites, both inside `computeDispatchV2`, and both
+are *display* fields on the public dispatch card
+(`capture_eur_mwh_15min_uplifted` and the disclosed `uplift_factor_decimal`).
+Grep confirms nothing else in the worker reads it. `/revenue` stayed 54/54
+byte-identical across this commit, which is the assertion rather than the claim.
+
+Per-route reach, which is the part that matters for the deploy:
+
+| route | reads the constant | moves on deploy? |
+|---|---|---|
+| `/revenue` | no | no — 54/54 identical, asserted |
+| `/api/dispatch?mode=realised` | indirectly | **no** — serves precomputed `dispatch:<date>:<dur>h` written by the BTD ingest cron; stored payloads carry the old factor (90-day TTL) |
+| `/api/dispatch?mode=forecast` | yes, live | would — but the branch is structurally dead (36.B0-G) |
+| `/api/trading`, `/api/trading/latest` | no | no — V1 path |
+
+So the honest statement to the operator is: **this commit changes nothing the
+site currently serves.** The realised card only moves once BTD returns (down
+since 2026-07-17, 36.B1-G) and the cron rewrites KV, at which point the
+parenthetical "with 15-min uplift" figure falls exactly 4.52 % (×1.14 → ×1.0885)
+— €11.50 → €10.98/MWh at the last live capture. The unuplifted figure beside it
+is unchanged.
+
+It also gained a register row, which is the durable half of this change: a
+public-facing constant sourced to a vendor note and never checked is exactly what
+the register exists to prevent, and it had been sitting outside it.
+
+### 36.B3-N — client impact, measured on the frozen fixture
+
+Both sides of the table below are run against the **frozen KV fixture**, not live
+KV. That is deliberate and follows the byte-identity gate's own reasoning: a
+before/after on live KV would blend the cutover with a day's market movement and
+attribute both to the decision. What follows is code-attributable in full.
+
+Portfolio, Central (the delivered case):
+
+| line | before | after | Δ |
+|---|---:|---:|---:|
+| Gross Y1 | €13 580 628 | €12 967 071 | −4.52 % |
+| EBITDA Y1 | €8 432 335 | €7 881 307 | −6.53 % |
+| Pre-financing CF Y1 | €8 135 335 | €7 584 307 | −6.77 % |
+| Gross 20-yr | €364 885 003 | €350 316 248 | −3.99 % |
+| EBITDA 20-yr | €193 094 020 | €179 359 512 | −7.11 % |
+| Pre-financing CF 20-yr | €150 385 020 | €136 650 512 | −9.13 % |
+| NPV @ 8 % | €43 333 457 | €36 379 208 | **−16.05 %** |
+| MOIC | 3.728 | 3.387 | −9.15 % |
+
+Three things in that table are worth saying out loud to the client.
+
+**The gearing of the deltas is the story.** Revenue falls 4.5 %, EBITDA 6.5 %,
+cash flow 6.8 %, NPV 16.1 %. Costs are largely fixed, and NPV discounts a
+thinner margin — a 4.5 % revenue correction lands as a 16 % NPV correction. Any
+conversation that reports only the revenue delta understates it by 3.5×.
+
+**Downside is where it bites.** Stoniškiai's Downside NPV goes from €2 234 571 to
+**−€1 299** — through zero. Eigirdžiai's falls 92 % to €130 798 and Bitėnai's
+66 %. The portfolio's Downside NPV drops 81 % to €1 416 615. The Downside case
+was always thin; at measured trading realisation it is marginal, and that is now
+the honest statement of it. This is exactly the number a lender's advisor sizes
+debt against, so it is better found here than in their model.
+
+**Upside barely moves** (−3.1 % EBITDA Y1, −5.8 % NPV), because the Upside
+driver rose to 0.8155 from 0.88 — a much smaller step than Central's. The spread
+between cases has widened, which is the correct consequence of replacing a
+narrow assumed band with a wider observed one.
+
+All 133 reconciliation assertions still pass (73 internal, 60 external, 1 known
+Bitėnai-Upside IRR warn, 0 fail), and the Central invariant is still EXACT —
+Central reproduces the unpatched engine field-for-field. The model is internally
+consistent at the new values; it is simply worth less.
