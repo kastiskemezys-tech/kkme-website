@@ -3727,9 +3727,27 @@ function utcPeriod(offsetDays = 0) {
   return `${y}${mo}${da}0000`;
 }
 
+/**
+ * Every `price.amount` in an ENTSO-E A44 document, in document order.
+ *
+ * Phase 36.B batch-3 (fixes 36.B0-H). The character class used to be `[\d.]+`,
+ * which cannot match a leading minus — and the failure mode was not a lost sign
+ * but a lost HOUR: the whole element failed to match, so a day with seven
+ * negative hours yielded 41 values instead of 48 and **every subsequent index
+ * shifted**, silently re-labelling afternoon prices as midday ones.
+ *
+ * Negative Lithuanian day-ahead hours are not exotic. Across the committed
+ * 11-year history they appear on 125 days, and the trend is steep: none before
+ * 2020, 20 days in 2023, 42 in 2024, 44 in 2025 — better than one day in nine
+ * in the current solar-driven market.
+ *
+ * `[-\d.eE+]` matches the Node-side `parseA44` in backfill-entsoe.mjs, which
+ * has always accepted negatives; that is why the committed price history is
+ * clean and only the worker path was affected.
+ */
 function extractPrices(xml) {
   const prices = [];
-  const re = /<price\.amount>([\d.]+)<\/price\.amount>/g;
+  const re = /<price\.amount>([-\d.eE+]+)<\/price\.amount>/g;
   let m;
   while ((m = re.exec(xml)) !== null) prices.push(parseFloat(m[1]));
   return prices;
@@ -10410,4 +10428,8 @@ export {
   bidAcceptanceFactor,
   reservePrice,
   marketDepthFactor,
+  // Phase 36.B batch-3 — the negative-price parse (36.B0-H) is pinned against a
+  // real recorded ENTSO-E response, which means the test has to call the same
+  // function the fetch paths call rather than a copy of its regex.
+  extractPrices,
 };

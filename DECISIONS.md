@@ -2018,3 +2018,122 @@ and not an offer received." `normaliseContract` **throws** if a live contract
 (non-zero floor, share and term) carries no counterparty basis at all. A real
 term sheet is `--floor <x> --term <n>` away; a floor that nobody can trace
 cannot be run by accident.
+
+## Phase 36.B batch-3 — Part 2 (36.B0-H negative-price parser fix)
+
+### 36.B0H-A — the fix is one character class; the analysis is the phase
+
+`/<price\.amount>([\d.]+)<\/price\.amount>/g` → `([-\d.eE+]+)`. That is the
+whole change. Everything below is the answer to "and what did that break".
+
+The character class now matches `parseA44` in `backfill-entsoe.mjs`, which has
+always accepted negatives. That is not a coincidence worth glossing over: it is
+why the committed 11-year price history is CLEAN and only the worker path was
+affected. Two parsers over the same document format, one right and one wrong,
+sitting in the same repo — a rule #4 violation that had never been noticed
+because the two are on different sides of the runtime boundary. A test now
+asserts they agree on the same document.
+
+### 36.B0H-B — 125 corrupted days in the history, and the trend is the story
+
+Counted over the committed LT day-ahead files (`data/da-hourly-LT-*.json`,
+101 470 covered hours across 4 228 days), a "corrupted day" being any day
+carrying at least one negative hour — the days on which the old regex would have
+returned a short, index-shifted array:
+
+| year | covered hours | negative hours | days with ≥1 negative | worst day | min price |
+|---|---:|---:|---:|---:|---:|
+| 2015-2019 | 43 824 | 0 | 0 | — | +0.12 |
+| 2020 | 8 784 | 5 | 2 | 4 h | −1.73 |
+| 2021 | 8 760 | 5 | 2 | 4 h | −1.41 |
+| 2022 | 8 760 | 2 | 1 | 2 h | −0.04 |
+| 2023 | 8 760 | 100 | **20** | 15 h | −56.55 |
+| 2024 | 8 784 | 186 | **42** | 11 h | −19.96 |
+| 2025 | 8 760 | 178 | **44** | 14 h | −23.58 |
+| 2026 YTD | 5 038 | 61 | **14** | 8 h | −13.55 |
+| **total** | **101 470** | **537** | **125 (2.96 %)** | | |
+
+Zero before 2020 and better than one day in nine now. Solar build-out did this,
+and it is accelerating — which means a defect that was genuinely harmless when
+the regex was written became a live public-data defect somewhere around 2023 and
+nobody re-checked. Worth carrying into B6's limitations list as a pattern, not
+just as an instance: *an input assumption that was true when written*.
+
+### 36.B0H-C — what the corruption actually did, on a real day
+
+2025-03-22 LT, fetched from the Transparency Platform and committed as
+`workers/__tests__/fixtures/entsoe-a44-LT-2025-03-22.xml`. Seven negative hours,
+trough −€11.53.
+
+| published field | old regex | correct | error |
+|---|---:|---:|---:|
+| hours returned | 17 | 24 | −7 |
+| LT daily average | €11.68 | €6.78 | **+72.3 %** |
+| daily swing (peak − trough) | €20.98 | €33.51 | **−37.4 %** |
+| peak hour (UTC) | 16 | 19 | 3 h wrong |
+| trough hour (UTC) | 11 | 12 | 1 h wrong |
+
+The direction matters. The site **overstated the average price and understated
+the arbitrage swing** — the headline number on `PeakForecastCard` — on exactly
+the days when spreads were widest. And it did it while displaying a peak hour
+that was three hours off, which is a rule #2 failure (a label asserting *when* a
+value came from) arriving through a parser instead of through a display string.
+
+The mechanism is worth stating precisely because the intuition is wrong: the
+regex does not lose the SIGN, it loses the ELEMENT. Everything after the first
+negative hour shifts down one index and gets re-labelled with someone else's
+hour. Tests pin both the shift and the shifted peak/trough index.
+
+### 36.B0H-D — per-route reach, and why almost nothing moves at deploy
+
+`extractPrices` has four call sites, and none of them is in a route's read path:
+
+| call site | reached from | route impact |
+|---|---|---|
+| `computeS1` LT/SE4/PL (`:4145-4147`) | cron + `GET /` | writes the `s1` KV key |
+| `fetchBznRange` → `computeHistorical` (`:3795`) | cron + `GET /` | `rsi_30d`, `trend_vs_90d`, `pct_hours_above_20` |
+| `fetchBznRange` → tomorrow | cron + `GET /` | `da_tomorrow` shape metrics |
+| `/trading/push` (`:9743`) | BTD ingest POST | `body.da_hourly` → `dispatch:<date>` KV |
+
+So:
+
+- **`/revenue` — unaffected.** 54/54 byte-identical, asserted. The engine reads
+  `s1.spread_eur_mwh` only as a FALLBACK when `s1_capture` is absent, and
+  `s1_capture` comes from a different source entirely (see 36.B0H-E). It does
+  echo `spread_eur_mwh` and `lt_daily_swing_eur_mwh` in its `signal_inputs` /
+  `live_rate` disclosure blocks, so those echoed values were wrong on corrupted
+  days — a disclosure defect, not a revenue one.
+- **`/read` — moves, but not at deploy.** It serves the stored `s1` key, so it
+  changes only after the next cron or `GET /` rewrites it. Six public components
+  read it: `PeakForecastCard`, `SpreadCaptureCard`, `HeroMarketNow`,
+  `SignalBar`, `StatusStrip`, `HeroBalticMap`.
+- **`GET /` — moves immediately**, because it computes live. It is the refresh
+  endpoint, not a card's data source.
+- **`/api/dispatch?mode=realised` — moves only once BTD returns** and the ingest
+  cron rewrites `dispatch:<date>` (down since 2026-07-17, 36.B1-G).
+- **`/s1/history`, `/s1/capture` — unaffected** (36.B0H-E).
+
+Stored KV was checked directly rather than assumed: in both the frozen fixture
+and the live snapshot, `s1.lt_hourly_24` holds 24 values with a minimum of
+€1.39. **There is no negative hour in the currently stored payload**, so nothing
+the site is serving today is corrupted, and the fix will first bite on the next
+negative-price day.
+
+### 36.B0H-E — the capture path was never affected, because it uses a different source
+
+Checked rather than assumed, and it is the finding that most changes the blast
+radius. `computeCapture` — which produces `s1_capture`, `s1_capture_history`,
+the rolling 30-day stats and the monthly aggregation — calls
+`fetchEnergyCharts(today)`, a JSON API with its own parser. It never touches
+`extractPrices`.
+
+That is why the stored `s1_capture.history` carries perfectly correct NEGATIVE
+charge prices (−€2.05, −€0.68, −€0.03 per MWh in the fixture): the asset was
+paid to charge, and that path recorded it faithfully the whole time.
+
+So the estate has **three** day-ahead price paths — energy-charts JSON (correct,
+feeds capture), ENTSO-E via `parseA44` (correct, feeds the committed history and
+every consultancy runner), and ENTSO-E via `extractPrices` (broken until now,
+feeds the S1 signal payload). The first two were right; only the third was
+wrong, and it is the one on the public signal cards. A B6 governance item: three
+paths for one quantity is two too many, and the register cannot see any of them.
