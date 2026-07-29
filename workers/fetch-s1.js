@@ -4977,10 +4977,24 @@ async function checkLitgridPublications(env, { force = false } = {}) {
       const html = await res.text();
       const fp = fingerprintPage(html);
       if (!fp) {
-        // No document links found at all. That is far more likely to be a CMS
-        // change than Litgrid deleting its publications, and treating it as
-        // "everything removed" would fire a false alarm. Report, do not alert.
-        results.push({ id: target.id, error: 'no document links found — selector may need updating' });
+        // No document links found. If we have never seen any on this page the
+        // target was pinned wrong and the operator needs to know NOW rather
+        // than discover it the day a forecast is republished — a watcher that
+        // reports "no links" once and then goes quiet looks armed and is not.
+        // If we HAD links and now do not, the page moved or the selector broke,
+        // which is equally worth an alert. Either way: alert, do not sit on it.
+        const hadLinks = prev?.fingerprint;
+        await notifyTelegram(env,
+          `⚠️ Litgrid watcher blind — ${target.label}\n${target.url}\n\n`
+          + (hadLinks
+            ? 'This page previously listed documents and now lists none. The page moved or the selector broke.'
+            : 'No documents have ever been found on this page. The target URL is probably wrong.')
+          + `\n\nThe demand module (v${DEMAND_FORECAST_VERSION.version}) is NOT being watched on this target.`
+        ).catch((e) => console.error('[litgrid-watch/notify]', String(e)));
+        await env.KKME_SIGNALS.put(key, JSON.stringify({
+          fingerprint: null, blind: true, checked_at: new Date(now).toISOString(),
+        }));
+        results.push({ id: target.id, error: 'no document links found — alerted' });
         continue;
       }
       if (prev?.fingerprint === undefined) {
@@ -10775,6 +10789,10 @@ export default {
           }
           const st = JSON.parse(raw);
           const ageH = st.checked_at ? (Date.now() - new Date(st.checked_at).getTime()) / 3600000 : null;
+          if (st.blind) {
+            demand_watch.targets[t.id] = { status: 'blind', checked_at: st.checked_at ?? null, stale: true };
+            return;
+          }
           demand_watch.targets[t.id] = {
             status: 'present',
             checked_at: st.checked_at ?? null,

@@ -2946,3 +2946,51 @@ the aggregate number was hiding:
 
 So "year 1 is neutral" and "the twenty-year NPV falls 1.8 %" are the same fact seen at two
 horizons. Reporting either alone would have been true and misleading.
+
+
+---
+
+## Phase 36.D Pause C — two of three tripwires were pinned to URLs I never fetched
+
+The publication watcher shipped with three targets. `/health.demand_watch` after the first
+live cron tick:
+
+```
+fna               present, checked 16:01:30Z
+balancing-market  never_checked
+studies           never_checked
+```
+
+Both of those URLs return **zero document links**. I had verified the FNA page in Pause A —
+I fetched it, parsed it, downloaded the report from it. The other two I wrote from memory of
+the site's navigation, and they resolved to a generic section page (both returned an
+identical 2 023 742-byte body, which was the tell had anyone looked).
+
+The watcher would never have alerted about it. Its no-links branch was written to *report and
+continue*, on the reasoning that an empty page is more likely a CMS change than a deletion
+and should not fire a false alarm. That reasoning is right about the false alarm and wrong
+about everything else: a tripwire that says "I found nothing" once and then goes quiet is
+indistinguishable, from the outside, from a tripwire that is working. Two thirds of the
+demand module's change-detection was dead on arrival and looked armed.
+
+Three changes:
+
+- **Targets are the DOCUMENT pages, not section indexes** — Litgrid replaces a report in
+  place, which `diffPages` already sees as a retitle. An index adds a layer that can silently
+  stop listing what we depend on.
+- **Blind is an ALERT, not a log line.** Never-had-links means the target was pinned wrong;
+  had-links-now-none means the page moved or the selector broke. Both are worth waking
+  someone. The alert says explicitly which target is unwatched.
+- **Each target records `verified_at` and `links_seen`** from an actual fetch, and a test
+  asserts both are present and non-zero. A pinned URL that nobody has fetched is a guess
+  wearing a config's clothes.
+
+The general lesson is not "check URLs". It is that **B8's countermeasure has a failure mode
+of its own**: the staleness surface has to distinguish *quiet because nothing happened* from
+*quiet because I am broken*, and a watcher that cannot tell those apart provides confidence
+instead of monitoring. `/health.demand_watch` now reports `blind` as a distinct status from
+`present` and `never_checked`.
+
+Found by running the extraction against live markup as a post-deploy check — after the code
+was already in production. It should have been a pre-deploy check, and the fixture tests gave
+no hint because a fixture cut from the one page that *did* work will pass forever.

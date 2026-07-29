@@ -25,30 +25,56 @@
  * against committed fixtures rather than against the live site.
  */
 
-/** The pages we watch, and why each one matters to the module. */
+/**
+ * The pages we watch.
+ *
+ * These are the DOCUMENT pages, not section indexes. Litgrid publishes each
+ * report on its own page carrying the attachment, and a new edition replaces
+ * the attachment in place — which `diffPages` sees as a retitle or a swap at
+ * the same path. Watching an index would add a layer that can silently stop
+ * listing what we depend on.
+ *
+ * Every URL below was fetched and confirmed to yield a non-empty fingerprint on
+ * 2026-07-29. That check is not decoration: two plausible-looking section URLs
+ * were tried first and both returned ZERO document links, which the watcher
+ * would have reported and then sat on forever. `links_seen` records what each
+ * page held at pinning time so a later drop to zero is visibly a regression.
+ */
 export const WATCH_TARGETS = Object.freeze([
   Object.freeze({
     id: 'fna',
     url: 'https://www.litgrid.eu/index.php/sistema/lankstumo-poreikiu-vertinimo-ataskaita/36615',
     label: 'Flexibility needs assessment',
-    why: 'Component structure: treatments, absorption trajectories, the fast-response identity.',
+    why: 'Component structure: treatments, absorption trajectories, the 354 MW fast-response identity.',
     expected_cadence: 'biennial (next ~2028)',
+    verified_at: '2026-07-29',
+    links_seen: 4,
   }),
   Object.freeze({
-    id: 'balancing-market',
-    url: 'https://www.litgrid.eu/index.php/elektros-rinka/balansavimo-rinka/33021',
-    label: 'Balancing market index',
-    why: 'Carries the tri-TSO FRR and FCR dimensioning forecasts — the demand series itself.',
+    id: 'baltic-frr',
+    url: 'https://www.litgrid.eu/index.php/elektros-rinka/balansavimo-rinka/baltijos-lfc-bloko-frr-apimciu-prognoze-2026-2035/32612',
+    label: 'Baltic LFC block FRR dimensioning forecast',
+    why: 'Two thirds of the demand series — mFRR and aFRR.',
     expected_cadence: 'annual',
+    verified_at: '2026-07-29',
+    links_seen: 1,
   }),
   Object.freeze({
-    id: 'studies',
-    url: 'https://www.litgrid.eu/index.php/elektros-rinka/studijos/32960',
-    label: 'Studies index',
-    why: 'Where the Lithuanian flexibility-market development plan (due Q4 2026) is expected.',
-    expected_cadence: 'ad hoc',
+    id: 'baltic-fcr',
+    url: 'https://www.litgrid.eu/index.php/elektros-rinka/balansavimo-rinka/baltijos-lfc-bloko-fcr-apimciu-prognoze-2026-2035/36384',
+    label: 'Baltic LFC block FCR dimensioning forecast',
+    why: 'The FCR leg of the demand series, and the cross-validation of its LT split.',
+    expected_cadence: 'annual',
+    verified_at: '2026-07-29',
+    links_seen: 1,
   }),
 ]);
+
+// NOT watched, deliberately: Litgrid's Lithuanian flexibility-market development
+// plan (committed for end-Q4 2026) has no page yet, and a watcher pointed at a
+// guessed URL is worse than none — it reports "no document links" once and then
+// stays quiet forever while looking armed. Tracked in the backlog instead;
+// add a target here when the page exists.
 
 /**
  * Extract Litgrid's document links from a page.

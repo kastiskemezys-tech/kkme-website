@@ -124,14 +124,27 @@ describe('scheduling', () => {
     expect(isDue(new Date(now - WATCH_INTERVAL_MS).toISOString(), now)).toBe(true);
   });
 
-  it('watches every source the demand module is pinned to, plus the one coming', () => {
+  it('watches every document the demand module is pinned to', () => {
+    // One target per SOURCE, and each is the document's own page rather than a
+    // section index: Litgrid replaces a report in place, which diffPages sees.
     const ids = WATCH_TARGETS.map((t) => t.id);
-    expect(ids).toContain('fna');            // component structure
-    expect(ids).toContain('balancing-market'); // the demand series itself
-    expect(ids).toContain('studies');        // flexibility-market plan, due Q4 2026
+    expect(ids).toContain('fna');         // component structure
+    expect(ids).toContain('baltic-frr');  // mFRR + aFRR legs of the demand series
+    expect(ids).toContain('baltic-fcr');  // FCR leg, and the LT cross-validation
     for (const t of WATCH_TARGETS) {
-      expect(t.url, t.id).toMatch(/^https:\/\/www\.litgrid\.eu\//);
+      expect(t.url, t.id).toMatch(/^https:\/\/www\.litgrid\.eu\/index\.php\//);
       expect(t.why, t.id).toBeTruthy();
+    }
+  });
+
+  it('every target was fetched and confirmed to hold documents when it was pinned', () => {
+    // Two plausible-looking section URLs were tried first and BOTH returned zero
+    // document links. The watcher reports that and then goes quiet, so a
+    // mis-pinned target looks armed forever. Recording links_seen at pin time
+    // makes a later drop to zero legible as a regression rather than a mystery.
+    for (const t of WATCH_TARGETS) {
+      expect(t.verified_at, `${t.id} must record when its URL was checked`).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(t.links_seen, `${t.id} must have held at least one document`).toBeGreaterThan(0);
     }
   });
 
