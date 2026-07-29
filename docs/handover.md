@@ -190,7 +190,7 @@ See [docs/map.md](map.md) for the full concept-to-file lookup table.
 
 ### Session 91 — 2026-07-29 — Phase 36.B batch-3: measured-value cutover + 36.B4 contracted overlay + 36.B0-H parser fix + 36.B5 (Claude Code, fully autonomous)
 
-**Branch:** `phase-36-b-batch-3` off `c0f9f47` · 9 commits · origin SHA **`fdff943`**.
+**Branch:** `phase-36-b-batch-3` off `c0f9f47` · 9 code commits + this handover · code head **`e800647`**.
 **PR:** https://github.com/kastiskemezys-tech/kkme-website/compare/main...phase-36-b-batch-3
 **NOT DEPLOYED — one deploy covers all of it.** Decision log: `DECISIONS.md` (36.B3-H…N, 36.B4-A…E, 36.B0H-A…E, 36.B5-A…D).
 
