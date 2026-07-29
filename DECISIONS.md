@@ -2637,3 +2637,55 @@ Worth noting how it surfaced: not from a test, but from reconciling a count in
 the handover against the file on disk. The registry's value is that it makes
 that kind of discrepancy visible, and the first thing it made visible was a
 defect in itself.
+
+---
+
+## Phase 36.C — cron redirects open before the command runs
+
+The 2026-07-17 S2 stall had a second, independent cause that only surfaced during
+the Pause-A audit: the Mac fetcher's crontab line could not execute at all.
+
+```
+0 */4 * * * NODE_TLS_REJECT_UNAUTHORIZED=0 /usr/local/bin/node ~/kkme-cron/fetch-btd.js \
+    >> /Users/Kastis/kkme/logs/btd.log 2>&1
+```
+
+`logs/` had been removed from the working tree. The shell opens `>>` **before**
+it execs the command, so the line failed at redirect setup and `node` never
+started:
+
+```
+$ /bin/sh -c 'echo test >> /Users/Kastis/kkme/logs/btd.log'
+/bin/sh: /Users/Kastis/kkme/logs/btd.log: No such file or directory   (exit 1)
+```
+
+The failure is silent by construction — the only place the error could have been
+reported is the log file that could not be opened.
+
+The directory went with `c8f60b0`, a hygiene commit that untracked
+`logs/btd.log`. That commit was careful in the way that mattered least: it used
+`git rm --cached` specifically so the working file would survive as evidence,
+and said so. The file still ended up gone. Whether a later `git clean` or
+checkout took it does not change the lesson, because the lesson is not about
+which command removed it.
+
+**Rule: before removing or untracking a directory, grep the crontabs for paths
+under it.** `crontab -l | grep <dir>` on every host that runs one. Redirect
+targets are a dependency that no build, test, lint or type-check can see — the
+path appears in no source file, and nothing fails until the next scheduled tick,
+which then fails quietly forever.
+
+Two things follow, both now in place:
+
+- The VPS cron install does `mkdir -p /opt/kkme/logs` first, so the directory
+  cannot be the single point of failure again.
+- More importantly, the Mac leg is retired entirely (36.C). A scheduled job whose
+  only failure channel is a log file it cannot open is unmonitorable in
+  principle. The replacement reports through the worker, which alerts, and
+  through `/health`, which the freshness badge reads — both visible without
+  anyone reading a log.
+
+Related: this is the second time a `logs/` artefact has caused trouble
+disproportionate to its value (it also blocked a rebase and contributed to two
+stale deploys the same day). Runtime artefacts do not belong in the repo, and
+their *directories* do not belong in cron paths that nothing validates.

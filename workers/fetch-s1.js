@@ -1092,7 +1092,7 @@ function computeDispatchV2(btdData, daHourly, opts = {}) {
 }
 
 // Synthesize a BTD-like payload from rolling 180d averages (for forecast mode)
-function synthesizeBTDFromRolling(rolling, daTomorrow) {
+export function synthesizeBTDFromRolling(rolling, daTomorrow) {
   if (!rolling?.products) return null;
   const afrr = rolling.products.aFRR || rolling.products.afrr || {};
   const mfrr = rolling.products.mFRR || rolling.products.mfrr || {};
@@ -1109,17 +1109,36 @@ function synthesizeBTDFromRolling(rolling, daTomorrow) {
     afrr_up: 120, // source: Baltic aFRR demand
     mfrr_up: 604, // source: Baltic mFRR demand
   }));
-  // Activation shape: higher during high-DA-price hours
+  // Activation shape: higher during high-DA-price ISPs.
+  //
+  // Phase 36.C — this indexing was `daP[Math.floor(i / 4)]`, which assumes daP
+  // is a 24-slot HOURLY array. Day-ahead is now published at PT15M, so daP
+  // carries ~96 slots and `Math.floor(i / 4)` only ever reaches index 23 — the
+  // first six hours of the day, stretched across all 96 ISPs. Every activation
+  // and direction decision would be made from the wrong part of the day, with
+  // the evening peak that drives BESS revenue never seen at all.
+  //
+  // It was latent until now only because `prices_24h` was never populated (the
+  // B0-G defect), so this function never ran with real prices. Fixing the
+  // plumbing without fixing this would have shipped a forecast that serves
+  // confidently and is wrong — worse than one that returns null.
+  //
+  // Proportional mapping handles every cadence, including DST-short/long days
+  // and partially-published windows (93 slots is a real observed length), and
+  // needs no branch per resolution.
   const daP = daTomorrow?.prices_24h || daTomorrow?.lt_prices || [];
   const daMax = daP.length ? Math.max(...daP) : 100;
+  const priceAtISP = (i) => {
+    if (!daP.length) return 50;
+    const idx = Math.min(daP.length - 1, Math.floor(i * daP.length / 96));
+    return daP[idx] ?? 50;
+  };
   const activation_prices = Array.from({ length: 96 }, (_, i) => {
-    const h = Math.floor(i / 4);
-    const p = daP[h] || 50;
+    const p = priceAtISP(i);
     return { up: p > daMax * 0.6 ? (afrr.act_avg || 170) : 0, down: 0 };
   });
   const direction = Array.from({ length: 96 }, (_, i) => {
-    const h = Math.floor(i / 4);
-    const p = daP[h] || 50;
+    const p = priceAtISP(i);
     return p > daMax * 0.5 ? 1 : -1; // short when high price
   });
 
@@ -4317,6 +4336,13 @@ async function computeS1(env) {
       se4_avg:       Math.round(se4TomAvg * 100) / 100,
       spread_pct:    Math.round(tomSpreadPct * 10) / 10,
       delivery_date: tomDate.toISOString().slice(0, 10),
+      // Phase 36.C (B0-G) — the hourly array itself, not just its summary
+      // statistics. `GET /api/dispatch?mode=forecast` reads `prices_24h`; every
+      // writer stored only scalars, so that read resolved to [] and the forecast
+      // mode had never once served since it was written. Dispatch needs the
+      // shape of the day, which no set of aggregates can reconstruct.
+      ...daResolutionFields(ltTomorrow),
+      se4_prices: se4Tomorrow,
     };
     console.log(`[S1/tomorrow] lt_avg=${da_tomorrow.lt_avg} lt_peak=${da_tomorrow.lt_peak} se4_avg=${da_tomorrow.se4_avg} spread=${da_tomorrow.spread_pct}%`);
   } else {
@@ -4420,6 +4446,165 @@ async function appendBtdHistory(env, payload) {
   } catch (e) {
     console.error('[S2/btd-history]', String(e));
   }
+}
+
+// ── Phase 36.C — S2 multi-leg ingestion: admission control ───────────────────
+// S2 has more than one writer (VPS cron POST, worker-direct cron, and formerly
+// the Mac cron). Before 36.C each leg wrote unconditionally, so whichever ran
+// last won — including a leg holding an older observation window. The 2026-07-17
+// stall was the mirror image of that: every leg failed silently and each was
+// coded to assume another was covering.
+//
+// Admission rule: FRESHNESS WINS OUTRIGHT. `data_window_end` is the last BTD
+// delivery date a payload was computed from — the honest recency measure, since
+// BTD publishes with a ~2-day lag and wall-clock write time says nothing about
+// how current the underlying data is. Source priority only breaks ties within
+// the same window.
+const S2_SOURCE_PRIORITY = {
+  vps:             3,  // primary — the only host with proven BTD reachability
+  'worker-direct': 2,  // opportunistic secondary; self-heals if CF's 526 clears
+  mac:             1,  // retired 36.C, ranked so a stray run can't outrank VPS
+};
+
+function s2SourceRank(source) {
+  return S2_SOURCE_PRIORITY[source] ?? 0;
+}
+
+/**
+ * Decide whether an incoming S2 write may replace what is already in KV.
+ * @returns {{ admit: boolean, reason: string }}
+ */
+export function s2AdmitWrite(incoming, stored) {
+  const inWin  = incoming?.data_window_end ?? null;
+  const inSrc  = incoming?.source ?? 'unknown';
+  if (!stored) return { admit: true, reason: 'no stored payload' };
+
+  const stWin = stored?.data_window_end ?? null;
+  const stSrc = stored?._meta?.source ?? stored?.source ?? 'unknown';
+
+  // Legacy payloads predate `data_window_end`. Refusing to compare would freeze
+  // S2 permanently, so admit and say so rather than guess a window.
+  if (!inWin || !stWin) {
+    return { admit: true, reason: `window unknown (in=${inWin ?? '—'} stored=${stWin ?? '—'}) — admitted uncompared` };
+  }
+
+  if (inWin > stWin) return { admit: true,  reason: `fresher window ${inWin} > ${stWin}` };
+  if (inWin < stWin) return { admit: false, reason: `stale window ${inWin} < ${stWin} (stored from ${stSrc})` };
+
+  const inRank = s2SourceRank(inSrc), stRank = s2SourceRank(stSrc);
+  if (inRank >= stRank) {
+    return { admit: true, reason: `same window ${inWin}, source ${inSrc}(${inRank}) >= ${stSrc}(${stRank})` };
+  }
+  return { admit: false, reason: `same window ${inWin}, source ${inSrc}(${inRank}) < ${stSrc}(${stRank})` };
+}
+
+/**
+ * Phase 36.C — the single commit path for S2, shared by all ingestion legs.
+ *
+ * Before this there were three near-identical blocks (4-hourly cron, 09:30
+ * cron, POST /s2/update); they had already drifted apart once — Phase 21.2 had
+ * to backfill `s2_btd_history` because only one of them appended to it. One
+ * function, three callers.
+ *
+ * @param {string} sourceLeg one of S2_SOURCE_PRIORITY's keys
+ * @returns {{ ok: boolean, skipped?: boolean, reason?: string, errors?: string[] }}
+ */
+async function s2CommitPayload(env, payload, sourceLeg, label) {
+  const storedRaw = await env.KKME_SIGNALS.get('s2').catch(() => null);
+  let stored = null;
+  try { stored = storedRaw ? JSON.parse(storedRaw) : null; } catch { stored = null; }
+
+  const verdict = s2AdmitWrite({ ...payload, source: sourceLeg }, stored);
+  if (!verdict.admit) {
+    console.log(`[${label}] write skipped — ${verdict.reason}`);
+    return { ok: false, skipped: true, reason: verdict.reason };
+  }
+
+  // `_source` is what kvWrite copies into `_meta.source`, so the served payload
+  // says which leg actually produced it rather than a generic 'live'.
+  const validation = await kvWrite(env.KKME_SIGNALS, 's2', { ...payload, _source: sourceLeg }, {
+    required:   ['fcr_avg', 'afrr_up_avg', 'mfrr_up_avg'],
+    bounds_key: 's2',
+  });
+  if (!validation.success) {
+    console.error(`[${label}] KV write rejected: ${validation.errors.join(' | ')}`);
+    await notifyTelegram(env, `⚠️ S2 (${sourceLeg}): KV write rejected — ${validation.errors.join(' | ')}`).catch(() => {});
+    return { ok: false, errors: validation.errors };
+  }
+
+  console.log(`[${label}] committed via ${sourceLeg} — ${verdict.reason} | fcr=${payload.fcr_avg} afrr_up=${payload.afrr_up_avg} window_end=${payload.data_window_end ?? '—'}`);
+  await appendSignalHistory(env, 's2', {
+    afrr_up: payload.afrr_up_avg, mfrr_up: payload.mfrr_up_avg, fcr: payload.fcr_avg,
+  }).catch(e => console.error('[S2/history]', e));
+  await appendBtdHistory(env, payload);
+  return { ok: true };
+}
+
+// ── Phase 36.C — upstream TLS-expiry tripwire ────────────────────────────────
+// The 2026-07-17 outage began as a lapsed Let's Encrypt cert on BTD's origin
+// and ran 12 days before anyone noticed, because nothing watched certificates
+// and every ingestion leg failed quietly. The inspection cannot live here:
+// Workers' fetch() gives no access to the peer certificate, and the CF edge
+// cannot complete a handshake with BTD at all. So the VPS runs `openssl
+// s_client` daily and POSTs the result; the worker owns the alerting.
+const CERT_WARN_DAYS = 7;
+
+async function checkCertWatchLiveness(env) {
+  const raw = await env.KKME_SIGNALS.get('cert_watch').catch(() => null);
+  if (!raw) {
+    await notifyTelegram(env, '⚠️ Cert tripwire has never reported — VPS cert_watch cron may not be installed');
+    return;
+  }
+  let data;
+  try { data = JSON.parse(raw); } catch { return; }
+  const ageH = data.checked_at ? (Date.now() - new Date(data.checked_at).getTime()) / 3600000 : Infinity;
+  if (ageH > 48) {
+    await notifyTelegram(env, `⚠️ Cert tripwire silent for ${ageH.toFixed(0)}h — VPS cert_watch cron may have stopped`);
+  }
+}
+
+// ── Phase 36.C — derive BTD country column offsets instead of hardcoding ─────
+// BTD ships `header_groups` whenever `json_header_groups=1` is set (both fetch
+// legs set it). The old parser hardcoded Lithuania at values[10..14], which is
+// correct today but asserts a layout the response itself declares — exactly the
+// class of silent breakage discipline rule #2 exists to stop. Resolve from the
+// payload, fall back to the historical constant, and shout if they disagree.
+const S2_LT_FALLBACK_BASE = 10;
+
+export function s2ResolveCountryBase(dataset, country = 'Lithuania') {
+  const groups = dataset?.data?.header_groups;
+  const row = Array.isArray(groups) ? groups[0] : null;
+  if (Array.isArray(row)) {
+    const hit = row.find(g => String(g?.label ?? '').trim().toLowerCase() === country.toLowerCase());
+    if (hit && Number.isInteger(hit.start)) {
+      if (country === 'Lithuania' && hit.start !== S2_LT_FALLBACK_BASE) {
+        console.warn(`[BTD/columns] ${country} base moved: header_groups says ${hit.start}, historical constant ${S2_LT_FALLBACK_BASE} — trusting the payload`);
+      }
+      return hit.start;
+    }
+  }
+  // `columns[]` carries the same mapping via group_level_0; try it before giving up.
+  const cols = dataset?.data?.columns;
+  if (Array.isArray(cols)) {
+    const hit = cols.find(c => String(c?.group_level_0 ?? '').trim().toLowerCase() === country.toLowerCase());
+    if (hit && Number.isInteger(hit.index)) return hit.index;
+  }
+  return country === 'Lithuania' ? S2_LT_FALLBACK_BASE : null;
+}
+
+// Last delivery date covered by a BTD dataset — the payload's true recency.
+export function s2DataWindowEnd(dataset) {
+  const ts = dataset?.data?.timeseries;
+  if (!Array.isArray(ts) || !ts.length) return null;
+  for (let i = ts.length - 1; i >= 0; i--) {
+    const vals = ts[i]?.values;
+    if (Array.isArray(vals) && vals.some(v => v !== null && v !== undefined)) {
+      const from = ts[i]._from || ts[i].from || '';
+      const d = String(from).slice(0, 10);
+      return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : null;
+    }
+  }
+  return null;
 }
 
 function rollingStats(history, field) {
@@ -4919,6 +5104,26 @@ async function computeS3() {
 // Fetches latest published DA prices for LT and SE4 from Nord Pool.
 // Runs in cron (CF IP may be blocked) + fallback via POST /da_tomorrow/update.
 
+// Phase 36.C (B0-G) — resolution-aware DA price-array fields.
+//
+// The market is mid-transition from PT60M to PT15M, so array length is the only
+// honest resolution signal available at write time and must be RECORDED, not
+// re-inferred downstream. The 36.B0-D class of defect was precisely a consumer
+// assuming 24 slots and silently mis-indexing a 96-slot day; stamping the
+// resolution here means a consumer can assert rather than guess.
+export function daResolutionFields(prices) {
+  const n = Array.isArray(prices) ? prices.length : 0;
+  let resolution = null;
+  if (n >= 92 && n <= 100) resolution = 'PT15M';       // 96, ±DST
+  else if (n >= 23 && n <= 25) resolution = 'PT60M';   // 24, ±DST
+  return {
+    prices_24h: prices,           // name kept: it is the key every consumer reads
+    resolution,                   // null when the length matches no known cadence
+    slots: n,
+    slots_per_hour: resolution === 'PT15M' ? 4 : resolution === 'PT60M' ? 1 : null,
+  };
+}
+
 function npShapeMetrics(ltPrices, se4Prices) {
   if (!ltPrices.length || !se4Prices.length) return null;
   const ltAvg    = ltPrices.reduce((a, b) => a + b, 0) / ltPrices.length;
@@ -4975,7 +5180,19 @@ async function fetchNordPoolDA() {
     const metrics = npShapeMetrics(ltPrices, se4Prices);
     if (!metrics) throw new Error('NordPool: no LT/SE4 price data found in response');
 
-    return { ...metrics, delivery_date: deliveryDate, timestamp: new Date().toISOString() };
+    // Phase 36.C (B0-G) — the THIRD writer of the da_tomorrow KV, and in
+    // practice the one that populates it: `GET /da_tomorrow` calls this on a
+    // cache miss and stores the result. Fixing only computeS1 and the POST path
+    // would have left the live path still storing scalars, and forecast mode
+    // still starving — with two of three writers fixed, which is the kind of
+    // partial repair that reads as done and isn't.
+    return {
+      ...metrics,
+      ...daResolutionFields(ltPrices),
+      se4_prices: se4Prices,
+      delivery_date: deliveryDate,
+      timestamp: new Date().toISOString(),
+    };
   } catch (err) {
     clearTimeout(timer);
     throw err;
@@ -5086,73 +5303,16 @@ async function fetchBTDDataset(id, start, end) {
   }
 }
 
-// ── Litgrid ordered balancing capacity scrape ─────────────────────────────────
-async function fetchLitgridBalancing() {
-  const url = 'https://www.litgrid.eu/index.php/dashboard/balancing-capacites/31577';
-  const ac = new AbortController();
-  const timer = setTimeout(() => ac.abort(), 15000);
-  try {
-    const res = await fetch(url, {
-      signal: ac.signal,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; KKME-Pipeline/1.0; +https://kkme.eu)',
-        'Accept': 'text/html,*/*',
-      },
-    });
-    clearTimeout(timer);
-    if (!res.ok) {
-      console.log('[Litgrid] HTTP', res.status, '— skipping ordered capacity');
-      return { ordered_price: null, ordered_mw: null };
-    }
-    const html = await res.text();
-
-    // Parse ordered price (€/MW/h)
-    let ordered_price = null;
-    const pricePatterns = [
-      /([\d]+[.,][\d]+)\s*(?:EUR\/MW\/h|€\/MW\/h|Eur\/MW\/h)/i,
-      /(?:price|kaina|clearing)[^<]{0,50}([\d]+[.,][\d]+)/i,
-    ];
-    for (const pat of pricePatterns) {
-      const m = html.match(pat);
-      if (m) {
-        const val = parseFloat(m[1].replace(',', '.'));
-        if (!isNaN(val) && val > 0 && val < 10000) {
-          ordered_price = Math.round(val * 100) / 100;
-          break;
-        }
-      }
-    }
-
-    // Parse ordered MW
-    let ordered_mw = null;
-    const mwPatterns = [
-      /(?:ordered|užsakyta|galingumas)[^<]{0,80}([\d\s]+)\s*MW/i,
-      /total[^<]{0,40}([\d\s]+)\s*MW/i,
-    ];
-    for (const pat of mwPatterns) {
-      const m = html.match(pat);
-      if (m) {
-        const val = parseFloat(m[1].replace(/\s/g, ''));
-        if (!isNaN(val) && val > 0 && val < 100000) {
-          ordered_mw = Math.round(val);
-          break;
-        }
-      }
-    }
-
-    // Litgrid stopped publishing ordered capacity data post-synchronization.
-    // Page exists but data table is empty. BTD is now the authoritative source.
-    // Last verified 2026-04-08.
-    if (!ordered_price && !ordered_mw) {
-      console.log('[Litgrid] No ordered capacity data (expected — data moved to BTD post-sync)');
-    }
-    return { ordered_price, ordered_mw };
-  } catch (e) {
-    clearTimeout(timer);
-    console.error('[Litgrid] fetch error:', e.message);
-    return { ordered_price: null, ordered_mw: null };
-  }
-}
+// ── Litgrid ordered balancing capacity — REMOVED (Phase 36.C) ────────────────
+// A regex scraper of https://www.litgrid.eu/.../balancing-capacites/31577 lived
+// here and fed `ordered_price` / `ordered_mw` into the S2 payload. The 36.C
+// Pause-A audit queried that dashboard across five ranges spanning 2025-03 to
+// 2026-07 and got zero data cells every time — headers render, rows never do.
+// Litgrid moved balancing publication to BTD post-synchronisation, so the
+// scraper had been parsing a permanently empty page for at least 17 months and
+// both fields were always null. Deleted rather than fixed: there is nothing on
+// the far end to fix against. See
+// docs/investigations/2026-07-29-phase-36-c-pause-a-source-audit.md.
 
 // ── Monthly activation clearing aggregates from BTD ──────────────────────────
 // Fetches price_procured_reserves month by month (BTD rate-limits large ranges),
@@ -5274,39 +5434,30 @@ async function computeS2Activation() {
   };
 }
 
-// ── Full S2 fetch: BTD + Litgrid → shaped payload ────────────────────────────
+// ── Full S2 fetch: BTD → shaped payload ──────────────────────────────────────
+// Worker-direct leg. Since 2026-07 Cloudflare's egress gets a persistent 526
+// from BTD's origin (confirmed twice from the CF edge during the 36.C audit,
+// with litgrid.eu returning 200 on the same runs), so in practice this returns
+// null and the VPS leg serves. Kept deliberately: it costs nothing while it
+// fails and self-heals the moment the 526 clears.
 async function computeS2() {
   const nineAgo    = new Date(Date.now() - 9 * 86400000).toISOString().slice(0, 10);
   const twoDaysAgo = new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10);
 
-  // UTC hour check: Litgrid ordered capacity publishes at 08:30 UTC.
-  // Skip ordered fetch before 09:00 UTC.
-  const utcHour = new Date().getUTCHours();
-  const skipOrdered = utcHour < 9;
-
-  const [btdResults, litgrid] = await Promise.all([
-    Promise.all([
-      fetchBTDDataset('price_procured_reserves',   nineAgo, twoDaysAgo),
-      fetchBTDDataset('direction_of_balancing_v2', nineAgo, twoDaysAgo),
-      fetchBTDDataset('imbalance_prices',          nineAgo, twoDaysAgo),
-    ]),
-    skipOrdered ? Promise.resolve({ ordered_price: null, ordered_mw: null }) : fetchLitgridBalancing(),
+  const [reserves, direction, imbalance] = await Promise.all([
+    fetchBTDDataset('price_procured_reserves',   nineAgo, twoDaysAgo),
+    fetchBTDDataset('direction_of_balancing_v2', nineAgo, twoDaysAgo),
+    fetchBTDDataset('imbalance_prices',          nineAgo, twoDaysAgo),
   ]);
 
-  const [reserves, direction, imbalance] = btdResults;
-  const { ordered_price, ordered_mw } = litgrid;
-
-  // If any BTD dataset failed (SSL 526, timeout), return null — Mac cron pushes data separately
   if (!reserves || !direction || !imbalance) {
-    console.log('[S2/compute] BTD dataset(s) unavailable — skipping worker S2 update (Mac cron handles this)');
+    console.log('[S2/compute] BTD dataset(s) unavailable from the CF edge — deferring to the VPS leg');
     return null;
   }
 
   const payload = s2ShapePayload(reserves, direction, imbalance);
-  if (ordered_price != null) payload.ordered_price = ordered_price;
-  if (ordered_mw    != null) payload.ordered_mw    = ordered_mw;
-
-  console.log(`[S2/compute] ordered_price=${ordered_price ?? '—'} ordered_mw=${ordered_mw ?? '—'}`);
+  payload.source_leg = 'worker-direct';
+  console.log(`[S2/compute] window_end=${payload.data_window_end ?? '—'} fcr=${payload.fcr_avg} afrr_up=${payload.afrr_up_avg}`);
   return payload;
 }
 
@@ -5383,12 +5534,16 @@ function computeCapacityMonthly(history) {
 
 // Parse raw BTD { reserves, direction, imbalance } into a shaped S2 KV payload.
 function s2ShapePayload(reserves, direction, imbalance) {
-  // price_procured_reserves: extract Lithuania columns by confirmed index
-  const fcrVals      = s2ExtractIdx(reserves, 10);  // FCR Symmetric
-  const afrrUpVals   = s2ExtractIdx(reserves, 11);  // aFRR Upward
-  const afrrDownVals = s2ExtractIdx(reserves, 12);  // aFRR Downward
-  const mfrrUpVals   = s2ExtractIdx(reserves, 13);  // mFRR Upward
-  const mfrrDownVals = s2ExtractIdx(reserves, 14);  // mFRR Downward
+  // price_procured_reserves: Lithuania's five columns, base offset resolved from
+  // the payload's own header_groups (Phase 36.C) rather than hardcoded at 10.
+  // Column order within a country group is stable: FCR sym, aFRR ↑, aFRR ↓,
+  // mFRR ↑, mFRR ↓.
+  const lt           = s2ResolveCountryBase(reserves, 'Lithuania');
+  const fcrVals      = s2ExtractIdx(reserves, lt + 0);  // FCR Symmetric
+  const afrrUpVals   = s2ExtractIdx(reserves, lt + 1);  // aFRR Upward
+  const afrrDownVals = s2ExtractIdx(reserves, lt + 2);  // aFRR Downward
+  const mfrrUpVals   = s2ExtractIdx(reserves, lt + 3);  // mFRR Upward
+  const mfrrDownVals = s2ExtractIdx(reserves, lt + 4);  // mFRR Downward
 
   // direction_of_balancing_v2: try timeseries first, then pattern fallback
   let dirVals = [];
@@ -5459,6 +5614,11 @@ function s2ShapePayload(reserves, direction, imbalance) {
     cvi_mfrr_eur_mw_yr,
     stress_index_p90:           imbalance_p90,
     source:          'baltic.transparency-dashboard.eu',
+    // Last BTD delivery date these averages were computed from. Drives 36.C
+    // admission control — see s2AdmitWrite. Wall-clock write time cannot serve
+    // this role: BTD publishes with a ~2-day lag, so a payload written now may
+    // describe data older than one written an hour ago.
+    data_window_end: s2DataWindowEnd(reserves),
   };
 }
 
@@ -7274,24 +7434,20 @@ export default {
       return;
     }
 
-    // 09:30 UTC daily: extra S2 fetch (Litgrid ordered capacity published ~08:30 UTC)
+    // 09:30 UTC daily: S2 watchdog fetch + upstream TLS-expiry tripwire.
     if (event.cron === '30 9 * * *') {
+      // Phase 36.C — cert tripwire liveness. The inspection itself runs on the
+      // VPS (Workers' fetch() exposes no peer certificate, and the CF edge can't
+      // reach BTD at all), which POSTs to /admin/cert-watch. A tripwire nobody
+      // checks is not a tripwire, so verify it is still reporting.
+      await checkCertWatchLiveness(env).catch(e => console.error('[CertWatch]', String(e)));
+
       try {
         const payload = await withTimeout(computeS2(), 45000);
         if (!payload) {
-          console.log('[S2/0930] BTD unavailable — keeping cached KV data');
-          return;
-        }
-        const validation = await kvWrite(env.KKME_SIGNALS, 's2', payload, {
-          required: ['fcr_avg', 'afrr_up_avg', 'mfrr_up_avg'],
-          bounds_key: 's2',
-        });
-        if (!validation.success) {
-          await notifyTelegram(env, `⚠️ S2 (09:30 fetch): KV write rejected — ${validation.errors.join(' | ')}`);
+          console.log('[S2/0930] BTD unreachable from the CF edge — keeping cached KV (VPS leg serves)');
         } else {
-          console.log(`[S2/0930] fcr=${payload.fcr_avg} afrr_up=${payload.afrr_up_avg} ordered=${payload.ordered_price ?? '—'}`);
-          await appendSignalHistory(env, 's2', { afrr_up: payload.afrr_up_avg, mfrr_up: payload.mfrr_up_avg, fcr: payload.fcr_avg }).catch(e => console.error('[S2/history]', e));
-          await appendBtdHistory(env, payload);
+          await s2CommitPayload(env, payload, 'worker-direct', 'S2/0930');
         }
       } catch (e) {
         console.error('[S2/0930]', String(e));
@@ -7378,6 +7534,28 @@ export default {
       await env.KKME_SIGNALS.put(`raw:s1:${new Date().toISOString().slice(0,10)}`, JSON.stringify({ fetched: new Date().toISOString(), data: d }), { expirationTtl: 604800 });
       console.log(`[S1] ${d.state} spread=${d.spread_eur_mwh}€/MWh swing=${d.lt_daily_swing_eur_mwh}€/MWh sep=${d.separation_pct}% rsi_30d=${d.rsi_30d}`);
 
+      // Phase 36.C (B0-G) — feed the forecast path from the source that works.
+      //
+      // `GET /api/dispatch?mode=forecast` reads the `da_tomorrow` KV. That key
+      // had only two writers, both fed by NordPool
+      // (data.nordpoolgroup.com/api/v1/auction/prices/areas), which now returns
+      // HTML rather than JSON — verified from two independent networks, so it is
+      // an upstream endpoint change, not an egress problem. Meanwhile computeS1
+      // was already computing tomorrow's day-ahead from ENTSO-E and storing it
+      // at `s1.da_tomorrow`, a DIFFERENT key the forecast consumer never reads.
+      //
+      // So the working source and the starving consumer were one key apart.
+      // Mirroring it here closes that gap and takes the forecast path off the
+      // broken dependency entirely.
+      if (d.da_tomorrow?.prices_24h?.length) {
+        const daBody = JSON.stringify({ ...d.da_tomorrow, timestamp: new Date().toISOString(), source: 'entsoe-a44' });
+        await Promise.all([
+          env.KKME_SIGNALS.put('da_tomorrow', daBody),
+          env.KKME_SIGNALS.put('da_tomorrow:lastgood', daBody),
+        ]);
+        console.log(`[S1/tomorrow] mirrored to da_tomorrow KV — ${d.da_tomorrow.slots} slots @ ${d.da_tomorrow.resolution}, delivery ${d.da_tomorrow.delivery_date}`);
+      }
+
       // S1 capture: DA gross capture from energy-charts.info
       try {
         const cap = await withTimeout(computeCapture(env), 25000);
@@ -7404,21 +7582,10 @@ export default {
     if (s2Result.status === 'fulfilled') {
       const payload = s2Result.value;
       if (!payload) {
-        console.log('[S2] BTD unavailable — keeping cached KV data (Mac cron pushes independently)');
+        console.log('[S2] BTD unreachable from the CF edge — keeping cached KV (VPS leg serves)');
       } else {
-      const validation = await kvWrite(env.KKME_SIGNALS, 's2', payload, {
-        required: ['fcr_avg', 'afrr_up_avg', 'mfrr_up_avg'],
-        bounds_key: 's2',
-      });
-      if (!validation.success) {
-        console.error(`[S2] KV write rejected: ${validation.errors.join(' | ')}`);
-        await notifyTelegram(env, `⚠️ S2: KV write rejected (BTD data invalid) — ${validation.errors.join(' | ')}`).catch(() => {});
-      } else {
-        console.log(`[S2] fcr=${payload.fcr_avg} afrr_up=${payload.afrr_up_avg} ordered=${payload.ordered_price ?? '—'}`);
-        await appendSignalHistory(env, 's2', { afrr_up: payload.afrr_up_avg, mfrr_up: payload.mfrr_up_avg, fcr: payload.fcr_avg }).catch(e => console.error('[S2/history]', e));
-        await appendBtdHistory(env, payload);
+        await s2CommitPayload(env, payload, 'worker-direct', 'S2');
       }
-      } // end else (!payload)
     } else {
       console.error('[S2] cron failed:', s2Result.reason);
     }
@@ -8460,8 +8627,11 @@ export default {
     }
 
     // ── POST /s2/update ───────────────────────────────────────────────────────
-    // Accepts raw BTD data: { reserves, direction, imbalance }
-    // Parses and shapes payload here, writes to KV as 's2'.
+    // Accepts raw BTD data: { reserves, direction, imbalance, source? }.
+    // Parses and shapes the payload here, then commits through the shared
+    // admission path. `source` names the ingestion leg ('vps' since 36.C); an
+    // unnamed caller ranks lowest and so can never displace a named leg holding
+    // the same observation window.
     if (request.method === 'POST' && url.pathname === '/s2/update') {
       const secret = request.headers.get('X-Update-Secret');
       if (!secret || secret !== env.UPDATE_SECRET) {
@@ -8471,28 +8641,124 @@ export default {
       try { body = await request.json(); } catch {
         return new Response(JSON.stringify({ error: 'Invalid JSON body' }), { status: 400, headers: { 'Content-Type': 'application/json', ...CORS } });
       }
-      const { reserves, direction, imbalance, ordered_price, ordered_mw } = body;
+      const { reserves, direction, imbalance } = body;
+      const sourceLeg = typeof body.source === 'string' && body.source in S2_SOURCE_PRIORITY
+        ? body.source
+        : 'unknown';
       const payload = s2ShapePayload(reserves ?? null, direction ?? null, imbalance ?? null);
-      if (ordered_price != null) payload.ordered_price = ordered_price;
-      if (ordered_mw    != null) payload.ordered_mw    = ordered_mw;
+      payload.source_leg = sourceLeg;
 
-      // Validate: reject null-heavy payload (BTD blocked → all fields null)
-      const validation = await kvWrite(env.KKME_SIGNALS, 's2', payload, {
-        required:   ['fcr_avg', 'afrr_up_avg', 'mfrr_up_avg'],
-        bounds_key: 's2',
-      });
-      if (!validation.success) {
-        await notifyTelegram(env, `⚠️ S2: KV write rejected (BTD data invalid) — ${validation.errors.join(' | ')}`);
+      const result = await s2CommitPayload(env, payload, sourceLeg, 'S2/update');
+      if (result.skipped) {
+        // Not an error: a leg correctly declined to overwrite fresher data.
         return new Response(
-          JSON.stringify({ error: 'validation_failed', errors: validation.errors }),
+          JSON.stringify({ status: 'skipped', reason: result.reason, data_window_end: payload.data_window_end }),
+          { status: 200, headers: { 'Content-Type': 'application/json', ...CORS } },
+        );
+      }
+      if (!result.ok) {
+        return new Response(
+          JSON.stringify({ error: 'validation_failed', errors: result.errors }),
           { status: 400, headers: { 'Content-Type': 'application/json', ...CORS } },
         );
       }
-
-      console.log(`[S2/update] ${payload.signal} fcr=${payload.fcr_avg} afrr_up=${payload.afrr_up_avg} pct_up=${payload.pct_up} ordered=${ordered_price ?? '—'}€/MW/h ${ordered_mw ?? '—'}MW`);
-      await appendSignalHistory(env, 's2', { afrr_up: payload.afrr_up_avg, mfrr_up: payload.mfrr_up_avg, fcr: payload.fcr_avg }).catch(e => console.error('[S2/history]', e));
-      await appendBtdHistory(env, payload);
       return new Response(JSON.stringify(payload), { status: 200, headers: { 'Content-Type': 'application/json', ...CORS } });
+    }
+
+    // ── POST /admin/cert-watch ───────────────────────────────────────────────
+    // Phase 36.C tripwire intake. Body: { checks: [{ host, not_after,
+    // days_remaining, error? }] }. Stores to KV and alerts on anything expiring
+    // inside CERT_WARN_DAYS or failing inspection outright — a handshake that
+    // returns no certificate at all is exactly the 07-17 signature.
+    if (request.method === 'POST' && url.pathname === '/admin/cert-watch') {
+      const secret = request.headers.get('X-Update-Secret');
+      if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
+      let body;
+      try { body = await request.json(); } catch { return jsonResp({ error: 'Invalid JSON' }, 400); }
+      const checks = Array.isArray(body.checks) ? body.checks : null;
+      if (!checks) return jsonResp({ error: 'checks[] required' }, 400);
+
+      const record = { checked_at: new Date().toISOString(), checks };
+      await env.KKME_SIGNALS.put('cert_watch', JSON.stringify(record));
+
+      const expiring = checks.filter(c => typeof c.days_remaining === 'number' && c.days_remaining < CERT_WARN_DAYS);
+      const failed   = checks.filter(c => c.error);
+      if (expiring.length || failed.length) {
+        const lines = [
+          ...expiring.map(c => `• ${c.host} — cert expires in ${c.days_remaining}d (${c.not_after})`),
+          ...failed.map(c => `• ${c.host} — inspection failed: ${String(c.error).slice(0, 120)}`),
+        ];
+        await notifyTelegram(env, `⚠️ Upstream TLS watch\n${lines.join('\n')}`).catch(() => {});
+      }
+      console.log(`[CertWatch] ${checks.length} hosts, ${expiring.length} expiring, ${failed.length} failed`);
+      return jsonResp({ ok: true, stored: checks.length, expiring: expiring.length, failed: failed.length });
+    }
+
+    // ── GET /admin/cert-watch ────────────────────────────────────────────────
+    if (request.method === 'GET' && url.pathname === '/admin/cert-watch') {
+      const raw = await env.KKME_SIGNALS.get('cert_watch').catch(() => null);
+      return jsonResp(raw ? JSON.parse(raw) : { checked_at: null, checks: [] });
+    }
+
+    // ── POST /s2/daily-clearing/import ───────────────────────────────────────
+    // Phase 36.C. `s2_btd_history` stores the ROLLING 7-day mean stamped with
+    // the write date — fine for the trend chip it feeds, useless as evidence for
+    // per-delivery-day reserve realisation (36.D), which needs the clearing
+    // price that actually applied on a given day. This is a separate KV with
+    // separate semantics rather than a reinterpretation of the old one, because
+    // silently changing what a stored series means is how cross-card
+    // inconsistencies start.
+    //
+    // Body: { days: [{ date, fcr, afrr_up, afrr_down, mfrr_up, mfrr_down, isp_count }] }
+    // Idempotent: re-importing a date replaces it.
+    if (request.method === 'POST' && url.pathname === '/s2/daily-clearing/import') {
+      const secret = request.headers.get('X-Update-Secret');
+      if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
+      let body;
+      try { body = await request.json(); } catch { return jsonResp({ error: 'Invalid JSON' }, 400); }
+      const incoming = Array.isArray(body.days) ? body.days : null;
+      if (!incoming) return jsonResp({ error: 'days[] required' }, 400);
+
+      const existingRaw = await env.KKME_SIGNALS.get('s2_daily_clearing').catch(() => null);
+      let existing = [];
+      try { existing = existingRaw ? JSON.parse(existingRaw) : []; } catch { existing = []; }
+
+      const byDate = new Map(existing.map(d => [d.date, d]));
+      let added = 0, replaced = 0, rejected = 0;
+      for (const d of incoming) {
+        if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d.date ?? '')) { rejected++; continue; }
+        // A partial day would silently bias any mean computed from it later.
+        // 96 ISPs = a full PT15M day; allow a small shortfall for DST days.
+        if (typeof d.isp_count === 'number' && d.isp_count < 90) { rejected++; continue; }
+        if (d.fcr == null && d.afrr_up == null && d.mfrr_up == null) { rejected++; continue; }
+        if (byDate.has(d.date)) replaced++; else added++;
+        byDate.set(d.date, {
+          date: d.date,
+          fcr: d.fcr ?? null,
+          afrr_up: d.afrr_up ?? null, afrr_down: d.afrr_down ?? null,
+          mfrr_up: d.mfrr_up ?? null, mfrr_down: d.mfrr_down ?? null,
+          isp_count: d.isp_count ?? null,
+        });
+      }
+      const merged = [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+      await env.KKME_SIGNALS.put('s2_daily_clearing', JSON.stringify(merged));
+      console.log(`[S2/daily-clearing] +${added} ~${replaced} ✗${rejected} → ${merged.length} days`);
+      return jsonResp({
+        ok: true, added, replaced, rejected, total_days: merged.length,
+        first: merged[0]?.date ?? null, last: merged[merged.length - 1]?.date ?? null,
+      });
+    }
+
+    // ── GET /s2/daily-clearing ───────────────────────────────────────────────
+    if (request.method === 'GET' && url.pathname === '/s2/daily-clearing') {
+      const raw = await env.KKME_SIGNALS.get('s2_daily_clearing').catch(() => null);
+      const days = raw ? JSON.parse(raw) : [];
+      return jsonResp({
+        total_days: days.length,
+        first: days[0]?.date ?? null,
+        last: days[days.length - 1]?.date ?? null,
+        days,
+      });
     }
 
     // ── POST /s2/btd-history/backfill ────────────────────────────────────────
@@ -9353,6 +9619,11 @@ export default {
       if (Array.isArray(body.lt_prices) && Array.isArray(body.se4_prices)) {
         metrics = npShapeMetrics(body.lt_prices, body.se4_prices);
         if (!metrics) return new Response(JSON.stringify({ error: 'No valid price data' }), { status: 400, headers: { 'Content-Type': 'application/json', ...CORS } });
+        // Phase 36.C (B0-G) — persist the array, not just its summary. This
+        // push path had the same defect as computeS1: callers were already
+        // sending lt_prices and the endpoint threw it away after computing
+        // aggregates, so mode=forecast starved on both writers.
+        metrics = { ...metrics, ...daResolutionFields(body.lt_prices), se4_prices: body.se4_prices };
       } else {
         metrics = { lt_peak: body.lt_peak ?? null, lt_trough: body.lt_trough ?? null, lt_avg: body.lt_avg ?? null, se4_avg: body.se4_avg ?? null, spread_pct: body.spread_pct ?? null };
       }
@@ -10006,9 +10277,19 @@ export default {
 
         const synthBTD = rolling ? synthesizeBTDFromRolling(rolling, daTomorrow) : null;
 
+        // Phase 36.C — the delivery date must come from the payload, not from a
+        // clock. This read was `daTomorrow.date`, a field no writer produces
+        // (they all emit `delivery_date`), so it silently fell through to
+        // "whatever tomorrow is" on every request. The forecast would therefore
+        // label itself with tomorrow's date regardless of which day's prices it
+        // actually held — a date asserting "when" without deriving it, which is
+        // exactly what discipline rule #2 forbids.
+        const deliveryDate = daTomorrow.delivery_date || daTomorrow.date
+          || new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+
         const current = computeDispatchV2(synthBTD, daP, {
           mw: 50, dur_h, mode: 'forecast',
-          date_iso: daTomorrow.date || new Date(Date.now() + 86400000).toISOString().slice(0, 10),
+          date_iso: deliveryDate,
         });
         const postDrr = computeDispatchV2(synthBTD, daP, {
           mw: 50, dur_h, mode: 'forecast', drr_active: false,
