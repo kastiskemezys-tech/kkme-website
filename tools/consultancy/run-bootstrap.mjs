@@ -74,16 +74,16 @@ export async function runShapeYear({ config, year, zone, sc, reserve, tp }) {
   };
 }
 
-export async function runBootstrap({
-  config, kv, years, zone = 'LT', scenarioName = 'central', levels = EXCEEDANCE_LEVELS,
-  regimeMixed = null,
-}) {
-  // A sample reaching before 2021 spans two market regimes: pre-crisis LT
-  // day-ahead ran at €34-50/MWh mean against €85-95 post-2021. The P50-vs-Central
-  // gate is then EXPECTED to miss, because Central is calibrated on current
-  // market state and half the sample is not from that market. Reported as a
-  // documented deviation rather than a failure — the 36.B1-N precedent.
-  const spansRegimes = regimeMixed ?? years.some((y) => y < 2021);
+/**
+ * The distribution's raw material: one replayed shape-year per historical year,
+ * the factors they imply, and the engine's projection scaled by each of them.
+ *
+ * Split out of `runBootstrap` so 36.B4 can put a contracted overlay on the same
+ * scaled paths instead of rebuilding them — the percentile machinery has one
+ * source, and a contracted P90 and a merchant P90 are guaranteed to be the same
+ * construct measured on the same paths (rule #4).
+ */
+export async function bootstrapPaths({ config, kv, years, zone = 'LT', scenarioName = 'central' }) {
   // Client scenarios reach the engine through the driver overlay, not through
   // the scenario name — `runProject(…, {scenario})` alone leaves the constants
   // untouched. Central's drivers ARE the shipped constants, so its overlay is
@@ -97,7 +97,6 @@ export async function runBootstrap({
   const reserve = await buildReserveInputs(kv, sc, engine);
   const tp = engine.computeThroughputBreakdown(config.mw, config.duration_h, sc);
 
-  // ── 1. Replay every shape-year ─────────────────────────────────────────
   const byYear = {};
   for (const y of years) byYear[y] = await runShapeYear({ config, year: y, zone, sc, reserve, tp });
 
@@ -107,7 +106,6 @@ export async function runBootstrap({
   const refYear = String(Math.max(...years));
   const factors = shapeYearFactors(byYear, refYear);
 
-  // ── 2. Baseline projection, then one scaled projection per shape-year ──
   const baseline = await runProject(config, kv, { engine, scenario: 'base' });
   if (!/^v7/.test(baseline.model_version ?? '')) {
     throw new Error(`engine returned ${baseline.model_version}, expected v7.x — KV input incomplete`);
@@ -115,6 +113,23 @@ export async function runBootstrap({
 
   const scaled = {};
   for (const y of Object.keys(byYear)) scaled[y] = applyShapeFactor(baseline, factors[y]);
+
+  return { engine, sc, byYear, refYear, factors, baseline, scaled };
+}
+
+export async function runBootstrap({
+  config, kv, years, zone = 'LT', scenarioName = 'central', levels = EXCEEDANCE_LEVELS,
+  regimeMixed = null,
+}) {
+  // A sample reaching before 2021 spans two market regimes: pre-crisis LT
+  // day-ahead ran at €34-50/MWh mean against €85-95 post-2021. The P50-vs-Central
+  // gate is then EXPECTED to miss, because Central is calibrated on current
+  // market state and half the sample is not from that market. Reported as a
+  // documented deviation rather than a failure — the 36.B1-N precedent.
+  const spansRegimes = regimeMixed ?? years.some((y) => y < 2021);
+
+  const { byYear, refYear, factors, baseline, scaled } =
+    await bootstrapPaths({ config, kv, years, zone, scenarioName });
 
   const pct = buildPercentiles(scaled, levels);
   const orderingViolations = checkOrdering(pct.per_year, levels);

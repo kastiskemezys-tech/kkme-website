@@ -9,6 +9,7 @@
 // Everything runs against the frozen KV fixture, so these measure code rather
 // than data drift.
 
+import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
 import { loadConfigDir, loadEngine, runProject, PROJECTS_DIR } from '../engine.mjs';
 import { loadFixtureKV } from '../regression-reference.mjs';
@@ -222,19 +223,35 @@ describe('scenarios.json', () => {
   });
 
   it('matches the driver table locked with the client', () => {
+    // trading_realisation was re-anchored on the 36.B3 measurement in batch-3
+    // Part 0 (operator decision): Central is the measured volume-weighted figure
+    // and the two flanks are the measurement's own monthly extremes.
     const d = scenarios.scenarios;
     expect(d.downside.drivers).toEqual({
       fleet_realisation_pct: 65, spread_growth_pct_yr: -1.0, availability_pct: 95,
-      trading_realisation: 0.78, cap_price_delta_pct: -25, cpi_floor: 0.28,
+      trading_realisation: 0.6535, cap_price_delta_pct: -25, cpi_floor: 0.28,
     });
     expect(d.central.drivers).toEqual({
       fleet_realisation_pct: 50, spread_growth_pct_yr: 2.0, availability_pct: 97,
-      trading_realisation: 0.85, cap_price_delta_pct: 0, cpi_floor: 0.30,
+      trading_realisation: 0.7234, cap_price_delta_pct: 0, cpi_floor: 0.30,
     });
     expect(d.upside.drivers).toEqual({
       fleet_realisation_pct: 35, spread_growth_pct_yr: 3.5, availability_pct: 98,
-      trading_realisation: 0.88, cap_price_delta_pct: 20, cpi_floor: 0.35,
+      trading_realisation: 0.8155, cap_price_delta_pct: 20, cpi_floor: 0.35,
     });
+  });
+
+  it('the trading-realisation flanks ARE the measured monthly band, not a spread around it', () => {
+    // The register's declared sensitivity range for the driver is the same band,
+    // so the disclosure and the scenario table cannot drift apart.
+    const reg = JSON.parse(
+      readFileSync(`${PROJECTS_DIR}/../assumptions-register.json`, 'utf8')) as Any;
+    const row = reg.rows.find((r: Any) => r.id === 'driver_trading_realisation');
+    const d = scenarios.scenarios;
+    expect(row.sensitivity_range).toEqual([
+      d.downside.drivers.trading_realisation, d.upside.drivers.trading_realisation]);
+    expect(row.value).toBe(d.central.drivers.trading_realisation);
+    expect(row.basis).toBe('measured');
   });
 
   it('rejects a scenario with an unknown or missing driver', () => {

@@ -150,58 +150,61 @@ describe('monthlyRange', () => {
   });
 });
 
-describe('updateRegister — recording a measurement must not move a delivered number', () => {
+describe('updateRegister — a remeasurement describes the model, it never re-cuts it', () => {
   const register = JSON.parse(readFileSync(REGISTER_PATH, 'utf8'));
-  const args = {
-    measured: 0.7234,
-    assumed: 0.85,
-    n_days: 349,
-    window: { from: '2025-07-01', to: '2026-06-30' },
-    monthly: { a: { volume_weighted: 0.6535 }, b: { volume_weighted: 0.8155 } },
-  };
+  const window = { from: '2025-07-01', to: '2026-06-30' };
+  const monthly = { a: { volume_weighted: 0.6535 }, b: { volume_weighted: 0.8155 } };
+  // Batch-3 Part 0 adopted the measurement, so the register row IS 0.7234 and a
+  // rerun of the same window reproduces it.
+  const same = { measured: 0.7234, engine_value: 0.7234, n_days: 349, window, monthly };
+  // A later year that disagrees. This is the case that must NOT move anything.
+  const drifted = { measured: 0.6801, engine_value: 0.7234, n_days: 351, window, monthly };
 
-  it('leaves the engine-bound driver at its own value', () => {
+  it('leaves the engine-bound driver at its own value even when the rerun disagrees', () => {
     // The binding contract: `driver:<id>` rows are asserted equal to the Central
-    // scenario driver. Overwriting this would either break that invariant or
-    // force a client-IRR change inside a measurement phase.
-    const out = updateRegister(structuredClone(register), args as Any) as Any;
+    // scenario driver. Writing a divergent measurement into this row would either
+    // break that invariant or silently force a client-IRR change.
+    const out = updateRegister(structuredClone(register), drifted as Any) as Any;
     const bound = out.rows.find((r: Any) => r.id === 'driver_trading_realisation');
-    expect(bound.value).toBe(0.85);
+    expect(bound.value).toBe(0.7234);
     expect(bound.engine_binding).toBe('driver:trading_realisation');
-    expect(bound.note).toMatch(/MEASURED at 0.7234/);
+    expect(bound.note).toMatch(/REMEASURED at 0.6801/);
+    expect(bound.note).toMatch(/UNCHANGED/);
   });
 
-  it('adds NO new row — the register\'s every-row-is-bound invariant survives', () => {
-    const out = updateRegister(structuredClone(register), args as Any) as Any;
-    // __tests__/register.test.ts asserts every row carries an engine_binding,
-    // with a per-row binding check. A measured observation has no code constant
-    // to bind to, so recording it as a row would mean weakening a governance
-    // assertion — which a measurement phase has no business doing on its own.
-    expect(out.rows).toHaveLength(register.rows.length);
-    expect(out.rows.every((r: Any) => r.engine_binding)).toBe(true);
-    expect(out.rows.some((r: Any) => r.id === 'trading_realisation_measured')).toBe(false);
+  it('records a divergence in the changelog as pending an operator decision', () => {
+    const out = updateRegister(structuredClone(register), drifted as Any) as Any;
+    const entry = out.changelog.at(-1) as Any;
+    expect(entry.id).toBe('driver_trading_realisation');
+    expect(entry.old).toBe(0.7234);
+    expect(entry.new).toBe(0.6801);
+    expect(entry.reason).toMatch(/operator decision/);
+    expect(entry.observed_monthly_range).toEqual([0.65, 0.82]);
   });
 
-  it('records the measurement in the changelog instead', () => {
-    const out = updateRegister(structuredClone(register), args as Any) as Any;
-    const entry = out.changelog.find((c: Any) => c.id === 'trading_realisation_measured');
-    expect(entry.new).toBe(0.7234);
-    expect(entry.old).toBeNull();
-    expect(entry.phase).toBe('36.B3');
-    expect(entry.reason).toMatch(/UNCHANGED/);
-  });
-
-  it('surfaces that the measurement falls below the assumption\'s declared range', () => {
-    const out = updateRegister(structuredClone(register), args as Any) as Any;
+  it('refreshes provenance and records "nothing moved" when the rerun agrees', () => {
+    const out = updateRegister(structuredClone(register), same as Any) as Any;
     const bound = out.rows.find((r: Any) => r.id === 'driver_trading_realisation');
-    expect(bound.note).toMatch(/falls BELOW/);
-    // The assumed range is [0.78, 0.88] and the measurement is 0.7234.
-    expect(0.7234).toBeLessThan(bound.sensitivity_range[0]);
+    expect(bound.value).toBe(0.7234);
+    expect(bound.basis).toBe('measured');
+    expect(bound.source).toMatch(/349 trading days/);
+    expect(bound.source).toMatch(/monthly volume-weighted 0.65 to 0.82/);
+    expect(out.changelog.at(-1).reason).toMatch(/nothing moved/);
+  });
+
+  it('adds no row and leaves the superseded prior assumption alone — history is not rewritten', () => {
+    const out = updateRegister(structuredClone(register), drifted as Any) as Any;
+    expect(out.rows).toHaveLength(register.rows.length);
+    const prior = out.rows.find((r: Any) => r.id === 'trading_realisation_assumed_prior');
+    expect(prior).toEqual(
+      register.rows.find((r: Any) => r.id === 'trading_realisation_assumed_prior'));
+    expect(prior.value).toBe(0.85);
+    expect(prior.basis).toBe('superseded');
   });
 
   it('does not duplicate rows when applied twice', () => {
-    const once = updateRegister(structuredClone(register), args as Any) as Any;
-    const twice = updateRegister(once, args as Any) as Any;
+    const once = updateRegister(structuredClone(register), same as Any) as Any;
+    const twice = updateRegister(once, same as Any) as Any;
     expect(twice.rows).toHaveLength(register.rows.length);
   });
 });

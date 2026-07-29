@@ -1704,3 +1704,586 @@ down since 2026-07-17. Only the day-ahead component is measurable. The backtest'
 `basis` block states this, and states what else the number excludes — intraday
 execution, bid rejection, imbalance exposure and balancing forecast error are all
 outside it. It measures day-ahead policy quality and nothing more.
+
+## Phase 36.B batch-3 — Part 0 (measured-value cutover)
+
+Entries continue 36.B3's sequence because Part 0 IS the adoption of 36.B3's
+measurement, taken as an operator decision dated 2026-07-28.
+
+### 36.B3-H — the invariant was sharpened, not relaxed
+
+The prompt's instruction was explicit: go through the register's governance
+invariants "properly this time — re-fit the bindings and scenario resolution so
+the invariants HOLD with the measured values, don't relax them."
+
+Batch-2's four red tests all traced to one rule: *every row carries an
+`engine_binding`, and its value is asserted equal to what the code holds*. A
+measured-but-not-adopted observation has no code constant, so recording it as a
+row meant deleting that rule.
+
+The re-fit splits the rule in two rather than weakening either half:
+
+| row kind | binding | must carry |
+|---|---|---|
+| live | asserted equal to the code | `engine_binding` |
+| superseded | none, and none permitted | `basis: "superseded"` + `superseded_by` + `superseded_on`, no override |
+
+`validateRegister` now enforces BOTH directions, which is strictly stronger than
+before: an unbound row with no supersession declaration used to be caught only
+by an assertion in the test file, and is now a schema failure in the library.
+Superseded rows are excluded from `effectiveRegister` (provenance is not an
+input), untouched by `--sync`, and rendered in the client workbook with the
+override cell replaced by "superseded &lt;date&gt; → &lt;row&gt;". The per-row
+test loop split too: live rows assert their binding, superseded rows assert
+their pointer resolves to a live row whose value actually differs — so a
+superseded row cannot quietly come back into agreement and start looking live.
+
+Then the four "red tests" simply went green with the measured values in place,
+because the values now tie to the code: the binding resolves through
+`driver:trading_realisation` → scenarios.json Central → the shipped worker
+constant, and all three moved together.
+
+### 36.B3-I — the whole ladder had to move, because the public card shows all of it
+
+The cutover names one value. `TRADING_REALISATION` holds five.
+
+`RevenueCard` carries a base/conservative/stress selector and reads
+`data.all_scenarios` for all three at once (`app/components/RevenueCard.tsx:1586,
+1808`), and the regression matrix serves all three from `/revenue?scenario=`.
+Moving `base` to 0.7234 and leaving `conservative` at 0.80 would have published a
+"conservative" case whose trading assumption was *more optimistic* than the base
+case — an internal contradiction on the public site, and precisely the class of
+defect the arc's bankability row 5 exists to catch.
+
+So the ladder moved with its anchor and kept its shipped 5pp steps
+(0.6734 / 0.6234) rather than being re-invented. Two checks on that choice:
+
+- it is the smallest change that preserves the existing structure — one anchor
+  moved, no step re-derived, so nothing new was invented;
+- the resulting rungs land inside the measurement's own daily distribution
+  (p25 = 0.628, median = 0.756), so the ladder stays empirically plausible at
+  every rung rather than merely arithmetically consistent. `stress` ≈ the
+  measured p25 — "a year made entirely of bottom-quartile trading days" — which
+  is a better-defended stress case than "20 % worse than an assumption".
+
+A test now pins the steps, so a future edit to `base` alone fails loudly.
+
+### 36.B3-J — Downside and Upside are the measurement's own monthly extremes
+
+The prompt proposed monthly-min and monthly-max and asked for the choice to be
+documented. Taken, at the exact figures rather than the rounded ones quoted in
+the arc: **0.6535** (2025-09) and **0.8155** (2026-05), not 0.654/0.815.
+
+The reason to prefer them over a spread around the point estimate is that they
+are *observed*: an advisor can ask what the Downside case means and be told "the
+worst month this policy actually had, on real prices", instead of "the central
+value minus seven points". The register's declared sensitivity range is set to
+the same band, so the disclosure and the scenario table are one number in two
+places — with a test asserting they cannot drift apart.
+
+It also fixes the batch-2 finding directly: the old range `[0.78, 0.88]` did not
+contain the measurement. The new range contains its own value by construction.
+
+The honest limitation, stated in the row: this is ONE market year, so the band
+is an observed range and not a distribution. Twelve monthly observations from a
+single year cannot separate seasonality from trend. The row says "remeasure
+annually and widen the band if a second year disagrees", and the runner enforces
+that a disagreeing remeasurement cannot silently re-cut the model (36.B3-K).
+
+### 36.B3-K — the backtest runner became a remeasurement harness, and kept its refusal
+
+`run-backtest.mjs` hardcoded `const assumed = 0.85`. After the cutover that
+literal would have been a second, stale copy of a value the engine already holds
+— rule #4 territory. It now reads `sc.trd_real` from the engine and reports
+`engine_value` / `measured` / `delta` / `adopted`.
+
+The interesting part is what `updateRegister` does with a *disagreeing* rerun. It
+would be easy to make adoption the new default now that the operator has adopted
+once. It does the opposite:
+
+- **agrees** → refresh the row's provenance (source, window, day count, monthly
+  band) and log "nothing moved". No value changes.
+- **disagrees** → the bound row keeps its value, gains a `REMEASURED at …`
+  pointer, and the changelog records the gap as pending an operator decision.
+
+So next year's measurement can inform the model but cannot move it. That is the
+same boundary batch-2 drew, preserved on the other side of the cutover — a
+cutover is an operator decision every time, not just the first time. The
+superseded row is explicitly left alone by both branches: history is not
+rewritten by a later run.
+
+### 36.B3-L — a cost constant moved as a consequence, and that is the reconciliation working
+
+`OPERATING_CALIBRATION_EUR_KW_YR` went 2.08 → 2.56 and it is worth being clear
+that this was not a decision.
+
+The constant closes the gap between two cost taxonomies — the engine's
+(RTM % + flat BRP fee + OPEX) and the client's contracted 4-line stack (16 % of
+gross + €29/kW/yr) — **at the reference asset's revenue level**. Lower the
+revenue and the client stack's percentage lines fall while the engine's two flat
+lines do not, so the gap widens: €103 848 → €128 104, or €2.077 → €2.562 per kW.
+
+`bridgeCalibration()` re-derives it from the reference asset and a vitest holds
+the constant to that derivation — the mechanism 34.2 built precisely so this
+could not go silently stale. It fired on the first change that exercised it. The
+constant was re-derived, not re-fitted by hand, and the register row synced with
+it. Without the move the reference asset stops closing within the contracted ±2 %
+(it lands at −4.4 %, still inside the ±5 % decision rule but outside the tighter
+promise).
+
+Worth noting for B6: this is a second-order dependency between an assumption and
+a reconciliation constant that no one would find by reading either file alone.
+It belongs in the lender methodology's known-limitations list.
+
+### 36.B3-M — the 15-minute uplift moves a card, not a model
+
+The two adopted values look symmetrical and are not.
+
+`trading_realisation` is a model input: it multiplies the arbitrage revenue line
+in `computeRevenueV7` and reaches every delivered number. `RYSTAD_15MIN_UPLIFT_
+DECIMAL` is read at exactly two sites, both inside `computeDispatchV2`, and both
+are *display* fields on the public dispatch card
+(`capture_eur_mwh_15min_uplifted` and the disclosed `uplift_factor_decimal`).
+Grep confirms nothing else in the worker reads it. `/revenue` stayed 54/54
+byte-identical across this commit, which is the assertion rather than the claim.
+
+Per-route reach, which is the part that matters for the deploy:
+
+| route | reads the constant | moves on deploy? |
+|---|---|---|
+| `/revenue` | no | no — 54/54 identical, asserted |
+| `/api/dispatch?mode=realised` | indirectly | **no** — serves precomputed `dispatch:<date>:<dur>h` written by the BTD ingest cron; stored payloads carry the old factor (90-day TTL) |
+| `/api/dispatch?mode=forecast` | yes, live | would — but the branch is structurally dead (36.B0-G) |
+| `/api/trading`, `/api/trading/latest` | no | no — V1 path |
+
+So the honest statement to the operator is: **this commit changes nothing the
+site currently serves.** The realised card only moves once BTD returns (down
+since 2026-07-17, 36.B1-G) and the cron rewrites KV, at which point the
+parenthetical "with 15-min uplift" figure falls exactly 4.52 % (×1.14 → ×1.0885)
+— €11.50 → €10.98/MWh at the last live capture. The unuplifted figure beside it
+is unchanged.
+
+It also gained a register row, which is the durable half of this change: a
+public-facing constant sourced to a vendor note and never checked is exactly what
+the register exists to prevent, and it had been sitting outside it.
+
+### 36.B3-N — client impact, measured on the frozen fixture
+
+Both sides of the table below are run against the **frozen KV fixture**, not live
+KV. That is deliberate and follows the byte-identity gate's own reasoning: a
+before/after on live KV would blend the cutover with a day's market movement and
+attribute both to the decision. What follows is code-attributable in full.
+
+Portfolio, Central (the delivered case):
+
+| line | before | after | Δ |
+|---|---:|---:|---:|
+| Gross Y1 | €13 580 628 | €12 967 071 | −4.52 % |
+| EBITDA Y1 | €8 432 335 | €7 881 307 | −6.53 % |
+| Pre-financing CF Y1 | €8 135 335 | €7 584 307 | −6.77 % |
+| Gross 20-yr | €364 885 003 | €350 316 248 | −3.99 % |
+| EBITDA 20-yr | €193 094 020 | €179 359 512 | −7.11 % |
+| Pre-financing CF 20-yr | €150 385 020 | €136 650 512 | −9.13 % |
+| NPV @ 8 % | €43 333 457 | €36 379 208 | **−16.05 %** |
+| MOIC | 3.728 | 3.387 | −9.15 % |
+
+Three things in that table are worth saying out loud to the client.
+
+**The gearing of the deltas is the story.** Revenue falls 4.5 %, EBITDA 6.5 %,
+cash flow 6.8 %, NPV 16.1 %. Costs are largely fixed, and NPV discounts a
+thinner margin — a 4.5 % revenue correction lands as a 16 % NPV correction. Any
+conversation that reports only the revenue delta understates it by 3.5×.
+
+**Downside is where it bites.** Stoniškiai's Downside NPV goes from €2 234 571 to
+**−€1 299** — through zero. Eigirdžiai's falls 92 % to €130 798 and Bitėnai's
+66 %. The portfolio's Downside NPV drops 81 % to €1 416 615. The Downside case
+was always thin; at measured trading realisation it is marginal, and that is now
+the honest statement of it. This is exactly the number a lender's advisor sizes
+debt against, so it is better found here than in their model.
+
+**Upside barely moves** (−3.1 % EBITDA Y1, −5.8 % NPV), because the Upside
+driver rose to 0.8155 from 0.88 — a much smaller step than Central's. The spread
+between cases has widened, which is the correct consequence of replacing a
+narrow assumed band with a wider observed one.
+
+All 133 reconciliation assertions still pass (73 internal, 60 external, 1 known
+Bitėnai-Upside IRR warn, 0 fail), and the Central invariant is still EXACT —
+Central reproduces the unpatched engine field-for-field. The model is internally
+consistent at the new values; it is simply worth less.
+
+## Phase 36.B batch-3 — Part 1 (36.B4 contracted-revenue overlay)
+
+### 36.B4-A — a floor and a toll are different products, so both are computed
+
+The arc asks for "blended + floor-only". It would be easy to read floor-only as
+a reporting view of blended with the upside stripped for display. It is not:
+
+- **BLENDED** — the contracted share earns `max(merchant, floor)`. The floor is
+  an option the asset holds. Downside protected, upside retained.
+- **FLOOR_ONLY** — the contracted share earns the floor and nothing else. This
+  is the full-toll structure, and it is a *strictly lower* revenue path whenever
+  merchant beats the floor.
+
+At the reference asset, 50 % contracted over a 10-year term: blended 20-yr
+EBITDA €74.16M, floor-only €73.11M against a merchant €74.03M. Blended is worth
+€0.13M more than merchant; floor-only is worth €0.92M *less*. Reporting one as
+a view of the other would have hidden a €1.05M spread between two structures a
+client might actually be offered. Both are computed, and a gate asserts
+floor-only can never exceed blended.
+
+### 36.B4-B — the floor is measured against NET market revenue, and the share, and the months
+
+Three places this construct can be quietly wrong, each pinned by a test:
+
+1. **Against what.** The floor compares to the engine's `rev_gross`, which is
+   already net of charging cost (the engine prices arbitrage on a captured
+   spread). The client bridge's top line grosses charging cost back up — using
+   *that* would let the cost of buying energy count towards clearing the floor,
+   and the floor would bind less often than it should.
+2. **Against which share.** The comparison is contracted-share merchant revenue
+   vs contracted-share entitlement, never whole-asset revenue vs the
+   entitlement. €4M of whole-asset revenue clears a €2.5M floor comfortably —
+   but if only half the asset is contracted, the contracted half earned €2M and
+   the floor binds. A test pins exactly this case.
+3. **Over how many months.** A partial first operating year pro-rates the
+   entitlement. Stoniškiai's first year is seven months; measured against a
+   twelve-month floor it would appear short and the floor would bind spuriously
+   in year one of every contracted case.
+
+Binding is asserted exact at the boundary: short binds, equal does not.
+
+### 36.B4-C — the conservative fee treatment is stated and quantified, not assumed away
+
+The 4-line cost stack is applied to floor revenue exactly as to merchant
+revenue. In a real full toll the offtaker takes the trading rights, so the
+optimiser fee on the contracted share does not arise — meaning this overlay
+**understates** the toll case's EBITDA.
+
+Rather than pick a side, the overlay reports `toll_fee_understatement_eur` =
+optimiser % × contracted revenue. The conservative number ships; the figure
+needed to undo the conservatism ships beside it. An advisor who disagrees with
+the treatment can adjust without re-running anything, which is the difference
+between a conservative model and an opaque one.
+
+The floor is also **nominal** — it does not escalate while opex does, so
+protection thins in real terms across the term. Stated, not corrected: that is
+how term sheets are usually written, and the direction is conservative.
+
+### 36.B4-D — the percentiles come from B2's paths, not from a second distribution
+
+The whole point of the phase is "what does a floor do to P90". That comparison
+is only meaningful if the contracted P90 and the merchant P90 are the same
+construct measured on the same sample. So `runBootstrap` was split: the
+shape-year replay, the factors and the scaled projections now come out of
+`bootstrapPaths()`, and B4 applies the contract to those exact paths. One
+source, one sample, one method (rule #4). Rebuilding a distribution here would
+have made the with/without delta a mixture of a contracting effect and a method
+difference, with no way to separate them.
+
+Result at the reference asset — lifetime gross, blended, term 10 yr, floor
+€139 000/MW/yr (derived, see 36.B4-E):
+
+| contracted | P50 | P75 | P90 * | lift P90 vs P50 |
+|---|---:|---:|---:|---:|
+| 0 % | €131.48M | €120.85M | €116.58M | — |
+| 30 % | €132.00M | €122.86M | €119.26M | 4.2× |
+| 50 % | €132.34M | €124.20M | €121.04M | 5.3× |
+
+\* P90 is NOT resolved at five shape-years (the sample resolves [P17, P83]) and
+is the sample minimum wearing a percentile's name — B2's honesty constraint,
+carried through unchanged rather than quietly dropped because this phase would
+read better without it.
+
+The asymmetry is the product: at 50 % contracted the median rises 0.65 % and the
+tail rises 3.8 %. A test asserts the tail must lift strictly *more* than the
+median, so an overlay that merely added revenue everywhere would fail — it would
+not be a floor.
+
+### 36.B4-E — the illustrative floor is derived from the model, not asserted
+
+A floor level had to come from somewhere, and rule #3 forbids putting an
+unsourced number in a client-facing artefact. Rather than quote a tolling price
+from a market note, the default is derived from the asset itself: **the level the
+merchant case's Y1 net revenue exceeds in 75 % of shape-year outcomes**,
+€139 000/MW/yr at the reference asset.
+
+P75 and not P90 because P90 is outside what five shape-years resolve — a floor
+written at an unresolved percentile would be the sample minimum with a
+percentile's label on it, which is the exact failure mode B2 built machinery to
+prevent.
+
+Every output carries `counterparty_note` defaulted to "ILLUSTRATIVE — no
+counterparty. Structure test at a model-derived floor level, not a term sheet
+and not an offer received." `normaliseContract` **throws** if a live contract
+(non-zero floor, share and term) carries no counterparty basis at all. A real
+term sheet is `--floor <x> --term <n>` away; a floor that nobody can trace
+cannot be run by accident.
+
+## Phase 36.B batch-3 — Part 2 (36.B0-H negative-price parser fix)
+
+### 36.B0H-A — the fix is one character class; the analysis is the phase
+
+`/<price\.amount>([\d.]+)<\/price\.amount>/g` → `([-\d.eE+]+)`. That is the
+whole change. Everything below is the answer to "and what did that break".
+
+The character class now matches `parseA44` in `backfill-entsoe.mjs`, which has
+always accepted negatives. That is not a coincidence worth glossing over: it is
+why the committed 11-year price history is CLEAN and only the worker path was
+affected. Two parsers over the same document format, one right and one wrong,
+sitting in the same repo — a rule #4 violation that had never been noticed
+because the two are on different sides of the runtime boundary. A test now
+asserts they agree on the same document.
+
+### 36.B0H-B — 125 corrupted days in the history, and the trend is the story
+
+Counted over the committed LT day-ahead files (`data/da-hourly-LT-*.json`,
+101 470 covered hours across 4 228 days), a "corrupted day" being any day
+carrying at least one negative hour — the days on which the old regex would have
+returned a short, index-shifted array:
+
+| year | covered hours | negative hours | days with ≥1 negative | worst day | min price |
+|---|---:|---:|---:|---:|---:|
+| 2015-2019 | 43 824 | 0 | 0 | — | +0.12 |
+| 2020 | 8 784 | 5 | 2 | 4 h | −1.73 |
+| 2021 | 8 760 | 5 | 2 | 4 h | −1.41 |
+| 2022 | 8 760 | 2 | 1 | 2 h | −0.04 |
+| 2023 | 8 760 | 100 | **20** | 15 h | −56.55 |
+| 2024 | 8 784 | 186 | **42** | 11 h | −19.96 |
+| 2025 | 8 760 | 178 | **44** | 14 h | −23.58 |
+| 2026 YTD | 5 038 | 61 | **14** | 8 h | −13.55 |
+| **total** | **101 470** | **537** | **125 (2.96 %)** | | |
+
+Zero before 2020 and better than one day in nine now. Solar build-out did this,
+and it is accelerating — which means a defect that was genuinely harmless when
+the regex was written became a live public-data defect somewhere around 2023 and
+nobody re-checked. Worth carrying into B6's limitations list as a pattern, not
+just as an instance: *an input assumption that was true when written*.
+
+### 36.B0H-C — what the corruption actually did, on a real day
+
+2025-03-22 LT, fetched from the Transparency Platform and committed as
+`workers/__tests__/fixtures/entsoe-a44-LT-2025-03-22.xml`. Seven negative hours,
+trough −€11.53.
+
+| published field | old regex | correct | error |
+|---|---:|---:|---:|
+| hours returned | 17 | 24 | −7 |
+| LT daily average | €11.68 | €6.78 | **+72.3 %** |
+| daily swing (peak − trough) | €20.98 | €33.51 | **−37.4 %** |
+| peak hour (UTC) | 16 | 19 | 3 h wrong |
+| trough hour (UTC) | 11 | 12 | 1 h wrong |
+
+The direction matters. The site **overstated the average price and understated
+the arbitrage swing** — the headline number on `PeakForecastCard` — on exactly
+the days when spreads were widest. And it did it while displaying a peak hour
+that was three hours off, which is a rule #2 failure (a label asserting *when* a
+value came from) arriving through a parser instead of through a display string.
+
+The mechanism is worth stating precisely because the intuition is wrong: the
+regex does not lose the SIGN, it loses the ELEMENT. Everything after the first
+negative hour shifts down one index and gets re-labelled with someone else's
+hour. Tests pin both the shift and the shifted peak/trough index.
+
+### 36.B0H-D — per-route reach, and why almost nothing moves at deploy
+
+`extractPrices` has four call sites, and none of them is in a route's read path:
+
+| call site | reached from | route impact |
+|---|---|---|
+| `computeS1` LT/SE4/PL (`:4145-4147`) | cron + `GET /` | writes the `s1` KV key |
+| `fetchBznRange` → `computeHistorical` (`:3795`) | cron + `GET /` | `rsi_30d`, `trend_vs_90d`, `pct_hours_above_20` |
+| `fetchBznRange` → tomorrow | cron + `GET /` | `da_tomorrow` shape metrics |
+| `/trading/push` (`:9743`) | BTD ingest POST | `body.da_hourly` → `dispatch:<date>` KV |
+
+So:
+
+- **`/revenue` — unaffected.** 54/54 byte-identical, asserted. The engine reads
+  `s1.spread_eur_mwh` only as a FALLBACK when `s1_capture` is absent, and
+  `s1_capture` comes from a different source entirely (see 36.B0H-E). It does
+  echo `spread_eur_mwh` and `lt_daily_swing_eur_mwh` in its `signal_inputs` /
+  `live_rate` disclosure blocks, so those echoed values were wrong on corrupted
+  days — a disclosure defect, not a revenue one.
+- **`/read` — moves, but not at deploy.** It serves the stored `s1` key, so it
+  changes only after the next cron or `GET /` rewrites it. Six public components
+  read it: `PeakForecastCard`, `SpreadCaptureCard`, `HeroMarketNow`,
+  `SignalBar`, `StatusStrip`, `HeroBalticMap`.
+- **`GET /` — moves immediately**, because it computes live. It is the refresh
+  endpoint, not a card's data source.
+- **`/api/dispatch?mode=realised` — moves only once BTD returns** and the ingest
+  cron rewrites `dispatch:<date>` (down since 2026-07-17, 36.B1-G).
+- **`/s1/history`, `/s1/capture` — unaffected** (36.B0H-E).
+
+Stored KV was checked directly rather than assumed: in both the frozen fixture
+and the live snapshot, `s1.lt_hourly_24` holds 24 values with a minimum of
+€1.39. **There is no negative hour in the currently stored payload**, so nothing
+the site is serving today is corrupted, and the fix will first bite on the next
+negative-price day.
+
+### 36.B0H-E — the capture path was never affected, because it uses a different source
+
+Checked rather than assumed, and it is the finding that most changes the blast
+radius. `computeCapture` — which produces `s1_capture`, `s1_capture_history`,
+the rolling 30-day stats and the monthly aggregation — calls
+`fetchEnergyCharts(today)`, a JSON API with its own parser. It never touches
+`extractPrices`.
+
+That is why the stored `s1_capture.history` carries perfectly correct NEGATIVE
+charge prices (−€2.05, −€0.68, −€0.03 per MWh in the fixture): the asset was
+paid to charge, and that path recorded it faithfully the whole time.
+
+So the estate has **three** day-ahead price paths — energy-charts JSON (correct,
+feeds capture), ENTSO-E via `parseA44` (correct, feeds the committed history and
+every consultancy runner), and ENTSO-E via `extractPrices` (broken until now,
+feeds the S1 signal payload). The first two were right; only the third was
+wrong, and it is the one on the public signal cards. A B6 governance item: three
+paths for one quantity is two too many, and the register cannot see any of them.
+
+## Phase 36.B batch-3 — Part 3 (36.B5 degradation loop + dur_h + the throughput split)
+
+### 36.B5-A — the dur_h band was not merely inconsistent, it was discontinuous the wrong way
+
+Batch-35 reported a `<= 2` / `>= 3` branch mismatch. Measured, it is worse than
+a mismatch. Twelve sites switched anchors at `dur_h <= 2` while `rteCurveFor`
+switched at `>= 3`, so between 2h and 3h the engine ran a **2h round-trip
+efficiency against 4h day-ahead throughput** — and the arithmetic consequence was
+a step:
+
+| dur_h | old gross Y1 | new gross Y1 | old IRR | new IRR | old EFC | new EFC |
+|---|---:|---:|---:|---:|---:|---:|
+| 2.00 | 7 999 249 | 7 999 249 | 0.2225 | 0.2225 | 678 | 678 |
+| 2.01 | 8 519 008 | 8 002 555 | **0.2450** | 0.2214 | 874 | 676 |
+| 2.99 | 8 519 008 | 8 293 660 | 0.1538 | 0.1469 | 587 | 520 |
+| 3.00 | 8 553 517 | 8 296 277 | **0.1543** | 0.1464 | 585 | 519 |
+| 4.00 | 8 553 517 | 8 553 517 | 0.1051 | 0.1051 | 439 | 439 |
+
+Adding 0.01 h of storage raised Y1 gross by €519 759 (+6.5 %) and project IRR by
+2.25 pp. A second, smaller step sat at exactly 3.00, where the RTE branch
+flipped. **IRR rose with duration at both**, which is impossible: duration costs
+capex and buys very little extra revenue. Any client sizing a 2.5h asset in the
+calculator was reading a number off a mixed calibration.
+
+One policy replaces all thirteen branches. Two properties earn it the right to
+be applied everywhere at once:
+
+- **On-anchor identity.** At `dur_h ≤ 2` the weight is exactly 0 and `durBlend`
+  RETURNS the 2h value rather than recomputing it; likewise 4h. No float
+  arithmetic touches an anchor, so /revenue — which serves 2h and 4h only — is
+  byte-identical by construction, not by rounding luck. The 54/54 gate agrees.
+- **Documented clamp.** Outside [2h, 4h] the policy holds the nearest anchor
+  instead of extrapolating. A 1h or 8h asset is outside the calibration, and the
+  honest answer there is the anchor, not a linear guess about physics nobody
+  measured. Flat, and said to be flat.
+
+The property test sweeps 1h → 8h at quarter-hour resolution: continuity, the two
+flat regions, and strict monotonicity of IRR, cycling intensity and LCOS. The old
+model failed the IRR monotonicity check at two points; the new one passes at all
+28 intervals.
+
+### 36.B5-B — aligning the throughput was a real choice, and the other direction was worse
+
+36.B1-O found two day-ahead throughput figures. Cycle accounting used the full
+anchor; revenue billed `anchor × trading_fraction × avail`. Two ways to close it:
+
+1. **Raise revenue to the anchor** — drop `trading_fraction` from the revenue
+   line. Increases published revenue ~43 %, and is flatly contradicted by B1's
+   hourly simulation, which finds achieved day-ahead throughput at ~27 % of the
+   revenue anchor. Rejected.
+2. **Lower wear to the delivered figure** — charge cell ageing on the energy the
+   model says actually moves. Physically correct: you cannot wear cells with
+   energy you did not move.
+
+(2) it is, and it is worth being explicit that this is *not free*: less cycling
+means slower degradation means higher IRR (+0.9 % relative on the reference
+asset). A consistency fix that happens to improve the answer deserves more
+scrutiny than one that worsens it, which is why the external-benchmark
+consequence below was chased rather than accepted quietly.
+
+Two implementation details that matter:
+
+- The revenue base stays the **anchor**, because the year loop applies
+  `trading_fraction × avail × deg_ratio × op_frac` itself, per year.
+  Pre-multiplying at the source would have double-counted the very factor being
+  aligned — caught by the Y1-gross-unchanged assertion, which is in the test
+  suite precisely to catch it.
+- Availability now lands in exactly **one** place. The first cut applied it
+  inside the breakdown and left the LCOS denominator's own `× sc.avail`
+  untouched, haircutting the same energy twice. `total_efcs_yr` is now
+  unambiguously delivered throughput and no consumer re-applies anything.
+
+The V6 fallback path was aligned too. It never runs in production, but leaving
+two paths disagreeing about how fast a battery ages inside a phase named
+"internal consistency" would have been absurd.
+
+### 36.B5-C — the alignment breaks an external benchmark, and the band did not move
+
+`external_3_cycles_yr` holds the modelled cycling against [550, 720] EFC/yr from
+Modo / GEM measured merchant-battery research. The aligned reference asset comes
+in at **498** — below the band, on Central and on the reference asset, which are
+FAIL-level subjects.
+
+The tempting move is to widen the band to [450, 720]. That is re-fitting evidence
+to the model, and it is exactly what the register and the reconciliation harness
+exist to make impossible.
+
+What happened instead: `externalChecks` gained an `expected_deviation` field on
+the 36.B1-N precedent. A check may declare, in code and with a stated reason,
+that a breach is a known finding. **The band keeps its sourced value, the breach
+is reported at full size, it is counted in the summary and printed by the CLI** —
+the only thing lifted is the build-failing status. A test asserts the band is
+unmoved, that the actual is genuinely below it, and that no UNDECLARED breach can
+survive. The client workbook renders these as `DECLARED` carrying the reason,
+rather than as a bare FAIL a reader cannot interpret.
+
+And the finding itself is worth more than the gate: the engine's stacked
+reserve + day-ahead model now says its asset cycles LESS than the observed
+merchant fleet does. B1's hourly physical simulation says so more strongly still
+(221 EFC/yr). Two independent routes agreeing that the modelled asset
+under-cycles points at the benchmark fleet carrying a different reserve/day-ahead
+mix than the modelled stack — a calibration question, carried to B6, not a reason
+to move a band.
+
+The register followed the same rule. `cycles_efc_yr` (678 → 498) and
+`cycles_per_day` (1.86 → 1.36) had the observed band as their declared
+`sensitivity_range`, and the new values fall outside it. Rather than widen it, the
+band moved to a new `benchmark_band` field with its source and the direction of
+the miss, and `sensitivity_range` went null. The row now says "here is the
+observed band, and here is where the model sits relative to it" instead of
+quietly containing itself.
+
+### 36.B5-D — the loop closes, and it closes onto B1's number
+
+The dispatch↔SOH loop is a fixed point: the assumed cycling rate picks the SOH
+curve, the SOH curve sets the usable energy window, the dispatch realises a rate
+of its own, and until now nothing compared the two.
+
+Reference asset, LT 2025 shape replayed across a 20-year horizon, prices and
+policy held fixed so the residual is attributable to the loop alone:
+
+| pass | cd in | realised | cd out | \|Δ\| |
+|---|---:|---:|---:|---:|
+| 1 | 1.363315 | 0.631921 | 0.631921 | 7.31e−1 |
+| 2 | 0.631921 | 0.609179 | 0.609179 | 2.27e−2 |
+| 3 | 0.609179 | 0.609179 | 0.609179 | 0 |
+
+- **open loop 1.3633 c/d (498 EFC/yr) → closed loop 0.6092 c/d (222 EFC/yr)**
+- SOH at year 20: 63.23 % → 66.50 %
+- lifetime dispatch revenue on the fixed shape: €70.9M → €79.6M (+12.19 %)
+
+**222 EFC/yr against B1's independently-measured 221.** Two different routes —
+one a gate on a single-year hourly run, one a multi-year fixed point — landing on
+the same physical answer is the strongest corroboration this arc has produced.
+
+**The arc's two-pass claim is wrong, and is reported wrong.** The arc states the
+loop "converges in 2 passes for realistic parameters (verify)". Verified: it does
+not. The residual after two passes is 2.27e−2 c/d — 3.60 %, against a 1e−3
+tolerance. Convergence takes **three**. Re-describing two passes as convergence
+would have been the easy sentence; the runner reports `within_tolerance: false`,
+the residual, the gap to the converged value, and the measured contraction ratio
+instead. The methodology gets the honest number.
+
+This stays a Node-side capability. It moves no published number: closing the loop
+in the shipped engine would take the model to 222 EFC/yr and a materially higher
+IRR, which is the hourly-engine cutover the arc reserves as a separate operator
+decision (Phase 37). What this phase delivers is the measurement of what that
+cutover would be worth, plus proof the iteration is well-behaved enough to base
+one on.

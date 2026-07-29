@@ -1,14 +1,12 @@
 {
   "_note": "Phase 34.6 — the single source for every piece of client-facing prose that appears in more than one deliverable. The Excel generator (generate-xlsx.mjs) and the HTML/PDF generator (generate-deliverable.mjs) both read from here, so the two artefacts are incapable of describing the same thing in two different ways (discipline rule #4, applied to prose). Values marked 'operator-verbatim' were decided by the operator and must not be reworded by a generator.",
   "_provenance": "operator-verbatim (34.6 prompt) unless the key carries its own note. WORDING is operator-owned and must not be reworded by a generator; the {{TOKENS}} inside three of the notes are FIGURES, resolved at build time from the runner outputs by resolveNotes() in generate-xlsx.mjs. They were literals until a live-KV re-run moved the model and left the prose asserting numbers the engine no longer produced (33.2% vs 33.1%, 4.6–5.7% vs 3.8–4.7%). A generator throws if any token is left unresolved. See DECISIONS.md 34.7-D.",
-
   "npv_label": "NPV @ 8% — pre-financing, pre-tax (the commissioned bridge carries no tax line)",
   "dead_drivers_note": "{{DEAD_DRIVERS}} were tested and move no cash flow in this model — trading revenue sits on its allocation clamp and the CPI floor is a disclosure threshold. {{TOP_DRIVER}} dominates sensitivity by an order of magnitude ({{TOP_DRIVER_SWING}} 20-yr swing). Reported as computed; no synthetic elasticity invented.",
   "upside_warn_note": "Upside IRR ({{WARN_SUBJECT}} {{WARN_IRR}}) clears the Clean Horizon published range ({{WARN_BAND}}) by design — the band describes central expectations.",
   "partial_year_note": "{{PARTIAL_PROJECTS}} Y1 bridge EBITDA runs {{PARTIAL_RANGE}} above the engine figure — exactly the flat BRP fee remainder against pro-rated part-year lines; asserted per project, never absorbed.",
   "capex_note": "Augmentation (Y8) and replacement (Y15) CAPEX are shown unsmoothed per the commissioned bridge; reserve-account smoothing is a financing structure and out of scope.",
-  "register_count": 44,
-
+  "register_count": 47,
   "engagement": {
     "client": "Prosperus",
     "client_contact": "Indrė Lukošaitienė",
@@ -18,61 +16,155 @@
     "provider_contact": "Kastytis Kemežys · kastis.kemezys@gmail.com · kkme.eu",
     "engine_version": "v7.3"
   },
-
   "delivery_banner": "v0.5 deliverable · computed by KKME engine v7.3 · generated {{DATE}} · figures reproducible via the accompanying model",
-
   "scope_lock": "Scope as locked with the client 2026-07-22: independent revenue + EBITDA per project and consolidated, DA + intraday cashflows, FCR / aFRR / mFRR capacity + activation, dispatch physics at annual/monthly resolution, Central / Downside / Upside with Baltic saturation and cannibalisation, adjustable assumptions register, and the 8-line bridge from gross market revenues to pre-financing cash flow. Debt, interest and DSCR are excluded. Hourly chronological dispatch is v1.0 extended scope, agreed with the client.",
-
   "override_mechanism": "The `override` column is the adjustable handle. Enter a value there and it replaces the engine-derived `value` for that assumption; `value` is never overwritten, so the model's figure and your edit stay side by side. Overrides are applied by re-running the KKME engine — this workbook does not recompute the model. Excel formulas in it move only what is stated to be formula-linked (the scenario selector); every other figure is engine output.",
-
   "scenario_selector_label": "Selector over three pre-computed engine runs — not a live model. Each column below was produced by a full engine run under that scenario's six locked drivers; the dropdown chooses which of those runs is displayed.",
-
   "excluded_items": "Debt · interest · DSCR · tax — excluded from the commissioned bridge",
-
   "_correlation_note": "Deliberately absent. The correlation disclosure is computed by the portfolio runner and lives in portfolio.json as `correlation_note` — restating it here would create a second source for the same claim (discipline rule #4). Generators read it from the runner output.",
-
   "reconciliation_note": "Every figure in this deliverable is produced by the KKME engine and gated by an automated reconciliation harness: internal arithmetic identities (the bridge must tie out line by line, the portfolio must equal the sum of its projects) and external benchmark bands (published IRR ranges, CAPEX, cycle counts, margins). The harness runs on every regeneration and fails loudly. Its full result is reproduced in this deliverable.",
-
   "figures_basis": "All figures are computed by the KKME revenue engine v7.3 against the Baltic market state captured at generation time. Nothing in this deliverable is hand-entered: the workbook, the summary document and the engine are regenerated from the same run and are verified equal before delivery.",
-
   "_glossary_provenance": "Definitions follow docs/glossary.md, the codebase's canonical term list, so the deliverable cannot define a term differently from the engine that computes it.",
   "glossary": [
-    ["aFRR", "Automatic Frequency Restoration Reserve. Baltic balancing product, automatically activated. Paid a capacity price plus an activation energy price. The primary BESS revenue stream."],
-    ["mFRR", "Manual Frequency Restoration Reserve. Slower balancing product, manually activated. Lower activation frequency than aFRR. Also paid capacity plus activation."],
-    ["FCR", "Frequency Containment Reserve. The fastest response product. The Baltic FCR market is currently limited; this model carries FCR as a saturation diagnostic and takes no FCR revenue into the bridge."],
-    ["S/D ratio", "Supply/demand ratio for Baltic balancing capacity — flexible fleet MW against TSO procurement volume. Below 1.0× is scarcity (good for BESS); above 1.0× is price compression."],
-    ["CPI", "Competition Pressure Index. A KKME-derived measure of fleet growth against procurement demand, range 0.25–2.0. Not the consumer price index."],
-    ["DA", "Day-ahead market. Prices set one day before delivery by auction; the arbitrage revenue line is earned here."],
-    ["COD", "Commercial Operation Date. When the asset starts earning."],
-    ["EFC", "Equivalent full cycle. One complete charge and discharge of nameplate energy, however accumulated. The unit warranty throughput is stated in."],
-    ["RTE", "Round-trip efficiency. Energy out ÷ energy in, measured at the point of interconnection including auxiliaries."],
-    ["BOL", "Beginning of life. The as-commissioned state, before calendar and cycle degradation."],
-    ["SoC", "State of charge. Stored energy as a share of usable capacity."],
-    ["BRP", "Balance responsible party. The entity carrying imbalance risk for the asset; charged here as a flat annual fee."],
-    ["POI", "Point of interconnection. The grid connection point — all efficiency and capacity figures in this model are stated at the POI."],
-    ["MOIC", "Multiple on invested capital. Cumulative cash returned ÷ capital invested, undiscounted."],
-    ["IRR", "Internal rate of return. Project IRR (pre-leverage) is the primary metric here; the bridge's own NPV is pre-financing and pre-tax."],
-    ["DSCR", "Debt service coverage ratio. Out of scope for this engagement — no debt is modelled."],
-    ["Pre-financing CF", "Cash flow before any debt service, interest or tax. The last line of the commissioned bridge."],
-    ["Optimiser fee", "The route-to-market / trading-optimiser share of gross market revenues."],
-    ["Augmentation", "Mid-life addition of cells to restore usable energy lost to degradation."]
+    [
+      "aFRR",
+      "Automatic Frequency Restoration Reserve. Baltic balancing product, automatically activated. Paid a capacity price plus an activation energy price. The primary BESS revenue stream."
+    ],
+    [
+      "mFRR",
+      "Manual Frequency Restoration Reserve. Slower balancing product, manually activated. Lower activation frequency than aFRR. Also paid capacity plus activation."
+    ],
+    [
+      "FCR",
+      "Frequency Containment Reserve. The fastest response product. The Baltic FCR market is currently limited; this model carries FCR as a saturation diagnostic and takes no FCR revenue into the bridge."
+    ],
+    [
+      "S/D ratio",
+      "Supply/demand ratio for Baltic balancing capacity — flexible fleet MW against TSO procurement volume. Below 1.0× is scarcity (good for BESS); above 1.0× is price compression."
+    ],
+    [
+      "CPI",
+      "Competition Pressure Index. A KKME-derived measure of fleet growth against procurement demand, range 0.25–2.0. Not the consumer price index."
+    ],
+    [
+      "DA",
+      "Day-ahead market. Prices set one day before delivery by auction; the arbitrage revenue line is earned here."
+    ],
+    [
+      "COD",
+      "Commercial Operation Date. When the asset starts earning."
+    ],
+    [
+      "EFC",
+      "Equivalent full cycle. One complete charge and discharge of nameplate energy, however accumulated. The unit warranty throughput is stated in."
+    ],
+    [
+      "RTE",
+      "Round-trip efficiency. Energy out ÷ energy in, measured at the point of interconnection including auxiliaries."
+    ],
+    [
+      "BOL",
+      "Beginning of life. The as-commissioned state, before calendar and cycle degradation."
+    ],
+    [
+      "SoC",
+      "State of charge. Stored energy as a share of usable capacity."
+    ],
+    [
+      "BRP",
+      "Balance responsible party. The entity carrying imbalance risk for the asset; charged here as a flat annual fee."
+    ],
+    [
+      "POI",
+      "Point of interconnection. The grid connection point — all efficiency and capacity figures in this model are stated at the POI."
+    ],
+    [
+      "MOIC",
+      "Multiple on invested capital. Cumulative cash returned ÷ capital invested, undiscounted."
+    ],
+    [
+      "IRR",
+      "Internal rate of return. Project IRR (pre-leverage) is the primary metric here; the bridge's own NPV is pre-financing and pre-tax."
+    ],
+    [
+      "DSCR",
+      "Debt service coverage ratio. Out of scope for this engagement — no debt is modelled."
+    ],
+    [
+      "Pre-financing CF",
+      "Cash flow before any debt service, interest or tax. The last line of the commissioned bridge."
+    ],
+    [
+      "Optimiser fee",
+      "The route-to-market / trading-optimiser share of gross market revenues."
+    ],
+    [
+      "Augmentation",
+      "Mid-life addition of cells to restore usable energy lost to degradation."
+    ]
   ],
-
   "bridge_lines": [
-    ["gross_market_revenues", "Gross market revenues", "revenue"],
-    ["charging_costs", "less: charging costs", "deduction"],
-    ["net_market_revenue", "Net market revenue", "subtotal"],
-    ["optimiser", "less: optimiser fee", "deduction"],
-    ["grid", "less: grid charges", "deduction"],
-    ["market", "less: market/exchange fees", "deduction"],
-    ["operating", "less: operating costs", "deduction"],
-    ["project_ebitda", "Project EBITDA", "subtotal"],
-    ["maintenance_capex", "less: maintenance CAPEX", "deduction"],
-    ["augmentation_capex", "less: augmentation CAPEX", "deduction"],
-    ["replacement_capex", "less: replacement CAPEX", "deduction"],
-    ["pre_financing_cf", "Pre-financing cash flow", "total"]
+    [
+      "gross_market_revenues",
+      "Gross market revenues",
+      "revenue"
+    ],
+    [
+      "charging_costs",
+      "less: charging costs",
+      "deduction"
+    ],
+    [
+      "net_market_revenue",
+      "Net market revenue",
+      "subtotal"
+    ],
+    [
+      "optimiser",
+      "less: optimiser fee",
+      "deduction"
+    ],
+    [
+      "grid",
+      "less: grid charges",
+      "deduction"
+    ],
+    [
+      "market",
+      "less: market/exchange fees",
+      "deduction"
+    ],
+    [
+      "operating",
+      "less: operating costs",
+      "deduction"
+    ],
+    [
+      "project_ebitda",
+      "Project EBITDA",
+      "subtotal"
+    ],
+    [
+      "maintenance_capex",
+      "less: maintenance CAPEX",
+      "deduction"
+    ],
+    [
+      "augmentation_capex",
+      "less: augmentation CAPEX",
+      "deduction"
+    ],
+    [
+      "replacement_capex",
+      "less: replacement CAPEX",
+      "deduction"
+    ],
+    [
+      "pre_financing_cf",
+      "Pre-financing cash flow",
+      "total"
+    ]
   ],
-
   "revenue_lines": {
     "_note": "The client contract names ten revenue lines. At annual resolution the engine computes two revenue quantities — a combined balancing stream (rev_bal) and an energy-trading stream (rev_trd) — plus the charging cost rebuilt from the engine's own charged-MWh volumes. This table maps each contracted line onto the quantity that carries it and states the formula the engine actually evaluates, verbatim from the code. Where the engine does not resolve a contracted line separately, the row says so rather than presenting an invented split. Resolving all ten into their own settled cash lines requires the chronological hourly dispatch of v1.0 extended scope.",
     "formulae": {
@@ -82,25 +174,90 @@
       "rev_gross": "rev_gross = max(revenue_floor × MW × operating_year_fraction, rev_bal + rev_trd). The floor is a saturated-market minimum, not an expectation."
     },
     "lines": [
-      ["DA discharge revenue", "rev_trd", "The full trading factor chain above.", "carried in the trading stream"],
-      ["DA charging cost", "charging_costs", "Charged MWh × mean observed charging price.", "resolved — the bridge's own charging line"],
-      ["Intraday discharge revenue", "rev_trd", "Same factor chain; the engine captures one blended DA/intraday spread rather than pricing the two venues separately.", "not separately resolved at annual resolution"],
-      ["Intraday charging cost", "charging_costs", "Included in the blended charged-MWh volume at the observed mean charging price.", "not separately resolved at annual resolution"],
-      ["FCR capacity revenue", "—", "FCR enters the engine only as a saturation diagnostic (its own S/D ratio and bid-acceptance are disclosed); the revenue formula is driven by aFRR and mFRR alone.", "no FCR revenue is taken into the bridge"],
-      ["FCR activation revenue", "—", "Not modelled — follows from FCR carrying no revenue line.", "no FCR revenue is taken into the bridge"],
-      ["aFRR capacity revenue", "rev_bal (capacity term)", "reservePrice(sd_ratio, aFRR_share × aFRR capacity price) × bidAcceptance(aFRR S/D).", "computed as a term of R_cap_yr"],
-      ["aFRR activation revenue", "rev_bal (activation term)", "reservePrice(sd_ratio × 1.15, aFRR_share × activation rate × aFRR clearing price × 0.55) × bidAcceptance(aFRR S/D).", "computed as a term of R_act_yr"],
-      ["mFRR capacity revenue", "rev_bal (capacity term)", "reservePrice(sd_ratio, mFRR_share × mFRR capacity price) × bidAcceptance(mFRR S/D).", "computed as a term of R_cap_yr"],
-      ["mFRR activation revenue", "rev_bal (activation term)", "reservePrice(sd_ratio × 1.15, mFRR_share × activation rate × mFRR clearing price × 0.75) × bidAcceptance(mFRR S/D).", "computed as a term of R_act_yr"]
+      [
+        "DA discharge revenue",
+        "rev_trd",
+        "The full trading factor chain above.",
+        "carried in the trading stream"
+      ],
+      [
+        "DA charging cost",
+        "charging_costs",
+        "Charged MWh × mean observed charging price.",
+        "resolved — the bridge's own charging line"
+      ],
+      [
+        "Intraday discharge revenue",
+        "rev_trd",
+        "Same factor chain; the engine captures one blended DA/intraday spread rather than pricing the two venues separately.",
+        "not separately resolved at annual resolution"
+      ],
+      [
+        "Intraday charging cost",
+        "charging_costs",
+        "Included in the blended charged-MWh volume at the observed mean charging price.",
+        "not separately resolved at annual resolution"
+      ],
+      [
+        "FCR capacity revenue",
+        "—",
+        "FCR enters the engine only as a saturation diagnostic (its own S/D ratio and bid-acceptance are disclosed); the revenue formula is driven by aFRR and mFRR alone.",
+        "no FCR revenue is taken into the bridge"
+      ],
+      [
+        "FCR activation revenue",
+        "—",
+        "Not modelled — follows from FCR carrying no revenue line.",
+        "no FCR revenue is taken into the bridge"
+      ],
+      [
+        "aFRR capacity revenue",
+        "rev_bal (capacity term)",
+        "reservePrice(sd_ratio, aFRR_share × aFRR capacity price) × bidAcceptance(aFRR S/D).",
+        "computed as a term of R_cap_yr"
+      ],
+      [
+        "aFRR activation revenue",
+        "rev_bal (activation term)",
+        "reservePrice(sd_ratio × 1.15, aFRR_share × activation rate × aFRR clearing price × 0.55) × bidAcceptance(aFRR S/D).",
+        "computed as a term of R_act_yr"
+      ],
+      [
+        "mFRR capacity revenue",
+        "rev_bal (capacity term)",
+        "reservePrice(sd_ratio, mFRR_share × mFRR capacity price) × bidAcceptance(mFRR S/D).",
+        "computed as a term of R_cap_yr"
+      ],
+      [
+        "mFRR activation revenue",
+        "rev_bal (activation term)",
+        "reservePrice(sd_ratio × 1.15, mFRR_share × activation rate × mFRR clearing price × 0.75) × bidAcceptance(mFRR S/D).",
+        "computed as a term of R_act_yr"
+      ]
     ],
     "split_caveat": "The four aFRR/mFRR terms above are computed inside the balancing revenue and are not settled out as separate annual cash lines. Where this deliverable reports a capacity/activation split, it is the engine's reporting split of rev_bal at 65/35 — indicative, not separately computed. rev_bal is the computed quantity.",
     "fcr_caveat": "No FCR revenue is claimed anywhere in this model. The Baltic FCR market is small relative to aFRR and mFRR procurement, and the engine treats FCR as a saturation diagnostic only. If FCR procurement deepens, that is upside not in these numbers."
   },
-
   "cost_lines": [
-    ["optimiser", "Optimiser fee", "% of gross market revenues"],
-    ["grid", "Grid charges", "% of gross market revenues"],
-    ["market", "Market / exchange fees", "% of gross market revenues"],
-    ["operating", "Operating costs", "€/kW/yr, escalated"]
+    [
+      "optimiser",
+      "Optimiser fee",
+      "% of gross market revenues"
+    ],
+    [
+      "grid",
+      "Grid charges",
+      "% of gross market revenues"
+    ],
+    [
+      "market",
+      "Market / exchange fees",
+      "% of gross market revenues"
+    ],
+    [
+      "operating",
+      "Operating costs",
+      "€/kW/yr, escalated"
+    ]
   ]
 }

@@ -188,6 +188,155 @@ See [docs/map.md](map.md) for the full concept-to-file lookup table.
 
 ## Session log
 
+### Session 91 — 2026-07-29 — Phase 36.B batch-3: measured-value cutover + 36.B4 contracted overlay + 36.B0-H parser fix + 36.B5 (Claude Code, fully autonomous)
+
+**Branch:** `phase-36-b-batch-3` off `c0f9f47` · 9 code commits + this handover · code head **`e800647`**.
+**PR:** https://github.com/kastiskemezys-tech/kkme-website/compare/main...phase-36-b-batch-3
+**NOT DEPLOYED — one deploy covers all of it.** Decision log: `DECISIONS.md` (36.B3-H…N, 36.B4-A…E, 36.B0H-A…E, 36.B5-A…D).
+
+---
+
+#### ⚠ WHAT MOVES ON THE PUBLIC SITE — the consolidated table
+
+Three commits move published numbers. They are isolated so each can be read, and reverted, on its own.
+
+| commit | what moves | when it lands |
+|---|---|---|
+| `f6c129a` **trading realisation 0.85 → 0.7234** | `/revenue`, all 54 configs · `/calculate` | immediately on deploy |
+| `1fe56a7` **15-min uplift 0.14 → 0.0885** | the dispatch card's "with 15-min uplift" figure only | **not until BTD returns** — the realised card serves precomputed KV |
+| `1c5ac26` **one day-ahead throughput for wear and revenue** | `/revenue`, all 54 configs | immediately on deploy |
+
+Two more commits are public-facing but move nothing today: `4b29fe7` (negative-price parser) changes no served value until the next negative-price day, and `bccf040` (duration policy) is byte-identical at 2h and 4h, which is all the public route serves.
+
+**Net effect on `/revenue`, reference asset (2h · mid capex · COD 2028 · base — the public default):**
+
+| | before | after | Δ |
+|---|---:|---:|---:|
+| gross revenue Y1 | €8 403 505 | €7 999 249 | **−4.81 %** |
+| EBITDA Y1 | €5 433 154 | €5 069 324 | **−6.70 %** |
+| project IRR | 24.16 % | **22.46 %** | −1.70 pp |
+| equity IRR | 44.52 % | 40.47 % | −4.05 pp |
+| min DSCR | 2.52 | 2.40 | −4.76 % |
+| NPV @ WACC | €18 379 012 | €16 434 019 | −10.58 % |
+| LCOS | €69.7/MWh | **€87.4/MWh** | **+25.4 %** |
+
+Across all 54 public configurations: gross Y1 −3.67 to −5.60 %, EBITDA Y1 −5.86 to −7.68 %, **project IRR −1.02 to −2.40 pp absolute**, LCOS +24.6 to +31.6 %. Exactly **one** configuration crosses NPV zero (`4h · low capex · COD 2029 · stress`, €1.57M → −€0.52M).
+
+LCOS rises because its denominator was over-counting discharged MWh, not because costs went up. €87/MWh for a 2h Baltic asset is the more defensible figure.
+
+The regression baseline was recaptured twice, deliberately — the first movement of that file since it was created.
+
+---
+
+#### Headline artifact 1 — client impact of the cutover (frozen fixture, code-attributable in full)
+
+Prosperus portfolio, **Central** — the delivered case:
+
+| line | before | after | Δ |
+|---|---:|---:|---:|
+| Gross Y1 | €13 580 628 | €12 967 071 | −4.52 % |
+| EBITDA Y1 | €8 432 335 | €7 881 307 | −6.53 % |
+| Pre-financing CF Y1 | €8 135 335 | €7 584 307 | −6.77 % |
+| Gross 20-yr | €364 885 003 | €353 776 702 | −3.04 % |
+| EBITDA 20-yr | €193 094 020 | €181 697 072 | −5.90 % |
+| Pre-financing CF 20-yr | €150 385 020 | €138 988 072 | −7.58 % |
+| NPV @ 8 % | €43 333 457 | **€37 347 448** | **−13.81 %** |
+| MOIC | 3.728 | 3.445 | −7.59 % |
+
+Per project, Central NPV: Bitėnai €18.30M → €15.85M (−13.4 %) · Stoniškiai €15.25M → €13.09M (−14.2 %) · Eigirdžiai €10.56M → €9.07M (−14.1 %).
+
+**Three things to say to the client.**
+
+1. **The gearing is the story.** Revenue −4.5 %, EBITDA −6.5 %, NPV −13.8 %. Costs are largely fixed and NPV discounts a thinner margin, so a 4.5 % revenue correction lands as a 14 % NPV correction. Any conversation quoting only the revenue delta understates it by 3×.
+2. **Downside is where it bites.** Portfolio Downside NPV €7.58M → **€2.20M (−70.9 %)**. Stoniškiai's Downside NPV goes through zero at the measured value before the throughput fix pulls it back to €0.9M. The Downside case was always thin; at measured trading realisation it is marginal — and that is the case a lender's advisor sizes debt against, so better found here than in their model.
+3. **Upside barely moves** (−3.1 % EBITDA Y1, −4.1 % NPV), because the Upside driver only fell 0.88 → 0.8155. The spread between cases has widened, which is the correct consequence of replacing a narrow assumed band with a wider observed one.
+
+All 133 reconciliation assertions still pass, and the Central invariant is still EXACT — Central reproduces the unpatched engine field-for-field.
+
+#### Headline artifact 2 — the two measured values, adopted through the invariants
+
+| | was | now | basis |
+|---|---:|---:|---|
+| `trading_realisation` Central | 0.8500 assumed | **0.7234 measured** | 349 traded days, 2025-07 → 2026-06 LT day-ahead |
+| … Downside / Upside | 0.78 / 0.88 | **0.6535 / 0.8155** | the measurement's own monthly min (2025-09) and max (2026-05) |
+| … engine ladder | 0.80 / 0.75 | **0.6734 / 0.6234** | shipped 5pp steps re-anchored; land at the measured daily p25 |
+| `RYSTAD_15MIN_UPLIFT_DECIMAL` | 0.1400 asserted | **0.0885 measured** | 273 complete PT15M days |
+
+Batch-2 could not write these into the register without breaking the every-row-is-bound invariant. The invariant was **sharpened, not relaxed**: every row is now either bound to live code *or* declared `basis: "superseded"` with a pointer to the row that replaced it and the date — both halves enforced in `validateRegister`, which is strictly stronger than before. The assumed 0.85 and the asserted 0.14 survive as superseded rows, so the deltas are legible in the client workbook without reading the changelog. Register 44 → 47 rows (45 bound + 2 superseded).
+
+Two second-order consequences, both re-derived rather than re-fitted: `OPERATING_CALIBRATION_EUR_KW_YR` 2.08 → **2.56** (lower revenue widens the engine-vs-client cost-taxonomy gap, and without this the reference asset stops closing within the contracted ±2 %), and `cycles_efc_yr` 678 → **498** with `cycles_per_day` 1.86 → 1.36.
+
+#### Headline artifact 3 — 36.B4 contracted overlay: what floors the coverage
+
+Reference asset, floor **€139k/MW/yr** (derived: P75 of Y1 net revenue per MW across the shape-year sample — never asserted), 10-year term.
+
+Lifetime gross by exceedance level, **blended** (contracted share earns `max(merchant, floor)`):
+
+| contracted | P50 | P75 | P90 \* |
+|---|---:|---:|---:|
+| 0 % | €131.48M | €120.85M | €116.58M |
+| 30 % | €132.00M | €122.86M | €119.26M |
+| 50 % | €132.34M | €124.20M | €121.04M |
+
+\* P90 is **NOT RESOLVED** at five shape-years — B2's honesty constraint carried through unchanged.
+
+At 50 % contracted the median rises **0.65 %** and the tail **3.8 %** — a 5.3× asymmetry, and that asymmetry *is* the product. A test asserts the tail must lift strictly more than the median, so an overlay that merely added revenue everywhere would fail rather than pass as a floor.
+
+20-yr EBITDA at 50 %: merchant €74.03M · blended €74.16M · **floor-only €73.11M**. A €1.05M spread between two structures a client could actually be offered, which is why floor-only is computed rather than derived from blended.
+
+#### Headline artifact 4 — 36.B5: the loop closes onto B1's number
+
+| pass | cd in | realised | cd out | \|Δ\| |
+|---|---:|---:|---:|---:|
+| 1 | 1.363315 | 0.631921 | 0.631921 | 7.31e−1 |
+| 2 | 0.631921 | 0.609179 | 0.609179 | 2.27e−2 |
+| 3 | 0.609179 | 0.609179 | 0.609179 | 0 |
+
+Open loop 1.3633 c/d (**498 EFC/yr**) → closed loop 0.6092 c/d (**222 EFC/yr**). SOH at year 20: 63.23 % → 66.50 %. Lifetime dispatch revenue on a fixed shape €70.9M → €79.6M (+12.19 %).
+
+**222 against B1's independently measured 221.** A single-year hourly gate and a multi-year fixed point reaching the same physical answer by different routes.
+
+**The arc's two-pass claim is wrong and is reported wrong.** Residual after two passes is 2.27e−2 c/d (3.60 %) against a 1e−3 tolerance; convergence takes three. The runner reports `within_tolerance: false` and the measured contraction ratio rather than re-describing two passes as convergence.
+
+Node-side only. Closing the loop in the shipped engine would take it to 222 EFC/yr and a materially higher IRR — the hourly-engine cutover the arc reserves for Phase 37.
+
+---
+
+#### The dur_h band was discontinuous the wrong way
+
+Batch-35 reported a `<= 2` / `>= 3` mismatch. Measured, at dur_h 2.00 → 2.01 the reference asset's Y1 gross jumped **€519 759 (+6.5 %)** and project IRR **ROSE 2.25 pp** — adding 0.01 h of storage made the project more profitable. A second step sat at exactly 3.00. Any client sizing a 2.5h asset in the calculator read a number off a **2h round-trip efficiency against 4h day-ahead throughput**.
+
+Thirteen branches replaced by one `durBlend` policy, linear between the anchors and clamped outside [2h, 4h]. On-anchor identity is by construction — at 2h and 4h the weight is exactly 0 or 1 and the anchor is *returned*, not recomputed — so `/revenue` stays 54/54. Property test sweeps 1h → 8h at quarter-hour resolution; the old model failed IRR monotonicity at two points, the new one passes at all 28 intervals.
+
+#### 36.B0-H: 125 corrupted days in the history, and the trend is the finding
+
+`[\d.]+` cannot match a leading minus, so the element failed to match entirely and every later index shifted. Counted over the committed 11-year LT history (101 470 hours, 4 228 days): **0 days before 2020 · 20 in 2023 · 42 in 2024 · 44 in 2025 · 14 in 2026 YTD — 125 total (2.96 %), better than one day in nine now.** Solar build-out turned a harmless regex into a live public-data defect around 2023 and nothing re-checked it.
+
+On a real recorded day (2025-03-22, committed as a fixture): published LT daily average was **+72.3 % high**, daily swing **−37.4 % low**, peak hour three hours wrong. The site overstated price and understated the arbitrage swing on exactly the days spreads were widest.
+
+**Nothing the site serves today is corrupted** — stored `s1.lt_hourly_24` was checked in both the frozen fixture and the live snapshot: 24 values, minimum €1.39. The fix first bites on the next negative-price day.
+
+Found on the way: the estate has **three** day-ahead price paths for one quantity — energy-charts JSON (correct, feeds capture), ENTSO-E via `parseA44` (correct, feeds the committed history), ENTSO-E via `extractPrices` (broken until now, feeds the public S1 signal cards). Two too many, and the register can see none of them. Logged for B6.
+
+#### An external benchmark broke, and the band did not move
+
+The throughput alignment puts modelled cycling at 498 EFC/yr against the sourced Modo/GEM band **[550, 720]** — a FAIL on Central and the reference asset. The band was **not widened**. `externalChecks` gained an `expected_deviation` mechanism on the 36.B1-N precedent: the breach is declared in code with a stated reason, the band keeps its sourced value, the miss is reported at full size and counted, and only the build-failing status is lifted. A test asserts the band is unmoved and that no *undeclared* breach can survive. The client workbook renders these as `DECLARED` carrying the reason, not as a bare FAIL.
+
+The finding: the engine's stacked reserve + day-ahead model cycles its asset **less** than the observed merchant fleet does, and B1's hourly simulation says so more strongly (221 EFC/yr). Two independent routes agreeing points at the benchmark fleet's reserve/DA mix differing from the modelled stack — a calibration question for B6.
+
+#### Carried to B6
+
+1. Three day-ahead price paths for one quantity; the register sees none of them.
+2. The cycling benchmark's reserve/DA mix vs the modelled stack (above).
+3. Second-order dependencies nobody finds by reading one file: adopting a revenue assumption moved a *cost reconciliation constant*.
+4. `docs/handover.md`'s "Last updated" line has been stale since Session 81 — ten sessions of session-log entries with no header refresh.
+
+#### Verification
+
+Suite **1477/1477** (84 files, **+82 assertions**) · `/revenue` **54/54 byte-identical to the recaptured baseline** · register schema valid, all 45 bindings tie, 2 superseded rows pointer-checked · reconciliation 73/73 internal + 60 external (1 known Bitėnai-Upside IRR warn, 10 declared cycling deviations, 0 undeclared) · `npm run build` clean · both lint gates green · full delivery chain rebuilt end-to-end (8-tab workbook, 16 pp summary PDF, 11 pp annex, consistency gate).
+
+---
+
 ### Session 90 — 2026-07-28 — Phase 36.B batch-2: dispatch-card correction + 36.B2 bootstrap + 36.B3 backtest (Claude Code, one operator checkpoint)
 
 **Branch:** `phase-36-b-batch-2` off `4707092` · 4 commits · origin SHA **`133cc63`**.

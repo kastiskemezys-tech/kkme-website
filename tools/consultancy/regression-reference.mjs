@@ -131,7 +131,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       _note:
         'Public /revenue regression baseline. Hash of computeRevenueV7 output ' +
         '(timestamp stripped) over every public parameter combination, against the ' +
-        'frozen KV fixture. Any change to this file means the public site moved.',
+        'frozen KV fixture. Any change to this file means the public site moved. ' +
+        'Recaptured 2026-07-28 for the batch-3 Part 0 measured-value cutover — the ' +
+        'first deliberate movement of this baseline since it was created; see the ' +
+        'batch-3 handover for the quantified public delta on all 54 configurations.',
       captured_at: new Date().toISOString(),
       fixture: 'fixtures/regression-kv.json',
       hashes: Object.fromEntries(Object.entries(matrix).map(([id, v]) => [id, v.hash])),

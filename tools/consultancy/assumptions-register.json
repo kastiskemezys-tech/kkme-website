@@ -2,6 +2,7 @@
   "_note": "Phase 34.5 — the client-facing register of every adjustable input. It DOCUMENTS the engine and never contradicts it: each row with an `engine_binding` is asserted equal to the value the code actually holds (see register.mjs + __tests__/register.test.ts), so the register cannot drift from the model. Values are the canonical ones pulled FROM the engine/configs, never re-typed alongside them (discipline rule #4).",
   "_override_mechanism": "`override` is the Prosperus-adjustable handle. When non-null the runner uses it in place of `value`; `value` is never overwritten, so the engine-derived figure and the client's edit stay side by side and the delta is always visible.",
   "_value_basis": "Rows marked `basis: \"live-kv\"` carry a market observation rather than a modelling choice, synced from the frozen KV fixture so the binding tests gate code rather than detect overnight market movement. The delivery run refreshes them from the KV that produced the client numbers.",
+  "_superseded_rows": "Rows marked `basis: \"superseded\"` record a value the model USED to hold, kept beside the value that replaced it. They are provenance, not inputs: nothing reads them, they carry no engine_binding and no override, and each names the row that superseded it and the date. Every other row is bound to live code and asserted equal to it. Those are the only two kinds of row there are.",
   "_sensitivity_range": "The plausible band for the assumption, for the tornado/sensitivity view. It is a disclosure of uncertainty, not a hard bound — the scenario driver values are the ones the client locked.",
   "synced_from": "fixtures/regression-kv.json",
   "rows": [
@@ -69,33 +70,37 @@
       "id": "cycles_efc_yr",
       "category": "technical",
       "label": "Equivalent full cycles per year",
-      "value": 678,
+      "value": 498,
       "unit": "EFC/yr",
       "source": "Throughput-derived from the per-product MWh anchors (Modo / GEM / enspired 2025 Baltic + EU merchant-battery research), not assumed",
-      "sensitivity_range": [
-        550,
-        720
-      ],
+      "sensitivity_range": null,
       "override": null,
       "engine_binding": "engine:assumptions_panel.cycles_breakdown.total_efcs_yr",
       "basis": "derived",
-      "note": "Computed, not an input: FCR + aFRR + mFRR + DA throughput summed at the reference asset. Carried in the register because it is the figure the warranty is tested against."
+      "note": "Computed, not an input: FCR + aFRR + mFRR + DA throughput summed at the reference asset. Carried in the register because it is the figure the warranty is tested against. Phase 36.B5: re-based from 678 to 498 EFC/yr when cycle accounting and revenue were put on ONE day-ahead throughput figure (36.B1-O). The metric changed meaning — it was the nameplate anchor plus reserves, it is now DELIVERED throughput (anchor x trading fraction x availability). The observed band that used to be this row's sensitivity_range is retained as benchmark_band: the delivered figure falls below it, which is a reported finding and not a re-fitted band. B1's hourly physical simulation lands lower still (221 EFC/yr).",
+      "benchmark_band": [
+        550,
+        720
+      ],
+      "benchmark_source": "Modo Energy / GEM Baltic merchant-battery cycling research 2025 — MEASURED cycling of real assets. Retained as disclosure; the model now sits BELOW it (see reconciliation external_3_cycles_yr, declared deviation)."
     },
     {
       "id": "cycles_per_day",
       "category": "technical",
       "label": "Total cycling rate",
-      "value": 1.86,
+      "value": 1.36,
       "unit": "cycles/day",
       "source": "Same throughput derivation as the EFC figure; feeds the SOH curve interpolation directly",
-      "sensitivity_range": [
-        1.4,
-        2.1
-      ],
+      "sensitivity_range": null,
       "override": null,
       "engine_binding": "engine:assumptions_panel.cycles_breakdown.total_cd",
       "basis": "derived",
-      "note": "Drives cell degradation. The engine keys degradation off this computed rate rather than off a duration label."
+      "note": "Drives cell degradation. The engine keys degradation off this computed rate rather than off a duration label. Phase 36.B5: re-based from 1.86 to 1.36 cycles/day when cycle accounting and revenue were put on ONE day-ahead throughput figure (36.B1-O). The metric changed meaning — it was the nameplate anchor plus reserves, it is now DELIVERED throughput (anchor x trading fraction x availability). The observed band that used to be this row's sensitivity_range is retained as benchmark_band: the delivered figure falls below it, which is a reported finding and not a re-fitted band. B1's hourly physical simulation lands lower still (221 EFC/yr).",
+      "benchmark_band": [
+        1.4,
+        2.1
+      ],
+      "benchmark_source": "Modo Energy / GEM Baltic merchant-battery cycling research 2025 — MEASURED cycling of real assets. Retained as disclosure; the model now sits BELOW it (see reconciliation external_3_cycles_yr, declared deviation)."
     },
     {
       "id": "soh_aug_restore",
@@ -203,6 +208,37 @@
       "engine_binding": "engine:signal_inputs.s1_capture",
       "basis": "live-kv",
       "note": "Theoretical perfect-foresight capture. The trading-realisation driver discounts it to an achievable figure."
+    },
+    {
+      "id": "dispatch_15min_uplift",
+      "category": "market",
+      "label": "Sub-hourly capture uplift (15-min vs hourly)",
+      "value": 0.0885,
+      "unit": "x of hourly capture",
+      "source": "KKME 15-minute delta run 2025-10-01 → 2026-06-30, 273 complete PT15M LT day-ahead days: worker computeDayCapture at 15-min vs 60-min resolution on identical days. Volume-weighted 0.0885; simple mean 0.0979; median 0.0815; range 0.0005-0.845.",
+      "sensitivity_range": [
+        0.0815,
+        0.0979
+      ],
+      "override": null,
+      "engine_binding": "worker:RYSTAD_15MIN_UPLIFT_DECIMAL",
+      "basis": "measured",
+      "note": "MEASURED, not proxied (adopted Phase 36.B batch-3 Part 0). Applied on the public dispatch card only (computeDispatchV2 → capture_eur_mwh_15min_uplifted); it does not reach /revenue or any client deliverable number. The declared range is the measurement's own median-to-mean spread, not an external band. One market year of PT15M data, and the pre-2025-10-01 period is structurally hourly so it cannot be extended backwards — REMEASURE ANNUALLY. Superseded assertion kept as dispatch_15min_uplift_asserted_prior."
+    },
+    {
+      "id": "dispatch_15min_uplift_asserted_prior",
+      "category": "market",
+      "label": "Sub-hourly capture uplift — prior assertion (superseded)",
+      "value": 0.14,
+      "unit": "x of hourly capture",
+      "source": "Rystad Dec 2025, Lithuania 15-minute day-ahead arbitrage uplift over hourly. Carried as a placeholder proxy 2026-04 → 2026-07-28, never measured against the market.",
+      "sensitivity_range": null,
+      "override": null,
+      "engine_binding": null,
+      "basis": "superseded",
+      "superseded_by": "dispatch_15min_uplift",
+      "superseded_on": "2026-07-28",
+      "note": "Roughly 58% higher than what the LT market actually paid over the 273 measurable days. Kept so the correction is legible: the method did not change, only the sourced figure. Not an input: nothing reads this row."
     },
     {
       "id": "euribor_3m",
@@ -372,16 +408,16 @@
       "id": "operating_calibration_eur_kw_yr",
       "category": "cost",
       "label": "Operating cost, reconciling adjustment",
-      "value": 2.08,
+      "value": 2.56,
       "unit": "EUR/kW/yr",
-      "source": "Derived, not sourced: closes the 3.5% gap between the engine's cost taxonomy (RTM + BRP + OPEX) and the client's 4-line stack at the reference asset",
+      "source": "Derived, not sourced: closes the 4.4% gap between the engine's cost taxonomy (RTM + BRP + OPEX) and the client's 4-line stack at the reference asset",
       "sensitivity_range": [
         0,
         4
       ],
       "override": null,
       "engine_binding": "bridge:COST_DEFAULTS.operating_calibration_eur_kw_yr",
-      "note": "Deliberately shown as a separate line rather than folded into EUR 29/kW/yr, so the sourced build-up and the reconciling constant stay distinguishable. It is not re-fitted per project — doing so would make every project agree with the engine by construction and destroy the reconciliation's value as a check."
+      "note": "Deliberately shown as a separate line rather than folded into EUR 29/kW/yr, so the sourced build-up and the reconciling constant stay distinguishable. It is not re-fitted per project — doing so would make every project agree with the engine by construction and destroy the reconciliation's value as a check. Re-derived 2026-07-28 from 2.08 to 2.56 when the measured trading realisation was adopted: the engine's flat lines (BRP fee, OPEX) do not fall with revenue while the client stack's 16% does, so a lower revenue level widens the taxonomy gap. Derived from the reference asset by bridgeCalibration(), asserted by test — it cannot go silently stale."
     },
     {
       "id": "opex_escalation_pct",
@@ -611,16 +647,35 @@
       "id": "driver_trading_realisation",
       "category": "scenario-driver",
       "label": "Trading realisation",
+      "value": 0.7234,
+      "unit": "x of perfect foresight",
+      "source": "KKME dispatch backtest 2025-07-01 → 2026-06-30, 349 traded days, LT day-ahead: B1 greedy policy capture ÷ perfect-foresight sort-and-dispatch capture. Volume-weighted 0.7234; monthly volume-weighted 0.6535 (2025-09) to 0.8155 (2026-05); single-year window.",
+      "sensitivity_range": [
+        0.6535,
+        0.8155
+      ],
+      "override": null,
+      "engine_binding": "driver:trading_realisation",
+      "note": "MEASURED, not assumed (adopted Phase 36.B batch-3 Part 0, operator decision 2026-07-28). Downside 0.6535 / Central 0.7234 / Upside 0.8155 — the declared range IS the measured monthly band and the two non-Central cases sit at its endpoints. Measures the day-ahead component only: intraday execution, bid rejection, imbalance exposure and balancing forecast error are outside it, and reserve realisation is unmeasured (BTD is the sole Baltic reserve-price source, deepest series 110 daily points). One market year, so the band is an observed range and not a distribution — REMEASURE ANNUALLY and widen the band if a second year disagrees. Superseded assumption kept as trading_realisation_assumed_prior.",
+      "basis": "measured"
+    },
+    {
+      "id": "trading_realisation_assumed_prior",
+      "category": "scenario-driver",
+      "label": "Trading realisation — prior assumption (superseded)",
       "value": 0.85,
       "unit": "x of perfect foresight",
-      "source": "Perfect-foresight discount on sort-and-dispatch capture; industry range 0.70-0.90, Capalo AI claims 0.85-0.90",
+      "source": "Perfect-foresight discount on sort-and-dispatch capture; industry range 0.70-0.90, Capalo AI claims 0.85-0.90. Carried 2026-03 → 2026-07-28, never measured.",
       "sensitivity_range": [
         0.78,
         0.88
       ],
       "override": null,
-      "engine_binding": "driver:trading_realisation",
-      "note": "Downside 0.78 / Central 0.85 / Upside 0.88. No real optimiser achieves the theoretical maximum. MEASURED at 0.7234 over 2025-07-01 → 2026-06-30 (349 trading days, day-ahead component only) — see the changelog and output/backtest-*.json. NOTE the measurement falls BELOW this row's declared sensitivity range [0.78, 0.88]. This row remains the ENGINE-BOUND Central driver and is UNCHANGED; adopting the measured figure is a scenario-driver cutover that moves client IRR and is an operator decision."
+      "engine_binding": null,
+      "basis": "superseded",
+      "superseded_by": "driver_trading_realisation",
+      "superseded_on": "2026-07-28",
+      "note": "The assumption the model carried before it was measured, kept so the delta is legible without reading the changelog: measured 0.7234 came in 0.1266 BELOW it, and below this row's own declared range [0.78, 0.88] — so the assumed band was understated, not merely the assumed point value. Not an input: nothing reads this row."
     },
     {
       "id": "driver_cap_price_delta_pct",
@@ -675,6 +730,43 @@
       "reason": "Measured at 0.0885 over 273 complete PT15M days (2025-10-01 → 2026-06-30) against the engine's asserted 0.14. Constant left unchanged — it is a worker constant on the public dispatch path and changing it is a separate decision. Reported, not adopted.",
       "source": "tools/consultancy/run-15min-delta.mjs",
       "phase": "36.B3"
+    },
+    {
+      "date": "2026-07-28",
+      "id": "driver_trading_realisation",
+      "old": 0.85,
+      "new": 0.7234,
+      "reason": "ADOPTED. Operator decision 2026-07-28: the measured value replaces the assumption as the Central driver, and the engine constant TRADING_REALISATION.base moved with it so Central still equals the shipped constant. Downside/Upside re-anchored from [0.78, 0.88] to the measurement's own monthly extremes [0.6535, 0.8155]; the declared sensitivity range follows, so it now contains the value it describes (it did not before). The engine ladder (conservative −5pp, stress −10pp) kept its shipped steps and re-anchored on the measurement. This moves published /revenue numbers — see the batch-3 handover for the quantified public delta.",
+      "source": "KKME dispatch backtest 2025-07-01 → 2026-06-30 (349 trading days, LT day-ahead)",
+      "phase": "36.B batch-3 Part 0"
+    },
+    {
+      "date": "2026-07-28",
+      "id": "operating_calibration_eur_kw_yr",
+      "old": 2.08,
+      "new": 2.56,
+      "reason": "Consequential, not a decision. The constant closes the engine-vs-client cost-taxonomy gap AT the reference asset's revenue level; adopting the measured trading realisation lowered that revenue, and the engine's two flat cost lines did not follow it down, so the gap widened by EUR 24 245/yr at 50 MW. Re-derived by bridgeCalibration() rather than re-fitted by hand. Without it the reference asset stops closing within the contracted ±2%.",
+      "source": "tools/consultancy/bridge.mjs — bridgeCalibration(reference asset, frozen KV fixture)",
+      "phase": "36.B batch-3 Part 0"
+    },
+    {
+      "date": "2026-07-28",
+      "id": "dispatch_15min_uplift",
+      "old": 0.14,
+      "new": 0.0885,
+      "reason": "ADOPTED. Operator decision 2026-07-28: the measured sub-hourly uplift replaces the Rystad placeholder in RYSTAD_15MIN_UPLIFT_DECIMAL, and the constant gains a register row so it can never again be carried unmeasured. Moves the public dispatch card only — capture_eur_mwh_15min_uplifted falls 4.52% at any capture level; /revenue and every client deliverable number are untouched. Realised-mode card moves only once BTD returns and the cron rewrites dispatch:<date> KV (stored payloads carry the old factor until then, 90-day TTL); forecast-mode computes live but is structurally dead (36.B0-G).",
+      "source": "tools/consultancy/run-15min-delta.mjs",
+      "phase": "36.B batch-3 Part 0"
+    },
+    {
+      "date": "2026-07-28",
+      "id": "cycles_efc_yr",
+      "old": 678,
+      "new": 498,
+      "reason": "Consequential, not a decision. Cycle accounting charged cell wear on the full day-ahead throughput anchor while revenue billed anchor x trading_fraction x availability, so the engine aged the battery for ~43% more day-ahead energy than it earned on (36.B1-O). Both now read one DELIVERED figure. The metric changed basis, so its declared sensitivity_range — the observed merchant-cycling band — was moved to benchmark_band rather than widened to fit: the model now sits below the observed band and says so. cycles_per_day follows at 1.86 -> 1.36.",
+      "source": "workers/fetch-s1.js computeThroughputBreakdown({da_utilisation, availability})",
+      "phase": "36.B5"
     }
-  ]
+  ],
+  "synced_at": "2026-07-29T06:14:24.819Z"
 }

@@ -16,7 +16,15 @@
  *   portfolio:<name>  portfolio-level constant
  *   driver:<id>       Central value of a Phase 34.4 scenario driver
  *   config:<id>.<key> value from a committed project config
- *   (null)            documented, not bound — sourced externally, no code equivalent
+ *
+ * There is exactly ONE kind of row that may carry no binding: a **superseded**
+ * row (`basis: "superseded"`). It records a value the model USED to hold, kept
+ * beside the value that replaced it so the delta is legible without reading the
+ * changelog. It is not an input — nothing reads it — so it has no code constant
+ * to bind to, and binding it would be a lie. The invariant is therefore not
+ * weakened but sharpened: every row is either **bound to live code** or
+ * **explicitly declared superseded, naming the row that replaced it and the date
+ * it was replaced**. Nothing floats free either way. See DECISIONS 36.B0-I.
  *
  * Values that come from live market data (capacity prices, clearing prices,
  * fleet MW) are synced from the FROZEN KV FIXTURE, not from production. That
@@ -71,6 +79,7 @@ const WORKER_CONSTANTS = {
   'REVENUE_SCENARIOS.base.rtm_fee_pct': {
     re: /rtm_fee_pct: ([\d.]+), brp_fee_yr: \d+,/, scale: 100,
   },
+  RYSTAD_15MIN_UPLIFT_DECIMAL: { re: /const RYSTAD_15MIN_UPLIFT_DECIMAL = ([\d.]+);/, scale: 1 },
   CAP_PRICE_CEIL: { re: /const CAP_PRICE_CEIL = (\d+);/, scale: 1 },
   'reservePrice.floor_fraction': { re: /  const floor_fraction = ([\d.]+);/, scale: 1 },
 };
@@ -164,15 +173,29 @@ export function loadRegister(path = REGISTER_PATH) {
 
 const REQUIRED_ROW_KEYS = ['id', 'category', 'label', 'value', 'unit', 'source', 'sensitivity_range', 'override'];
 
+/** A row that records a value the model no longer holds. See the header note. */
+export const isSuperseded = (row) => row?.basis === 'superseded';
+
+/** The rows that ARE the model — every one of them bound to live code. */
+export const liveRows = (register) => register.rows.filter((r) => !isSuperseded(r));
+
+/** The rows that record what the model used to hold. */
+export const supersededRows = (register) => register.rows.filter(isSuperseded);
+
 /**
  * Schema validation. Returns the list of problems; empty means valid.
  * Deliberately strict about `source`: an unsourced assumption in a client
  * deliverable is the thing rule #3 exists to prevent.
+ *
+ * And strict about the bound/superseded dichotomy: an unbound row that has not
+ * declared itself superseded is an assumption nothing checks, which is exactly
+ * what the register exists to make impossible.
  */
 export function validateRegister(register) {
   const problems = [];
   const rows = register.rows ?? [];
   const seen = new Set();
+  const ids = new Set(rows.map((r) => r?.id));
 
   for (const [i, row] of rows.entries()) {
     const where = `row ${i} (${row?.id ?? '?'})`;
@@ -189,6 +212,37 @@ export function validateRegister(register) {
     if (typeof row.source !== 'string' || row.source.trim().length < 8) {
       problems.push(`${where}: every assumption must carry a source`);
     }
+
+    // The bound/superseded dichotomy — the register's central invariant.
+    if (isSuperseded(row)) {
+      if (row.engine_binding) {
+        problems.push(`${where}: a superseded row must not carry an engine_binding`);
+      }
+      if (!row.superseded_by) {
+        problems.push(`${where}: a superseded row must name the row that replaced it`);
+      } else if (row.superseded_by === row.id) {
+        problems.push(`${where}: superseded_by points at itself`);
+      } else if (!ids.has(row.superseded_by)) {
+        problems.push(`${where}: superseded_by "${row.superseded_by}" is not a row in this register`);
+      }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(row.superseded_on ?? '')) {
+        problems.push(`${where}: a superseded row must carry superseded_on as YYYY-MM-DD`);
+      }
+      if (row.override != null) {
+        problems.push(`${where}: a superseded row is not an input and cannot carry an override`);
+      }
+    } else {
+      if (!row.engine_binding) {
+        problems.push(
+          `${where}: unbound and not declared superseded — every row must either bind to ` +
+          `live code or carry basis "superseded" with superseded_by/superseded_on`
+        );
+      }
+      if (row.superseded_by || row.superseded_on) {
+        problems.push(`${where}: a live row must not carry supersession metadata`);
+      }
+    }
+
     const r = row.sensitivity_range;
     if (r !== null) {
       if (!Array.isArray(r) || r.length !== 2) {
@@ -236,9 +290,13 @@ export function syncRegister(register, ctx) {
  */
 export const effectiveValue = (row) => (row.override != null ? row.override : row.value);
 
-/** Rows keyed by id, with overrides applied. */
+/**
+ * Rows keyed by id, with overrides applied. Superseded rows are excluded: they
+ * are provenance, not inputs, and handing one to a consumer as if it were an
+ * effective value is the failure this whole mechanism exists to prevent.
+ */
 export function effectiveRegister(register) {
-  return Object.fromEntries(register.rows.map((r) => [r.id, effectiveValue(r)]));
+  return Object.fromEntries(liveRows(register).map((r) => [r.id, effectiveValue(r)]));
 }
 
 export function categoryCounts(register) {
@@ -269,7 +327,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
   console.log(`\n  Assumptions register — ${register.rows.length} rows`);
   console.log('  ' + Object.entries(counts).map(([c, n]) => `${c} ${n}`).join(' · '));
-  console.log(`  bound to live code: ${checked} · unbound (externally sourced): ${register.rows.length - checked}`);
+  console.log(`  bound to live code: ${checked} · superseded (provenance, not inputs): ${supersededRows(register).length}`);
   console.log(`  schema: ${problems.length ? `${problems.length} PROBLEM(S)` : 'valid'}`);
   console.log(`  bindings: ${drift.length ? `${drift.length} DRIFTED` : 'all tie to the code'}\n`);
   for (const p of problems.slice(0, 20)) console.log(`    schema  ${p}`);

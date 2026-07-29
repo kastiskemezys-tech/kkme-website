@@ -1,441 +1,441 @@
 {
-  "_note": "Public /revenue regression baseline. Hash of computeRevenueV7 output (timestamp stripped) over every public parameter combination, against the frozen KV fixture. Any change to this file means the public site moved.",
-  "captured_at": "2026-07-28T06:49:43.681Z",
+  "_note": "Public /revenue regression baseline. Hash of computeRevenueV7 output (timestamp stripped) over every public parameter combination, against the frozen KV fixture. Any change to this file means the public site moved. Recaptured 2026-07-28 for the batch-3 Part 0 measured-value cutover — the first deliberate movement of this baseline since it was created; see the batch-3 handover for the quantified public delta on all 54 configurations.",
+  "captured_at": "2026-07-29T06:16:50.491Z",
   "fixture": "fixtures/regression-kv.json",
   "hashes": {
-    "dur=2h capex=low cod=2027 scenario=base": "8c65fd3fb435e84c8bb7fe2084cc95b0a9ca8832e2bfdfa56dd2f146bfe4ee2c",
-    "dur=2h capex=low cod=2027 scenario=conservative": "7298af9c967874bf2604a5dc8e10c2e04b4511a8bcaf7391781d6d40c91a1e39",
-    "dur=2h capex=low cod=2027 scenario=stress": "29214623c66c841e3edbf6aad7d9ba13e440338e531cc11c676b4cf1e04ee590",
-    "dur=2h capex=low cod=2028 scenario=base": "f1b2bf083856d51faf0b44fc2f938ddbff6b81733c1987c10cd38711e742e928",
-    "dur=2h capex=low cod=2028 scenario=conservative": "73c98e14fd296a534a53b19de1df533bc1845e527ec4b6cd5ac5c6acab8048b7",
-    "dur=2h capex=low cod=2028 scenario=stress": "6e2ed95f048d5af681096bf3920f47fffe02db773fe14030faec361ea48c98f5",
-    "dur=2h capex=low cod=2029 scenario=base": "a4dcb0c32fa9863a69ce352211de80bd93ab031092ead23ec813b42fab048012",
-    "dur=2h capex=low cod=2029 scenario=conservative": "bd79145bfa9ac4ae4481f1759778679712fadd954caf97ed0a20cd03e06352b3",
-    "dur=2h capex=low cod=2029 scenario=stress": "6a468c71b2a6f4230cb2c0f4dc728cc46046a306c8ffb9bb1f853539396580b0",
-    "dur=2h capex=mid cod=2027 scenario=base": "ece6b4b12535ac140d26dc27f1861d2e9c0a8dfc730910b16b4b68432c7b27e2",
-    "dur=2h capex=mid cod=2027 scenario=conservative": "2d1cf8f06e5fa96bfec41e75e965a844994c7fc6c867d59a094267f1881db85c",
-    "dur=2h capex=mid cod=2027 scenario=stress": "1e287bc91a39a57bb80be0b0c4edd00ea049b9642af1b1772213335e91921aa1",
-    "dur=2h capex=mid cod=2028 scenario=base": "18564ed0b4d0fffc0345c39f3a27952fc8e91ad1f42fec6c1396cbc5a490c085",
-    "dur=2h capex=mid cod=2028 scenario=conservative": "ffa082858473e2a71e634a777f9168cd6fac02d2c7d64877d49ba03ad9cae34a",
-    "dur=2h capex=mid cod=2028 scenario=stress": "a07b94ce9ee7f204850bd8ada23c774b7e23efd117eae13cdd03227fe98756e1",
-    "dur=2h capex=mid cod=2029 scenario=base": "0c0823fe19e5ea77fd2a6c77e8cc3d12bd0146fb5d90f62113ca52ee84117331",
-    "dur=2h capex=mid cod=2029 scenario=conservative": "56ed0b56286ee43248370df2f401f653f3b6d73427011c9da0af65958cc715dc",
-    "dur=2h capex=mid cod=2029 scenario=stress": "1bdc715856442e0c201c6506800c2f49e4e6efe4711c1692fb21a00458abac57",
-    "dur=2h capex=high cod=2027 scenario=base": "f66be94c33142626a83c5b9653517bce77cfd024c1be4e0c7abf121e79e0acd0",
-    "dur=2h capex=high cod=2027 scenario=conservative": "234438265a96fcc3f44626e85fa2b5a42f722ce3701fd7cf4b20a93fd53c9f49",
-    "dur=2h capex=high cod=2027 scenario=stress": "15029b15da6224ad3bd93748f76668f6eb8cbc2755dbc54ec49554b6fb25a4bf",
-    "dur=2h capex=high cod=2028 scenario=base": "7cf6c9c7ab6c6055c481874712ecd5150697695122ca5f686ed656d3b4795774",
-    "dur=2h capex=high cod=2028 scenario=conservative": "2f02f89e8e6c64662192993e9cdd54219f7f0da588938042e0c035f84fc21f58",
-    "dur=2h capex=high cod=2028 scenario=stress": "43dc4328ac8f8ecff1a65c55f574ddbec68fe477aa524a47ed7e585c38b801ae",
-    "dur=2h capex=high cod=2029 scenario=base": "fd9ee5094240efdccd31967a155c6b28669b9f6b580f91ddbefdb637471fae8b",
-    "dur=2h capex=high cod=2029 scenario=conservative": "5a9dd0f57d4033487138b6e67679e83c959660277dff9530de89babca774008b",
-    "dur=2h capex=high cod=2029 scenario=stress": "209e0d4906d45242df3cc63b33737fa4e085115422810c9947f31415962965f6",
-    "dur=4h capex=low cod=2027 scenario=base": "d150e0898efe00ab323bc95e51de61100b7fe82b82b2aa44293918f2383c6884",
-    "dur=4h capex=low cod=2027 scenario=conservative": "0df7d37083dd194a9ee072ac6c041a22f3591c48dac86a9f244fb110734dbdb4",
-    "dur=4h capex=low cod=2027 scenario=stress": "b0265f43c73a442deda701e33000081b0ce1b895f1f34cb03e4d2876614edddd",
-    "dur=4h capex=low cod=2028 scenario=base": "59a8ba598464024d23f180a5311e6604e8f4ea7f0a24a6afc690d00168e2616b",
-    "dur=4h capex=low cod=2028 scenario=conservative": "cefab65bf8a4b4ad66bbed121add7baf68a5251418b583ece12e5102031f45bc",
-    "dur=4h capex=low cod=2028 scenario=stress": "bd02fc9c75e91d5212929b5d3cca622284d8b0785c53c56ce0ee7364d2eefc45",
-    "dur=4h capex=low cod=2029 scenario=base": "e02f84bc9ccf0abbe712a2d5b03231348df9ec8b1f0ec3c866453dd680ba9957",
-    "dur=4h capex=low cod=2029 scenario=conservative": "9d81560e64ae29a153309490942c3a2d12f146c1b6970424d825d9dd91e896af",
-    "dur=4h capex=low cod=2029 scenario=stress": "05bdff6daf7e4fb5753262151cdb01c7b25c6b720ea4e1dbf9c8425353126cf0",
-    "dur=4h capex=mid cod=2027 scenario=base": "f18a8f8ae7ab138189be690db522917ea19d367bef40d0963e5fb08196847add",
-    "dur=4h capex=mid cod=2027 scenario=conservative": "bc056e6396b70017c34aa1ab5f437ddf43178cfc013c063cb7130fee61e30c34",
-    "dur=4h capex=mid cod=2027 scenario=stress": "ec90d7a714fc00efae4f55e5a8ff8d0010312a367f13a6842d7e15c2096d758b",
-    "dur=4h capex=mid cod=2028 scenario=base": "92bb9a58bfe32ffcc067d90bd3cfd5320ad764582dd71e21f24abb44343ac3c0",
-    "dur=4h capex=mid cod=2028 scenario=conservative": "655c600a798175da58b7f9064a39e4503b01cda9505c5617b10c7872e9861906",
-    "dur=4h capex=mid cod=2028 scenario=stress": "d3d9646db44a8a8d1b4fc01e3b3973d1b25132d4025b4c2db6d24f1b1565d654",
-    "dur=4h capex=mid cod=2029 scenario=base": "5e0cfce673a81208a8284c931230525e44fdde6fdf91637e2d895c49fd455035",
-    "dur=4h capex=mid cod=2029 scenario=conservative": "6e252d5e864fa09eac44d6e999ca6fee6f20b9cf1326d0979b0d32c48342f611",
-    "dur=4h capex=mid cod=2029 scenario=stress": "d200fbb5413f4708c41f7bc79f3c9689f932124d82df392b0eb31d3978689f9a",
-    "dur=4h capex=high cod=2027 scenario=base": "80c10cc5881b30bbfa36ec8a4ed108cf5749cdb2befd95e1301fb4b1050938c0",
-    "dur=4h capex=high cod=2027 scenario=conservative": "37dc6f3dfd64b2e6de98db558d78451f71035b5b27b3d3a851aed25b7342af61",
-    "dur=4h capex=high cod=2027 scenario=stress": "0006055bcf11668762884f6c5de1101a0fe0771549f9343b80306313efbb4bda",
-    "dur=4h capex=high cod=2028 scenario=base": "68fd10ab5e14a9cfdb30c5e0d695701d40f7a485118906be31a276dcf81361d3",
-    "dur=4h capex=high cod=2028 scenario=conservative": "f4d707ee335bd888a67d656a40bdb5ea444caf07bfb3f2be52b0e55975caba27",
-    "dur=4h capex=high cod=2028 scenario=stress": "9981f8ed0945499add76c88551e72a29d19ee924b4d6f9da57f27c6e249a3270",
-    "dur=4h capex=high cod=2029 scenario=base": "6a629aa8ccb91682db2ecb29b1416cca15b311af6219364d22c02018af6464dd",
-    "dur=4h capex=high cod=2029 scenario=conservative": "58cf144ba4ee3a08b723c1dc557dd00a59967c36524bdd58931445fe41ba1101",
-    "dur=4h capex=high cod=2029 scenario=stress": "48a291a0c83e74964f5d8721851f74ee2f0ee1885c158e6dd28051cbae5915a2"
+    "dur=2h capex=low cod=2027 scenario=base": "77a91dd0036a1cf50a705905609112dce608b79991f5a2ef8fd5c677d576fe84",
+    "dur=2h capex=low cod=2027 scenario=conservative": "320735accc07bc8b4b8a6bfca30cf763b22b18ff02a8994bcde3ce610911b6f6",
+    "dur=2h capex=low cod=2027 scenario=stress": "c756528f1cbf96fd99ecb2b806eca17818c47377816fa926c86b26d030c68a87",
+    "dur=2h capex=low cod=2028 scenario=base": "cb6edee7189199ae9c9b608db9b23ca0e4203c8e3fa11af1072fabec690ee083",
+    "dur=2h capex=low cod=2028 scenario=conservative": "336b8033e9f01a46a74efaf28d39a777c108b68c407be8b6284410236c207f30",
+    "dur=2h capex=low cod=2028 scenario=stress": "1453cdac472e20068781467bac2842cc5c55abbbb29deaf1ea98bd5fd1380594",
+    "dur=2h capex=low cod=2029 scenario=base": "d7dd6fbdeaa3d21924143f350de5ef328cd5d63da17991e8591d77c8c92104d8",
+    "dur=2h capex=low cod=2029 scenario=conservative": "cdb36313543cbe4f9108ac4443f9cd1fd637ee6fbe8528042dd59560710fd408",
+    "dur=2h capex=low cod=2029 scenario=stress": "d6e1e138128626e0932615c265d4c760ea5b1af8b27cf67bddc1e4400fbb6b3c",
+    "dur=2h capex=mid cod=2027 scenario=base": "7ab8cb1f502f732c8352eea45e1b1ecea4f62f7af5fb29b16b63928ae711522b",
+    "dur=2h capex=mid cod=2027 scenario=conservative": "cba405584cd9699a1cf2d500b35e077a0c528444d5ab07448adf5e3d650bcde4",
+    "dur=2h capex=mid cod=2027 scenario=stress": "1fc3848fb4d3fadbc2f62df360c7cc53dd46450a6891fbe0bded7e2a2f02fdbf",
+    "dur=2h capex=mid cod=2028 scenario=base": "b89f54e5aa267e902f8ba6e25d27e04d1ef4b27b46f2a15dc7a3f4bf6c214bbd",
+    "dur=2h capex=mid cod=2028 scenario=conservative": "6b2717779f081ebc0b8d4d3f32ea108d1c8d9f032bec730125b4b4d9b5250aa1",
+    "dur=2h capex=mid cod=2028 scenario=stress": "dbf141b8ccc268d022b2affb70f1c736b334e68b14a19370a075a1feb219498e",
+    "dur=2h capex=mid cod=2029 scenario=base": "183d9bafa7cc138e6ef6e473a1c82012d284e071d5b9a9c1480dcd08457a6060",
+    "dur=2h capex=mid cod=2029 scenario=conservative": "bba05ac24a084d0ee90f1cede14a7f1a56d18e6cc77d4d15716636fc63963025",
+    "dur=2h capex=mid cod=2029 scenario=stress": "eadfc4a3391087c5a3d49830a2a9198de4641f8cd2e86111dca5308ef8b7ed75",
+    "dur=2h capex=high cod=2027 scenario=base": "bcb3ecb589ffc65c40a811d669dcdf59993e74170a3b94fe8bb4ad19d292fe3b",
+    "dur=2h capex=high cod=2027 scenario=conservative": "ced59a7aa409d226bcc6e8fcb63debe91542fb65f913a1b52b3167fea6090c59",
+    "dur=2h capex=high cod=2027 scenario=stress": "f775cfefd600712124568a559540f9996af2b063c1825add1e5c164e46f66e22",
+    "dur=2h capex=high cod=2028 scenario=base": "34b1115c613f546473340404cda0a3cd66b2a5d024e9b88fe2e157b2e4cf6aa8",
+    "dur=2h capex=high cod=2028 scenario=conservative": "def67068978965f360fec53cf0badee14ab4fd01e834d11a4dd22a0caddcec8f",
+    "dur=2h capex=high cod=2028 scenario=stress": "c8aa13c4456eac0092264cf027b4069efc3ed64a73f0fbc658a3c8b2a05e1eea",
+    "dur=2h capex=high cod=2029 scenario=base": "abc2b0c2f214b34c22acd893a23920b570f09cafc9389ec2d1e3db7510caa8d5",
+    "dur=2h capex=high cod=2029 scenario=conservative": "90164be2b6bfc99f1b4776e8aec3662ad474796229878c6f199e801668cc8c56",
+    "dur=2h capex=high cod=2029 scenario=stress": "929bcd1af82952ac606e723943dbd74a7ce31590e32ba716d9992cf4a402d32d",
+    "dur=4h capex=low cod=2027 scenario=base": "0ebaff2d2e5c6cf256c01d1bca360f8b43bdeeb41c09fddf3d61342debf2ef97",
+    "dur=4h capex=low cod=2027 scenario=conservative": "f8a231e8acf6a3c1792497f2952aaae22c4de967d2e454e8bf6fb6a126183d8f",
+    "dur=4h capex=low cod=2027 scenario=stress": "a12f2870db10f81c259b6320d56ef51f5f920a4d7f21bb7c6578b3cf0c4068ac",
+    "dur=4h capex=low cod=2028 scenario=base": "97a28e42887d388a6118d0a686d5930c790acb44ac97053e9c5b5ff3269f6d10",
+    "dur=4h capex=low cod=2028 scenario=conservative": "19e4bc2df6943a7362655c29a3a706a53591e42b0553cb8b15bd1505eae33c8f",
+    "dur=4h capex=low cod=2028 scenario=stress": "91bd4f99d2eaa7d6eff510ba4052dfd0c98a48ebdb81bd2a1f955da30ddc4b08",
+    "dur=4h capex=low cod=2029 scenario=base": "c3c4484309af8bd298f6117188bf93fa79e9ca8ad6771c74f0b87fc5662d79f0",
+    "dur=4h capex=low cod=2029 scenario=conservative": "277eb6d5a860fe2fb2999dbce20733af21da31b75a4bf697fdca0b2cfeac1762",
+    "dur=4h capex=low cod=2029 scenario=stress": "d7eb0249718d4a7fabc649d549ed793eb2c290b4ca15c7e678162237f77d6cad",
+    "dur=4h capex=mid cod=2027 scenario=base": "ae22991b9fc6aa7e5223fe06a8b79587d0c11c4cbc16ffd2e1409bd4f2427202",
+    "dur=4h capex=mid cod=2027 scenario=conservative": "45767fb4ab5013eb6a0b5720313d64e9a37973c2dda5c0fd76af5ae9db093b56",
+    "dur=4h capex=mid cod=2027 scenario=stress": "e5e676fb319bb959a16d71b75dea6cdef1d85aad437127083714a18d3d63e4dd",
+    "dur=4h capex=mid cod=2028 scenario=base": "928ac8192afb61d10d00b9bba188770f996753a868aa6bd2ebd36341f51f7661",
+    "dur=4h capex=mid cod=2028 scenario=conservative": "52cef4d04aac432ade69dad9973563cdf43091c3f2e0cdd40ab59d667da0197a",
+    "dur=4h capex=mid cod=2028 scenario=stress": "42f134071c184f4d7ee40ef2611f81dcfb412f2e674338471f8317fc06d3f800",
+    "dur=4h capex=mid cod=2029 scenario=base": "3857097dfb9bedc44d6eab409005fe3b571461d477e0b72fd3900e01207aa72c",
+    "dur=4h capex=mid cod=2029 scenario=conservative": "ece3a2e4812e9945ab7519e9796b9da932a86219dbed133f8ce9d06418490917",
+    "dur=4h capex=mid cod=2029 scenario=stress": "cebabf15040b2d0ee31f649812fcb122a236766a003551c660e3ac56174140a1",
+    "dur=4h capex=high cod=2027 scenario=base": "0e7cc07debb2e8230123cd1f09e51471d02ce705a639f20818c549c400451b39",
+    "dur=4h capex=high cod=2027 scenario=conservative": "91a753a8976002a44db6a9b44d86fb2e8f061ea0d3f830b96d7052c2e8cd0347",
+    "dur=4h capex=high cod=2027 scenario=stress": "9badac00b8f43f272cb975c56977430896fe8d99189be8772313d0d4d99d0c3b",
+    "dur=4h capex=high cod=2028 scenario=base": "06721fbfec4a6a39d623dbccd3372b2057e039e83fa18e957cf1a364dd5196d0",
+    "dur=4h capex=high cod=2028 scenario=conservative": "70a6e9bddc2c484d47f3a6fb35e38ceb1ff9e2b224236f3e11ad7f676d59f843",
+    "dur=4h capex=high cod=2028 scenario=stress": "f560490d19df2a049086d66e66104917dca9501e2f168504811a8273a1905cac",
+    "dur=4h capex=high cod=2029 scenario=base": "af49d7f9ae6a39cde04456cb387b42d4e45d634f257fe23f809b824ea043db98",
+    "dur=4h capex=high cod=2029 scenario=conservative": "891937d69e3cdd9657c78bcc8c9e201f801e2be4af3999a16ef3c97f6b327111",
+    "dur=4h capex=high cod=2029 scenario=stress": "b5979b1ab282b2e1aef86031248426b74a965ca1996b8ec9aa4480c3394f797f"
   },
   "headline": {
     "dur=2h capex=low cod=2027 scenario=base": {
-      "gross_revenue_y1": 8695573,
-      "ebitda_y1": 5696016,
-      "project_irr": 0.3536,
-      "min_dscr": 3.34,
-      "npv_at_wacc": 22897583
+      "gross_revenue_y1": 8282403,
+      "ebitda_y1": 5324163,
+      "project_irr": 0.3296,
+      "min_dscr": 3.17,
+      "npv_at_wacc": 20931139
     },
     "dur=2h capex=low cod=2027 scenario=conservative": {
-      "gross_revenue_y1": 8236053,
-      "ebitda_y1": 5145087,
-      "project_irr": 0.313,
-      "min_dscr": 2.93,
-      "npv_at_wacc": 19036871
+      "gross_revenue_y1": 7868739,
+      "ebitda_y1": 4818178,
+      "project_irr": 0.2915,
+      "min_dscr": 2.78,
+      "npv_at_wacc": 17259003
     },
     "dur=2h capex=low cod=2027 scenario=stress": {
-      "gross_revenue_y1": 7423251,
-      "ebitda_y1": 4098228,
-      "project_irr": 0.2213,
-      "min_dscr": 1.92,
-      "npv_at_wacc": 9678306
+      "gross_revenue_y1": 7147145,
+      "ebitda_y1": 3858016,
+      "project_irr": 0.2037,
+      "min_dscr": 1.81,
+      "npv_at_wacc": 8336914
     },
     "dur=2h capex=low cod=2028 scenario=base": {
-      "gross_revenue_y1": 8403505,
-      "ebitda_y1": 5433154,
-      "project_irr": 0.3412,
-      "min_dscr": 3.37,
-      "npv_at_wacc": 22318836
+      "gross_revenue_y1": 7999249,
+      "ebitda_y1": 5069324,
+      "project_irr": 0.3178,
+      "min_dscr": 3.2,
+      "npv_at_wacc": 20361842
     },
     "dur=2h capex=low cod=2028 scenario=conservative": {
-      "gross_revenue_y1": 7940137,
-      "ebitda_y1": 4881722,
-      "project_irr": 0.3012,
-      "min_dscr": 2.95,
-      "npv_at_wacc": 18451960
+      "gross_revenue_y1": 7582210,
+      "ebitda_y1": 4563167,
+      "project_irr": 0.2804,
+      "min_dscr": 2.8,
+      "npv_at_wacc": 16684862
     },
     "dur=2h capex=low cod=2028 scenario=stress": {
-      "gross_revenue_y1": 7116635,
-      "ebitda_y1": 3831472,
-      "project_irr": 0.2093,
-      "min_dscr": 1.94,
-      "npv_at_wacc": 8980233
+      "gross_revenue_y1": 6851580,
+      "ebitda_y1": 3600875,
+      "project_irr": 0.1921,
+      "min_dscr": 1.82,
+      "npv_at_wacc": 7656811
     },
     "dur=2h capex=low cod=2029 scenario=base": {
-      "gross_revenue_y1": 8109946,
-      "ebitda_y1": 5168952,
-      "project_irr": 0.3318,
-      "min_dscr": 3.31,
-      "npv_at_wacc": 21915546
+      "gross_revenue_y1": 7714827,
+      "ebitda_y1": 4813344,
+      "project_irr": 0.3091,
+      "min_dscr": 3.14,
+      "npv_at_wacc": 19961657
     },
     "dur=2h capex=low cod=2029 scenario=conservative": {
-      "gross_revenue_y1": 7643273,
-      "ebitda_y1": 4617513,
-      "project_irr": 0.2925,
-      "min_dscr": 2.98,
-      "npv_at_wacc": 18041494
+      "gross_revenue_y1": 7294883,
+      "ebitda_y1": 4307446,
+      "project_irr": 0.2722,
+      "min_dscr": 2.82,
+      "npv_at_wacc": 16278811
     },
     "dur=2h capex=low cod=2029 scenario=stress": {
-      "gross_revenue_y1": 6933603,
-      "ebitda_y1": 3672234,
-      "project_irr": 0.2003,
-      "min_dscr": 1.95,
-      "npv_at_wacc": 8466099
+      "gross_revenue_y1": 6679091,
+      "ebitda_y1": 3450809,
+      "project_irr": 0.1834,
+      "min_dscr": 1.83,
+      "npv_at_wacc": 7154305
     },
     "dur=2h capex=mid cod=2027 scenario=base": {
-      "gross_revenue_y1": 8695573,
-      "ebitda_y1": 5696016,
-      "project_irr": 0.2496,
-      "min_dscr": 2.5,
-      "npv_at_wacc": 18957760
+      "gross_revenue_y1": 8282403,
+      "ebitda_y1": 5324163,
+      "project_irr": 0.2322,
+      "min_dscr": 2.38,
+      "npv_at_wacc": 17003316
     },
     "dur=2h capex=mid cod=2027 scenario=conservative": {
-      "gross_revenue_y1": 8236053,
-      "ebitda_y1": 5145087,
-      "project_irr": 0.2188,
-      "min_dscr": 2.2,
-      "npv_at_wacc": 15106832
+      "gross_revenue_y1": 7868739,
+      "ebitda_y1": 4818178,
+      "project_irr": 0.203,
+      "min_dscr": 2.09,
+      "npv_at_wacc": 13340148
     },
     "dur=2h capex=mid cod=2027 scenario=stress": {
-      "gross_revenue_y1": 7423251,
-      "ebitda_y1": 4098228,
-      "project_irr": 0.1436,
-      "min_dscr": 1.46,
-      "npv_at_wacc": 5766651
+      "gross_revenue_y1": 7147145,
+      "ebitda_y1": 3858016,
+      "project_irr": 0.1297,
+      "min_dscr": 1.38,
+      "npv_at_wacc": 4434060
     },
     "dur=2h capex=mid cod=2028 scenario=base": {
-      "gross_revenue_y1": 8403505,
-      "ebitda_y1": 5433154,
-      "project_irr": 0.2416,
-      "min_dscr": 2.52,
-      "npv_at_wacc": 18379012
+      "gross_revenue_y1": 7999249,
+      "ebitda_y1": 5069324,
+      "project_irr": 0.2246,
+      "min_dscr": 2.4,
+      "npv_at_wacc": 16434019
     },
     "dur=2h capex=mid cod=2028 scenario=conservative": {
-      "gross_revenue_y1": 7940137,
-      "ebitda_y1": 4881722,
-      "project_irr": 0.2112,
-      "min_dscr": 2.22,
-      "npv_at_wacc": 14521920
+      "gross_revenue_y1": 7582210,
+      "ebitda_y1": 4563167,
+      "project_irr": 0.1959,
+      "min_dscr": 2.1,
+      "npv_at_wacc": 12766007
     },
     "dur=2h capex=mid cod=2028 scenario=stress": {
-      "gross_revenue_y1": 7116635,
-      "ebitda_y1": 3831472,
-      "project_irr": 0.1353,
-      "min_dscr": 1.47,
-      "npv_at_wacc": 5068578
+      "gross_revenue_y1": 6851580,
+      "ebitda_y1": 3600875,
+      "project_irr": 0.1217,
+      "min_dscr": 1.38,
+      "npv_at_wacc": 3753957
     },
     "dur=2h capex=mid cod=2029 scenario=base": {
-      "gross_revenue_y1": 8109946,
-      "ebitda_y1": 5168952,
-      "project_irr": 0.2358,
-      "min_dscr": 2.48,
-      "npv_at_wacc": 17975723
+      "gross_revenue_y1": 7714827,
+      "ebitda_y1": 4813344,
+      "project_irr": 0.2191,
+      "min_dscr": 2.35,
+      "npv_at_wacc": 16033834
     },
     "dur=2h capex=mid cod=2029 scenario=conservative": {
-      "gross_revenue_y1": 7643273,
-      "ebitda_y1": 4617513,
-      "project_irr": 0.2058,
-      "min_dscr": 2.24,
-      "npv_at_wacc": 14111455
+      "gross_revenue_y1": 7294883,
+      "ebitda_y1": 4307446,
+      "project_irr": 0.1907,
+      "min_dscr": 2.12,
+      "npv_at_wacc": 12359956
     },
     "dur=2h capex=mid cod=2029 scenario=stress": {
-      "gross_revenue_y1": 6933603,
-      "ebitda_y1": 3672234,
-      "project_irr": 0.1292,
-      "min_dscr": 1.48,
-      "npv_at_wacc": 4554444
+      "gross_revenue_y1": 6679091,
+      "ebitda_y1": 3450809,
+      "project_irr": 0.1158,
+      "min_dscr": 1.39,
+      "npv_at_wacc": 3251451
     },
     "dur=2h capex=high cod=2027 scenario=base": {
-      "gross_revenue_y1": 8695573,
-      "ebitda_y1": 5696016,
-      "project_irr": 0.1402,
-      "min_dscr": 1.64,
-      "npv_at_wacc": 10182699
+      "gross_revenue_y1": 8282403,
+      "ebitda_y1": 5324163,
+      "project_irr": 0.129,
+      "min_dscr": 1.57,
+      "npv_at_wacc": 8254982
     },
     "dur=2h capex=high cod=2027 scenario=conservative": {
-      "gross_revenue_y1": 8236053,
-      "ebitda_y1": 5145087,
-      "project_irr": 0.1187,
-      "min_dscr": 1.45,
-      "npv_at_wacc": 6353563
+      "gross_revenue_y1": 7868739,
+      "ebitda_y1": 4818178,
+      "project_irr": 0.1083,
+      "min_dscr": 1.38,
+      "npv_at_wacc": 4611790
     },
     "dur=2h capex=high cod=2027 scenario=stress": {
-      "gross_revenue_y1": 7423251,
-      "ebitda_y1": 4098228,
-      "project_irr": 0.0575,
-      "min_dscr": 0.95,
-      "npv_at_wacc": -3058708
+      "gross_revenue_y1": 7147145,
+      "ebitda_y1": 3858016,
+      "project_irr": 0.0467,
+      "min_dscr": 0.88,
+      "npv_at_wacc": -4432213
     },
     "dur=2h capex=high cod=2028 scenario=base": {
-      "gross_revenue_y1": 8403505,
-      "ebitda_y1": 5433154,
-      "project_irr": 0.1361,
-      "min_dscr": 1.65,
-      "npv_at_wacc": 9603951
+      "gross_revenue_y1": 7999249,
+      "ebitda_y1": 5069324,
+      "project_irr": 0.1251,
+      "min_dscr": 1.58,
+      "npv_at_wacc": 7685686
     },
     "dur=2h capex=high cod=2028 scenario=conservative": {
-      "gross_revenue_y1": 7940137,
-      "ebitda_y1": 4881722,
-      "project_irr": 0.1148,
-      "min_dscr": 1.46,
-      "npv_at_wacc": 5768651
+      "gross_revenue_y1": 7582210,
+      "ebitda_y1": 4563167,
+      "project_irr": 0.1045,
+      "min_dscr": 1.39,
+      "npv_at_wacc": 4037649
     },
     "dur=2h capex=high cod=2028 scenario=stress": {
-      "gross_revenue_y1": 7116635,
-      "ebitda_y1": 3831472,
-      "project_irr": 0.0525,
-      "min_dscr": 0.96,
-      "npv_at_wacc": -3762622
+      "gross_revenue_y1": 6851580,
+      "ebitda_y1": 3600875,
+      "project_irr": 0.0417,
+      "min_dscr": 0.89,
+      "npv_at_wacc": -5129708
     },
     "dur=2h capex=high cod=2029 scenario=base": {
-      "gross_revenue_y1": 8109946,
-      "ebitda_y1": 5168952,
-      "project_irr": 0.1332,
-      "min_dscr": 1.63,
-      "npv_at_wacc": 9200661
+      "gross_revenue_y1": 7714827,
+      "ebitda_y1": 4813344,
+      "project_irr": 0.1223,
+      "min_dscr": 1.55,
+      "npv_at_wacc": 7285501
     },
     "dur=2h capex=high cod=2029 scenario=conservative": {
-      "gross_revenue_y1": 7643273,
-      "ebitda_y1": 4617513,
-      "project_irr": 0.112,
-      "min_dscr": 1.48,
-      "npv_at_wacc": 5358185
+      "gross_revenue_y1": 7294883,
+      "ebitda_y1": 4307446,
+      "project_irr": 0.1018,
+      "min_dscr": 1.4,
+      "npv_at_wacc": 3631598
     },
     "dur=2h capex=high cod=2029 scenario=stress": {
-      "gross_revenue_y1": 6933603,
-      "ebitda_y1": 3672234,
-      "project_irr": 0.0489,
-      "min_dscr": 0.96,
-      "npv_at_wacc": -4280975
+      "gross_revenue_y1": 6679091,
+      "ebitda_y1": 3450809,
+      "project_irr": 0.0381,
+      "min_dscr": 0.9,
+      "npv_at_wacc": -5645366
     },
     "dur=4h capex=low cod=2027 scenario=base": {
-      "gross_revenue_y1": 9361203,
-      "ebitda_y1": 6295082,
-      "project_irr": 0.1833,
-      "min_dscr": 2.01,
-      "npv_at_wacc": 16769826
+      "gross_revenue_y1": 8848893,
+      "ebitda_y1": 5834004,
+      "project_irr": 0.1668,
+      "min_dscr": 1.88,
+      "npv_at_wacc": 13935327
     },
     "dur=4h capex=low cod=2027 scenario=conservative": {
-      "gross_revenue_y1": 8869746,
-      "ebitda_y1": 5709074,
-      "project_irr": 0.1592,
-      "min_dscr": 1.78,
-      "npv_at_wacc": 12485346
+      "gross_revenue_y1": 8402150,
+      "ebitda_y1": 5292913,
+      "project_irr": 0.1434,
+      "min_dscr": 1.65,
+      "npv_at_wacc": 9842200
     },
     "dur=4h capex=low cod=2027 scenario=stress": {
-      "gross_revenue_y1": 8092919,
-      "ebitda_y1": 4680840,
-      "project_irr": 0.1012,
-      "min_dscr": 1.24,
-      "npv_at_wacc": 2847246
+      "gross_revenue_y1": 7703773,
+      "ebitda_y1": 4342283,
+      "project_irr": 0.0855,
+      "min_dscr": 1.14,
+      "npv_at_wacc": 717785
     },
     "dur=4h capex=low cod=2028 scenario=base": {
-      "gross_revenue_y1": 9054773,
-      "ebitda_y1": 6019296,
-      "project_irr": 0.1783,
-      "min_dscr": 2.03,
-      "npv_at_wacc": 16187174
+      "gross_revenue_y1": 8553517,
+      "ebitda_y1": 5568165,
+      "project_irr": 0.1621,
+      "min_dscr": 1.89,
+      "npv_at_wacc": 13361084
     },
     "dur=4h capex=low cod=2028 scenario=conservative": {
-      "gross_revenue_y1": 8557635,
-      "ebitda_y1": 5431295,
-      "project_irr": 0.1545,
-      "min_dscr": 1.79,
-      "npv_at_wacc": 11889766
+      "gross_revenue_y1": 8101989,
+      "ebitda_y1": 5025770,
+      "project_irr": 0.1389,
+      "min_dscr": 1.67,
+      "npv_at_wacc": 9257451
     },
     "dur=4h capex=low cod=2028 scenario=stress": {
-      "gross_revenue_y1": 7759500,
-      "ebitda_y1": 4390765,
-      "project_irr": 0.0956,
-      "min_dscr": 1.25,
-      "npv_at_wacc": 2107120
+      "gross_revenue_y1": 7385930,
+      "ebitda_y1": 4065759,
+      "project_irr": 0.08,
+      "min_dscr": 1.14,
+      "npv_at_wacc": 4378
     },
     "dur=4h capex=low cod=2029 scenario=base": {
-      "gross_revenue_y1": 8746495,
-      "ebitda_y1": 5741846,
-      "project_irr": 0.1748,
-      "min_dscr": 2.01,
-      "npv_at_wacc": 15791435
+      "gross_revenue_y1": 8256568,
+      "ebitda_y1": 5300911,
+      "project_irr": 0.1588,
+      "min_dscr": 1.87,
+      "npv_at_wacc": 12965530
     },
     "dur=4h capex=low cod=2029 scenario=conservative": {
-      "gross_revenue_y1": 8244318,
-      "ebitda_y1": 5152443,
-      "project_irr": 0.1511,
-      "min_dscr": 1.81,
-      "npv_at_wacc": 11480712
+      "gross_revenue_y1": 7800813,
+      "ebitda_y1": 4757723,
+      "project_irr": 0.1357,
+      "min_dscr": 1.68,
+      "npv_at_wacc": 8850730
     },
     "dur=4h capex=low cod=2029 scenario=stress": {
-      "gross_revenue_y1": 7550897,
-      "ebitda_y1": 4209280,
-      "project_irr": 0.0915,
-      "min_dscr": 1.26,
-      "npv_at_wacc": 1567063
+      "gross_revenue_y1": 7192186,
+      "ebitda_y1": 3897202,
+      "project_irr": 0.0761,
+      "min_dscr": 1.15,
+      "npv_at_wacc": -518637
     },
     "dur=4h capex=mid cod=2027 scenario=base": {
-      "gross_revenue_y1": 9361203,
-      "ebitda_y1": 6295082,
-      "project_irr": 0.122,
-      "min_dscr": 1.53,
-      "npv_at_wacc": 8921978
+      "gross_revenue_y1": 8848893,
+      "ebitda_y1": 5834004,
+      "project_irr": 0.1091,
+      "min_dscr": 1.43,
+      "npv_at_wacc": 6097324
     },
     "dur=4h capex=mid cod=2027 scenario=conservative": {
-      "gross_revenue_y1": 8869746,
-      "ebitda_y1": 5709074,
-      "project_irr": 0.1026,
-      "min_dscr": 1.36,
-      "npv_at_wacc": 4652090
+      "gross_revenue_y1": 8402150,
+      "ebitda_y1": 5292913,
+      "project_irr": 0.0899,
+      "min_dscr": 1.26,
+      "npv_at_wacc": 2013814
     },
     "dur=4h capex=mid cod=2027 scenario=stress": {
-      "gross_revenue_y1": 8092919,
-      "ebitda_y1": 4680840,
-      "project_irr": 0.0505,
-      "min_dscr": 0.92,
-      "npv_at_wacc": -5151451
+      "gross_revenue_y1": 7703773,
+      "ebitda_y1": 4342283,
+      "project_irr": 0.0362,
+      "min_dscr": 0.83,
+      "npv_at_wacc": -7417200
     },
     "dur=4h capex=mid cod=2028 scenario=base": {
-      "gross_revenue_y1": 9054773,
-      "ebitda_y1": 6019296,
-      "project_irr": 0.1188,
-      "min_dscr": 1.54,
-      "npv_at_wacc": 8339325
+      "gross_revenue_y1": 8553517,
+      "ebitda_y1": 5568165,
+      "project_irr": 0.1061,
+      "min_dscr": 1.44,
+      "npv_at_wacc": 5523081
     },
     "dur=4h capex=mid cod=2028 scenario=conservative": {
-      "gross_revenue_y1": 8557635,
-      "ebitda_y1": 5431295,
-      "project_irr": 0.0995,
-      "min_dscr": 1.37,
-      "npv_at_wacc": 4056509
+      "gross_revenue_y1": 8101989,
+      "ebitda_y1": 5025770,
+      "project_irr": 0.087,
+      "min_dscr": 1.27,
+      "npv_at_wacc": 1429064
     },
     "dur=4h capex=mid cod=2028 scenario=stress": {
-      "gross_revenue_y1": 7759500,
-      "ebitda_y1": 4390765,
-      "project_irr": 0.0464,
-      "min_dscr": 0.93,
-      "npv_at_wacc": -5906544
+      "gross_revenue_y1": 7385930,
+      "ebitda_y1": 4065759,
+      "project_irr": 0.032,
+      "min_dscr": 0.84,
+      "npv_at_wacc": -8164963
     },
     "dur=4h capex=mid cod=2029 scenario=base": {
-      "gross_revenue_y1": 8746495,
-      "ebitda_y1": 5741846,
-      "project_irr": 0.1166,
-      "min_dscr": 1.53,
-      "npv_at_wacc": 7943586
+      "gross_revenue_y1": 8256568,
+      "ebitda_y1": 5300911,
+      "project_irr": 0.104,
+      "min_dscr": 1.42,
+      "npv_at_wacc": 5127527
     },
     "dur=4h capex=mid cod=2029 scenario=conservative": {
-      "gross_revenue_y1": 8244318,
-      "ebitda_y1": 5152443,
-      "project_irr": 0.0974,
-      "min_dscr": 1.38,
-      "npv_at_wacc": 3647455
+      "gross_revenue_y1": 7800813,
+      "ebitda_y1": 4757723,
+      "project_irr": 0.085,
+      "min_dscr": 1.28,
+      "npv_at_wacc": 1022343
     },
     "dur=4h capex=mid cod=2029 scenario=stress": {
-      "gross_revenue_y1": 7550897,
-      "ebitda_y1": 4209280,
-      "project_irr": 0.0435,
-      "min_dscr": 0.93,
-      "npv_at_wacc": -6457843
+      "gross_revenue_y1": 7192186,
+      "ebitda_y1": 3897202,
+      "project_irr": 0.0292,
+      "min_dscr": 0.84,
+      "npv_at_wacc": -8707680
     },
     "dur=4h capex=high cod=2027 scenario=base": {
-      "gross_revenue_y1": 9361203,
-      "ebitda_y1": 6295082,
-      "project_irr": 0.0515,
-      "min_dscr": 1,
-      "npv_at_wacc": -8916966
+      "gross_revenue_y1": 8848893,
+      "ebitda_y1": 5834004,
+      "project_irr": 0.0411,
+      "min_dscr": 0.92,
+      "npv_at_wacc": -11987903
     },
     "dur=4h capex=high cod=2027 scenario=conservative": {
-      "gross_revenue_y1": 8869746,
-      "ebitda_y1": 5709074,
-      "project_irr": 0.0352,
-      "min_dscr": 0.87,
-      "npv_at_wacc": -13568797
+      "gross_revenue_y1": 8402150,
+      "ebitda_y1": 5292913,
+      "project_irr": 0.0244,
+      "min_dscr": 0.8,
+      "npv_at_wacc": -16522400
     },
     "dur=4h capex=high cod=2027 scenario=stress": {
-      "gross_revenue_y1": 8092919,
-      "ebitda_y1": 4680840,
-      "project_irr": -0.0141,
-      "min_dscr": 0.57,
-      "npv_at_wacc": -24278890
+      "gross_revenue_y1": 7703773,
+      "ebitda_y1": 4342283,
+      "project_irr": -0.0267,
+      "min_dscr": 0.52,
+      "npv_at_wacc": -26721522
     },
     "dur=4h capex=high cod=2028 scenario=base": {
-      "gross_revenue_y1": 9054773,
-      "ebitda_y1": 6019296,
-      "project_irr": 0.0498,
-      "min_dscr": 1.01,
-      "npv_at_wacc": -9517334
+      "gross_revenue_y1": 8553517,
+      "ebitda_y1": 5568165,
+      "project_irr": 0.0394,
+      "min_dscr": 0.93,
+      "npv_at_wacc": -12614199
     },
     "dur=4h capex=high cod=2028 scenario=conservative": {
-      "gross_revenue_y1": 8557635,
-      "ebitda_y1": 5431295,
-      "project_irr": 0.0333,
-      "min_dscr": 0.88,
-      "npv_at_wacc": -14232272
+      "gross_revenue_y1": 8101989,
+      "ebitda_y1": 5025770,
+      "project_irr": 0.0225,
+      "min_dscr": 0.81,
+      "npv_at_wacc": -17217086
     },
     "dur=4h capex=high cod=2028 scenario=stress": {
-      "gross_revenue_y1": 7759500,
-      "ebitda_y1": 4390765,
-      "project_irr": -0.0171,
-      "min_dscr": 0.58,
-      "npv_at_wacc": -25161722
+      "gross_revenue_y1": 7385930,
+      "ebitda_y1": 4065759,
+      "project_irr": -0.0297,
+      "min_dscr": 0.52,
+      "npv_at_wacc": -27574237
     },
     "dur=4h capex=high cod=2029 scenario=base": {
-      "gross_revenue_y1": 8746495,
-      "ebitda_y1": 5741846,
-      "project_irr": 0.0488,
-      "min_dscr": 0.99,
-      "npv_at_wacc": -9921738
+      "gross_revenue_y1": 8256568,
+      "ebitda_y1": 5300911,
+      "project_irr": 0.0383,
+      "min_dscr": 0.92,
+      "npv_at_wacc": -13053750
     },
     "dur=4h capex=high cod=2029 scenario=conservative": {
-      "gross_revenue_y1": 8244318,
-      "ebitda_y1": 5152443,
-      "project_irr": 0.0321,
-      "min_dscr": 0.89,
-      "npv_at_wacc": -14692171
+      "gross_revenue_y1": 7800813,
+      "ebitda_y1": 4757723,
+      "project_irr": 0.0213,
+      "min_dscr": 0.81,
+      "npv_at_wacc": -17703561
     },
     "dur=4h capex=high cod=2029 scenario=stress": {
-      "gross_revenue_y1": 7550897,
-      "ebitda_y1": 4209280,
-      "project_irr": -0.019,
-      "min_dscr": 0.58,
-      "npv_at_wacc": -25805261
+      "gross_revenue_y1": 7192186,
+      "ebitda_y1": 3897202,
+      "project_irr": -0.0316,
+      "min_dscr": 0.53,
+      "npv_at_wacc": -28198999
     }
   }
 }

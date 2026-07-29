@@ -21,6 +21,7 @@ import {
   loadRegister, validateRegister, checkBindings, bindingContext, syncRegister,
   resolveBinding, readWorkerConstant, effectiveValue, effectiveRegister,
   categoryCounts, CATEGORIES, RegisterBindingError, roundTo,
+  isSuperseded, liveRows, supersededRows,
 } from '../register.mjs';
 import {
   reconcile, internalChecks, portfolioChecks, externalChecks, EXTERNAL_BANDS,
@@ -41,9 +42,9 @@ describe('assumptions register — schema', () => {
   it('covers every category the deliverable contract names', () => {
     const counts = categoryCounts(register) as Any;
     expect(counts).toEqual({
-      technical: 7, market: 9, saturation: 4, cost: 7, capex: 8, project: 3, 'scenario-driver': 6,
+      technical: 7, market: 11, saturation: 4, cost: 7, capex: 8, project: 3, 'scenario-driver': 7,
     });
-    expect(register.rows).toHaveLength(44);
+    expect(register.rows).toHaveLength(47);
     for (const row of register.rows) expect(CATEGORIES).toContain(row.category);
   });
 
@@ -74,24 +75,92 @@ describe('assumptions register — schema', () => {
   });
 });
 
+// The one legitimate reason a row may carry no binding, and the fence around it.
+// A superseded row records what the model USED to hold; it is not an input, so
+// it has nothing to bind to. That is the ONLY exemption, and it costs the row a
+// pointer to its replacement and the date it was replaced.
+describe('assumptions register — the bound-or-superseded dichotomy', () => {
+  const live = { ...register.rows[0], id: 'y_live' };
+  const dead = {
+    ...register.rows[0], id: 'y_dead', basis: 'superseded', engine_binding: null,
+    superseded_by: 'y_live', superseded_on: '2026-07-28', override: null,
+  };
+
+  it('accepts a well-formed superseded row', () => {
+    expect(validateRegister({ rows: [live, dead] } as Any)).toEqual([]);
+    expect(isSuperseded(dead)).toBe(true);
+    expect(isSuperseded(live)).toBe(false);
+  });
+
+  it('rejects an unbound row that has not declared itself superseded', () => {
+    const problems = validateRegister({ rows: [{ ...live, engine_binding: null }] } as Any).join('\n');
+    expect(problems).toMatch(/unbound and not declared superseded/);
+  });
+
+  it('rejects a superseded row that points nowhere, at itself, or carries a binding', () => {
+    const p = (row: Any) => validateRegister({ rows: [live, row] } as Any).join('\n');
+    expect(p({ ...dead, superseded_by: undefined })).toMatch(/must name the row that replaced it/);
+    expect(p({ ...dead, superseded_by: 'y_dead' })).toMatch(/points at itself/);
+    expect(p({ ...dead, superseded_by: 'y_nothing' })).toMatch(/is not a row in this register/);
+    expect(p({ ...dead, engine_binding: 'driver:trading_realisation' }))
+      .toMatch(/must not carry an engine_binding/);
+    expect(p({ ...dead, superseded_on: 'last summer' })).toMatch(/superseded_on as YYYY-MM-DD/);
+    expect(p({ ...dead, override: 0.9 })).toMatch(/cannot carry an override/);
+  });
+
+  it('rejects supersession metadata on a live row', () => {
+    expect(validateRegister({ rows: [{ ...live, superseded_by: 'x' }] } as Any).join('\n'))
+      .toMatch(/must not carry supersession metadata/);
+  });
+
+  it('keeps superseded rows out of the effective inputs — they are provenance', () => {
+    const eff = effectiveRegister({ rows: [live, dead] } as Any) as Any;
+    expect(Object.keys(eff)).toEqual(['y_live']);
+    expect(liveRows({ rows: [live, dead] } as Any)).toHaveLength(1);
+    expect(supersededRows({ rows: [live, dead] } as Any)).toHaveLength(1);
+  });
+
+  it('leaves superseded rows untouched when syncing from the code', async () => {
+    const ctx = await ctxPromise;
+    const synced = syncRegister({ rows: [dead] } as Any, ctx) as Any;
+    expect(synced.rows[0]).toEqual(dead);
+  });
+});
+
 describe('assumptions register — bindings to live code', () => {
-  it('every single row is bound — nothing floats free of the model', async () => {
+  it('every live row is bound — nothing floats free of the model', async () => {
     const bound = register.rows.filter((r: Any) => r.engine_binding);
-    expect(bound).toHaveLength(register.rows.length);
+    expect(bound).toHaveLength(liveRows(register).length);
+    // And the only rows without one have said, in the file, why.
+    for (const r of supersededRows(register) as Any[]) {
+      expect(r.superseded_by, r.id).toBeTruthy();
+      expect(r.superseded_on, r.id).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    }
   });
 
   it('every bound value equals the value the code currently holds', async () => {
     const ctx = await ctxPromise;
     const { checked, drift } = checkBindings(register, ctx) as Any;
-    expect(checked).toBe(register.rows.length);
+    expect(checked).toBe(liveRows(register).length);
     expect(drift, JSON.stringify(drift, null, 2)).toEqual([]);
   });
 
   // One named test per row, so a drifted binding names itself in the failure.
-  for (const row of register.rows as Any[]) {
+  for (const row of liveRows(register) as Any[]) {
     it(`${row.id} ties to ${row.engine_binding}`, async () => {
       const ctx = await ctxPromise;
       expect(roundTo(resolveBinding(row.engine_binding, ctx))).toBe(roundTo(row.value));
+    });
+  }
+
+  // And one per superseded row, so provenance cannot rot either: the pointer
+  // must resolve to a LIVE row, and the value must actually have moved.
+  for (const row of supersededRows(register) as Any[]) {
+    it(`${row.id} points at a live row it no longer equals`, () => {
+      const target = register.rows.find((r: Any) => r.id === row.superseded_by);
+      expect(target, row.superseded_by).toBeTruthy();
+      expect(isSuperseded(target)).toBe(false);
+      expect(roundTo(target.value)).not.toBe(roundTo(row.value));
     });
   }
 
@@ -140,7 +209,7 @@ describe('assumptions register — override mechanism', () => {
     for (const row of register.rows) expect(row.override, row.id).toBeNull();
     const eff = effectiveRegister(register) as Any;
     expect(eff.rte_bol_2h).toBe(82);
-    expect(Object.keys(eff)).toHaveLength(register.rows.length);
+    expect(Object.keys(eff)).toHaveLength(liveRows(register).length);
   });
 
   it('an override of zero is honoured, not treated as absent', () => {
@@ -218,13 +287,33 @@ describe('reconciliation — external bank', () => {
     expect(Object.keys(EXTERNAL_BANDS)).toHaveLength(6);
   });
 
-  it('Central and the reference asset are FAIL-level and currently clean', async () => {
+  it('Central and the reference asset are FAIL-level, with every breach declared', async () => {
     const report = await reportPromise;
     const strict = report.external.filter(
       (c: Any) => c.subject.endsWith('/central') || c.subject.startsWith('reference/'));
     expect(strict.length).toBeGreaterThan(0);
     for (const c of strict) expect(c.status, `${c.subject} ${c.id}`).not.toBe('warn');
-    expect(strict.filter((c: Any) => c.status === 'fail')).toEqual([]);
+    // No UNDECLARED breach. A breach may survive only by carrying an
+    // `expected_deviation` reason in code, with its band untouched — the 36.B1-N
+    // rule. Silence is still a failure.
+    const undeclared = strict.filter(
+      (c: Any) => c.status === 'fail' && !c.expected_deviation);
+    expect(undeclared, JSON.stringify(undeclared.slice(0, 3), null, 2)).toEqual([]);
+  });
+
+  it('the one declared deviation is the 36.B5 cycling metric, and its band was not moved', async () => {
+    const report = await reportPromise;
+    const declared = report.external.filter((c: Any) => c.expected_deviation);
+    expect(declared.length).toBeGreaterThan(0);
+    for (const c of declared) {
+      expect(c.id).toBe('external_3_cycles_yr');
+      // The band is the sourced one, unchanged. Re-fitting it to pass would be
+      // the failure this whole mechanism exists to make impossible.
+      expect(c.band).toEqual([EXTERNAL_BANDS.cycles_yr.lo, EXTERNAL_BANDS.cycles_yr.hi]);
+      expect(c.actual).toBeLessThan(EXTERNAL_BANDS.cycles_yr.lo);
+      expect(c.expected_deviation).toMatch(/36\.B5/);
+    }
+    expect(report.summary.expected_deviations).toHaveLength(declared.length);
   });
 
   it('Downside and Upside are WARN-level — a breach there is information, not error', async () => {
@@ -270,7 +359,11 @@ describe('reconciliation — report shape', () => {
     expect(report.summary.internal.total).toBe(report.internal.length);
     expect(report.summary.external.total).toBe(report.external.length);
     expect(report.summary.internal.fail).toBe(0);
-    expect(report.summary.external.fail).toBe(0);
+    // External fails are permitted ONLY where declared; the count is asserted
+    // equal to the number of declared deviations, so an undeclared one shows up
+    // here as well as in the check above.
+    expect(report.summary.external.fail).toBe(report.external.filter(
+      (c: Any) => c.expected_deviation && c.status === 'fail').length);
     expect(report.summary.severity_split).toMatch(/warn/i);
   });
 

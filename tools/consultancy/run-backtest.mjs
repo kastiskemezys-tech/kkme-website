@@ -3,13 +3,13 @@
  *
  * Replays the B1 greedy policy over 2025-07 → 2026-06 of realised LT day-ahead
  * prices and measures what fraction of the perfect-foresight capture spread it
- * actually achieves, against the assumed `trading_realisation = 0.85`.
+ * actually achieves, against whatever `trading_realisation` the engine currently
+ * holds — read from the engine, never restated as a literal here.
  *
- * The measurement is RECORDED, not adopted: the register's bound Central driver
- * keeps its value and gains a pointer to the evidence, and the changelog carries
- * the number and the gap. Adopting it moves client IRR and is an explicit
- * operator decision — see `updateRegister` below for why that boundary is where
- * it is.
+ * Batch-2 measured 0.7234 against an assumed 0.85 and RECORDED it. Batch-3 Part 0
+ * adopted it on an operator decision, so the engine now holds the measurement and
+ * this runner is a remeasurement harness: it reports drift, and it still refuses
+ * to write a divergent value into the bound row. See `updateRegister`.
  *
  *   output/backtest-<project>-<from>-<to>.json
  *
@@ -140,7 +140,12 @@ export async function runBacktest({ config, kv, zone = 'LT' }) {
   const monthly = byMonth(daily);
   const leakage = leakageChecks(daily, aggregate);
 
-  const assumed = 0.85;
+  // What the engine currently holds, read from the engine — not a literal
+  // restating it. Before batch-3 Part 0 this was the assumed 0.85 and the
+  // interesting number was the gap; after the cutover it IS the measurement, and
+  // the interesting number is the remeasurement drift. Both readings fall out of
+  // the same subtraction, so the runner needs no mode switch.
+  const engine_value = sc.trd_real;
   const measured = aggregate.volume_weighted;
 
   return {
@@ -178,9 +183,10 @@ export async function runBacktest({ config, kv, zone = 'LT' }) {
         'working, and scoring it as a miss would understate realisation.',
     },
     measurement: {
-      assumed,
+      engine_value,
       measured,
-      delta: measured == null ? null : measured - assumed,
+      delta: measured == null ? null : measured - engine_value,
+      adopted: measured != null && Math.abs(measured - engine_value) < 5e-5,
       aggregate,
       monthly,
     },
@@ -192,31 +198,33 @@ export async function runBacktest({ config, kv, zone = 'LT' }) {
 // ── Register ───────────────────────────────────────────────────────────────
 
 /**
- * Record the measurement in the register — ALONGSIDE the bound driver, not on
- * top of it.
+ * Refresh the register's trading-realisation provenance from a backtest run.
  *
- * The obvious move is to overwrite `driver_trading_realisation.value` with the
- * measured figure. It is the wrong one, for two reasons that only became clear
- * on reading the register's own contract:
+ * This function does NOT decide anything. The canonical value lives in
+ * `TRADING_REALISATION.base` and `scenarios.json`; the register row is bound to
+ * it and asserted equal to it. So the only honest thing a measurement runner can
+ * do to the register is describe the relationship between what it measured and
+ * what the code holds — and refuse to write a value that would put the row out
+ * of step with its own binding.
  *
- *  1. Rows carrying an `engine_binding` are ASSERTED equal to what the code
- *     holds — `driver:<id>` resolves to the Central value in scenarios.json
- *     (register.mjs, __tests__/register.test.ts). Writing 0.72 into a row bound
- *     to a driver that is still 0.85 either breaks that invariant or forces
- *     scenarios.json to move with it.
+ * Two states, one subtraction:
  *
- *  2. Moving the Central driver moves client IRR. That is a cutover, and the
- *     arc's standing rule is explicit that new capability lands alongside the
- *     existing engine and that cutover is a separate, explicit operator
- *     decision. A measurement phase is not the place to change a delivered
- *     number.
+ *   ADOPTED    — the engine already holds the measured value (batch-3 Part 0).
+ *                The row's source and note are refreshed with this run's window,
+ *                day count and monthly band; the changelog records a
+ *                remeasurement. Nothing moves.
  *
- * So the measured value lands as its own unbound row, the assumed driver keeps
- * its binding and its value, and the changelog records the measurement and the
- * decision it now awaits. Adopting it is a one-line change to scenarios.json
- * whenever the operator chooses.
+ *   DIVERGED   — the engine holds something else. The row keeps its value (it is
+ *                bound; writing the measurement into it would break the binding
+ *                or silently force a cutover), gains a pointer to the evidence,
+ *                and the changelog records the gap as pending an operator
+ *                decision. This is the batch-2 behaviour, kept intact — a
+ *                remeasurement that disagrees must not quietly re-cut the model.
+ *
+ * The superseded prior assumption, if present, is left exactly as it is:
+ * provenance is history and history does not get rewritten by a later run.
  */
-export function updateRegister(register, { measured, window, n_days, assumed, uplift, monthly }) {
+export function updateRegister(register, { measured, window, n_days, engine_value, uplift, monthly }) {
   const out = structuredClone(register);
   const rows = out.rows;
   const i = rows.findIndex((r) => r.id === 'driver_trading_realisation');
@@ -224,66 +232,73 @@ export function updateRegister(register, { measured, window, n_days, assumed, up
 
   const prev = rows[i];
   const value = Math.round(measured * 10000) / 10000;
+  const band = monthlyRange(monthly);
+  const adopted = Math.abs(value - prev.value) < 5e-5;
   const source =
     `KKME dispatch backtest ${window.from} → ${window.to} (${n_days} trading days, ` +
     `LT day-ahead): B1 greedy policy capture ÷ perfect-foresight sort-and-dispatch capture`;
 
-  // The bound row keeps its value and gains a pointer to the measurement, so a
-  // reader of the register cannot see the assumption without seeing the
-  // evidence that now sits beside it.
-  rows[i] = {
-    ...prev,
-    note:
-      `${prev.note} MEASURED at ${value} over ${window.from} → ${window.to} ` +
-      `(${n_days} trading days, day-ahead component only) — see the changelog and ` +
-      `output/backtest-*.json. NOTE the measurement falls BELOW this row's declared ` +
-      `sensitivity range [${prev.sensitivity_range.join(', ')}]. This row remains the ` +
-      `ENGINE-BOUND Central driver and is UNCHANGED; adopting the measured figure is a ` +
-      `scenario-driver cutover that moves client IRR and is an operator decision.`,
-  };
-
-  // NO new row. The register carries a hard invariant — "every single row is
-  // bound; nothing floats free of the model" (__tests__/register.test.ts), with
-  // a per-row binding assertion. A measured observation has no code constant to
-  // bind to by definition, so adding it as an unbound row would require
-  // weakening that invariant, and weakening a governance assertion is not
-  // something an autonomous batch should do on its own initiative.
-  //
-  // The measurement therefore lives in the changelog (metadata, not a row), in
-  // the committed backtest output, and in DECISIONS.md — and the bound row now
-  // points at it, so the assumption cannot be read without meeting the evidence.
-  // Giving `basis: "measured"` rows a first-class unbound slot is a register
-  // schema change and belongs with B6's assumption-versioning work.
+  if (adopted) {
+    // The row IS the measurement. Refresh its provenance to this run and leave
+    // the value alone — it is the binding's job to carry it.
+    rows[i] = {
+      ...prev,
+      basis: 'measured',
+      source:
+        `${source}. Volume-weighted ${value}` +
+        (band ? `; monthly volume-weighted ${band[0]} to ${band[1]}` : '') +
+        `; single-year window.`,
+      note: prev.note,
+    };
+  } else {
+    // Diverged. The bound row keeps its value and gains a pointer to the
+    // evidence, so the number in force cannot be read without meeting the
+    // measurement that disagrees with it.
+    rows[i] = {
+      ...prev,
+      note:
+        `${prev.note} REMEASURED at ${value} over ${window.from} → ${window.to} ` +
+        `(${n_days} trading days, day-ahead component only) — see the changelog and ` +
+        `output/backtest-*.json. This row remains the ENGINE-BOUND Central driver and is ` +
+        `UNCHANGED; moving it is a cutover that moves client IRR and is an operator ` +
+        `decision.`,
+    };
+  }
 
   out.changelog = out.changelog ?? [];
   out.changelog.push({
     date: window.to,
-    id: 'trading_realisation_measured',
-    old: null,
+    id: 'driver_trading_realisation',
+    old: adopted ? value : prev.value,
     new: value,
-    observed_monthly_range: monthlyRange(monthly),
-    reason:
-      `Measured over 12 months of realised LT day-ahead prices. The assumed driver ` +
-      `(${assumed}) is UNCHANGED and still engine-bound; this entry records the evidence ` +
-      `and the gap (${(value - assumed).toFixed(4)}) pending an operator cutover decision. ` +
-      `The measurement sits below the assumption's declared sensitivity range ` +
-      `[${prev.sensitivity_range.join(', ')}], so the range itself is understated, not ` +
-      `just the point value.`,
+    observed_monthly_range: band,
+    reason: adopted
+      ? `Remeasurement over ${window.from} → ${window.to}. The engine already holds this ` +
+        `value (${prev.value}); the measurement reproduces it, so nothing moved. The window ` +
+        `is a single market year, so the monthly band is an observed range and not a ` +
+        `distribution — remeasure annually.`
+      : `Remeasured at ${value} against an engine holding ${prev.value} ` +
+        `(gap ${(value - prev.value).toFixed(4)}). The bound driver is UNCHANGED; adopting ` +
+        `the new measurement is a cutover that moves client IRR and is an operator decision.`,
     source,
     phase: '36.B3',
   });
 
   if (uplift != null) {
+    const upliftRow = rows.find((r) => r.id === 'dispatch_15min_uplift');
+    const held = upliftRow?.value ?? null;
+    const u = Math.round(uplift * 10000) / 10000;
     out.changelog.push({
       date: window.to,
-      id: 'RYSTAD_15MIN_UPLIFT_DECIMAL',
-      old: 0.14,
-      new: null,
-      reason:
-        `Measured at ${uplift.toFixed(4)} over 273 complete PT15M days (2025-10-01 → ` +
-        `2026-06-30) against the engine's asserted 0.14. Constant left unchanged — it is ` +
-        `a worker constant on the public dispatch path and changing it is a separate ` +
-        `decision. Reported, not adopted.`,
+      id: 'dispatch_15min_uplift',
+      old: held,
+      new: u,
+      reason: held != null && Math.abs(u - held) < 5e-5
+        ? `Remeasured over 273 complete PT15M days (2025-10-01 → 2026-06-30); the engine ` +
+          `already holds this value, so nothing moved.`
+        : `Measured at ${u.toFixed(4)} over 273 complete PT15M days (2025-10-01 → ` +
+          `2026-06-30) against an engine holding ${held ?? 'an unregistered constant'}. ` +
+          `Reported, not adopted — it is a worker constant on the public dispatch path.`,
       source: 'tools/consultancy/run-15min-delta.mjs',
       phase: '36.B3',
     });
@@ -318,9 +333,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   );
   console.log(`trading days        ${a.n_traded} traded, ${a.n_declined} declined, ${a.n_days} evaluated`);
   console.log(`discharged          ${Math.round(a.discharge_mwh).toLocaleString('en-US')} MWh\n`);
-  console.log(`ASSUMED             ${m.assumed.toFixed(4)}`);
+  console.log(`ENGINE HOLDS        ${m.engine_value.toFixed(4)}   TRADING_REALISATION.base`);
   console.log(`MEASURED            ${m.measured == null ? 'n/a' : m.measured.toFixed(4)}   (volume-weighted)`);
-  console.log(`delta               ${m.delta == null ? 'n/a' : (m.delta >= 0 ? '+' : '') + m.delta.toFixed(4)}`);
+  console.log(`delta               ${m.delta == null ? 'n/a' : (m.delta >= 0 ? '+' : '') + m.delta.toFixed(4)}   ${m.adopted ? '— adopted; this run reproduces it' : '— DIVERGED, operator decision'}`);
   console.log(`simple mean         ${a.simple_mean?.toFixed(4)}`);
   console.log(`distribution        min ${a.min?.toFixed(3)} · p25 ${a.p25?.toFixed(3)} · median ${a.median?.toFixed(3)} · p75 ${a.p75?.toFixed(3)} · max ${a.max?.toFixed(3)}`);
 
@@ -354,16 +369,20 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       measured: m.measured,
       window: payload.meta.window,
       n_days: a.n_traded,
-      assumed: m.assumed,
+      engine_value: m.engine_value,
       uplift,
       monthly: m.monthly,
     });
     writeFileSync(REGISTER_PATH, JSON.stringify(updated, null, 2) + '\n');
     console.log(
-      `updated ${REGISTER_PATH}: changelog records measured ${m.measured.toFixed(4)} ` +
-      `vs assumed ${m.assumed}.\n` +
-      `  driver_trading_realisation stays engine-bound at ${m.assumed} and UNCHANGED — ` +
-      `adopting the measured value moves client IRR and is an operator decision.`
+      m.adopted
+        ? `updated ${REGISTER_PATH}: driver_trading_realisation is the measurement ` +
+          `(${m.measured.toFixed(4)}); provenance refreshed to this run and the changelog ` +
+          `records the remeasurement. No value moved.`
+        : `updated ${REGISTER_PATH}: changelog records measured ${m.measured.toFixed(4)} ` +
+          `against an engine holding ${m.engine_value}.\n` +
+          `  driver_trading_realisation stays engine-bound and UNCHANGED — moving it is a ` +
+          `cutover that moves client IRR and is an operator decision.`
     );
   } else {
     console.log('\n(register not written — pass --write-register)');

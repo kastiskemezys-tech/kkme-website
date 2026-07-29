@@ -351,10 +351,19 @@ async function assumptionsTab(wb, inp) {
     r.getCell(1).font = { size: 9, color: { argb: C.sea } };
     r.getCell(4).numFmt = Number.isInteger(row.value) ? MONEY : NUM3;
     r.getCell(4).font = { bold: true, size: 9.5 };
-    // The override cell is the one thing in this workbook the client edits.
-    r.getCell(8).protection = { locked: false };
-    r.getCell(8).fill = fill(C.amberGlaze);
-    r.getCell(8).numFmt = Number.isInteger(row.value) ? MONEY : NUM3;
+    if (row.basis === 'superseded') {
+      // Provenance, not an input. Offering an override cell here would invite an
+      // edit that nothing reads — the row exists so the client can see what the
+      // number used to be and what replaced it.
+      r.font = { size: 9.5, italic: true, color: { argb: C.sea } };
+      r.getCell(8).value = `superseded ${row.superseded_on} → ${row.superseded_by}`;
+      r.getCell(8).font = { size: 8.5, italic: true };
+    } else {
+      // The override cell is the one thing in this workbook the client edits.
+      r.getCell(8).protection = { locked: false };
+      r.getCell(8).fill = fill(C.amberGlaze);
+      r.getCell(8).numFmt = Number.isInteger(row.value) ? MONEY : NUM3;
+    }
   }
   const lastDataRow = ws.lastRow.number;
 
@@ -897,7 +906,7 @@ function sensitivityTab(wb, inp) {
 
 // ── Tab 7: Reconciliation ──────────────────────────────────────────────────
 
-const STATUS_FILL = { pass: C.seaGlaze, warn: C.amberGlaze, fail: C.rustGlaze };
+const STATUS_FILL = { pass: C.seaGlaze, warn: C.amberGlaze, fail: C.rustGlaze, declared: C.amberGlaze };
 
 function reconciliationTab(wb, inp) {
   const ws = wb.addWorksheet('Reconciliation', { properties: { tabColor: { argb: C.moss } } });
@@ -944,18 +953,25 @@ function reconciliationTab(wb, inp) {
   headerRow(ws, ['Check', 'Subject', 'Actual', 'Band low', 'Band high', 'Unit', 'Status', 'Source']);
   for (const r0 of rec.external) {
     const fmt = r0.unit === 'EUR' ? MONEY : NUM3;
+    // A breach that has been declared in code with a stated reason reads as
+    // DECLARED, not FAIL: the band is untouched and the miss is reported at full
+    // size, but a client opening this tab should see an explained finding rather
+    // than an unexplained failure. The reason travels in the Source column.
+    const status = r0.expected_deviation ? 'DECLARED' : r0.status.toUpperCase();
+    const source = r0.expected_deviation ? `${r0.source} — DECLARED DEVIATION: ${r0.expected_deviation}` : r0.source;
     const r = ws.addRow([
       r0.label, r0.subject, r0.actual, r0.band?.[0], r0.band?.[1], r0.unit,
-      r0.status.toUpperCase(), r0.source,
+      status, source,
     ]);
     for (let c = 3; c <= 5; c += 1) r.getCell(c).numFmt = fmt;
     r.font = { size: 9 };
     r.alignment = { wrapText: true, vertical: 'top' };
-    ws.getCell(r.number, 7).fill = fill(STATUS_FILL[r0.status] ?? C.birchDark);
+    const fillKey = r0.expected_deviation ? 'declared' : r0.status;
+    ws.getCell(r.number, 7).fill = fill(STATUS_FILL[fillKey] ?? C.birchDark);
     ws.getCell(r.number, 7).font = { size: 9, bold: true };
     if (r0.status !== 'pass') {
       ws.getCell(r.number, 1).font = { size: 9, bold: true };
-      ws.getCell(r.number, 8).value = `${r0.source} — ${r0.severity_basis}`;
+      ws.getCell(r.number, 8).value = `${source} — ${r0.severity_basis}`;
     }
   }
   blank(ws);

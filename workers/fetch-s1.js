@@ -752,9 +752,22 @@ function computeTradeSignals(daHourly, isps) {
 // Source: audit findings Apr 2026. Replaces hardcoded 60MW/130MWh with
 // parameterized 50MW + dur_h. Adds per-ISP co-optimization with reserve cap.
 
-// Rystad Dec 2025: Lithuania 15-min DA arbitrage = 14% uplift over hourly.
-// Proxy until Nord Pool 15-min API integrated.
-const RYSTAD_15MIN_UPLIFT_DECIMAL = 0.14;
+// Sub-hourly capture uplift — how much more spread a quarter-hourly day-ahead
+// shape offers than the same day averaged into hours.
+//
+// Phase 36.B batch-3 — MEASURED, not proxied. The asserted 0.14 was a Rystad
+// Dec-2025 figure for Lithuania carried as a placeholder until the market itself
+// could be read; LT day-ahead has been natively PT15M since 2025-10-01, so it is
+// now directly testable. `tools/consultancy/run-15min-delta.mjs` re-fetches the
+// same days at native resolution and runs the worker's own `computeDayCapture`
+// at 15 and at 60 minutes on identical days: over 273 complete PT15M days
+// (2025-10-01 → 2026-06-30) the volume-weighted uplift is 0.0885, simple mean
+// 0.0979, median 0.0815, range 0.0005-0.845.
+//
+// The asserted constant was ~58 % higher than what the market actually paid.
+// Same denominator, same function, same days — it is the sourced figure that is
+// being corrected, not the method. Remeasure annually with the register row.
+const RYSTAD_15MIN_UPLIFT_DECIMAL = 0.0885;
 
 // Elering 2026 forecast: post-DRR FCR clearing ~€40-45/MW/h
 // based on continental FCR averages and Baltic demand 28 MW.
@@ -824,7 +837,7 @@ function computeDispatchV2(btdData, daHourly, opts = {}) {
   const mw = opts.mw || 50;
   const dur_h = opts.dur_h || 4;
   const mwh = mw * dur_h;
-  const rte = dur_h <= 2 ? RTE_BOL.h2 : RTE_BOL.h4; // canonical RTE_BOL (same physical battery round-trip)
+  const rte = rteBolFor(dur_h); // canonical RTE_BOL under the 36.B5 duration policy
   const mode = opts.mode || 'realised';
   const drr_active = opts.drr_active !== false;
   const date_iso = opts.date_iso || btdData?.date || new Date().toISOString().slice(0, 10);
@@ -1145,14 +1158,36 @@ function getDegradation(year, cyclesPerDay) {
 }
 
 // Trading realisation: perfect-foresight discount on S1 sort-and-dispatch capture.
-// No real operator achieves theoretical max. Industry range 0.70–0.90.
+//
+// Phase 36.B batch-3 — MEASURED, not assumed. The 36.B3 backtest ran the B1
+// greedy policy day-by-day over realised LT day-ahead prices 2025-07-01 →
+// 2026-06-30 with day-ahead information only, and divided its capture by the
+// perfect-foresight sort-and-dispatch capture on the same days and the same
+// asset — the exact construct this constant discounts. 349 traded days (16
+// declined by the round-trip guard, excluded not zeroed), volume-weighted
+// 0.7234, simple mean 0.7321, daily min 0.187 / p25 0.628 / median 0.756 /
+// p75 0.849 / max 0.997, monthly volume-weighted 0.6535 (2025-09) to 0.8155
+// (2026-05). Three look-ahead checks clean: no day beats perfect foresight,
+// headline below the 0.90 tripwire, realisation-vs-day-quality r = −0.093.
+//
+// It measures the DAY-AHEAD component only: intraday execution, bid rejection,
+// imbalance exposure and balancing forecast error are all outside it, and
+// reserve realisation stays unmeasured (BTD is the sole Baltic reserve-price
+// source and its deepest series is 110 daily points). Remeasure annually.
+//
+// The ladder below keeps its shipped 5pp steps and is re-anchored on the
+// measurement rather than re-invented; the resulting values land near the
+// measured daily distribution's own p25 (0.628), so the ladder stays empirical
+// at every rung. See DECISIONS 36.B0-J.
 const TRADING_REALISATION = {
-  base: 0.85,          // good optimizer (Capalo AI claims 85-90%)
-  conservative: 0.80,  // slightly less efficient optimizer
-  stress: 0.75,        // weaker execution or market impact
+  base: 0.7234,        // MEASURED — KKME dispatch backtest 2025-07→2026-06, 349 traded days
+  conservative: 0.6734, // −5pp on the measurement, the shipped ladder step
+  stress: 0.6234,      // −10pp; ≈ the measured daily p25 (0.628)
   // Phase 35.1 client scenario sets — see CLIENT_SCENARIO_DRIVERS below.
-  client_downside: 0.78,
-  client_upside: 0.88,
+  // Re-anchored on the measurement's own monthly extremes rather than on a
+  // spread around the old assumption.
+  client_downside: 0.6535, // measured monthly minimum, 2025-09
+  client_upside: 0.8155,   // measured monthly maximum, 2026-05
 };
 
 // Pipeline realisation rate: fraction of pipeline MW that actually gets built.
@@ -1358,15 +1393,37 @@ const CLIENT_SCENARIO_NAMES = new Set(['client_downside', 'client_upside']);
 // Allocation fractions match RESERVE_PRODUCTS (FCR 0.16, aFRR 0.34,
 // mFRR 0.50) so cycle accounting tracks the same MW allocation the
 // revenue formulas use; DA uses full nameplate.
-function computeThroughputBreakdown(MW, dur_h, sc) {
+/**
+ * @param {object} opts
+ * @param {number} [opts.da_utilisation=1] Fraction of the day-ahead throughput
+ *   ANCHOR the asset actually trades — the reserve commitment takes the rest.
+ * @param {number} [opts.availability=1] Forced-outage + maintenance haircut.
+ *
+ * Phase 36.B5. The anchor `mwh_per_mw_yr_da_{2h,4h}` is what a merchant asset
+ * cycles trading full time. The revenue path never billed that: it bills
+ * `anchor × trading_fraction × avail`, because the asset is simultaneously
+ * holding reserve MW. Cycle accounting used the bare anchor, so the engine aged
+ * the battery for ~43 % more day-ahead energy than it earned on (36.B1-O).
+ *
+ * With both options supplied, `total_mwh_yr` / `total_efcs_yr` / `total_cd` are
+ * DELIVERED throughput — energy that actually moved through the cells — so
+ * every consumer reads one figure and none of them re-applies availability.
+ * Both default to 1, so a caller that supplies neither gets the unchanged
+ * nameplate-anchor behaviour.
+ */
+function computeThroughputBreakdown(MW, dur_h, sc, opts = {}) {
+  const da_utilisation = opts.da_utilisation ?? 1;
+  const availability   = opts.availability ?? 1;
+
   const fcr_alloc_MW   = MW * 0.16;  // RESERVE_PRODUCTS.fcr.share
   const afrr_alloc_MW  = MW * 0.34;  // RESERVE_PRODUCTS.afrr.share
   const mfrr_alloc_MW  = MW * 0.50;  // RESERVE_PRODUCTS.mfrr.share
 
-  const fcr_mwh   = fcr_alloc_MW  * sc.mwh_per_mw_yr_fcr;
-  const afrr_mwh  = afrr_alloc_MW * sc.mwh_per_mw_yr_afrr;
-  const mfrr_mwh  = mfrr_alloc_MW * sc.mwh_per_mw_yr_mfrr;
-  const da_mwh    = MW            * (dur_h <= 2 ? sc.mwh_per_mw_yr_da_2h : sc.mwh_per_mw_yr_da_4h);
+  const fcr_mwh   = fcr_alloc_MW  * sc.mwh_per_mw_yr_fcr  * availability;
+  const afrr_mwh  = afrr_alloc_MW * sc.mwh_per_mw_yr_afrr * availability;
+  const mfrr_mwh  = mfrr_alloc_MW * sc.mwh_per_mw_yr_mfrr * availability;
+  const da_anchor_mwh = MW        * durBlend(dur_h, sc.mwh_per_mw_yr_da_2h, sc.mwh_per_mw_yr_da_4h);
+  const da_mwh    = da_anchor_mwh * da_utilisation * availability;
 
   const total_mwh_yr = fcr_mwh + afrr_mwh + mfrr_mwh + da_mwh;
   const capacity_mwh = MW * dur_h;
@@ -1375,6 +1432,9 @@ function computeThroughputBreakdown(MW, dur_h, sc) {
 
   return {
     fcr_mwh, afrr_mwh, mfrr_mwh, da_mwh,
+    // Both figures are reported so the gap between what the asset COULD cycle
+    // and what it is modelled as cycling is visible rather than implicit.
+    da_anchor_mwh, da_utilisation, availability,
     total_mwh_yr, capacity_mwh,
     fcr_efcs:  capacity_mwh > 0 ? fcr_mwh  / capacity_mwh : 0,
     afrr_efcs: capacity_mwh > 0 ? afrr_mwh / capacity_mwh : 0,
@@ -1734,9 +1794,31 @@ function computeRevenueV7(params, kv) {
   // computed actual cycling rate (cycles/day) summed across all stacked
   // products — fed to getDegradation so cell aging tracks real operation
   // rather than a duration-label assumption (sc.cycles_{2h,4h} is now legacy).
-  const tp = computeThroughputBreakdown(1, dur_h, sc);
+  //
+  // Phase 36.B5 — ONE day-ahead throughput figure, not two. The anchor
+  // `mwh_per_mw_yr_da_{2h,4h}` is full-time merchant cycling; the revenue path
+  // has always billed `anchor × trading_fraction × avail` because the asset is
+  // simultaneously holding reserve MW. Cycle accounting used the bare anchor, so
+  // the engine charged cell wear for ~43 % more day-ahead energy than it earned
+  // on (36.B1-O). Both sides now read the SAME delivered throughput.
+  //
+  // The utilisation is taken from operating year 1 and held for life, because
+  // `total_cd` is itself a lifetime scalar fed to the degradation curve — a
+  // year-varying wear rate would be a different model, not a consistency fix.
+  // `trading_fraction` is pinned at its 0.70 ceiling in every year of every
+  // project at current market state (34.4-C), so Y1 is not a special case; if
+  // the ceiling ever stops binding, this becomes the Y1 approximation it is
+  // described as, and the residual is reported in `cycles_breakdown`.
+  const da_utilisation = Math.min(1, Math.max(0,
+    computeTradingMix(kv, dur_h, cod_year + 1, params.scenario || 'base', sc, 1, drv)
+      .trading_fraction));
+  const tp = computeThroughputBreakdown(1, dur_h, sc,
+    { da_utilisation, availability: sc.avail });
   const total_cd     = tp.total_cd;
-  const da_mwh_per_mw_yr = tp.da_mwh;        // for 1 MW: MWh/yr from DA arbitrage
+  // The REVENUE base stays the full anchor: the year loop applies
+  // `trading_fraction × avail × deg_ratio × op_frac` itself, per year, and
+  // pre-multiplying here would double-count the very factor being aligned.
+  const da_mwh_per_mw_yr = tp.da_anchor_mwh; // for 1 MW: MWh/yr from DA arbitrage
   const rte_curve    = rteCurveFor(dur_h, undefined, rte_decay);  // year-indexed RTE curve
   const rte          = rte_curve[0];        // BOL value used by single-value consumers
 
@@ -1860,9 +1942,9 @@ function computeRevenueV7(params, kv) {
     // Trading: capture × RTE × realisation × MWh × fraction × depth discount
     // Use rolling 30d mean (stable) for forward projection, not spot capture
     const s1_cap = kv.s1_capture || {};
-    const yr_capture = dur_h <= 2
-      ? (s1_cap.rolling_30d?.stats_2h?.mean ?? s1_cap.capture_2h?.gross_eur_mwh ?? 140)
-      : (s1_cap.rolling_30d?.stats_4h?.mean ?? s1_cap.capture_4h?.gross_eur_mwh ?? 125);
+    const yr_capture = durBlend(dur_h,
+      s1_cap.rolling_30d?.stats_2h?.mean ?? s1_cap.capture_2h?.gross_eur_mwh ?? 140,
+      s1_cap.rolling_30d?.stats_4h?.mean ?? s1_cap.capture_4h?.gross_eur_mwh ?? 125);
     const trading_real = sc.trd_real || 0.85;
     const rte_yr = rte_curve[Math.min(yr - 1, rte_curve.length - 1)];
     const depth = marketDepthFactor(mix.sd_ratio);
@@ -2089,10 +2171,12 @@ function computeRevenueV7(params, kv) {
     / (Math.pow(1 + LCOS_WACC, LCOS_LIFETIME_YRS) - 1);
   const lcos_capex_recovery = gross_capex_total * lcos_crf;
   const lcos_fixed_om = y1 ? y1.opex : 0;
-  const lcos_charge_price = dur_h <= 2
-    ? (s1_cap.capture_2h?.avg_charge ?? 35)
-    : (s1_cap.capture_4h?.avg_charge ?? 30);
-  const lcos_mwh_discharged_yr = tp.total_efcs_yr * dur_h * mw * sc.avail;
+  const lcos_charge_price = durBlend(dur_h,
+    s1_cap.capture_2h?.avg_charge ?? 35,
+    s1_cap.capture_4h?.avg_charge ?? 30);
+  // `tp.total_efcs_yr` is DELIVERED throughput (36.B5): availability is already
+  // inside it, so re-applying it here would haircut the same energy twice.
+  const lcos_mwh_discharged_yr = tp.total_efcs_yr * dur_h * mw;
   const lcos_mwh_charged_yr = rte > 0 ? lcos_mwh_discharged_yr / rte : 0;
   const lcos_charging_cost = lcos_charge_price * lcos_mwh_charged_yr;
   const lcos_eur_mwh = lcos_mwh_discharged_yr > 0
@@ -2122,6 +2206,15 @@ function computeRevenueV7(params, kv) {
       da:   efc_breakdown.da,
       total_cd: Math.round(tp.total_cd * 100) / 100,
       total_efcs_yr: total_efcs_yr,
+      // Phase 36.B5 — the wear model and the revenue model read one day-ahead
+      // throughput. Disclosed rather than implicit: the anchor is what the asset
+      // could cycle trading full time, the utilisation is the share left after
+      // reserve commitment, and the difference is energy the engine no longer
+      // charges cell wear for while billing no revenue on it (36.B1-O).
+      da_anchor_mwh_per_mw_yr: Math.round(tp.da_anchor_mwh),
+      da_delivered_mwh_per_mw_yr: Math.round(tp.da_mwh),
+      da_utilisation: Math.round(tp.da_utilisation * 1000) / 1000,
+      basis: 'Wear and revenue share one delivered day-ahead throughput (anchor × trading fraction × availability).',
       label: 'Cycles per year (throughput-derived)',
     },
     warranty_status: warranty_status,
@@ -2268,9 +2361,9 @@ function computeRevenueV7(params, kv) {
 
     // Signal inputs used
     signal_inputs: {
-      s1_capture: dur_h <= 2
-        ? (s1_cap.capture_2h?.gross_eur_mwh ?? (by_trading_per_mw > 0 ? by_trading_per_mw / (rte * da_mwh_per_mw_yr * (base_year.time_model?.effective_arb_pct || 0.115) * sc.trd_real) : 0))
-        : (s1_cap.capture_4h?.gross_eur_mwh ?? (by_trading_per_mw > 0 ? by_trading_per_mw / (rte * da_mwh_per_mw_yr * (base_year.time_model?.effective_arb_pct || 0.115) * sc.trd_real) : 0)),
+      s1_capture: durBlend(dur_h,
+        s1_cap.capture_2h?.gross_eur_mwh ?? (by_trading_per_mw > 0 ? by_trading_per_mw / (rte * da_mwh_per_mw_yr * (base_year.time_model?.effective_arb_pct || 0.115) * sc.trd_real) : 0),
+        s1_cap.capture_4h?.gross_eur_mwh ?? (by_trading_per_mw > 0 ? by_trading_per_mw / (rte * da_mwh_per_mw_yr * (base_year.time_model?.effective_arb_pct || 0.115) * sc.trd_real) : 0)),
       afrr_clearing: act_parsed?.lt?.afrr_p50 ?? s2.afrr_up_avg ?? 170,
       mfrr_clearing: act_parsed?.lt?.mfrr_p50 ?? s2.mfrr_up_avg ?? 110,
       afrr_cap: capPrice('afrr', s2.afrr_cap_avg, drv.cap_price_mult),
@@ -2301,7 +2394,10 @@ function computeRevenueV7(params, kv) {
     },
     assumptions: {
       trading_realisation: sc.trd_real,
-      trading_realisation_note: 'Perfect-foresight discount. Industry range 0.70-0.90.',
+      trading_realisation_note:
+        'Perfect-foresight discount, MEASURED not assumed: KKME dispatch backtest over ' +
+        'realised LT day-ahead prices 2025-07-01 → 2026-06-30, 349 traded days, ' +
+        'volume-weighted 0.7234 (monthly 0.6535-0.8155). Day-ahead component only.',
       compression_scenario_mult: comp_mult,
       effective_compression: effective_compression,
     },
@@ -2359,10 +2455,15 @@ function computeRevenueV6(params, kv) {
   const capex_total = capex_kwh * dur_h * 1000; // per MW → total uses mw later
   const cod_year = params.cod_year || 2028;
 
-  // v7.3 throughput-derived cycle accounting.
-  const tp = computeThroughputBreakdown(1, dur_h, sc);
+  // v7.3 throughput-derived cycle accounting, on the 36.B5 delivered basis so
+  // the fallback path cannot disagree with the live one about how fast the cells
+  // age. Revenue still reads the ANCHOR and applies its own factors per year.
+  const v6_da_utilisation = Math.min(1, Math.max(0,
+    computeTradingMix(kv, dur_h, cod_year + 1, params.scenario || 'base', sc, 1).trading_fraction));
+  const tp = computeThroughputBreakdown(1, dur_h, sc,
+    { da_utilisation: v6_da_utilisation, availability: sc.avail });
   const total_cd     = tp.total_cd;
-  const da_mwh_per_mw_yr = tp.da_mwh;
+  const da_mwh_per_mw_yr = tp.da_anchor_mwh;
   const rte_curve    = rteCurveFor(dur_h);
   const rte          = rte_curve[0];
 
@@ -2376,7 +2477,7 @@ function computeRevenueV6(params, kv) {
     || (s1?.spread_eur_mwh != null ? s1.spread_eur_mwh * 1.5 : null) || 134;
   const s1_capture_2h = s1?.capture_2h_gross || s1?.gross_2h
     || (s1_capture_4h * 1.12) || 149;
-  const s1_capture = dur_h <= 2 ? s1_capture_2h : s1_capture_4h;
+  const s1_capture = durBlend(dur_h, s1_capture_2h, s1_capture_4h);
   const afrr_clearing = s2?.afrr_up_avg || 171;
   const mfrr_clearing = s2?.mfrr_up_avg || 81;
   // Capacity prices via the Phase 33 single-source bound (never the *_up_avg
@@ -2906,7 +3007,7 @@ function switchingFriction(yr) {
 // global, so that probe saw the delta too.
 function computeTradingMix(kv, dur_h, cal_year, scenario, sc, yr = 1, drv = scenarioDrivers(scenario)) {
   const cap_mult = drv.cap_price_mult;
-  const rte = dur_h <= 2 ? RTE_BOL.h2 : RTE_BOL.h4; // canonical RTE_BOL (same physical battery round-trip)
+  const rte = rteBolFor(dur_h); // canonical RTE_BOL under the 36.B5 duration policy
   const trading_real = sc.trd_real || 0.85;
   const friction = switchingFriction(yr);
 
@@ -3217,9 +3318,9 @@ function computeBaseYear(kv, duration_h, sc, scenario_name = 'base', rte_decay, 
     const days = m.days || 30;
 
     // ── Capture for this month (used for trading value calculation) ──
-    const capture = duration_h <= 2
-      ? (m.avg_gross_2h || m.avg_net_2h || 140)
-      : (m.avg_gross_4h || m.avg_net_4h || 125);
+    const capture = durBlend(duration_h,
+      m.avg_gross_2h || m.avg_net_2h || 140,
+      m.avg_gross_4h || m.avg_net_4h || 125);
 
     // ── Balancing revenue ──
     const afrr_act_m = lt_afrr_monthly[month];
@@ -3298,7 +3399,7 @@ function computeBaseYear(kv, duration_h, sc, scenario_name = 'base', rte_decay, 
     months,
     annual_totals: annual,
     trading_realisation: sc.trd_real,
-    trading_realisation_source: 'assumed_industry_range_070_090',
+    trading_realisation_source: 'measured_kkme_dispatch_backtest_2025_07_to_2026_06',
     time_model,
     data_coverage: {
       s1_months: t12.length,
@@ -3398,11 +3499,11 @@ function computeLiveRate(kv, base_year, duration_h, sc) {
 
   // Today's capture from S1 (use the capture endpoint data first, then spread-based)
   const s1_cap = kv.s1_capture || {};
-  const capture = duration_h <= 2
-    ? (s1_cap.capture_2h?.gross_eur_mwh || s1?.capture_2h_gross || s1?.gross_2h
-       || (s1.spread_eur_mwh != null ? s1.spread_eur_mwh * 1.5 * 1.12 : 140))
-    : (s1_cap.capture_4h?.gross_eur_mwh || s1?.capture_4h_gross || s1?.gross_4h
-       || (s1.spread_eur_mwh != null ? s1.spread_eur_mwh * 1.5 : 125));
+  const capture = durBlend(duration_h,
+    s1_cap.capture_2h?.gross_eur_mwh || s1?.capture_2h_gross || s1?.gross_2h
+      || (s1.spread_eur_mwh != null ? s1.spread_eur_mwh * 1.5 * 1.12 : 140),
+    s1_cap.capture_4h?.gross_eur_mwh || s1?.capture_4h_gross || s1?.gross_4h
+      || (s1.spread_eur_mwh != null ? s1.spread_eur_mwh * 1.5 : 125));
 
   // Price-ratio mix: today's trading = balancing × (tf / (1 - tf))
   // Compute balancing first, then derive trading from the Y1 price-ratio
@@ -3689,9 +3790,27 @@ function utcPeriod(offsetDays = 0) {
   return `${y}${mo}${da}0000`;
 }
 
+/**
+ * Every `price.amount` in an ENTSO-E A44 document, in document order.
+ *
+ * Phase 36.B batch-3 (fixes 36.B0-H). The character class used to be `[\d.]+`,
+ * which cannot match a leading minus — and the failure mode was not a lost sign
+ * but a lost HOUR: the whole element failed to match, so a day with seven
+ * negative hours yielded 41 values instead of 48 and **every subsequent index
+ * shifted**, silently re-labelling afternoon prices as midday ones.
+ *
+ * Negative Lithuanian day-ahead hours are not exotic. Across the committed
+ * 11-year history they appear on 125 days, and the trend is steep: none before
+ * 2020, 20 days in 2023, 42 in 2024, 44 in 2025 — better than one day in nine
+ * in the current solar-driven market.
+ *
+ * `[-\d.eE+]` matches the Node-side `parseA44` in backfill-entsoe.mjs, which
+ * has always accepted negatives; that is why the committed price history is
+ * clean and only the worker path was affected.
+ */
 function extractPrices(xml) {
   const prices = [];
-  const re = /<price\.amount>([\d.]+)<\/price\.amount>/g;
+  const re = /<price\.amount>([-\d.eE+]+)<\/price\.amount>/g;
   let m;
   while ((m = re.exec(xml)) !== null) prices.push(parseFloat(m[1]));
   return prices;
@@ -3851,7 +3970,7 @@ function computeDayCapture(prices, durationHours, resolutionMin = 60) {
   const avgDischarge = dischargeSlots.reduce((s, e) => s + e.price, 0) / n;
 
   // RTE: canonical RTE_BOL (same physical battery round-trip as reference asset / revenue engine).
-  const rte = durationHours <= 2 ? RTE_BOL.h2 : RTE_BOL.h4;
+  const rte = rteBolFor(durationHours);
 
   const grossCapture = avgDischarge - avgCharge;
   // Net: discharge revenue minus charge cost adjusted for RTE losses
@@ -5355,6 +5474,55 @@ const RTE_BOL = { h2: 0.82, h4: 0.83 };
 const RTE_DECAY_PP_PER_YEAR = 0.0020;
 const RTE_FLOOR_DROP = 0.04;
 
+// ── Duration-anchor interpolation policy — Phase 36.B5 ──────────────────────
+//
+// The engine is calibrated at exactly TWO durations, 2h and 4h. Everything
+// duration-dependent — round-trip efficiency, day-ahead throughput, observed
+// capture, the LCOS charge price, the SOH cycling intensity — has a value at
+// each anchor and nothing in between.
+//
+// Before this policy every site invented its own branch, and they did not
+// agree. Twelve sites read `dur_h <= 2 ? …2h : …4h`, while `rteCurveFor` read
+// `dur_h >= 3 ? h4 : h2`. At dur_h = 2.5 that produced a **2h round-trip
+// efficiency on 4h day-ahead throughput** — two different calibrations inside
+// one run, which is the contradictory-branch failure bankability test #5 exists
+// to catch (batch-35 finding, arc 36.B5).
+//
+// ONE policy replaces all of them: linear in dur_h between the anchors, clamped
+// outside [2h, 4h]. Two properties make it safe to adopt everywhere:
+//
+//   ON-ANCHOR IDENTITY  at dur_h ≤ 2 the weight is exactly 0 and the 2h value is
+//                       RETURNED, not recomputed; at dur_h ≥ 4 likewise for 4h.
+//                       No float arithmetic touches an anchor, so /revenue —
+//                       which serves 2h and 4h only — is byte-identical.
+//   NO MIXED ANCHORS    every duration-dependent quantity moves on the SAME
+//                       weight, so RTE and throughput can never again come from
+//                       different calibrations.
+//
+// Outside [2, 4] the policy clamps rather than extrapolating. A 1h or an 8h
+// asset is outside the calibration and the honest answer is the nearest anchor's
+// value, not a linear guess about physics nobody measured. That is a documented
+// flat region, not a discontinuity.
+function durAnchorWeight(dur_h) {
+  const d = Number.isFinite(dur_h) ? dur_h : 4;
+  return Math.min(1, Math.max(0, (d - 2) / 2));
+}
+
+/** Blend a 2h-anchored value and a 4h-anchored value under the one policy. */
+function durBlend(dur_h, at2h, at4h) {
+  if (at2h == null) return at4h;
+  if (at4h == null) return at2h;
+  const w = durAnchorWeight(dur_h);
+  if (w === 0) return at2h;   // on-anchor: return, never recompute
+  if (w === 1) return at4h;
+  return at2h + w * (at4h - at2h);
+}
+
+/** Beginning-of-life round-trip efficiency for any duration. */
+function rteBolFor(dur_h) {
+  return durBlend(dur_h, RTE_BOL.h2, RTE_BOL.h4);
+}
+
 const BESS_WORKER = {
   // Q1 2026: (83+28)€/kWh × duration_MWh/MW × 1000 + 35k€/MW fixed
   capex_per_mw: { h2: 257, h4: 479 }, // €k/MW (Q1 2026: equipment €83/kWh + EPC €28/kWh + HV €35k/MW)
@@ -5431,7 +5599,7 @@ function sohYr(t, cd_total) {
 function rteCurveFor(dur_h, lifetime_yrs, decay) {
   const yrs = lifetime_yrs ?? 18;
   const d = decay ?? RTE_DECAY_PP_PER_YEAR;
-  const bol = (dur_h ?? 4) >= 3 ? RTE_BOL.h4 : RTE_BOL.h2;
+  const bol = rteBolFor(dur_h ?? 4);
   return Array.from({ length: yrs }, (_, t) =>
     Math.round(Math.max(bol - d * t, bol - RTE_FLOOR_DROP) * 10000) / 10000
   );
@@ -5488,7 +5656,7 @@ function computeRevenueWorker(prices, duration_h) {
   // representative dispatch intensity for each duration: 2h → ~1.3 c/d
   // (active merchant), 4h → ~1.0 c/d (gentler cycling). Connects cell
   // aging to operation rather than treating all dispatch identically.
-  const cd_for_soh = duration_h <= 2 ? 1.3 : 1.0;
+  const cd_for_soh = durBlend(duration_h, 1.3, 1.0);
   function npv(rate) {
     let n = -capex;
     for (let t = 1; t <= B.project_life_years; t++) {
@@ -9574,9 +9742,9 @@ export default {
 
       const capMonthly = (s1_capture?.monthly || []).filter(m => m.month && m.days >= 15);
       const backtest = capMonthly.map(m => {
-        const capture = dur_h <= 2
-          ? (m.avg_gross_2h || m.avg_net_2h || 140)
-          : (m.avg_gross_4h || m.avg_net_4h || 125);
+        const capture = durBlend(dur_h,
+          m.avg_gross_2h || m.avg_net_2h || 140,
+          m.avg_gross_4h || m.avg_net_4h || 125);
 
         // Balancing revenue per MW per day (current capacity+activation prices)
         const bal_daily = (
@@ -10372,4 +10540,14 @@ export {
   bidAcceptanceFactor,
   reservePrice,
   marketDepthFactor,
+  // Phase 36.B batch-3 — the negative-price parse (36.B0-H) is pinned against a
+  // real recorded ENTSO-E response, which means the test has to call the same
+  // function the fetch paths call rather than a copy of its regex.
+  extractPrices,
+  // Phase 36.B5 — the one duration-anchor interpolation policy. Exported so the
+  // property test sweeps the SAME function every engine site reads, rather than
+  // a restatement of it that could drift away from the engine it is meant to pin.
+  durAnchorWeight,
+  durBlend,
+  rteBolFor,
 };
