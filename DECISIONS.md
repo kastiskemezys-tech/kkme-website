@@ -2137,3 +2137,153 @@ every consultancy runner), and ENTSO-E via `extractPrices` (broken until now,
 feeds the S1 signal payload). The first two were right; only the third was
 wrong, and it is the one on the public signal cards. A B6 governance item: three
 paths for one quantity is two too many, and the register cannot see any of them.
+
+## Phase 36.B batch-3 — Part 3 (36.B5 degradation loop + dur_h + the throughput split)
+
+### 36.B5-A — the dur_h band was not merely inconsistent, it was discontinuous the wrong way
+
+Batch-35 reported a `<= 2` / `>= 3` branch mismatch. Measured, it is worse than
+a mismatch. Twelve sites switched anchors at `dur_h <= 2` while `rteCurveFor`
+switched at `>= 3`, so between 2h and 3h the engine ran a **2h round-trip
+efficiency against 4h day-ahead throughput** — and the arithmetic consequence was
+a step:
+
+| dur_h | old gross Y1 | new gross Y1 | old IRR | new IRR | old EFC | new EFC |
+|---|---:|---:|---:|---:|---:|---:|
+| 2.00 | 7 999 249 | 7 999 249 | 0.2225 | 0.2225 | 678 | 678 |
+| 2.01 | 8 519 008 | 8 002 555 | **0.2450** | 0.2214 | 874 | 676 |
+| 2.99 | 8 519 008 | 8 293 660 | 0.1538 | 0.1469 | 587 | 520 |
+| 3.00 | 8 553 517 | 8 296 277 | **0.1543** | 0.1464 | 585 | 519 |
+| 4.00 | 8 553 517 | 8 553 517 | 0.1051 | 0.1051 | 439 | 439 |
+
+Adding 0.01 h of storage raised Y1 gross by €519 759 (+6.5 %) and project IRR by
+2.25 pp. A second, smaller step sat at exactly 3.00, where the RTE branch
+flipped. **IRR rose with duration at both**, which is impossible: duration costs
+capex and buys very little extra revenue. Any client sizing a 2.5h asset in the
+calculator was reading a number off a mixed calibration.
+
+One policy replaces all thirteen branches. Two properties earn it the right to
+be applied everywhere at once:
+
+- **On-anchor identity.** At `dur_h ≤ 2` the weight is exactly 0 and `durBlend`
+  RETURNS the 2h value rather than recomputing it; likewise 4h. No float
+  arithmetic touches an anchor, so /revenue — which serves 2h and 4h only — is
+  byte-identical by construction, not by rounding luck. The 54/54 gate agrees.
+- **Documented clamp.** Outside [2h, 4h] the policy holds the nearest anchor
+  instead of extrapolating. A 1h or 8h asset is outside the calibration, and the
+  honest answer there is the anchor, not a linear guess about physics nobody
+  measured. Flat, and said to be flat.
+
+The property test sweeps 1h → 8h at quarter-hour resolution: continuity, the two
+flat regions, and strict monotonicity of IRR, cycling intensity and LCOS. The old
+model failed the IRR monotonicity check at two points; the new one passes at all
+28 intervals.
+
+### 36.B5-B — aligning the throughput was a real choice, and the other direction was worse
+
+36.B1-O found two day-ahead throughput figures. Cycle accounting used the full
+anchor; revenue billed `anchor × trading_fraction × avail`. Two ways to close it:
+
+1. **Raise revenue to the anchor** — drop `trading_fraction` from the revenue
+   line. Increases published revenue ~43 %, and is flatly contradicted by B1's
+   hourly simulation, which finds achieved day-ahead throughput at ~27 % of the
+   revenue anchor. Rejected.
+2. **Lower wear to the delivered figure** — charge cell ageing on the energy the
+   model says actually moves. Physically correct: you cannot wear cells with
+   energy you did not move.
+
+(2) it is, and it is worth being explicit that this is *not free*: less cycling
+means slower degradation means higher IRR (+0.9 % relative on the reference
+asset). A consistency fix that happens to improve the answer deserves more
+scrutiny than one that worsens it, which is why the external-benchmark
+consequence below was chased rather than accepted quietly.
+
+Two implementation details that matter:
+
+- The revenue base stays the **anchor**, because the year loop applies
+  `trading_fraction × avail × deg_ratio × op_frac` itself, per year.
+  Pre-multiplying at the source would have double-counted the very factor being
+  aligned — caught by the Y1-gross-unchanged assertion, which is in the test
+  suite precisely to catch it.
+- Availability now lands in exactly **one** place. The first cut applied it
+  inside the breakdown and left the LCOS denominator's own `× sc.avail`
+  untouched, haircutting the same energy twice. `total_efcs_yr` is now
+  unambiguously delivered throughput and no consumer re-applies anything.
+
+The V6 fallback path was aligned too. It never runs in production, but leaving
+two paths disagreeing about how fast a battery ages inside a phase named
+"internal consistency" would have been absurd.
+
+### 36.B5-C — the alignment breaks an external benchmark, and the band did not move
+
+`external_3_cycles_yr` holds the modelled cycling against [550, 720] EFC/yr from
+Modo / GEM measured merchant-battery research. The aligned reference asset comes
+in at **498** — below the band, on Central and on the reference asset, which are
+FAIL-level subjects.
+
+The tempting move is to widen the band to [450, 720]. That is re-fitting evidence
+to the model, and it is exactly what the register and the reconciliation harness
+exist to make impossible.
+
+What happened instead: `externalChecks` gained an `expected_deviation` field on
+the 36.B1-N precedent. A check may declare, in code and with a stated reason,
+that a breach is a known finding. **The band keeps its sourced value, the breach
+is reported at full size, it is counted in the summary and printed by the CLI** —
+the only thing lifted is the build-failing status. A test asserts the band is
+unmoved, that the actual is genuinely below it, and that no UNDECLARED breach can
+survive. The client workbook renders these as `DECLARED` carrying the reason,
+rather than as a bare FAIL a reader cannot interpret.
+
+And the finding itself is worth more than the gate: the engine's stacked
+reserve + day-ahead model now says its asset cycles LESS than the observed
+merchant fleet does. B1's hourly physical simulation says so more strongly still
+(221 EFC/yr). Two independent routes agreeing that the modelled asset
+under-cycles points at the benchmark fleet carrying a different reserve/day-ahead
+mix than the modelled stack — a calibration question, carried to B6, not a reason
+to move a band.
+
+The register followed the same rule. `cycles_efc_yr` (678 → 498) and
+`cycles_per_day` (1.86 → 1.36) had the observed band as their declared
+`sensitivity_range`, and the new values fall outside it. Rather than widen it, the
+band moved to a new `benchmark_band` field with its source and the direction of
+the miss, and `sensitivity_range` went null. The row now says "here is the
+observed band, and here is where the model sits relative to it" instead of
+quietly containing itself.
+
+### 36.B5-D — the loop closes, and it closes onto B1's number
+
+The dispatch↔SOH loop is a fixed point: the assumed cycling rate picks the SOH
+curve, the SOH curve sets the usable energy window, the dispatch realises a rate
+of its own, and until now nothing compared the two.
+
+Reference asset, LT 2025 shape replayed across a 20-year horizon, prices and
+policy held fixed so the residual is attributable to the loop alone:
+
+| pass | cd in | realised | cd out | \|Δ\| |
+|---|---:|---:|---:|---:|
+| 1 | 1.363315 | 0.631921 | 0.631921 | 7.31e−1 |
+| 2 | 0.631921 | 0.609179 | 0.609179 | 2.27e−2 |
+| 3 | 0.609179 | 0.609179 | 0.609179 | 0 |
+
+- **open loop 1.3633 c/d (498 EFC/yr) → closed loop 0.6092 c/d (222 EFC/yr)**
+- SOH at year 20: 63.23 % → 66.50 %
+- lifetime dispatch revenue on the fixed shape: €70.9M → €79.6M (+12.19 %)
+
+**222 EFC/yr against B1's independently-measured 221.** Two different routes —
+one a gate on a single-year hourly run, one a multi-year fixed point — landing on
+the same physical answer is the strongest corroboration this arc has produced.
+
+**The arc's two-pass claim is wrong, and is reported wrong.** The arc states the
+loop "converges in 2 passes for realistic parameters (verify)". Verified: it does
+not. The residual after two passes is 2.27e−2 c/d — 3.60 %, against a 1e−3
+tolerance. Convergence takes **three**. Re-describing two passes as convergence
+would have been the easy sentence; the runner reports `within_tolerance: false`,
+the residual, the gap to the converged value, and the measured contraction ratio
+instead. The methodology gets the honest number.
+
+This stays a Node-side capability. It moves no published number: closing the loop
+in the shipped engine would take the model to 222 EFC/yr and a materially higher
+IRR, which is the hourly-engine cutover the arc reserves as a separate operator
+decision (Phase 37). What this phase delivers is the measurement of what that
+cutover would be worth, plus proof the iteration is well-behaved enough to base
+one on.
