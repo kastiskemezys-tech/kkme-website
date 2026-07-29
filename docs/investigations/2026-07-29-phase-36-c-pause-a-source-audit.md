@@ -139,6 +139,15 @@ Headers render, rows never do — 17 months back. The existing code comment ("da
 | Reserve-price history (36.D realisation) | BTD via VPS | — | 07-17→07-29 gap is **fully backfillable** (192 rows/2d confirmed) |
 | Forecast plumbing (B0-G) | worker-internal | — | not a source problem — see below |
 
+## Pinned primary sources for Phase 36.D (requested mid-audit, not assessed here)
+
+Located while auditing Litgrid; recorded, not evaluated, per the instruction to pin only.
+
+- **Lithuanian flexibility needs assessment 2028–2035** — `https://www.litgrid.eu/index.php/sistema/lankstumo-poreikiu-vertinimo-ataskaita/36615` ("Lankstumo poreikių vertinimo ataskaita"). Prepared by Litgrid with ESO, approved by VERT. The landing page carries the report; no direct PDF link is exposed in the served HTML.
+- **Baltic balancing capacity market assessment report** — `https://www.litgrid.eu/index.php/elektros-rinka/balansavimo-rinka/baltijos-balansavimo-pajegumu-rinkos-vertinimo-ataskaita/36367`. Not requested, but it is the balancing-market counterpart and directly on this phase's subject.
+
+One flag for whoever scopes 36.D, since it is cheaper to raise now than to discover mid-phase: the figures in the 36.C prompt ("973 MW by 2028 / 3.12 GW BESS") do not obviously correspond to the public summary of this assessment, which frames total Lithuanian flexibility demand rising **4.36 GW → 7.13 GW by 2035** (≈3 GW of additional need). Those may be different cuts of the same model — a BESS-specific subset versus total flexibility — or the prompt's numbers may come from another document. Resolving that is 36.D's job; this audit only notes that the two do not match on their face and should not be assumed interchangeable.
+
 ## Root-cause summary
 
 The stale card was never a source-availability problem. It was **an ingestion-topology problem**: two legs, both fragile, both silently failing, and each written to assume the other was covering. The one host in the estate with clean, authenticated, proven access to BTD — the VPS that already runs five KKME crons and already POSTs to the worker — was never in the chain.
