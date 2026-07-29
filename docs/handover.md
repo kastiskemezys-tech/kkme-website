@@ -190,6 +190,101 @@ See [docs/map.md](map.md) for the full concept-to-file lookup table.
 
 ## Session log
 
+### Session 94 — 2026-07-29 — Phase 36.D: Litgrid demand calibration — **SHIPPED & DEPLOYED** (Claude Code, semi-autonomous, 2 checkpoints)
+
+**Branch:** `phase-36-d-litgrid-forecast` off `2415679` · 4 commits.
+**PR:** https://github.com/kastiskemezys-tech/kkme-website/compare/main...phase-36-d-litgrid-forecast
+**DEPLOYED** — worker version `ad5e4afc-2cf5-4738-be74-1f9174d2d48e`, from branch SHA `18aa7558` (push verified against origin before deploy).
+
+**Artifacts:**
+- `docs/investigations/2026-07-29-phase-36-d-pause-a.md` — CP-1 source audit + mapping
+- `docs/investigations/2026-07-29-phase-36-d-reconciliation-table.md` — **headline artifact**: every Litgrid figure, its verification status, its KKME treatment
+- `docs/investigations/2026-07-29-phase-36-d-portfolio-decomposition.md` — CP-2 amendment 2, incl. a correction to CP-2's own numbers
+- `tools/consultancy/data/sources/` — 7 primary documents, checksummed
+
+---
+
+#### The discrepancy 36.C left open was two columns of one table
+
+Litgrid's public summary says the flexibility requirement grows **4.36 → 7.13 GW**; the
+excerpt KKME held said **973 MW**. Same table (43, p.146), same scenario, same mode:
+`Poreikis` is the total requirement, `Nepadengtas` the uncovered residual.
+
+This mattered more than bookkeeping. The headline number is on p.10 and the table on p.146,
+so the wrong column is the one a reader reaches for — and reading it as demand puts LT S/D
+at 0.26-0.42 (SCARCITY) and inflates the compression index ~5×, in the direction that
+flatters us. It is now stored in the module as a `do_not_use` reading with its reason.
+
+#### The 752 was sourced all along; nobody wrote it down
+
+`604 + 120 + 28` is the **2026 row** of the tri-TSO Baltic LFC-block FRR and FCR dimensioning
+forecasts, which run to 2035. The comment `// source: Baltic mFRR demand` was right about the
+provenance and silent about the vintage. The demand series is now that publication,
+year-indexed 752 → 922 MW, with per-component trend beyond.
+
+#### The 935 had no archaeology because it never had one
+
+A bare literal from `fb088c4` (2026-03-05). It stayed alive because `POST /s2/fleet` wrote a
+cosmetic `{eff_demand_mw: 935}` into KV that nothing there read, and `syncLitgridFleet` read
+it *back* into `processFleet` — laundering a storage default into the arithmetic. Published
+S/D oscillated **3.17× ↔ 2.55×** on cron order. Retired from all six sites; overrides now
+require an explicit `override: true`, verified against the real stale payload.
+
+#### "Check it further" found four more defects — three of them pre-existing and live
+
+1. **Three surfaces rendered an S/D formula and all three were wrong.** SignalBar and the
+   hero map told the reader `(operational + 0.5 × pipeline) / demand`, which on the live
+   payload evaluates to **8.99×** beside a headline reading **2.55×**. One canonical caption
+   now, which asserts its own arithmetic reproduces the published ratio.
+2. **The hero ticker hardcoded "FCR 28 + aFRR 120 + mFRR 604"** on a value that now moves
+   with the year — rule #2. Derived from `product_sd`.
+3. **`reconcile.mjs` scored `null` vs `null` as a pass.** `Math.abs(null − null)` is 0, so a
+   check that compared nothing reported green. Latent for the whole bank.
+4. **The deliverable build was broken while `npm test` said green.** The placeholder gate's
+   escape hatch does exact-match, but placeholders are prefixes and produced values carry
+   units, so it could never fire for a numeric collision. Verified against a clean worktree.
+
+#### Impact — and a correction to what CP-2 was told
+
+Public `/revenue`, 54 configs vs main: gross Y1 **−0.98 % median** (−1.70 / +0.83),
+project IRR **−0.37 pp median**, LCOS unchanged. Two configs flip NPV negative; one moves
+investable → marginal.
+
+**The client-portfolio figures reported at CP-2 were wrong.** Reported +12.9 % NPV; measured,
+controlled, **−1.78 %**. The bad baseline was taken under `git stash`, which reverted the KV
+fixture, the bridge calibration and `scenarios.json` while leaving the untracked new modules
+in place — C3, committed by the executor. The tell was ignored: it was the only figure in the
+phase pointing away from every other one. Corrected numbers and the mechanism (reserve
++€5.66M saturating, arbitrage −€7.46M deepening, net −€1.80M over 20 years) are in the
+decomposition doc.
+
+#### Operator amendments at CP-2
+
+- **FCR held flat after 2035** — the one component-trend exception, on physical grounds: it
+  is a share of a fixed 3 000 MW CE reference incident, and 6.19 %/yr to 2048 would give
+  104.6 MW. The module now rejects a flat component that does not state why.
+- **Portfolio decomposition** — delivered, and it produced the correction above.
+
+#### Filed
+
+- **B-034** (P2) — `deliverable.test.ts` / `xlsx.test.ts` grade untracked generated artifacts:
+  green-over-stale, the hole that nearly cost defect 4.
+- **B-035** (P3) — `POST /s4/migrate-fleet` is the one fleet writer that does not recompute.
+
+Follow-ups routed: LV/EE flexibility assessments (mandated, not locatable — would unlock the
+three-TSO composite); Litgrid's flexibility-market development plan Q4 2026 (would decide
+whether short-term and DSO stop being `excluded`); LT fleet tiering (148 of 159 entries are
+`announced`, so no tier mapping is possible against any TSO series).
+
+#### Gates
+
+1 625 tests (+55) · `build-all --offline` 11/11 · regression 54/54 on the recaptured baseline
+· tsc 37 (pre-existing) · next build clean · lints clean. Test changes declared: one
+assertion re-fit (`throughputAlignment` pinned values, the intended movement); everything
+else sharpened; nothing deleted.
+
+---
+
 ### Session 93 — 2026-07-29 — Phase 36.C: S2 ingestion resilience + forecast plumbing — **SHIPPED & DEPLOYED** (Claude Code, semi-autonomous)
 
 **Branch:** `phase-36-c-reserve-fallback` off `1466a53` · 5 commits.
