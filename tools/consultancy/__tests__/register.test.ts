@@ -22,6 +22,8 @@ import {
   resolveBinding, readWorkerConstant, effectiveValue, effectiveRegister,
   categoryCounts, CATEGORIES, RegisterBindingError, roundTo,
   isSuperseded, liveRows, supersededRows,
+  bumpVersion, computeVersion, versionMatchesContent, registerContentHash,
+  validateChangelog, valueDiff, DECIDED_BY,
 } from '../register.mjs';
 import {
   reconcile, internalChecks, portfolioChecks, externalChecks, EXTERNAL_BANDS,
@@ -31,6 +33,15 @@ type Any = Record<string, any>;
 
 const kv = loadFixtureKV();
 const register = loadRegister() as Any;
+
+/**
+ * A synthetic register carrying a version block that describes its own content.
+ * Every register must be versioned (36.B6), so a bare row-set is not a valid
+ * register and the schema tests must build a real one rather than exempting
+ * themselves from the invariant they are meant to be checking.
+ */
+const versioned = (rows: Any[], changelog: Any[] = []) =>
+  bumpVersion({ rows, changelog } as Any, { date: '2026-07-29' }) as Any;
 const ctxPromise = bindingContext({ kv });
 const reportPromise = reconcile(kv) as Promise<Any>;
 
@@ -68,7 +79,7 @@ describe('assumptions register — schema', () => {
         { ...register.rows[2], id: 'x2', value: 999, sensitivity_range: [0, 1] },
       ],
     };
-    const problems = validateRegister(bad as Any).join('\n');
+    const problems = validateRegister(versioned(bad.rows)).join('\n');
     expect(problems).toMatch(/duplicate id/);
     expect(problems).toMatch(/must carry a source/);
     expect(problems).toMatch(/outside its range/);
@@ -87,18 +98,18 @@ describe('assumptions register — the bound-or-superseded dichotomy', () => {
   };
 
   it('accepts a well-formed superseded row', () => {
-    expect(validateRegister({ rows: [live, dead] } as Any)).toEqual([]);
+    expect(validateRegister(versioned([live, dead]))).toEqual([]);
     expect(isSuperseded(dead)).toBe(true);
     expect(isSuperseded(live)).toBe(false);
   });
 
   it('rejects an unbound row that has not declared itself superseded', () => {
-    const problems = validateRegister({ rows: [{ ...live, engine_binding: null }] } as Any).join('\n');
+    const problems = validateRegister(versioned([{ ...live, engine_binding: null }])).join('\n');
     expect(problems).toMatch(/unbound and not declared superseded/);
   });
 
   it('rejects a superseded row that points nowhere, at itself, or carries a binding', () => {
-    const p = (row: Any) => validateRegister({ rows: [live, row] } as Any).join('\n');
+    const p = (row: Any) => validateRegister(versioned([live, row])).join('\n');
     expect(p({ ...dead, superseded_by: undefined })).toMatch(/must name the row that replaced it/);
     expect(p({ ...dead, superseded_by: 'y_dead' })).toMatch(/points at itself/);
     expect(p({ ...dead, superseded_by: 'y_nothing' })).toMatch(/is not a row in this register/);
@@ -109,7 +120,7 @@ describe('assumptions register — the bound-or-superseded dichotomy', () => {
   });
 
   it('rejects supersession metadata on a live row', () => {
-    expect(validateRegister({ rows: [{ ...live, superseded_by: 'x' }] } as Any).join('\n'))
+    expect(validateRegister(versioned([{ ...live, superseded_by: 'x' }])).join('\n'))
       .toMatch(/must not carry supersession metadata/);
   });
 
@@ -373,5 +384,181 @@ describe('reconciliation — report shape', () => {
       expect(c.subject, c.id).toBeTruthy();
       expect(['pass', 'warn', 'fail']).toContain(c.status);
     }
+  });
+});
+
+// ── Phase 36.B6 — versioning + changelog governance ────────────────────────
+//
+// The claim being enforced: no register value can move without a dated, sourced,
+// attributed changelog entry, and the version a delivered report quotes is the
+// content that report ran on. Both halves are tested in both directions — a
+// governance check that cannot fail governs nothing.
+
+describe('register versioning', () => {
+  it('the shipped register carries a version that describes its own content', () => {
+    expect(register.version.id).toMatch(/^r\d+\.[0-9a-f]{8}$/);
+    expect(versionMatchesContent(register)).toBe(true);
+    expect(computeVersion(register).id).toBe(register.version.id);
+    expect(register.version.changelog_entries).toBe(register.changelog.length);
+  });
+
+  it('hashes the model inputs — value and override — and nothing else', () => {
+    const move = (patch: Any) => registerContentHash({
+      ...register, rows: register.rows.map((r: Any) => (r.id === register.rows[0].id ? { ...r, ...patch } : r)),
+    } as Any);
+    const base = registerContentHash(register);
+    expect(move({ value: register.rows[0].value + 1 })).not.toBe(base);
+    expect(move({ override: 0.5 })).not.toBe(base);
+    // Prose is not an input: editing a label or a note must not present itself
+    // as the model having changed.
+    expect(move({ label: 'renamed', note: 'reworded', source: `${register.rows[0].source} (expanded)` })).toBe(base);
+  });
+
+  it('excludes superseded rows, because provenance is not an input', () => {
+    const live = { ...register.rows[0], id: 'z_live' };
+    const dead = {
+      ...register.rows[0], id: 'z_dead', basis: 'superseded', engine_binding: null,
+      superseded_by: 'z_live', superseded_on: '2026-07-28', override: null,
+    };
+    expect(registerContentHash({ rows: [live, dead] } as Any))
+      .toBe(registerContentHash({ rows: [live] } as Any));
+  });
+
+  it('is stable under row REORDERING but not under a value change', () => {
+    const reversed = { ...register, rows: [...register.rows].reverse() };
+    expect(registerContentHash(reversed as Any)).toBe(registerContentHash(register));
+  });
+
+  it('fails validation when a value moves without a bump — the central gate', () => {
+    const tampered = {
+      ...register,
+      rows: register.rows.map((r: Any) => (r.id === 'wacc' ? { ...r, value: r.value + 1 } : r)),
+    };
+    const problems = validateRegister(tampered as Any).join('\n');
+    expect(problems).toMatch(/does not describe this register's content/);
+    expect(problems).toMatch(/without a version bump/);
+  });
+
+  it('advances the sequence only when the content changes', () => {
+    const restamped = bumpVersion(register, { date: '2026-08-01' }) as Any;
+    expect(restamped.version.seq).toBe(register.version.seq);
+    expect(restamped.version.id).toBe(register.version.id);
+    expect(restamped.changelog).toHaveLength(register.changelog.length);
+
+    const moved = {
+      ...register,
+      rows: register.rows.map((r: Any) => (r.id === 'wacc' ? { ...r, value: 9 } : r)),
+    };
+    const bumped = bumpVersion(moved as Any, {
+      moved: valueDiff(register, moved as Any),
+      reason: 'Operator raised the discount rate after a financing conversation.',
+      source: 'operator decision, 2026-08-01',
+      decided_by: 'operator', phase: '37', date: '2026-08-01',
+    }) as Any;
+    expect(bumped.version.seq).toBe(register.version.seq + 1);
+    expect(bumped.changelog).toHaveLength(register.changelog.length + 1);
+    expect(bumped.changelog.at(-1)).toMatchObject({
+      id: 'wacc', old: register.rows.find((r: Any) => r.id === 'wacc').value, new: 9,
+      decided_by: 'operator', register_version: bumped.version.id,
+    });
+    expect(validateRegister(bumped)).toEqual([]);
+  });
+
+  it('refuses a bump that moves a value with no attributable reason', () => {
+    const moved = {
+      ...register,
+      rows: register.rows.map((r: Any) => (r.id === 'wacc' ? { ...r, value: 9 } : r)),
+    };
+    const diff = valueDiff(register, moved as Any);
+    expect(diff).toEqual([{ id: 'wacc', old: register.rows.find((r: Any) => r.id === 'wacc').value, new: 9 }]);
+    expect(() => bumpVersion(moved as Any, { moved: diff })).toThrow(/needs reason, source, decided_by/);
+    expect(() => bumpVersion(moved as Any, {
+      moved: diff, reason: 'because', source: 'somewhere', decided_by: 'nobody', phase: '37',
+    })).toThrow(/decided_by/);
+  });
+
+  it('sees an override change as a change, since an override IS the effective value', () => {
+    const overridden = {
+      ...register,
+      rows: register.rows.map((r: Any) => (r.id === 'wacc' ? { ...r, override: 0.1 } : r)),
+    };
+    expect(valueDiff(register, overridden as Any)).toEqual([
+      { id: 'wacc', old: null, new: 0.1, override: true },
+    ]);
+  });
+});
+
+describe('assumption changelog', () => {
+  it('every shipped entry is dated, sourced, reasoned and attributed', () => {
+    expect(validateChangelog(register)).toEqual([]);
+    for (const e of register.changelog as Any[]) {
+      expect(e.date, e.id).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(Object.keys(DECIDED_BY), e.id).toContain(e.decided_by);
+      expect(e.reason.length, e.id).toBeGreaterThanOrEqual(40);
+      expect(e, e.id).toHaveProperty('old');
+      expect(e, e.id).toHaveProperty('new');
+      expect(e, e.id).toHaveProperty('register_version');
+    }
+  });
+
+  it('is chronological, so the history reads in the order it happened', () => {
+    const dates = (register.changelog as Any[]).map((e) => e.date);
+    expect([...dates].sort()).toEqual(dates);
+    // Entries 0 and 2 are on different dates, so swapping them is a genuine
+    // ordering violation rather than a same-day reshuffle.
+    expect(validateChangelog({
+      changelog: [{ ...register.changelog[2] }, { ...register.changelog[0] }],
+    } as Any).join('\n')).toMatch(/chronological/);
+  });
+
+  it('rejects an entry that changed nothing, cites nothing, or hides who decided', () => {
+    const good = register.changelog[2];
+    const bad = (patch: Any) => validateChangelog({ changelog: [{ ...good, ...patch }] } as Any).join('\n');
+    expect(bad({ old: null, new: null })).toMatch(/moved nothing and recorded nothing/);
+    expect(bad({ source: 'n/a' })).toMatch(/cite the evidence/);
+    expect(bad({ reason: 'because' })).toMatch(/reason must say why/);
+    expect(bad({ decided_by: undefined })).toMatch(/decided_by/);
+    expect(bad({ date: '28 July' })).toMatch(/YYYY-MM-DD/);
+    expect(bad({ register_version: 'v2' })).toMatch(/r<seq>\.<8 hex>/);
+  });
+
+  // The three cutovers this arc produced are the register's founding history.
+  // Each must carry not just the value change but the evidence a lender's
+  // advisor would ask for — the window, the sample, and what it cost.
+  it('the measured cutovers carry their full evidence trail', () => {
+    const byId = (id: string, date: string): Any => {
+      const entry = (register.changelog as Any[]).find((e) => e.id === id && e.date === date);
+      expect(entry, `${id} @ ${date} must be in the changelog`).toBeTruthy();
+      return entry as Any;
+    };
+
+    const trd = byId('driver_trading_realisation', '2026-07-28');
+    expect(trd.old).toBe(0.85);
+    expect(trd.new).toBe(0.7234);
+    expect(trd.decided_by).toBe('operator');
+    expect(trd.evidence.measurement.days_traded).toBe(349);
+    expect(trd.evidence.measurement.monthly_band).toMatchObject({ low: 0.6535, high: 0.8155 });
+    expect(trd.evidence.leakage_checks).toHaveLength(3);
+    expect(trd.evidence.client_impact_frozen_fixture.npv_pct).toBe(-16.05);
+    expect(trd.evidence.limitation).toMatch(/ONE market year/);
+
+    const uplift = byId('dispatch_15min_uplift', '2026-07-28');
+    expect(uplift.old).toBe(0.14);
+    expect(uplift.new).toBe(0.0885);
+    expect(uplift.evidence.measurement.window).toMatch(/273 complete PT15M days/);
+    expect(uplift.evidence.reach.revenue_route).toMatch(/54\/54/);
+
+    const cycles = byId('cycles_efc_yr', '2026-07-28');
+    expect(cycles.old).toBe(678);
+    expect(cycles.new).toBe(498);
+    expect(cycles.decided_by).toBe('derived');
+    expect(cycles.evidence.corroboration).toHaveLength(3);
+    expect(cycles.evidence.declared_breach).toMatchObject({ band: [550, 720], actual: 498 });
+  });
+
+  it('records the two measurements that were NOT adopted, so the gap is on the record', () => {
+    const measured = (register.changelog as Any[]).filter((e) => e.decided_by === 'measurement');
+    expect(measured.length).toBeGreaterThanOrEqual(2);
+    for (const e of measured) expect(e.reason).toMatch(/measured/i);
   });
 });

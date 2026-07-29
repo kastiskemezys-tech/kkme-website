@@ -2377,3 +2377,98 @@ README (34.7-G) and is the right place for it.
 
 The deliverable's consistency gate now asserts the run_id appears in the emitted
 HTML, so a delivered document that does not name its own run fails the build.
+
+## Phase 36.B batch-4 — Part 2 (assumption changelog + register versioning)
+
+### 36.B6-F — the version hashes the model's INPUTS, and only those
+
+`version.id` is `r<seq>.<first 8 hex of sha256 over every LIVE row's {id, value,
+override}, sorted by id>`. Three properties, each chosen against an alternative:
+
+- **Superseded rows are excluded.** They are provenance, not inputs —
+  `effectiveRegister` already excludes them for exactly that reason — so
+  rewording a historical row must not present itself as the model having
+  changed. Pinned by a test that adds a superseded row and asserts the hash is
+  unmoved.
+- **Prose is excluded.** Label, note and source can be expanded without a bump.
+  A version that moved every time someone improved a sentence would train its
+  readers to ignore it.
+- **`override` is included.** An override IS the effective value the runner
+  uses, so a client edit changes what the model runs on and must move the
+  version. `valueDiff` reports it as an override change so the changelog can say
+  which kind it was.
+
+`seq` counts MODEL changes, not tool invocations: `bumpVersion` on an unchanged
+register is a no-op that refreshes the entry count and leaves the sequence
+alone.
+
+### 36.B6-G — the version and the content are welded together by the schema gate
+
+`validateRegister` now fails when the stored hash does not describe the current
+content — "a value moved without a version bump", with the exact re-run command.
+Because the reconciliation suite and the register tests both call
+`validateRegister`, a hand-edited value cannot reach a build.
+
+The other half is `bumpVersion`, which **throws** when a value moved and no
+`reason` / `source` / `decided_by` / `phase` was supplied. So a value cannot move
+silently and cannot move anonymously. `register.mjs --sync` surfaces this as a
+refusal that prints the moved values and the command that would authorise them.
+
+This cost the existing tests their bare `{rows: [...]}` fixtures: a row-set with
+no version is no longer a valid register. They build versioned fixtures now
+rather than the invariant being relaxed to accommodate them — the 36.B3-H
+precedent (*sharpen, don't re-fit*).
+
+### 36.B6-H — `decided_by` is a closed vocabulary of four
+
+`operator` (a human decision that moves delivered numbers) · `measurement`
+(evidence recorded, no value moved) · `derived` (a consequential re-derivation
+forced by another change) · `governance` (a change to the mechanism itself).
+
+An open text field would let the interesting case — *a human moved this* — hide
+inside prose. With four values the workbook can render operator decisions in a
+different weight from consequential ones, which is the difference between a log
+and an audit trail. The advisor's first question about any changelog is "who
+decided this and did they know what it cost", and the schema now forces both
+halves to be answerable.
+
+The six migrated entries split 2 measurement / 2 operator / 2 derived, which is
+itself informative: of the arc's four value movements, exactly two were
+decisions and two were consequences of those decisions.
+
+### 36.B6-I — the founding entries carry evidence, not just a delta
+
+The three cutovers are the register's founding history, and an `old → new` pair
+is not enough for the advisor who will ask where the number came from. Each now
+carries an `evidence` block:
+
+- **trading realisation 0.85 → 0.7234** — window, 365 evaluated / 349 traded /
+  16 declined, volume-weighted and simple means, the full daily distribution,
+  the monthly band with its months, the denominator (the engine's own
+  `computeDayCapture`, imported not restated), the declined-day treatment and
+  what scoring them zero would have read, all three leakage checks with results,
+  the re-anchored ladder, the quantified client impact on the frozen fixture
+  (NPV −16.05 %), and the one-market-year limitation.
+- **15-min uplift 0.14 → 0.0885** — 273 complete PT15M days, the measurement
+  method, and a per-route reach table showing `/revenue` untouched at 54/54.
+- **cycling 678 → 498** — the cause, the direction NOT taken and why, both
+  independent corroborations (B1's 221, B5's 222), the declared band breach with
+  its source, and the honest note that a consistency fix which *improves* the
+  answer deserves more scrutiny than one that worsens it.
+
+`register_version` is null on all six: they predate the mechanism, and back-dating
+a version onto them would be fabricating a history the repo cannot support. r1
+pins the content as it stood when versioning was introduced; everything after
+carries the version it produced.
+
+### 36.B6-J — the remeasurement harness records but cannot bump
+
+`run-backtest.mjs --write-register` now ends in `bumpVersion(out, {date})` with
+no moved values. That is deliberate and load-bearing: a remeasurement records
+evidence and never moves a bound value (36.B3-K), so the sequence must not
+advance — and if the harness ever started moving one, `bumpVersion` would throw
+for want of an attributable reason rather than quietly re-cutting the model.
+
+It also stopped keeping its own copy of `REGISTER_PATH` and imports the
+register's own. A remeasurement harness is not a second opinion about where the
+register lives.

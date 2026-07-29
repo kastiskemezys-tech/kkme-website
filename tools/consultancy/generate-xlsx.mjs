@@ -363,7 +363,7 @@ async function assumptionsTab(wb, inp) {
   const ws = wb.addWorksheet('Assumptions', { properties: { tabColor: { argb: C.sea } } });
   widths(ws, 26, 15, 44, 12, 12, 58, 16, 14);
 
-  heading(ws, `Assumptions register — ${inp.register.rows.length} rows`, { width: 8 });
+  heading(ws, `Assumptions register — ${inp.register.rows.length} rows · version ${inp.register.version?.id ?? '—'}`, { width: 8 });
   note(ws, inp.notes.override_mechanism, { width: 8, italic: false, height: 58 });
   note(ws, inp.register._value_basis, { width: 8, height: 44 });
   blank(ws);
@@ -408,6 +408,31 @@ async function assumptionsTab(wb, inp) {
   blank(ws);
   note(ws, inp.register._note, { width: 8, height: 58 });
   note(ws, inp.register._sensitivity_range, { width: 8, height: 30 });
+
+  // ── Change history ──────────────────────────────────────────────────────
+  // The register's version answers "which assumptions", the changelog answers
+  // "and what moved since". A client re-reading last month's model against this
+  // one needs the second question answered without diffing two workbooks.
+  blank(ws);
+  heading(ws, `Change history — ${inp.register.changelog.length} entries`, { width: 8 });
+  note(ws, inp.register._changelog, { width: 8, height: 74 });
+  const chHdr = headerRow(ws, [
+    'date', 'assumption', 'from', 'to', 'decided by', 'why', 'source', 'version',
+  ]);
+  chHdr.getCell(5).fill = fill(C.sea);
+  for (const e of inp.register.changelog) {
+    const r = ws.addRow([
+      e.date, e.id, e.old ?? '—', e.new ?? '—', e.decided_by, e.reason, e.source,
+      e.register_version ?? 'pre-versioning',
+    ]);
+    r.alignment = { wrapText: true, vertical: 'top' };
+    r.font = { size: 9 };
+    r.getCell(2).font = { size: 9, color: { argb: C.sea } };
+    // An operator decision moved a delivered number; the other kinds did not.
+    // Marking which is which is the difference between a log and an audit trail.
+    if (e.decided_by === 'operator') r.getCell(5).font = { size: 9, bold: true, color: { argb: C.rust } };
+    r.height = Math.max(28, Math.ceil(String(e.reason).length / 90) * 11);
+  }
 
   // Protection is a signal, not a security measure: it keeps the engine-derived
   // columns from being edited by accident while leaving the override column open.

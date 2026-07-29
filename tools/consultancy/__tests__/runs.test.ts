@@ -8,6 +8,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -236,9 +237,9 @@ describe('engine provenance', () => {
   });
 });
 
-// exported here rather than from the module: the test asserts the artefact hash
-// is over the FILE BYTES, so it must compute that independently.
+// Computed here rather than imported from the module under test: the assertion
+// is that the artefact hash is over the FILE BYTES, so it has to be derived
+// independently of the code that claims to do that.
 function hashOfBytes(s: string): string {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  return require('node:crypto').createHash('sha256').update(Buffer.from(s)).digest('hex');
+  return createHash('sha256').update(Buffer.from(s)).digest('hex');
 }
