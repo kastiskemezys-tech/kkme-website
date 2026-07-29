@@ -2472,3 +2472,80 @@ for want of an attributable reason rather than quietly re-cutting the model.
 It also stopped keeping its own copy of `REGISTER_PATH` and imports the
 register's own. A remeasurement harness is not a second opinion about where the
 register lives.
+
+## Phase 36.B batch-4 — Part 3 (lender-grade methodology)
+
+### 36.B6-K — the arc's "84.0 % simultaneity" is not reproducible, and the honest answer is a range
+
+The batch prompt asked the methodology to carry "the 84.0 % simultaneity
+measurement". Re-run across all five primary shape-years, no year produces it:
+
+| shape-year | simultaneously achievable |
+|---|---:|
+| 2021 | 79.2 % |
+| 2022 | 75.2 % |
+| 2023 | 83.1 % |
+| 2024 | 83.5 % |
+| 2025 | 85.5 % |
+
+The closest is 2024 at 83.5 %. Rather than print a figure that cannot be
+reproduced, the methodology reports the **range 75.2–85.5 %** and says the
+measurement is year-dependent — with the low year (2022, the price crisis)
+explained: a wider day-ahead shape makes the SoC reservation cost more in
+foregone arbitrage. Discipline rule #1 applied to a number in the prompt.
+
+The 2025 decomposition ships beside it, because where the cost falls is the
+finding: 88 % of the delta lands on **capacity**, not on trading. The constraint
+does not mainly stop the battery trading, it stops it committing.
+
+### 36.B6-L — two figures inherited from the arc log were stale, and were re-measured
+
+Written into the document only after checking against the current engine:
+
+- **Reserve stack share.** The arc log records 67.9 % of Y1 gross / 71.9 % of
+  lifetime. Measured now: **71.1 % / 74.2 %**. It moved because adopting the
+  measured trading realisation lowered the arbitrage line, which raises the
+  reserve stack's share of the total. That direction is worth stating out loud
+  and the document does: *the measured correction made the model more dependent
+  on the component that has not been measured.*
+- **The dur_h step table.** Its gross-revenue columns reproduce exactly today
+  (2 h = €7 999 249, 4 h = €8 553 517) but its IRR and EFC columns were taken
+  before the throughput alignment and now read 0.2246 / 498 and 0.1061 / 317.
+  The table is kept in its original form — it is the evidence for the
+  discontinuity — with a reading note giving the current values. Re-cutting it
+  against the later engine would blur two separate corrections into one.
+
+Also re-derived from the committed price files rather than transcribed: the
+negative-hour lineage table (537 negative hours over 101 470 covered hours, 125
+days = 2.96 %) reproduces the batch-3 figures exactly.
+
+### 36.B6-M — the document is a display surface, so rule #2 applies to it
+
+A methodology that asserts a value the code no longer holds is the same defect
+as a card label that does — and it is worse, because a lender's advisor is
+reading it precisely to check. `__tests__/methodologyLender.test.ts` binds every
+quoted figure that has a live source: the trading-realisation ladder, the
+client-scenario anchors, the sub-hourly uplift, the reserve prequalification
+durations, the register version and row count, the category table's sum, the
+`decided_by` vocabulary, and the cycling benchmark band with the model's
+position relative to it.
+
+The gate was proven to fail before being trusted: rewriting the ladder to the
+old assumed values in the document turns the suite red and names the sentence.
+
+**Historical measurements are deliberately NOT bound** — a backtest window, a
+client-impact delta measured at a past commit. Those are records of what was
+observed on a date, and re-cutting them against a later engine would destroy
+their meaning. The distinction is the whole design: bind what the model *holds*,
+never what it *observed*.
+
+### 36.B6-N — the lender annex renders through the same wrapper, and carries KKME's name
+
+`buildAnnexHtml` gained `sourcePath` / `title` / `lede` rather than a second
+near-identical wrapper being written — rule #4 applied to branding, so the two
+annexes cannot drift out of brand independently. The document renders at **25 pp**
+A4, inside the 25-40 pp target.
+
+It is named `KKME_Lender_Methodology_Annex.pdf`, not `Prosperus_*`: it describes
+the engine rather than the engagement, so it ships with any delivery and is a
+KKME asset in its own right.

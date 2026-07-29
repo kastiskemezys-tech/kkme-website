@@ -1,9 +1,10 @@
 /**
  * Phase 34.7 — PDF rendering + the methodology annex.
  *
- * Two outputs, both A4 with backgrounds on:
+ * Three outputs, all A4 with backgrounds on:
  *   Prosperus_BESS_Model_v0.5_Summary.pdf   — the deliverable HTML
  *   Prosperus_BESS_Methodology_Annex.pdf    — docs/methodology.md, same brand
+ *   KKME_Lender_Methodology_Annex.pdf       — docs/methodology-lender.md, same brand
  *
  * The deliverable's print CSS already collapses the `details` drills and forces
  * a page break at the scope divider, so the summary prints at summary level
@@ -31,6 +32,21 @@ export const SUMMARY_PDF = 'Prosperus_BESS_Model_v0.5_Summary.pdf';
 export const ANNEX_PDF = 'Prosperus_BESS_Methodology_Annex.pdf';
 export const ANNEX_HTML = 'Prosperus_BESS_Methodology_Annex.html';
 export const METHODOLOGY_PATH = join(REPO_ROOT, 'docs/methodology.md');
+
+// Phase 36.B6 — the lender-grade annex. Not client-specific: it describes the
+// engine, so it carries KKME's name rather than the engagement's and ships with
+// any delivery. Rendered through the SAME wrapper as the published methodology
+// (rule #4 applied to branding) rather than growing a second one that could drift.
+export const LENDER_PDF = 'KKME_Lender_Methodology_Annex.pdf';
+export const LENDER_HTML = 'KKME_Lender_Methodology_Annex.html';
+export const METHODOLOGY_LENDER_PATH = join(REPO_ROOT, 'docs/methodology-lender.md');
+
+const LENDER_LEDE = 'This annex is the technical methodology a lender\u2019s advisor reads. It goes '
+  + 'past how the numbers are computed and states which parameters are measured and which are assumed, '
+  + 'what the model cannot resolve, where it disagrees with an external benchmark, and what is known to '
+  + 'be wrong or incomplete. Section 09 is a list of the model\u2019s own defects, compiled before anyone '
+  + 'else compiles it. Every quantitative claim is either derived in-document or produced by a named '
+  + 'runner whose registry entry can be re-executed.';
 
 /** Lift the template's `:root` block so the annex is the same brand, not a lookalike. */
 export function brandRoot(template = readFileSync(TEMPLATE_PATH, 'utf8')) {
@@ -63,7 +79,7 @@ export function buildAnnexHtml({
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>KKME Methodology Annex — Prosperus BESS Portfolio</title>
+<title>${title ? `KKME — ${title}` : 'KKME Methodology Annex — Prosperus BESS Portfolio'}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -162,19 +178,33 @@ export async function generatePdfs({ outputDir = OUTPUT_DIR, generatedAt, engine
     runId: build?.run_id ?? null,
   }), 'utf8');
 
+  const lenderHtmlPath = join(outputDir, LENDER_HTML);
+  writeFileSync(lenderHtmlPath, buildAnnexHtml({
+    generatedAt: generatedAt ?? new Date().toISOString().slice(0, 10),
+    engineVersion: engineVersion ?? 'v7.3',
+    runId: build?.run_id ?? null,
+    sourcePath: METHODOLOGY_LENDER_PATH,
+    title: 'What is measured, what is assumed, and what is wrong',
+    lede: LENDER_LEDE,
+  }), 'utf8');
+
   const browser = await chromium.launch();
   try {
     const summaryPdf = join(outputDir, SUMMARY_PDF);
     const annexPdf = join(outputDir, ANNEX_PDF);
+    const lenderPdf = join(outputDir, LENDER_PDF);
     const a = await renderPdf(browser, summaryHtml, summaryPdf);
     const b = await renderPdf(browser, annexHtmlPath, annexPdf);
+    const c = await renderPdf(browser, lenderHtmlPath, lenderPdf);
     if (build) {
       recordArtefact({ build, artefact: SUMMARY_PDF, path: summaryPdf });
       recordArtefact({ build, artefact: ANNEX_PDF, path: annexPdf });
+      recordArtefact({ build, artefact: LENDER_PDF, path: lenderPdf });
     }
     return {
       summary: { path: summaryPdf, pages: pdfPageCount(summaryPdf), ...a },
       annex: { path: annexPdf, pages: pdfPageCount(annexPdf), ...b },
+      lender: { path: lenderPdf, pages: pdfPageCount(lenderPdf), ...c },
     };
   } finally {
     await browser.close();

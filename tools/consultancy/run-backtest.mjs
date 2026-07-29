@@ -335,7 +335,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const snapshot = await getKV({ offline: argv.includes('--offline') });
   const kv = snapshot.kv || snapshot;
 
-  const payload = await runBacktest({ config, kv, zone: arg('zone', 'LT') });
+  const zone = arg('zone', 'LT');
+  const payload = await runBacktest({ config, kv, zone });
   const m = payload.measurement;
   const a = m.aggregate;
 
@@ -368,7 +369,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     payload,
     {
       runner: 'backtest', subject: `${config.project_id}/${payload.meta.window.from}→${payload.meta.window.to}`,
-      inputs: { config, zone, window: payload.meta.window, scenario: scenarioName },
+      inputs: { config, zone, window: payload.meta.window },
       data_vintage: priceVintage([loadPriceYear(zone, 2025), loadPriceYear(zone, 2026)], { zone }),
     }
   );

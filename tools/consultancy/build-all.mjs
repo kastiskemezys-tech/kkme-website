@@ -26,7 +26,7 @@ import { join } from 'node:path';
 import { HERE, OUTPUT_DIR } from './engine.mjs';
 import { generateXlsx, XLSX_NAME } from './generate-xlsx.mjs';
 import { generateDeliverable, HTML_NAME } from './generate-deliverable.mjs';
-import { generatePdfs, SUMMARY_PDF, ANNEX_PDF } from './generate-pdf.mjs';
+import { generatePdfs, SUMMARY_PDF, ANNEX_PDF, LENDER_PDF } from './generate-pdf.mjs';
 import { recordArtefact } from './lib/runs.mjs';
 
 export const DELIVERY_DIR = join(OUTPUT_DIR, 'delivery');
@@ -165,6 +165,7 @@ export async function buildAll({ offline = false, skipRunners = false, generated
   step(++n, `Summary PDF (${String(pdfs.summary.pages).padStart(2)} pp)${''.padEnd(28)} ✓  ${kb(pdfs.summary.path)} kB`
     + (pdfs.summary.fontsLoaded ? '' : '  [webfonts unavailable]'));
   step(++n, `Methodology annex PDF (${String(pdfs.annex.pages).padStart(2)} pp)${''.padEnd(18)} ✓  ${kb(pdfs.annex.path)} kB`);
+  step(++n, `Lender methodology PDF (${String(pdfs.lender.pages).padStart(2)} pp)${''.padEnd(17)} ✓  ${kb(pdfs.lender.path)} kB`);
 
   // ── Package ──────────────────────────────────────────────────────────────
   rmSync(DELIVERY_DIR, { recursive: true, force: true });
@@ -174,6 +175,8 @@ export async function buildAll({ offline = false, skipRunners = false, generated
     [XLSX_NAME, xlsxPath, 'The model — 8 tabs, editable assumption overrides, scenario selector'],
     [SUMMARY_PDF, pdfs.summary.path, `The summary — ${pdfs.summary.pages} pp, sections 01-10`],
     [ANNEX_PDF, pdfs.annex.path, `Methodology — ${pdfs.annex.pages} pp, KKME's published methodology in full`],
+    [LENDER_PDF, pdfs.lender.path,
+      `Lender annex — ${pdfs.lender.pages} pp, what is measured vs assumed, and the known-limitations list`],
   ];
   const files = bundle.map(([name, src, what]) => {
     copyFileSync(src, join(DELIVERY_DIR, name));
