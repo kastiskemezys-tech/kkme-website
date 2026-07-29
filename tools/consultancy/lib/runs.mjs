@@ -294,8 +294,16 @@ export function deliveryRunId(sourceRunIds, { registerVersion: rv = registerVers
   };
 }
 
-/** Record one emitted artefact (xlsx / html / pdf / README) under a build id. */
-export function recordArtefact({ build, artefact, path, notes = null }) {
+/**
+ * Record one emitted artefact (xlsx / html / pdf / README) under a build id.
+ *
+ * `path` is the artefact on disk; `registryPath` is where the line is appended
+ * and exists so a test can record into a temporary registry. It defaulted to the
+ * real one with no way to override it, which meant the test suite appended a
+ * line to the committed governance log on every run — caught when the shipped
+ * registry came back one line longer than the build that produced it.
+ */
+export function recordArtefact({ build, artefact, path, notes = null, registryPath = RUNS_PATH }) {
   const bytes = readFileSync(path);
   return recordRun({
     run_id: build.run_id,
@@ -310,7 +318,7 @@ export function recordArtefact({ build, artefact, path, notes = null }) {
     data_vintage: { kind: 'delivery-build', sources: build.sources },
     register_version: build.register_version,
     ...(notes ? { notes } : {}),
-  });
+  }, { path: registryPath });
 }
 
 /** The run_ids a set of loaded runner payloads was produced by. */

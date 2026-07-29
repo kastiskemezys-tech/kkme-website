@@ -2617,3 +2617,23 @@ spec added in Part 1. Vitest never touched it — the CLI block is not under tes
 and it surfaced only on the first real invocation. Fixed, and worth recording as
 the reason Part 4 re-runs every runner rather than trusting a green suite: eleven
 runners were wired, and the only way to know all eleven still run is to run them.
+
+### 36.B6-S — the test suite was writing to the committed governance log
+
+Found by counting: the shipped registry came back **one line longer** than the
+build that produced it, carrying an artefact called `Model.xlsx` that no build
+emits. `recordArtefact` took the artefact's file path but had no way to override
+the *registry* path, so it always appended to the real `runs.jsonl` — and the
+delivery-build test therefore added a line to the committed audit trail on every
+`vitest run`.
+
+A governance log that its own test suite writes into is not an audit trail. Fixed
+by threading `registryPath` through, and the test now asserts both halves: the
+line lands in the temporary registry it was given, **and** no `Model.xlsx` line
+exists in the real one. That second assertion is the one that matters — it fails
+loudly if the leak ever returns.
+
+Worth noting how it surfaced: not from a test, but from reconciling a count in
+the handover against the file on disk. The registry's value is that it makes
+that kind of discrepancy visible, and the first thing it made visible was a
+defect in itself.

@@ -14,7 +14,7 @@ import { join } from 'node:path';
 import {
   canonicalJson, stripVolatile, hashOf, hashPayload, buildEntry, recordRun,
   readRuns, deliveryRunId, recordArtefact, sourceRunIds, engineGitSha,
-  kvVintage, priceVintage, VOLATILE_KEYS, RunRegistryError,
+  kvVintage, priceVintage, VOLATILE_KEYS, RunRegistryError, RUNS_PATH,
 } from '../lib/runs.mjs';
 
 const tmpRegistry = () => join(mkdtempSync(join(tmpdir(), 'kkme-runs-')), 'runs.jsonl');
@@ -193,10 +193,15 @@ describe('delivery builds', () => {
     const filePath = join(path, '..', 'artefact.bin');
     writeFileSync(filePath, 'workbook bytes');
     const build = deliveryRunId(sources, { registerVersion: 'r1.aaaaaaaa' });
-    const entry = recordArtefact({ build, artefact: 'Model.xlsx', path: filePath });
+    const entry = recordArtefact({
+      build, artefact: 'Model.xlsx', path: filePath, registryPath: path,
+    });
     expect(entry.run_id).toBe(build.run_id);
     expect(entry.kind).toBe('artefact');
     expect(entry.output_hash).toBe(hashOfBytes('workbook bytes'));
+    // …and it landed in the registry it was told to use, not the committed one.
+    expect(readRuns({ path })).toHaveLength(1);
+    expect(readRuns({ path: RUNS_PATH }).some((r) => r.artefact === 'Model.xlsx')).toBe(false);
   });
 
   it('collects source ids from loaded payloads and ignores unstamped ones', () => {

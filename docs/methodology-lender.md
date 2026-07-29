@@ -353,6 +353,8 @@ Three things in that table deserve saying out loud.
 
 **Upside barely moves** (−5.8 % NPV), because the Upside driver fell only to 0.8155 from 0.88. The spread between cases has widened, which is the correct consequence of replacing a narrow assumed band with a wider observed one.
 
+*One reconciliation note, because the two figures are easy to confuse.* The table above isolates **this change alone**. The throughput alignment described in §5.3 landed afterwards and recovered part of it: measured on the same fixture, the portfolio NPV after the full sequence is €37 347 448 (−13.8 % against the pre-cutover €43 333 457) rather than the −16.05 % shown here. The isolated figure is the one recorded in the changelog, because it is what the *decision* cost; the combined figure is what the model ended the arc at.
+
 ### 3.5 Sub-hourly uplift — measured 0.0885 against an asserted 0.14
 
 LT day-ahead has been natively PT15M since 2025-10-01, so the sub-hourly capture uplift is directly testable. `computeDayCapture` was run at 15-minute and at 60-minute resolution on identical days, with the source re-fetched at native resolution (the committed year files are averaged into the hour under decision D1).
