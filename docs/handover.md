@@ -205,17 +205,21 @@ Decision log: `DECISIONS.md` (36.B6-A…R).
 | 1 | Run registry — 11 runners through one funnel, content-fingerprint run_ids, artefact stamping | `f1f19ee` |
 | 2 | Register versioning + governed changelog; a value can no longer move silently or anonymously | `293bcee` |
 | 3 | `docs/methodology-lender.md` — 11 sections, 25 pp rendered, 20 binding tests | `d02acf5` |
-| 4 | Delivery regeneration on a fresh verified live snapshot; annex corrected to it | `6224a82` + this |
+| 4 | Delivery regeneration on a fresh verified live snapshot; annex corrected to it; registry leak fixed | `6224a82`, `2801eab` + this |
 
 **Gates at close:** vitest **1536/1536** · regression **54/54** byte-identical · `next build` 8 routes · tsc 21 (baseline) · lint gates pass · `git diff main -- workers/` and `-- app/` both empty.
+
+**One defect the registry found in itself:** `recordArtefact` could not be pointed at a test registry, so the suite appended a line to the committed governance log on every run. Caught by reconciling a count in this handover against the file on disk — not by a test. Fixed, and the test now asserts no such line exists in the real registry (36.B6-S).
 
 ---
 
 #### The run registry, and the one thing it proves
 
-`tools/consultancy/runs.jsonl` is committed with **28 lines from one clean build**: 22 runner runs covering the whole arc's evidence and 6 artefacts under delivery id **`delivery-9e5366e2e102`**, all on engine sha `6224a82`, register `r1.35c74b94`.
+`tools/consultancy/runs.jsonl` is committed with **29 lines from one clean build**: 22 runner runs covering the whole arc's evidence, 6 artefacts under delivery id **`delivery-24005a477053`**, and one deliberate reproduction (below). All on engine sha `2801eab`, register `r1.35c74b94`.
 
-`run_id` is a **content fingerprint**, not a serial number — `sha256(engine_git_sha ‖ input_hash ‖ output_hash)`, first 12 hex. The claim was tested in unit form and then demonstrated on real data: re-running `reconcile.mjs` against the same snapshot produced **`reconcile-89727c923b83` with the identical output hash and a different timestamp**. A reproduction is self-evident; a figure that fails to reproduce shows up as a mismatched ID rather than as an argument.
+`run_id` is a **content fingerprint**, not a serial number — `sha256(engine_git_sha ‖ input_hash ‖ output_hash)`, first 12 hex. The claim was tested in unit form and then demonstrated on real data: re-running `reconcile.mjs` against the same snapshot produced **`reconcile-5fbf740b66d1` with the identical output hash and a different timestamp** — line 29 of the committed log, kept precisely because it is the evidence. A reproduction is self-evident; a figure that fails to reproduce shows up as a mismatched ID rather than as an argument.
+
+The registry records the sha of the commit *before* the one that adds it, which is unavoidable: a log of a build cannot contain the hash of the commit that ships the log.
 
 The `-dirty` flag earned its keep on its first real use, on me: the first delivery build recorded `d02acf5…-dirty` because the methodology had been edited after the last commit. The document changes were committed and the build re-run against a clean tree rather than shipping a governance log whose first entry admits the engine was uncommitted.
 
