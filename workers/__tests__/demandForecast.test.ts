@@ -43,6 +43,8 @@ interface Component {
   treatment_reason: string;
   interpolation: string;
   backfill: string;
+  extrapolation?: string;
+  extrapolation_reason?: string;
   series: Series;
   series_mwh?: Series;
   country_split_mw?: { EE: Series; LV: Series; LT: Series };
@@ -202,6 +204,38 @@ describe('extrapolation beyond 2035', () => {
     const g = componentCagr(byId('mfrr_up'))!;
     expect(g).toBeCloseTo(Math.pow(754 / 604, 1 / 9) - 1, 12);
     expect(componentMwAt('mfrr_up', 2036)).toBeCloseTo(754 * (1 + g), 6);
+  });
+
+  it('holds FCR flat after 2035 — the one declared exception (CP-2 amendment 1)', () => {
+    // FCR is the Baltic share of a FIXED 3000 MW Continental Europe reference
+    // incident, allocated by generation and consumption share. The published
+    // 28 → 48 MW rise is share growth against a constant denominator, and share
+    // growth is bounded in a way the observed 6.19 %/yr rate is not. Continuing
+    // that rate to 2048 gives 104.6 MW — the Baltic share of the CE reference
+    // incident more than tripling, which is not a forecast anyone would defend.
+    expect(byId('fcr').extrapolation).toBe('flat');
+    expect(componentMwAt('fcr', 2035)).toBe(48);
+    expect(componentMwAt('fcr', 2036)).toBe(48);
+    expect(componentMwAt('fcr', 2048)).toBe(48);
+    // The mechanical trend, for the record — this is the number NOT used.
+    const g = componentCagr(byId('fcr'))!;
+    expect(48 * Math.pow(1 + g, 13)).toBeGreaterThan(100);
+  });
+
+  it('the exception is confined to FCR — everything else still trends', () => {
+    expect(componentMwAt('mfrr_up', 2048)).toBeGreaterThan(componentMwAt('mfrr_up', 2035));
+    const flat = comps.filter((c) => c.extrapolation === 'flat').map((c) => c.id);
+    expect(flat).toEqual(['fcr']);
+  });
+
+  it('a flat component must state WHY — a bare flag is not a reason', () => {
+    // Departing from the declared policy is a claim about the world. The
+    // validator rejects the flag without the claim.
+    for (const c of comps.filter((x) => x.extrapolation === 'flat')) {
+      expect(c.extrapolation_reason, c.id).toBeTruthy();
+      expect(c.extrapolation_reason!.length, c.id).toBeGreaterThan(60);
+      expect(c.extrapolation_reason, c.id).toMatch(/reference incident/i);
+    }
   });
 
   it('holds flat where a rate would be meaningless rather than inventing one', () => {

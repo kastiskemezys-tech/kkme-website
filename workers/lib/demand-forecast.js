@@ -66,6 +66,19 @@ export const INTERPOLATION_MODES = Object.freeze(['linear', 'step']);
  */
 export const BACKFILL_MODES = Object.freeze(['hold-first-value', 'zero-before']);
 
+/**
+ * How a component behaves beyond its last published year.
+ *
+ *   component-trend — continue at the component's own compound rate, computed
+ *                     from its own published series at call time.
+ *   flat            — hold the last published value, because the quantity is
+ *                     bounded by something physical that the trend ignores.
+ *
+ * `flat` is a claim about the world, not a rounding preference, so a component
+ * declaring it must also declare why.
+ */
+export const EXTRAPOLATION_MODES = Object.freeze(['component-trend', 'flat']);
+
 export const SOURCES = Object.freeze([
   Object.freeze({
     id: 'baltic-frr-2026-2035',
@@ -194,6 +207,26 @@ export const COMPONENTS = Object.freeze([
     treatment_reason: 'KKME models FCR capacity revenue directly.',
     interpolation: 'linear',
     backfill: 'hold-first-value',
+    // Phase 36.D CP-2 amendment 1 — the one component-trend exception.
+    //
+    // FCR is not a demand quantity that grows with the Baltic system. It is the
+    // Baltic LFC block's SHARE of a fixed obligation: Continental Europe sizes
+    // FCR against a 3000 MW reference incident and allocates it across TSOs by
+    // net generation and consumption share (SOGL Art. 153, CE SAFA Policy 1).
+    // The published 28 → 48 MW rise is the Baltic share growing against a
+    // constant CE denominator, and share growth is bounded in a way the
+    // observed rate is not.
+    //
+    // Continuing the 6.19 %/yr trend to 2048 gives 104.6 MW — implying the
+    // Baltic share of the CE reference incident more than triples. That is not
+    // a forecast anyone would defend, and an advisor reading it would say so
+    // before we did. Held flat at the last published value instead.
+    extrapolation: 'flat',
+    extrapolation_reason:
+      'Share of a fixed 3000 MW CE reference incident, allocated by generation and ' +
+      'consumption share — structurally bounded. The published rate (6.19 %/yr) compounds ' +
+      'to 104.6 MW by 2048, which would have the Baltic share more than tripling. Flat at ' +
+      'the last published value is the defensible reading; the mechanical trend is not.',
     // Per-country split from the same chart. The LT row cross-validates the
     // Litgrid FNA's own FCR component exactly at 2028/2030/2033/2035 — two
     // independent documents, one number. `validateDemandForecast` asserts it.
@@ -361,6 +394,11 @@ export const EXTRAPOLATION_POLICY = Object.freeze({
     'constant (rule #2). Components whose series begins or ends at zero, or whose last two ' +
     'published values are equal, are held flat: a geometric rate is undefined or meaningless ' +
     'there.',
+  exceptions:
+    'A component may declare extrapolation: "flat" WITH a reason, when the quantity is bounded ' +
+    'by something the observed trend does not see. Exactly one does: FCR, which is a share of a ' +
+    'fixed CE reference incident rather than a growing demand. The exception is a claim about ' +
+    'the world and is stated as one — validation rejects a flat component that does not say why.',
   rejected: Object.freeze({
     'flat-last-value':
       'Asserts Baltic reserve demand stops growing in 2036 while RES keeps building — a ' +
@@ -433,6 +471,7 @@ export function componentMwAt(id, year) {
   }
   if (year >= last) {
     if (year === last) return c.series[last];
+    if (c.extrapolation === 'flat') return c.series[last];
     const g = componentCagr(c);
     // Flat when the rate is undefined, or when the series has stopped moving.
     if (g === null || c.series[ys[ys.length - 2]] === c.series[last]) return c.series[last];
@@ -522,6 +561,13 @@ export function validateDemandForecast() {
     if (!TREATMENTS.includes(c.treatment)) fail(`${c.id}: treatment "${c.treatment}" not in ${TREATMENTS}`);
     if (!INTERPOLATION_MODES.includes(c.interpolation)) fail(`${c.id}: interpolation "${c.interpolation}" not in ${INTERPOLATION_MODES}`);
     if (!BACKFILL_MODES.includes(c.backfill)) fail(`${c.id}: backfill "${c.backfill}" not in ${BACKFILL_MODES}`);
+    const xm = c.extrapolation ?? 'component-trend';
+    if (!EXTRAPOLATION_MODES.includes(xm)) fail(`${c.id}: extrapolation "${xm}" not in ${EXTRAPOLATION_MODES}`);
+    // Departing from the declared policy is a claim about the world; it must
+    // carry the claim, not just the flag.
+    if (xm === 'flat' && !c.extrapolation_reason) {
+      fail(`${c.id}: extrapolation "flat" departs from component-trend and must state why`);
+    }
     if (!c.treatment_reason) fail(`${c.id}: treatment_reason is required`);
     if (!c.basis || !SOURCES.some((s) => s.id === c.basis)) fail(`${c.id}: basis "${c.basis}" is not a declared source`);
     const ys = publishedYears(c);

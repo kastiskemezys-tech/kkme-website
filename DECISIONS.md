@@ -2870,3 +2870,79 @@ That cancellation is invisible unless the module keeps IZDR and GAGAP as separat
 components with their own series instead of one netted "fast response" row. It is the
 strongest argument for the per-component structure, and per rule #2 it has to fall out of
 the arithmetic rather than be written into the methodology as a sentence.
+
+---
+
+## Phase 36.D CP-2 amendment 1 — the one component-trend exception, and why it is physical
+
+Operator amendment: hold FCR flat after 2035 while every other component keeps the approved
+component-trend extrapolation.
+
+The reason is not that 104.6 MW looked large. It is that FCR is not a demand quantity at
+all. Continental Europe sizes FCR against a **fixed 3 000 MW reference incident** and
+allocates it across TSOs by net generation and consumption share (SOGL Art. 153, CE SAFA
+Policy 1). The published Baltic series — 28 MW in 2026 to 48 MW in 2035 — is therefore a
+*share* growing against a constant denominator, and a share is bounded in a way an observed
+rate is not. Compounding 6.19 %/yr to 2048 gives 104.6 MW: the Baltic share of the European
+reference incident more than tripling. Nobody would defend that in a room, and an advisor
+would find it before we pointed at it.
+
+So the module now carries `extrapolation: 'flat' | 'component-trend'` per component, and
+validation **rejects a flat component that does not state why**. A departure from the
+declared policy is a claim about the world; the flag alone is not the claim. Exactly one
+component declares it, and the reason travels with the data rather than living in a
+changelog.
+
+Effect: 2048 addressable demand 1 263 → 1 207 MW (−4.5 %). Direction is revenue-positive,
+which is worth naming — it slightly offsets the phase's overall reduction, and it was
+adopted because the reasoning is better, not because of the sign.
+
+The general shape is the point: **mechanical extrapolation is a default, not a principle.**
+Where a quantity is bounded by something the trend cannot see, the bound wins and says so.
+
+---
+
+## Phase 36.D CP-2 amendment 2 — the client portfolio moves DOWN, and the first measurement was mine to get wrong
+
+The operator required the +12.9 % NPV move on the client portfolio to be decomposed rather
+than left "measured, not fully attributed". Decomposing it showed there was no +12.9 % move.
+
+| Metric | reported at CP-2 | measured, controlled |
+|---|---|---|
+| Y1 gross | +3.1 % | **+0.20 %** |
+| 20-yr EBITDA | +5.2 % | **−0.83 %** |
+| NPV @ 8 % | **+12.9 %** | **−1.78 %** |
+
+The bad measurement took its "before" run under `git stash`, which reverted every *tracked*
+file — the KV fixture (dropping the `countries` block this phase added), the bridge
+calibration constant, `scenarios.json` — while leaving the *untracked* new modules in place.
+The two runs differed in far more than the engine. The stash pop then failed partway and
+needed hand repair, which should have been the second warning.
+
+That is **C3** (baseline not captured cleanly before intended movement) committed by the
+executor rather than the prompt, and it survived because the number was never re-derived by
+a second method. The tell was available and ignored: **the +12.9 % was the only figure in
+the entire phase pointing away from every other one.** A single result whose sign disagrees
+with the mechanism that produced it is a measurement to redo, not a finding to report.
+
+**Rule: a before/after on this engine loads both modules in one process.** `git stash` is
+not a baseline mechanism in a repo with untracked work in flight — it cannot be, because it
+moves exactly the files a baseline is supposed to hold still. The run registry exists to
+make honest baselines cheap; this one did not use it.
+
+The corrected decomposition is in
+`docs/investigations/2026-07-29-phase-36-d-portfolio-decomposition.md`. The mechanism, which
+the aggregate number was hiding:
+
+- **Reserve revenue rises and saturates** — +1.96 % → +2.33 %, flat at +€286k/yr from 2030.
+  `bidAcceptanceFactor` is a decay bounded at 0.95; once mFRR S/D has fallen as far as the
+  absorption deduction takes it there is nothing more to win.
+- **Arbitrage falls and keeps falling** — −4.17 % → −10.05 %, because `marketDepthFactor`
+  has no floor and the two demand series diverge every year (the retired 935 × 1.02ⁿ ramp
+  reached 1 445 MW by 2048; the TSO-anchored series reaches 1 207 MW).
+- At a 71/29 reserve-to-arbitrage mix these **almost exactly cancel in year 1** (+0.18 %
+  predicted, +0.21 % measured) and stop cancelling immediately afterwards: 20-year totals
+  are reserve +€5.66M, arbitrage −€7.46M, net −€1.80M.
+
+So "year 1 is neutral" and "the twenty-year NPV falls 1.8 %" are the same fact seen at two
+horizons. Reporting either alone would have been true and misleading.

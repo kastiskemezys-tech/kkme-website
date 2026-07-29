@@ -789,6 +789,18 @@ The series is published annually to 2035 and grows at **2.29 %/yr**. Beyond 2035
 each component continues at its own compound rate, computed from its own
 published series rather than written down as a constant.
 
+**One component is held flat instead, and the reason is physical.** FCR is not a
+demand that grows with the Baltic system — it is the Baltic block's *share* of a
+fixed obligation. Continental Europe sizes FCR against a 3 000 MW reference
+incident and allocates it by net generation and consumption share. The published
+28 → 48 MW rise is that share growing against a constant denominator, and a share
+is bounded in a way an observed rate is not: continuing 6.19 %/yr to 2048 would
+give 104.6 MW, implying the Baltic share of the European reference incident more
+than triples. FCR is therefore held at its last published value from 2035, which
+lowers 2048 demand 4.5 % against the mechanical trend. Every other component
+trends. The exception is declared in the module with its reasoning, and a
+component cannot be held flat without stating why.
+
 This is the market KKME's modelled products actually clear in, and it matches
 the Baltic scope of the supply numerator. It is also, as it turned out, where
 the engine's long-standing `752` came from — 604 + 120 + 28 — a number that was
