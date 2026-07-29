@@ -276,9 +276,49 @@ three-TSO composite); Litgrid's flexibility-market development plan Q4 2026 (wou
 whether short-term and DSO stop being `excluded`); LT fleet tiering (148 of 159 entries are
 `announced`, so no tier mapping is possible against any TSO series).
 
+#### Pause C — deployed, verified after the cron tick, and one more defect
+
+**Deploy:** worker `ad5e4afc-2cf5-4738-be74-1f9174d2d48e` from `18aa7558`, then
+`aa372830-c4b8-4589-8ea8-a4088b1fbcc9` from `b9834f7` for the tripwire fix below. Branch
+pushed and origin SHA compared against HEAD before each deploy.
+
+**Post-cron-tick verification** — `/s4/fleet` `updated_at` moved 12:00:51Z → **16:01:51Z**,
+and only then does the fleet KV carry the new basis (banked B3: checking before the tick is
+a false alarm):
+
+```
+/s4/fleet   eff_demand_mw 752 · sd_ratio 2.91 · absorption_mw 200
+            baltic_weighted_mw 2385 → net 2185 · phase MATURE · cpi 0.30
+            demand_basis {demand-forecast-module, v1.0.0, baltic-auction-derived}
+            trajectory  2026 2.91 · 2027 2.97 · 2028 2.66
+/revenue    years[0] cal 2029 · demand 817 · absorption 500 · sd 6.53 · depth 0.538
+            fleet_context demand_mw 817 · absorption_mw 500 · module v1.0.0
+```
+
+Every figure matches the offline measurement. Live route sweep: 13 of 14 routes 200.
+`/da_tomorrow` returns 500 — **untouched by this branch** (0 lines in the diff); it reads KV
+then falls back to a live Nord Pool fetch that returned HTML. Data-source issue, pre-existing.
+
+**The defect the tick exposed.** `/health.demand_watch` showed `fna` present and
+`balancing-market` / `studies` `never_checked`. Both of those URLs return **zero document
+links** — I verified the FNA page in Pause A by fetching and parsing it, and wrote the other
+two from memory of the site nav. They resolved to the same generic section page.
+
+Worse than the wrong URLs was the handling: the no-links branch reported and continued, so a
+tripwire that found nothing once would stay quiet forever *while looking armed*. Two thirds
+of the module's change detection was dead on arrival. Now: targets are the document pages
+themselves, a blind target **alerts** (distinguishing "pinned wrong" from "page moved"),
+`/health` reports `blind` as its own status, and each target records `verified_at` and
+`links_seen` from a real fetch with a test asserting both. All three live-verified —
+fna 4 links, baltic-frr 1, baltic-fcr 1.
+
+The fixture tests gave no hint and could not: a fixture cut from the one page that worked
+passes forever. Found by running the extraction against live markup — a check that belonged
+before the deploy, not after it.
+
 #### Gates
 
-1 625 tests (+55) · `build-all --offline` 11/11 · regression 54/54 on the recaptured baseline
+1 626 tests (+56) · `build-all --offline` 11/11 · regression 54/54 on the recaptured baseline
 · tsc 37 (pre-existing) · next build clean · lints clean. Test changes declared: one
 assertion re-fit (`throughputAlignment` pinned values, the intended movement); everything
 else sharpened; nothing deleted.
