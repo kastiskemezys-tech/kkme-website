@@ -373,16 +373,16 @@
       "id": "operating_calibration_eur_kw_yr",
       "category": "cost",
       "label": "Operating cost, reconciling adjustment",
-      "value": 2.08,
+      "value": 2.56,
       "unit": "EUR/kW/yr",
-      "source": "Derived, not sourced: closes the 3.5% gap between the engine's cost taxonomy (RTM + BRP + OPEX) and the client's 4-line stack at the reference asset",
+      "source": "Derived, not sourced: closes the 4.4% gap between the engine's cost taxonomy (RTM + BRP + OPEX) and the client's 4-line stack at the reference asset",
       "sensitivity_range": [
         0,
         4
       ],
       "override": null,
       "engine_binding": "bridge:COST_DEFAULTS.operating_calibration_eur_kw_yr",
-      "note": "Deliberately shown as a separate line rather than folded into EUR 29/kW/yr, so the sourced build-up and the reconciling constant stay distinguishable. It is not re-fitted per project — doing so would make every project agree with the engine by construction and destroy the reconciliation's value as a check."
+      "note": "Deliberately shown as a separate line rather than folded into EUR 29/kW/yr, so the sourced build-up and the reconciling constant stay distinguishable. It is not re-fitted per project — doing so would make every project agree with the engine by construction and destroy the reconciliation's value as a check. Re-derived 2026-07-28 from 2.08 to 2.56 when the measured trading realisation was adopted: the engine's flat lines (BRP fee, OPEX) do not fall with revenue while the client stack's 16% does, so a lower revenue level widens the taxonomy gap. Derived from the reference asset by bridgeCalibration(), asserted by test — it cannot go silently stale."
     },
     {
       "id": "opex_escalation_pct",
@@ -612,16 +612,35 @@
       "id": "driver_trading_realisation",
       "category": "scenario-driver",
       "label": "Trading realisation",
+      "value": 0.7234,
+      "unit": "x of perfect foresight",
+      "source": "KKME dispatch backtest 2025-07-01 → 2026-06-30, 349 traded days, LT day-ahead: B1 greedy policy capture ÷ perfect-foresight sort-and-dispatch capture. Volume-weighted 0.7234; monthly volume-weighted 0.6535 (2025-09) to 0.8155 (2026-05); single-year window.",
+      "sensitivity_range": [
+        0.6535,
+        0.8155
+      ],
+      "override": null,
+      "engine_binding": "driver:trading_realisation",
+      "note": "MEASURED, not assumed (adopted Phase 36.B batch-3 Part 0, operator decision 2026-07-28). Downside 0.6535 / Central 0.7234 / Upside 0.8155 — the declared range IS the measured monthly band and the two non-Central cases sit at its endpoints. Measures the day-ahead component only: intraday execution, bid rejection, imbalance exposure and balancing forecast error are outside it, and reserve realisation is unmeasured (BTD is the sole Baltic reserve-price source, deepest series 110 daily points). One market year, so the band is an observed range and not a distribution — REMEASURE ANNUALLY and widen the band if a second year disagrees. Superseded assumption kept as trading_realisation_assumed_prior.",
+      "basis": "measured"
+    },
+    {
+      "id": "trading_realisation_assumed_prior",
+      "category": "scenario-driver",
+      "label": "Trading realisation — prior assumption (superseded)",
       "value": 0.85,
       "unit": "x of perfect foresight",
-      "source": "Perfect-foresight discount on sort-and-dispatch capture; industry range 0.70-0.90, Capalo AI claims 0.85-0.90",
+      "source": "Perfect-foresight discount on sort-and-dispatch capture; industry range 0.70-0.90, Capalo AI claims 0.85-0.90. Carried 2026-03 → 2026-07-28, never measured.",
       "sensitivity_range": [
         0.78,
         0.88
       ],
       "override": null,
-      "engine_binding": "driver:trading_realisation",
-      "note": "Downside 0.78 / Central 0.85 / Upside 0.88. No real optimiser achieves the theoretical maximum. MEASURED at 0.7234 over 2025-07-01 → 2026-06-30 (349 trading days, day-ahead component only) — see the changelog and output/backtest-*.json. NOTE the measurement falls BELOW this row's declared sensitivity range [0.78, 0.88]. This row remains the ENGINE-BOUND Central driver and is UNCHANGED; adopting the measured figure is a scenario-driver cutover that moves client IRR and is an operator decision."
+      "engine_binding": null,
+      "basis": "superseded",
+      "superseded_by": "driver_trading_realisation",
+      "superseded_on": "2026-07-28",
+      "note": "The assumption the model carried before it was measured, kept so the delta is legible without reading the changelog: measured 0.7234 came in 0.1266 BELOW it, and below this row's own declared range [0.78, 0.88] — so the assumed band was understated, not merely the assumed point value. Not an input: nothing reads this row."
     },
     {
       "id": "driver_cap_price_delta_pct",
@@ -676,6 +695,24 @@
       "reason": "Measured at 0.0885 over 273 complete PT15M days (2025-10-01 → 2026-06-30) against the engine's asserted 0.14. Constant left unchanged — it is a worker constant on the public dispatch path and changing it is a separate decision. Reported, not adopted.",
       "source": "tools/consultancy/run-15min-delta.mjs",
       "phase": "36.B3"
+    },
+    {
+      "date": "2026-07-28",
+      "id": "driver_trading_realisation",
+      "old": 0.85,
+      "new": 0.7234,
+      "reason": "ADOPTED. Operator decision 2026-07-28: the measured value replaces the assumption as the Central driver, and the engine constant TRADING_REALISATION.base moved with it so Central still equals the shipped constant. Downside/Upside re-anchored from [0.78, 0.88] to the measurement's own monthly extremes [0.6535, 0.8155]; the declared sensitivity range follows, so it now contains the value it describes (it did not before). The engine ladder (conservative −5pp, stress −10pp) kept its shipped steps and re-anchored on the measurement. This moves published /revenue numbers — see the batch-3 handover for the quantified public delta.",
+      "source": "KKME dispatch backtest 2025-07-01 → 2026-06-30 (349 trading days, LT day-ahead)",
+      "phase": "36.B batch-3 Part 0"
+    },
+    {
+      "date": "2026-07-28",
+      "id": "operating_calibration_eur_kw_yr",
+      "old": 2.08,
+      "new": 2.56,
+      "reason": "Consequential, not a decision. The constant closes the engine-vs-client cost-taxonomy gap AT the reference asset's revenue level; adopting the measured trading realisation lowered that revenue, and the engine's two flat cost lines did not follow it down, so the gap widened by EUR 24 245/yr at 50 MW. Re-derived by bridgeCalibration() rather than re-fitted by hand. Without it the reference asset stops closing within the contracted ±2%.",
+      "source": "tools/consultancy/bridge.mjs — bridgeCalibration(reference asset, frozen KV fixture)",
+      "phase": "36.B batch-3 Part 0"
     }
   ]
 }

@@ -127,15 +127,18 @@ export const DRIVERS = {
   trading_realisation: {
     label: 'Trading realisation',
     unit: '×',
-    central: 0.85,
+    // MEASURED (36.B3 backtest, adopted batch-3 Part 0). Central is the
+    // volume-weighted 12-month figure; Downside/Upside in scenarios.json are the
+    // measurement's own monthly extremes rather than a spread around it.
+    central: 0.7234,
     reach: 'overlay',
     engine_binding: 'TRADING_REALISATION.base',
     engine_site: 'workers/fetch-s1.js — rev_trd factor chain + T_base in computeTradingMix',
     effect: 'arbitrage revenue linearly, and the trading/reserve mix via T_base',
     expected_direction: 'direct',
     toEngine: (v) => v,
-    anchor: '  base: 0.85,          // good optimizer (Capalo AI claims 85-90%)',
-    replace: (v) => `  base: ${v},          // good optimizer (Capalo AI claims 85-90%)`,
+    anchor: '  base: 0.7234,        // MEASURED — KKME dispatch backtest 2025-07→2026-06, 349 traded days',
+    replace: (v) => `  base: ${v},        // MEASURED — KKME dispatch backtest 2025-07→2026-06, 349 traded days`,
     verify: (result, v) => near(result.assumptions?.trading_realisation, v),
     echo: (result) => result.assumptions?.trading_realisation,
   },

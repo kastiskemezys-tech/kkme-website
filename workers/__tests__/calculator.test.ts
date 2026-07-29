@@ -461,9 +461,17 @@ describe('client scenario port', () => {
   it('the ported sets carry the locked client values', () => {
     const S = REVENUE_SCENARIOS_FOR_TEST as Any;
     expect(S.client_downside.avail).toBe(0.95);
-    expect(S.client_downside.trd_real).toBe(0.78);
     expect(S.client_upside.avail).toBe(0.98);
-    expect(S.client_upside.trd_real).toBe(0.88);
+    // trading realisation was re-anchored on the 36.B3 measurement in batch-3
+    // Part 0: the flanks are the measured monthly extremes, not a spread around
+    // an assumption. They must stay in step with tools/consultancy/scenarios.json
+    // — the calculator and the consultancy runners are one client scenario table.
+    expect(S.client_downside.trd_real).toBe(0.6535);
+    expect(S.client_upside.trd_real).toBe(0.8155);
+    expect(S.base.trd_real).toBe(0.7234);
+    // And the engine ladder keeps its shipped 5pp steps around the measurement.
+    expect(S.conservative.trd_real).toBeCloseTo(S.base.trd_real - 0.05, 6);
+    expect(S.stress.trd_real).toBeCloseTo(S.base.trd_real - 0.10, 6);
     // Everything they do not deliberately change is still base's.
     for (const k of ['opex_per_kw_yr', 'brp_fee_yr', 'debt_margin_bp', 'mwh_per_mw_yr_da_2h']) {
       expect(S.client_downside[k], k).toBe(S.base[k]);

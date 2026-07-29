@@ -47,7 +47,7 @@ export const COST_DEFAULTS = {
   grid_pct_gross: 0.03,        // Litgrid NUS + auxiliary
   market_pct_gross: 0.01,      // Nord Pool + BTD participation
   operating_eur_kw_yr: 29,     // O&M 18 + insurance 5 + warranty 4 + BOS 2
-  operating_calibration_eur_kw_yr: 2.08,
+  operating_calibration_eur_kw_yr: 2.56,
 };
 
 /**
@@ -55,14 +55,19 @@ export const COST_DEFAULTS = {
  *
  * The engine's cost treatment (RTM fee + flat BRP fee + OPEX) and the client's
  * 4-line stack are two taxonomies over the same economics, and they do not land
- * in the same place: at the reference asset the client stack came out 3.5% light
- * (−€103 848 on €2 970 350). Under the ±5% decision rule that gap is closed with
+ * in the same place: at the reference asset the client stack comes out 4.4% light
+ * (−€128 104 on €2 929 925). Under the ±5% decision rule that gap is closed with
  * a single constant on the operating line rather than left open.
  *
- * Derivation — reference asset, frozen KV fixture:
- *   engine stack  = RTM 840 350 + BRP 180 000 + OPEX 1 950 000 = €2 970 350
- *   client stack  = 16% × gross 8 853 139 + €29/kW × 50 000 kW = €2 866 502
- *   gap €103 848 ÷ 50 000 kW = €2.077/kW/yr → 2.08
+ * Derivation — reference asset, frozen KV fixture, RE-DERIVED at the measured
+ * trading realisation (batch-3 Part 0; it was 2.08 at the assumed 0.85):
+ *   engine stack  = RTM 799 925 + BRP 180 000 + OPEX 1 950 000 = €2 929 925
+ *   client stack  = 16% × gross 7 999 249 + €29/kW × 50 000 kW = €2 801 821
+ *   gap €128 104 ÷ 50 000 kW = €2.562/kW/yr → 2.56
+ *
+ * The constant grew because the engine's two flat lines (BRP fee, OPEX) do not
+ * fall with revenue while the client stack's 16% does — the same asymmetry the
+ * residual note below describes, now visible in the constant itself.
  *
  * The sourced €29/kW/yr build-up is left intact and this rides alongside it, so
  * the register shows both the itemised figure and the reconciling adjustment
@@ -75,7 +80,7 @@ export const COST_DEFAULTS = {
  * percentage lines scale with revenue while this does not, so a residual
  * reappears as revenue moves. That residual is reported, never absorbed.
  */
-export const OPERATING_CALIBRATION_EUR_KW_YR = 2.08;
+export const OPERATING_CALIBRATION_EUR_KW_YR = 2.56;
 
 /** Re-derive the calibration constant from a reference-asset engine result. */
 export function bridgeCalibration(referenceResult, referenceConfig) {

@@ -1145,14 +1145,36 @@ function getDegradation(year, cyclesPerDay) {
 }
 
 // Trading realisation: perfect-foresight discount on S1 sort-and-dispatch capture.
-// No real operator achieves theoretical max. Industry range 0.70–0.90.
+//
+// Phase 36.B batch-3 — MEASURED, not assumed. The 36.B3 backtest ran the B1
+// greedy policy day-by-day over realised LT day-ahead prices 2025-07-01 →
+// 2026-06-30 with day-ahead information only, and divided its capture by the
+// perfect-foresight sort-and-dispatch capture on the same days and the same
+// asset — the exact construct this constant discounts. 349 traded days (16
+// declined by the round-trip guard, excluded not zeroed), volume-weighted
+// 0.7234, simple mean 0.7321, daily min 0.187 / p25 0.628 / median 0.756 /
+// p75 0.849 / max 0.997, monthly volume-weighted 0.6535 (2025-09) to 0.8155
+// (2026-05). Three look-ahead checks clean: no day beats perfect foresight,
+// headline below the 0.90 tripwire, realisation-vs-day-quality r = −0.093.
+//
+// It measures the DAY-AHEAD component only: intraday execution, bid rejection,
+// imbalance exposure and balancing forecast error are all outside it, and
+// reserve realisation stays unmeasured (BTD is the sole Baltic reserve-price
+// source and its deepest series is 110 daily points). Remeasure annually.
+//
+// The ladder below keeps its shipped 5pp steps and is re-anchored on the
+// measurement rather than re-invented; the resulting values land near the
+// measured daily distribution's own p25 (0.628), so the ladder stays empirical
+// at every rung. See DECISIONS 36.B0-J.
 const TRADING_REALISATION = {
-  base: 0.85,          // good optimizer (Capalo AI claims 85-90%)
-  conservative: 0.80,  // slightly less efficient optimizer
-  stress: 0.75,        // weaker execution or market impact
+  base: 0.7234,        // MEASURED — KKME dispatch backtest 2025-07→2026-06, 349 traded days
+  conservative: 0.6734, // −5pp on the measurement, the shipped ladder step
+  stress: 0.6234,      // −10pp; ≈ the measured daily p25 (0.628)
   // Phase 35.1 client scenario sets — see CLIENT_SCENARIO_DRIVERS below.
-  client_downside: 0.78,
-  client_upside: 0.88,
+  // Re-anchored on the measurement's own monthly extremes rather than on a
+  // spread around the old assumption.
+  client_downside: 0.6535, // measured monthly minimum, 2025-09
+  client_upside: 0.8155,   // measured monthly maximum, 2026-05
 };
 
 // Pipeline realisation rate: fraction of pipeline MW that actually gets built.
@@ -2301,7 +2323,10 @@ function computeRevenueV7(params, kv) {
     },
     assumptions: {
       trading_realisation: sc.trd_real,
-      trading_realisation_note: 'Perfect-foresight discount. Industry range 0.70-0.90.',
+      trading_realisation_note:
+        'Perfect-foresight discount, MEASURED not assumed: KKME dispatch backtest over ' +
+        'realised LT day-ahead prices 2025-07-01 → 2026-06-30, 349 traded days, ' +
+        'volume-weighted 0.7234 (monthly 0.6535-0.8155). Day-ahead component only.',
       compression_scenario_mult: comp_mult,
       effective_compression: effective_compression,
     },
@@ -3298,7 +3323,7 @@ function computeBaseYear(kv, duration_h, sc, scenario_name = 'base', rte_decay, 
     months,
     annual_totals: annual,
     trading_realisation: sc.trd_real,
-    trading_realisation_source: 'assumed_industry_range_070_090',
+    trading_realisation_source: 'measured_kkme_dispatch_backtest_2025_07_to_2026_06',
     time_model,
     data_coverage: {
       s1_months: t12.length,

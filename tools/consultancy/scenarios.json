@@ -1,5 +1,6 @@
 {
   "_note": "Phase 34.4 — the three client-facing cases as driver-override sets. Locked with the client via prosperus-mockup-v5.html. Central's six values ARE the engine's shipped base constants, so a Central run must reproduce the batch-1 numbers exactly; that is asserted, not assumed. Driver semantics, engine bindings and reachability live in scenario-overlay.mjs (DRIVERS) — this file carries values only, so there is one source for each (discipline rule #4).",
+  "_trading_realisation_basis": "Phase 36.B batch-3 Part 0 — trading_realisation is the one driver in this table that is MEASURED rather than assumed. Central 0.7234 is the volume-weighted realisation of the B1 greedy policy against perfect-foresight sort-and-dispatch capture over realised LT day-ahead prices 2025-07-01 → 2026-06-30 (349 traded days). Downside 0.6535 and Upside 0.8155 are that measurement's own monthly volume-weighted minimum (2025-09) and maximum (2026-05) — an observed band, not a spread invented around the point estimate. The engine constant TRADING_REALISATION.base moved with it, so Central still equals the shipped constant and still patches nothing. Day-ahead component only; remeasure annually.",
   "_direction": "fleet_realisation_pct is the fraction of the Baltic pipeline that actually gets built: HIGHER means more competing supply, so Downside carries the highest value. Every other driver reads in the intuitive direction.",
   "order": ["downside", "central", "upside"],
   "scenarios": {
@@ -10,7 +11,7 @@
         "fleet_realisation_pct": 65,
         "spread_growth_pct_yr": -1.0,
         "availability_pct": 95,
-        "trading_realisation": 0.78,
+        "trading_realisation": 0.6535,
         "cap_price_delta_pct": -25,
         "cpi_floor": 0.28
       }
@@ -22,7 +23,7 @@
         "fleet_realisation_pct": 50,
         "spread_growth_pct_yr": 2.0,
         "availability_pct": 97,
-        "trading_realisation": 0.85,
+        "trading_realisation": 0.7234,
         "cap_price_delta_pct": 0,
         "cpi_floor": 0.3
       }
@@ -34,7 +35,7 @@
         "fleet_realisation_pct": 35,
         "spread_growth_pct_yr": 3.5,
         "availability_pct": 98,
-        "trading_realisation": 0.88,
+        "trading_realisation": 0.8155,
         "cap_price_delta_pct": 20,
         "cpi_floor": 0.35
       }

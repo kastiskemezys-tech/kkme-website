@@ -42,9 +42,9 @@ describe('assumptions register — schema', () => {
   it('covers every category the deliverable contract names', () => {
     const counts = categoryCounts(register) as Any;
     expect(counts).toEqual({
-      technical: 7, market: 9, saturation: 4, cost: 7, capex: 8, project: 3, 'scenario-driver': 6,
+      technical: 7, market: 9, saturation: 4, cost: 7, capex: 8, project: 3, 'scenario-driver': 7,
     });
-    expect(register.rows).toHaveLength(44);
+    expect(register.rows).toHaveLength(45);
     for (const row of register.rows) expect(CATEGORIES).toContain(row.category);
   });
 
