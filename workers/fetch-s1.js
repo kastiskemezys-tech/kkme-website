@@ -5161,7 +5161,19 @@ async function fetchNordPoolDA() {
     const metrics = npShapeMetrics(ltPrices, se4Prices);
     if (!metrics) throw new Error('NordPool: no LT/SE4 price data found in response');
 
-    return { ...metrics, delivery_date: deliveryDate, timestamp: new Date().toISOString() };
+    // Phase 36.C (B0-G) — the THIRD writer of the da_tomorrow KV, and in
+    // practice the one that populates it: `GET /da_tomorrow` calls this on a
+    // cache miss and stores the result. Fixing only computeS1 and the POST path
+    // would have left the live path still storing scalars, and forecast mode
+    // still starving — with two of three writers fixed, which is the kind of
+    // partial repair that reads as done and isn't.
+    return {
+      ...metrics,
+      ...daResolutionFields(ltPrices),
+      se4_prices: se4Prices,
+      delivery_date: deliveryDate,
+      timestamp: new Date().toISOString(),
+    };
   } catch (err) {
     clearTimeout(timer);
     throw err;
