@@ -1,7 +1,7 @@
 # KKME Handover
 
 Canonical state document. Read this first in every session.
-Last updated: 2026-07-29 (Session 93 — Phase 36.C: S2 ingestion resilience. BTD was never down — the premise was false; both KKME ingestion legs had failed independently and each assumed the other was covering. VPS is now the S2 primary with a validation gate; admission control keyed on data window recency; Mac cron retired; cert tripwire live; 299 days of per-delivery-day clearing prices backfilled (zero holes). S2 286.9h stale → 0h. mode=forecast serves for the first time, which exposed and fixed a PT15M mis-indexing defect that read only the first six hours of the day. Deploy `98f721cd`. Open: capacity_eur_day 0 (routes to 33.B.2), unattributed IRR delta. Full entry in Session log below.)
+Last updated: 2026-07-30 (Session 95 — Phase 36.E0: mature-market evidence base, AT CHECKPOINT. Four markets acquired and normalised (1.43M rows): DE reserve auctions 2018-07-12→, GB DC/DM/DR+EAC 2020-10→ complete lifecycle, SE FCR-N/FCR-D 2021-01→, AU SA1 spot 2015→, plus day-ahead and a 24-event primary-sourced break calendar. Three arc premises false (regelleistung starts 2018 not 2011; Fingrid key-gated; Baltic PICASSO/MARI already happened — MARI 2024-10-10, PICASSO LT 2025-03-05, EE+LV 2025-04-11). Two findings change E1/E3: German mFRR is the most saturated German product while aFRR with twice the demand is not, so supply depth not demand depth sets the floor; and German FCR has roughly doubled rather than decayed. Floors measured at 0.09-1.80x arbitrage opportunity. No engine changes, no deploys. Awaiting operator approval before E1.)
 
 ## Current phase
 
@@ -189,6 +189,96 @@ See [docs/map.md](map.md) for the full concept-to-file lookup table.
 - **33.B (revenue data depth, P2)** — (a) re-parse `afrr_cap_avg`/`mfrr_cap_avg` from the BTD feed (Litgrid "ordered capacity" page emptied; capacity moved to BTD, not re-parsed) so the engine uses live capacity prices instead of the Phase-33 conservative constants. (b) FCR disclosure: `fcr=0.36` constant chosen this phase, dropping live `s2.fcr_avg=63` (>50 ceiling). If FCR genuinely sustains €50-60/MW/h post-synchronisation, that's an explicit operator-signed IRR move, not a silent input. The `[revenue/s2-capacity-watch]` log surfaces persistence.
 
 ## Session log
+
+### Session 95 — 2026-07-30 — Phase 36.E0: mature-market evidence base — **AT CHECKPOINT** (Claude Code, semi-autonomous, one checkpoint at wrap)
+
+**Branch:** `phase-36-e0-evidence-base` off `1275769` · 1 commit `300938b`. **Not pushed.** No deploys, no engine changes (`git diff main -- workers/ app/` empty, per prompt).
+**PR (once pushed):** https://github.com/kastiskemezys-tech/kkme-website/compare/main...phase-36-e0-evidence-base
+
+**Artifacts:**
+- `docs/phases/phase-36-e0-checkpoint-report.md` — **the checkpoint**: acquisition verdicts, the table, quality verdicts, E1-E5 spec changes
+- `docs/research/mature-market-summary-table.md` — generated; rebuilds offline from committed bytes
+- `docs/research/mature-market-comparability.md` — analogue validity per market per service
+- `docs/investigations/2026-07-30-phase-36-e0-pause-a.md` — Pause-A portal audit + four playbook questions
+- `tools/consultancy/data/mature-markets/` — 1.43M rows, 72 MB, per-dataset manifests with sha256
+- `tools/consultancy/mature-markets/` — fetchers, schema, loader, `build-summary-table.mjs`
+
+#### What is in the base
+
+DE regelleistung.net FCR/aFRR/mFRR capacity + energy (2018-07-12 → 2026-07, 934k rows) · GB NESO
+DC/DM/DR + EAC reserve (2020-10-01 → 2026-07, 156k rows, four chained resources) · SE Svenska
+kraftnät FCR-N/FCR-D (2021-01 →, 147k) · AU AEMO SA1+NSW1 spot (2015 →, 1.25M) · day-ahead for
+DE/SE3/GB (640k) · ECB monthly FX · a 24-event structural-break calendar from 5 primary sources.
+
+#### Three arc-doc premises were false, and coverage was measured not read
+
+regelleistung serves **2018-07-12** onward, not 2011 — the German scarcity era is in no public bulk
+channel, so every DE peak here is within-window. Fingrid is **key-gated** (401 everywhere, no public
+key in the portal frontend); Sweden substituted and carries the hydro-floor contrast instead.
+Norway dropped by decision (HTTP 200, zero-byte body, no param schema).
+
+#### Two findings that change what E1 and E3 build
+
+1. **German mFRR is the cheapest and most saturated German product** — 3.34 EUR/MW/h over the last
+   twelve months, 9 % of the arbitrage opportunity — while **aFRR, with twice the demand, has not
+   saturated at all**. The arc's "mFRR saturates last because demand is deep" has the mechanism
+   wrong: non-battery supply depth sets the floor, not demand depth. A 12.5-min FAT is met by gas
+   peakers, hydro, CHP and industrial load; an aFRR ramp is not.
+2. **German FCR has not decayed — it has roughly doubled.** First segment 7.60 EUR/MW/h, current
+   16.35, last twelve months 16.09 ≈ **EUR 2 700/MW/week**, the order of the figure the arc cites as
+   the *2015 scarcity* level and ~20× what it cites as saturation. Verified twice: the per-period
+   unit reading was confirmed against FCR's own 2020-07-01 product-length change, and the 2021-10
+   monthly mean was recomputed by hand from committed rows.
+
+#### And the sequencing correction: the Baltic platform accessions already happened
+
+Primary-sourced from ENTSO-E and fetched at pin time: **MARI — Elering, AST, Litgrid 2024-10-10**;
+**PICASSO — Litgrid 2025-03-05, Elering 2025-04-11, AST (Latvia) 2025-04-11**. The arc treats these
+as future breaks to model. KKME's current measured Baltic reserve prices, including 36.C's restored
+299 days, are already post-accession for LT and EE — applying a future PICASSO compression on top
+would double-count. Method note: read through a summariser, the PICASSO line rendered "AST" as
+"Austria"; AST is Latvia's TSO and Austria acceded 2022-06-22. The calendar is built from raw HTML,
+stores the matched evidence line beside each date, and a test asserts the two are not conflated.
+
+#### The floor hypothesis survives, with a measured range
+
+Floors sit at **0.09 to 1.80 times** the contemporaneous arbitrage opportunity — Sweden's hydro-set
+FCR-N at 1.80, Germany's FCR at 0.58, GB's co-optimised DC at 0.19, German mFRR at 0.09. That is a
+nine-fold spread in one statistic, set by market design and by who the marginal provider is. E1-E5
+get a calibration range instead of an assumption. Fastest measured lifecycle: **GB Dynamic
+Containment, 24.5× peak-to-floor in 3.1 years from launch** — the reproduction target the arc asks
+for, with its launch month in the data.
+
+#### Units and zeros — where the defects were
+
+aFRR/mFRR capacity was relabelled `EUR/MW` → `(EUR/MW)/h` **between 2021-12-06 and 2021-12-07**
+with no market change (a silent 4×; date derived from the committed data, not asserted). FCR is per
+product period throughout, so its daily-product era reads 24× its own later era unnormalised.
+Absence-as-zero appeared in three sources and three distinct shapes: SvK whole-row zeros before
+coverage (5 137 rows), one product column of zeros before its market opened (FCR-D down, 8 760), and
+**one missing hour published as zeros mid-series**; GB rows with zero cleared volume also publish a
+zero price; Elexon's N2EXMIDP publishes 0.00/0.000. All nulled with reasons.
+
+Also rejected during the build: `bid-results` caps at 100 rows per page with no flag, so aggregating
+over it covers one product block of twelve — the aggregated export is used instead, which is
+country-resolved and carries its own unit labels.
+
+#### Gates
+
+1 672 tests (+46) · tsc 29 = main's baseline, measured in a clean worktree (C6) · lints clean ·
+`git diff main -- workers/ app/` empty · summary table has no `fetch()` in its chain and rebuilds
+offline · every file's sha256 and row count asserted against its manifest · calendar 5/5 sources OK
+with evidence lines, 0 orphan events. **46 tests added, none deleted, no assertion weakened**: one
+red test was fixed by *sharpening* the source rule after establishing that (price 0, volume 0) never
+co-occurs with real data anywhere in the Swedish dataset.
+
+#### Open for the operator
+
+Approval on the table and quality verdicts before E1. Decisions needed on: E1's skeleton (§3.2
+kills decay-to-floor), E3's premise (§3.1), E2's break design (§3.3), a source for **settled** German
+activation prices (the RAM export is the *offered* merit-order list, bounded by the 15 000 EUR/MWh
+technical limit, and is excluded from all lifecycle statistics), the Fingrid key, and whether 72 MB
+of committed data is acceptable (AU's 24 MB is the only reducible item).
 
 ### Session 94 — 2026-07-29 — Phase 36.D: Litgrid demand calibration — **SHIPPED & DEPLOYED** (Claude Code, semi-autonomous, 2 checkpoints)
 
