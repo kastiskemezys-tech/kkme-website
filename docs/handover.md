@@ -272,13 +272,25 @@ with evidence lines, 0 orphan events. **46 tests added, none deleted, no asserti
 red test was fixed by *sharpening* the source rule after establishing that (price 0, volume 0) never
 co-occurs with real data anywhere in the Swedish dataset.
 
-#### Open for the operator
+#### CHECKPOINT OUTCOME — approved 2026-07-30
 
-Approval on the table and quality verdicts before E1. Decisions needed on: E1's skeleton (§3.2
-kills decay-to-floor), E3's premise (§3.1), E2's break design (§3.3), a source for **settled** German
-activation prices (the RAM export is the *offered* merit-order list, bounded by the 15 000 EUR/MWh
-technical limit, and is excluded from all lifecycle statistics), the Fingrid key, and whether 72 MB
-of committed data is acceptable (AU's 24 MB is the only reducible item).
+**Evidence base approved as-is** as the E1-E6 calibration basis; E0 closes. Rulings: E1 rewrites its
+skeleton to admit a rising FCR price; E3 drops the "mFRR saturates last" premise and argues Baltic
+ordering from Baltic supply composition; E2 treats the Baltic accessions as partly inside the
+observation window and must not stack a future compression on already-post-accession prices.
+**Settled German activation prices** → investigate `netztransparenz.de` before E2 (filed B-036, half
+a day, **E2 is gated on it**). **Fingrid key not taken** — the non-battery-floor finding rests on
+Sweden alone, n=1, and E1 must say so when it cites the 1.80 ratio. **AU kept at native 5-minute
+resolution**; committed data stays 72 MB, nothing reduced.
+
+**Filed:** B-036 (P2) no settled German activation prices, blocks E2 · B-037 (P3) Fingrid key
+unregistered · B-038 (P3) ENTSO-E `A15/B95/A01` **does** serve LT procured balancing capacity, which
+corrects 36.C's "this surface serves nobody" reason and answers
+`phase-36-e-entsoe-new-api-prompt.md` on its own criteria — belongs to 36.C's arc, not scoped here ·
+B-039 (P3) no installed-storage-MW series, so E4 cannot fit a per-GW compression coefficient ·
+B-040 (P3) E5 has no evidence base at all.
+
+**Next CC job: B-036** (netztransparenz.de scoping), then E1.
 
 ### Session 94 — 2026-07-29 — Phase 36.D: Litgrid demand calibration — **SHIPPED & DEPLOYED** (Claude Code, semi-autonomous, 2 checkpoints)
 

@@ -244,13 +244,55 @@ No deploys. No worker or app changes. Nothing was pushed to `origin`.
 
 ---
 
+## 9b. CHECKPOINT OUTCOME — operator decisions, 2026-07-30
+
+**Evidence base APPROVED as-is** as the calibration basis for 36.E1-E6. E0 closes.
+
+| Decision | Ruling | What it binds |
+|---|---|---|
+| Approval | **Approve as-is.** Four markets, 1.43 M rows, the summary table and the comparability note stand as the E1-E6 basis. | E1 proceeds with a rewritten skeleton per §3.2 (must be able to produce a *rising* FCR price). E3 drops the "mFRR saturates last" premise per §3.1 and argues Baltic ordering from Baltic supply composition. E2 treats the Baltic PICASSO/MARI breaks as partly inside the observation window per §3.3, and must not apply a future compression on top of already-post-accession measured prices. |
+| Settled activation prices (§5 item 7) | **Investigate netztransparenz.de** before E2. | A half-day scoping phase, filed below as **B-036**. `netztransparenz.de` is the German TSOs' settlement portal, publishes activated-reserve data, and has an API portal (`api-portal.netztransparenz.de`) requiring free registration. ENTSO-E A84 remains the fallback: verified serving AT and FI, empty for DE. Until it resolves, E2/E3 have **no settled German activation price** and must not read the RAM offer-curve export as one. |
+| Fingrid key (§7a) | **Not taken now** — approval was not made contingent on it. | FI FCR-N/FCR-D stays absent. The non-battery-marginal-provider floor finding rests on **Sweden alone (n=1)**. E1 must state that n when it cites the 1.80 ratio. Still a ~30-minute addition whenever the key exists. |
+| 72 MB footprint (§7b) | **Keep AU at native 5-minute resolution.** | 5-minute settlement is the mechanism E4 models and the 2021-10-01 resolution change is a break E4 must handle explicitly. Total committed data stays at 72 MB; no dataset is reduced. |
+
+### Filed as follow-ups
+
+- **B-036 (P2) — no settled German reserve activation prices.** Blocks E2/E3's activation leg from
+  being measured rather than assumed. Route decided: scope `netztransparenz.de` (API portal,
+  registration required) with ENTSO-E `A84` + `processType=A16` as fallback — verified serving AT
+  and FI, empty for DE, NL and LT. Half-day investigation, needed **before E2 starts**.
+- **B-037 (P3) — Fingrid API key unregistered.** Would add a second hydro-floor observation to
+  Sweden's and take the §2 floor-range finding from n=1 to n=2 for the non-battery case. One
+  script once `FINGRID_API_KEY` exists in `.env.local`.
+- **B-038 (P3) — ENTSO-E `A15/B95/A01` serves Lithuanian procured balancing capacity.** Corrects
+  36.C's stated reason for having no ENTSO-E leg ("this API surface serves nobody"): the working
+  parameter shape is recorded in the Pause-A audit §3, with NL/BE/AT/CZ/FI passing as controls in
+  the same run. Answers `docs/phases/phase-36-e-entsoe-new-api-prompt.md` on its own verdict
+  criteria. Belongs to 36.C's arc, not E0's; deliberately not scoped here.
+- **B-039 (P3) — no installed-storage-MW series per market.** E4 cannot fit a per-GW spread
+  compression coefficient without it, and must not fit one against the four spread columns in the
+  comparability note alone.
+- **B-040 (P3) — E5 has no evidence base.** No intraday dataset was acquired. Either scope an
+  acquisition into E5 or reduce E5 to "keep the measured 0.0885 uplift and state the absence".
+
 ## 10. Next operator action
 
-1. **Review §2 (the table) and §4 (quality verdicts) — this is the approval gate.**
-2. **Decide §5 items 1, 2, 3** — they change what E1, E2 and E3 build. Item 7 (settled activation
-   prices) needs a source decision before E2 starts.
-3. Decide §7(a) Fingrid key and §7(b) the 72 MB footprint.
-4. Open the PR: `https://github.com/kastiskemezys-tech/kkme-website/compare/main...phase-36-e0-evidence-base`
-5. Roadmap delta (operator applies Cowork-side, rule #5 — CC does not commit roadmap edits):
-   mark 36.E0 shipped; amend the arc doc's §36.E1 and §36.E3 premises per §3; re-date the Baltic
-   PICASSO/MARI entries in the arc's structural calendar from "TBD-verify" to the pinned dates.
+The approval gate (§9b) is closed. Remaining:
+
+1. **Open the PR:** `https://github.com/kastiskemezys-tech/kkme-website/compare/main...phase-36-e0-evidence-base`
+2. **Roadmap delta** — operator applies Cowork-side, rule #5, CC does not commit roadmap edits:
+   - mark **36.E0 shipped**;
+   - amend arc §36.E1: drop the "canonical collapse / price → floor fast, permanently" premise;
+     German FCR rose from 7.60 to 16.09 EUR/MW/h over the served window (§3.2). E1's skeleton needs
+     a supply-tightness term, not a two-regime decay;
+   - amend arc §36.E3: drop "mFRR saturates last because demand is deep" (§3.1). Keep the
+     mechanism — the deepest marginal provider sets the floor — and note it is usually not a battery
+     for mFRR;
+   - re-date the arc's Baltic structural calendar from "TBD-verify" to the pinned dates:
+     **MARI 2024-10-10** (Elering, AST, Litgrid), **PICASSO Litgrid 2025-03-05**,
+     **Elering and AST 2025-04-11**, and mark them **past, partly inside the observation window**;
+   - amend arc §36.E0's dataset list: regelleistung serves 2018-07-12 onward, not 2011; Fingrid is
+     key-gated; AU contributes E4 spread evidence only, not an FCAS lifecycle;
+   - record that E2 is **gated on B-036** (a source for settled German activation prices).
+3. **Next CC job: B-036** — scope `netztransparenz.de` for settled aFRR/mFRR activation prices,
+   per the §9b ruling. Half a day. Then E1.
