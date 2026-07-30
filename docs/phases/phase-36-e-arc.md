@@ -20,7 +20,7 @@ Phase 4 EQUILIBRIUM   price oscillates at floor; revenue migrates to the next-sc
 
 The floor is not zero: it is the opportunity cost of the marginal battery's next-best use (energy arbitrage net of degradation) plus its activation-energy risk. Mature markets let us MEASURE the decay shape and the floor level; the Baltics let us know WHERE ON THE CURVE each service sits (mostly Phase 1-2, post-sync — which is why revenues are high and why every forecast dispute is really a dispute about decay speed). Our current CPI floor 0.30 is a crude encoding of this; the arc replaces it with per-service floors derived from opportunity cost, which the engine can compute internally — making the floor endogenous and self-consistent instead of assumed.
 
-**The Baltic structural calendar** (verify all dates at 36.E0 — hypotheses): CE synchronisation Feb 2025 (done — created the scarcity phase we're living in) · Baltic FCR market creation post-sync · coordinated Baltic aFRR/mFRR capacity auctions · **PICASSO accession** (aFRR energy platform — EU-mandated, Baltic timeline TBD-verify) · **MARI accession** (mFRR energy platform — same) · 15-min MTU across markets (Oct 2025, done) · possible future: DA/ID coupling deepening, offshore build-out shifting balancing needs. Each accession event is a STRUCTURAL BREAK the forecast must model explicitly — platform coupling typically collapses local scarcity pricing toward pan-EU merit order.
+**The Baltic structural calendar** (PINNED at 36.E0 from primary sources — supersedes the TBD-verify draft): CE synchronisation Feb 2025 · **MARI accession 2024-10-10 (Elering, AST, Litgrid — all three)** · **PICASSO accession: Litgrid 2025-03-05, Elering + AST 2025-04-11** · 15-min MTU Oct 2025. **All accessions are PAST and partly inside the observation window** — E2/E3 must NOT stack future platform-compression on prices that are already post-accession; the break analysis is backward-looking calibration, not forward-looking scenario. Remaining future structure: DA/ID coupling deepening, offshore build-out shifting balancing needs.
 
 ---
 
@@ -28,9 +28,10 @@ The floor is not zero: it is the opportunity cost of the marginal battery's next
 
 | Phase | Service | Est. |
 |---|---|---|
-| 36.E0 | Mature-market evidence base + Baltic structural calendar | 2-3 d |
-| 36.E1 | FCR model | 1 d |
-| 36.E2 | aFRR model (capacity + activation, PICASSO break) | 2 d |
+| ~~36.E0~~ | ~~Evidence base~~ SHIPPED 2026-07-30 — corrections applied throughout this doc. Actual coverage: regelleistung 2018-07+ (not 2011); Fingrid key-gated (B-037); AU = E4 spread evidence only | done |
+| **B-036** | **GATES E2/E3:** scope netztransparenz.de for settled DE aFRR/mFRR activation prices (ENTSO-E A84+A16 fallback: serves AT/FI, empty DE). Until resolved, E2/E3 have NO measured activation price — the RAM offer-curve export is NOT one | 0.5 d |
+| 36.E1 | FCR model (E0-amended skeleton: supply-tightness term) | 1 d |
+| 36.E2 | aFRR model (capacity + activation; accessions PAST — backward-calibrated breaks) | 2 d |
 | 36.E3 | mFRR model (capacity + activation, MARI break) | 1.5 d |
 | 36.E4 | DA arbitrage — spread-equilibrium model | 2 d |
 | 36.E5 | Intraday model | 1 d |
@@ -60,8 +61,8 @@ Acquire, commit, and normalise the public datasets that let every subsequent pha
 
 **Mechanics:** symmetric primary reserve, capacity-only payment (activation energy negligible — it's a frequency-proportional response, seconds-scale, ±). Baltic market is NEW post-sync; demand tiny and published (Litgrid: 14→25 MW; Baltic coordinated total TBD-verify). Procured via coordinated auctions (verify design: daily? 4h blocks like DE?).
 **Revenue equation:** `R_fcr = MW_committed × hours × clearing_price × acceptance` — already structurally right in the engine; what's wrong is price formation (calibrated constant €0.36/MW/h with the €63 anomaly unresolved — 33.B.2's watch data feeds this phase).
-**Mature-market evidence:** DE FCR 2015-2020 = the canonical collapse (batteries + auction reform + FCR-cooperation coupling); Nordic FCR-N floors set by hydro opportunity cost — shows floors are provider-technology-specific. Expected Baltic pattern: demand SO small (25 MW vs GW-scale fleet) that saturation is effectively instant once auctions normalise post-sync scarcity; price → floor fast, permanently.
-**Forecast model:** two-regime — current scarcity clearing (measured, 33.B.2 watch) decaying to endogenous floor = engine-computed arbitrage opportunity cost of the marginal MW (+small symmetric-availability premium), with decay half-life calibrated from DE/Nordic analogues scaled by demand-to-fleet ratio. FCR stays a rounding error in revenue (≤1 %) — the model's job is to be RIGHT about that, resisting any temptation to inflate it.
+**Mature-market evidence (E0-corrected):** the "canonical collapse" premise is DEAD — German FCR ROSE 7.60 → 16.09 €/MW/h over the served window (2018-07+); FCR price is set by supply-tightness dynamics (fleet growth vs demand growth vs cross-market opportunity cost), not a one-way decay. Swedish FCR floors set by hydro opportunity cost — provider-technology-specific floors confirmed, but **n=1** (Fingrid key declined, B-037) — every hydro-floor citation states it. Expected Baltic pattern: still floor-dominated LONG-RUN because demand is tiny (25 MW), but the path there needs the tightness term.
+**Forecast model (E0-amended skeleton):** clearing price = max(endogenous floor, tightness-driven scarcity term) where the tightness term is calibrated on the DE series INCLUDING its rise — not a decay half-life. Floor = engine-computed arbitrage opportunity cost of the marginal MW (+symmetric-availability premium). FCR stays a rounding error in revenue (≤1 %) — the model's job is to be RIGHT about that, resisting any temptation to inflate it.
 **Validation:** reproduce DE's FCR trajectory when fed DE inputs (fleet, demand, floor) within tolerance.
 
 ## 36.E2 — aFRR (capacity + activation) — the money phase
@@ -75,7 +76,7 @@ Acquire, commit, and normalise the public datasets that let every subsequent pha
 ## 36.E3 — mFRR (capacity + activation)
 
 **Mechanics:** manual tertiary reserve, 12.5-min FAT, largest Baltic procurement today (604 MW live). Coordinated Baltic capacity auctions; energy via local merit → **MARI accession** (same break-logic as PICASSO).
-**Revenue equations:** as aFRR structurally; acceptance rates higher (0.85 live) because demand is deep relative to current fleet — which is precisely why it saturates LAST and why our model shows revenue migrating from FCR→aFRR→mFRR over the trajectory. The per-service arc makes that migration explicit and defensible instead of emergent-from-a-shared-curve.
+**Revenue equations:** as aFRR structurally; acceptance rates higher (0.85 live) because demand is deep relative to current fleet. **E0 amendment: "saturates last because demand is deep" is DROPPED as a premise** — the retained mechanism is that the DEEPEST MARGINAL PROVIDER sets the floor, and for mFRR that provider is usually NOT a battery (thermal/hydro/DSR opportunity costs differ). Baltic product ordering is argued from Baltic supply composition (what actually bids each product), not from demand depth. Revenue migration across products remains a model OUTPUT to validate, not an input assumption.
 **Mature-market evidence:** DE mFRR (deep, slow-decay — the pattern for demand-heavy products); GB STOR/BM migration as the "where revenue goes after saturation" case.
 **Forecast model:** same skeleton as aFRR with mFRR parameters + MARI break; demand from 36.D (mFRR component, including whatever GAGAP/IZDR absorption treatment 36.D decided — those interact with mFRR supply directly).
 **Validation:** DE reproduction + Baltic backcast.
