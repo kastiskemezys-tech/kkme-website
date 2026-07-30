@@ -1,7 +1,7 @@
 # Phase 36.E0 — CHECKPOINT report
 
-**Session 95 · 2026-07-30 · branch `phase-36-e0-evidence-base` off `1275769` · commit `300938b`**
-**Operator approval required on the summary table and the dataset quality verdicts before E1 begins.**
+**Session 95 · 2026-07-30 · branch `phase-36-e0-evidence-base` off `1275769` · 3 commits, `300938b`..`b68bb26`**
+**Status: APPROVED as-is, 2026-07-30. E0 closes. See §9b for the rulings and what they bind.**
 
 Artifacts:
 
