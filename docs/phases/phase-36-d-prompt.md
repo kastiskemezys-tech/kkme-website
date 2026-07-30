@@ -36,6 +36,7 @@ The assessment quoted: *"The additional flexibility need remains at approximatel
 - **#4:** ONE canonical demand-forecast module. `eff_demand`, the register, the methodology doc, the reconciliation checks — all read from it. The 935 dies; the 935-vs-752 discrepancy gets resolved or explicitly documented in the same pass.
 - **#2 (no hardcoded temporal labels):** interpolation/extrapolation computed from the published year-index, never hand-spread across years.
 - **Rule-#5:** roadmap/arc docs untouched.
+- **Failure-modes playbook:** read `docs/playbooks/failure-modes.md` before Pause A. At CP-1, explicitly answer the four questions: (a) which premises in this prompt are HYPOTHESIS vs verified — including every number in the transcribed table, (b) what consumes what this phase changes (eff_demand's full consumer graph, by grep), (c) what fails silently in what this phase touches and how would we know, (d) at which layer and at what time will success be verified. Note this prompt already carries known A5 (screenshot source) and A9 (static-935 archaeology) instances — they are the phase's subject matter.
 
 ---
 

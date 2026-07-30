@@ -1,0 +1,57 @@
+# Failure-modes playbook — where Cowork prompts and CC execution go wrong, and the countermeasure per class
+
+**Status:** LOAD-BEARING. Every future phase prompt references this file; CC reads it before Pause A of every phase. Compiled 2026-07-29 from 26+ documented prompt-premise corrections, ~15 CC-side defects, and 6 process incidents across Phases 32-36, cross-checked against current agentic-LLM failure research (reward hacking / verifier gaming / confabulation literature).
+
+The one-sentence version: **prompts fail by asserting instead of hypothesising; execution fails by reporting instead of evidencing; process fails by verifying at the wrong layer or the wrong time.** Every rule below exists because it was paid for.
+
+---
+
+## Class A — Cowork prompt failures (the premise problem)
+
+| # | Failure mode | Paid-for example | Countermeasure (mandatory in every prompt) |
+|---|---|---|---|
+| A1 | **Output-shape ≠ code-shape.** Inferring internals from rendered output | 34.1: "engine hardcodes 16400000" — literals never existed; engine took params since v6 | Premises about code carry a `grep-verified:` tag or are marked HYPOTHESIS. No exceptions |
+| A2 | **Backsolved diagnosis.** Fix shape imagined first, diagnosis retrofitted to justify it | 33: clampSdRatio — clean-sounding fix, wrong lever entirely (cpiCurve already floored) | Prompts name the SYMPTOM and the evidence; proposing a fix shape requires labelling it "one candidate — Pause A decides". Let the bug be ugly |
+| A3 | **Stale-snapshot state.** Asserting live-world state from memory/last-read | BTD "down" (recovered 11 days earlier) · "token never obtained" (existed) · "12 days at risk" (299 available) · line numbers, file sizes | Any externally-verifiable claim is re-checked AT EXECUTION TIME, never trusted from the prompt. Prompts date-stamp their observations |
+| A4 | **Wrong mechanism model.** Formula/architecture asserted from plausibility | 33.A.2: sd_ratio = pipeline/operational (real: weighted/eff_demand) — would have blocked a safe deploy on a false fear | Mechanism claims cite file:line or are HYPOTHESIS. Predictions of movement direction/size derived from asserted mechanisms are decision-inputs only after verification |
+| A5 | **Secondary-source trust — including the operator.** Citations relayed through anyone are attribution risk | Hertz 2 "operational" per operator's cited sources (combined-platform figure misread) · Litgrid LinkedIn 973 MW vs document 4.36-7.13 GW | Rule #3 extended: operator-cited and screenshot-sourced figures are hypotheses. Primary document fetched, figure located IN it, before adoption |
+| A6 | **Interaction blindness.** "This change is scoped to X" without asking what X touches | 33.A: "allowlist doesn't touch revenue" (pipeline_mw → sd_ratio → IRR moved) · 36.C S2 refresh moved IRR unattributed | Every prompt carries the question: "what consumes what this changes?" — answered by grep, and a pre-change baseline captured for anything that might move |
+| A7 | **Incomplete enumeration.** "The two writers of key K" when there are three | 36.C: third da_tomorrow writer was the only live one — fixing two would ship green and change nothing | The ALL-N rule: claims of the form "the N sites/writers/readers" require the search command + match count in the report. CC re-runs the count |
+| A8 | **Unfounded quantitative expectation.** Predicted magnitudes stated as anchors | "expect ≈ −40 %" (measured −8.5 %, twin compensating error) — an executor optimising toward the anchor would have been wrong | Numeric predictions are labelled GUESS or omitted. Measurement replaces expectation; surprise triggers investigation, not adjustment-toward-anchor |
+| A9 | **Cross-batch staleness.** Arc docs quoting earlier-batch figures that later work revises | "84.0 % simultaneity" (single-year; range 75-86) · "converges in 2 passes" (three) · "70 %/14 %" time-model drift | Figures quoted from prior work are marked `as-of <batch>`; anything load-bearing is re-derived in the consuming phase |
+| A10 | **Instruction collateral.** Operator-block commands with unexamined side effects | logs/ removal killed the cron redirect · missing pre-flight → 3 orphan commits · deploy-before-pull → 2 stale deploys | Command blocks follow the canonical templates (pre-flight ALWAYS; deploy only after push-verified + state-clean). Destructive ops (rm, rm --cached, reset) require a consumers-check first (grep crontabs/scripts for the path) |
+
+## Class B — CC execution failures (the evidence problem)
+
+| # | Failure mode | Paid-for example | Countermeasure |
+|---|---|---|---|
+| B1 | **Confabulated success.** Reporting completion without machine evidence; plausible SHAs invented under completion pressure | Session 74: "pushed cf3ff5a" — commit never existed anywhere; prod went ahead of git | No success claim without the verifying command's OUTPUT in the transcript (origin-SHA compare pasted, not narrated). Operator never merges on narrative |
+| B2 | **Green-but-broken.** Gates pass while the user-visible thing is broken — the gate measured the wrong layer | ChunkLoadError (18.1.1) · horizontal scroll (35.2) · route break under 54/54 engine-level green (36.B) | Verify at the OUTERMOST layer users touch: route-level probes, build+serve+click-through for UI, live-curl after deploy. "Tests green" is necessary, never sufficient |
+| B3 | **Wrong-time verification.** Checking too early/late for the system's refresh cycle | /revenue checked pre-cron-tick after deploy — false "deploy failed" alarm | Every verification states WHEN it is valid (post-cron-tick, post-CF-Pages-build). Banked: /revenue-class values flip at the hourly tick |
+| B4 | **Self-made defects in new code.** The executor's own bugs (unit errors, window errors, misattribution) | B1's three (activation 4.6×, window 4×, charging misattribution) — all caught by the phase's own gates | Gates are designed BEFORE build (energy balance, constraint properties, golden-day fixtures). A phase without independently-derivable checks on its own output is not shippable |
+| B5 | **Shared-wrongness in mirror tests.** A-vs-B tests catch divergence, not common error | Dispatch-card vs hourly-engine mirror is blind to errors both share | Mirror tests are paired with INDEPENDENT fixtures: hand-computed golden cases, external benchmarks, physical invariants (energy balance) |
+| B6 | **Test-forcing without understanding.** Making red tests green by re-fitting the assertion rather than understanding why it fired | Naive register write turned 4 governance tests red (CC stopped and escalated — correct); the failure mode is NOT stopping | Red test → first explain WHY it fired, in DECISIONS.md, before any fix. Relaxing an invariant requires operator sign-off; sharpening is preferred (36.B batch-3 precedent) |
+| B7 | **Verifier gaming / reward hacking** (the literature's core warning): editing tests, deleting assertions, satisfying the letter of a gate against its intent | Not yet observed here — the risk grows with autonomy | Gates live in separate commits from implementation where feasible; any test DELETION or assertion-weakening is called out in the handover explicitly; byte-identity baselines captured from main, not from the working branch |
+| B8 | **Silent-failure blindness.** Systems designed to skip quietly, then nobody notices for days | CF 526 "skipping — by design" · 17 failed cron runs unalerted · cron redirect dying before the command | Mandatory Pause-A question: "what fails silently in what I touch, and how would we KNOW?" Every silent-skip path gets a staleness surface or an alert (cert tripwire precedent) |
+
+## Class C — Process failures (the state problem)
+
+| # | Failure mode | Paid-for example | Countermeasure |
+|---|---|---|---|
+| C1 | Git-state drift: orphan commits, diverged main, tracked-generated-files blocking rebase | 3 orphans · logs/btd.log rebase block · diverged-main stale deploys | Canonical pre-flight in EVERY operator block; `git status` clean + `origin/main..main` empty before ANY deploy; generated files never tracked |
+| C2 | Deploy ≠ code: deploy reads working tree, ships whatever is there | Two stale deploys in one evening | Deploy only from verified-synced main (or the exact branch intentionally); bundle-size sanity vs previous deploy |
+| C3 | Baseline not captured before intended movement | 36.C IRR delta unattributed (two same-day causes) | Any phase that intentionally moves numbers captures the pre-state FIRST, in the same session, as its own artifact. Run registry makes this cheap |
+| C4 | Long-session context decay: later work misquoting earlier | arc figures drifting across batches | Numbers cross batches only via committed artifacts (JSON, DECISIONS.md), never via conversational memory |
+| C5 | Wall-clock assumptions on laptops: `sleep N` loops treated as elapsed time; machine suspends, iteration counts lie | 36.D poll reported "7 min" for a ~3.3 h window (suspend between iterations) | Elapsed-time claims come from authoritative timestamps (worker's own `checked_at`/`updated_at`), never from iteration counting. Verification scripts compare stamps, not loop counters |
+| C6 | Working-state baselines from `git stash` round-trips | 36.D: stash-based baseline produced a sign-wrong +12.9 % client delta | Baselines captured from a CLEAN WORKTREE of the reference commit (separate checkout/worktree), never via stash gymnastics on the working branch |
+| C7 | URLs/resources pinned without ever being fetched | 36.D: two tripwire URLs armed unfetched | Anything pinned as a watch-target is fetched once at pin time; the fetch result is the pin's birth certificate |
+
+---
+
+## The standing enforcement (how "every stage" actually happens)
+
+1. **Every phase prompt** ends its discipline section with: *"Read `docs/playbooks/failure-modes.md`. At Pause A, explicitly answer: (a) which premises here are HYPOTHESIS vs verified, (b) what consumes what this phase changes, (c) what fails silently in what this phase touches, (d) at which layer and time will success be verified."* — four questions, one paragraph of answers, every phase.
+2. **Every CC handover** carries the evidence-not-narrative rule: SHA-compare output pasted, gate outputs pasted, any test deleted/weakened called out, any figure quoted from earlier work marked as quoted.
+3. **Every operator command block** uses the canonical templates (pre-flight / deploy-after-verify) — no ad-hoc git sequences.
+4. **Cowork self-check before sending any prompt:** scan it for A1-A10 — every factual claim tagged verified/hypothesis, every "the N things" carrying its count evidence, every predicted number labelled GUESS, every destructive command consumer-checked.
+5. **This file is versioned like the register:** new paid-for failure → new row, same session it's paid for.

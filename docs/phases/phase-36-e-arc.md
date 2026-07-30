@@ -108,6 +108,7 @@ Acquire, commit, and normalise the public datasets that let every subsequent pha
 ---
 
 ## Standing rules (whole arc)
+- **`docs/playbooks/failure-modes.md` is load-bearing for every batch prompt in this arc** — each prompt embeds the four Pause-A questions (hypothesis-vs-verified / consumer graph / silent failures / verification layer+time); CC answers them before building. Particular exposure in this arc: A5 (mature-market datasets arrive via secondary summaries — calibrate only on the primary data files), A8 (decay half-lives and floors must be MEASURED from the datasets, never anchored on this doc's illustrative figures), B5 (reproduction tests vs mature markets are mirror-class — pair with physical-invariant checks).
 - Every mature-market claim above is a hypothesis (25+ corrections say so) — 36.E0 verifies against the actual datasets before any phase calibrates on them.
 - Rule #3 for the structural calendar: accession dates from primary sources (ACER/ENTSO-E/TSO), never news articles.
 - Rule #4: endogenous floors computed from the engine's OWN opportunity-cost machinery — one implementation, referenced per service.

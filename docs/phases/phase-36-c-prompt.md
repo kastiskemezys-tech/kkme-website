@@ -13,7 +13,7 @@ Goal: **BTD demoted from sole source to one-of-N.** Litgrid + Elering publish ba
 ## Pause A — Source audit (~half day) → CHECKPOINT
 
 1. **BTD status re-check** — host, DNS history, any announcement of migration/decommission (Baltic TSO comms, LinkedIn, ENTSO-E news). If it returned: the phase becomes "add redundancy" not "replace"; scope shrinks.
-2. **Litgrid direct:** locate balancing-capacity auction/procurement result publications (litgrid.eu — market data section, the BTD-predecessor pages Phase 33 encountered as "moved to BTD", any API/XLSX/CSV endpoints). Assess: products covered (FCR/aFRR/mFRR, cap + activation), granularity, history depth, format, update cadence, scrapability.
+2. **Litgrid direct:** locate balancing-capacity auction/procurement result publications (litgrid.eu — market data section, the BTD-predecessor pages Phase 33 encountered as "moved to BTD", any API/XLSX/CSV endpoints). Assess: products covered (FCR/aFRR/mFRR, cap + activation), granularity, history depth, format, update cadence, scrapability. **While there: log the URL of Litgrid's flexibility-need assessment / ten-year plan (the "973 MW by 2028 / 3.12 GW BESS" forecast document) — Phase 36.D consumes it; don't audit it here, just pin the primary source.**
 3. **Elering direct:** same audit (elering.ee dashboard has an API — check balancing datasets; Estonia publishes reserve procurement).
 4. **AST:** same (thinner expectation, per 33.A.2.b findings).
 5. **ENTSO-E balancing library re-check:** B1's audit said "not available" for LT balancing — verify per-product per-country precisely (A81/A82/A83 document types; post-sync data may be arriving with lag as TSOs onboard).
