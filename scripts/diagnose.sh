@@ -54,4 +54,16 @@ FSTATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$FRONTEND" 2>/de
 echo "  $FRONTEND: HTTP $FSTATUS"
 echo ""
 
+# ── Evidence-base freshness (36.E0.1) ──
+# The mature-market evidence base grounds every 36.E per-service forecast. A refresh that
+# silently stops working leaves it rotting with nothing looking wrong, so the staleness surface
+# is read here rather than only inside the workflow that could be the thing that broke.
+echo "--- Evidence-base freshness ---"
+if [ -f tools/consultancy/mature-markets/check-freshness.mjs ]; then
+  node tools/consultancy/mature-markets/check-freshness.mjs 2>&1 | sed 's/^/  /'
+else
+  echo "  check-freshness.mjs not present in this checkout"
+fi
+echo ""
+
 echo "=== Done ==="

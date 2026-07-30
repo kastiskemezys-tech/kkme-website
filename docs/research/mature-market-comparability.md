@@ -212,18 +212,131 @@ Stated plainly so E1-E5 do not reach for an analogue that is not there.
 3. **A scarcity phase measured in primary data at all.** Germany's and Sweden's public series both
    begin after their own scarcity phases. Only GB has its launch in the data, and only for DC.
 4. **The compression coefficient per GW of storage.** See §4 — requires fleet data not acquired here.
-5. **Settled activation prices for Germany.** The German RAM energy exports summarise the *offered*
-   merit-order list, bounded by a 15 000 EUR/MWh technical limit, not the price at which energy was
-   activated. They are retained as supply-curve evidence and given no lifecycle statistics.
+5. **The effect of platform accession on activation prices, from Germany's own data.**
+   *Amended by B-036 (2026-07-30), which found a settled German activation-price source — see §6.
+   The original entry here read "settled activation prices for Germany" and is now too strong.*
+   Settled German aFRR/mFRR activation prices **are** held, from 2022-06-21 onward. What is still
+   absent is any German activation price from *before* Germany joined PICASSO: the series begins on
+   the accession date itself, so Germany cannot measure its own accession break on activation
+   prices. **And Austria does not supply it either** — see §6. Under a consistent product
+   definition the only pre-accession activation sample anywhere in reach is 49 Austrian mFRR
+   quarter-hours against 5 331 after, which is a coverage boundary and not a before/after.
+   The German RAM energy exports remain what they were — statistics of the *offered* merit-order
+   list, bounded by a 15 000 EUR/MWh technical limit, not the price at which energy was activated.
+   They are still retained as supply-curve evidence and still given no lifecycle statistics. The
+   two series must not be confused: `offer_curve_mean` is the RAM export, `vwap_activated` is the
+   settled activation price.
+6. **Activated volumes anywhere.** The activation source carries price only. Activation *revenue*
+   is price × activated energy, and the energy side is not in this base. Activation *frequency* is
+   measurable here (activated quarter-hours ÷ quarter-hours in the span); activated *energy* is not.
 
 ---
 
-## 6. Quick-reference: which market to cite per phase
+## 6. Activation prices: which market is a valid analogue, and the substitution B-036 made
+
+Added by **B-036 (2026-07-30)**. Capacity and activation are different products with different
+analogue logic, so they get separate verdicts.
+
+**The source.** `netztransparenz.de` — the German TSOs' settlement platform, and B-036's scoping
+target — publishes no settled activation-price *series*. It publishes the derived settlement price
+(reBAP) and the AEP modules that build it, and its AEP-Module page states in prose that the aFRR
+and mFRR VWAPs feeding AEP Modul 1 are published on the **ENTSO-E Transparency Platform** under
+"Balancing/Prices of Activated Balancing Energy" — `documentType=A84`. So the settled number is
+reachable, and it is the same number the German TSOs settle on: 78 of 92 priced quarter-hours on
+the cross-check day equal an A84 value to the cent (details in
+`docs/investigations/2026-07-30-phase-36-b036-pause-a.md` §2.4).
+
+E0 had recorded A84 as "empty for DE". That was an **EIC-choice artefact**: Germany publishes per
+TSO *control area*, not against the DE-LU bidding zone. Three of the four German TSOs publish
+identical values and Amprion publishes nothing, so a probe landing on Amprion reproduces the same
+false negative by a different route.
+
+**The filter is load-bearing — it is what excludes absence-published-as-zero.**
+`standard_MarketProduct=A01` looks like an optional narrowing parameter and it is not. A German
+mFRR document carries four TimeSeries: two declaring the standard product, with every point
+non-zero, and two declaring no product at all, which **pad every unactivated quarter-hour of the
+day with a price of zero**. Dropping the filter to widen coverage admits roughly 190 fabricated
+"activated at 0 EUR/MWh" quarter-hours per day per product — which would drag every mean toward
+zero and report an activation frequency of 100 %. It is the Svenska kraftnät absence-as-zero trap
+in a second source, and the German TSOs' own prescription ("Type of Product: **Standard**") is what
+avoids it. The loader drops any zero-price row and counts it; under the filter that count is 0.
+
+### Germany — the activation-level analogue. **Valid for level, invalid for the accession break.**
+
+Valid for: the level and dispersion of settled aFRR activation prices in a deep,
+platform-coupled market; the share of quarter-hours that activate; the frequency of negative
+activation prices and of prices at the technical limit.
+
+**Invalid for the PICASSO break.** The German series *starts* at the accession
+(first rows 2022-06-21, first full day 2022-06-22 — the primary-sourced date already in the break
+calendar). There is no pre-accession German segment. Any statement about what accession did to
+German activation prices would be a comparison against nothing.
+
+**Thin for mFRR.** German mFRR activation is rare in this era — of the order of tens of activated
+quarter-hours per *month*, against thousands for aFRR. The series is real and it is not missing
+data; it is a market fact. No mFRR activation-revenue term should carry material weight on it.
+
+### Austria — acquired as the accession-break analogue, and it is **not one**
+
+This entry records a correction, because the wrong version was believed for part of B-036 and it
+would have produced a fabricated finding.
+
+Austria acceded PICASSO on the **same date as Germany** (2022-06-22, primary-sourced) and a first
+probe showed it serving A84 from 2021-01, which made it look like the before/after Germany cannot
+supply. That probe omitted `standard_MarketProduct=A01`. **Under the standard-product definition —
+the one Germany's series uses, and the one the German TSOs prescribe — Austrian publication
+measures as starting 2025-08-31 for aFRR and 2023-06-12 for mFRR.** The aFRR start is three years
+*after* Austria's own accession; the mFRR start is essentially *at* Austria's MARI accession
+(2023-06-27). Austria has no pre-accession segment either.
+
+Austria's apparent 2021-onward history exists only in the **undeclared-product** series, which is
+also where the zero padding lives (§6, "The filter is load-bearing"). Splicing that onto the
+standard-product series across the break would compare two product definitions and report the
+difference as an accession effect.
+
+**What Austria is good for:** a second market's activation level, dispersion and frequency under
+the same product definition and currency. That is what it is used for.
+
+### So: no market in this base can measure the accession effect on activation prices
+
+Stated plainly because E2's break design depends on it. **No market in reach carries a pre-accession
+activation sample large enough to calibrate a break on.** Germany's series starts at its accession.
+Austria's aFRR series starts three years after its own. The one sliver that exists is Austrian
+mFRR: its series begins 2023-06-13 and its MARI accession is 2023-06-27, giving **49 activated
+quarter-hours before against 5 331 after** — a 0.9 % sample, which is a coverage boundary rather
+than a before/after.
+
+E0 §5 item 5 recorded the PICASSO break magnitude for **capacity** as "n=2, not n=5". For
+**activation** prices there is no usable n at all. E2 must either take its activation-break
+magnitude from the capacity evidence and say so, or leave the activation leg unbroken and say
+that instead. It must not present an activation before/after built on 49 quarter-hours.
+
+### Finland, Netherlands, Belgium, Czechia — measured, not acquired, as decisions
+
+- **Finland** publishes A84 from 2021-01 for both aFRR and mFRR. Not acquired: its accession date is
+  not in the break calendar, so segmenting it would violate the calendar-only rule, and its series
+  shows an unexplained step (FI mFRR from ~1 420 points/month in 2024-06 to ~11 116 in 2026-06,
+  which looks like a resolution change and needs its own investigation).
+- **Netherlands and Belgium** serve data through 2024 and return nothing for 2026. Recorded as
+  measured; not investigated, not needed.
+- **Czechia** serves, with month-to-month point counts that vary by 5× and would need the same
+  resolution investigation as Finland.
+
+### The Baltics — nothing on this surface
+
+DE, LV and EE return empty on A84 with five live positive controls in the same run. Baltic settled
+activation prices are not published here.
+
+---
+
+## 7. Quick-reference: which market to cite per phase
 
 | Phase | Primary analogue | Secondary | Do not cite |
 |---|---|---|---|
 | **E1 FCR** | DE FCR (measured, and it rises — see §3b) | SE FCR-N for the non-battery floor | Any pre-2019 German FCR figure; none is in the data |
-| **E2 aFRR** | DE aFRR, incl. its own PICASSO break 2022-06-22 | AT (same accession date, ENTSO-E-served) | A wide PICASSO joiner panel; it was not acquired |
+| **E2 aFRR capacity** | DE aFRR, incl. its own PICASSO break 2022-06-22 | AT (same accession date, ENTSO-E-served) | A wide PICASSO joiner panel; it was not acquired |
+| **E2 aFRR activation** | DE settled activation, 2022-06-21 → (§6) | AT 2025-08 → as a second-market level comparator | Any accession before/after on activation prices — no usable pre-accession sample exists in this base. Any German *pre*-PICASSO activation price. The RAM offer-curve export as an activation price. AT's undeclared-product series spliced across the break |
 | **E3 mFRR** | DE mFRR — but see §3, the ordering premise fails | GB EAC reserve products for post-saturation migration | "mFRR saturates last" as an assumption |
+| **E3 mFRR activation** | DE settled activation — but see §6, tens of activated quarter-hours per month | AT mFRR 2023-06 → | Any material mFRR activation-revenue term calibrated on this thinness |
 | **E4 DA arbitrage** | AU SA1 | GB, SE3, DE for the common-shock control | A per-GW compression coefficient fitted on §4 alone |
 | **E5 Intraday** | none in this base | — | anything; no intraday dataset was acquired |

@@ -299,7 +299,7 @@ describe('fixtures: committed raw source bytes still parse', () => {
 // ── Committed-data integrity ───────────────────────────────────────────────
 
 describe('committed datasets match their manifests', () => {
-  const datasets = ['de', 'se', 'gb', 'au', 'da'];
+  const datasets = ['de', 'se', 'gb', 'au', 'da', 'activation'];
 
   for (const d of datasets) {
     it(`${d}: every file matches its manifest sha256 and row count`, async () => {
@@ -401,6 +401,370 @@ describe('structural-break calendar', () => {
     expect(at?.date).toBe('2022-06-22');
     expect(lv?.date).toBe('2025-04-11');
     expect(at?.date).not.toBe(lv?.date);
+  });
+});
+
+// ── Settled activation prices (36.B-036) ───────────────────────────────────
+
+describe('settled activation prices', () => {
+  const ACT = path.join(DATA, 'activation');
+  const have = () => exists(path.join(ACT, 'manifest.json'));
+
+  // A FIXTURE test on the raw A84 bytes, independent of the committed dataset. This is the one
+  // that catches parser drift if ENTSO-E reorders the children of <Point>: the price regex requires
+  // <position> to be followed immediately by <activation_Price.amount>, and a document shaped
+  // differently would be skipped SILENTLY and produce a short series with nothing failing.
+  it('parses the committed A84 document with no point silently dropped', async () => {
+    const p = path.join(FIX, 'entsoe-a84-de-afrr-sample.xml');
+    if (!exists(p)) return expect(exists(p)).toBe(true);
+    const { parseDoc } = await import('../mature-markets/fetch-activation-prices.mjs');
+    const xml = fs.readFileSync(p, 'utf8');
+    const out = parseDoc(xml, { market: 'DE', area: 'DE', product: 'aFRR', eic: '10YDE-VE-------2' });
+
+    // Rows may EXCEED points, because curveType A03 compresses runs of quarter-hours into one
+    // point and each point is expanded across its block. What must hold is the tiling invariant:
+    // no hole and no overlap inside any Period. A non-empty `gaps` means the publisher changed
+    // shape and the reading needs redoing.
+    expect(out.pointElements).toBeGreaterThan(100);
+    expect(out.rows.length).toBeGreaterThanOrEqual(out.pointElements);
+    expect(out.gaps).toHaveLength(0);
+    expect(out.unitsSeen).toEqual(['EUR/MWH']);
+    // This particular document is Germany's sparse-Period style, so no block is compressed and
+    // rows equal points. Asserted explicitly so a change in German publication style is visible.
+    expect(out.rows.length).toBe(out.pointElements);
+    expect(out.rows.filter((r: { extra: { block_isps?: number } }) => r.extra.block_isps)).toHaveLength(0);
+
+    // Both directions present, and sparse — this is one day, so at most 96 ISPs per direction.
+    const byDir: Record<string, number> = {};
+    for (const r of out.rows) byDir[String(r.direction)] = (byDir[String(r.direction)] ?? 0) + 1;
+    expect(byDir.up).toBeGreaterThan(0);
+    expect(byDir.down).toBeGreaterThan(0);
+    for (const n of Object.values(byDir)) expect(n).toBeLessThanOrEqual(96);
+
+    for (const r of out.rows) expect(validateRow(r)).toEqual([]);
+    // Values a reader can check by opening the file: the first activated ISP of 2026-01-05.
+    const first = out.rows.find((r: { period_start: string; direction: string }) =>
+      r.period_start === '2026-01-05T00:00:00Z' && r.direction === 'up');
+    expect(first.price).toBe(139.25);
+    expect(first.period_end).toBe('2026-01-05T00:15:00Z');
+    expect(first.price_basis).toBe('vwap_activated');
+    expect(first.price_norm).toBe(139.25);
+  });
+
+  it('importing the fetcher does not fire network requests', async () => {
+    const src = fs.readFileSync(path.join(ROOT, 'mature-markets', 'fetch-activation-prices.mjs'), 'utf8');
+    // A bare `await main()` at module scope means any import — including this test's — starts
+    // fetching. It happened during development.
+    expect(src).not.toMatch(/^await main\(\);/m);
+    expect(src).toMatch(/invokedDirectly/);
+  });
+
+  it('every row is vwap_activated in EUR/MWh at PT15M, and none is an offer-curve statistic', async () => {
+    if (!have()) return;
+    const { rows } = await loadDataset('activation');
+    expect(rows.length).toBeGreaterThan(0);
+    for (const r of rows) {
+      expect(r.price_basis).toBe('vwap_activated');
+      expect(r.mechanism).toBe('energy');
+      expect(r.price_norm_unit).toBe('EUR/MWh');
+      expect(r.resolution).toBe('PT15M');
+      expect(r.currency).toBe('EUR');
+    }
+    // The whole point of the dataset. If an offer_curve_mean row ever lands in here, the trap
+    // E0 documented has been reintroduced under a new name.
+    expect(rows.some((r) => r.price_basis === 'offer_curve_mean')).toBe(false);
+  });
+
+  it('never records an unpriced or zero-priced ISP', async () => {
+    if (!have()) return;
+    const { rows, manifest } = await loadDataset('activation');
+    // A null price would mean "we recorded an ISP we could not price", which this source never
+    // produces: it publishes a price or it publishes nothing.
+    expect(rows.filter((r) => r.price === null)).toHaveLength(0);
+    // Zero is absence in both publication styles and must never survive into the committed data —
+    // the German RAM export and the Swedish grid-of-zeros are what this rule is paid for.
+    expect(rows.filter((r) => r.price === 0)).toHaveLength(0);
+    // And the drop must be accounted for per series rather than silently, because for AT mFRR it
+    // is 214 090 dropped against 5 380 kept.
+    const summary = manifest.coverage_verification.activated_isps_by_series;
+    for (const v of Object.values(summary) as { zero_price_isps_dropped: number }[]) {
+      expect(typeof v.zero_price_isps_dropped).toBe('number');
+    }
+  });
+
+  it('is sparse per direction — a frequency parameter needs room to be below 1', async () => {
+    if (!have()) return;
+    const { rows } = await loadDataset('activation');
+    // Per DIRECTION, not per series: an earlier version of this test compared a two-direction row
+    // count against a one-direction slot count and failed for arithmetic reasons rather than data
+    // reasons.
+    for (const [market, product] of [['DE', 'aFRR'], ['DE', 'mFRR'], ['AT', 'mFRR']] as const) {
+      const sel = rows.filter((r) => r.market === market && r.product === product && r.direction === 'up')
+        .sort((a, b) => a.period_start.localeCompare(b.period_start));
+      if (sel.length < 2) continue;
+      const slots = (Date.parse(sel.at(-1)!.period_end) - Date.parse(sel[0]!.period_start)) / 60000 / 15;
+      expect(sel.length, `${market} ${product} up`).toBeLessThan(slots);
+    }
+  });
+
+  it('German rows are one NRV-wide price from a single named control area', async () => {
+    if (!have()) return;
+    const { rows, manifest } = await loadDataset('activation');
+    const de = rows.filter((r) => r.market === 'DE');
+    if (!de.length) return;
+    const eics = new Set(de.map((r) => r.extra.control_area_eic));
+    // Mixing control areas would be silently mixing publishers. Three German TSOs publish the
+    // same numbers, so any one of them is the series — but only one may be the source of record.
+    expect(eics.size).toBe(1);
+    const deEntry = manifest.markets.find((m: { market: string }) => m.market === 'DE');
+    expect(deEntry.control_area_eic).toBe([...eics][0]);
+    expect(deEntry.mirror_control_areas.length).toBeGreaterThan(0);
+    expect(deEntry.silent_control_areas.length).toBeGreaterThan(0);
+  });
+
+  it('the DE series starts at the primary-sourced PICASSO accession, and the manifest says so', async () => {
+    if (!have()) return;
+    const { rows, manifest } = await loadDataset('activation');
+    const de = rows.filter((r) => r.market === 'DE' && r.product === 'aFRR')
+      .sort((a, b) => a.period_start.localeCompare(b.period_start));
+    if (!de.length) return;
+    const calendar = await loadCalendar();
+    const picassoDe = calendar.events.find((e: { market: string; kind: string; products?: string[] }) =>
+      e.market === 'DE' && e.kind === 'platform_accession' && e.products?.includes('aFRR'));
+    expect(picassoDe.date).toBe('2022-06-22');
+    // Rule #2: this is derived from the data, not asserted from a remembered observation. The
+    // series must start on the accession date or the day before it (the go-live evening).
+    const first = de[0].period_start.slice(0, 10);
+    const dayBefore = new Date(Date.parse(picassoDe.date + 'T00:00:00Z') - 864e5).toISOString().slice(0, 10);
+    expect([picassoDe.date, dayBefore]).toContain(first);
+    // And the consequence must be recorded, because it is what stops E2 from claiming a
+    // before/after it does not have.
+    expect(manifest.coverage_verification.verdict).toMatch(/no pre-PICASSO segment/i);
+  });
+
+  it('no market carries a settled activation price from before its own accession — n=0, asserted', async () => {
+    // This test replaces one that asserted the opposite. Austria was acquired believing it spanned
+    // the PICASSO break; under standard_MarketProduct=A01 it does not, and neither does Germany.
+    // The assertion is kept as a gate so a future acquisition that DOES find pre-accession data
+    // fails here and forces the comparability note to be revisited, rather than quietly changing
+    // what E2 is entitled to claim.
+    if (!have()) return;
+    const { rows } = await loadDataset('activation');
+    const calendar = await loadCalendar();
+    const accession = (market: string, product: string) => calendar.events.find((e: { market: string; kind: string; products?: string[] }) =>
+      e.market === market && e.kind === 'platform_accession' && e.products?.includes(product))?.date;
+    for (const [market, product] of [['DE', 'aFRR'], ['AT', 'aFRR'], ['AT', 'mFRR']] as const) {
+      const date = accession(market, product);
+      if (!date) continue;
+      const sel = rows.filter((r) => r.market === market && r.product === product);
+      if (!sel.length) continue;
+      const before = sel.filter((r) => r.period_start < date).length;
+      const after = sel.length - before;
+      // Not "zero rows" — measured, AT mFRR carries 49 activated quarter-hours in the 13 days
+      // between its series start (2023-06-13) and its MARI accession (2023-06-27). The claim that
+      // matters is that no market has a pre-accession sample large enough to calibrate a break
+      // magnitude on, so the gate is a ratio with the counts in the message. If a future
+      // acquisition finds a real pre-accession segment this fires, and the comparability note has
+      // to be revisited rather than quietly outgrown.
+      expect(before / Math.max(1, after), `${market} ${product}: ${before} activated ISPs before ${date} vs ${after} after`).toBeLessThan(0.02);
+    }
+  });
+
+  it('reproduces the German TSOs\' own AEP-Modul-1 value from committed bytes, offline', async () => {
+    // B5: an independent check against a DIFFERENT publisher of the same settled number.
+    // netztransparenz.de is the German TSOs' settlement-data platform; its AEP Modul 1 follows the
+    // imbalance direction, so each ISP should match either the up or the down A84 price.
+    const csvPath = path.join(FIX, 'nt-aep-module-sample.csv');
+    if (!have() || !exists(csvPath)) return;
+    const { rows } = await loadDataset('activation');
+    const byInstant = new Map<string, number>();
+    for (const r of rows) {
+      if (r.market !== 'DE' || r.product !== 'aFRR') continue;
+      byInstant.set(`${r.direction}|${r.period_start}`, r.price as number);
+    }
+    if (!byInstant.size) return;
+
+    const lines = fs.readFileSync(csvPath, 'utf8').replace(/^﻿/, '').trim().split('\n');
+    const header = lines[0].split(';').map((h) => h.trim());
+    expect(header).toEqual(['Datum', 'Zeitzone', 'von', 'bis', 'Einheit', 'AEP Modul 1', 'AEP Modul 2', 'AEP Modul 3']);
+    let matched = 0;
+    let priced = 0;
+    for (const line of lines.slice(1)) {
+      const c = line.split(';');
+      if (c[1] !== 'UTC' || c[5] === 'N.E.') continue;
+      const [d, m, y] = c[0].split('.');
+      const iso = `${y}-${m}-${d}T${c[2]}:00Z`;
+      const m1 = Number(c[5].replace(',', '.'));
+      priced++;
+      const up = byInstant.get(`up|${iso}`);
+      const down = byInstant.get(`down|${iso}`);
+      if ((up !== undefined && Math.abs(up - m1) < 0.005) || (down !== undefined && Math.abs(down - m1) < 0.005)) matched++;
+    }
+    expect(priced).toBeGreaterThan(50);
+    // Not 100 %: Modul 1 is a derived module with its own combination rules, not a
+    // republication of the VWAP. The measured agreement when this fixture was cut was 78/92.
+    // The floor is set below that so a genuine A84 regression fails while Modul-1 rule drift
+    // does not, and the number is quoted here so the gap stays visible rather than rounded away.
+    expect(matched / priced).toBeGreaterThan(0.7);
+  });
+
+  it('summary-table gives activation series their own block and no lifecycle cells', async () => {
+    const p = path.join(DATA, 'summary-table.json');
+    if (!have() || !exists(p)) return;
+    const table = JSON.parse(fs.readFileSync(p, 'utf8'));
+    expect(Array.isArray(table.activation_prices)).toBe(true);
+    expect(table.activation_prices.length).toBeGreaterThan(0);
+    for (const a of table.activation_prices) {
+      expect(a.price_basis).toBe('vwap_activated');
+      // Level and frequency are two parameters. Both must be present and neither may be folded
+      // into the other in the evidence base.
+      expect(typeof a.mean_over_activated_eur_mwh).toBe('number');
+      expect(typeof a.activation_frequency).toBe('number');
+      expect(a.activation_frequency).toBeGreaterThan(0);
+      expect(a.activation_frequency).toBeLessThanOrEqual(1);
+      // No peak-to-floor, no saturation month. Those are capacity-market statistics.
+      expect(a.peak_to_floor).toBeUndefined();
+      expect(a.saturation_month).toBeUndefined();
+      expect(a.lifecycle_columns).toMatch(/not_applicable/);
+    }
+    // And the lifecycle table must not have quietly absorbed them.
+    for (const s of table.series) expect(s.price_basis).not.toBe('vwap_activated');
+  });
+});
+
+// ── Refresh automation (36.E0.1) ───────────────────────────────────────────
+
+describe('refresh automation', () => {
+  const WF = path.join(ROOT, '..', '..', '.github', 'workflows', 'refresh-mature-markets.yml');
+
+  it('the scheduled workflow exists, is monthly, and is PR-based rather than pushing to main', () => {
+    expect(exists(WF)).toBe(true);
+    const y = fs.readFileSync(WF, 'utf8');
+    expect(y).toMatch(/schedule:/);
+    // First Sunday of the month.
+    expect(y).toMatch(/cron:\s*'0 3 1-7 \* 0'/);
+    expect(y).toMatch(/gh pr create/);
+    // A push to main would bypass the review the whole design exists to preserve.
+    expect(y).not.toMatch(/git push (-f )?origin main/);
+    expect(y).not.toMatch(/git push origin HEAD:main/);
+  });
+
+  it('the workflow cannot leak the ENTSO-E key to a fork PR and never echoes it', () => {
+    const raw = fs.readFileSync(WF, 'utf8');
+    // Assert on executable content only. The header comment documents the absence of `set -x`,
+    // and a naive whole-file regex matched that comment — a gate that fires on its own
+    // documentation is a gate that gets deleted rather than fixed.
+    const y = raw.split('\n').filter((l) => !/^\s*#/.test(l)).join('\n');
+    // A pull_request trigger on a public repo is how secrets escape. There must not be one.
+    expect(y).not.toMatch(/^\s*pull_request:/m);
+    expect(y).toMatch(/ENTSOE_API_KEY: \$\{\{ secrets\.ENTSOE_API_KEY \}\}/);
+    expect(y).not.toMatch(/echo .*secrets\.ENTSOE_API_KEY/);
+    // Shell tracing would print the token as part of the command line.
+    expect(y).not.toMatch(/^\s*set\s+-[a-wyz]*x/m);
+    expect(y).not.toMatch(/set -o xtrace/);
+    expect(y).not.toMatch(/^\s*env\s*(\||$)/m);
+  });
+
+  it('every source the refresh claims to cover has a manifest it can actually read', async () => {
+    const src = fs.readFileSync(path.join(ROOT, 'mature-markets', 'refresh-mature-markets.mjs'), 'utf8');
+    const dirs = [...src.matchAll(/\bdir: '([a-z]+)'/g)].map((m) => m[1]);
+    expect(dirs.length).toBeGreaterThan(5);
+    // The calendar's manifest IS structural-breaks.json. A source whose manifest cannot be found
+    // audits an empty file list and reports "no change" forever, which is why this is asserted
+    // rather than assumed.
+    for (const d of dirs) {
+      const found = ['manifest.json', 'structural-breaks.json'].some((f) => exists(path.join(DATA, d, f)));
+      expect(found, `${d} has no readable manifest`).toBe(true);
+    }
+  });
+
+  it('every source the refresh covers has a fetcher script that exists', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'mature-markets', 'refresh-mature-markets.mjs'), 'utf8');
+    const scripts = [...src.matchAll(/script: '([a-z0-9-]+\.mjs)'/g)].map((m) => m[1]);
+    expect(scripts.length).toBeGreaterThan(5);
+    for (const s of scripts) expect(exists(path.join(ROOT, 'mature-markets', s)), `${s} missing`).toBe(true);
+  });
+
+  it('the refresh treats comparability.md as human-owned', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'mature-markets', 'refresh-mature-markets.mjs'), 'utf8');
+    expect(src).toMatch(/docs\/research\/mature-market-comparability\.md/);
+    expect(src).toMatch(/HUMAN_OWNED/);
+  });
+
+  it('the append-only gate compares substantive fields and excludes retrieval metadata', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'mature-markets', 'refresh-mature-markets.mjs'), 'utf8');
+    // If `extra` were compared, every refresh would flag every row as restated and the gate
+    // would be trained to be ignored.
+    expect(src).toMatch(/COMPARED_FIELDS/);
+    const compared = /const COMPARED_FIELDS = \[([^\]]*)\]/.exec(src)![1];
+    expect(compared).toMatch(/'price'/);
+    expect(compared).toMatch(/'price_norm'/);
+    expect(compared).toMatch(/'price_basis'/);
+    expect(compared).not.toMatch(/'extra'/);
+    expect(src).toMatch(/history_restated/);
+    expect(src).toMatch(/rows_removed/);
+  });
+
+  it('activation rows store no per-retrieval timestamp, so untouched shards stay byte-stable', async () => {
+    if (!exists(path.join(DATA, 'activation', 'manifest.json'))) return;
+    const { rows } = await loadDataset('activation');
+    // doc_created is the time of the REQUEST. Storing it would change every shard's bytes on
+    // every refresh and destroy the byte-stability the append-only gate depends on.
+    for (const r of rows.slice(0, 500)) {
+      expect(r.extra.doc_created).toBeUndefined();
+      expect(r.extra.doc_revision).toBeTruthy();
+    }
+  });
+
+  // The three below are regression gates for bugs found by RUNNING the refresh against Sweden,
+  // not by reading the code. Each one silently destroyed data while every checksum passed.
+  it('reconciles rewritten shards row-wise, because year-sharding alone does not contain a windowed fetch', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'mature-markets', 'refresh-mature-markets.mjs'), 'utf8');
+    expect(src).toMatch(/reconcileShards/);
+    // The window must come from the new data's own earliest row, not from the --from argument:
+    // SvK's 2026-01-01 local window starts at 2025-12-31T23:00Z and lands in the 2025 shard.
+    expect(src).toMatch(/windowStart/);
+    expect(src).toMatch(/period_start < windowStart/);
+  });
+
+  it('reconciles BEFORE merging carried-forward manifest entries', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'mature-markets', 'refresh-mature-markets.mjs'), 'utf8');
+    // Reversing these two silently disabled reconciliation: with earlier years already in
+    // after.files, the derived window became 2020 and every shard looked wholly inside it.
+    const iReconcile = src.indexOf('const reconciled = await reconcileShards(');
+    const iMerge = src.indexOf('const preserved = await mergeManifestFiles(');
+    const iAudit = src.indexOf('const audit = await appendOnlyAudit(');
+    expect(iReconcile).toBeGreaterThan(0);
+    expect(iMerge).toBeGreaterThan(iReconcile);
+    expect(iAudit).toBeGreaterThan(iMerge);
+  });
+
+  it('a windowed refresh preserves acquisition-time coverage evidence', async () => {
+    const src = fs.readFileSync(path.join(ROOT, 'mature-markets', 'refresh-mature-markets.mjs'), 'utf8');
+    expect(src).toMatch(/preserveAcquisitionMetadata/);
+    // Only a FULL refresh may replace the manifest wholesale.
+    expect(src).toMatch(/source\.window === 'full'/);
+    // The evidence that must survive: SE's absence-as-zero measurements are the reason the
+    // Swedish numbers are trustworthy, and a 2026-only window would have dropped them.
+    const m = await readManifest('se');
+    expect(m.coverage_verification.all_zero_rows_dropped).toBeGreaterThan(0);
+    expect(m.coverage_verification.per_month.length).toBeGreaterThan(60);
+  });
+
+  it('writes the manifest even on anomaly, so it never disagrees with what is on disk', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'mature-markets', 'refresh-mature-markets.mjs'), 'utf8');
+    // An earlier version skipped the write on anomaly and left a 2-shard manifest beside 7 files.
+    // Only last_successful_refresh is withheld.
+    expect(src).toMatch(/if \(status !== 'anomaly'\) toWrite\.last_successful_refresh/);
+    expect(src).not.toMatch(/if \(status !== 'anomaly' && after\)/);
+  });
+
+  it('freshness only fails on genuine staleness, not on never-refreshed', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'mature-markets', 'check-freshness.mjs'), 'utf8');
+    expect(src).toMatch(/MISSED_CYCLES_BEFORE_STALE = 2/);
+    expect(src).toMatch(/never_refreshed/);
+    // The exit code must key on `stale`, never on `never`.
+    expect(src).toMatch(/if \(stale\.length\) process\.exitCode = 1;/);
   });
 });
 
