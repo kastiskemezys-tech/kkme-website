@@ -1,0 +1,547 @@
+{
+ "dataset": "se-fcr",
+ "market": "SE",
+ "products": [
+  "FCR-N",
+  "FCR-D-up",
+  "FCR-D-down"
+ ],
+ "mechanism": "cap",
+ "source": "Svenska kraftnät — Mimer portal, Primary regulation",
+ "source_urls": {
+  "download": "https://mimer.svk.se/PrimaryRegulation/DownloadText?periodFrom=<YYYY-MM-DD>&periodTo=<YYYY-MM-DD>",
+  "human_readable": "https://mimer.svk.se/PrimaryRegulation/PrimaryRegulationIndex"
+ },
+ "licence": "Svenska kraftnät publishes Mimer market data for public reuse; no explicit licence text is served with the download endpoint. Stored here for internal calibration.",
+ "retrieved_at": "2026-07-30T06:59:18.813Z",
+ "requested_span": "2020-06..2026-07",
+ "resolution": "PT1H",
+ "timezone": "timestamps are Swedish local wall clock (Europe/Stockholm), stored as UTC instants",
+ "coverage_verification": {
+  "claimed": "the endpoint accepts any date range and returns 200",
+  "actual_first_month_with_data": "2021-01",
+  "verdict": "Dates before the first real month return HTTP 200 with a complete grid of zeros. Absence is served as zero, not as an error or an empty body. All-zero rows are dropped as no_coverage.",
+  "all_zero_rows_dropped": 5137,
+  "per_product_leading_absence": {
+   "FCR-N": {
+    "first_real_period": "2020-12-31T23:00:00Z",
+    "leading_zero_rows_nulled": 0,
+    "mid_series_zero_rows_nulled": 0
+   },
+   "FCR-D-up": {
+    "first_real_period": "2020-12-31T23:00:00Z",
+    "leading_zero_rows_nulled": 0,
+    "mid_series_zero_rows_nulled": 1
+   },
+   "FCR-D-down": {
+    "first_real_period": "2021-12-31T23:00:00Z",
+    "leading_zero_rows_nulled": 8760,
+    "mid_series_zero_rows_nulled": 0
+   }
+  },
+  "per_product_note": "Three layers of the absence-as-zero trap in one source: (1) whole rows of zeros before coverage starts, dropped by the parser; (2) one product column of zeros while the row is otherwise real — FCR-D down from 2020-12 until its market opened 2021-12; (3) a single missing hour published as zeros mid-series, 2021-12-06T23:00Z for FCR-D up, between hours clearing near 97 EUR/MW on 495 MW. Any row with price and volume BOTH exactly zero is nulled as no_coverage. Justified by measurement: across the committed dataset there is no row with volume 0 and a positive price, and none with price 0 and positive volume, so the combination only ever means absence here.",
+  "per_month": [
+   {
+    "month": "2020-06",
+    "rows": 0,
+    "zero_rows_dropped": 720,
+    "non_zero_prices": 0
+   },
+   {
+    "month": "2020-07",
+    "rows": 0,
+    "zero_rows_dropped": 744,
+    "non_zero_prices": 0
+   },
+   {
+    "month": "2020-08",
+    "rows": 0,
+    "zero_rows_dropped": 744,
+    "non_zero_prices": 0
+   },
+   {
+    "month": "2020-09",
+    "rows": 0,
+    "zero_rows_dropped": 720,
+    "non_zero_prices": 0
+   },
+   {
+    "month": "2020-10",
+    "rows": 0,
+    "zero_rows_dropped": 745,
+    "non_zero_prices": 0
+   },
+   {
+    "month": "2020-11",
+    "rows": 0,
+    "zero_rows_dropped": 720,
+    "non_zero_prices": 0
+   },
+   {
+    "month": "2020-12",
+    "rows": 0,
+    "zero_rows_dropped": 744,
+    "non_zero_prices": 0
+   },
+   {
+    "month": "2021-01",
+    "rows": 2232,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 1488
+   },
+   {
+    "month": "2021-02",
+    "rows": 2016,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 1344
+   },
+   {
+    "month": "2021-03",
+    "rows": 2229,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 1486
+   },
+   {
+    "month": "2021-04",
+    "rows": 2160,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 1440
+   },
+   {
+    "month": "2021-05",
+    "rows": 2232,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 1488
+   },
+   {
+    "month": "2021-06",
+    "rows": 2160,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 1440
+   },
+   {
+    "month": "2021-07",
+    "rows": 2232,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 1488
+   },
+   {
+    "month": "2021-08",
+    "rows": 2232,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 1488
+   },
+   {
+    "month": "2021-09",
+    "rows": 2160,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 1440
+   },
+   {
+    "month": "2021-10",
+    "rows": 2235,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 1490
+   },
+   {
+    "month": "2021-11",
+    "rows": 2160,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 1440
+   },
+   {
+    "month": "2021-12",
+    "rows": 2232,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 1487
+   },
+   {
+    "month": "2022-01",
+    "rows": 2232,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2232
+   },
+   {
+    "month": "2022-02",
+    "rows": 2016,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2016
+   },
+   {
+    "month": "2022-03",
+    "rows": 2229,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2229
+   },
+   {
+    "month": "2022-04",
+    "rows": 2160,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2160
+   },
+   {
+    "month": "2022-05",
+    "rows": 2232,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2232
+   },
+   {
+    "month": "2022-06",
+    "rows": 2160,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2160
+   },
+   {
+    "month": "2022-07",
+    "rows": 2232,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2232
+   },
+   {
+    "month": "2022-08",
+    "rows": 2232,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2232
+   },
+   {
+    "month": "2022-09",
+    "rows": 2160,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2160
+   },
+   {
+    "month": "2022-10",
+    "rows": 2235,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2235
+   },
+   {
+    "month": "2022-11",
+    "rows": 2160,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2160
+   },
+   {
+    "month": "2022-12",
+    "rows": 2232,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2232
+   },
+   {
+    "month": "2023-01",
+    "rows": 2232,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2232
+   },
+   {
+    "month": "2023-02",
+    "rows": 2016,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2016
+   },
+   {
+    "month": "2023-03",
+    "rows": 2229,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2229
+   },
+   {
+    "month": "2023-04",
+    "rows": 2160,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2160
+   },
+   {
+    "month": "2023-05",
+    "rows": 2232,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2232
+   },
+   {
+    "month": "2023-06",
+    "rows": 2160,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2160
+   },
+   {
+    "month": "2023-07",
+    "rows": 2232,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2232
+   },
+   {
+    "month": "2023-08",
+    "rows": 2232,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2232
+   },
+   {
+    "month": "2023-09",
+    "rows": 2160,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2160
+   },
+   {
+    "month": "2023-10",
+    "rows": 2235,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2235
+   },
+   {
+    "month": "2023-11",
+    "rows": 2160,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2160
+   },
+   {
+    "month": "2023-12",
+    "rows": 2232,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2232
+   },
+   {
+    "month": "2024-01",
+    "rows": 2232,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2232
+   },
+   {
+    "month": "2024-02",
+    "rows": 2088,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2088
+   },
+   {
+    "month": "2024-03",
+    "rows": 2229,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2229
+   },
+   {
+    "month": "2024-04",
+    "rows": 2160,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2160
+   },
+   {
+    "month": "2024-05",
+    "rows": 2232,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2232
+   },
+   {
+    "month": "2024-06",
+    "rows": 2160,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2160
+   },
+   {
+    "month": "2024-07",
+    "rows": 2232,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2232
+   },
+   {
+    "month": "2024-08",
+    "rows": 2232,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2232
+   },
+   {
+    "month": "2024-09",
+    "rows": 2160,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2160
+   },
+   {
+    "month": "2024-10",
+    "rows": 2235,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2235
+   },
+   {
+    "month": "2024-11",
+    "rows": 2160,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2160
+   },
+   {
+    "month": "2024-12",
+    "rows": 2232,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2232
+   },
+   {
+    "month": "2025-01",
+    "rows": 2232,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2232
+   },
+   {
+    "month": "2025-02",
+    "rows": 2016,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2016
+   },
+   {
+    "month": "2025-03",
+    "rows": 2229,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2229
+   },
+   {
+    "month": "2025-04",
+    "rows": 2160,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2160
+   },
+   {
+    "month": "2025-05",
+    "rows": 2232,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2232
+   },
+   {
+    "month": "2025-06",
+    "rows": 2160,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2160
+   },
+   {
+    "month": "2025-07",
+    "rows": 2232,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2232
+   },
+   {
+    "month": "2025-08",
+    "rows": 2232,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2232
+   },
+   {
+    "month": "2025-09",
+    "rows": 2160,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2160
+   },
+   {
+    "month": "2025-10",
+    "rows": 2235,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2235
+   },
+   {
+    "month": "2025-11",
+    "rows": 2160,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2160
+   },
+   {
+    "month": "2025-12",
+    "rows": 2232,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2232
+   },
+   {
+    "month": "2026-01",
+    "rows": 2232,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2232
+   },
+   {
+    "month": "2026-02",
+    "rows": 2016,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2016
+   },
+   {
+    "month": "2026-03",
+    "rows": 2229,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2229
+   },
+   {
+    "month": "2026-04",
+    "rows": 2160,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2160
+   },
+   {
+    "month": "2026-05",
+    "rows": 2232,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2232
+   },
+   {
+    "month": "2026-06",
+    "rows": 2160,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2160
+   },
+   {
+    "month": "2026-07",
+    "rows": 2232,
+    "zero_rows_dropped": 0,
+    "non_zero_prices": 2232
+   }
+  ]
+ },
+ "price_semantics": {
+  "basis": "clearing",
+  "unit_note": "published EUR/MW on hourly products, so price_norm (EUR/MW/h) equals price; asserted in the loader test rather than assumed"
+ },
+ "area_semantics": "row.area = \"SE\" for the market-wide price. Per-zone procured volumes (SE1-SE4, DK2) are in extra.zone_volumes_mw; DK2 buys through the Swedish market.",
+ "rows": 146733,
+ "files": [
+  {
+   "file": "se-fcr-2020.ndjson.gz",
+   "rows": 3,
+   "bytes_gz": 514,
+   "span": "2020-12-31T23:00:00Z..2021-01-01T00:00:00Z",
+   "sha256": "e8a211d362c6e6a2ef879503119c4d3587e49ded478a0397d3c1f81586570428"
+  },
+  {
+   "file": "se-fcr-2021.ndjson.gz",
+   "rows": 26280,
+   "bytes_gz": 788247,
+   "span": "2021-01-01T00:00:00Z..2022-01-01T00:00:00Z",
+   "sha256": "49522a434c7582df838179ed2861db932bedf18793799fe66400011bc55e4ee9"
+  },
+  {
+   "file": "se-fcr-2022.ndjson.gz",
+   "rows": 26280,
+   "bytes_gz": 912693,
+   "span": "2022-01-01T00:00:00Z..2023-01-01T00:00:00Z",
+   "sha256": "8d466f919938d85e4fb2215e600634a62fae10bae2dd8de7cb1a68dab60d6889"
+  },
+  {
+   "file": "se-fcr-2023.ndjson.gz",
+   "rows": 26280,
+   "bytes_gz": 1057353,
+   "span": "2023-01-01T00:00:00Z..2024-01-01T00:00:00Z",
+   "sha256": "6ef1fa211ab87a559edd22bcd74041ee182d8987cfe968f76308fe07d79c4055"
+  },
+  {
+   "file": "se-fcr-2024.ndjson.gz",
+   "rows": 26352,
+   "bytes_gz": 1088277,
+   "span": "2024-01-01T00:00:00Z..2025-01-01T00:00:00Z",
+   "sha256": "5712d305c5c15b0b2f2948e393d2eb78fe2b6a2345e59af1d5f80c6a795532dc"
+  },
+  {
+   "file": "se-fcr-2025.ndjson.gz",
+   "rows": 26280,
+   "bytes_gz": 1102023,
+   "span": "2025-01-01T00:00:00Z..2026-01-01T00:00:00Z",
+   "sha256": "3ac92917c5f060545d5c175754b0a5a64fd48fbc8ed833d416f01df80fbcfb48"
+  },
+  {
+   "file": "se-fcr-2026.ndjson.gz",
+   "rows": 15258,
+   "bytes_gz": 632373,
+   "span": "2026-01-01T00:00:00Z..2026-07-31T22:00:00Z",
+   "sha256": "b1980c5d82671f65a55a7f04ec23c4ed39f73eb8ca884071065f049d6bc5135f"
+  }
+ ]
+}

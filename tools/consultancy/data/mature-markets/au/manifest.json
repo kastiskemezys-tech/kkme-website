@@ -1,0 +1,1863 @@
+{
+ "dataset": "au-spot",
+ "market": "AU",
+ "areas": [
+  "SA1",
+  "NSW1"
+ ],
+ "products": [
+  "spot"
+ ],
+ "mechanism": "energy",
+ "source": "AEMO — aggregated price and demand data, National Electricity Market",
+ "source_urls": {
+  "pattern": "https://aemo.com.au/aemo/data/nem/priceanddemand/PRICE_AND_DEMAND_<YYYYMM>_<REGION>.csv"
+ },
+ "licence": "AEMO publishes NEM aggregated price and demand data for public use subject to its website terms; stored here for internal calibration.",
+ "retrieved_at": "2026-07-30T06:41:26.631Z",
+ "requested_span": "2015-01..2026-07",
+ "timezone": "SETTLEMENTDATE is NEM market time, AEST = UTC+10 with no daylight saving (not South Australian civil time, which is UTC+9:30 with DST). Stored as UTC instants.",
+ "resolution_note": "native resolution measured per file from consecutive stamps, not assumed from the date",
+ "resolutions_observed": {
+  "PT30M": {
+   "first": "2015-01",
+   "last": "2021-09",
+   "n": 236640
+  },
+  "PT5M": {
+   "first": "2021-10",
+   "last": "2026-07",
+   "n": 1015488
+  }
+ },
+ "coverage_verification": {
+  "claimed_by_arc_doc": "AEMO / opennem — FCAS prices + battery dispatch-era summaries",
+  "actual": "spot prices only. FCAS per-interval prices are archive-only (nemweb MMSDM monthly SQL-loader ZIPs) and were not acquired; OpenElectricity (ex-OpenNEM) API v3/v4 now requires a key and returned 404 unauthenticated.",
+  "verdict": "AU contributes 36.E4 arbitrage-spread evidence, NOT an FCAS lifecycle. E1-E3 lifecycle shape comes from GB and DE.",
+  "structural_break": "30-minute → 5-minute settlement on 2021-10-01 raises measured intraday spread mechanically. Not a market event. Must be segmented or spreads computed on a fixed basis.",
+  "months_missing": 0,
+  "missing": []
+ },
+ "price_semantics": {
+  "basis": "settlement — RRP is the regional reference price actually settled",
+  "currency": "native AUD retained; price_eur and price_norm at the ECB monthly-average AUD/EUR rate from ../fx/fx-monthly.json",
+  "negative_prices": "NEM spot prices are frequently negative and occasionally at the -1000 AUD/MWh floor or the market price cap. All retained: for a storage model the negative tail IS the charging opportunity."
+ },
+ "control_region_rationale": "NSW1 is included as a control, not a second observation. Compression measured only in SA cannot distinguish a battery effect from a market-wide one.",
+ "rows": 1252128,
+ "per_month": [
+  {
+   "region": "SA1",
+   "month": "2015-01",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2015-02",
+   "rows": 1344,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2015-03",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2015-04",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2015-05",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2015-06",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2015-07",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2015-08",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2015-09",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2015-10",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2015-11",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2015-12",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2016-01",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2016-02",
+   "rows": 1392,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2016-03",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2016-04",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2016-05",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2016-06",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2016-07",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2016-08",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2016-09",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2016-10",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2016-11",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2016-12",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2017-01",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2017-02",
+   "rows": 1344,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2017-03",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2017-04",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2017-05",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2017-06",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2017-07",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2017-08",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2017-09",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2017-10",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2017-11",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2017-12",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2018-01",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2018-02",
+   "rows": 1344,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2018-03",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2018-04",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2018-05",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2018-06",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2018-07",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2018-08",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2018-09",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2018-10",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2018-11",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2018-12",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2019-01",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2019-02",
+   "rows": 1344,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2019-03",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2019-04",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2019-05",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2019-06",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2019-07",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2019-08",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2019-09",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2019-10",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2019-11",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2019-12",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2020-01",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2020-02",
+   "rows": 1392,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2020-03",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2020-04",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2020-05",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2020-06",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2020-07",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2020-08",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2020-09",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2020-10",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2020-11",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2020-12",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2021-01",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2021-02",
+   "rows": 1344,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2021-03",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2021-04",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2021-05",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2021-06",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2021-07",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2021-08",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2021-09",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "SA1",
+   "month": "2021-10",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2021-11",
+   "rows": 8640,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2021-12",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2022-01",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2022-02",
+   "rows": 8064,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2022-03",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2022-04",
+   "rows": 8640,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2022-05",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2022-06",
+   "rows": 8640,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2022-07",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2022-08",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2022-09",
+   "rows": 8640,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2022-10",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2022-11",
+   "rows": 8640,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2022-12",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2023-01",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2023-02",
+   "rows": 8064,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2023-03",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2023-04",
+   "rows": 8640,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2023-05",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2023-06",
+   "rows": 8640,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2023-07",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2023-08",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2023-09",
+   "rows": 8640,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2023-10",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2023-11",
+   "rows": 8640,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2023-12",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2024-01",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2024-02",
+   "rows": 8352,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2024-03",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2024-04",
+   "rows": 8640,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2024-05",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2024-06",
+   "rows": 8640,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2024-07",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2024-08",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2024-09",
+   "rows": 8640,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2024-10",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2024-11",
+   "rows": 8640,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2024-12",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2025-01",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2025-02",
+   "rows": 8064,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2025-03",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2025-04",
+   "rows": 8640,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2025-05",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2025-06",
+   "rows": 8640,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2025-07",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2025-08",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2025-09",
+   "rows": 8640,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2025-10",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2025-11",
+   "rows": 8640,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2025-12",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2026-01",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2026-02",
+   "rows": 8064,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2026-03",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2026-04",
+   "rows": 8640,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2026-05",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2026-06",
+   "rows": 8640,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "SA1",
+   "month": "2026-07",
+   "rows": 8352,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2015-01",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2015-02",
+   "rows": 1344,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2015-03",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2015-04",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2015-05",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2015-06",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2015-07",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2015-08",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2015-09",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2015-10",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2015-11",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2015-12",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2016-01",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2016-02",
+   "rows": 1392,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2016-03",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2016-04",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2016-05",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2016-06",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2016-07",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2016-08",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2016-09",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2016-10",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2016-11",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2016-12",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2017-01",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2017-02",
+   "rows": 1344,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2017-03",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2017-04",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2017-05",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2017-06",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2017-07",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2017-08",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2017-09",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2017-10",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2017-11",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2017-12",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2018-01",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2018-02",
+   "rows": 1344,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2018-03",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2018-04",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2018-05",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2018-06",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2018-07",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2018-08",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2018-09",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2018-10",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2018-11",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2018-12",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2019-01",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2019-02",
+   "rows": 1344,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2019-03",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2019-04",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2019-05",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2019-06",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2019-07",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2019-08",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2019-09",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2019-10",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2019-11",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2019-12",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2020-01",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2020-02",
+   "rows": 1392,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2020-03",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2020-04",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2020-05",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2020-06",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2020-07",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2020-08",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2020-09",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2020-10",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2020-11",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2020-12",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2021-01",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2021-02",
+   "rows": 1344,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2021-03",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2021-04",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2021-05",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2021-06",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2021-07",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2021-08",
+   "rows": 1488,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2021-09",
+   "rows": 1440,
+   "resolution": "PT30M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2021-10",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2021-11",
+   "rows": 8640,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2021-12",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2022-01",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2022-02",
+   "rows": 8064,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2022-03",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2022-04",
+   "rows": 8640,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2022-05",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2022-06",
+   "rows": 8640,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2022-07",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2022-08",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2022-09",
+   "rows": 8640,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2022-10",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2022-11",
+   "rows": 8640,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2022-12",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2023-01",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2023-02",
+   "rows": 8064,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2023-03",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2023-04",
+   "rows": 8640,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2023-05",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2023-06",
+   "rows": 8640,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2023-07",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2023-08",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2023-09",
+   "rows": 8640,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2023-10",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2023-11",
+   "rows": 8640,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2023-12",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2024-01",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2024-02",
+   "rows": 8352,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2024-03",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2024-04",
+   "rows": 8640,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2024-05",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2024-06",
+   "rows": 8640,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2024-07",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2024-08",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2024-09",
+   "rows": 8640,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2024-10",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2024-11",
+   "rows": 8640,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2024-12",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2025-01",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2025-02",
+   "rows": 8064,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2025-03",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2025-04",
+   "rows": 8640,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2025-05",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2025-06",
+   "rows": 8640,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2025-07",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2025-08",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2025-09",
+   "rows": 8640,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2025-10",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2025-11",
+   "rows": 8640,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2025-12",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2026-01",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2026-02",
+   "rows": 8064,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2026-03",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2026-04",
+   "rows": 8640,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2026-05",
+   "rows": 8928,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2026-06",
+   "rows": 8640,
+   "resolution": "PT5M"
+  },
+  {
+   "region": "NSW1",
+   "month": "2026-07",
+   "rows": 8352,
+   "resolution": "PT5M"
+  }
+ ],
+ "files": [
+  {
+   "file": "au-spot-2014.ndjson.gz",
+   "rows": 38,
+   "bytes_gz": 1198,
+   "span": "2014-12-31T14:30:00Z..2015-01-01T00:00:00Z",
+   "regions": [
+    "NSW1",
+    "SA1"
+   ],
+   "sha256": "73a460d85032cfda5ab6e355572445a28233b146d8addd182752fff2eb6a589c"
+  },
+  {
+   "file": "au-spot-2015.ndjson.gz",
+   "rows": 35040,
+   "bytes_gz": 773969,
+   "span": "2015-01-01T00:00:00Z..2016-01-01T00:00:00Z",
+   "regions": [
+    "NSW1",
+    "SA1"
+   ],
+   "sha256": "95b22b0163f44c23ee8d12fae43049210fcb1f59b3a08b5e3d74210c6edc75f0"
+  },
+  {
+   "file": "au-spot-2016.ndjson.gz",
+   "rows": 35136,
+   "bytes_gz": 797782,
+   "span": "2016-01-01T00:00:00Z..2017-01-01T00:00:00Z",
+   "regions": [
+    "NSW1",
+    "SA1"
+   ],
+   "sha256": "0361c6931678f1ac0b1364c10e77050ff937ad81eaeec9c777c4e036e1718e46"
+  },
+  {
+   "file": "au-spot-2017.ndjson.gz",
+   "rows": 35040,
+   "bytes_gz": 804307,
+   "span": "2017-01-01T00:00:00Z..2018-01-01T00:00:00Z",
+   "regions": [
+    "NSW1",
+    "SA1"
+   ],
+   "sha256": "da7f876c243dc92fd33a78845b51c728f992157803d75bc56853ccb447c174f7"
+  },
+  {
+   "file": "au-spot-2018.ndjson.gz",
+   "rows": 35040,
+   "bytes_gz": 809151,
+   "span": "2018-01-01T00:00:00Z..2019-01-01T00:00:00Z",
+   "regions": [
+    "NSW1",
+    "SA1"
+   ],
+   "sha256": "8afc8f3d0328cd4feed840bdd60c143839cd8b76c9a48b4c7ccb54ed8905e165"
+  },
+  {
+   "file": "au-spot-2019.ndjson.gz",
+   "rows": 35040,
+   "bytes_gz": 812666,
+   "span": "2019-01-01T00:00:00Z..2020-01-01T00:00:00Z",
+   "regions": [
+    "NSW1",
+    "SA1"
+   ],
+   "sha256": "0bfa44b69aba8f037813202db03256873990b03eea9d2717c7d4317997322026"
+  },
+  {
+   "file": "au-spot-2020.ndjson.gz",
+   "rows": 35136,
+   "bytes_gz": 796793,
+   "span": "2020-01-01T00:00:00Z..2021-01-01T00:00:00Z",
+   "regions": [
+    "NSW1",
+    "SA1"
+   ],
+   "sha256": "dcb99cc6b47ac80449fcd3fad5e3b59de67922b916ee8da982b3d4a43967f698"
+  },
+  {
+   "file": "au-spot-2021.ndjson.gz",
+   "rows": 79400,
+   "bytes_gz": 1624392,
+   "span": "2021-01-01T00:00:00Z..2022-01-01T00:00:00Z",
+   "regions": [
+    "NSW1",
+    "SA1"
+   ],
+   "sha256": "086b0004d4892f923b4888add7705a84bbc9f996dc25880a19acdcc4e7ac9100"
+  },
+  {
+   "file": "au-spot-2022.ndjson.gz",
+   "rows": 210240,
+   "bytes_gz": 4186456,
+   "span": "2022-01-01T00:00:00Z..2023-01-01T00:00:00Z",
+   "regions": [
+    "NSW1",
+    "SA1"
+   ],
+   "sha256": "3ef43a6269346d74a5c10b1cd13eeebaeb19923687684d4832a1a0bcc88aed9e"
+  },
+  {
+   "file": "au-spot-2023.ndjson.gz",
+   "rows": 210240,
+   "bytes_gz": 4168368,
+   "span": "2023-01-01T00:00:00Z..2024-01-01T00:00:00Z",
+   "regions": [
+    "NSW1",
+    "SA1"
+   ],
+   "sha256": "2242af3d44c963a6bfde846669ac96166405ec804f5dcfaa057f72e67249d2d2"
+  },
+  {
+   "file": "au-spot-2024.ndjson.gz",
+   "rows": 210816,
+   "bytes_gz": 4208823,
+   "span": "2024-01-01T00:00:00Z..2025-01-01T00:00:00Z",
+   "regions": [
+    "NSW1",
+    "SA1"
+   ],
+   "sha256": "2e32ca80257d8a0c074037abdc79e8208739dc08cbfcfb6f542a936ca8f9ae30"
+  },
+  {
+   "file": "au-spot-2025.ndjson.gz",
+   "rows": 210240,
+   "bytes_gz": 4204375,
+   "span": "2025-01-01T00:00:00Z..2026-01-01T00:00:00Z",
+   "regions": [
+    "NSW1",
+    "SA1"
+   ],
+   "sha256": "36a75043dc808df6ec03e53c03694dcfebee71c3df5076f430feca3b20b9fc02"
+  },
+  {
+   "file": "au-spot-2026.ndjson.gz",
+   "rows": 120722,
+   "bytes_gz": 2281400,
+   "span": "2026-01-01T00:00:00Z..2026-07-29T14:05:00Z",
+   "regions": [
+    "NSW1",
+    "SA1"
+   ],
+   "sha256": "7ecf9237bd5a26c32ef6b8f6dbffad47e206d123fa1757426737598c46038835"
+  }
+ ]
+}
