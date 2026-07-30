@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { flexibilityFleetMw } from '@/app/lib/fleet';
+import { sdFormulaCaption } from '@/app/lib/sdRatio';
 
 interface S4FleetExtras {
   baltic_operational_mw?: number | null;
@@ -45,12 +46,25 @@ export default function SignalBar() {
       label: 'S/D RATIO',
       value: data.s4?.fleet?.sd_ratio != null
         ? `${data.s4.fleet.sd_ratio.toFixed(2)}×` : '—',
+      // Phase 36.D — this rendered `(operational + 0.5 × pipeline) / demand`,
+      // which is not the formula the engine uses and did not produce the ratio
+      // displayed beside it: on the live payload the tooltip's own arithmetic
+      // came to 8.99× against a headline of 2.55×. One canonical caption now,
+      // shared with S4Card and the hero map (discipline rule #4).
       tooltip: (() => {
-        const f = data.s4?.fleet as { baltic_operational_mw?: number; baltic_pipeline_mw?: number; eff_demand_mw?: number; sd_ratio?: number } | undefined;
-        if (f?.baltic_operational_mw != null && f?.baltic_pipeline_mw != null && f?.eff_demand_mw != null) {
-          return `S/D = (operational + 0.5 × pipeline) / effective demand = (${Math.round(f.baltic_operational_mw)} + 0.5 × ${Math.round(f.baltic_pipeline_mw)}) / ${Math.round(f.eff_demand_mw)} = ${(f.sd_ratio ?? 0).toFixed(2)}×. Pipeline risk-weighted at 50%.`;
+        const f = data.s4?.fleet as {
+          baltic_weighted_mw?: number; absorption_mw?: number;
+          eff_demand_mw?: number; sd_ratio?: number;
+        } | undefined;
+        if (f?.baltic_weighted_mw != null && f?.eff_demand_mw != null) {
+          return `${sdFormulaCaption({
+            weightedMw: f.baltic_weighted_mw,
+            effDemandMw: f.eff_demand_mw,
+            absorptionMw: f.absorption_mw,
+            publishedSdRatio: f.sd_ratio,
+          })}. Supply is credibility-weighted by project status; contracted-away MW serve Lithuanian reserve products outside this model.`;
         }
-        return 'S/D = (operational fleet + 50% pipeline) / effective demand. Pipeline risk-weighted at 50% for permitting / financing risk.';
+        return 'S/D = credibility-weighted supply / effective Baltic reserve demand.';
       })(),
     },
     {

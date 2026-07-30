@@ -111,7 +111,15 @@ describe('the alignment holds across durations and scenarios', () => {
     // Revenue was already on the delivered basis; only the wear side moved. If a
     // future edit starts moving Y1 gross, the alignment has been re-pointed at
     // the revenue line and that is a different, much larger change.
-    expect(run(2).gross_revenue_y1).toBe(7999249);
-    expect(run(4).gross_revenue_y1).toBe(8553517);
+    //
+    // Phase 36.D moved these deliberately, and this test is the reason we know
+    // by exactly how much. Demand left the unsourced 935 for the tri-TSO Baltic
+    // LFC-block procurement series, and merchant supply is now net of the MW
+    // contracted away to LT services KKME earns nothing from. Y1 gross moved
+    // 7 999 249 → 7 994 239 (2h, −0.06%) and 8 553 517 → 8 519 445 (4h, −0.40%).
+    // The 7.7d alignment itself is untouched: the movement is entirely in the
+    // demand basis, and the wear-side assertions above still hold.
+    expect(run(2).gross_revenue_y1).toBe(7994239);
+    expect(run(4).gross_revenue_y1).toBe(8519445);
   });
 });

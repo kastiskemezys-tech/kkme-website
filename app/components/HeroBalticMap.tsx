@@ -7,6 +7,7 @@ import { MotionPathPlugin } from 'gsap/MotionPathPlugin';
 import { AnimatePresence, motion } from 'motion/react';
 import { geoToPixel, MAP_WIDTH, MAP_HEIGHT, CABLE_PATHS, COUNTRY_LABEL_PIXELS, CITY_LABEL_PIXELS, WAYPOINT_START } from '@/lib/map-projection';
 import { INTERCONNECTORS, resolveFlow } from '@/lib/baltic-places';
+import { sdFormulaCaption } from '@/app/lib/sdRatio';
 import type { ResolvedFlow } from '@/lib/baltic-places';
 import { resolveCollisions } from '@/lib/label-layout';
 import type { LabelBox } from '@/lib/label-layout';
@@ -48,6 +49,13 @@ interface FleetCountry {
 }
 interface FleetData {
   sd_ratio?: number | null; phase?: string | null; cpi?: number | null;
+  baltic_weighted_mw?: number | null;
+  absorption_mw?: number | null;
+  product_sd?: {
+    fcr?: { demand_mw?: number | null } | null;
+    afrr?: { demand_mw?: number | null } | null;
+    mfrr?: { demand_mw?: number | null } | null;
+  } | null;
   baltic_operational_mw?: number | null;
   baltic_operational_mw_strict?: number | null;
   baltic_quarantined_mw?: number | null;
@@ -303,14 +311,26 @@ export function HeroBalticMap() {
     // Phase 12.10 — audit #5 flagged the 752 / 3,600 marquee items as
     // "plausible-looking but unverified". The numbers ARE derived from
     // verified upstream:
-    //   - eff_demand_mw = sum of Baltic FCR + aFRR + mFRR demand bands
-    //     (28 + 120 + 604 = 752) — published by Litgrid product methodology
+    //   - eff_demand_mw = sum of the Baltic FCR + aFRR + mFRR procurement
+    //     bands for the year, from the tri-TSO LFC-block dimensioning
+    //     forecasts (workers/lib/demand-forecast.js). Year-indexed since
+    //     Phase 36.D — the component split is DERIVED below, never written
+    //     into the label (discipline rule #2).
     //   - free_mw = grid headroom from VERT.lt ArcGIS (eso_maps)
     // The audit's complaint was the lack of computation-chain disclosure.
     // Inline tooltips would be unreadable in the marquee; instead we
     // mention the source feed in the items themselves and rely on the
     // S4Card "Fleet tracker" + "Grid headroom" tooltips for the chain.
-    if (fleet?.eff_demand_mw != null) items.push(`EFFECTIVE DEMAND ${fmt(fleet.eff_demand_mw)} MW (FCR 28 + aFRR 120 + mFRR 604 per Litgrid product mix)`);
+    if (fleet?.eff_demand_mw != null) {
+      // The split is computed from the payload's own per-product demands. The
+      // old label hardcoded "FCR 28 + aFRR 120 + mFRR 604": true of 2026 and
+      // of nothing else, on a value that now moves with the year.
+      const ps = fleet?.product_sd;
+      const split = ps?.fcr?.demand_mw != null && ps?.afrr?.demand_mw != null && ps?.mfrr?.demand_mw != null
+        ? ` (FCR ${fmt(ps.fcr.demand_mw)} + aFRR ${fmt(ps.afrr.demand_mw)} + mFRR ${fmt(ps.mfrr.demand_mw)}, Baltic LFC block)`
+        : '';
+      items.push(`EFFECTIVE DEMAND ${fmt(fleet.eff_demand_mw)} MW${split}`);
+    }
     if (s4?.free_mw != null) items.push(`FREE GRID ${fmt(s4.free_mw)} MW (VERT.lt ArcGIS, all-tech)`);
     if (revenue?.cod_year) items.push(`COD ${revenue.cod_year}`);
     return items;
@@ -846,14 +866,21 @@ export function HeroBalticMap() {
         }}>
           <div
             style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 0, paddingTop: 'var(--space-xs)', paddingRight: '10px', paddingBottom: 'var(--space-xs)', paddingLeft: '10px', textAlign: 'center', cursor: 'help' }}
+            // Phase 36.D — was `(operational + 0.5 × pipeline) / demand`, a
+            // formula the engine does not use and which did not reproduce the
+            // ratio rendered directly beneath it. Canonical caption now.
             title={(() => {
-              const op = fleet?.baltic_operational_mw;
-              const pipe = fleet?.baltic_pipeline_mw;
+              const w = fleet?.baltic_weighted_mw;
               const dem = fleet?.eff_demand_mw;
-              if (op != null && pipe != null && dem != null) {
-                return `S/D ratio = (operational + 0.5 × pipeline) / effective demand = (${fmt(op)} + 0.5 × ${fmt(pipe)}) / ${fmt(dem)} = ${(fleet?.sd_ratio ?? 0).toFixed(2)}×. Pipeline is risk-weighted at 50%.`;
+              if (w != null && dem != null) {
+                return `${sdFormulaCaption({
+                  weightedMw: w,
+                  effDemandMw: dem,
+                  absorptionMw: fleet?.absorption_mw,
+                  publishedSdRatio: fleet?.sd_ratio,
+                })}. Supply is credibility-weighted by project status.`;
               }
-              return 'S/D ratio = (operational fleet + 50% pipeline) / effective demand. Pipeline is risk-weighted at 50% for permitting/financing risk.';
+              return 'S/D ratio = credibility-weighted supply / effective Baltic reserve demand.';
             })()}
           >
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>S/D</div>

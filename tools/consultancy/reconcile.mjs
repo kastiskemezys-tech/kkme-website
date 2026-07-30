@@ -31,6 +31,10 @@ import { writeRunOutput, kvVintage } from './lib/runs.mjs';
 import { getKV } from './kv-snapshot.mjs';
 import { loadFixtureKV } from './regression-reference.mjs';
 import { buildBridge, BRIDGE_LINES } from './bridge.mjs';
+import {
+  addressableDemandMw, absorptionMw, componentMwAt, litgridLtSupplyMw,
+  VERSION as DEMAND_FORECAST_VERSION,
+} from '../../workers/lib/demand-forecast.js';
 import { CENTRAL_DRIVERS, loadEngineWithDrivers } from './scenario-overlay.mjs';
 import { loadScenarios, runScenario, applyRunnerDrivers } from './run-scenarios.mjs';
 
@@ -39,13 +43,24 @@ const r = (n) => Math.round(n);
 /** Euro tie-outs are exact to the euro; a few euro of rounding across 20 rows is not drift. */
 const EURO_TOL = 2;
 
-const ok = (actual, expected, tol) => Math.abs(actual - expected) <= tol;
+// A non-finite side cannot have passed. `Math.abs(null - null)` is 0, so the
+// original form reported "pass" for a check that compared nothing against
+// nothing — the one outcome a reconciliation harness must never produce,
+// because it is indistinguishable from a real pass in every report it feeds.
+// Found while adding the 36.D demand checks; it was latent for every check.
+const ok = (actual, expected, tol) =>
+  Number.isFinite(actual) && Number.isFinite(expected) && Math.abs(actual - expected) <= tol;
 
 function check(id, label, { actual, expected, tol = EURO_TOL, unit = 'EUR', note }) {
   const pass = ok(actual, expected, tol);
+  const evaluable = Number.isFinite(actual) && Number.isFinite(expected);
   return {
-    id, label, actual, expected, delta: r(actual - expected), tolerance: tol, unit,
-    status: pass ? 'pass' : 'fail', ...(note ? { note } : {}),
+    id, label, actual, expected,
+    delta: evaluable ? r(actual - expected) : null,
+    tolerance: tol, unit,
+    status: pass ? 'pass' : 'fail',
+    ...(evaluable ? {} : { not_evaluable: true }),
+    ...(note ? { note } : {}),
   };
 }
 
@@ -169,7 +184,113 @@ export function internalChecks(entry) {
       note: worstLine.where ? `Worst residual at ${worstLine.where}.` : 'All years exact.',
     }));
 
+  // ── Phase 36.D — the demand side ties to the TSOs' own documents ────────
+  //
+  // These four hold the chain the client is actually being asked to trust:
+  // published table → module → engine. Checks 1-8 above prove the bridge is
+  // internally consistent; a perfectly consistent bridge over a wrong
+  // denominator is still wrong, and nothing before 36.D would have caught it.
+
+  // 9. The engine divides by what the module says, in every projected year.
+  //    Not the current year, not a KV echo — every year of the projection.
+  let worstDemand = { d: 0, yr: null };
+  let evaluated = 0;
+  for (const yr of engine.years ?? []) {
+    if (!Number.isInteger(yr?.cal_year) || yr.demand_mw == null) continue;
+    evaluated += 1;
+    const d = Math.abs(yr.demand_mw - addressableDemandMw(yr.cal_year));
+    if (d > worstDemand.d) worstDemand = { d, yr: yr.cal_year };
+  }
+  // A check that evaluated nothing must FAIL, not pass. If the engine stops
+  // publishing per-year demand this loop finds nothing to compare, and a
+  // silently-green assertion over an empty set is the failure mode that makes a
+  // reconciliation harness worse than none.
+  out.push(check('internal_9_demand_ties_to_module',
+    'Projected reserve demand = the canonical module\'s series, every year', {
+      actual: evaluated === 0 ? null : r(worstDemand.d), expected: 0, tol: 1, unit: 'MW',
+      note: evaluated === 0
+        ? 'NOT EVALUABLE — the engine published no per-year demand_mw to compare.'
+        : `${evaluated} years compared; largest divergence at ${worstDemand.yr}. `
+          + `Module v${DEMAND_FORECAST_VERSION.version}, ${DEMAND_FORECAST_VERSION.scope}.`,
+    }));
+
+  // 10. The 2026 row still reproduces the constant it replaced. If a future
+  //     adoption moves it, that is fine — but it must be a decision, and this
+  //     is where it surfaces rather than in a client's spreadsheet.
+  out.push(check('internal_10_demand_base_year_ties_to_752',
+    'Module 2026 addressable demand = 752 MW (mFRR 604 + aFRR 120 + FCR 28)', {
+      actual: addressableDemandMw(2026), expected: 752, tol: 0, unit: 'MW',
+      note: 'The engine\'s pre-36.D constant, now with the tri-TSO documents behind it.',
+    }));
+
+  // 11. The fast-response identity. IZDR + GAGAP is a flat 354 MW in every
+  //     analysed year; the 2033 transition releases 200 MW of supply and adds
+  //     exactly 200 MW of absorption. Asserted here as well as in the module's
+  //     own tests because this is the one the deliverable makes a claim about.
+  let worstIdentity = { d: 0, yr: null };
+  for (let y = 2028; y <= 2035; y++) {
+    const d = Math.abs(componentMwAt('izdr', y) + componentMwAt('gagap', y) - 354);
+    if (d > worstIdentity.d) worstIdentity = { d, yr: y };
+  }
+  out.push(check('internal_11_fast_response_identity',
+    'IZDR + GAGAP = 354 MW in every year (Litgrid table 20, p.127)', {
+      actual: r(worstIdentity.d), expected: 0, tol: 0, unit: 'MW',
+      note: 'The 2033 lapse of the Energy Cells reservation nets to zero: supply +200, absorption +200.',
+    }));
+
+  // 12. Absorption is applied, and it is the module's figure. Recomputed from
+  //     the engine's own supply projection rather than read back from it.
+  const absYr = engine.years?.[0]?.cal_year;
+  const absOk = Number.isInteger(absYr);
+  out.push(check('internal_12_absorption_applied',
+    'Supply is net of the module\'s absorption series', {
+      actual: absOk ? (engine.fleet_context?.absorption_mw ?? null) : null,
+      expected: absOk ? absorptionMw(absYr) : null,
+      tol: 0, unit: 'MW',
+      note: absOk
+        ? `MW contracted away to LT services with no KKME revenue line, at ${absYr}.`
+        : 'NOT EVALUABLE — the engine published no first projected year.',
+    }));
+
   return out.map((c) => ({ ...c, subject: entry.subject }));
+}
+
+/**
+ * Phase 36.D — supply-side reconciliation against Litgrid's own LT build-out.
+ *
+ * Reported, NOT gated. KKME's Central and Litgrid's L TrSc scenario are two
+ * different claims about the same market, and the gap changes sign: our Central
+ * is ~23% BELOW Litgrid's connection-indication view at 2028 and 2.0-2.6x ABOVE
+ * its scenario series from 2030. A tolerance band would have to be so wide it
+ * asserted nothing, so this states the gap per year and lets the reader judge.
+ */
+export function supplyBasisComparison(kv) {
+  const fleet = kv.fleet || kv.s2 || {};
+  const lt = fleet.countries?.LT;
+  if (!lt) return null;
+  const rows = [];
+  for (const y of [2028, 2030, 2033, 2035]) {
+    const yrsIn = Math.max(0, y - 2026);
+    const deploy = Math.min(1, 1 / (1 + Math.exp(-0.6 * (yrsIn - 3.5))));
+    const kkme = (lt.operational_mw || 0) + (lt.pipeline_mw || 0) * 0.50 * deploy;
+    const litgrid = litgridLtSupplyMw(y);
+    rows.push({
+      year: y,
+      kkme_central_lt_mw: r(kkme),
+      litgrid_ltrsc_lt_mw: litgrid,
+      ratio: litgrid ? Math.round((kkme / litgrid) * 100) / 100 : null,
+    });
+  }
+  return {
+    id: 'supply_basis_kkme_vs_litgrid',
+    label: 'KKME Central LT build-out vs Litgrid L TrSc, like-for-like',
+    gated: false,
+    rows,
+    note:
+      'Two claims about the same market, not a target and a measurement. The gap changes sign, ' +
+      'which is why Central was not recalibrated onto the Litgrid basis and why that basis is ' +
+      'offered as a named scenario instead.',
+  };
 }
 
 /** Internal check 7: portfolio = Σ projects, every line, every year. */

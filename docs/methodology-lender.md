@@ -1,6 +1,6 @@
 # KKME lender-grade methodology
 
-**Engine version:** v7.3 · **Assumption register:** r1.35c74b94 (47 rows) · **Arc:** Phase 36.B
+**Engine version:** v7.3 · **Assumption register:** r2.eb8712f9 (47 rows) · **Arc:** Phase 36.D
 **Prepared:** 2026-07-29 · **Maintainer:** UAB KKME · Kastytis Kemežys
 
 ---
@@ -473,7 +473,7 @@ A second asymmetry is structural rather than economic. Baltic synchronisation wi
 
 Reserve prices are flat across every shape-year, so capacity revenue varies only through committable MW and never through price. **The spread reported here is a day-ahead spread.**
 
-Total revenue variance is larger, and materially so: the reserve stack is **71.1 % of Y1 gross and 74.2 % of lifetime gross** in the reference case (measured on the frozen fixture at register r1.35c74b94), and contributes almost no variance to this distribution. Every output payload carries `reserve_basis: "calibrated-flat (see D3)"` so the number cannot travel without the caveat.
+Total revenue variance is larger, and materially so: the reserve stack is **71.1 % of Y1 gross and 74.2 % of lifetime gross** in the reference case (measured on the frozen fixture at register r2.eb8712f9), and contributes almost no variance to this distribution. Every output payload carries `reserve_basis: "calibrated-flat (see D3)"` so the number cannot travel without the caveat.
 
 That share is itself a moving quantity and rose when trading realisation was adopted at its measured value: lowering the arbitrage line raises the reserve stack's share of the total. It was 67.9 % / 71.9 % before the cutover. The direction is worth noting — **the measured correction made the model more dependent on the component that has not been measured.**
 
@@ -760,6 +760,158 @@ The direction matters: the site **overstated the average price and understated t
 The fix is one character class. It is included here rather than quietly repaired because the pattern generalises: **an input assumption that was true when written.** The regex was harmless when written (zero negative hours before 2020), became a live public-data defect somewhere around 2023, and nobody re-checked. That is the shape of defect this document's §09 exists to look for.
 
 `/revenue` was byte-identical across the fix (54/54, asserted), and the committed price history was never affected because `parseA44` had always accepted negatives. A test now asserts the two parsers agree on the same document.
+
+---
+
+## 08A · The demand side, and how it reconciles to the TSOs
+
+Every saturation number in this model divides by reserve demand. Until Phase
+36.D that denominator was a single scalar with no provenance. It now derives
+from the transmission system operators' own published procurement forecasts,
+and this section states the mapping completely enough that a reader holding
+those documents can check it.
+
+### 8A.1 What the denominator is
+
+**Effective Baltic reserve demand** is the common Baltic balancing-capacity
+procurement target: mFRR upward + aFRR upward + FCR, for the Baltic Load
+Frequency Control block. It comes from two documents authored jointly by all
+three Baltic TSOs — Elering AS, AS "Augstsprieguma tīkls" and LITGRID AB:
+
+| Component | 2026 | 2030 | 2035 | Source |
+|---|---|---|---|---|
+| mFRR upward (peak 4-hour cycle) | 604 | 684 | 754 | Baltic LFC block FRR dimensioning forecast 2026-2035, table 2 |
+| aFRR upward (peak cycle 16-20) | 120 | 120 | 120 | same, figure 1 — flat across the horizon by construction |
+| FCR (Baltic block share) | 28 | 36 | 48 | Baltic LFC block FCR dimensioning forecast 2026-2035 |
+| **Effective demand** | **752** | **840** | **922** | |
+
+The series is published annually to 2035 and grows at **2.29 %/yr**. Beyond 2035
+each component continues at its own compound rate, computed from its own
+published series rather than written down as a constant.
+
+**One component is held flat instead, and the reason is physical.** FCR is not a
+demand that grows with the Baltic system — it is the Baltic block's *share* of a
+fixed obligation. Continental Europe sizes FCR against a 3 000 MW reference
+incident and allocates it by net generation and consumption share. The published
+28 → 48 MW rise is that share growing against a constant denominator, and a share
+is bounded in a way an observed rate is not: continuing 6.19 %/yr to 2048 would
+give 104.6 MW, implying the Baltic share of the European reference incident more
+than triples. FCR is therefore held at its last published value from 2035, which
+lowers 2048 demand 4.5 % against the mechanical trend. Every other component
+trends. The exception is declared in the module with its reasoning, and a
+component cannot be held flat without stating why.
+
+This is the market KKME's modelled products actually clear in, and it matches
+the Baltic scope of the supply numerator. It is also, as it turned out, where
+the engine's long-standing `752` came from — 604 + 120 + 28 — a number that was
+correctly sourced and never documented. It is now documented, and no longer
+frozen at 2026.
+
+### 8A.2 What replaced what, and why it matters
+
+The engine previously used **935 MW**, held flat and compounded at an assumed
+2 %/yr. That figure had no derivation anywhere: an undocumented literal
+introduced in March 2026, kept alive by a storage-layer default being read back
+into the calculation. It sat **24 % above** the TSOs' own 2026 figure and
+compounded to 1 445 MW by 2048 — above every TSO-anchored series at every point.
+
+Correcting it lowers modelled revenue. It is stated here rather than absorbed
+quietly: at the reference asset the Y1 gross moves −0.06 % (2 h) and −0.40 %
+(4 h), project IRR −0.7 % and −2.3 % relative. The old 2 %/yr growth guess was,
+for the record, close to the TSOs' 2.29 %.
+
+### 8A.3 Supply absorption — MW that exist but cannot bid for our revenue
+
+Litgrid's *Lankstumo poreikių ataskaita 2026* (the Lithuanian flexibility needs
+assessment, submitted to ACER 2026-07-25 under EMD Art. 19e) identifies LT
+services that only batteries can provide, that are procured outside the products
+KKME models. Those MW are **not** added to demand — that would flatter the ratio.
+They are deducted from competing supply, because that is what they are: batteries
+contracted away from the reserve pool we compete in.
+
+| Component | Treatment | 2028 | 2030 | 2033 | 2035 |
+|---|---|---|---|---|---|
+| FCR (LT share) | addressable — already in the Baltic series | 14 | 18 | 23 | 25 |
+| IZDR — isolated-operation reserve | **absorption** | 200 | 200 | 0 | 0 |
+| GAGAP — fast active-power response | **absorption** | 154 | 154 | 354 | 354 |
+| LT-PL capacity-increase service | **absorption** | 146 | 146 | 0 | 0 |
+| System needs — short-term | excluded | 429 | 484 | 415 | 536 |
+| Network needs — DSO | excluded | 30 | 42 | 77 | 108 |
+| **Total absorption** | | **500** | **500** | **354** | **354** |
+
+Each exclusion has a reason on the record, not a preference:
+
+- **Short-term system needs** are the *uncovered* flexibility gap. They are by
+  definition not procured through FCR, aFRR or mFRR today, and Litgrid has
+  committed to a Lithuanian flexibility-market development plan by end-Q4 2026 to
+  define how they will be. Counting them would model a market with no rules, no
+  product and no price — and would double-count against the LFC-block series,
+  which already covers what our products are procured for.
+- **DSO needs** are procured by the distribution operator through manual public
+  tender, and the published figure is a sum of per-node annual maxima, so it is
+  not a coincident system requirement and cannot be added to one.
+
+### 8A.4 One structural result worth stating
+
+The fast-response requirement — IZDR plus GAGAP — is a **flat 354 MW in every
+year Litgrid analyses**. What changes at 2033 is only who may sell it. IZDR is
+reserved by Lithuanian law (EEĮ Art. 48(1)(3)) to the designated storage
+operator, UAB "Energy cells" (200 MW / 200 MWh); every other market participant
+is barred. That reservation is transitional and lapses.
+
+So at 2033 two things happen at once: Energy Cells' 200 MW returns to the
+merchant pool, **and** market-procured GAGAP rises by exactly 200 MW. Supply
++200, absorption +200, net effect zero. The total requirement never changes;
+only its ownership does.
+
+The model asserts this identity in every year, not only the four the document
+publishes, so that no future simplification can merge the two components and
+silently break the cancellation.
+
+### 8A.5 Reading the source correctly
+
+Litgrid's public summary states that the required quantity of flexible measures
+grows "from 4.36 GW to 7.13 GW by 2035". That is the **total** requirement — the
+`Poreikis` column of table 43. The *additional* need is the `Nepadengtas` column
+of the same table: 973 / 1044 / 869 / 1023 MW.
+
+Read as demand, the headline figure would put Lithuanian supply/demand at
+0.26-0.42 — scarcity — and inflate the compression index roughly fivefold, in
+the direction that flatters the model. The model records that series explicitly
+as a do-not-use reading, with its reason, so the trap is refuted in the data and
+not only in a document.
+
+Two smaller notes on faithfulness to the sources:
+
+- Litgrid's own table prints 1 519 MWh as its 2028 total where its components sum
+  to 1 510. The other three years reconcile exactly. Components are treated as
+  canonical and totals are computed; the 9 MWh divergence is recorded rather than
+  adopted either way.
+- The FCR series cross-validates across two independently authored documents: the
+  Lithuanian share in the Baltic FCR forecast (14 / 18 / 23 / 25 MW at
+  2028 / 2030 / 2033 / 2035) matches the flexibility assessment's own FCR row
+  exactly. This is asserted, not observed once.
+
+### 8A.6 Scope, and what is not yet covered
+
+The demand series is Baltic; the flexibility assessment is Lithuanian. A
+three-TSO composite built from national assessments would be the ideal source.
+Latvia's and Estonia's assessments are mandated on the same July-2026 deadline
+Lithuania met, but neither could be located at the time of writing, so neither
+is used. The Baltic-block procurement series avoids the problem entirely: it is
+joint, it is what is actually procured, and it needs no country-share allocation.
+
+That matters, because the two documents cannot be reconciled by share. Litgrid's
+assessment gives Lithuanian mFRR upward as 633 MW flat — 98 % of the whole Baltic
+block requirement — while its aFRR upward figure of 67 MW is 56 % of the block.
+Those cannot both be country shares. The Baltic FRR document explains why the
+comparison is ill-posed: after synchronisation, reserve capacity may be located
+in any Baltic LFC area, so the block requirement is not a sum of national ones.
+No Lithuanian share is derived from these documents.
+
+**Review cycle:** the flexibility assessment is updated every two years (next
+≈ 2028); the dimensioning forecasts annually. Both are watched (§10.4), and
+adoption is a human decision, never automatic.
 
 ---
 

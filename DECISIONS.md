@@ -2689,3 +2689,308 @@ Related: this is the second time a `logs/` artefact has caused trouble
 disproportionate to its value (it also blocked a rebase and contributed to two
 stale deploys the same day). Runtime artefacts do not belong in the repo, and
 their *directories* do not belong in cron paths that nothing validates.
+
+---
+
+## Phase 36.D Pause A — "4.36 → 7.13 GW" and "973 MW" are two columns of one table
+
+36.C handed this phase an open question: Litgrid's public summary says the flexibility
+requirement grows from **4.36 GW to 7.13 GW**, while the excerpt KKME was working from
+reports **973 MW**. Different scenario? Different metric? Different document?
+
+None of those. Table 43 on page 146 of *Lankstumo poreikių ataskaita 2026*:
+
+```
+lentelė 43 Lanksčių priemonių poreikis į viršų – LTrSc realistinis režimas
+                      2028        2030        2033        2035
+                 Poreikis  Nep.  Por.  Nep.  Por.  Nep.  Por.  Nep.
+Sistemos lankst.   3821   429   4838  484   5380  415   6644  536
+Tinklo lankstumas    30    30     42   42     77   77    108  108
+Specifinis lankst.  514   514    518  518    377  377    379  379
+Viso               4364   973   5398 1044   5834  869   7131 1023
+```
+
+`Poreikis` is the **total** requirement. `Nepadengtas` is the **uncovered residual** — the
+part not expected to be met by existing and already-planned resources. One table, one
+scenario, one mode.
+
+The reason to record this rather than just fix it: the wrong column is the one a reader
+reaches for. "4.36 → 7.13 GW" is the headline sentence on page 10; "973" is buried in a
+table on page 146. Substituting the headline into `eff_demand` puts KKME's LT S/D at
+0.26-0.42 — **SCARCITY** — and inflates the compression index from 0.31 to **1.86**, a
+~5× revenue error, in the direction that flatters us. So the canonical module stores the
+total-measures series **explicitly, under `excluded_readings` with a `do_not_use`
+reason**. A trap documented only in prose is a trap that gets re-sprung by the next reader
+of the summary.
+
+Related: the same excerpt's supply-side figures are garbled in a way worth knowing about.
+"1.26 GW **LTsC**" is **L TrSc** — the *scenario name* (*Lėtesnės transformacijos
+scenarijus*), not a supply tier. The "X + Y" pairs the excerpt reads as a supply
+decomposition are scenario-assumed BESS **plus** additional demand, summed. Litgrid does
+that sum once and states its result — 1260 + 973 = **2.23 GW** of BESS required at 2028 —
+which the excerpt turned back into a decomposition of a different number entirely.
+
+---
+
+## Phase 36.D Pause A — the 935 was never a number, and two defaults are one too many
+
+`git log -S` dates `eff_demand = 935` to `fb088c4`, 2026-03-05, the commit that created
+`processFleet`. It arrived as a bare literal with no comment, no derivation, and nothing
+in the commit message. There is no document, calculation or note anywhere in the
+repository that produces it. The archaeology is that there is no archaeology.
+
+What is more interesting is how it stayed alive. `workers/fetch-s1.js` carries **two**
+hardcoded demand defaults:
+
+```js
+// :419   processFleet — the one that computes sd_ratio
+const eff_demand = demand?.eff_demand_mw || 752;
+// :8230  POST /s2/fleet — the one that writes KV
+fleet.demand = demand ?? { eff_demand_mw: 935 };
+```
+
+`kkme_sync.py` POSTs `{"entries": [...]}` with no `demand` key. So the daily full replace
+computes S/D with **752** while writing **935** into KV as a field nothing reads. Then the
+4-hourly cron runs `syncLitgridFleet`, which reads that stored 935 back and passes it
+*into* `processFleet` — promoting a cosmetic default into the arithmetic. From that tick
+onward, 935 governs.
+
+The published ratio therefore oscillates with cron order: 2385/752 = **3.17×** or
+2385/935 = **2.55×**. Both have shipped — `docs/handover.md:1491` and `:3910` record the
+752 basis; production on 2026-07-29 serves 935.
+
+**Lesson: a default written into a stored payload is not cosmetic.** Any read-back path
+will eventually feed it to the function whose own default it was supposed to shadow. The
+two defaults were never compared because no single call site sees both. This is discipline
+rule #4 in a form the CI test cannot catch — the metric has one name and one field, but
+two producers with different constants.
+
+---
+
+## Phase 36.D Pause A — the /s2 752 was fully sourced; nobody wrote it down
+
+The prompt describes `752 = aFRR 120 + mFRR 604 + FCR 28` as undocumented. It is not. All
+three come from the tri-TSO **Baltic LFC block dimensioning forecasts** — authored jointly
+by Elering, AST and LITGRID, published on litgrid.eu, covering **2026-2035**:
+
+- mFRR upward, Baltic block, 2026 = **604 MW** → 2035 = 754 MW.
+- aFRR upward, Baltic block, peak 4-hour cycle (16-20) = **120 MW**, flat across the horizon.
+- FCR, Baltic block, 2026 = **28 MW** → 2035 = 48 MW.
+
+The comment `mfrr_up: 604, // source: Baltic mFRR demand` at `workers/fetch-s1.js:1110`
+was right all along; it just never named the document. Two defects follow, both of vintage
+rather than value:
+
+1. The number is frozen at the **2026 row** of a series that runs to 2035. The engine then
+   applies a synthetic 2 %/yr growth (`projectDemand`) in place of the published
+   trajectory — whose actual CAGR is **2.29 %/yr**. The growth rate was a good guess; the
+   level was not.
+2. `afrr: 120` is the **peak cycle**, not a year value. aFRR is flat in time and varies
+   only by time of day (96-120 MW across six cycles, daily mean 106.3). Using the peak in
+   a per-product denominator inflates demand and flatters the per-product S/D. Small, but
+   it should be a documented choice.
+
+Both figures were recovered from chart *data*, not from reading pixels: the FCR forecast
+is a `.docx` whose `word/charts/chart1.xml` carries the full per-country series
+(Baltics / EE / LV / LT), and its LT row — 12, 13, **14**, 16, **18**, 19, 21, **23**, 24,
+**25** — matches the FNA's own FCR row for 2028/2030/2033/2035 **exactly**. Two
+independent documents, one number.
+
+---
+
+## Phase 36.D Pause A — the CPI floor does not bound this blast radius
+
+The 36.D prompt classes code risk as MEDIUM because "the CPI floor bounds the arithmetic
+blast radius", while correctly adding that "the floor hides it" is not a correctness
+argument. The premise itself turns out to be false, and it is worth being precise about
+why, because the correct version of the claim is still useful.
+
+`eff_demand` reaches revenue through three channels:
+
+| Channel | Floor | Status |
+|---|---|---|
+| `cpiCurve(sd_ratio)` | 0.30 | saturated (S/D 2.55 → raw 0.276) — absorbed |
+| `reservePrice(sd_yr, base)` | 4 % of base | saturated (projected S/D 5.88 → 10.7) — absorbed |
+| **`marketDepthFactor(mix.sd_ratio)`** | **none** | `1/(1 + 0.15×(S/D − 0.8))`, multiplies `rev_trd` — **not absorbed** |
+
+`marketDepthFactor` is a hyperbola with no floor, and it multiplies the trading revenue
+line, whose `trading_fraction` is pinned at its 0.70 cap in every projected year. Swapping
+the 935 ramp for the Baltic-joint series moves it **−9.7 % to −11.6 %** year by year,
+**−10.6 % on the 20-year mean** — roughly **−7 % of gross revenue** before any supply-side
+change.
+
+So the publishable claim is narrower than the prompt drafts it. *"Current cannibalisation
+assumptions already saturate at the floor even under the TSO's own build-out projection"*
+is **true of the compression index and false of revenue**. Two of three channels are
+floored; the third is where the money is. The methodology gets the precise version or
+none.
+
+The direction is the one honesty predicts: 935 was **24 % above** the TSOs' own 2026
+figure and compounded to 1445 MW by 2048 — above every TSO-anchored series at every point.
+Correcting it costs revenue. That is what correcting it is supposed to do.
+
+---
+
+## Phase 36.D Pause A — 200 MW that cannot legally sell to us is counted as competing supply
+
+EEĮ Art. 48(1)(3), quoted verbatim in the Litgrid report (p.126-127), reserves the
+isolated-operation reserve (IZDR) to the designated storage operator — **UAB "Energy
+cells"**, 200 MW / 200 MWh — and bars everyone else: *"Kiti rinkos dalyviai šios paslaugos
+teikti negali."*
+
+The obvious mapping was `excluded`: a TSO-designated asset, and KKME already drops those
+via `NON_COMMERCIAL_TYPES = {pumped_hydro, tso_bess}` (`app/lib/sdRatio.ts:38`). Checking
+that assumption instead of asserting it found the defect. Energy Cells is in the live
+fleet payload as four Litgrid Layer-3 entries — *Kaupikliai Vilnius / Alytus / Šiauliai /
+Utena*, 50 MW each, **200 MW total**, matching the report's figure exactly — every one
+`status: operational`, **`type: null`**. Nothing excludes them. They carry **weight 1.0**
+in `baltic_weighted_mw` while being legally prohibited from selling into any product KKME
+models.
+
+The only `tso_bess`-tagged rows in the entire fleet are AST's Latvian units (Rēzekne 60,
+Tume 20). The mechanism exists; it is simply not applied to the one LT asset that most
+needs it. Worth noting how it hid: `syncLitgridFleet()` explicitly deletes an entry named
+`"Energy Cells (Kruonis)"` on every run — so the *name* was handled once and the *assets*
+arrived later under a different naming convention from a different feed.
+
+**And the fix has to be year-indexed, which is this phase's whole argument.** IZDR runs
+200 / 200 / **0 / 0**: the reservation is transitional, tied to the synchronisation-project
+period, and lapses. Tagging the four entries `tso_bess` permanently would be wrong in the
+opposite direction from 2033.
+
+The prompt's A.2 question 4 expected that lapse to compound — "competing supply comes back
+to the pool exactly when the fleet is largest". It does come back. But **IZDR + GAGAP is
+constant at 354 MW in every analysed year** (table 20, p.127: *"Visiems analizuotiems
+laikotarpiams nustatyta vienoda jų apimtis – 354 MW"*), so the same event that releases
+200 MW of supply raises market-procured GAGAP by **exactly +200 MW**. Supply +200,
+absorption +200, **net zero**. The total fast-response requirement never changes; only who
+is allowed to sell it does.
+
+That cancellation is invisible unless the module keeps IZDR and GAGAP as separate
+components with their own series instead of one netted "fast response" row. It is the
+strongest argument for the per-component structure, and per rule #2 it has to fall out of
+the arithmetic rather than be written into the methodology as a sentence.
+
+---
+
+## Phase 36.D CP-2 amendment 1 — the one component-trend exception, and why it is physical
+
+Operator amendment: hold FCR flat after 2035 while every other component keeps the approved
+component-trend extrapolation.
+
+The reason is not that 104.6 MW looked large. It is that FCR is not a demand quantity at
+all. Continental Europe sizes FCR against a **fixed 3 000 MW reference incident** and
+allocates it across TSOs by net generation and consumption share (SOGL Art. 153, CE SAFA
+Policy 1). The published Baltic series — 28 MW in 2026 to 48 MW in 2035 — is therefore a
+*share* growing against a constant denominator, and a share is bounded in a way an observed
+rate is not. Compounding 6.19 %/yr to 2048 gives 104.6 MW: the Baltic share of the European
+reference incident more than tripling. Nobody would defend that in a room, and an advisor
+would find it before we pointed at it.
+
+So the module now carries `extrapolation: 'flat' | 'component-trend'` per component, and
+validation **rejects a flat component that does not state why**. A departure from the
+declared policy is a claim about the world; the flag alone is not the claim. Exactly one
+component declares it, and the reason travels with the data rather than living in a
+changelog.
+
+Effect: 2048 addressable demand 1 263 → 1 207 MW (−4.5 %). Direction is revenue-positive,
+which is worth naming — it slightly offsets the phase's overall reduction, and it was
+adopted because the reasoning is better, not because of the sign.
+
+The general shape is the point: **mechanical extrapolation is a default, not a principle.**
+Where a quantity is bounded by something the trend cannot see, the bound wins and says so.
+
+---
+
+## Phase 36.D CP-2 amendment 2 — the client portfolio moves DOWN, and the first measurement was mine to get wrong
+
+The operator required the +12.9 % NPV move on the client portfolio to be decomposed rather
+than left "measured, not fully attributed". Decomposing it showed there was no +12.9 % move.
+
+| Metric | reported at CP-2 | measured, controlled |
+|---|---|---|
+| Y1 gross | +3.1 % | **+0.20 %** |
+| 20-yr EBITDA | +5.2 % | **−0.83 %** |
+| NPV @ 8 % | **+12.9 %** | **−1.78 %** |
+
+The bad measurement took its "before" run under `git stash`, which reverted every *tracked*
+file — the KV fixture (dropping the `countries` block this phase added), the bridge
+calibration constant, `scenarios.json` — while leaving the *untracked* new modules in place.
+The two runs differed in far more than the engine. The stash pop then failed partway and
+needed hand repair, which should have been the second warning.
+
+That is **C3** (baseline not captured cleanly before intended movement) committed by the
+executor rather than the prompt, and it survived because the number was never re-derived by
+a second method. The tell was available and ignored: **the +12.9 % was the only figure in
+the entire phase pointing away from every other one.** A single result whose sign disagrees
+with the mechanism that produced it is a measurement to redo, not a finding to report.
+
+**Rule: a before/after on this engine loads both modules in one process.** `git stash` is
+not a baseline mechanism in a repo with untracked work in flight — it cannot be, because it
+moves exactly the files a baseline is supposed to hold still. The run registry exists to
+make honest baselines cheap; this one did not use it.
+
+The corrected decomposition is in
+`docs/investigations/2026-07-29-phase-36-d-portfolio-decomposition.md`. The mechanism, which
+the aggregate number was hiding:
+
+- **Reserve revenue rises and saturates** — +1.96 % → +2.33 %, flat at +€286k/yr from 2030.
+  `bidAcceptanceFactor` is a decay bounded at 0.95; once mFRR S/D has fallen as far as the
+  absorption deduction takes it there is nothing more to win.
+- **Arbitrage falls and keeps falling** — −4.17 % → −10.05 %, because `marketDepthFactor`
+  has no floor and the two demand series diverge every year (the retired 935 × 1.02ⁿ ramp
+  reached 1 445 MW by 2048; the TSO-anchored series reaches 1 207 MW).
+- At a 71/29 reserve-to-arbitrage mix these **almost exactly cancel in year 1** (+0.18 %
+  predicted, +0.21 % measured) and stop cancelling immediately afterwards: 20-year totals
+  are reserve +€5.66M, arbitrage −€7.46M, net −€1.80M.
+
+So "year 1 is neutral" and "the twenty-year NPV falls 1.8 %" are the same fact seen at two
+horizons. Reporting either alone would have been true and misleading.
+
+
+---
+
+## Phase 36.D Pause C — two of three tripwires were pinned to URLs I never fetched
+
+The publication watcher shipped with three targets. `/health.demand_watch` after the first
+live cron tick:
+
+```
+fna               present, checked 16:01:30Z
+balancing-market  never_checked
+studies           never_checked
+```
+
+Both of those URLs return **zero document links**. I had verified the FNA page in Pause A —
+I fetched it, parsed it, downloaded the report from it. The other two I wrote from memory of
+the site's navigation, and they resolved to a generic section page (both returned an
+identical 2 023 742-byte body, which was the tell had anyone looked).
+
+The watcher would never have alerted about it. Its no-links branch was written to *report and
+continue*, on the reasoning that an empty page is more likely a CMS change than a deletion
+and should not fire a false alarm. That reasoning is right about the false alarm and wrong
+about everything else: a tripwire that says "I found nothing" once and then goes quiet is
+indistinguishable, from the outside, from a tripwire that is working. Two thirds of the
+demand module's change-detection was dead on arrival and looked armed.
+
+Three changes:
+
+- **Targets are the DOCUMENT pages, not section indexes** — Litgrid replaces a report in
+  place, which `diffPages` already sees as a retitle. An index adds a layer that can silently
+  stop listing what we depend on.
+- **Blind is an ALERT, not a log line.** Never-had-links means the target was pinned wrong;
+  had-links-now-none means the page moved or the selector broke. Both are worth waking
+  someone. The alert says explicitly which target is unwatched.
+- **Each target records `verified_at` and `links_seen`** from an actual fetch, and a test
+  asserts both are present and non-zero. A pinned URL that nobody has fetched is a guess
+  wearing a config's clothes.
+
+The general lesson is not "check URLs". It is that **B8's countermeasure has a failure mode
+of its own**: the staleness surface has to distinguish *quiet because nothing happened* from
+*quiet because I am broken*, and a watcher that cannot tell those apart provides confidence
+instead of monitoring. `/health.demand_watch` now reports `blind` as a distinct status from
+`present` and `never_checked`.
+
+Found by running the extraction against live markup as a post-deploy check — after the code
+was already in production. It should have been a pre-deploy check, and the fixture tests gave
+no hint because a fixture cut from the one page that *did* work will pass forever.

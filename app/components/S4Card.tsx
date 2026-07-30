@@ -123,6 +123,8 @@ interface FleetData {
   baltic_quarantined_mw?: number | null;
   baltic_pipeline_mw?:   number | null;
   baltic_weighted_mw?:    number | null;
+  baltic_weighted_net_mw?: number | null;
+  absorption_mw?:         number | null;
   eff_demand_mw?:        number | null;
   updated?:              string | null;
 }
@@ -685,9 +687,14 @@ export function S4Card() {
                   fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)',
                   color: 'var(--text-muted)', marginBottom: '10px', lineHeight: 1.5,
                 }}
-                title="Numerator is the credibility-weighted supply: operational ×1.0, under_construction ×0.9, connection_agreement ×0.6, application ×0.3, announced ×0.1. Pumped hydro and TSO BESS excluded (DRR-suppressed for FCR/aFRR until 2028-02)."
+                title="Numerator is the credibility-weighted supply: operational ×1.0, under_construction ×0.9, connection_agreement ×0.6, application ×0.3, announced ×0.1. Pumped hydro and TSO BESS excluded (DRR-suppressed for FCR/aFRR until 2028-02). Contracted-away MW are Lithuanian reserve services procured outside the products modelled here (isolated-operation reserve, fast active-power response, LT-PL capacity service), per Litgrid's flexibility needs assessment."
               >
-                {sdFormulaCaption(fl.baltic_weighted_mw, fl.eff_demand_mw)}
+                {sdFormulaCaption({
+                  weightedMw: fl.baltic_weighted_mw,
+                  effDemandMw: fl.eff_demand_mw,
+                  absorptionMw: fl.absorption_mw,
+                  publishedSdRatio: fl.sd_ratio,
+                })}
               </div>
             )}
             <div style={{
