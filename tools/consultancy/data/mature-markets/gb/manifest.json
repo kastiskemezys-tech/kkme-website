@@ -1,0 +1,436 @@
+{
+ "dataset": "gb-response-reserve",
+ "market": "GB",
+ "mechanism": "cap",
+ "source": "National Energy System Operator (NESO) data portal",
+ "source_urls": {
+  "dcBidLevel": "https://api.neso.energy/dataset/aca07dcb-f807-409c-a4ec-da5dc052b8ba/resource/0b8dbc3c-e05e-44a4-b855-7dd1aa079c68/download/dynamic_containment_masterdata.csv",
+  "dcSummary": "https://api.neso.energy/datastore/dump/888e5029-f786-41d2-bc15-cbfd1d285e96",
+  "eacFy2023": "https://api.neso.energy/dataset/291e3c28-75f2-4a8f-b5f5-008bebaac368/resource/be5c6b0d-a335-4859-93f2-389585b4e9a1/download/neso-response-reserve-results-summary-fy2023-archive.csv",
+  "eacFy2024": "https://api.neso.energy/dataset/291e3c28-75f2-4a8f-b5f5-008bebaac368/resource/ab130833-3ce4-4361-90fb-69fa3cf30f15/download/neso-response-reserve-results-summary-fy2024-archive.csv",
+  "eacFy2025": "https://api.neso.energy/dataset/291e3c28-75f2-4a8f-b5f5-008bebaac368/resource/be55ee51-b79e-47da-b71e-a0f8865d9d66/download/neso-response-reserve-results-summary-fy2025-archive.csv",
+  "eacLive": "https://api.neso.energy/datastore/dump/596f29ac-0387-4ba4-a6d3-95c243140707"
+ },
+ "licence": "NESO Open Data Licence — explicit open licence permitting reuse and redistribution with attribution. Source CSVs are committed as served (gzipped).",
+ "retrieved_at": "2026-07-30T06:32:31.177Z",
+ "resolution": "EFA blocks (PT4H) for response services; PT30M for some reserve products; PT24H for the 2020-21 bid-level era",
+ "timezone": "delivery windows are published as UTC instants and stored unchanged",
+ "coverage_verification": {
+  "claimed_by_arc_doc": "DC/DM/DR auction results + legacy FFR; the 2022-23 saturation episode must be fully covered",
+  "actual": "2020-10-01T22:00:00Z .. 2026-07-30T21:30:00Z",
+  "verdict": "Covered, but only by chaining four resources. No single \"auction results\" resource spans the lifecycle: the 2020-10..2021-09 scarcity era exists only in the bid-level Masterdata file, and taking the summary resources alone would silently start the series after the peak.",
+  "chain": [
+   {
+    "name": "Dynamic Containment Masterdata (bid level)",
+    "span": "2020-10-01T22:00:00Z..2021-09-14T22:00:00Z"
+   },
+   {
+    "name": "DC, DR & DM Results Summary Master Data 2021-2023",
+    "span": "2021-09-15T23:00:00Z..2023-11-02T19:00:00Z"
+   },
+   {
+    "name": "EAC Results Summary FY2023",
+    "span": "2023-11-02T23:00:00Z..2024-03-31T18:00:00Z"
+   },
+   {
+    "name": "EAC Results Summary FY2024",
+    "span": "2024-03-31T22:00:00Z..2025-03-31T21:30:00Z"
+   },
+   {
+    "name": "EAC Results Summary FY2025",
+    "span": "2025-03-31T22:00:00Z..2026-03-31T21:30:00Z"
+   },
+   {
+    "name": "EAC Results Summary (live)",
+    "span": "2026-03-31T22:00:00Z..2026-07-30T21:30:00Z"
+   }
+  ],
+  "ffr_not_normalised": "The FFR post-tender reports (89 monthly XLSX, package firm-frequency-response-post-tender-reports) would extend GB back past DC into the FFR era. Not normalised in 36.E0: 89 heterogeneous spreadsheet layouts for a pre-battery-dominance market is disproportionate to what E1-E5 calibrate. Located and left, not overlooked."
+ },
+ "price_semantics": {
+  "bid_level_era": "vwap_accepted — DC was pay-as-bid in 2020-21; the volume-weighted accepted availability fee is what providers earned, marginal and min are in extra",
+  "summary_era": "clearing — DC/DM/DR and EAC publish a clearing price per product per window",
+  "unit_verification": "GBP/MW/h, verified arithmetically in the bid-level file: 49 MW x 24 h x 15.03 GBP/MW/h = 17 675.28 = the published Total Cost",
+  "negative_prices": "EAC clearing prices are genuinely negative at times and are retained; they are the most informative observations in a saturated market, not dirt",
+  "zero_handling": "cleared volume 0 → price stored null with a note; the source writes 0 for both and only the volume is a fact",
+  "withdrawn_bids": "bid-level rows with Market Name \"Withdraw\" are bids pulled before auction close; excluded by design, counted at fetch time",
+  "currency": "native GBP retained; price_eur and price_norm converted at the ECB monthly-average GBP/EUR rate from ../fx/fx-monthly.json",
+  "fx_months_used": [
+   "2020-10",
+   "2020-11",
+   "2020-12",
+   "2021-01",
+   "2021-02",
+   "2021-03",
+   "2021-04",
+   "2021-05",
+   "2021-06",
+   "2021-07",
+   "2021-08",
+   "2021-09",
+   "2021-10",
+   "2021-11",
+   "2021-12",
+   "2022-01",
+   "2022-02",
+   "2022-03",
+   "2022-04",
+   "2022-05",
+   "2022-06",
+   "2022-07",
+   "2022-08",
+   "2022-09",
+   "2022-10",
+   "2022-11",
+   "2022-12",
+   "2023-01",
+   "2023-02",
+   "2023-03",
+   "2023-04",
+   "2023-05",
+   "2023-06",
+   "2023-07",
+   "2023-08",
+   "2023-09",
+   "2023-10",
+   "2023-11",
+   "2023-12",
+   "2024-01",
+   "2024-02",
+   "2024-03",
+   "2024-04",
+   "2024-05",
+   "2024-06",
+   "2024-07",
+   "2024-08",
+   "2024-09",
+   "2024-10",
+   "2024-11",
+   "2024-12",
+   "2025-01",
+   "2025-02",
+   "2025-03",
+   "2025-04",
+   "2025-05",
+   "2025-06",
+   "2025-07",
+   "2025-08",
+   "2025-09",
+   "2025-10",
+   "2025-11",
+   "2025-12",
+   "2026-01",
+   "2026-02",
+   "2026-03",
+   "2026-04",
+   "2026-05",
+   "2026-06",
+   "2026-07"
+  ]
+ },
+ "service_mapping": {
+  "DCL": {
+   "product": "DC-low",
+   "direction": "up"
+  },
+  "DCH": {
+   "product": "DC-high",
+   "direction": "down"
+  },
+  "DML": {
+   "product": "DM-low",
+   "direction": "up"
+  },
+  "DMH": {
+   "product": "DM-high",
+   "direction": "down"
+  },
+  "DRL": {
+   "product": "DR-low",
+   "direction": "up"
+  },
+  "DRH": {
+   "product": "DR-high",
+   "direction": "down"
+  },
+  "PBR": {
+   "product": "BR-up",
+   "direction": "up"
+  },
+  "NBR": {
+   "product": "BR-down",
+   "direction": "down"
+  },
+  "PQR": {
+   "product": "QR-up",
+   "direction": "up"
+  },
+  "NQR": {
+   "product": "QR-down",
+   "direction": "down"
+  },
+  "PSR": {
+   "product": "SR-up",
+   "direction": "up"
+  },
+  "NSR": {
+   "product": "SR-down",
+   "direction": "down"
+  },
+  "DC LF": {
+   "product": "DC-low",
+   "direction": "up"
+  },
+  "DC HF": {
+   "product": "DC-high",
+   "direction": "down"
+  },
+  "DM LF": {
+   "product": "DM-low",
+   "direction": "up"
+  },
+  "DM HF": {
+   "product": "DM-high",
+   "direction": "down"
+  },
+  "DR LF": {
+   "product": "DR-low",
+   "direction": "up"
+  },
+  "DR HF": {
+   "product": "DR-high",
+   "direction": "down"
+  }
+ },
+ "service_mapping_note": "GB names response products by the FREQUENCY they answer, which is the opposite of the power direction: DCL (low frequency) injects and is direction \"up\"; DCH absorbs and is \"down\". P/N prefixes on reserve products are positive/negative, i.e. up/down.",
+ "rows": 155705,
+ "source_files": [
+  {
+   "key": "dcBidLevel",
+   "name": "Dynamic Containment Masterdata (bid level)",
+   "source_url": "https://api.neso.energy/dataset/aca07dcb-f807-409c-a4ec-da5dc052b8ba/resource/0b8dbc3c-e05e-44a4-b855-7dd1aa079c68/download/dynamic_containment_masterdata.csv",
+   "package": "dynamic-containment-data",
+   "bytes": 1687187,
+   "rows": 349,
+   "span": "2020-10-01T22:00:00Z..2021-09-14T22:00:00Z",
+   "products": [
+    "DC-low"
+   ],
+   "sha256_source": "00789d3d369f628fbbb4f77a30ab1c988c0f37bc1ea22582637a2342ebb42beb"
+  },
+  {
+   "key": "dcSummary",
+   "name": "DC, DR & DM Results Summary Master Data 2021-2023",
+   "source_url": "https://api.neso.energy/datastore/dump/888e5029-f786-41d2-bc15-cbfd1d285e96",
+   "package": "dynamic-containment-data",
+   "bytes": 1504029,
+   "rows": 23424,
+   "span": "2021-09-15T23:00:00Z..2023-11-02T19:00:00Z",
+   "products": [
+    "DC-high",
+    "DC-low",
+    "DM-high",
+    "DM-low",
+    "DR-high",
+    "DR-low"
+   ],
+   "sha256_source": "d094e8d09ddfe32ca40c419175357e49e1a7b8897addaa37eca03b52e2db45e5"
+  },
+  {
+   "key": "eacFy2023",
+   "name": "EAC Results Summary FY2023",
+   "source_url": "https://api.neso.energy/dataset/291e3c28-75f2-4a8f-b5f5-008bebaac368/resource/be5c6b0d-a335-4859-93f2-389585b4e9a1/download/neso-response-reserve-results-summary-fy2023-archive.csv",
+   "package": "eac-auction-results",
+   "bytes": 376217,
+   "rows": 5400,
+   "span": "2023-11-02T23:00:00Z..2024-03-31T18:00:00Z",
+   "products": [
+    "DC-high",
+    "DC-low",
+    "DM-high",
+    "DM-low",
+    "DR-high",
+    "DR-low"
+   ],
+   "sha256_source": "2b5fd0062d09d6f414c20b7c479d61cd7106983fba487ac11ab97796f8274de9"
+  },
+  {
+   "key": "eacFy2024",
+   "name": "EAC Results Summary FY2024",
+   "source_url": "https://api.neso.energy/dataset/291e3c28-75f2-4a8f-b5f5-008bebaac368/resource/ab130833-3ce4-4361-90fb-69fa3cf30f15/download/neso-response-reserve-results-summary-fy2024-archive.csv",
+   "package": "eac-auction-results",
+   "bytes": 1771751,
+   "rows": 24464,
+   "span": "2024-03-31T22:00:00Z..2025-03-31T21:30:00Z",
+   "products": [
+    "DC-high",
+    "DC-low",
+    "DM-high",
+    "DM-low",
+    "DR-high",
+    "DR-low",
+    "QR-down",
+    "QR-up"
+   ],
+   "sha256_source": "6985c04da328c8a6a0e4b47aa20be4dd81568edcb7fea5b0ee5b08644d093b88"
+  },
+  {
+   "key": "eacFy2025",
+   "name": "EAC Results Summary FY2025",
+   "source_url": "https://api.neso.energy/dataset/291e3c28-75f2-4a8f-b5f5-008bebaac368/resource/be55ee51-b79e-47da-b71e-a0f8865d9d66/download/neso-response-reserve-results-summary-fy2025-archive.csv",
+   "package": "eac-auction-results",
+   "bytes": 4579797,
+   "rows": 62864,
+   "span": "2025-03-31T22:00:00Z..2026-03-31T21:30:00Z",
+   "products": [
+    "BR-down",
+    "BR-up",
+    "DC-high",
+    "DC-low",
+    "DM-high",
+    "DM-low",
+    "DR-high",
+    "DR-low",
+    "QR-down",
+    "QR-up"
+   ],
+   "sha256_source": "901fd1ad49cf9c1d3a5803b0d7c6a1466cbe429bb4a92c5a333bbce60bafb3cf"
+  },
+  {
+   "key": "eacLive",
+   "name": "EAC Results Summary (live)",
+   "source_url": "https://api.neso.energy/datastore/dump/596f29ac-0387-4ba4-a6d3-95c243140707",
+   "package": "eac-auction-results",
+   "bytes": 2815606,
+   "rows": 39204,
+   "span": "2026-03-31T22:00:00Z..2026-07-30T21:30:00Z",
+   "products": [
+    "BR-down",
+    "BR-up",
+    "DC-high",
+    "DC-low",
+    "DM-high",
+    "DM-low",
+    "DR-high",
+    "DR-low",
+    "QR-down",
+    "QR-up",
+    "SR-down",
+    "SR-up"
+   ],
+   "sha256_source": "8b495a0a69e1ef7bd10b2096567a4d219ba94f97248b132935c05662af37ab2e"
+  }
+ ],
+ "warnings": [],
+ "n_warnings": 0,
+ "files": [
+  {
+   "file": "gb-response-reserve-2020.ndjson.gz",
+   "rows": 92,
+   "bytes_gz": 2067,
+   "span": "2020-10-01T22:00:00Z..2021-01-01T23:00:00Z",
+   "products": [
+    "DC-low"
+   ],
+   "sha256": "0bcefccd5dce1f833797c805720f083650de819eeaedc4c30c1e8eeec028fe37"
+  },
+  {
+   "file": "gb-response-reserve-2021.ndjson.gz",
+   "rows": 1543,
+   "bytes_gz": 24827,
+   "span": "2021-01-01T23:00:00Z..2022-01-01T03:00:00Z",
+   "products": [
+    "DC-high",
+    "DC-low"
+   ],
+   "sha256": "49ba92eaee70d827bf5ef3f166b8aa9786fca8b2dbf042551ff6f31c0d45eb48"
+  },
+  {
+   "file": "gb-response-reserve-2022.ndjson.gz",
+   "rows": 11128,
+   "bytes_gz": 165846,
+   "span": "2022-01-01T03:00:00Z..2023-01-01T03:00:00Z",
+   "products": [
+    "DC-high",
+    "DC-low",
+    "DM-high",
+    "DM-low",
+    "DR-high",
+    "DR-low"
+   ],
+   "sha256": "f2c928dcbb25b057db9b295180fab19b0445ae0206cf934ad6cef5955a80b766"
+  },
+  {
+   "file": "gb-response-reserve-2023.ndjson.gz",
+   "rows": 13140,
+   "bytes_gz": 217055,
+   "span": "2023-01-01T03:00:00Z..2024-01-01T03:00:00Z",
+   "products": [
+    "DC-high",
+    "DC-low",
+    "DM-high",
+    "DM-low",
+    "DR-high",
+    "DR-low"
+   ],
+   "sha256": "5e4d98c51c35f9b8bb0c193996a3e45a5cd23b1747a6ec84711a9e70cb85f717"
+  },
+  {
+   "file": "gb-response-reserve-2024.ndjson.gz",
+   "rows": 15868,
+   "bytes_gz": 277356,
+   "span": "2024-01-01T03:00:00Z..2025-01-01T00:00:00Z",
+   "products": [
+    "DC-high",
+    "DC-low",
+    "DM-high",
+    "DM-low",
+    "DR-high",
+    "DR-low",
+    "QR-down",
+    "QR-up"
+   ],
+   "sha256": "0802103deba7710e42b7cac051ba019506aea6976f2c8c9216cb628387f64016"
+  },
+  {
+   "file": "gb-response-reserve-2025.ndjson.gz",
+   "rows": 54232,
+   "bytes_gz": 857619,
+   "span": "2025-01-01T00:00:00Z..2026-01-01T00:00:00Z",
+   "products": [
+    "BR-down",
+    "BR-up",
+    "DC-high",
+    "DC-low",
+    "DM-high",
+    "DM-low",
+    "DR-high",
+    "DR-low",
+    "QR-down",
+    "QR-up"
+   ],
+   "sha256": "f22e5e34f07854a12bb1c39ea5c2a386258e5b447ee94e7111fef4f4e870e631"
+  },
+  {
+   "file": "gb-response-reserve-2026.ndjson.gz",
+   "rows": 59702,
+   "bytes_gz": 725144,
+   "span": "2026-01-01T00:00:00Z..2026-07-30T22:00:00Z",
+   "products": [
+    "BR-down",
+    "BR-up",
+    "DC-high",
+    "DC-low",
+    "DM-high",
+    "DM-low",
+    "DR-high",
+    "DR-low",
+    "QR-down",
+    "QR-up",
+    "SR-down",
+    "SR-up"
+   ],
+   "sha256": "5938ebb7e1bbb245f738ae44bcec38a25f532fbcb769bd416e32d27f78f09eee"
+  }
+ ]
+}

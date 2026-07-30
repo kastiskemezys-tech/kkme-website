@@ -1,0 +1,2991 @@
+{
+ "dataset": "day-ahead-prices",
+ "markets": [
+  {
+   "market": "DE",
+   "area": "DE_LU",
+   "eic": "10Y1001A1001A82H",
+   "note": "DE-LU bidding zone. Before 2018-10-01 Germany, Austria and Luxembourg were one zone (10Y1001A1001A63L); this EIC returns the DE-LU series and is empty before the split."
+  },
+  {
+   "market": "SE",
+   "area": "SE3",
+   "eic": "10Y1001A1001A46L",
+   "note": "SE3 — the Swedish zone holding most demand and most battery capacity."
+  }
+ ],
+ "products": [
+  "spot"
+ ],
+ "mechanism": "energy",
+ "source": "ENTSO-E Transparency Platform documentType A44 (DE, SE) + Elexon BMRS Market Index Data (GB)",
+ "source_urls": {
+  "entsoe": "https://web-api.tp.entsoe.eu/api?documentType=A44&in_Domain=<EIC>&out_Domain=<EIC>&periodStart=<YYYYMMDDHHmm>&periodEnd=<YYYYMMDDHHmm>&securityToken=<key>",
+  "elexon_gb": "https://data.elexon.co.uk/bmrs/api/v1/balancing/pricing/market-index?from=<YYYY-MM-DD>&to=<YYYY-MM-DD> (max 7-day range)"
+ },
+ "gb_channel": {
+  "why": "GB is not on the ENTSO-E Transparency Platform. A44 returns \"No matching data found for ENERGY_PRICES [12.1.D]\" for 10YGB----------A, 10Y1001A1001A92E and 10Y1001A1001A016 while DE returns prices for the same interval in the same run — a passing positive control, so this is a fact about GB and not about the API.",
+  "provider": "APXMIDP",
+  "provider_choice": "MID publishes APXMIDP (EPEX) and N2EXMIDP (Nord Pool). N2EXMIDP returns price 0.00 with volume 0.000 in sampled windows — absence as zero. APXMIDP is the reference used.",
+  "zero_no_trade_dropped": 156,
+  "bad_stamps_dropped": 0,
+  "resolution": "PT30M settlement periods",
+  "currency": "native GBP retained; converted at the ECB monthly-average GBP/EUR rate"
+ },
+ "licence": "ENTSO-E Transparency Platform data, reusable under the platform terms of use with attribution. Requires a free registered API key.",
+ "retrieved_at": "2026-07-30T06:49:57.930Z",
+ "requested_span": "2015..2026",
+ "purpose": "the arbitrage-opportunity denominator for the summary table's floor-vs-opportunity column",
+ "resolution": "native, as published per document: PT60M for most of the span, PT15M or PT30M where the market moved to shorter MTUs",
+ "timezone": "ENTSO-E publishes UTC instants; stored unchanged",
+ "parsing_notes": {
+  "zip": "multi-document responses are ZIP-wrapped; parsed via the central directory rather than assuming a single stored entry",
+  "curveType_A03": "A03 curves omit unchanged points; the last price is carried forward and each carried row is flagged extra.carried_forward",
+  "multiple_resolutions_are_multiple_products": "ENTSO-E publishes the German hourly MTU day-ahead price and the quarter-hourly auction price for the same instants. They are separate auctions with different prices, not one series at two resolutions. Rows are keyed on resolution as well as time. Analysis that wants \"the\" day-ahead price must pick PT60M explicitly where it exists.",
+  "currencies_seen_non_eur": []
+ },
+ "coverage_verification": {
+  "per_month": [
+   {
+    "market": "DE",
+    "month": "2015-01",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2015-02",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2015-03",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2015-04",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2015-05",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2015-06",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2015-07",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2015-08",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2015-09",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2015-10",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2015-11",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2015-12",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2016-01",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2016-02",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2016-03",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2016-04",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2016-05",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2016-06",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2016-07",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2016-08",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2016-09",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2016-10",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2016-11",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2016-12",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2017-01",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2017-02",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2017-03",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2017-04",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2017-05",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2017-06",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2017-07",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2017-08",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2017-09",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2017-10",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2017-11",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2017-12",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2018-01",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2018-02",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2018-03",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2018-04",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2018-05",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2018-06",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2018-07",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2018-08",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2018-09",
+    "docs": 1,
+    "rows": 120
+   },
+   {
+    "market": "DE",
+    "month": "2018-10",
+    "docs": 1,
+    "rows": 3625
+   },
+   {
+    "market": "DE",
+    "month": "2018-11",
+    "docs": 1,
+    "rows": 3600
+   },
+   {
+    "market": "DE",
+    "month": "2018-12",
+    "docs": 1,
+    "rows": 3720
+   },
+   {
+    "market": "DE",
+    "month": "2019-01",
+    "docs": 1,
+    "rows": 3720
+   },
+   {
+    "market": "DE",
+    "month": "2019-02",
+    "docs": 1,
+    "rows": 3360
+   },
+   {
+    "market": "DE",
+    "month": "2019-03",
+    "docs": 1,
+    "rows": 3835
+   },
+   {
+    "market": "DE",
+    "month": "2019-04",
+    "docs": 1,
+    "rows": 3720
+   },
+   {
+    "market": "DE",
+    "month": "2019-05",
+    "docs": 1,
+    "rows": 3840
+   },
+   {
+    "market": "DE",
+    "month": "2019-06",
+    "docs": 1,
+    "rows": 3720
+   },
+   {
+    "market": "DE",
+    "month": "2019-07",
+    "docs": 1,
+    "rows": 3840
+   },
+   {
+    "market": "DE",
+    "month": "2019-08",
+    "docs": 1,
+    "rows": 3840
+   },
+   {
+    "market": "DE",
+    "month": "2019-09",
+    "docs": 1,
+    "rows": 3720
+   },
+   {
+    "market": "DE",
+    "month": "2019-10",
+    "docs": 1,
+    "rows": 3725
+   },
+   {
+    "market": "DE",
+    "month": "2019-11",
+    "docs": 1,
+    "rows": 3600
+   },
+   {
+    "market": "DE",
+    "month": "2019-12",
+    "docs": 1,
+    "rows": 3720
+   },
+   {
+    "market": "DE",
+    "month": "2020-01",
+    "docs": 1,
+    "rows": 3720
+   },
+   {
+    "market": "DE",
+    "month": "2020-02",
+    "docs": 1,
+    "rows": 3480
+   },
+   {
+    "market": "DE",
+    "month": "2020-03",
+    "docs": 1,
+    "rows": 3835
+   },
+   {
+    "market": "DE",
+    "month": "2020-04",
+    "docs": 1,
+    "rows": 3720
+   },
+   {
+    "market": "DE",
+    "month": "2020-05",
+    "docs": 1,
+    "rows": 3840
+   },
+   {
+    "market": "DE",
+    "month": "2020-06",
+    "docs": 1,
+    "rows": 3720
+   },
+   {
+    "market": "DE",
+    "month": "2020-07",
+    "docs": 1,
+    "rows": 3840
+   },
+   {
+    "market": "DE",
+    "month": "2020-08",
+    "docs": 1,
+    "rows": 3840
+   },
+   {
+    "market": "DE",
+    "month": "2020-09",
+    "docs": 1,
+    "rows": 3720
+   },
+   {
+    "market": "DE",
+    "month": "2020-10",
+    "docs": 1,
+    "rows": 3725
+   },
+   {
+    "market": "DE",
+    "month": "2020-11",
+    "docs": 1,
+    "rows": 3600
+   },
+   {
+    "market": "DE",
+    "month": "2020-12",
+    "docs": 1,
+    "rows": 3720
+   },
+   {
+    "market": "DE",
+    "month": "2021-01",
+    "docs": 1,
+    "rows": 3720
+   },
+   {
+    "market": "DE",
+    "month": "2021-02",
+    "docs": 1,
+    "rows": 3360
+   },
+   {
+    "market": "DE",
+    "month": "2021-03",
+    "docs": 1,
+    "rows": 3835
+   },
+   {
+    "market": "DE",
+    "month": "2021-04",
+    "docs": 1,
+    "rows": 3720
+   },
+   {
+    "market": "DE",
+    "month": "2021-05",
+    "docs": 1,
+    "rows": 3840
+   },
+   {
+    "market": "DE",
+    "month": "2021-06",
+    "docs": 1,
+    "rows": 3720
+   },
+   {
+    "market": "DE",
+    "month": "2021-07",
+    "docs": 1,
+    "rows": 3840
+   },
+   {
+    "market": "DE",
+    "month": "2021-08",
+    "docs": 1,
+    "rows": 3840
+   },
+   {
+    "market": "DE",
+    "month": "2021-09",
+    "docs": 1,
+    "rows": 3720
+   },
+   {
+    "market": "DE",
+    "month": "2021-10",
+    "docs": 1,
+    "rows": 3725
+   },
+   {
+    "market": "DE",
+    "month": "2021-11",
+    "docs": 1,
+    "rows": 3599
+   },
+   {
+    "market": "DE",
+    "month": "2021-12",
+    "docs": 1,
+    "rows": 3720
+   },
+   {
+    "market": "DE",
+    "month": "2022-01",
+    "docs": 1,
+    "rows": 3720
+   },
+   {
+    "market": "DE",
+    "month": "2022-02",
+    "docs": 1,
+    "rows": 3360
+   },
+   {
+    "market": "DE",
+    "month": "2022-03",
+    "docs": 1,
+    "rows": 3835
+   },
+   {
+    "market": "DE",
+    "month": "2022-04",
+    "docs": 1,
+    "rows": 3720
+   },
+   {
+    "market": "DE",
+    "month": "2022-05",
+    "docs": 1,
+    "rows": 3840
+   },
+   {
+    "market": "DE",
+    "month": "2022-06",
+    "docs": 1,
+    "rows": 3720
+   },
+   {
+    "market": "DE",
+    "month": "2022-07",
+    "docs": 1,
+    "rows": 3840
+   },
+   {
+    "market": "DE",
+    "month": "2022-08",
+    "docs": 1,
+    "rows": 3840
+   },
+   {
+    "market": "DE",
+    "month": "2022-09",
+    "docs": 1,
+    "rows": 3720
+   },
+   {
+    "market": "DE",
+    "month": "2022-10",
+    "docs": 1,
+    "rows": 3725
+   },
+   {
+    "market": "DE",
+    "month": "2022-11",
+    "docs": 1,
+    "rows": 3600
+   },
+   {
+    "market": "DE",
+    "month": "2022-12",
+    "docs": 1,
+    "rows": 3720
+   },
+   {
+    "market": "DE",
+    "month": "2023-01",
+    "docs": 1,
+    "rows": 3715
+   },
+   {
+    "market": "DE",
+    "month": "2023-02",
+    "docs": 1,
+    "rows": 3359
+   },
+   {
+    "market": "DE",
+    "month": "2023-03",
+    "docs": 1,
+    "rows": 3835
+   },
+   {
+    "market": "DE",
+    "month": "2023-04",
+    "docs": 1,
+    "rows": 3720
+   },
+   {
+    "market": "DE",
+    "month": "2023-05",
+    "docs": 1,
+    "rows": 3840
+   },
+   {
+    "market": "DE",
+    "month": "2023-06",
+    "docs": 1,
+    "rows": 3720
+   },
+   {
+    "market": "DE",
+    "month": "2023-07",
+    "docs": 1,
+    "rows": 3840
+   },
+   {
+    "market": "DE",
+    "month": "2023-08",
+    "docs": 1,
+    "rows": 3840
+   },
+   {
+    "market": "DE",
+    "month": "2023-09",
+    "docs": 1,
+    "rows": 3720
+   },
+   {
+    "market": "DE",
+    "month": "2023-10",
+    "docs": 1,
+    "rows": 3725
+   },
+   {
+    "market": "DE",
+    "month": "2023-11",
+    "docs": 1,
+    "rows": 3600
+   },
+   {
+    "market": "DE",
+    "month": "2023-12",
+    "docs": 1,
+    "rows": 3720
+   },
+   {
+    "market": "DE",
+    "month": "2024-01",
+    "docs": 1,
+    "rows": 3720
+   },
+   {
+    "market": "DE",
+    "month": "2024-02",
+    "docs": 1,
+    "rows": 3480
+   },
+   {
+    "market": "DE",
+    "month": "2024-03",
+    "docs": 1,
+    "rows": 3835
+   },
+   {
+    "market": "DE",
+    "month": "2024-04",
+    "docs": 1,
+    "rows": 3720
+   },
+   {
+    "market": "DE",
+    "month": "2024-05",
+    "docs": 1,
+    "rows": 3840
+   },
+   {
+    "market": "DE",
+    "month": "2024-06",
+    "docs": 1,
+    "rows": 3720
+   },
+   {
+    "market": "DE",
+    "month": "2024-07",
+    "docs": 1,
+    "rows": 3840
+   },
+   {
+    "market": "DE",
+    "month": "2024-08",
+    "docs": 1,
+    "rows": 3840
+   },
+   {
+    "market": "DE",
+    "month": "2024-09",
+    "docs": 1,
+    "rows": 3720
+   },
+   {
+    "market": "DE",
+    "month": "2024-10",
+    "docs": 1,
+    "rows": 3725
+   },
+   {
+    "market": "DE",
+    "month": "2024-11",
+    "docs": 1,
+    "rows": 3600
+   },
+   {
+    "market": "DE",
+    "month": "2024-12",
+    "docs": 1,
+    "rows": 3720
+   },
+   {
+    "market": "DE",
+    "month": "2025-01",
+    "docs": 1,
+    "rows": 3720
+   },
+   {
+    "market": "DE",
+    "month": "2025-02",
+    "docs": 1,
+    "rows": 3360
+   },
+   {
+    "market": "DE",
+    "month": "2025-03",
+    "docs": 1,
+    "rows": 3835
+   },
+   {
+    "market": "DE",
+    "month": "2025-04",
+    "docs": 1,
+    "rows": 3720
+   },
+   {
+    "market": "DE",
+    "month": "2025-05",
+    "docs": 1,
+    "rows": 3840
+   },
+   {
+    "market": "DE",
+    "month": "2025-06",
+    "docs": 1,
+    "rows": 3720
+   },
+   {
+    "market": "DE",
+    "month": "2025-07",
+    "docs": 1,
+    "rows": 3840
+   },
+   {
+    "market": "DE",
+    "month": "2025-08",
+    "docs": 1,
+    "rows": 3840
+   },
+   {
+    "market": "DE",
+    "month": "2025-09",
+    "docs": 1,
+    "rows": 3791
+   },
+   {
+    "market": "DE",
+    "month": "2025-10",
+    "docs": 1,
+    "rows": 5960
+   },
+   {
+    "market": "DE",
+    "month": "2025-11",
+    "docs": 1,
+    "rows": 5760
+   },
+   {
+    "market": "DE",
+    "month": "2025-12",
+    "docs": 1,
+    "rows": 5949
+   },
+   {
+    "market": "DE",
+    "month": "2026-01",
+    "docs": 1,
+    "rows": 5946
+   },
+   {
+    "market": "DE",
+    "month": "2026-02",
+    "docs": 1,
+    "rows": 5376
+   },
+   {
+    "market": "DE",
+    "month": "2026-03",
+    "docs": 1,
+    "rows": 6136
+   },
+   {
+    "market": "DE",
+    "month": "2026-04",
+    "docs": 1,
+    "rows": 5952
+   },
+   {
+    "market": "DE",
+    "month": "2026-05",
+    "docs": 1,
+    "rows": 6144
+   },
+   {
+    "market": "DE",
+    "month": "2026-06",
+    "docs": 1,
+    "rows": 5952
+   },
+   {
+    "market": "DE",
+    "month": "2026-07",
+    "docs": 1,
+    "rows": 5686
+   },
+   {
+    "market": "DE",
+    "month": "2026-08",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2026-09",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2026-10",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2026-11",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "DE",
+    "month": "2026-12",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "SE",
+    "month": "2015-01",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2015-02",
+    "docs": 1,
+    "rows": 672
+   },
+   {
+    "market": "SE",
+    "month": "2015-03",
+    "docs": 1,
+    "rows": 767
+   },
+   {
+    "market": "SE",
+    "month": "2015-04",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2015-05",
+    "docs": 1,
+    "rows": 768
+   },
+   {
+    "market": "SE",
+    "month": "2015-06",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2015-07",
+    "docs": 1,
+    "rows": 768
+   },
+   {
+    "market": "SE",
+    "month": "2015-08",
+    "docs": 1,
+    "rows": 768
+   },
+   {
+    "market": "SE",
+    "month": "2015-09",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2015-10",
+    "docs": 1,
+    "rows": 745
+   },
+   {
+    "market": "SE",
+    "month": "2015-11",
+    "docs": 1,
+    "rows": 720
+   },
+   {
+    "market": "SE",
+    "month": "2015-12",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2016-01",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2016-02",
+    "docs": 1,
+    "rows": 696
+   },
+   {
+    "market": "SE",
+    "month": "2016-03",
+    "docs": 1,
+    "rows": 767
+   },
+   {
+    "market": "SE",
+    "month": "2016-04",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2016-05",
+    "docs": 1,
+    "rows": 768
+   },
+   {
+    "market": "SE",
+    "month": "2016-06",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2016-07",
+    "docs": 1,
+    "rows": 768
+   },
+   {
+    "market": "SE",
+    "month": "2016-08",
+    "docs": 1,
+    "rows": 768
+   },
+   {
+    "market": "SE",
+    "month": "2016-09",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2016-10",
+    "docs": 1,
+    "rows": 745
+   },
+   {
+    "market": "SE",
+    "month": "2016-11",
+    "docs": 1,
+    "rows": 720
+   },
+   {
+    "market": "SE",
+    "month": "2016-12",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2017-01",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2017-02",
+    "docs": 1,
+    "rows": 672
+   },
+   {
+    "market": "SE",
+    "month": "2017-03",
+    "docs": 1,
+    "rows": 767
+   },
+   {
+    "market": "SE",
+    "month": "2017-04",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2017-05",
+    "docs": 1,
+    "rows": 768
+   },
+   {
+    "market": "SE",
+    "month": "2017-06",
+    "docs": 1,
+    "rows": 743
+   },
+   {
+    "market": "SE",
+    "month": "2017-07",
+    "docs": 1,
+    "rows": 768
+   },
+   {
+    "market": "SE",
+    "month": "2017-08",
+    "docs": 1,
+    "rows": 768
+   },
+   {
+    "market": "SE",
+    "month": "2017-09",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2017-10",
+    "docs": 1,
+    "rows": 745
+   },
+   {
+    "market": "SE",
+    "month": "2017-11",
+    "docs": 1,
+    "rows": 720
+   },
+   {
+    "market": "SE",
+    "month": "2017-12",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2018-01",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2018-02",
+    "docs": 1,
+    "rows": 672
+   },
+   {
+    "market": "SE",
+    "month": "2018-03",
+    "docs": 1,
+    "rows": 767
+   },
+   {
+    "market": "SE",
+    "month": "2018-04",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2018-05",
+    "docs": 1,
+    "rows": 768
+   },
+   {
+    "market": "SE",
+    "month": "2018-06",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2018-07",
+    "docs": 1,
+    "rows": 768
+   },
+   {
+    "market": "SE",
+    "month": "2018-08",
+    "docs": 1,
+    "rows": 768
+   },
+   {
+    "market": "SE",
+    "month": "2018-09",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2018-10",
+    "docs": 1,
+    "rows": 745
+   },
+   {
+    "market": "SE",
+    "month": "2018-11",
+    "docs": 1,
+    "rows": 720
+   },
+   {
+    "market": "SE",
+    "month": "2018-12",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2019-01",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2019-02",
+    "docs": 1,
+    "rows": 672
+   },
+   {
+    "market": "SE",
+    "month": "2019-03",
+    "docs": 1,
+    "rows": 767
+   },
+   {
+    "market": "SE",
+    "month": "2019-04",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2019-05",
+    "docs": 1,
+    "rows": 768
+   },
+   {
+    "market": "SE",
+    "month": "2019-06",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2019-07",
+    "docs": 1,
+    "rows": 768
+   },
+   {
+    "market": "SE",
+    "month": "2019-08",
+    "docs": 1,
+    "rows": 768
+   },
+   {
+    "market": "SE",
+    "month": "2019-09",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2019-10",
+    "docs": 1,
+    "rows": 745
+   },
+   {
+    "market": "SE",
+    "month": "2019-11",
+    "docs": 1,
+    "rows": 720
+   },
+   {
+    "market": "SE",
+    "month": "2019-12",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2020-01",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2020-02",
+    "docs": 1,
+    "rows": 696
+   },
+   {
+    "market": "SE",
+    "month": "2020-03",
+    "docs": 1,
+    "rows": 767
+   },
+   {
+    "market": "SE",
+    "month": "2020-04",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2020-05",
+    "docs": 1,
+    "rows": 768
+   },
+   {
+    "market": "SE",
+    "month": "2020-06",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2020-07",
+    "docs": 1,
+    "rows": 768
+   },
+   {
+    "market": "SE",
+    "month": "2020-08",
+    "docs": 1,
+    "rows": 768
+   },
+   {
+    "market": "SE",
+    "month": "2020-09",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2020-10",
+    "docs": 1,
+    "rows": 745
+   },
+   {
+    "market": "SE",
+    "month": "2020-11",
+    "docs": 1,
+    "rows": 720
+   },
+   {
+    "market": "SE",
+    "month": "2020-12",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2021-01",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2021-02",
+    "docs": 1,
+    "rows": 672
+   },
+   {
+    "market": "SE",
+    "month": "2021-03",
+    "docs": 1,
+    "rows": 767
+   },
+   {
+    "market": "SE",
+    "month": "2021-04",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2021-05",
+    "docs": 1,
+    "rows": 768
+   },
+   {
+    "market": "SE",
+    "month": "2021-06",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2021-07",
+    "docs": 1,
+    "rows": 768
+   },
+   {
+    "market": "SE",
+    "month": "2021-08",
+    "docs": 1,
+    "rows": 768
+   },
+   {
+    "market": "SE",
+    "month": "2021-09",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2021-10",
+    "docs": 1,
+    "rows": 745
+   },
+   {
+    "market": "SE",
+    "month": "2021-11",
+    "docs": 1,
+    "rows": 720
+   },
+   {
+    "market": "SE",
+    "month": "2021-12",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2022-01",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2022-02",
+    "docs": 1,
+    "rows": 672
+   },
+   {
+    "market": "SE",
+    "month": "2022-03",
+    "docs": 1,
+    "rows": 767
+   },
+   {
+    "market": "SE",
+    "month": "2022-04",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2022-05",
+    "docs": 1,
+    "rows": 768
+   },
+   {
+    "market": "SE",
+    "month": "2022-06",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2022-07",
+    "docs": 1,
+    "rows": 768
+   },
+   {
+    "market": "SE",
+    "month": "2022-08",
+    "docs": 1,
+    "rows": 768
+   },
+   {
+    "market": "SE",
+    "month": "2022-09",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2022-10",
+    "docs": 1,
+    "rows": 745
+   },
+   {
+    "market": "SE",
+    "month": "2022-11",
+    "docs": 1,
+    "rows": 720
+   },
+   {
+    "market": "SE",
+    "month": "2022-12",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2023-01",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2023-02",
+    "docs": 1,
+    "rows": 672
+   },
+   {
+    "market": "SE",
+    "month": "2023-03",
+    "docs": 1,
+    "rows": 767
+   },
+   {
+    "market": "SE",
+    "month": "2023-04",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2023-05",
+    "docs": 1,
+    "rows": 768
+   },
+   {
+    "market": "SE",
+    "month": "2023-06",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2023-07",
+    "docs": 1,
+    "rows": 768
+   },
+   {
+    "market": "SE",
+    "month": "2023-08",
+    "docs": 1,
+    "rows": 768
+   },
+   {
+    "market": "SE",
+    "month": "2023-09",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2023-10",
+    "docs": 1,
+    "rows": 745
+   },
+   {
+    "market": "SE",
+    "month": "2023-11",
+    "docs": 1,
+    "rows": 720
+   },
+   {
+    "market": "SE",
+    "month": "2023-12",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2024-01",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2024-02",
+    "docs": 1,
+    "rows": 696
+   },
+   {
+    "market": "SE",
+    "month": "2024-03",
+    "docs": 1,
+    "rows": 767
+   },
+   {
+    "market": "SE",
+    "month": "2024-04",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2024-05",
+    "docs": 1,
+    "rows": 768
+   },
+   {
+    "market": "SE",
+    "month": "2024-06",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2024-07",
+    "docs": 1,
+    "rows": 767
+   },
+   {
+    "market": "SE",
+    "month": "2024-08",
+    "docs": 1,
+    "rows": 768
+   },
+   {
+    "market": "SE",
+    "month": "2024-09",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2024-10",
+    "docs": 1,
+    "rows": 745
+   },
+   {
+    "market": "SE",
+    "month": "2024-11",
+    "docs": 1,
+    "rows": 720
+   },
+   {
+    "market": "SE",
+    "month": "2024-12",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2025-01",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2025-02",
+    "docs": 1,
+    "rows": 672
+   },
+   {
+    "market": "SE",
+    "month": "2025-03",
+    "docs": 1,
+    "rows": 767
+   },
+   {
+    "market": "SE",
+    "month": "2025-04",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2025-05",
+    "docs": 1,
+    "rows": 768
+   },
+   {
+    "market": "SE",
+    "month": "2025-06",
+    "docs": 1,
+    "rows": 744
+   },
+   {
+    "market": "SE",
+    "month": "2025-07",
+    "docs": 1,
+    "rows": 768
+   },
+   {
+    "market": "SE",
+    "month": "2025-08",
+    "docs": 1,
+    "rows": 768
+   },
+   {
+    "market": "SE",
+    "month": "2025-09",
+    "docs": 1,
+    "rows": 816
+   },
+   {
+    "market": "SE",
+    "month": "2025-10",
+    "docs": 1,
+    "rows": 2979
+   },
+   {
+    "market": "SE",
+    "month": "2025-11",
+    "docs": 1,
+    "rows": 2880
+   },
+   {
+    "market": "SE",
+    "month": "2025-12",
+    "docs": 1,
+    "rows": 2976
+   },
+   {
+    "market": "SE",
+    "month": "2026-01",
+    "docs": 1,
+    "rows": 2976
+   },
+   {
+    "market": "SE",
+    "month": "2026-02",
+    "docs": 1,
+    "rows": 2688
+   },
+   {
+    "market": "SE",
+    "month": "2026-03",
+    "docs": 1,
+    "rows": 3068
+   },
+   {
+    "market": "SE",
+    "month": "2026-04",
+    "docs": 1,
+    "rows": 2975
+   },
+   {
+    "market": "SE",
+    "month": "2026-05",
+    "docs": 1,
+    "rows": 3072
+   },
+   {
+    "market": "SE",
+    "month": "2026-06",
+    "docs": 1,
+    "rows": 2976
+   },
+   {
+    "market": "SE",
+    "month": "2026-07",
+    "docs": 1,
+    "rows": 2880
+   },
+   {
+    "market": "SE",
+    "month": "2026-08",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "SE",
+    "month": "2026-09",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "SE",
+    "month": "2026-10",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "SE",
+    "month": "2026-11",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "SE",
+    "month": "2026-12",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "GB",
+    "month": "2015-01",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "GB",
+    "month": "2015-02",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "GB",
+    "month": "2015-03",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "GB",
+    "month": "2015-04",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "GB",
+    "month": "2015-05",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "GB",
+    "month": "2015-06",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "GB",
+    "month": "2015-07",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "GB",
+    "month": "2015-08",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "GB",
+    "month": "2015-09",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "GB",
+    "month": "2015-10",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "GB",
+    "month": "2015-11",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "GB",
+    "month": "2015-12",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "GB",
+    "month": "2016-01",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "GB",
+    "month": "2016-02",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "GB",
+    "month": "2016-03",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "GB",
+    "month": "2016-04",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "GB",
+    "month": "2016-05",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "GB",
+    "month": "2016-06",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "GB",
+    "month": "2016-07",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "GB",
+    "month": "2016-08",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "GB",
+    "month": "2016-09",
+    "docs": 1,
+    "rows": 638
+   },
+   {
+    "market": "GB",
+    "month": "2016-10",
+    "docs": 1,
+    "rows": 1250
+   },
+   {
+    "market": "GB",
+    "month": "2016-11",
+    "docs": 1,
+    "rows": 1166
+   },
+   {
+    "market": "GB",
+    "month": "2016-12",
+    "docs": 1,
+    "rows": 1228
+   },
+   {
+    "market": "GB",
+    "month": "2017-01",
+    "docs": 1,
+    "rows": 1248
+   },
+   {
+    "market": "GB",
+    "month": "2017-02",
+    "docs": 1,
+    "rows": 1156
+   },
+   {
+    "market": "GB",
+    "month": "2017-03",
+    "docs": 1,
+    "rows": 1231
+   },
+   {
+    "market": "GB",
+    "month": "2017-04",
+    "docs": 1,
+    "rows": 1102
+   },
+   {
+    "market": "GB",
+    "month": "2017-05",
+    "docs": 1,
+    "rows": 1230
+   },
+   {
+    "market": "GB",
+    "month": "2017-06",
+    "docs": 1,
+    "rows": 1090
+   },
+   {
+    "market": "GB",
+    "month": "2017-07",
+    "docs": 1,
+    "rows": 1243
+   },
+   {
+    "market": "GB",
+    "month": "2017-08",
+    "docs": 1,
+    "rows": 1253
+   },
+   {
+    "market": "GB",
+    "month": "2017-09",
+    "docs": 1,
+    "rows": 1198
+   },
+   {
+    "market": "GB",
+    "month": "2017-10",
+    "docs": 1,
+    "rows": 1253
+   },
+   {
+    "market": "GB",
+    "month": "2017-11",
+    "docs": 1,
+    "rows": 1191
+   },
+   {
+    "market": "GB",
+    "month": "2017-12",
+    "docs": 1,
+    "rows": 1250
+   },
+   {
+    "market": "GB",
+    "month": "2018-01",
+    "docs": 1,
+    "rows": 1249
+   },
+   {
+    "market": "GB",
+    "month": "2018-02",
+    "docs": 1,
+    "rows": 1142
+   },
+   {
+    "market": "GB",
+    "month": "2018-03",
+    "docs": 1,
+    "rows": 1231
+   },
+   {
+    "market": "GB",
+    "month": "2018-04",
+    "docs": 1,
+    "rows": 1199
+   },
+   {
+    "market": "GB",
+    "month": "2018-05",
+    "docs": 1,
+    "rows": 1251
+   },
+   {
+    "market": "GB",
+    "month": "2018-06",
+    "docs": 1,
+    "rows": 1199
+   },
+   {
+    "market": "GB",
+    "month": "2018-07",
+    "docs": 1,
+    "rows": 1250
+   },
+   {
+    "market": "GB",
+    "month": "2018-08",
+    "docs": 1,
+    "rows": 1251
+   },
+   {
+    "market": "GB",
+    "month": "2018-09",
+    "docs": 1,
+    "rows": 1201
+   },
+   {
+    "market": "GB",
+    "month": "2018-10",
+    "docs": 1,
+    "rows": 1199
+   },
+   {
+    "market": "GB",
+    "month": "2018-11",
+    "docs": 1,
+    "rows": 1102
+   },
+   {
+    "market": "GB",
+    "month": "2018-12",
+    "docs": 1,
+    "rows": 1241
+   },
+   {
+    "market": "GB",
+    "month": "2019-01",
+    "docs": 1,
+    "rows": 1058
+   },
+   {
+    "market": "GB",
+    "month": "2019-02",
+    "docs": 1,
+    "rows": 1156
+   },
+   {
+    "market": "GB",
+    "month": "2019-03",
+    "docs": 1,
+    "rows": 1207
+   },
+   {
+    "market": "GB",
+    "month": "2019-04",
+    "docs": 1,
+    "rows": 1204
+   },
+   {
+    "market": "GB",
+    "month": "2019-05",
+    "docs": 1,
+    "rows": 1209
+   },
+   {
+    "market": "GB",
+    "month": "2019-06",
+    "docs": 1,
+    "rows": 1193
+   },
+   {
+    "market": "GB",
+    "month": "2019-07",
+    "docs": 1,
+    "rows": 1252
+   },
+   {
+    "market": "GB",
+    "month": "2019-08",
+    "docs": 1,
+    "rows": 1244
+   },
+   {
+    "market": "GB",
+    "month": "2019-09",
+    "docs": 1,
+    "rows": 1204
+   },
+   {
+    "market": "GB",
+    "month": "2019-10",
+    "docs": 1,
+    "rows": 1250
+   },
+   {
+    "market": "GB",
+    "month": "2019-11",
+    "docs": 1,
+    "rows": 1180
+   },
+   {
+    "market": "GB",
+    "month": "2019-12",
+    "docs": 1,
+    "rows": 1253
+   },
+   {
+    "market": "GB",
+    "month": "2020-01",
+    "docs": 1,
+    "rows": 1212
+   },
+   {
+    "market": "GB",
+    "month": "2020-02",
+    "docs": 1,
+    "rows": 1152
+   },
+   {
+    "market": "GB",
+    "month": "2020-03",
+    "docs": 1,
+    "rows": 1253
+   },
+   {
+    "market": "GB",
+    "month": "2020-04",
+    "docs": 1,
+    "rows": 1205
+   },
+   {
+    "market": "GB",
+    "month": "2020-05",
+    "docs": 1,
+    "rows": 1252
+   },
+   {
+    "market": "GB",
+    "month": "2020-06",
+    "docs": 1,
+    "rows": 1201
+   },
+   {
+    "market": "GB",
+    "month": "2020-07",
+    "docs": 1,
+    "rows": 1193
+   },
+   {
+    "market": "GB",
+    "month": "2020-08",
+    "docs": 1,
+    "rows": 1252
+   },
+   {
+    "market": "GB",
+    "month": "2020-09",
+    "docs": 1,
+    "rows": 1202
+   },
+   {
+    "market": "GB",
+    "month": "2020-10",
+    "docs": 1,
+    "rows": 1253
+   },
+   {
+    "market": "GB",
+    "month": "2020-11",
+    "docs": 1,
+    "rows": 511
+   },
+   {
+    "market": "GB",
+    "month": "2020-12",
+    "docs": 1,
+    "rows": 1253
+   },
+   {
+    "market": "GB",
+    "month": "2021-01",
+    "docs": 1,
+    "rows": 1242
+   },
+   {
+    "market": "GB",
+    "month": "2021-02",
+    "docs": 1,
+    "rows": 772
+   },
+   {
+    "market": "GB",
+    "month": "2021-03",
+    "docs": 1,
+    "rows": 1139
+   },
+   {
+    "market": "GB",
+    "month": "2021-04",
+    "docs": 1,
+    "rows": 1156
+   },
+   {
+    "market": "GB",
+    "month": "2021-05",
+    "docs": 1,
+    "rows": 1150
+   },
+   {
+    "market": "GB",
+    "month": "2021-06",
+    "docs": 1,
+    "rows": 1200
+   },
+   {
+    "market": "GB",
+    "month": "2021-07",
+    "docs": 1,
+    "rows": 1253
+   },
+   {
+    "market": "GB",
+    "month": "2021-08",
+    "docs": 1,
+    "rows": 1253
+   },
+   {
+    "market": "GB",
+    "month": "2021-09",
+    "docs": 1,
+    "rows": 1205
+   },
+   {
+    "market": "GB",
+    "month": "2021-10",
+    "docs": 1,
+    "rows": 1253
+   },
+   {
+    "market": "GB",
+    "month": "2021-11",
+    "docs": 1,
+    "rows": 1205
+   },
+   {
+    "market": "GB",
+    "month": "2021-12",
+    "docs": 1,
+    "rows": 1249
+   },
+   {
+    "market": "GB",
+    "month": "2022-01",
+    "docs": 1,
+    "rows": 1251
+   },
+   {
+    "market": "GB",
+    "month": "2022-02",
+    "docs": 1,
+    "rows": 1156
+   },
+   {
+    "market": "GB",
+    "month": "2022-03",
+    "docs": 1,
+    "rows": 1253
+   },
+   {
+    "market": "GB",
+    "month": "2022-04",
+    "docs": 1,
+    "rows": 1200
+   },
+   {
+    "market": "GB",
+    "month": "2022-05",
+    "docs": 1,
+    "rows": 1253
+   },
+   {
+    "market": "GB",
+    "month": "2022-06",
+    "docs": 1,
+    "rows": 1204
+   },
+   {
+    "market": "GB",
+    "month": "2022-07",
+    "docs": 1,
+    "rows": 1242
+   },
+   {
+    "market": "GB",
+    "month": "2022-08",
+    "docs": 1,
+    "rows": 1253
+   },
+   {
+    "market": "GB",
+    "month": "2022-09",
+    "docs": 1,
+    "rows": 1200
+   },
+   {
+    "market": "GB",
+    "month": "2022-10",
+    "docs": 1,
+    "rows": 1253
+   },
+   {
+    "market": "GB",
+    "month": "2022-11",
+    "docs": 1,
+    "rows": 1205
+   },
+   {
+    "market": "GB",
+    "month": "2022-12",
+    "docs": 1,
+    "rows": 1253
+   },
+   {
+    "market": "GB",
+    "month": "2023-01",
+    "docs": 1,
+    "rows": 1253
+   },
+   {
+    "market": "GB",
+    "month": "2023-02",
+    "docs": 1,
+    "rows": 1156
+   },
+   {
+    "market": "GB",
+    "month": "2023-03",
+    "docs": 1,
+    "rows": 1253
+   },
+   {
+    "market": "GB",
+    "month": "2023-04",
+    "docs": 1,
+    "rows": 1205
+   },
+   {
+    "market": "GB",
+    "month": "2023-05",
+    "docs": 1,
+    "rows": 1252
+   },
+   {
+    "market": "GB",
+    "month": "2023-06",
+    "docs": 1,
+    "rows": 1205
+   },
+   {
+    "market": "GB",
+    "month": "2023-07",
+    "docs": 1,
+    "rows": 1253
+   },
+   {
+    "market": "GB",
+    "month": "2023-08",
+    "docs": 1,
+    "rows": 1247
+   },
+   {
+    "market": "GB",
+    "month": "2023-09",
+    "docs": 1,
+    "rows": 1204
+   },
+   {
+    "market": "GB",
+    "month": "2023-10",
+    "docs": 1,
+    "rows": 1253
+   },
+   {
+    "market": "GB",
+    "month": "2023-11",
+    "docs": 1,
+    "rows": 1204
+   },
+   {
+    "market": "GB",
+    "month": "2023-12",
+    "docs": 1,
+    "rows": 1252
+   },
+   {
+    "market": "GB",
+    "month": "2024-01",
+    "docs": 1,
+    "rows": 1253
+   },
+   {
+    "market": "GB",
+    "month": "2024-02",
+    "docs": 1,
+    "rows": 1157
+   },
+   {
+    "market": "GB",
+    "month": "2024-03",
+    "docs": 1,
+    "rows": 1253
+   },
+   {
+    "market": "GB",
+    "month": "2024-04",
+    "docs": 1,
+    "rows": 1204
+   },
+   {
+    "market": "GB",
+    "month": "2024-05",
+    "docs": 1,
+    "rows": 1253
+   },
+   {
+    "market": "GB",
+    "month": "2024-06",
+    "docs": 1,
+    "rows": 1205
+   },
+   {
+    "market": "GB",
+    "month": "2024-07",
+    "docs": 1,
+    "rows": 1253
+   },
+   {
+    "market": "GB",
+    "month": "2024-08",
+    "docs": 1,
+    "rows": 1253
+   },
+   {
+    "market": "GB",
+    "month": "2024-09",
+    "docs": 1,
+    "rows": 1205
+   },
+   {
+    "market": "GB",
+    "month": "2024-10",
+    "docs": 1,
+    "rows": 1253
+   },
+   {
+    "market": "GB",
+    "month": "2024-11",
+    "docs": 1,
+    "rows": 1205
+   },
+   {
+    "market": "GB",
+    "month": "2024-12",
+    "docs": 1,
+    "rows": 1253
+   },
+   {
+    "market": "GB",
+    "month": "2025-01",
+    "docs": 1,
+    "rows": 1253
+   },
+   {
+    "market": "GB",
+    "month": "2025-02",
+    "docs": 1,
+    "rows": 1156
+   },
+   {
+    "market": "GB",
+    "month": "2025-03",
+    "docs": 1,
+    "rows": 1253
+   },
+   {
+    "market": "GB",
+    "month": "2025-04",
+    "docs": 1,
+    "rows": 1205
+   },
+   {
+    "market": "GB",
+    "month": "2025-05",
+    "docs": 1,
+    "rows": 1253
+   },
+   {
+    "market": "GB",
+    "month": "2025-06",
+    "docs": 1,
+    "rows": 1199
+   },
+   {
+    "market": "GB",
+    "month": "2025-07",
+    "docs": 1,
+    "rows": 1253
+   },
+   {
+    "market": "GB",
+    "month": "2025-08",
+    "docs": 1,
+    "rows": 1253
+   },
+   {
+    "market": "GB",
+    "month": "2025-09",
+    "docs": 1,
+    "rows": 1204
+   },
+   {
+    "market": "GB",
+    "month": "2025-10",
+    "docs": 1,
+    "rows": 1253
+   },
+   {
+    "market": "GB",
+    "month": "2025-11",
+    "docs": 1,
+    "rows": 1205
+   },
+   {
+    "market": "GB",
+    "month": "2025-12",
+    "docs": 1,
+    "rows": 1253
+   },
+   {
+    "market": "GB",
+    "month": "2026-01",
+    "docs": 1,
+    "rows": 1253
+   },
+   {
+    "market": "GB",
+    "month": "2026-02",
+    "docs": 1,
+    "rows": 1156
+   },
+   {
+    "market": "GB",
+    "month": "2026-03",
+    "docs": 1,
+    "rows": 1253
+   },
+   {
+    "market": "GB",
+    "month": "2026-04",
+    "docs": 1,
+    "rows": 1205
+   },
+   {
+    "market": "GB",
+    "month": "2026-05",
+    "docs": 1,
+    "rows": 1251
+   },
+   {
+    "market": "GB",
+    "month": "2026-06",
+    "docs": 1,
+    "rows": 1205
+   },
+   {
+    "market": "GB",
+    "month": "2026-07",
+    "docs": 1,
+    "rows": 1212
+   },
+   {
+    "market": "GB",
+    "month": "2026-08",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "GB",
+    "month": "2026-09",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "GB",
+    "month": "2026-10",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "GB",
+    "month": "2026-11",
+    "docs": 0,
+    "rows": 0
+   },
+   {
+    "market": "GB",
+    "month": "2026-12",
+    "docs": 0,
+    "rows": 0
+   }
+  ],
+  "months_empty": [
+   "DE 2015-01",
+   "DE 2015-02",
+   "DE 2015-03",
+   "DE 2015-04",
+   "DE 2015-05",
+   "DE 2015-06",
+   "DE 2015-07",
+   "DE 2015-08",
+   "DE 2015-09",
+   "DE 2015-10",
+   "DE 2015-11",
+   "DE 2015-12",
+   "DE 2016-01",
+   "DE 2016-02",
+   "DE 2016-03",
+   "DE 2016-04",
+   "DE 2016-05",
+   "DE 2016-06",
+   "DE 2016-07",
+   "DE 2016-08",
+   "DE 2016-09",
+   "DE 2016-10",
+   "DE 2016-11",
+   "DE 2016-12",
+   "DE 2017-01",
+   "DE 2017-02",
+   "DE 2017-03",
+   "DE 2017-04",
+   "DE 2017-05",
+   "DE 2017-06",
+   "DE 2017-07",
+   "DE 2017-08",
+   "DE 2017-09",
+   "DE 2017-10",
+   "DE 2017-11",
+   "DE 2017-12",
+   "DE 2018-01",
+   "DE 2018-02",
+   "DE 2018-03",
+   "DE 2018-04",
+   "DE 2018-05",
+   "DE 2018-06",
+   "DE 2018-07",
+   "DE 2018-08",
+   "DE 2026-08",
+   "DE 2026-09",
+   "DE 2026-10",
+   "DE 2026-11",
+   "DE 2026-12",
+   "SE 2026-08",
+   "SE 2026-09",
+   "SE 2026-10",
+   "SE 2026-11",
+   "SE 2026-12",
+   "GB 2015-01",
+   "GB 2015-02",
+   "GB 2015-03",
+   "GB 2015-04",
+   "GB 2015-05",
+   "GB 2015-06",
+   "GB 2015-07",
+   "GB 2015-08",
+   "GB 2015-09",
+   "GB 2015-10",
+   "GB 2015-11",
+   "GB 2015-12",
+   "GB 2016-01",
+   "GB 2016-02",
+   "GB 2016-03",
+   "GB 2016-04",
+   "GB 2016-05",
+   "GB 2016-06",
+   "GB 2016-07",
+   "GB 2016-08",
+   "GB 2026-08",
+   "GB 2026-09",
+   "GB 2026-10",
+   "GB 2026-11",
+   "GB 2026-12"
+  ]
+ },
+ "rows": 640426,
+ "files": [
+  {
+   "file": "da-de-2018.ndjson.gz",
+   "rows": 10950,
+   "duplicates_dropped": 120,
+   "bytes_gz": 188217,
+   "span": "2018-09-30T22:00:00Z..2019-01-01T00:00:00Z",
+   "sha256": "60da7d9ed46cc956dfe468740d41a5daca765a8f5fc6456f0b54892e93721f43"
+  },
+  {
+   "file": "da-de-2019.ndjson.gz",
+   "rows": 43800,
+   "duplicates_dropped": 840,
+   "bytes_gz": 748785,
+   "span": "2019-01-01T00:00:00Z..2020-01-01T00:00:00Z",
+   "sha256": "08088a3b1961bb7279940ea8a2ec4c5f9b23a6b3d717e08d2fa76bebbd07325d"
+  },
+  {
+   "file": "da-de-2020.ndjson.gz",
+   "rows": 43920,
+   "duplicates_dropped": 840,
+   "bytes_gz": 760703,
+   "span": "2020-01-01T00:00:00Z..2021-01-01T00:00:00Z",
+   "sha256": "5315f59d3c0f513f04a6d74424fd2e96fc763d730f003b8132269d5dfc14d7b3"
+  },
+  {
+   "file": "da-de-2021.ndjson.gz",
+   "rows": 43799,
+   "duplicates_dropped": 840,
+   "bytes_gz": 783784,
+   "span": "2021-01-01T00:00:00Z..2022-01-01T00:00:00Z",
+   "sha256": "7b912d92c3b9f68f4d0e907288de9c663f552e33a02c60bbe056f6ad3d295844"
+  },
+  {
+   "file": "da-de-2022.ndjson.gz",
+   "rows": 43800,
+   "duplicates_dropped": 840,
+   "bytes_gz": 806031,
+   "span": "2022-01-01T00:00:00Z..2023-01-01T00:00:00Z",
+   "sha256": "2127e6df21b78e1409e5c2bb20371a4a960f75220259b0082478a0c0e575f4c9"
+  },
+  {
+   "file": "da-de-2023.ndjson.gz",
+   "rows": 43794,
+   "duplicates_dropped": 840,
+   "bytes_gz": 755762,
+   "span": "2023-01-01T00:00:00Z..2024-01-01T00:00:00Z",
+   "sha256": "0bafbe0db00e2283624724178a4cf0508837a5bfbe0e88bce4867b93667e4803"
+  },
+  {
+   "file": "da-de-2024.ndjson.gz",
+   "rows": 43920,
+   "duplicates_dropped": 840,
+   "bytes_gz": 754662,
+   "span": "2024-01-01T00:00:00Z..2025-01-01T00:00:00Z",
+   "sha256": "73c58cbb25656eba775067f82e1fe980aa421563baa4fcf0a5abe5ca79088c33"
+  },
+  {
+   "file": "da-de-2025.ndjson.gz",
+   "rows": 41589,
+   "duplicates_dropped": 9749,
+   "bytes_gz": 718891,
+   "span": "2025-01-01T00:00:00Z..2026-01-01T00:00:00Z",
+   "sha256": "76539c8dbbce8c8d683ca27715527a525c94053879413695c1691d99c357f3f0"
+  },
+  {
+   "file": "da-de-2026.ndjson.gz",
+   "rows": 20270,
+   "duplicates_dropped": 20914,
+   "bytes_gz": 357200,
+   "span": "2026-01-01T00:00:00Z..2026-07-30T22:00:00Z",
+   "sha256": "4a4d44b4e30794ab7920559be9626b0f53c8f62f39068eda0198105432bc9b01"
+  },
+  {
+   "file": "da-gb-2016.ndjson.gz",
+   "rows": 4282,
+   "duplicates_dropped": 0,
+   "bytes_gz": 111700,
+   "span": "2016-09-12T14:30:00Z..2016-12-31T00:30:00Z",
+   "sha256": "d3bde2ed6ecc28685eac9ae36eb240bb49f1cbba6f3da3464258da519fd32d7d"
+  },
+  {
+   "file": "da-gb-2017.ndjson.gz",
+   "rows": 14445,
+   "duplicates_dropped": 0,
+   "bytes_gz": 371849,
+   "span": "2017-01-01T00:00:00Z..2017-12-31T00:30:00Z",
+   "sha256": "7ae071f41d71176de65197d8dd01d36bb82f566576ef3859fb22bace1a540f2a"
+  },
+  {
+   "file": "da-gb-2018.ndjson.gz",
+   "rows": 14515,
+   "duplicates_dropped": 0,
+   "bytes_gz": 374032,
+   "span": "2018-01-01T00:00:00Z..2018-12-31T00:30:00Z",
+   "sha256": "d1abfac3e97fc465bbcda73fdad6d303cf8729d716f6f79995aebc171ed031b7"
+  },
+  {
+   "file": "da-gb-2019.ndjson.gz",
+   "rows": 14410,
+   "duplicates_dropped": 0,
+   "bytes_gz": 372771,
+   "span": "2019-01-01T00:00:00Z..2019-12-31T00:30:00Z",
+   "sha256": "08295ea5e964f4b0630ff17fd8b6d53147dc0c82a793b09d64462f299f530d33"
+  },
+  {
+   "file": "da-gb-2020.ndjson.gz",
+   "rows": 13939,
+   "duplicates_dropped": 0,
+   "bytes_gz": 363528,
+   "span": "2020-01-01T00:00:00Z..2020-12-31T00:30:00Z",
+   "sha256": "967857a30f4d52684ca22af610a0919609449e7f5f647732a372ab4e51eaaf1d"
+  },
+  {
+   "file": "da-gb-2021.ndjson.gz",
+   "rows": 14077,
+   "duplicates_dropped": 0,
+   "bytes_gz": 377488,
+   "span": "2021-01-01T00:00:00Z..2021-12-31T00:30:00Z",
+   "sha256": "51f5b6fafd57db95414319c6b7bd97bcee0a49febdb65c650e26718cce0b6093"
+  },
+  {
+   "file": "da-gb-2022.ndjson.gz",
+   "rows": 14723,
+   "duplicates_dropped": 0,
+   "bytes_gz": 401357,
+   "span": "2022-01-01T00:00:00Z..2022-12-31T00:30:00Z",
+   "sha256": "5a9510306a73aeff6958162a5f94a7c92a4954b68e6ad5799a7c4771f99456aa"
+  },
+  {
+   "file": "da-gb-2023.ndjson.gz",
+   "rows": 14737,
+   "duplicates_dropped": 0,
+   "bytes_gz": 396190,
+   "span": "2023-01-01T00:00:00Z..2023-12-31T00:30:00Z",
+   "sha256": "ac53a3200e656329ff18163632f4921dbe921d866ca8e45106867bd932325a4d"
+  },
+  {
+   "file": "da-gb-2024.ndjson.gz",
+   "rows": 14747,
+   "duplicates_dropped": 0,
+   "bytes_gz": 392916,
+   "span": "2024-01-01T00:00:00Z..2024-12-31T00:30:00Z",
+   "sha256": "d0ddac56323706f08c31c834abc35ec8b7f5e6390e6d91720247ea6cebf4c19e"
+  },
+  {
+   "file": "da-gb-2025.ndjson.gz",
+   "rows": 14740,
+   "duplicates_dropped": 0,
+   "bytes_gz": 394391,
+   "span": "2025-01-01T00:00:00Z..2025-12-31T00:30:00Z",
+   "sha256": "6fcd1704d46db9c6e46cf11fa87f2b3a940867fc0b89f0e5d5ce63b3970f4846"
+  },
+  {
+   "file": "da-gb-2026.ndjson.gz",
+   "rows": 8535,
+   "duplicates_dropped": 0,
+   "bytes_gz": 230341,
+   "span": "2026-01-01T00:00:00Z..2026-07-30T07:00:00Z",
+   "sha256": "9792dd51e5e0744ec05651a807eefd5d24e48ce3ef5f771d84f2d27efe5fb40a"
+  },
+  {
+   "file": "da-se-2014.ndjson.gz",
+   "rows": 1,
+   "duplicates_dropped": 0,
+   "bytes_gz": 274,
+   "span": "2014-12-31T23:00:00Z..2015-01-01T00:00:00Z",
+   "sha256": "3e3e15b24491611f81f48b2cebd1e419d4bd8344a7fcf3f78668e93c9856ac10"
+  },
+  {
+   "file": "da-se-2015.ndjson.gz",
+   "rows": 8760,
+   "duplicates_dropped": 168,
+   "bytes_gz": 142386,
+   "span": "2015-01-01T00:00:00Z..2016-01-01T00:00:00Z",
+   "sha256": "eaf188f430126bcee3431ac0b78c15f974e5ea202b6d81f4471d3c7c79b41de1"
+  },
+  {
+   "file": "da-se-2016.ndjson.gz",
+   "rows": 8784,
+   "duplicates_dropped": 168,
+   "bytes_gz": 144717,
+   "span": "2016-01-01T00:00:00Z..2017-01-01T00:00:00Z",
+   "sha256": "092adad32eb8696094cf0c3427a22ddcee40d6adca6855759f300c93382cc230"
+  },
+  {
+   "file": "da-se-2017.ndjson.gz",
+   "rows": 8759,
+   "duplicates_dropped": 168,
+   "bytes_gz": 144412,
+   "span": "2017-01-01T00:00:00Z..2018-01-01T00:00:00Z",
+   "sha256": "0de171d9c3351cd569c03b54c5f8cf46011f4a7c091368ec2fb3ecca09b1f931"
+  },
+  {
+   "file": "da-se-2018.ndjson.gz",
+   "rows": 8760,
+   "duplicates_dropped": 168,
+   "bytes_gz": 145942,
+   "span": "2018-01-01T00:00:00Z..2019-01-01T00:00:00Z",
+   "sha256": "ce4d89583492a18a4900a46a5b1e41efcdeff3e7fca40b848f29702543720af1"
+  },
+  {
+   "file": "da-se-2019.ndjson.gz",
+   "rows": 8760,
+   "duplicates_dropped": 168,
+   "bytes_gz": 145123,
+   "span": "2019-01-01T00:00:00Z..2020-01-01T00:00:00Z",
+   "sha256": "04329a035dd88590b735e3923db96bc0f88882ccc935938561c15dfc2f74bf45"
+  },
+  {
+   "file": "da-se-2020.ndjson.gz",
+   "rows": 8784,
+   "duplicates_dropped": 168,
+   "bytes_gz": 145942,
+   "span": "2020-01-01T00:00:00Z..2021-01-01T00:00:00Z",
+   "sha256": "59789573db164fb04ea28022bebabcb811f4aa9ca7d315bbae3bd9057ae9a904"
+  },
+  {
+   "file": "da-se-2021.ndjson.gz",
+   "rows": 8760,
+   "duplicates_dropped": 168,
+   "bytes_gz": 152770,
+   "span": "2021-01-01T00:00:00Z..2022-01-01T00:00:00Z",
+   "sha256": "dd3d2a432a61be8a21233ae5dcc8c38ee156b2cf5db8bfa028f25fc0e9384f23"
+  },
+  {
+   "file": "da-se-2022.ndjson.gz",
+   "rows": 8760,
+   "duplicates_dropped": 168,
+   "bytes_gz": 157286,
+   "span": "2022-01-01T00:00:00Z..2023-01-01T00:00:00Z",
+   "sha256": "999cbabcd5aee4cd99578fa01a573316504f4ddbd893699966669d4b13e57604"
+  },
+  {
+   "file": "da-se-2023.ndjson.gz",
+   "rows": 8760,
+   "duplicates_dropped": 168,
+   "bytes_gz": 153046,
+   "span": "2023-01-01T00:00:00Z..2024-01-01T00:00:00Z",
+   "sha256": "d91a4c0fca0b717f971e88c877b61bcb7ad10bddfa22e444744f583b09aa7984"
+  },
+  {
+   "file": "da-se-2024.ndjson.gz",
+   "rows": 8783,
+   "duplicates_dropped": 168,
+   "bytes_gz": 150615,
+   "span": "2024-01-01T00:00:00Z..2025-01-01T00:00:00Z",
+   "sha256": "dba99795f2e72b3bf8d1c5ef4c9b884d0ee8f4c10076671ad0115061fe0e1fdd"
+  },
+  {
+   "file": "da-se-2025.ndjson.gz",
+   "rows": 15389,
+   "duplicates_dropped": 240,
+   "bytes_gz": 267424,
+   "span": "2025-01-01T00:00:00Z..2026-01-01T00:00:00Z",
+   "sha256": "ac69fc67186647f431f07cd95c27611936db6582df8fbeb62d841ff560eceadc"
+  },
+  {
+   "file": "da-se-2026.ndjson.gz",
+   "rows": 20247,
+   "duplicates_dropped": 384,
+   "bytes_gz": 354599,
+   "span": "2026-01-01T00:00:00Z..2026-07-30T22:00:00Z",
+   "sha256": "7ae605b650bc3f616d066979216b59ad6b4dc73e1ef5a5a3dc84fe2a46d624c0"
+  }
+ ]
+}

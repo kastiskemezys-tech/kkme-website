@@ -1,0 +1,509 @@
+{
+ "dataset": "de-reserve",
+ "market": "DE",
+ "products": [
+  "FCR",
+  "aFRR",
+  "mFRR"
+ ],
+ "mechanisms": [
+  "cap",
+  "energy"
+ ],
+ "source": "regelleistung.net — joint balancing platform of 50Hertz, Amprion, TenneT DE, TransnetBW",
+ "source_urls": {
+  "tender_list": "https://www.regelleistung.net/apps/crds/api/v2/tenders?from=<date>&to=<date>&markets=<CAPACITY|ENERGY>&pageSize=2000",
+  "aggregated_results": "https://www.regelleistung.net/apps/crds/api/v2/tenders/results/aggregated?deliveryDate=<date>&productType=<FCR|aFRR|mFRR>&market=<CAPACITY|ENERGY>&exportFormat=xlsx",
+  "human_readable": "https://www.regelleistung.net/apps/datacenter/tenders/",
+  "break_calendar": "https://www.regelleistung.net/de-de/Marktinformationen/Historie-Regelreservebeschaffung"
+ },
+ "licence": "Published by the German TSOs for market transparency under EU Regulation 543/2013 and the EB Guideline. The portal states no explicit open licence; stored here in derived form for internal calibration, not redistribution.",
+ "retrieved_at": "2026-07-30T06:48:19.352Z",
+ "requested_span": "2018-07..2026-07",
+ "resolution": "native product blocks: capacity PT4H (FCR PT24H 2019-07-01..2020-06-30); energy PT4H until the 15-min switch, then PT15M",
+ "timezone": "product windows are German local wall clock (Europe/Berlin), stored as UTC instants",
+ "coverage_verification": {
+  "claimed_by_arc_doc": "2011 → now",
+  "actual_first_tender": {
+   "aFRR|CAPACITY": "2018-07-12",
+   "mFRR|CAPACITY": "2018-07-12",
+   "FCR|CAPACITY": "2019-07-01"
+  },
+  "verdict": "Arc-doc claim FALSE. Only the daily-auction era is served. Pre-2018-07-12 (aFRR/mFRR) and pre-2019-07-01 (FCR) are unavailable through this channel and were not located in any other public bulk channel during 36.E0.",
+  "page_cap": 2000,
+  "page_cap_behaviour": "truncates silently with no hasMore flag; pageSize>2000 errors",
+  "bid_level_endpoint_rejected": "/tenders/{id}/bid-results caps at 100 rows per page with no flag; aggregating over it without paging covers 1 of 12 product blocks",
+  "export_bytes_downloaded": 82710717,
+  "exports_missing": 1716
+ },
+ "price_semantics": {
+  "FCR_cap": "clearing — FCR Cooperation settles pay-as-clear; per-country SETTLEMENTCAPACITY_PRICE",
+  "aFRR_mFRR_cap": "vwap_accepted — German capacity auctions are pay-as-bid, so there is no clearing price; AVERAGE is what a provider earns, MARGINAL is in extra",
+  "aFRR_mFRR_energy": "offer_curve_mean — statistics of the OFFERED merit-order list, NOT the settled activation price",
+  "normalisation": "price_norm is EUR/MW/h (cap) or EUR/MWh (energy), derived from each file's own unit header and the product duration",
+  "observed_unit_transitions": [
+   {
+    "key": "aFRR|CAPACITY",
+    "from": "EUR/MW",
+    "to": "(EUR/MW)/h",
+    "between": [
+     "2021-12-06",
+     "2021-12-08"
+    ]
+   },
+   {
+    "key": "aFRR|CAPACITY",
+    "from": "(EUR/MW)/h",
+    "to": "EUR/MW",
+    "between": [
+     "2021-12-07",
+     "2021-12-08"
+    ]
+   },
+   {
+    "key": "mFRR|CAPACITY",
+    "from": "EUR/MW",
+    "to": "(EUR/MW)/h",
+    "between": [
+     "2021-12-07",
+     "2021-12-09"
+    ]
+   }
+  ],
+  "fcr_unit_check": "FCR EUR/MW is per product period, verified against its own 2020-07-01 product-length change: 6x4h prices on 2020-07-01 sum to 140.42 vs 150.3 for the single 24h product on 2020-06-30"
+ },
+ "area_semantics": "row.area is the EIC of the country whose column the price came from. GERMANY=10Y1001A1001A82H. FCR rows include the whole FCR Cooperation (AT, BE, DK, FR, NL, SI, CH, CZ) plus area=\"CROSSBORDER\" for the uniform cross-border price. aFRR/mFRR rows include AT and CZ from the capacity cooperation plus area=\"COOPERATION_TOTAL\". Filter by area for a single-country series.",
+ "exports_fetched": 14378,
+ "rows": 934085,
+ "warnings": [],
+ "n_warnings": 0,
+ "missing": [
+  {
+   "productType": "aFRR",
+   "market": "CAPACITY",
+   "deliveryDate": "2026-07-31",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "mFRR",
+   "market": "CAPACITY",
+   "deliveryDate": "2026-07-31",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-07-03",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-07-04",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-07-02",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-07-01",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-07-05",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-07-06",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-07-10",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-07-08",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-07-07",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-07-09",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-07-12",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-07-11",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-07-14",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-07-16",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-07-13",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-07-15",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-07-18",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-07-17",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-07-20",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-07-22",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-07-19",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-07-21",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-07-23",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-07-24",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-07-25",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-07-26",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-07-27",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-07-28",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-07-29",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-07-30",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-07-31",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-08-01",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-08-03",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-08-02",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-08-04",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-08-05",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-08-07",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-08-06",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-08-08",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-08-09",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-08-10",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-08-11",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-08-12",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-08-14",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-08-13",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-08-15",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-08-16",
+   "reason": "empty sheet"
+  },
+  {
+   "productType": "aFRR",
+   "market": "ENERGY",
+   "deliveryDate": "2018-08-17",
+   "reason": "empty sheet"
+  }
+ ],
+ "files": [
+  {
+   "file": "de-reserve-2018.ndjson.gz",
+   "rows": 16624,
+   "bytes_gz": 279752,
+   "span": "2018-07-11T22:00:00Z..2019-01-01T03:00:00Z",
+   "products": [
+    "aFRR/cap",
+    "aFRR/energy",
+    "mFRR/cap",
+    "mFRR/energy"
+   ],
+   "sha256": "f77ec2b042c1769490bdc9627d18bebaa289dab46ccc228480eb31c8462bc022"
+  },
+  {
+   "file": "de-reserve-2019.ndjson.gz",
+   "rows": 36335,
+   "bytes_gz": 726947,
+   "span": "2019-01-01T03:00:00Z..2020-01-01T03:00:00Z",
+   "products": [
+    "FCR/cap",
+    "aFRR/cap",
+    "aFRR/energy",
+    "mFRR/cap",
+    "mFRR/energy"
+   ],
+   "sha256": "fab5da5b8a93a39794063d5992d46a2c151240490ea7eee8660ee05fcbc66e10"
+  },
+  {
+   "file": "de-reserve-2020.ndjson.gz",
+   "rows": 50157,
+   "bytes_gz": 1118412,
+   "span": "2020-01-01T03:00:00Z..2021-01-01T03:00:00Z",
+   "products": [
+    "FCR/cap",
+    "aFRR/cap",
+    "aFRR/energy",
+    "mFRR/cap",
+    "mFRR/energy"
+   ],
+   "sha256": "b040b87269bbd98b4ce8959c33672c9f75cc799a895c96867c56a14905a25803"
+  },
+  {
+   "file": "de-reserve-2021.ndjson.gz",
+   "rows": 50172,
+   "bytes_gz": 1148469,
+   "span": "2021-01-01T03:00:00Z..2022-01-01T03:00:00Z",
+   "products": [
+    "FCR/cap",
+    "aFRR/cap",
+    "aFRR/energy",
+    "mFRR/cap",
+    "mFRR/energy"
+   ],
+   "sha256": "aa0ca7f9e4e7d5ce83eb7a933ccbfd67ad08bc851de16a5d447a0677b7bf1177"
+  },
+  {
+   "file": "de-reserve-2022.ndjson.gz",
+   "rows": 118622,
+   "bytes_gz": 3516414,
+   "span": "2022-01-01T03:00:00Z..2023-01-01T00:00:00Z",
+   "products": [
+    "FCR/cap",
+    "aFRR/cap",
+    "aFRR/energy",
+    "mFRR/cap",
+    "mFRR/energy"
+   ],
+   "sha256": "9cadebaf07fdb81455ed7af60a162f73360252a4cc15e24d69fcd73362ad3fac"
+  },
+  {
+   "file": "de-reserve-2023.ndjson.gz",
+   "rows": 183637,
+   "bytes_gz": 5625696,
+   "span": "2023-01-01T00:00:00Z..2024-01-01T00:00:00Z",
+   "products": [
+    "FCR/cap",
+    "aFRR/cap",
+    "aFRR/energy",
+    "mFRR/cap",
+    "mFRR/energy"
+   ],
+   "sha256": "be03015bdbbe603cb190e1c145df0215cd1e0f816db9427858600c2afec95bc3"
+  },
+  {
+   "file": "de-reserve-2024.ndjson.gz",
+   "rows": 184660,
+   "bytes_gz": 5835433,
+   "span": "2024-01-01T00:00:00Z..2025-01-01T00:00:00Z",
+   "products": [
+    "FCR/cap",
+    "aFRR/cap",
+    "aFRR/energy",
+    "mFRR/cap",
+    "mFRR/energy"
+   ],
+   "sha256": "2b3541b33801c3b3471c2930c0335d0af83b5ae67eed297844867e70f157e6e4"
+  },
+  {
+   "file": "de-reserve-2025.ndjson.gz",
+   "rows": 185310,
+   "bytes_gz": 6017491,
+   "span": "2025-01-01T00:00:00Z..2026-01-01T00:00:00Z",
+   "products": [
+    "FCR/cap",
+    "aFRR/cap",
+    "aFRR/energy",
+    "mFRR/cap",
+    "mFRR/energy"
+   ],
+   "sha256": "78fd501a1fa7033174f42b1984865fe91a3dd2ee2f4210c65b8de0888505d529"
+  },
+  {
+   "file": "de-reserve-2026.ndjson.gz",
+   "rows": 108568,
+   "bytes_gz": 3578433,
+   "span": "2026-01-01T00:00:00Z..2026-07-31T22:00:00Z",
+   "products": [
+    "FCR/cap",
+    "aFRR/cap",
+    "aFRR/energy",
+    "mFRR/cap",
+    "mFRR/energy"
+   ],
+   "sha256": "d6ebc8c89608004740a25b0af58f6150500ca0c827d9253008c7d0ec1cc6be38"
+  }
+ ]
+}

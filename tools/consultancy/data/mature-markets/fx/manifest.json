@@ -1,0 +1,39 @@
+{
+ "dataset": "ecb-monthly-fx",
+ "retrieved_at": "2026-07-30T06:13:25.765Z",
+ "licence": "ECB — free reuse with attribution (https://www.ecb.europa.eu/services/using-our-site/html/index.en.html)",
+ "files": [
+  {
+   "file": "ecb-exr-M-GBP-EUR.csv",
+   "source_url": "https://data-api.ecb.europa.eu/service/data/EXR/M.GBP.EUR.SP00.A?format=csvdata&startPeriod=2010-01",
+   "resolution": "P1M",
+   "span": "2010-01..2026-06",
+   "n_months": 198,
+   "sha256": "1200e071abe40889d69648439c05c1b1d31227456b4727baa4228c8e2dad4a9c"
+  },
+  {
+   "file": "ecb-exr-M-AUD-EUR.csv",
+   "source_url": "https://data-api.ecb.europa.eu/service/data/EXR/M.AUD.EUR.SP00.A?format=csvdata&startPeriod=2010-01",
+   "resolution": "P1M",
+   "span": "2010-01..2026-06",
+   "n_months": 198,
+   "sha256": "e0fe3823e7e5e8c587e8fe219c78bbba70495024b80e5a5309617fa4471cee81"
+  },
+  {
+   "file": "ecb-exr-M-SEK-EUR.csv",
+   "source_url": "https://data-api.ecb.europa.eu/service/data/EXR/M.SEK.EUR.SP00.A?format=csvdata&startPeriod=2010-01",
+   "resolution": "P1M",
+   "span": "2010-01..2026-06",
+   "n_months": 198,
+   "sha256": "513436f7d44e83f650941ddc9cc60156877e16768ba8d32462395247f69ec77f"
+  },
+  {
+   "file": "ecb-exr-M-NOK-EUR.csv",
+   "source_url": "https://data-api.ecb.europa.eu/service/data/EXR/M.NOK.EUR.SP00.A?format=csvdata&startPeriod=2010-01",
+   "resolution": "P1M",
+   "span": "2010-01..2026-06",
+   "n_months": 198,
+   "sha256": "186ac412221de9dbbbe6a346ee404ab0dda757fe74a7482a376b95513036c52a"
+  }
+ ]
+}

@@ -1,0 +1,1 @@
+https://www.regelleistung.net/apps/crds/api/v2/tenders/results/aggregated?deliveryDate=2026-01-01&productType=aFRR&market=CAPACITY&exportFormat=xlsx
