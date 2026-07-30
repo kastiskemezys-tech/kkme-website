@@ -1,7 +1,7 @@
 {
  "artifact": "cross-market summary table",
  "phase": "36.E0",
- "built_at": "2026-07-30T10:29:33.462Z",
+ "built_at": "2026-07-30T10:38:21.185Z",
  "reproducible_offline": true,
  "criteria": {
   "MIN_COVERAGE": 0.5,
@@ -41,28 +41,28 @@
  },
  "manifests": {
   "de": {
-   "retrieved_at": "2026-07-30T06:48:19.352Z",
-   "rows": 934085
+   "retrieved_at": "2026-07-30T10:35:56.055Z",
+   "rows": 934217
   },
   "se": {
-   "retrieved_at": "2026-07-30T06:59:18.813Z",
+   "retrieved_at": "2026-07-30T10:36:01.999Z",
    "rows": 146733
   },
   "gb": {
-   "retrieved_at": "2026-07-30T06:32:31.177Z",
+   "retrieved_at": "2026-07-30T10:36:18.513Z",
    "rows": 155705
   },
   "au": {
-   "retrieved_at": "2026-07-30T06:41:26.631Z",
+   "retrieved_at": "2026-07-30T10:36:39.819Z",
    "rows": 1252128
   },
   "da": {
-   "retrieved_at": "2026-07-30T06:49:57.930Z",
-   "rows": 640426
+   "retrieved_at": "2026-07-30T10:37:00.563Z",
+   "rows": 602402
   },
   "activation": {
-   "retrieved_at": "2026-07-30T10:25:46.517Z",
-   "rows": 286135
+   "retrieved_at": "2026-07-30T10:37:58.786Z",
+   "rows": 286137
   }
  },
  "calendar_sources": {
@@ -1161,7 +1161,7 @@
    "demand": {
     "cagr": 0.0187,
     "first_year_mean_mw": 1820.0392,
-    "last_year_mean_mw": 1854.1297,
+    "last_year_mean_mw": 1854.1467,
     "years": "2025..2026"
    },
    "segments": [
@@ -1216,9 +1216,9 @@
      "n_months": 11,
      "opened_by": "2025-09-01 market_coupling (area_affecting)",
      "closed_by": null,
-     "mean_eur": 13.7451,
+     "mean_eur": 13.7374,
      "first_month_eur": 27.3913,
-     "last_month_eur": 18.3564
+     "last_month_eur": 18.2723
     }
    ],
    "breaks_applied": [
@@ -2313,10 +2313,10 @@
     },
     {
      "month": "2026-07",
-     "mean": 18.3564,
+     "mean": 18.2723,
      "p10": 0.43,
-     "p90": 59.418,
-     "volume": 1863.9832,
+     "p90": 59.17,
+     "volume": 1864.1027,
      "coverage": 1,
      "resolutions": [
       "PT4H"
@@ -3011,10 +3011,10 @@
     },
     {
      "month": "2026-07",
-     "offer_curve_mean": -1299.7317,
-     "p10": -2493.67,
-     "p90": -584.408,
-     "offered_mw": 2069.0441
+     "offer_curve_mean": -1301.1231,
+     "p10": -2493.961,
+     "p90": -585.024,
+     "offered_mw": 2068.454
     }
    ]
   },
@@ -3066,9 +3066,9 @@
     }
    },
    "demand": {
-    "cagr": 0.0055,
+    "cagr": 0.0054,
     "first_year_mean_mw": 2008.99,
-    "last_year_mean_mw": 2019.9731,
+    "last_year_mean_mw": 2019.9043,
     "years": "2025..2026"
    },
    "segments": [
@@ -3123,9 +3123,9 @@
      "n_months": 11,
      "opened_by": "2025-09-01 market_coupling (area_affecting)",
      "closed_by": null,
-     "mean_eur": 15.2215,
+     "mean_eur": 15.2146,
      "first_month_eur": 34.2028,
-     "last_month_eur": 10.7883
+     "last_month_eur": 10.7129
     }
    ],
    "breaks_applied": [
@@ -4220,10 +4220,10 @@
     },
     {
      "month": "2026-07",
-     "mean": 10.7883,
-     "p10": 2.728,
-     "p90": 22.218,
-     "volume": 2062.1955,
+     "mean": 10.7129,
+     "p10": 2.702,
+     "p90": 22.394,
+     "volume": 2061.7135,
      "coverage": 1,
      "resolutions": [
       "PT4H"
@@ -4918,10 +4918,10 @@
     },
     {
      "month": "2026-07",
-     "offer_curve_mean": 1631.0446,
-     "p10": 1136.91,
-     "p90": 2171.016,
-     "offered_mw": 2325.5656
+     "offer_curve_mean": 1632.3038,
+     "p10": 1137.659,
+     "p90": 2170.981,
+     "offered_mw": 2325.4035
     }
    ]
   },
@@ -5019,9 +5019,9 @@
      "n_months": 46,
      "opened_by": "2022-10-05 platform_accession (high)",
      "closed_by": null,
-     "mean_eur": 8.9958,
+     "mean_eur": 8.9943,
      "first_month_eur": 1.3773,
-     "last_month_eur": 16.6307
+     "last_month_eur": 16.5621
     }
    ],
    "breaks_applied": [
@@ -6106,9 +6106,9 @@
     },
     {
      "month": "2026-07",
-     "mean": 16.6307,
+     "mean": 16.5621,
      "p10": 0.44,
-     "p90": 54.136,
+     "p90": 54.428,
      "volume": null,
      "coverage": 1,
      "resolutions": [
@@ -6804,10 +6804,10 @@
     },
     {
      "month": "2026-07",
-     "offer_curve_mean": -3230.3829,
-     "p10": -4748.274,
-     "p90": -2156.98,
-     "offered_mw": 367.7924
+     "offer_curve_mean": -3236.0532,
+     "p10": -4745.36,
+     "p90": -2166.736,
+     "offered_mw": 367.6906
     }
    ]
   },
@@ -6905,9 +6905,9 @@
      "n_months": 46,
      "opened_by": "2022-10-05 platform_accession (high)",
      "closed_by": null,
-     "mean_eur": 3.4404,
+     "mean_eur": 3.4398,
      "first_month_eur": 2.616,
-     "last_month_eur": 1.8878
+     "last_month_eur": 1.8571
     }
    ],
    "breaks_applied": [
@@ -7998,9 +7998,9 @@
     },
     {
      "month": "2026-07",
-     "mean": 1.8878,
+     "mean": 1.8571,
      "p10": 0.08,
-     "p90": 4.502,
+     "p90": 4.498,
      "volume": null,
      "coverage": 1,
      "resolutions": [
@@ -8696,10 +8696,10 @@
     },
     {
      "month": "2026-07",
-     "offer_curve_mean": 3466.2023,
-     "p10": 2698.712,
-     "p90": 4466.612,
-     "offered_mw": 590.1543
+     "offer_curve_mean": 3464.2342,
+     "p10": 2699.426,
+     "p90": 4464.741,
+     "offered_mw": 590.4066
     }
    ]
   },
@@ -8921,9 +8921,9 @@
     "month": "2020-10",
     "basis": "computed: first DC delivery window with accepted battery MW in the bid-level file"
    },
-   "floor_to_arbitrage_ratio": 0.1449,
+   "floor_to_arbitrage_ratio": 0.1451,
    "arbitrage_opportunity": {
-    "value": 9.3094,
+    "value": 9.297,
     "unit": "EUR/MW/h (availability-equivalent proxy)",
     "proxy_assumptions": {
      "window_hours": 4,
@@ -9654,9 +9654,9 @@
     "month": "2020-10",
     "basis": "computed: first DC delivery window with accepted battery MW in the bid-level file"
    },
-   "floor_to_arbitrage_ratio": 0.1899,
+   "floor_to_arbitrage_ratio": 0.1901,
    "arbitrage_opportunity": {
-    "value": 9.3094,
+    "value": 9.297,
     "unit": "EUR/MW/h (availability-equivalent proxy)",
     "proxy_assumptions": {
      "window_hours": 4,
@@ -10546,7 +10546,7 @@
    },
    "floor_to_arbitrage_ratio": -0.0319,
    "arbitrage_opportunity": {
-    "value": 9.3094,
+    "value": 9.297,
     "unit": "EUR/MW/h (availability-equivalent proxy)",
     "proxy_assumptions": {
      "window_hours": 4,
@@ -11150,9 +11150,9 @@
     "month": "2020-10",
     "basis": "computed: first DC delivery window with accepted battery MW in the bid-level file"
    },
-   "floor_to_arbitrage_ratio": 0.4697,
+   "floor_to_arbitrage_ratio": 0.4704,
    "arbitrage_opportunity": {
-    "value": 9.3094,
+    "value": 9.297,
     "unit": "EUR/MW/h (availability-equivalent proxy)",
     "proxy_assumptions": {
      "window_hours": 4,
@@ -11708,9 +11708,9 @@
     "month": "2020-10",
     "basis": "computed: first DC delivery window with accepted battery MW in the bid-level file"
    },
-   "floor_to_arbitrage_ratio": -0.9868,
+   "floor_to_arbitrage_ratio": -0.9881,
    "arbitrage_opportunity": {
-    "value": 9.3094,
+    "value": 9.297,
     "unit": "EUR/MW/h (availability-equivalent proxy)",
     "proxy_assumptions": {
      "window_hours": 4,
@@ -12369,9 +12369,9 @@
     "month": "2020-10",
     "basis": "computed: first DC delivery window with accepted battery MW in the bid-level file"
    },
-   "floor_to_arbitrage_ratio": 0.9062,
+   "floor_to_arbitrage_ratio": 0.9074,
    "arbitrage_opportunity": {
-    "value": 9.3094,
+    "value": 9.297,
     "unit": "EUR/MW/h (availability-equivalent proxy)",
     "proxy_assumptions": {
      "window_hours": 4,
@@ -13008,9 +13008,9 @@
     "month": "2020-10",
     "basis": "computed: first DC delivery window with accepted battery MW in the bid-level file"
    },
-   "floor_to_arbitrage_ratio": 0.2409,
+   "floor_to_arbitrage_ratio": 0.2414,
    "arbitrage_opportunity": {
-    "value": 10.0632,
+    "value": 10.0427,
     "unit": "EUR/MW/h (availability-equivalent proxy)",
     "proxy_assumptions": {
      "window_hours": 4,
@@ -13301,9 +13301,9 @@
     "month": "2020-10",
     "basis": "computed: first DC delivery window with accepted battery MW in the bid-level file"
    },
-   "floor_to_arbitrage_ratio": 0.365,
+   "floor_to_arbitrage_ratio": 0.3657,
    "arbitrage_opportunity": {
-    "value": 10.0632,
+    "value": 10.0427,
     "unit": "EUR/MW/h (availability-equivalent proxy)",
     "proxy_assumptions": {
      "window_hours": 4,
@@ -16167,7 +16167,7 @@
    },
    {
     "year": "2026",
-    "mean_daily_spread_eur_mwh": 71.3046,
+    "mean_daily_spread_eur_mwh": 70.8919,
     "n_months": 7
    }
   ],
@@ -16343,18 +16343,18 @@
    "direction": "down",
    "mechanism": "energy",
    "price_basis": "vwap_activated",
-   "span": "2023-06-13..2026-07-29",
+   "span": "2023-06-13..2026-07-30",
    "n_months": 37,
-   "activated_isps": 2883,
-   "isps_in_span": 106646,
+   "activated_isps": 2884,
+   "isps_in_span": 106731,
    "activation_frequency": 0.027,
-   "mean_over_activated_eur_mwh": 61.5196,
-   "median_eur_mwh": 5.471,
-   "p10_eur_mwh": -98.98,
-   "p90_eur_mwh": 147.2032,
+   "mean_over_activated_eur_mwh": 61.422,
+   "median_eur_mwh": 5.45,
+   "p10_eur_mwh": -98.994,
+   "p90_eur_mwh": 147.1848,
    "min_eur_mwh": -1203,
    "max_eur_mwh": 13891.967,
-   "share_negative": 0.2865,
+   "share_negative": 0.2868,
    "share_at_technical_limit": 0,
    "breaks_applied": [
     {
@@ -16370,14 +16370,14 @@
      "from": "2023-06",
      "to": "2026-07",
      "n_months": 37,
-     "activated_isps": 2883,
-     "isps_in_span": 106646,
+     "activated_isps": 2884,
+     "isps_in_span": 106731,
      "activation_frequency": 0.027,
-     "mean_over_activated_eur_mwh": 61.5196,
-     "median_eur_mwh": 5.471,
-     "p10_eur_mwh": -98.98,
-     "p90_eur_mwh": 147.2032,
-     "share_negative": 0.2865,
+     "mean_over_activated_eur_mwh": 61.422,
+     "median_eur_mwh": 5.45,
+     "p10_eur_mwh": -98.994,
+     "p90_eur_mwh": 147.1848,
+     "share_negative": 0.2868,
      "share_at_technical_limit": 0,
      "opened_by": "series start"
     }
@@ -16441,12 +16441,12 @@
    "price_basis": "vwap_activated",
    "span": "2022-06-21..2026-07-30",
    "n_months": 50,
-   "activated_isps": 114014,
-   "isps_in_span": 143951,
+   "activated_isps": 114015,
+   "isps_in_span": 143952,
    "activation_frequency": 0.792,
-   "mean_over_activated_eur_mwh": 34.4738,
+   "mean_over_activated_eur_mwh": 34.4737,
    "median_eur_mwh": 46.91,
-   "p10_eur_mwh": -46.857,
+   "p10_eur_mwh": -46.856,
    "p90_eur_mwh": 105.33,
    "min_eur_mwh": -8270.89,
    "max_eur_mwh": 5888.01,
@@ -16500,13 +16500,13 @@
      "from": "2025-09",
      "to": "2026-07",
      "n_months": 11,
-     "activated_isps": 25265,
-     "isps_in_span": 31911,
+     "activated_isps": 25266,
+     "isps_in_span": 31912,
      "activation_frequency": 0.7917,
-     "mean_over_activated_eur_mwh": 74.4859,
-     "median_eur_mwh": 84.99,
-     "p10_eur_mwh": 4.388,
-     "p90_eur_mwh": 129.616,
+     "mean_over_activated_eur_mwh": 74.4838,
+     "median_eur_mwh": 84.985,
+     "p10_eur_mwh": 4.39,
+     "p90_eur_mwh": 129.615,
      "share_negative": 0.0849,
      "share_at_technical_limit": 0,
      "opened_by": "2025-09-01 market_coupling (area_affecting)"

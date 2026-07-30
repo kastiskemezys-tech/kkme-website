@@ -33,7 +33,7 @@
   "currency": "native GBP retained; converted at the ECB monthly-average GBP/EUR rate"
  },
  "licence": "ENTSO-E Transparency Platform data, reusable under the platform terms of use with attribution. Requires a free registered API key.",
- "retrieved_at": "2026-07-30T06:49:57.930Z",
+ "retrieved_at": "2026-07-30T10:37:00.563Z",
  "requested_span": "2015..2026",
  "purpose": "the arbitrage-opportunity denominator for the summary table's floor-vs-opportunity column",
  "resolution": "native, as published per document: PT60M for most of the span, PT15M or PT30M where the market moved to shorter MTUs",
@@ -2721,7 +2721,7 @@
    "GB 2026-12"
   ]
  },
- "rows": 640426,
+ "rows": 602402,
  "files": [
   {
    "file": "da-de-2018.ndjson.gz",
@@ -2782,18 +2782,18 @@
   {
    "file": "da-de-2025.ndjson.gz",
    "rows": 41589,
-   "duplicates_dropped": 9749,
+   "duplicates_dropped": 4,
    "bytes_gz": 718891,
    "span": "2025-01-01T00:00:00Z..2026-01-01T00:00:00Z",
    "sha256": "76539c8dbbce8c8d683ca27715527a525c94053879413695c1691d99c357f3f0"
   },
   {
    "file": "da-de-2026.ndjson.gz",
-   "rows": 20270,
+   "rows": 20366,
    "duplicates_dropped": 20914,
-   "bytes_gz": 357200,
-   "span": "2026-01-01T00:00:00Z..2026-07-30T22:00:00Z",
-   "sha256": "4a4d44b4e30794ab7920559be9626b0f53c8f62f39068eda0198105432bc9b01"
+   "bytes_gz": 358882,
+   "span": "2026-01-01T00:00:00Z..2026-07-31T22:00:00Z",
+   "sha256": "b3ab517abc4337504deb73f2fea1dda88591e23f4874fdfb68530b0b1e2bc005"
   },
   {
    "file": "da-gb-2016.ndjson.gz",
@@ -2877,11 +2877,11 @@
   },
   {
    "file": "da-gb-2026.ndjson.gz",
-   "rows": 8535,
+   "rows": 8542,
    "duplicates_dropped": 0,
-   "bytes_gz": 230341,
-   "span": "2026-01-01T00:00:00Z..2026-07-30T07:00:00Z",
-   "sha256": "9792dd51e5e0744ec05651a807eefd5d24e48ce3ef5f771d84f2d27efe5fb40a"
+   "bytes_gz": 230531,
+   "span": "2026-01-01T00:00:00Z..2026-07-30T10:30:00Z",
+   "sha256": "a0b484bd4deed6ade344cd2e5625ac01901573c788e72cf6d46375de6264d85b"
   },
   {
    "file": "da-se-2014.ndjson.gz",
@@ -2974,7 +2974,7 @@
   {
    "file": "da-se-2025.ndjson.gz",
    "rows": 15389,
-   "duplicates_dropped": 240,
+   "duplicates_dropped": 0,
    "bytes_gz": 267424,
    "span": "2025-01-01T00:00:00Z..2026-01-01T00:00:00Z",
    "sha256": "ac69fc67186647f431f07cd95c27611936db6582df8fbeb62d841ff560eceadc"
@@ -2987,5 +2987,296 @@
    "span": "2026-01-01T00:00:00Z..2026-07-30T22:00:00Z",
    "sha256": "7ae605b650bc3f616d066979216b59ad6b4dc73e1ef5a5a3dc84fe2a46d624c0"
   }
- ]
+ ],
+ "acquisition_retrieved_at": "2026-07-30T06:49:57.930Z",
+ "last_refresh": {
+  "window": "2026..2026",
+  "retrieved_at": "2026-07-30T10:37:00.563Z",
+  "note": "Metadata from the most recent WINDOWED refresh. The top-level coverage_verification is acquisition-time evidence about how this source behaves and is deliberately not overwritten by a partial window.",
+  "windowed_metadata": {
+   "dataset": "day-ahead-prices",
+   "markets": [
+    {
+     "market": "DE",
+     "area": "DE_LU",
+     "eic": "10Y1001A1001A82H",
+     "note": "DE-LU bidding zone. Before 2018-10-01 Germany, Austria and Luxembourg were one zone (10Y1001A1001A63L); this EIC returns the DE-LU series and is empty before the split."
+    },
+    {
+     "market": "SE",
+     "area": "SE3",
+     "eic": "10Y1001A1001A46L",
+     "note": "SE3 — the Swedish zone holding most demand and most battery capacity."
+    }
+   ],
+   "products": [
+    "spot"
+   ],
+   "mechanism": "energy",
+   "source": "ENTSO-E Transparency Platform documentType A44 (DE, SE) + Elexon BMRS Market Index Data (GB)",
+   "source_urls": {
+    "entsoe": "https://web-api.tp.entsoe.eu/api?documentType=A44&in_Domain=<EIC>&out_Domain=<EIC>&periodStart=<YYYYMMDDHHmm>&periodEnd=<YYYYMMDDHHmm>&securityToken=<key>",
+    "elexon_gb": "https://data.elexon.co.uk/bmrs/api/v1/balancing/pricing/market-index?from=<YYYY-MM-DD>&to=<YYYY-MM-DD> (max 7-day range)"
+   },
+   "gb_channel": {
+    "why": "GB is not on the ENTSO-E Transparency Platform. A44 returns \"No matching data found for ENERGY_PRICES [12.1.D]\" for 10YGB----------A, 10Y1001A1001A92E and 10Y1001A1001A016 while DE returns prices for the same interval in the same run — a passing positive control, so this is a fact about GB and not about the API.",
+    "provider": "APXMIDP",
+    "provider_choice": "MID publishes APXMIDP (EPEX) and N2EXMIDP (Nord Pool). N2EXMIDP returns price 0.00 with volume 0.000 in sampled windows — absence as zero. APXMIDP is the reference used.",
+    "zero_no_trade_dropped": 8,
+    "bad_stamps_dropped": 0,
+    "resolution": "PT30M settlement periods",
+    "currency": "native GBP retained; converted at the ECB monthly-average GBP/EUR rate"
+   },
+   "licence": "ENTSO-E Transparency Platform data, reusable under the platform terms of use with attribution. Requires a free registered API key.",
+   "purpose": "the arbitrage-opportunity denominator for the summary table's floor-vs-opportunity column",
+   "resolution": "native, as published per document: PT60M for most of the span, PT15M or PT30M where the market moved to shorter MTUs",
+   "timezone": "ENTSO-E publishes UTC instants; stored unchanged",
+   "parsing_notes": {
+    "zip": "multi-document responses are ZIP-wrapped; parsed via the central directory rather than assuming a single stored entry",
+    "curveType_A03": "A03 curves omit unchanged points; the last price is carried forward and each carried row is flagged extra.carried_forward",
+    "multiple_resolutions_are_multiple_products": "ENTSO-E publishes the German hourly MTU day-ahead price and the quarter-hourly auction price for the same instants. They are separate auctions with different prices, not one series at two resolutions. Rows are keyed on resolution as well as time. Analysis that wants \"the\" day-ahead price must pick PT60M explicitly where it exists.",
+    "currencies_seen_non_eur": []
+   },
+   "coverage_verification": {
+    "per_month": [
+     {
+      "market": "DE",
+      "month": "2026-01",
+      "docs": 1,
+      "rows": 5946
+     },
+     {
+      "market": "DE",
+      "month": "2026-02",
+      "docs": 1,
+      "rows": 5376
+     },
+     {
+      "market": "DE",
+      "month": "2026-03",
+      "docs": 1,
+      "rows": 6136
+     },
+     {
+      "market": "DE",
+      "month": "2026-04",
+      "docs": 1,
+      "rows": 5952
+     },
+     {
+      "market": "DE",
+      "month": "2026-05",
+      "docs": 1,
+      "rows": 6144
+     },
+     {
+      "market": "DE",
+      "month": "2026-06",
+      "docs": 1,
+      "rows": 5952
+     },
+     {
+      "market": "DE",
+      "month": "2026-07",
+      "docs": 1,
+      "rows": 5782
+     },
+     {
+      "market": "DE",
+      "month": "2026-08",
+      "docs": 0,
+      "rows": 0
+     },
+     {
+      "market": "DE",
+      "month": "2026-09",
+      "docs": 0,
+      "rows": 0
+     },
+     {
+      "market": "DE",
+      "month": "2026-10",
+      "docs": 0,
+      "rows": 0
+     },
+     {
+      "market": "DE",
+      "month": "2026-11",
+      "docs": 0,
+      "rows": 0
+     },
+     {
+      "market": "DE",
+      "month": "2026-12",
+      "docs": 0,
+      "rows": 0
+     },
+     {
+      "market": "SE",
+      "month": "2026-01",
+      "docs": 1,
+      "rows": 2976
+     },
+     {
+      "market": "SE",
+      "month": "2026-02",
+      "docs": 1,
+      "rows": 2688
+     },
+     {
+      "market": "SE",
+      "month": "2026-03",
+      "docs": 1,
+      "rows": 3068
+     },
+     {
+      "market": "SE",
+      "month": "2026-04",
+      "docs": 1,
+      "rows": 2975
+     },
+     {
+      "market": "SE",
+      "month": "2026-05",
+      "docs": 1,
+      "rows": 3072
+     },
+     {
+      "market": "SE",
+      "month": "2026-06",
+      "docs": 1,
+      "rows": 2976
+     },
+     {
+      "market": "SE",
+      "month": "2026-07",
+      "docs": 1,
+      "rows": 2880
+     },
+     {
+      "market": "SE",
+      "month": "2026-08",
+      "docs": 0,
+      "rows": 0
+     },
+     {
+      "market": "SE",
+      "month": "2026-09",
+      "docs": 0,
+      "rows": 0
+     },
+     {
+      "market": "SE",
+      "month": "2026-10",
+      "docs": 0,
+      "rows": 0
+     },
+     {
+      "market": "SE",
+      "month": "2026-11",
+      "docs": 0,
+      "rows": 0
+     },
+     {
+      "market": "SE",
+      "month": "2026-12",
+      "docs": 0,
+      "rows": 0
+     },
+     {
+      "market": "GB",
+      "month": "2026-01",
+      "docs": 1,
+      "rows": 1253
+     },
+     {
+      "market": "GB",
+      "month": "2026-02",
+      "docs": 1,
+      "rows": 1156
+     },
+     {
+      "market": "GB",
+      "month": "2026-03",
+      "docs": 1,
+      "rows": 1253
+     },
+     {
+      "market": "GB",
+      "month": "2026-04",
+      "docs": 1,
+      "rows": 1205
+     },
+     {
+      "market": "GB",
+      "month": "2026-05",
+      "docs": 1,
+      "rows": 1251
+     },
+     {
+      "market": "GB",
+      "month": "2026-06",
+      "docs": 1,
+      "rows": 1205
+     },
+     {
+      "market": "GB",
+      "month": "2026-07",
+      "docs": 1,
+      "rows": 1219
+     },
+     {
+      "market": "GB",
+      "month": "2026-08",
+      "docs": 0,
+      "rows": 0
+     },
+     {
+      "market": "GB",
+      "month": "2026-09",
+      "docs": 0,
+      "rows": 0
+     },
+     {
+      "market": "GB",
+      "month": "2026-10",
+      "docs": 0,
+      "rows": 0
+     },
+     {
+      "market": "GB",
+      "month": "2026-11",
+      "docs": 0,
+      "rows": 0
+     },
+     {
+      "market": "GB",
+      "month": "2026-12",
+      "docs": 0,
+      "rows": 0
+     }
+    ],
+    "months_empty": [
+     "DE 2026-08",
+     "DE 2026-09",
+     "DE 2026-10",
+     "DE 2026-11",
+     "DE 2026-12",
+     "SE 2026-08",
+     "SE 2026-09",
+     "SE 2026-10",
+     "SE 2026-11",
+     "SE 2026-12",
+     "GB 2026-08",
+     "GB 2026-09",
+     "GB 2026-10",
+     "GB 2026-11",
+     "GB 2026-12"
+    ]
+   },
+   "manifest_files_carried_forward": 28
+  }
+ },
+ "refresh_cadence_months": 1,
+ "last_successful_refresh": "2026-07-30T10:35:31.048Z"
 }

@@ -1,0 +1,222 @@
+{
+ "artifact": "mature-market evidence-base refresh report",
+ "phase": "36.E0.1",
+ "refreshed_at": "2026-07-30T10:35:31.048Z",
+ "year_window": 2026,
+ "gates_pass": true,
+ "gates": {
+  "all_sources_served": true,
+  "append_only": true,
+  "checksums_and_schema": true,
+  "summary_table_rebuilds": true,
+  "summary_table_deterministic": true,
+  "human_owned_files_untouched": true
+ },
+ "human_owned_files": [
+  "docs/research/mature-market-comparability.md"
+ ],
+ "human_owned_modified": [],
+ "summary_table": {
+  "ok": true,
+  "deterministic": true
+ },
+ "integrity": {
+  "de": {
+   "ok": true,
+   "rows": 934217,
+   "files_checked": 9
+  },
+  "se": {
+   "ok": true,
+   "rows": 146733,
+   "files_checked": 7
+  },
+  "gb": {
+   "ok": true,
+   "rows": 155705,
+   "files_checked": 7
+  },
+  "au": {
+   "ok": true,
+   "rows": 1252128,
+   "files_checked": 13
+  },
+  "da": {
+   "ok": true,
+   "rows": 602402,
+   "files_checked": 33
+  },
+  "activation": {
+   "ok": true,
+   "rows": 286137,
+   "files_checked": 16
+  }
+ },
+ "sources": [
+  {
+   "source": "de",
+   "status": "ok",
+   "seconds": 25,
+   "cadence_months": 1,
+   "last_successful_refresh": "2026-07-30T10:35:31.048Z",
+   "rows_total": 934217,
+   "rows_added": 132,
+   "files_changed": [
+    "de-reserve-2025.ndjson.gz",
+    "de-reserve-2026.ndjson.gz"
+   ],
+   "files_new": [],
+   "files_unchanged": 7,
+   "manifest_entries_carried_forward": 7,
+   "shards_reconciled": [
+    "de-reserve-2025.ndjson.gz"
+   ],
+   "rows_carried_forward": 185272,
+   "refresh_window_start": "2025-12-31T23:00:00Z",
+   "anomalies": []
+  },
+  {
+   "source": "se",
+   "status": "no_change",
+   "seconds": 3,
+   "cadence_months": 1,
+   "last_successful_refresh": "2026-07-30T10:35:31.048Z",
+   "rows_total": 146733,
+   "rows_added": 0,
+   "files_changed": [],
+   "files_new": [],
+   "files_unchanged": 7,
+   "manifest_entries_carried_forward": 5,
+   "shards_reconciled": [
+    "se-fcr-2025.ndjson.gz"
+   ],
+   "rows_carried_forward": 26277,
+   "refresh_window_start": "2025-12-31T23:00:00Z",
+   "anomalies": []
+  },
+  {
+   "source": "gb",
+   "status": "no_change",
+   "seconds": 16,
+   "cadence_months": 1,
+   "last_successful_refresh": "2026-07-30T10:35:31.048Z",
+   "rows_total": 155705,
+   "rows_added": 0,
+   "files_changed": [],
+   "files_new": [],
+   "files_unchanged": 7,
+   "manifest_entries_carried_forward": 0,
+   "shards_reconciled": [],
+   "rows_carried_forward": 0,
+   "refresh_window_start": "2020-10-01T22:00:00Z",
+   "anomalies": []
+  },
+  {
+   "source": "au",
+   "status": "no_change",
+   "seconds": 20,
+   "cadence_months": 1,
+   "last_successful_refresh": "2026-07-30T10:35:31.048Z",
+   "rows_total": 1252128,
+   "rows_added": 0,
+   "files_changed": [],
+   "files_new": [],
+   "files_unchanged": 13,
+   "manifest_entries_carried_forward": 11,
+   "shards_reconciled": [
+    "au-spot-2025.ndjson.gz"
+   ],
+   "rows_carried_forward": 210002,
+   "refresh_window_start": "2025-12-31T14:05:00Z",
+   "anomalies": []
+  },
+  {
+   "source": "da",
+   "status": "ok",
+   "seconds": 19,
+   "cadence_months": 1,
+   "last_successful_refresh": "2026-07-30T10:35:31.048Z",
+   "rows_total": 602402,
+   "rows_added": 103,
+   "files_changed": [
+    "da-de-2026.ndjson.gz",
+    "da-gb-2026.ndjson.gz"
+   ],
+   "files_new": [],
+   "files_unchanged": 31,
+   "manifest_entries_carried_forward": 28,
+   "shards_reconciled": [
+    "da-de-2025.ndjson.gz",
+    "da-se-2025.ndjson.gz"
+   ],
+   "rows_carried_forward": 56970,
+   "refresh_window_start": "2025-12-31T23:00:00Z",
+   "anomalies": []
+  },
+  {
+   "source": "activation",
+   "status": "ok",
+   "seconds": 57,
+   "cadence_months": 1,
+   "last_successful_refresh": "2026-07-30T10:35:31.048Z",
+   "rows_total": 286137,
+   "rows_added": 2,
+   "files_changed": [
+    "activation-at-mfrr-2026.ndjson.gz",
+    "activation-de-afrr-2026.ndjson.gz"
+   ],
+   "files_new": [],
+   "files_unchanged": 14,
+   "manifest_entries_carried_forward": 12,
+   "shards_reconciled": [],
+   "rows_carried_forward": 0,
+   "refresh_window_start": "2026-01-01T00:00:00Z",
+   "anomalies": []
+  },
+  {
+   "source": "fx",
+   "status": "ok",
+   "seconds": 1,
+   "cadence_months": 1,
+   "last_successful_refresh": "2026-07-30T10:35:31.048Z",
+   "rows_total": null,
+   "rows_added": 0,
+   "files_changed": [
+    "fx-monthly.json"
+   ],
+   "files_new": [],
+   "files_unchanged": 4,
+   "manifest_entries_carried_forward": 0,
+   "shards_reconciled": [],
+   "rows_carried_forward": 0,
+   "refresh_window_start": null,
+   "anomalies": []
+  },
+  {
+   "source": "calendar",
+   "status": "ok",
+   "seconds": 2,
+   "cadence_months": 3,
+   "last_successful_refresh": "2026-07-30T10:35:31.048Z",
+   "rows_total": null,
+   "rows_added": 0,
+   "files_changed": [
+    "structural-breaks.json"
+   ],
+   "files_new": [],
+   "files_unchanged": 0,
+   "manifest_entries_carried_forward": 0,
+   "shards_reconciled": [],
+   "rows_carried_forward": 0,
+   "refresh_window_start": null,
+   "anomalies": []
+  }
+ ],
+ "totals": {
+  "rows_added": 237,
+  "sources_ok": 5,
+  "sources_no_change": 3,
+  "sources_failed": 0,
+  "sources_anomalous": 0
+ }
+}
