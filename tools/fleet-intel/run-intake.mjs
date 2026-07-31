@@ -182,6 +182,41 @@ const pct = (n, d) => (d ? `${Math.round((n / d) * 1000) / 10}%` : '—');
     lines.push(`| ${c} | ${s.total} | ${s.matched} (${pct(s.matched, s.total)}) | ${s.probable} | ${s['new-to-us']} | ${s.legal_entities} | ${s.descriptors} |`);
   }
   lines.push('');
+  // ── capacity-basis check: what does the public fleet's `mw` actually measure? ──
+  // Found in the first real intake run. For pure-BESS rows the public value tracks
+  // the BESS rating; for hybrids it tracks the SITE total (the grid connection),
+  // which means hybrid BESS capacity is overstated in the supply trajectory.
+  // This is a 37.D input, quantified here so it crosses batches as an artifact (C4).
+  const close = (a, b) => a != null && b != null && a > 0 && b > 0 && Math.min(a, b) / Math.max(a, b) > 0.95;
+  const basisByType = {};
+  let hybBess = 0, hybPublic = 0, hybN = 0;
+  for (const r of enriched) {
+    const pub = r._match?.best?.mw;
+    if (pub == null) continue;
+    const t = r.plant_type || '(none)';
+    basisByType[t] = basisByType[t] || { n: 0, bess: 0, site: 0, neither: 0 };
+    basisByType[t].n++;
+    if (close(r.bess_mw, pub)) basisByType[t].bess++;
+    else if (close(r.site_total_mw, pub)) basisByType[t].site++;
+    else basisByType[t].neither++;
+    if (!/^BESS$/i.test(t)) { hybN++; hybBess += r.bess_mw || 0; hybPublic += pub || 0; }
+  }
+  lines.push('## Capacity basis — what does the public fleet `mw` measure?');
+  lines.push('');
+  lines.push('Agreement (within 5%) of the public fleet value against each private column, by plant type:');
+  lines.push('');
+  lines.push('| Plant type | matched rows | agrees with private BESS MW | agrees with private SITE total | neither |');
+  lines.push('|---|---|---|---|---|');
+  for (const [t, v] of Object.entries(basisByType)) {
+    lines.push(`| ${t} | ${v.n} | ${v.bess} | ${v.site} | ${v.neither} |`);
+  }
+  lines.push('');
+  if (hybN > 0 && hybBess > 0) {
+    lines.push(`**Hybrid rows (n=${hybN}):** private BESS component totals **${hybBess.toFixed(1)} MW**; the matched public fleet entries total **${hybPublic.toFixed(1)} MW** — a **${(hybPublic / hybBess).toFixed(2)}×** difference (**+${(hybPublic - hybBess).toFixed(0)} MW**).`);
+    lines.push('');
+    lines.push('Reading: for pure-BESS projects the public value tracks the battery rating, but for hybrid sites it tracks the grid-connection/site total. If the supply trajectory treats those entries as battery capacity, hybrid storage is **overstated**, not undercounted. HYPOTHESIS pending 37.D: this rests on the private BESS column being correct (operator testimony, unverified) and covers only the matched subset.');
+  }
+  lines.push('');
   lines.push('## Parse confidence');
   lines.push('');
   lines.push(Object.entries(parseConf).map(([k, v]) => `- **${k}**: ${v}`).join('\n'));

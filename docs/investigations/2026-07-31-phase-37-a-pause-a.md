@@ -109,7 +109,7 @@ Probed from this environment on 2026-07-31. "Entity probe" = an actual company/r
 | **registrucentras.lt** JAR search | LT | 200 | MATCH (search form served) | **Viable** | Official LT legal-entity register; public search page is server-rendered |
 | **rekvizitai.lt** | LT | 404 on my guessed path | — | **Unknown** | Homepage 200/407 kB. My search-path guess was wrong; needs 10-min path discovery, not written off |
 | **apva.lrv.lt** (+ APVIS, GIS) | LT | 200 | schemes are household-scale | **Not viable as a verifier** | See §3. No beneficiary list published for the Modernisation Fund |
-| **Lursoft** company search | LV | 200 | MATCH (returns a result page + LV reg-number) | **Viable, extraction unconfirmed** | Free tier serves results; clean row extraction needs one build-time spike |
+| **Lursoft** company search | LV | 200 | ~~MATCH~~ → **FALSE POSITIVE, see correction below** | ~~Viable~~ → **NOT VIABLE** | Corrected 2026-07-31 after the first evidence run |
 | **firmas.lv** | LV | 404 on my guessed path | — | **Unknown** | Homepage 200. Same situation as rekvizitai — path discovery pending |
 | **data.gov.lv** open-data catalogue | LV | 200 | MATCH | **Viable, promising** | Official open-data portal reachable and searchable. An open-data UR extract would beat scraping Lursoft entirely — worth a spike |
 | **SPRK** decisions index | LV | 200 | MATCH | **Viable** | 251 kB decisions index served, server-rendered |
@@ -120,6 +120,35 @@ Probed from this environment on 2026-07-31. "Entity probe" = an actual company/r
 | **ariregister** entity search | EE | 500 | — | **Use open data instead** | Live search erroring; the bulk export makes it moot |
 | **Developer sites** — Enery, ib vogt, European Energy, Evecon, Green Genius | — | 200 | MATCH | **Viable** | 5 of 6 serve project/portfolio content |
 | **Developer site** — SUNLY | — | **403** | — | **Blocked** | WAF |
+
+### CORRECTION — Lursoft was a false positive in my own table (logged, not quietly fixed)
+
+I marked Lursoft **Viable** on the strength of a 200 response whose body contained `SIA` and an
+LV registration number. Both were true of the page. Neither meant the search worked.
+
+The first evidence run returned **0 confirmations across 36 LV legal entities**, which was
+implausible enough to check. `company.lursoft.lv/en/search?q=` returns a byte-similar ~107 kB
+page for **every** term and never echoes the query. The single reg number on it (`40002092461`)
+is constant across all queries — it is Lursoft's own registration, in the page furniture.
+
+The control case settles it: **`Latvenergo`** — Latvia's state energy utility, unquestionably in
+the register — returns the same page as a nonsense string. The endpoint is not a query interface.
+
+So the run's LV zeros were **a measurement artifact of a broken probe, not evidence about those
+companies**, and reporting them as coverage would have told the operator that 36 real Latvian
+SPVs have no registry trace. Lursoft is now `excluded` in the source registry with this reason,
+and is not probed at all — zeros from a broken endpoint are worse than no data, because they
+render as findings.
+
+The generalisable rule, now applied to every source before it is trusted: **a source counts as
+viable only if a KNOWN-GOOD control returns something different from a nonsense term.** Homepage
+reachability, HTTP 200, and the presence of plausible-looking strings in the body are all
+satisfied by a landing page. This is the same control-group technique that made the APVA finding
+decisive (§3) — I applied it there and failed to apply it here, which is exactly why it is now
+written down as a rule rather than a habit.
+
+LV registry verification therefore needs the real endpoint or, better, the **data.gov.lv** open
+data route — a build spike for 37.B, not a probe.
 
 **Engine design follows this table, not hope:** EE resolves via bulk open data (strongest), LV via Lursoft + SPRK + BIS with a data.gov.lv spike that may replace the scraping, LT via registrucentras + esinvesticijos counts. AST and SUNLY are excluded from the automated pass and flagged as manual/relationship routes. The four `Unknown` rows are path-discovery tasks, not dead sources — I am not recording them as failures.
 

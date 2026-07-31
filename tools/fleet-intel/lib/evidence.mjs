@@ -10,7 +10,7 @@
 // A source that starts 403-ing produces reachable:false, which is loudly different
 // from a genuine zero — the silent-failure path this design exists to close.
 
-import { bareName, isLegalEntity } from './normalise.mjs';
+import { bareName } from './normalise.mjs';
 
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -22,8 +22,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 export const SOURCE_REGISTRY = Object.freeze([
   { key: 'esinvesticijos', country: ['LT'], source_type: 'registry', status: 'implemented',
     note: 'EU-beneficiary register; server-rendered result count via ?query=' },
-  { key: 'lursoft', country: ['LV'], source_type: 'registry', status: 'implemented',
-    note: 'LV company register, free tier search page' },
+  { key: 'lursoft', country: ['LV'], source_type: 'registry', status: 'excluded',
+    note: 'CORRECTION to the Pause-A table: company.lursoft.lv/en/search?q= is NOT a query endpoint — it returns a byte-similar ~107 kB landing page for every term and never echoes the query. Control case: "Latvenergo", which certainly exists in the LV register, returns the same page as a nonsense term. The first run\'s 0/36 was a measurement artifact, not evidence about those companies. LV registry lookup needs the real endpoint (or data.gov.lv open data) — a build spike, not a probe' },
   { key: 'developer_site', country: ['LT', 'LV', 'EE'], source_type: 'developer_site', status: 'implemented',
     note: 'org homepage reachability + project-page signal' },
   { key: 'ariregister_opendata', country: ['EE'], source_type: 'registry', status: 'deferred',
@@ -78,25 +78,23 @@ export async function probeEsinvesticijos(row) {
   };
 }
 
-/** LV: company register lookup. Only meaningful for rows whose SPV is a legal entity. */
-export async function probeLursoft(row) {
-  if (!isLegalEntity(row.spv)) {
-    return { source_key: 'lursoft', reachable: null, found: false, reason: 'SPV is a project descriptor, not a legal entity — registry lookup not applicable' };
-  }
-  const q = bareName(row.spv);
-  const url = `https://company.lursoft.lv/en/search?q=${encodeURIComponent(q)}`;
-  const res = await fetchText(url);
-  const reachable = res.ok && /lursoft/i.test(res.body);
-  // an LV registration number on the page is the positive signal
-  const reg = res.body.match(/\b(4\d{10})\b/);
-  const nameEcho = reachable && new RegExp(q.slice(0, 12).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i').test(res.body);
+/**
+ * LV company register — NOT PROBED. Retained as a documented dead end.
+ *
+ * The URL that looked like a search endpoint at Pause A returns the same landing
+ * page for every query and never echoes the term. A probe against it can only ever
+ * produce zeros, and zeros from a broken endpoint are worse than no data: they read
+ * as "these companies are not in the register" in a coverage report.
+ *
+ * A source is only worth probing if a KNOWN-GOOD control returns something
+ * different from a nonsense term. Lursoft fails that test today.
+ */
+export async function probeLursoft() {
   return {
     source_key: 'lursoft',
-    source_type: 'registry',
-    reachable,
-    found: Boolean(reachable && nameEcho && reg),
-    ...(reachable ? {} : { reason: `http ${res.status}` }),
-    ...(reachable && nameEcho && reg ? { url, what_it_confirms: `company name resolves in the LV register (reg ${reg[1]})` } : {}),
+    reachable: null,
+    found: false,
+    reason: 'endpoint is not a query interface (control case returns an identical page) — excluded pending a real endpoint or data.gov.lv open data',
   };
 }
 
@@ -141,7 +139,6 @@ export async function probeDeveloperSite(row) {
 export async function gatherEvidence(row, { politeDelayMs = 1100 } = {}) {
   const probes = [];
   if (row.country === 'LT') probes.push(probeEsinvesticijos);
-  if (row.country === 'LV') probes.push(probeLursoft);
   probes.push(probeDeveloperSite);
 
   const attempts = [];

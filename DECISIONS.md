@@ -2994,3 +2994,101 @@ instead of monitoring. `/health.demand_watch` now reports `blind` as a distinct 
 Found by running the extraction against live markup as a post-deploy check — after the code
 was already in production. It should have been a pre-deploy check, and the fixture tests gave
 no hint because a fixture cut from the one page that *did* work will pass forever.
+
+## Phase 37.A Pause A — the APVA column is a flag, not a key, and that changes what it can ever prove
+
+The prompt carried a reasonable hypothesis: the LT sheet's `APVA` column, populated on all 84
+rows, might hold "APVA scheme/application identifiers", which would make it "a direct
+public-register cross-check" — a citation source for 84 projects, arriving free.
+
+It holds two values. `Gavo` ×55, `Negavo` ×29. Received, did not receive. There is no
+identifier, so there is nothing to look up.
+
+That reframing matters more than it first appears. An identifier is a *pointer into a public
+record*: you follow it and either the record is there or it is not, and either way the check is
+decidable by anyone. A flag is *testimony*: it asserts an outcome without exposing anything that
+would let a third party confirm it. The same column, under the two readings, sits on opposite
+sides of rule #3.
+
+I tried to rescue it anyway, because a subsidy award should be publicly traceable. The national
+EU-beneficiary register (`esinvesticijos.lt`) is the right place to look — €6.63 bn of funding
+indexed, and its result count is server-rendered, so a plain GET answers "does this entity
+appear". I ran a **balanced** sample rather than a confirming one: 8 `Gavo` rows and 6 `Negavo`
+rows, querying both the SPV and the parent org. Result: `Gavo` 0/8, `Negavo` 0/6.
+
+The zero is not the interesting part — the *symmetry* is. A source that returns the same answer
+for both arms of the flag has no discriminating power over it, whatever the reason. Had I run
+only the `Gavo` arm and seen 0/8, I would have concluded "the register is missing these
+companies" and gone looking for a better register. Running both arms says something stronger and
+cheaper: **this source cannot verify this column at all**, and no amount of improving the query
+changes that. The control group is what turned an inconclusive result into a decisive one.
+
+Corroborating, not load-bearing: APVA's own published schemes are `Fizinių asmenų … namų
+ūkiuose` — household solar and household storage — which sit oddly against a table of 24–300 MW
+SPVs. The Modernisation Fund does list storage among its priority areas but publishes no
+beneficiary list at all.
+
+The decision needed no operator input, because the arc already settles it: *"a row that only
+exists in the private table stays private-only until a public source corroborates it."* So
+`apva_flag` is stored **opaquely** — private tier, never published, never contributing to a
+verification tier, with no semantic meaning encoded in the schema. Opaque is the operative word:
+had I stored it as `apva_awarded: true`, I would have baked in a reading of "Gavo" that I cannot
+support, and every downstream consumer would have inherited it as fact.
+
+What I did *not* do is guess which scheme it refers to. One sentence from the operator resolves
+it, and until then the honest representation of an unverifiable claim is the claim itself, not an
+interpretation of it.
+
+The general lesson, and the reason this is worth writing down: **the prompt's premise was not
+wrong about the data, it was wrong about the data's *kind*.** "Is this column an identifier or a
+flag" is not a detail to settle during implementation — it determines whether the column can ever
+become a citation, which determines whether 55 projects are publishable. A5 says verify what a
+source actually serves; this is the same discipline turned inward, at the seed data. Checking the
+kind of a field costs one probe. Assuming it costs a schema built on a category error.
+
+## Phase 37.A — the public fleet counts hybrid grid connections as if they were batteries
+
+The arc predicted the match engine would find "meaningful overlap on the pure-BESS rows and
+near-zero on hybrids", because "our feeds under-count hybrids". The first real run matched 84/84
+LT rows — and then disagreed with the public fleet on MW for 41 of them.
+
+The names were right; I checked the low-scoring tail by hand before trusting the rate. The
+disagreement is not a matching error, it is a **units** error, and it runs the opposite way to
+the prediction. Splitting the agreement by plant type:
+
+| Plant type | matched | public value tracks private BESS MW | tracks private SITE total |
+|---|---|---|---|
+| BESS (pure) | 39 | 36 | 0 |
+| SUN and WIND E with BESS | 22 | 0 | 20 |
+| WIND E with BESS | 14 | 2 | 12 |
+| SUN E with BESS | 8 | 1 | 7 |
+
+For pure-BESS projects the public fleet's `mw` is the battery rating. For hybrids it is the
+**site's grid-connection capacity** — the whole wind farm or solar park, of which the battery is
+a fraction. Across the 45 matched LT hybrids the private BESS components total ~1,320 MW while
+the matched public entries total ~4,383 MW: a **3.3× overstatement, ~+3,063 MW** of capacity
+carried in the supply base as though it were storage.
+
+So the feeds do not under-count hybrid storage. In MW terms they **over-count it, substantially**,
+because a connection-capacity figure is being read as a battery figure. Both statements can be
+true at once — the hybrid *projects* are under-represented as rows, while the hybrid *megawatts*
+that do get in are inflated — and the arc collapsed them into the reassuring half.
+
+This lands on 37.D, not here: supply feeds `sd_ratio` feeds cannibalisation feeds IRR, so a
+3× error in the hybrid slice is not cosmetic. 37.A changes nothing about it — the phase does not
+write `s4_fleet`, deliberately — but the number is recorded now, in the generated coverage report
+rather than in prose, so 37.D re-derives it from an artifact instead of quoting this paragraph
+(C4).
+
+Two honest limits, stated because the figure is the kind that gets quoted: it rests on the
+private BESS column being correct, which is operator testimony and unverified; and it covers only
+the matched LT subset, so it is not yet a fleet-wide total. It is a **hypothesis with a
+quantified magnitude**, not a finding — the distinction B9 exists to keep.
+
+What produced it was not a test. All 39 unit tests passed on a match engine that was silently
+wrong in two ways (`bareName` stripped only leading legal forms, so `UAB "X"` never matched
+`X, UAB`; and 2-char tokens were filtered, so `Anykščiai PV` and `Anykščiai BS` both collapsed to
+the placename and matched each other). Both surfaced from reading the actual output of the first
+real run and asking whether an 89% match rate was too good — then, after fixing them, whether
+100% was too good as well. A gate that only answers "did the code run" cannot answer "is the
+answer sane", and on new code the second question is the one that pays.
