@@ -14,7 +14,7 @@
   "pattern": "https://aemo.com.au/aemo/data/nem/priceanddemand/PRICE_AND_DEMAND_<YYYYMM>_<REGION>.csv"
  },
  "licence": "AEMO publishes NEM aggregated price and demand data for public use subject to its website terms; stored here for internal calibration.",
- "retrieved_at": "2026-07-30T06:41:26.631Z",
+ "retrieved_at": "2026-07-30T10:36:39.819Z",
  "requested_span": "2015-01..2026-07",
  "timezone": "SETTLEMENTDATE is NEM market time, AEST = UTC+10 with no daylight saving (not South Australian civil time, which is UTC+9:30 with DST). Stored as UTC instants.",
  "resolution_note": "native resolution measured per file from consecutive stamps, not assumed from the date",
@@ -1859,5 +1859,140 @@
    ],
    "sha256": "7ecf9237bd5a26c32ef6b8f6dbffad47e206d123fa1757426737598c46038835"
   }
- ]
+ ],
+ "acquisition_retrieved_at": "2026-07-30T06:41:26.631Z",
+ "last_refresh": {
+  "window": "2026-01..2026-07",
+  "retrieved_at": "2026-07-30T10:36:39.819Z",
+  "note": "Metadata from the most recent WINDOWED refresh. The top-level coverage_verification is acquisition-time evidence about how this source behaves and is deliberately not overwritten by a partial window.",
+  "windowed_metadata": {
+   "dataset": "au-spot",
+   "market": "AU",
+   "areas": [
+    "SA1",
+    "NSW1"
+   ],
+   "products": [
+    "spot"
+   ],
+   "mechanism": "energy",
+   "source": "AEMO — aggregated price and demand data, National Electricity Market",
+   "source_urls": {
+    "pattern": "https://aemo.com.au/aemo/data/nem/priceanddemand/PRICE_AND_DEMAND_<YYYYMM>_<REGION>.csv"
+   },
+   "licence": "AEMO publishes NEM aggregated price and demand data for public use subject to its website terms; stored here for internal calibration.",
+   "timezone": "SETTLEMENTDATE is NEM market time, AEST = UTC+10 with no daylight saving (not South Australian civil time, which is UTC+9:30 with DST). Stored as UTC instants.",
+   "resolution_note": "native resolution measured per file from consecutive stamps, not assumed from the date",
+   "resolutions_observed": {
+    "PT5M": {
+     "first": "2026-01",
+     "last": "2026-07",
+     "n": 120960
+    }
+   },
+   "coverage_verification": {
+    "claimed_by_arc_doc": "AEMO / opennem — FCAS prices + battery dispatch-era summaries",
+    "actual": "spot prices only. FCAS per-interval prices are archive-only (nemweb MMSDM monthly SQL-loader ZIPs) and were not acquired; OpenElectricity (ex-OpenNEM) API v3/v4 now requires a key and returned 404 unauthenticated.",
+    "verdict": "AU contributes 36.E4 arbitrage-spread evidence, NOT an FCAS lifecycle. E1-E3 lifecycle shape comes from GB and DE.",
+    "structural_break": "30-minute → 5-minute settlement on 2021-10-01 raises measured intraday spread mechanically. Not a market event. Must be segmented or spreads computed on a fixed basis.",
+    "months_missing": 0,
+    "missing": []
+   },
+   "price_semantics": {
+    "basis": "settlement — RRP is the regional reference price actually settled",
+    "currency": "native AUD retained; price_eur and price_norm at the ECB monthly-average AUD/EUR rate from ../fx/fx-monthly.json",
+    "negative_prices": "NEM spot prices are frequently negative and occasionally at the -1000 AUD/MWh floor or the market price cap. All retained: for a storage model the negative tail IS the charging opportunity."
+   },
+   "control_region_rationale": "NSW1 is included as a control, not a second observation. Compression measured only in SA cannot distinguish a battery effect from a market-wide one.",
+   "per_month": [
+    {
+     "region": "SA1",
+     "month": "2026-01",
+     "rows": 8928,
+     "resolution": "PT5M"
+    },
+    {
+     "region": "SA1",
+     "month": "2026-02",
+     "rows": 8064,
+     "resolution": "PT5M"
+    },
+    {
+     "region": "SA1",
+     "month": "2026-03",
+     "rows": 8928,
+     "resolution": "PT5M"
+    },
+    {
+     "region": "SA1",
+     "month": "2026-04",
+     "rows": 8640,
+     "resolution": "PT5M"
+    },
+    {
+     "region": "SA1",
+     "month": "2026-05",
+     "rows": 8928,
+     "resolution": "PT5M"
+    },
+    {
+     "region": "SA1",
+     "month": "2026-06",
+     "rows": 8640,
+     "resolution": "PT5M"
+    },
+    {
+     "region": "SA1",
+     "month": "2026-07",
+     "rows": 8352,
+     "resolution": "PT5M"
+    },
+    {
+     "region": "NSW1",
+     "month": "2026-01",
+     "rows": 8928,
+     "resolution": "PT5M"
+    },
+    {
+     "region": "NSW1",
+     "month": "2026-02",
+     "rows": 8064,
+     "resolution": "PT5M"
+    },
+    {
+     "region": "NSW1",
+     "month": "2026-03",
+     "rows": 8928,
+     "resolution": "PT5M"
+    },
+    {
+     "region": "NSW1",
+     "month": "2026-04",
+     "rows": 8640,
+     "resolution": "PT5M"
+    },
+    {
+     "region": "NSW1",
+     "month": "2026-05",
+     "rows": 8928,
+     "resolution": "PT5M"
+    },
+    {
+     "region": "NSW1",
+     "month": "2026-06",
+     "rows": 8640,
+     "resolution": "PT5M"
+    },
+    {
+     "region": "NSW1",
+     "month": "2026-07",
+     "rows": 8352,
+     "resolution": "PT5M"
+    }
+   ],
+   "manifest_files_carried_forward": 11
+  }
+ },
+ "refresh_cadence_months": 1,
+ "last_successful_refresh": "2026-07-30T10:35:31.048Z"
 }

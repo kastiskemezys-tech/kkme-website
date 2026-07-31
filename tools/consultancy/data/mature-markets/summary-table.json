@@ -1,7 +1,7 @@
 {
  "artifact": "cross-market summary table",
  "phase": "36.E0",
- "built_at": "2026-07-30T06:59:26.373Z",
+ "built_at": "2026-07-30T10:38:21.185Z",
  "reproducible_offline": true,
  "criteria": {
   "MIN_COVERAGE": 0.5,
@@ -41,24 +41,28 @@
  },
  "manifests": {
   "de": {
-   "retrieved_at": "2026-07-30T06:48:19.352Z",
-   "rows": 934085
+   "retrieved_at": "2026-07-30T10:35:56.055Z",
+   "rows": 934217
   },
   "se": {
-   "retrieved_at": "2026-07-30T06:59:18.813Z",
+   "retrieved_at": "2026-07-30T10:36:01.999Z",
    "rows": 146733
   },
   "gb": {
-   "retrieved_at": "2026-07-30T06:32:31.177Z",
+   "retrieved_at": "2026-07-30T10:36:18.513Z",
    "rows": 155705
   },
   "au": {
-   "retrieved_at": "2026-07-30T06:41:26.631Z",
+   "retrieved_at": "2026-07-30T10:36:39.819Z",
    "rows": 1252128
   },
   "da": {
-   "retrieved_at": "2026-07-30T06:49:57.930Z",
-   "rows": 640426
+   "retrieved_at": "2026-07-30T10:37:00.563Z",
+   "rows": 602402
+  },
+  "activation": {
+   "retrieved_at": "2026-07-30T10:37:58.786Z",
+   "rows": 286137
   }
  },
  "calendar_sources": {
@@ -1157,7 +1161,7 @@
    "demand": {
     "cagr": 0.0187,
     "first_year_mean_mw": 1820.0392,
-    "last_year_mean_mw": 1854.1297,
+    "last_year_mean_mw": 1854.1467,
     "years": "2025..2026"
    },
    "segments": [
@@ -1212,9 +1216,9 @@
      "n_months": 11,
      "opened_by": "2025-09-01 market_coupling (area_affecting)",
      "closed_by": null,
-     "mean_eur": 13.7451,
+     "mean_eur": 13.7374,
      "first_month_eur": 27.3913,
-     "last_month_eur": 18.3564
+     "last_month_eur": 18.2723
     }
    ],
    "breaks_applied": [
@@ -2309,10 +2313,10 @@
     },
     {
      "month": "2026-07",
-     "mean": 18.3564,
+     "mean": 18.2723,
      "p10": 0.43,
-     "p90": 59.418,
-     "volume": 1863.9832,
+     "p90": 59.17,
+     "volume": 1864.1027,
      "coverage": 1,
      "resolutions": [
       "PT4H"
@@ -3007,10 +3011,10 @@
     },
     {
      "month": "2026-07",
-     "offer_curve_mean": -1299.7317,
-     "p10": -2493.67,
-     "p90": -584.408,
-     "offered_mw": 2069.0441
+     "offer_curve_mean": -1301.1231,
+     "p10": -2493.961,
+     "p90": -585.024,
+     "offered_mw": 2068.454
     }
    ]
   },
@@ -3062,9 +3066,9 @@
     }
    },
    "demand": {
-    "cagr": 0.0055,
+    "cagr": 0.0054,
     "first_year_mean_mw": 2008.99,
-    "last_year_mean_mw": 2019.9731,
+    "last_year_mean_mw": 2019.9043,
     "years": "2025..2026"
    },
    "segments": [
@@ -3119,9 +3123,9 @@
      "n_months": 11,
      "opened_by": "2025-09-01 market_coupling (area_affecting)",
      "closed_by": null,
-     "mean_eur": 15.2215,
+     "mean_eur": 15.2146,
      "first_month_eur": 34.2028,
-     "last_month_eur": 10.7883
+     "last_month_eur": 10.7129
     }
    ],
    "breaks_applied": [
@@ -4216,10 +4220,10 @@
     },
     {
      "month": "2026-07",
-     "mean": 10.7883,
-     "p10": 2.728,
-     "p90": 22.218,
-     "volume": 2062.1955,
+     "mean": 10.7129,
+     "p10": 2.702,
+     "p90": 22.394,
+     "volume": 2061.7135,
      "coverage": 1,
      "resolutions": [
       "PT4H"
@@ -4914,10 +4918,10 @@
     },
     {
      "month": "2026-07",
-     "offer_curve_mean": 1631.0446,
-     "p10": 1136.91,
-     "p90": 2171.016,
-     "offered_mw": 2325.5656
+     "offer_curve_mean": 1632.3038,
+     "p10": 1137.659,
+     "p90": 2170.981,
+     "offered_mw": 2325.4035
     }
    ]
   },
@@ -5015,9 +5019,9 @@
      "n_months": 46,
      "opened_by": "2022-10-05 platform_accession (high)",
      "closed_by": null,
-     "mean_eur": 8.9958,
+     "mean_eur": 8.9943,
      "first_month_eur": 1.3773,
-     "last_month_eur": 16.6307
+     "last_month_eur": 16.5621
     }
    ],
    "breaks_applied": [
@@ -6102,9 +6106,9 @@
     },
     {
      "month": "2026-07",
-     "mean": 16.6307,
+     "mean": 16.5621,
      "p10": 0.44,
-     "p90": 54.136,
+     "p90": 54.428,
      "volume": null,
      "coverage": 1,
      "resolutions": [
@@ -6800,10 +6804,10 @@
     },
     {
      "month": "2026-07",
-     "offer_curve_mean": -3230.3829,
-     "p10": -4748.274,
-     "p90": -2156.98,
-     "offered_mw": 367.7924
+     "offer_curve_mean": -3236.0532,
+     "p10": -4745.36,
+     "p90": -2166.736,
+     "offered_mw": 367.6906
     }
    ]
   },
@@ -6901,9 +6905,9 @@
      "n_months": 46,
      "opened_by": "2022-10-05 platform_accession (high)",
      "closed_by": null,
-     "mean_eur": 3.4404,
+     "mean_eur": 3.4398,
      "first_month_eur": 2.616,
-     "last_month_eur": 1.8878
+     "last_month_eur": 1.8571
     }
    ],
    "breaks_applied": [
@@ -7994,9 +7998,9 @@
     },
     {
      "month": "2026-07",
-     "mean": 1.8878,
+     "mean": 1.8571,
      "p10": 0.08,
-     "p90": 4.502,
+     "p90": 4.498,
      "volume": null,
      "coverage": 1,
      "resolutions": [
@@ -8692,10 +8696,10 @@
     },
     {
      "month": "2026-07",
-     "offer_curve_mean": 3466.2023,
-     "p10": 2698.712,
-     "p90": 4466.612,
-     "offered_mw": 590.1543
+     "offer_curve_mean": 3464.2342,
+     "p10": 2699.426,
+     "p90": 4464.741,
+     "offered_mw": 590.4066
     }
    ]
   },
@@ -8917,9 +8921,9 @@
     "month": "2020-10",
     "basis": "computed: first DC delivery window with accepted battery MW in the bid-level file"
    },
-   "floor_to_arbitrage_ratio": 0.1449,
+   "floor_to_arbitrage_ratio": 0.1451,
    "arbitrage_opportunity": {
-    "value": 9.3094,
+    "value": 9.297,
     "unit": "EUR/MW/h (availability-equivalent proxy)",
     "proxy_assumptions": {
      "window_hours": 4,
@@ -9650,9 +9654,9 @@
     "month": "2020-10",
     "basis": "computed: first DC delivery window with accepted battery MW in the bid-level file"
    },
-   "floor_to_arbitrage_ratio": 0.1899,
+   "floor_to_arbitrage_ratio": 0.1901,
    "arbitrage_opportunity": {
-    "value": 9.3094,
+    "value": 9.297,
     "unit": "EUR/MW/h (availability-equivalent proxy)",
     "proxy_assumptions": {
      "window_hours": 4,
@@ -10542,7 +10546,7 @@
    },
    "floor_to_arbitrage_ratio": -0.0319,
    "arbitrage_opportunity": {
-    "value": 9.3094,
+    "value": 9.297,
     "unit": "EUR/MW/h (availability-equivalent proxy)",
     "proxy_assumptions": {
      "window_hours": 4,
@@ -11146,9 +11150,9 @@
     "month": "2020-10",
     "basis": "computed: first DC delivery window with accepted battery MW in the bid-level file"
    },
-   "floor_to_arbitrage_ratio": 0.4697,
+   "floor_to_arbitrage_ratio": 0.4704,
    "arbitrage_opportunity": {
-    "value": 9.3094,
+    "value": 9.297,
     "unit": "EUR/MW/h (availability-equivalent proxy)",
     "proxy_assumptions": {
      "window_hours": 4,
@@ -11704,9 +11708,9 @@
     "month": "2020-10",
     "basis": "computed: first DC delivery window with accepted battery MW in the bid-level file"
    },
-   "floor_to_arbitrage_ratio": -0.9868,
+   "floor_to_arbitrage_ratio": -0.9881,
    "arbitrage_opportunity": {
-    "value": 9.3094,
+    "value": 9.297,
     "unit": "EUR/MW/h (availability-equivalent proxy)",
     "proxy_assumptions": {
      "window_hours": 4,
@@ -12365,9 +12369,9 @@
     "month": "2020-10",
     "basis": "computed: first DC delivery window with accepted battery MW in the bid-level file"
    },
-   "floor_to_arbitrage_ratio": 0.9062,
+   "floor_to_arbitrage_ratio": 0.9074,
    "arbitrage_opportunity": {
-    "value": 9.3094,
+    "value": 9.297,
     "unit": "EUR/MW/h (availability-equivalent proxy)",
     "proxy_assumptions": {
      "window_hours": 4,
@@ -13004,9 +13008,9 @@
     "month": "2020-10",
     "basis": "computed: first DC delivery window with accepted battery MW in the bid-level file"
    },
-   "floor_to_arbitrage_ratio": 0.2409,
+   "floor_to_arbitrage_ratio": 0.2414,
    "arbitrage_opportunity": {
-    "value": 10.0632,
+    "value": 10.0427,
     "unit": "EUR/MW/h (availability-equivalent proxy)",
     "proxy_assumptions": {
      "window_hours": 4,
@@ -13297,9 +13301,9 @@
     "month": "2020-10",
     "basis": "computed: first DC delivery window with accepted battery MW in the bid-level file"
    },
-   "floor_to_arbitrage_ratio": 0.365,
+   "floor_to_arbitrage_ratio": 0.3657,
    "arbitrage_opportunity": {
-    "value": 10.0632,
+    "value": 10.0427,
     "unit": "EUR/MW/h (availability-equivalent proxy)",
     "proxy_assumptions": {
      "window_hours": 4,
@@ -16163,7 +16167,7 @@
    },
    {
     "year": "2026",
-    "mean_daily_spread_eur_mwh": 71.3046,
+    "mean_daily_spread_eur_mwh": 70.8919,
     "n_months": 7
    }
   ],
@@ -16234,5 +16238,523 @@
     "n_months": 7
    }
   ]
+ },
+ "activation_prices": [
+  {
+   "market": "AT",
+   "area": "AT",
+   "product": "aFRR",
+   "direction": "down",
+   "mechanism": "energy",
+   "price_basis": "vwap_activated",
+   "span": "2025-08-31..2026-07-01",
+   "n_months": 12,
+   "activated_isps": 26156,
+   "isps_in_span": 29126,
+   "activation_frequency": 0.898,
+   "mean_over_activated_eur_mwh": 47.5011,
+   "median_eur_mwh": 53.6335,
+   "p10_eur_mwh": 4.6605,
+   "p90_eur_mwh": 84.0855,
+   "min_eur_mwh": -979.797,
+   "max_eur_mwh": 1023.221,
+   "share_negative": 0.0411,
+   "share_at_technical_limit": 0,
+   "breaks_applied": [
+    {
+     "date": "2022-06-22",
+     "kind": "platform_accession",
+     "severity": "high",
+     "description": "PICASSO accession, jointly with Germany — the first exchange of aFRR via PICASSO"
+    }
+   ],
+   "segments": [
+    {
+     "index": 1,
+     "from": "2025-08",
+     "to": "2026-07",
+     "n_months": 12,
+     "activated_isps": 26156,
+     "isps_in_span": 29126,
+     "activation_frequency": 0.898,
+     "mean_over_activated_eur_mwh": 47.5011,
+     "median_eur_mwh": 53.6335,
+     "p10_eur_mwh": 4.6605,
+     "p90_eur_mwh": 84.0855,
+     "share_negative": 0.0411,
+     "share_at_technical_limit": 0,
+     "opened_by": "series start"
+    }
+   ],
+   "lifecycle_columns": "not_applicable — see the block comment in build-summary-table.mjs. An activation price has no peak-to-floor lifecycle: it is an event price, not a procurement price."
+  },
+  {
+   "market": "AT",
+   "area": "AT",
+   "product": "aFRR",
+   "direction": "up",
+   "mechanism": "energy",
+   "price_basis": "vwap_activated",
+   "span": "2025-08-31..2026-07-01",
+   "n_months": 12,
+   "activated_isps": 27961,
+   "isps_in_span": 29126,
+   "activation_frequency": 0.96,
+   "mean_over_activated_eur_mwh": 148.5575,
+   "median_eur_mwh": 143.214,
+   "p10_eur_mwh": 112.27,
+   "p90_eur_mwh": 181.033,
+   "min_eur_mwh": -20.992,
+   "max_eur_mwh": 3518.696,
+   "share_negative": 0.0001,
+   "share_at_technical_limit": 0,
+   "breaks_applied": [
+    {
+     "date": "2022-06-22",
+     "kind": "platform_accession",
+     "severity": "high",
+     "description": "PICASSO accession, jointly with Germany — the first exchange of aFRR via PICASSO"
+    }
+   ],
+   "segments": [
+    {
+     "index": 1,
+     "from": "2025-08",
+     "to": "2026-07",
+     "n_months": 12,
+     "activated_isps": 27961,
+     "isps_in_span": 29126,
+     "activation_frequency": 0.96,
+     "mean_over_activated_eur_mwh": 148.5575,
+     "median_eur_mwh": 143.214,
+     "p10_eur_mwh": 112.27,
+     "p90_eur_mwh": 181.033,
+     "share_negative": 0.0001,
+     "share_at_technical_limit": 0,
+     "opened_by": "series start"
+    }
+   ],
+   "lifecycle_columns": "not_applicable — see the block comment in build-summary-table.mjs. An activation price has no peak-to-floor lifecycle: it is an event price, not a procurement price."
+  },
+  {
+   "market": "AT",
+   "area": "AT",
+   "product": "mFRR",
+   "direction": "down",
+   "mechanism": "energy",
+   "price_basis": "vwap_activated",
+   "span": "2023-06-13..2026-07-30",
+   "n_months": 37,
+   "activated_isps": 2884,
+   "isps_in_span": 106731,
+   "activation_frequency": 0.027,
+   "mean_over_activated_eur_mwh": 61.422,
+   "median_eur_mwh": 5.45,
+   "p10_eur_mwh": -98.994,
+   "p90_eur_mwh": 147.1848,
+   "min_eur_mwh": -1203,
+   "max_eur_mwh": 13891.967,
+   "share_negative": 0.2868,
+   "share_at_technical_limit": 0,
+   "breaks_applied": [
+    {
+     "date": "2023-06-27",
+     "kind": "platform_accession",
+     "severity": "high",
+     "description": "APG accedes to MARI"
+    }
+   ],
+   "segments": [
+    {
+     "index": 1,
+     "from": "2023-06",
+     "to": "2026-07",
+     "n_months": 37,
+     "activated_isps": 2884,
+     "isps_in_span": 106731,
+     "activation_frequency": 0.027,
+     "mean_over_activated_eur_mwh": 61.422,
+     "median_eur_mwh": 5.45,
+     "p10_eur_mwh": -98.994,
+     "p90_eur_mwh": 147.1848,
+     "share_negative": 0.2868,
+     "share_at_technical_limit": 0,
+     "opened_by": "series start"
+    }
+   ],
+   "lifecycle_columns": "not_applicable — see the block comment in build-summary-table.mjs. An activation price has no peak-to-floor lifecycle: it is an event price, not a procurement price."
+  },
+  {
+   "market": "AT",
+   "area": "AT",
+   "product": "mFRR",
+   "direction": "up",
+   "mechanism": "energy",
+   "price_basis": "vwap_activated",
+   "span": "2023-06-15..2026-07-27",
+   "n_months": 38,
+   "activated_isps": 2497,
+   "isps_in_span": 109247,
+   "activation_frequency": 0.0229,
+   "mean_over_activated_eur_mwh": 317.1438,
+   "median_eur_mwh": 249,
+   "p10_eur_mwh": 135.78,
+   "p90_eur_mwh": 495.9774,
+   "min_eur_mwh": 0.1,
+   "max_eur_mwh": 9880,
+   "share_negative": 0,
+   "share_at_technical_limit": 0,
+   "breaks_applied": [
+    {
+     "date": "2023-06-27",
+     "kind": "platform_accession",
+     "severity": "high",
+     "description": "APG accedes to MARI"
+    }
+   ],
+   "segments": [
+    {
+     "index": 1,
+     "from": "2023-06",
+     "to": "2026-07",
+     "n_months": 38,
+     "activated_isps": 2497,
+     "isps_in_span": 109247,
+     "activation_frequency": 0.0229,
+     "mean_over_activated_eur_mwh": 317.1438,
+     "median_eur_mwh": 249,
+     "p10_eur_mwh": 135.78,
+     "p90_eur_mwh": 495.9774,
+     "share_negative": 0,
+     "share_at_technical_limit": 0,
+     "opened_by": "series start"
+    }
+   ],
+   "lifecycle_columns": "not_applicable — see the block comment in build-summary-table.mjs. An activation price has no peak-to-floor lifecycle: it is an event price, not a procurement price."
+  },
+  {
+   "market": "DE",
+   "area": "DE",
+   "product": "aFRR",
+   "direction": "down",
+   "mechanism": "energy",
+   "price_basis": "vwap_activated",
+   "span": "2022-06-21..2026-07-30",
+   "n_months": 50,
+   "activated_isps": 114015,
+   "isps_in_span": 143952,
+   "activation_frequency": 0.792,
+   "mean_over_activated_eur_mwh": 34.4737,
+   "median_eur_mwh": 46.91,
+   "p10_eur_mwh": -46.856,
+   "p90_eur_mwh": 105.33,
+   "min_eur_mwh": -8270.89,
+   "max_eur_mwh": 5888.01,
+   "share_negative": 0.221,
+   "share_at_technical_limit": 0,
+   "breaks_applied": [
+    {
+     "date": "2020-11-03",
+     "kind": "market_split",
+     "severity": "high",
+     "description": "Regelarbeitsmarkt (RAM) introduced: capacity (RLM) and energy (RAM) procured separately for the first time. The capacity series changes meaning here and the standalone energy series begins."
+    },
+    {
+     "date": "2021-12-07",
+     "kind": "unit_relabel",
+     "severity": "unit_affecting",
+     "description": "Published capacity price unit changes from EUR/MW per 4h product to (EUR/MW)/h, for both aFRR and mFRR on the same day. Derived from the committed data: the last delivery day published as EUR/MW is 2021-12-06 and the first as (EUR/MW)/h is 2021-12-07 (extra.publishedUnit per row). Values step ~4x with no market event — a relabel, not a repricing. FCR never changed unit."
+    },
+    {
+     "date": "2022-06-22",
+     "kind": "platform_accession",
+     "severity": "high",
+     "description": "PICASSO accession. Energy product shortens to 15 minutes and energy settles at the pan-EU marginal price. The single largest structural break in the German aFRR series."
+    },
+    {
+     "date": "2025-09-01",
+     "kind": "market_coupling",
+     "severity": "area_affecting",
+     "description": "ČEPS joins ALPACA, the aFRR CAPACITY cooperation (built on the 2020 Austria-Germany cooperation). Czech control-block rows appear in the German capacity export from here, so an area-unfiltered series stops being German. Month precision — the source says \"since September 2025\"."
+    }
+   ],
+   "segments": [
+    {
+     "index": 1,
+     "from": "2022-06",
+     "to": "2025-08",
+     "n_months": 39,
+     "activated_isps": 88749,
+     "isps_in_span": 112040,
+     "activation_frequency": 0.7921,
+     "mean_over_activated_eur_mwh": 23.0832,
+     "median_eur_mwh": 38.61,
+     "p10_eur_mwh": -61.732,
+     "p90_eur_mwh": 89.69,
+     "share_negative": 0.2598,
+     "share_at_technical_limit": 0,
+     "opened_by": "series start"
+    },
+    {
+     "index": 2,
+     "from": "2025-09",
+     "to": "2026-07",
+     "n_months": 11,
+     "activated_isps": 25266,
+     "isps_in_span": 31912,
+     "activation_frequency": 0.7917,
+     "mean_over_activated_eur_mwh": 74.4838,
+     "median_eur_mwh": 84.985,
+     "p10_eur_mwh": 4.39,
+     "p90_eur_mwh": 129.615,
+     "share_negative": 0.0849,
+     "share_at_technical_limit": 0,
+     "opened_by": "2025-09-01 market_coupling (area_affecting)"
+    }
+   ],
+   "lifecycle_columns": "not_applicable — see the block comment in build-summary-table.mjs. An activation price has no peak-to-floor lifecycle: it is an event price, not a procurement price."
+  },
+  {
+   "market": "DE",
+   "area": "DE",
+   "product": "aFRR",
+   "direction": "up",
+   "mechanism": "energy",
+   "price_basis": "vwap_activated",
+   "span": "2022-06-21..2026-07-30",
+   "n_months": 50,
+   "activated_isps": 111939,
+   "isps_in_span": 143950,
+   "activation_frequency": 0.7776,
+   "mean_over_activated_eur_mwh": 174.836,
+   "median_eur_mwh": 130.44,
+   "p10_eur_mwh": 55.936,
+   "p90_eur_mwh": 370.294,
+   "min_eur_mwh": -5143.03,
+   "max_eur_mwh": 14999.99,
+   "share_negative": 0.0127,
+   "share_at_technical_limit": 0,
+   "breaks_applied": [
+    {
+     "date": "2020-11-03",
+     "kind": "market_split",
+     "severity": "high",
+     "description": "Regelarbeitsmarkt (RAM) introduced: capacity (RLM) and energy (RAM) procured separately for the first time. The capacity series changes meaning here and the standalone energy series begins."
+    },
+    {
+     "date": "2021-12-07",
+     "kind": "unit_relabel",
+     "severity": "unit_affecting",
+     "description": "Published capacity price unit changes from EUR/MW per 4h product to (EUR/MW)/h, for both aFRR and mFRR on the same day. Derived from the committed data: the last delivery day published as EUR/MW is 2021-12-06 and the first as (EUR/MW)/h is 2021-12-07 (extra.publishedUnit per row). Values step ~4x with no market event — a relabel, not a repricing. FCR never changed unit."
+    },
+    {
+     "date": "2022-06-22",
+     "kind": "platform_accession",
+     "severity": "high",
+     "description": "PICASSO accession. Energy product shortens to 15 minutes and energy settles at the pan-EU marginal price. The single largest structural break in the German aFRR series."
+    },
+    {
+     "date": "2025-09-01",
+     "kind": "market_coupling",
+     "severity": "area_affecting",
+     "description": "ČEPS joins ALPACA, the aFRR CAPACITY cooperation (built on the 2020 Austria-Germany cooperation). Czech control-block rows appear in the German capacity export from here, so an area-unfiltered series stops being German. Month precision — the source says \"since September 2025\"."
+    }
+   ],
+   "segments": [
+    {
+     "index": 1,
+     "from": "2022-06",
+     "to": "2025-08",
+     "n_months": 39,
+     "activated_isps": 85302,
+     "isps_in_span": 112040,
+     "activation_frequency": 0.7614,
+     "mean_over_activated_eur_mwh": 199.6591,
+     "median_eur_mwh": 141.1,
+     "p10_eur_mwh": 80.3,
+     "p90_eur_mwh": 451.398,
+     "share_negative": 0.0097,
+     "share_at_technical_limit": 0,
+     "opened_by": "series start"
+    },
+    {
+     "index": 2,
+     "from": "2025-09",
+     "to": "2026-07",
+     "n_months": 11,
+     "activated_isps": 26637,
+     "isps_in_span": 31910,
+     "activation_frequency": 0.8348,
+     "mean_over_activated_eur_mwh": 95.3429,
+     "median_eur_mwh": 99.16,
+     "p10_eur_mwh": 18.85,
+     "p90_eur_mwh": 152.35,
+     "share_negative": 0.0223,
+     "share_at_technical_limit": 0,
+     "opened_by": "2025-09-01 market_coupling (area_affecting)"
+    }
+   ],
+   "lifecycle_columns": "not_applicable — see the block comment in build-summary-table.mjs. An activation price has no peak-to-floor lifecycle: it is an event price, not a procurement price."
+  },
+  {
+   "market": "DE",
+   "area": "DE",
+   "product": "mFRR",
+   "direction": "down",
+   "mechanism": "energy",
+   "price_basis": "vwap_activated",
+   "span": "2022-06-30..2026-07-23",
+   "n_months": 30,
+   "activated_isps": 182,
+   "isps_in_span": 84091,
+   "activation_frequency": 0.0022,
+   "mean_over_activated_eur_mwh": -2339.7522,
+   "median_eur_mwh": -375,
+   "p10_eur_mwh": -9420,
+   "p90_eur_mwh": -16.11,
+   "min_eur_mwh": -15000,
+   "max_eur_mwh": 510.75,
+   "share_negative": 0.956,
+   "share_at_technical_limit": 0.0549,
+   "breaks_applied": [
+    {
+     "date": "2020-11-03",
+     "kind": "market_split",
+     "severity": "high",
+     "description": "Regelarbeitsmarkt (RAM) introduced: capacity (RLM) and energy (RAM) procured separately for the first time. The capacity series changes meaning here and the standalone energy series begins."
+    },
+    {
+     "date": "2021-12-07",
+     "kind": "unit_relabel",
+     "severity": "unit_affecting",
+     "description": "Published capacity price unit changes from EUR/MW per 4h product to (EUR/MW)/h, for both aFRR and mFRR on the same day. Derived from the committed data: the last delivery day published as EUR/MW is 2021-12-06 and the first as (EUR/MW)/h is 2021-12-07 (extra.publishedUnit per row). Values step ~4x with no market event — a relabel, not a repricing. FCR never changed unit."
+    },
+    {
+     "date": "2022-10-05",
+     "kind": "platform_accession",
+     "severity": "high",
+     "description": "MARI accession — cross-border exchange of mFRR energy begins."
+    }
+   ],
+   "segments": [
+    {
+     "index": 1,
+     "from": "2022-06",
+     "to": "2022-09",
+     "n_months": 4,
+     "activated_isps": 15,
+     "isps_in_span": 8863,
+     "activation_frequency": 0.0017,
+     "mean_over_activated_eur_mwh": -1191.2587,
+     "median_eur_mwh": -335.07,
+     "p10_eur_mwh": -2800,
+     "p90_eur_mwh": -228.58,
+     "share_negative": 1,
+     "share_at_technical_limit": 0,
+     "opened_by": "series start"
+    },
+    {
+     "index": 2,
+     "from": "2022-10",
+     "to": "2026-07",
+     "n_months": 26,
+     "activated_isps": 167,
+     "isps_in_span": 75228,
+     "activation_frequency": 0.0022,
+     "mean_over_activated_eur_mwh": -2442.9103,
+     "median_eur_mwh": -375,
+     "p10_eur_mwh": -10141.26,
+     "p90_eur_mwh": -4.924,
+     "share_negative": 0.9521,
+     "share_at_technical_limit": 0.0599,
+     "opened_by": "2022-10-05 platform_accession (high)"
+    }
+   ],
+   "lifecycle_columns": "not_applicable — see the block comment in build-summary-table.mjs. An activation price has no peak-to-floor lifecycle: it is an event price, not a procurement price."
+  },
+  {
+   "market": "DE",
+   "area": "DE",
+   "product": "mFRR",
+   "direction": "up",
+   "mechanism": "energy",
+   "price_basis": "vwap_activated",
+   "span": "2022-06-22..2026-07-07",
+   "n_months": 46,
+   "activated_isps": 503,
+   "isps_in_span": 130490,
+   "activation_frequency": 0.0039,
+   "mean_over_activated_eur_mwh": 1325.7879,
+   "median_eur_mwh": 750,
+   "p10_eur_mwh": 220.688,
+   "p90_eur_mwh": 3180.5,
+   "min_eur_mwh": -319.34,
+   "max_eur_mwh": 15000,
+   "share_negative": 0.004,
+   "share_at_technical_limit": 0.0099,
+   "breaks_applied": [
+    {
+     "date": "2020-11-03",
+     "kind": "market_split",
+     "severity": "high",
+     "description": "Regelarbeitsmarkt (RAM) introduced: capacity (RLM) and energy (RAM) procured separately for the first time. The capacity series changes meaning here and the standalone energy series begins."
+    },
+    {
+     "date": "2021-12-07",
+     "kind": "unit_relabel",
+     "severity": "unit_affecting",
+     "description": "Published capacity price unit changes from EUR/MW per 4h product to (EUR/MW)/h, for both aFRR and mFRR on the same day. Derived from the committed data: the last delivery day published as EUR/MW is 2021-12-06 and the first as (EUR/MW)/h is 2021-12-07 (extra.publishedUnit per row). Values step ~4x with no market event — a relabel, not a repricing. FCR never changed unit."
+    },
+    {
+     "date": "2022-10-05",
+     "kind": "platform_accession",
+     "severity": "high",
+     "description": "MARI accession — cross-border exchange of mFRR energy begins."
+    }
+   ],
+   "segments": [
+    {
+     "index": 1,
+     "from": "2022-06",
+     "to": "2022-09",
+     "n_months": 4,
+     "activated_isps": 82,
+     "isps_in_span": 9659,
+     "activation_frequency": 0.0085,
+     "mean_over_activated_eur_mwh": 1895.596,
+     "median_eur_mwh": 1033.735,
+     "p10_eur_mwh": 776.425,
+     "p90_eur_mwh": 4200.668,
+     "share_negative": 0.0122,
+     "share_at_technical_limit": 0,
+     "opened_by": "series start"
+    },
+    {
+     "index": 2,
+     "from": "2022-10",
+     "to": "2026-07",
+     "n_months": 42,
+     "activated_isps": 421,
+     "isps_in_span": 120831,
+     "activation_frequency": 0.0035,
+     "mean_over_activated_eur_mwh": 1214.8039,
+     "median_eur_mwh": 556.42,
+     "p10_eur_mwh": 206,
+     "p90_eur_mwh": 3152.5,
+     "share_negative": 0.0024,
+     "share_at_technical_limit": 0.0119,
+     "opened_by": "2022-10-05 platform_accession (high)"
+    }
+   ],
+   "lifecycle_columns": "not_applicable — see the block comment in build-summary-table.mjs. An activation price has no peak-to-floor lifecycle: it is an event price, not a procurement price."
+  }
+ ],
+ "activation_prices_notes": {
+  "why_a_separate_block": "An activation price is an event price, not a procurement price. The lifecycle columns (peak-to-floor, saturation month, years to saturation) are capacity-market statistics and do not transfer; reporting them here would produce cells that look comparable and are not.",
+  "level_and_frequency_are_two_parameters": "The mean is over ACTIVATED ISPs only. An ISP with no activation has no price — it is not a price of zero. Activation frequency is reported alongside and never folded into the level, because folding them is a modelling choice belonging to E2/E3.",
+  "de_has_no_pre_picasso_segment": "The German series starts at its own PICASSO accession (first rows 2022-06-21, first full day 2022-06-22), so Germany cannot measure its own accession break on activation prices. Austria acceded on the same date and publishes from 2021-01, which is why AT is in this block: it carries the only before/after this evidence base has for the activation leg, and it is n=1.",
+  "technical_limit": "share_at_technical_limit counts ISPs at |price| >= 15000 EUR/MWh, the platform price limit. Unlike the German RAM offer-curve export, these are settled outcomes and are retained.",
+  "two_publication_styles": "DE and AT publish this dataItem differently and the difference is not cosmetic. Germany emits one short Period per activation episode, so its series is structurally sparse. Austria emits a dense step function in which 0 is the resting value meaning no activation, and those zeros are dropped (counted per series in the dataset manifest). Consequence: DE activation_frequency is measured against published episodes, AT against a dropped-zero baseline. The two frequencies are comparable in intent but not derived identically, and AT mFRR in particular is 214090 dropped resting-zeros against 5380 activations.",
+  "break_applicability_is_not_asserted": "Segments come from the primary-sourced calendar only, and the calendar records a break's market and products but not which MECHANISM it affects. The DE aFRR activation series is therefore split at 2025-09-01 by the CEPS/ALPACA event, which is a CAPACITY cooperation whose own description concerns the composition of the German capacity export. Its relevance to activation prices is NOT established here. The measured step across it is large (segment mean 199.66 to 95.34 EUR/MWh) and must not be read as an ALPACA effect without an argument that ALPACA touches activation at all — general market conditions are an untested alternative. Flagged rather than silently included or silently excluded; the decision belongs to E2."
  }
 }

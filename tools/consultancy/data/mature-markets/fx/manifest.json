@@ -1,6 +1,6 @@
 {
  "dataset": "ecb-monthly-fx",
- "retrieved_at": "2026-07-30T06:13:25.765Z",
+ "retrieved_at": "2026-07-30T10:37:59.672Z",
  "licence": "ECB — free reuse with attribution (https://www.ecb.europa.eu/services/using-our-site/html/index.en.html)",
  "files": [
   {
@@ -35,5 +35,7 @@
    "n_months": 198,
    "sha256": "186ac412221de9dbbbe6a346ee404ab0dda757fe74a7482a376b95513036c52a"
   }
- ]
+ ],
+ "refresh_cadence_months": 1,
+ "last_successful_refresh": "2026-07-30T10:35:31.048Z"
 }

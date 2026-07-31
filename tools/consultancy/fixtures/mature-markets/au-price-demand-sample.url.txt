@@ -1,1 +1,1 @@
-https://aemo.com.au/aemo/data/nem/priceanddemand/PRICE_AND_DEMAND_201501_SA1.csv
+https://aemo.com.au/aemo/data/nem/priceanddemand/PRICE_AND_DEMAND_202601_SA1.csv

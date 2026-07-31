@@ -26,7 +26,7 @@ import { validateRow } from './schema.mjs';
 
 const DATA = path.join(import.meta.dirname, '..', 'data', 'mature-markets');
 
-export const DATASETS = ['de', 'se', 'gb', 'au', 'da'];
+export const DATASETS = ['de', 'se', 'gb', 'au', 'da', 'activation'];
 
 const RES_MIN = { PT5M: 5, PT15M: 15, PT30M: 30, PT60M: 60, PT1H: 60, PT2H: 120, PT3H: 180, PT4H: 240, PT5H: 300, PT24H: 1440 };
 

@@ -1,0 +1,160 @@
+name: Refresh mature-market evidence base (36.E0.1)
+
+# WHY GITHUB ACTIONS. The datasets live in this repo, the fetchers are Node, and the VPS has no
+# Node runtime (36.C finding). A scheduled workflow reuses the E0 fetchers unchanged — no port,
+# no new server surface, no second copy of the data.
+#
+# WHY A PULL REQUEST AND NEVER A PUSH TO MAIN. The evidence base grounds every per-service
+# forecast in 36.E1-E6. Data grounding gets the same review discipline as forecast adoption, and
+# PR-based means a broken source produces a reviewable red PR instead of silently corrupting
+# main. Merging is a ~2-minute monthly operator task.
+#
+# SECRET. ENTSOE_API_KEY is a repository secret, read by the fetchers from the environment. It is
+# never echoed: no `env |`, no `set -x`, and the fetchers do not log the token. Actions masks
+# secret values in logs, but this workflow does not rely on that as its only defence. There is no
+# `pull_request` trigger, so a fork PR can never run this job with the secret in scope.
+#
+# FIRST RUN. Executed manually via workflow_dispatch as the phase's proof, 2026-07-30.
+
+on:
+  schedule:
+    # First Sunday of the month, 03:00 UTC. Cron has no "first Sunday", so this fires on any of
+    # days 1-7 that is a Sunday — exactly one day per month.
+    - cron: '0 3 1-7 * 0'
+  workflow_dispatch:
+    inputs:
+      sources:
+        description: 'Comma-separated sources to refresh (default: all)'
+        required: false
+        default: ''
+      dry_run:
+        description: 'Report what would be refreshed without fetching'
+        type: boolean
+        required: false
+        default: false
+
+# Least privilege: the job needs to push a branch and open a PR, and nothing else.
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: refresh-mature-markets
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The append-only gate reads each file's previous version out of git, so it needs the
+          # committed history of the data files, not a bare tree.
+          fetch-depth: 2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      # Before the refresh, not after: fetch-de-regelleistung.mjs parses the German aggregated
+      # results with exceljs. Installing afterwards would have failed the DE source on a missing
+      # module and reported it as a dead portal.
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Record the base commit
+        id: base
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Freshness before the run
+        run: node tools/consultancy/mature-markets/check-freshness.mjs || true
+
+      - name: Refresh
+        id: refresh
+        env:
+          ENTSOE_API_KEY: ${{ secrets.ENTSOE_API_KEY }}
+        run: |
+          set -o pipefail
+          ARGS=""
+          if [ -n "${{ github.event.inputs.sources }}" ]; then ARGS="--sources ${{ github.event.inputs.sources }}"; fi
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then ARGS="$ARGS --dry-run"; fi
+          # The orchestrator exits non-zero when a gate fails. That must NOT abort the job: the
+          # whole point of the PR-based shape is that a failing refresh produces a reviewable red
+          # PR rather than a silent no-op. The gate result is carried forward instead.
+          if node tools/consultancy/mature-markets/refresh-mature-markets.mjs $ARGS; then
+            echo "gates=pass" >> "$GITHUB_OUTPUT"
+          else
+            echo "gates=fail" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Gate — loader, fixtures, manifests, calendar
+        id: tests
+        if: github.event.inputs.dry_run != 'true'
+        run: |
+          if npx vitest run tools/consultancy/__tests__/matureMarkets.test.ts 2>&1 | tail -40; then
+            echo "tests=pass" >> "$GITHUB_OUTPUT"
+          else
+            echo "tests=fail" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Gate — no engine, worker or public-site change
+        id: scope
+        if: github.event.inputs.dry_run != 'true'
+        run: |
+          # This job refreshes data. If it ever produces a diff under workers/ or app/, something
+          # is very wrong and the PR must say so loudly rather than be reviewed as a data update.
+          if [ -z "$(git status --porcelain -- workers/ app/)" ]; then
+            echo "scope=pass" >> "$GITHUB_OUTPUT"
+          else
+            echo "scope=fail" >> "$GITHUB_OUTPUT"
+            git status --porcelain -- workers/ app/
+          fi
+
+      - name: Freshness after the run
+        if: github.event.inputs.dry_run != 'true'
+        run: node tools/consultancy/mature-markets/check-freshness.mjs || true
+
+      - name: Open or update the review PR
+        if: github.event.inputs.dry_run != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "::notice::No changes produced — nothing to review, no PR opened."
+            exit 0
+          fi
+
+          BRANCH="evidence-refresh/$(date -u +%Y-%m)"
+          git config user.name  "kkme-refresh[bot]"
+          git config user.email "kkme-refresh@users.noreply.github.com"
+          git checkout -b "$BRANCH" 2>/dev/null || git checkout "$BRANCH"
+          git add -A
+          git commit -m "36.E0.1: evidence-base refresh $(date -u +%Y-%m-%d)" -m "Automated monthly refresh. Gates: refresh=${{ steps.refresh.outputs.gates }} tests=${{ steps.tests.outputs.tests }} scope=${{ steps.scope.outputs.scope }}. Report in tools/consultancy/data/mature-markets/refresh-report.md."
+          git push -f origin "$BRANCH"
+
+          GATES="refresh=${{ steps.refresh.outputs.gates }} · tests=${{ steps.tests.outputs.tests }} · scope=${{ steps.scope.outputs.scope }}"
+          {
+            if [ "${{ steps.refresh.outputs.gates }}" != "pass" ] || [ "${{ steps.tests.outputs.tests }}" != "pass" ] || [ "${{ steps.scope.outputs.scope }}" != "pass" ]; then
+              echo "## ⚠️ A gate failed — read the report before merging"
+              echo ""
+            fi
+            echo "**Gates:** $GATES"
+            echo ""
+            echo "Run: [\`${{ github.run_id }}\`](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) · base \`${{ steps.base.outputs.sha }}\`"
+            echo ""
+            cat tools/consultancy/data/mature-markets/refresh-report.md
+          } > /tmp/pr-body.md
+
+          if gh pr view "$BRANCH" --json number >/dev/null 2>&1; then
+            gh pr edit "$BRANCH" --body-file /tmp/pr-body.md
+            echo "::notice::Updated PR for $BRANCH"
+          else
+            gh pr create --base main --head "$BRANCH" \
+              --title "36.E0.1: evidence-base refresh $(date -u +%Y-%m)" \
+              --body-file /tmp/pr-body.md
+          fi
+          gh pr view "$BRANCH" --json url --jq .url

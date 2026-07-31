@@ -321,6 +321,97 @@ function gbBatteryEntry(rows) {
 
 // ── Main ───────────────────────────────────────────────────────────────────
 
+/**
+ * Settled activation prices (36.B-036) — a SEPARATE block, deliberately not rows in the
+ * lifecycle table above.
+ *
+ * The lifecycle columns are capacity-market statistics. Peak-to-floor measures how far a
+ * procurement price fell as qualified supply entered; saturation measures when it stopped
+ * falling. An activation price is not that quantity: it is an event price that exists only in
+ * the ISPs where energy was actually activated, it is set by the imbalance of the moment rather
+ * than by the entry of competitors, and it runs to the technical price limit in scarcity. Giving
+ * it a "floor" and a "saturation month" would produce cells that look like the others and mean
+ * something else — the same category error that made the German RAM offer-curve export
+ * unusable, in a new costume. So this block reports what an activation series actually supports:
+ *
+ *   level      — mean/median/p10/p90 OVER ACTIVATED ISPs ONLY, per structural segment
+ *   frequency  — activated ISPs ÷ ISPs in the span, which is a different parameter from level
+ *                and the one a revenue model multiplies by
+ *   tails      — share negative and share at the technical limit, both real market outcomes
+ *
+ * Level and frequency are reported side by side and never combined into one number here,
+ * because the combination is a modelling choice that belongs to E2/E3, not to the evidence base.
+ */
+function analyseActivation(rows, breaks) {
+  const ISP_MIN = 15;
+  const out = [];
+  for (const [key, seriesRows] of [...bySeries(rows)].sort()) {
+    const [market, area, product, direction, mechanism] = key.split('|');
+    const sorted = [...seriesRows].sort((a, b) => a.period_start.localeCompare(b.period_start));
+    const spanStart = Date.parse(sorted[0].period_start);
+    const spanEnd = Date.parse(sorted.at(-1).period_end);
+
+    const months = monthlyAggregate(sorted);
+    // Denominator: ISPs inside the intersection of the month and the series span. UTC 15-minute
+    // intervals tile a UTC month exactly, so no DST correction is needed — but the first and
+    // last months are partial, and using a whole month there would understate frequency.
+    for (const m of months) {
+      const [y, mo] = m.month.split('-').map(Number);
+      const mStart = Date.UTC(y, mo - 1, 1);
+      const mEnd = Date.UTC(mo === 12 ? y + 1 : y, mo === 12 ? 0 : mo, 1);
+      const from = Math.max(mStart, spanStart);
+      const to = Math.min(mEnd, spanEnd);
+      m.isps_in_span = Math.max(0, Math.round((to - from) / 60000 / ISP_MIN));
+      m.activation_frequency = m.isps_in_span ? r4(m.n_priced / m.isps_in_span) : null;
+    }
+
+    const { segments, breaks_applied } = segmentMonths(months, breaks, { market, product });
+    const prices = sorted.map((r) => r.price_norm).filter((p) => p !== null);
+    // Bucket prices by month once. Filtering all rows per segment against every month in it is
+    // O(rows x months) and these series run to hundreds of thousands of rows.
+    const pricesByMonth = new Map();
+    for (const r of sorted) {
+      if (r.price_norm === null) continue;
+      const k = r.period_start.slice(0, 7);
+      (pricesByMonth.get(k) ?? pricesByMonth.set(k, []).get(k)).push(r.price_norm);
+    }
+
+    const seg = segments.map((g, i) => {
+      const activated = g.months.reduce((s, m) => s + m.n_priced, 0);
+      const possible = g.months.reduce((s, m) => s + m.isps_in_span, 0);
+      const p = g.months.flatMap((m) => pricesByMonth.get(m.month) ?? []);
+      return {
+        index: i + 1, from: g.from, to: g.to, n_months: g.months.length,
+        activated_isps: activated, isps_in_span: possible,
+        activation_frequency: possible ? r4(activated / possible) : null,
+        mean_over_activated_eur_mwh: p.length ? r4(p.reduce((s, v) => s + v, 0) / p.length) : null,
+        median_eur_mwh: r4(pct(p, 0.5)), p10_eur_mwh: r4(pct(p, 0.1)), p90_eur_mwh: r4(pct(p, 0.9)),
+        share_negative: p.length ? r4(p.filter((v) => v < 0).length / p.length) : null,
+        share_at_technical_limit: p.length ? r4(p.filter((v) => Math.abs(v) >= 15000).length / p.length) : null,
+        opened_by: g.opened_by,
+      };
+    });
+    out.push({
+      market, area, product, direction: direction === '-' ? null : direction, mechanism,
+      price_basis: 'vwap_activated',
+      span: `${sorted[0].period_start.slice(0, 10)}..${sorted.at(-1).period_end.slice(0, 10)}`,
+      n_months: months.length,
+      activated_isps: prices.length,
+      isps_in_span: months.reduce((s, m) => s + m.isps_in_span, 0),
+      activation_frequency: r4(prices.length / months.reduce((s, m) => s + m.isps_in_span, 0)),
+      mean_over_activated_eur_mwh: r4(prices.reduce((s, v) => s + v, 0) / prices.length),
+      median_eur_mwh: r4(pct(prices, 0.5)), p10_eur_mwh: r4(pct(prices, 0.1)), p90_eur_mwh: r4(pct(prices, 0.9)),
+      min_eur_mwh: r4(Math.min(...prices)), max_eur_mwh: r4(Math.max(...prices)),
+      share_negative: r4(prices.filter((v) => v < 0).length / prices.length),
+      share_at_technical_limit: r4(prices.filter((v) => Math.abs(v) >= 15000).length / prices.length),
+      breaks_applied,
+      segments: seg,
+      lifecycle_columns: 'not_applicable — see the block comment in build-summary-table.mjs. An activation price has no peak-to-floor lifecycle: it is an event price, not a procurement price.',
+    });
+  }
+  return out;
+}
+
 async function main() {
   const calendar = await loadCalendar();
   const breaks = calendar.events;
@@ -330,6 +421,10 @@ async function main() {
   const gb = await loadDataset('gb');
   const au = await loadDataset('au');
   const da = await loadDataset('da');
+  // Settled activation prices (B-036). Optional so this script still reproduces the E0 table on
+  // a checkout that predates the dataset, rather than failing on a missing directory.
+  let activation = null;
+  try { activation = await loadDataset('activation'); } catch (e) { if (e.code !== 'ENOENT') throw e; }
 
   // Arbitrage denominators per market, from the energy series of that market.
   const arb = {
@@ -394,10 +489,20 @@ async function main() {
       gb: { retrieved_at: gb.manifest.retrieved_at, rows: gb.manifest.rows },
       au: { retrieved_at: au.manifest.retrieved_at, rows: au.manifest.rows },
       da: { retrieved_at: da.manifest.retrieved_at, rows: da.manifest.rows },
+      ...(activation ? { activation: { retrieved_at: activation.manifest.retrieved_at, rows: activation.manifest.rows } } : {}),
     },
     calendar_sources: calendar.source_verdicts,
     series: results,
     spread_trajectory: spreads,
+    activation_prices: activation ? analyseActivation(activation.rows, breaks) : 'not_acquired',
+    activation_prices_notes: activation ? {
+      why_a_separate_block: 'An activation price is an event price, not a procurement price. The lifecycle columns (peak-to-floor, saturation month, years to saturation) are capacity-market statistics and do not transfer; reporting them here would produce cells that look comparable and are not.',
+      level_and_frequency_are_two_parameters: 'The mean is over ACTIVATED ISPs only. An ISP with no activation has no price — it is not a price of zero. Activation frequency is reported alongside and never folded into the level, because folding them is a modelling choice belonging to E2/E3.',
+      de_has_no_pre_picasso_segment: 'The German series starts at its own PICASSO accession (first rows 2022-06-21, first full day 2022-06-22), so Germany cannot measure its own accession break on activation prices. Austria acceded on the same date and publishes from 2021-01, which is why AT is in this block: it carries the only before/after this evidence base has for the activation leg, and it is n=1.',
+      technical_limit: 'share_at_technical_limit counts ISPs at |price| >= 15000 EUR/MWh, the platform price limit. Unlike the German RAM offer-curve export, these are settled outcomes and are retained.',
+      two_publication_styles: 'DE and AT publish this dataItem differently and the difference is not cosmetic. Germany emits one short Period per activation episode, so its series is structurally sparse. Austria emits a dense step function in which 0 is the resting value meaning no activation, and those zeros are dropped (counted per series in the dataset manifest). Consequence: DE activation_frequency is measured against published episodes, AT against a dropped-zero baseline. The two frequencies are comparable in intent but not derived identically, and AT mFRR in particular is 214090 dropped resting-zeros against 5380 activations.',
+      break_applicability_is_not_asserted: 'Segments come from the primary-sourced calendar only, and the calendar records a break\'s market and products but not which MECHANISM it affects. The DE aFRR activation series is therefore split at 2025-09-01 by the CEPS/ALPACA event, which is a CAPACITY cooperation whose own description concerns the composition of the German capacity export. Its relevance to activation prices is NOT established here. The measured step across it is large (segment mean 199.66 to 95.34 EUR/MWh) and must not be read as an ALPACA effect without an argument that ALPACA touches activation at all — general market conditions are an untested alternative. Flagged rather than silently included or silently excluded; the decision belongs to E2.',
+    } : null,
   };
 
   await fs.writeFile(path.join(OUT_DIR, 'summary-table.json'), JSON.stringify(out, null, 1) + '\n');
@@ -489,6 +594,44 @@ function renderMarkdown(out) {
     L.push(`| ${m} | ${yrs.map((y) => fmt(by[y])).join(' | ')} |`);
   }
   L.push('');
+  if (Array.isArray(out.activation_prices)) {
+    L.push('## Settled activation prices (36.B-036 — the 36.E2/E3 activation evidence)');
+    L.push('');
+    L.push('EUR/MWh, `vwap_activated`: the volume-weighted price of balancing energy **actually');
+    L.push('activated** in that ISP and direction, as settled. Not the German RAM offer-curve export.');
+    L.push('');
+    for (const [k, v] of Object.entries(out.activation_prices_notes)) L.push(`- **${k}** — ${v}`);
+    L.push('');
+    L.push('`Freq` is activated ISPs ÷ ISPs in the span — a different parameter from the level, and');
+    L.push('the one a revenue model multiplies by. `Neg` and `Cap` are the share of activated ISPs');
+    L.push('priced below zero and at the 15 000 EUR/MWh technical limit.');
+    L.push('');
+    L.push('| Market | Product | Dir | Span | Activated ISPs | Freq | Mean | Median | p10 | p90 | Min | Max | Neg | Cap |');
+    L.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|');
+    for (const a of out.activation_prices) {
+      L.push(`| ${a.market} | ${a.product} | ${a.direction ?? '—'} | ${a.span} | ${a.activated_isps} | ${fmt(a.activation_frequency)} | ${fmt(a.mean_over_activated_eur_mwh)} | ${fmt(a.median_eur_mwh)} | ${fmt(a.p10_eur_mwh)} | ${fmt(a.p90_eur_mwh)} | ${fmt(a.min_eur_mwh)} | ${fmt(a.max_eur_mwh)} | ${fmt(a.share_negative)} | ${fmt(a.share_at_technical_limit)} |`);
+    }
+    L.push('');
+    L.push('### Activation-price segments');
+    L.push('');
+    L.push('Segmented on the primary-sourced break calendar only. Where a market has a segment on');
+    L.push('each side of a platform accession, the two rows are the before/after that E2 needs.');
+    L.push('');
+    for (const a of out.activation_prices) {
+      if (a.segments.length < 2) continue;
+      L.push(`#### ${a.market} · ${a.product} · ${a.direction ?? '—'}`);
+      L.push('');
+      L.push('| Seg | From | To | Months | Activated | Freq | Mean | Median | p10 | p90 | Neg | Opened by |');
+      L.push('|---|---|---|---|---|---|---|---|---|---|---|---|');
+      for (const g of a.segments) L.push(`| ${g.index} | ${g.from} | ${g.to} | ${g.n_months} | ${g.activated_isps} | ${fmt(g.activation_frequency)} | ${fmt(g.mean_over_activated_eur_mwh)} | ${fmt(g.median_eur_mwh)} | ${fmt(g.p10_eur_mwh)} | ${fmt(g.p90_eur_mwh)} | ${fmt(g.share_negative)} | ${g.opened_by} |`);
+      L.push('');
+    }
+  } else {
+    L.push('## Settled activation prices');
+    L.push('');
+    L.push('`not_acquired` — the activation dataset is not present in this checkout.');
+    L.push('');
+  }
   L.push('## Provenance');
   L.push('');
   L.push('| Dataset | Retrieved | Rows |');

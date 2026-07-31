@@ -1,7 +1,7 @@
 {
  "basis": "units of currency per 1 EUR",
  "source": "ECB Data Portal, dataflow EXR, M.<CCY>.EUR.SP00.A",
- "retrieved_at": "2026-07-30T06:13:25.765Z",
+ "retrieved_at": "2026-07-30T10:37:59.672Z",
  "currencies": {
   "GBP": {
    "source_url": "https://data-api.ecb.europa.eu/service/data/EXR/M.GBP.EUR.SP00.A?format=csvdata&startPeriod=2010-01",
