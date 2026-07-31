@@ -5,14 +5,20 @@
 
 ---
 
-## NOW: boundary after 36.E0 (SHIPPED 2026-07-30)
-Operator merges the E0 PR → pull → then step 0.
+## NOW: boundary after B-036 + 36.E0.1 (SHIPPED 2026-07-31, PRs #118 + #117 merged)
+Roadmap delta applied · playbook rows B9 + B10 added · next: step 1 (Phase 37 batch-1).
+
+**Two operator one-minute steps carried out of this boundary:**
+1. `gh secret set ENTSOE_API_KEY` (or Settings → Secrets and variables → Actions) — exact name is `ENTSOE_API_KEY`; the scheduled run cannot fetch without it.
+2. Fire `workflow_dispatch` on **Refresh mature-market evidence base (36.E0.1)** once from the Actions tab. `fetch-btd.yml` precedent: BTD blocks Actions runner IPs. Whether the eight sources serve GitHub's IPs is the batch's one unverified claim — one manual run answers it today instead of a silent miss on the first Sunday of September.
 
 ---
 
 ## QUEUE (strict order)
 
-### 0 · B-036 — settled German activation-price source (gates E2/E3, ~half day)
+### ~~0 · B-036 + E0.1~~ **[DONE 2026-07-31]** — DE settled activation source found (A84 per control area, not bidding zone); monthly refresh workflow live. Accession-effect measurement is NOT available from activation data — E2/E3 take break magnitude from capacity evidence, labelled.
+<details><summary>original block</summary>
+
 Terminal:
 ```
 cd ~/kkme
@@ -28,6 +34,7 @@ CC paste:
 ```
 read docs/phases/phase-36-b036-prompt.md and execute. Autonomous, ~half day. A5 discipline on netztransparenz.de — verify what downloads contain. No engine changes. Wrap with the E2/E3 calibration verdict + PR URL.
 ```
+</details>
 
 ### 1 · Phase 37 batch-1 — fleet verification engine + lifecycle (37.A + 37.B)
 Semi-autonomous · checkpoint after 37.A's coverage report (you review verification tiers before 37.B builds). Prompts already committed by step 0's block.
