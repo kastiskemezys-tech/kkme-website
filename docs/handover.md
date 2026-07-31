@@ -193,6 +193,40 @@ See [docs/map.md](map.md) for the full concept-to-file lookup table.
 
 ## Session log
 
+### Session 97 — 2026-07-31 — Phase 37.A: private fleet-intel intake, match engine, evidence engine (Claude Code, semi-autonomous — STOPPED AT CHECKPOINT)
+
+**Branch `phase-37-batch-1` off `origin/main` @ `e05f757`. 3 commits. Worker change purely additive (53 insertions, 0 deletions). Suite 94 files / 1746 tests green, 49 new.**
+
+**Checkpoint artifact:** `docs/investigations/2026-07-31-phase-37-a-coverage-report.md` (generated, not hand-written). Pause A: `docs/investigations/2026-07-31-phase-37-a-pause-a.md`.
+
+**Privacy held throughout.** `docs/_private/` unstaged, untracked and ignored at every commit — asserted by `scripts/assert-no-private-staged.sh`, which is now a gate. No contact, comment or APVA value appears in any commit, fixture, test output, report or payload. All fixtures synthetic (`example.invalid`). The generated private payload writes to a gitignored path.
+
+**Five prompt premises corrected at Pause A, all file-verified:** 141 projects not 143 · LT `MWH` column empty on all 84 rows · **APVA is a binary flag (`Gavo` x55 / `Negavo` x29), not scheme identifiers** · unit chaos bounded to 24 cells of 141 rows, not pervasive · AST's "polite UA workaround" is dead (403 to polite AND browser UA; Cloudflare bot-management + CAPTCHA — not evaded, route is the AST relationship).
+
+**APVA got its own investigation and no schema assumption.** Balanced 14-row sample against `esinvesticijos.lt` (the national EU-beneficiary register): `Gavo` 0/8, `Negavo` 0/6. The symmetry is the finding — a source that answers identically for both arms cannot verify the column, whatever the reason. APVA's own published schemes are household-scale. Stored **opaquely** as `apva_flag`, private tier, never published, never scored, per the arc's own private-until-corroborated rule. **Open question for you: which APVA scheme does `Gavo` refer to?** One sentence decides whether 55 LT rows gain a citation source or stay private testimony permanently.
+
+**Coverage: 0/141 public-confirmed — and that number measures wiring, not verifiability.** `esinvesticijos` is a working endpoint (`kaupimo`→57, `Ignitis`→3 discriminate) and its 84/84 zeros are real. Everything else is deferred or excluded. Three registries that demonstrably serve data are build spikes, not dead ends: **BIS** (33.A.2.b was a resolver gap, not a data gap — confirmed), **registrucentras** JAR, and **EE `avaandmed.ariregister.rik.ee` bulk open data** (the strongest of the three — free bulk download, no scraping).
+
+**Correction to my own Pause-A table, logged as a correction (B9).** I marked Lursoft "Viable" on a 200 whose body contained `SIA` and an LV reg number — both true of the page, neither meaning search worked. The run's 0/36 across LV legal entities was implausible enough to check: the endpoint returns a byte-similar ~107 kB page for every term, never echoes the query, and its one reg number is Lursoft's own. Control case: **`Latvenergo` returns the same page as a nonsense string.** Those zeros were a broken probe, not evidence — reporting them would have told you 36 real Latvian SPVs have no registry trace. Now excluded and unprobed. **Rule extracted: a source is viable only if a known-good control returns something different from a nonsense term.** Same technique that made APVA decisive; I applied it there and not here.
+
+**Match rates:** LT 84/84 · LV 0/42 (41 new-to-us — consistent with only 6 LV entries in the public fleet) · EE 2/15 matched, 5 probable. LT's 100% is genuine (61 exact name matches; the tail was hand-checked twice).
+
+**The finding with teeth for 37.D — the public fleet counts hybrid grid connections as batteries.** For pure-BESS rows the public `mw` tracks the battery rating (40/45); for hybrids it tracks the **site** grid connection (40/47). Across matched hybrids: private BESS components **1320 MW** vs **4572 MW** carried publicly — **3.46x, +3251 MW**. The arc assumed the feeds under-count hybrids; in MW terms they **over-count** them. Supply feeds `sd_ratio` feeds cannibalisation feeds IRR, so this is not cosmetic. Generated into the coverage report, not asserted in prose, so 37.D re-derives it from the artifact (C4). **HYPOTHESIS** — rests on the private BESS column (operator testimony, unverified) and covers only the matched subset.
+
+**Two defects in my own match engine, found by auditing output rather than by tests (B4).** All 39 unit tests passed while `bareName` stripped only *leading* legal forms (the public fleet writes `Name, UAB`, the workbook writes `UAB "Name"` — exact matching never fired), and 2-char tokens were filtered so `Anykščiai PV` and `Anykščiai BS` both collapsed to the placename and matched *each other* while the correct counterpart scored lower. Both surfaced from asking whether 89% was too good, then whether 100% was too good as well.
+
+**Leak tests proven live, not merely green.** Injecting a real leak into `/s2/fleet` (merging the overlay into the public response) turned both leak tests red; removing it turned them green; worker verified byte-identical after. Also fixed a vacuity hole in my own test — the public-route sweep originally ran against an empty KV, so the fleet routes answered `{"fleet":null}` and the sweep asserted that an empty response contains no secrets. It now seeds a synthetic public fleet and carries an explicit vacuity guard.
+
+**Architecture note:** `tools/fleet-intel/lib/tiers.mjs` makes **public an allowlist, not a denylist** — a field nobody declared public is private, so a new parser field cannot leak by default. Verification tier is **derived** from the evidence array, never assigned; zero cited sources ⇒ `private-only` by construction. Two detectors: by field name at any depth, and by **content** (email / Baltic phone shapes) so a renamed field is still caught.
+
+**A7:** `s4_fleet` = 6 writers + 9 readers in-repo + 1 tool, **plus `kkme_sync.py` out-of-repo — true writer count 7, not 6.** 37.A does not write `s4_fleet` at all. `fleet_private:*` and dossier keys had 0 pre-existing references.
+
+**B10:** `POST /admin/fleet-private` refuses a batch smaller than what is stored unless `allow_shrink` is set.
+
+**GIT STATE — needs your decision (C1, rule #5).** `main` arrived diverged: local `dabb549` unpushed, 5 origin commits unmerged. I branched off `origin/main` and did **not** touch `dabb549`, because it edits the operator-owned roadmap. **`origin/main` therefore still lacks playbook rows B9 and B10** until you land it. Recommend landing it separately from this phase's PR. The worktree also held 11 modified + 26 colliding untracked files; I compared every one byte-for-byte first — 32 were already identical to `origin/main`, 5 carried unique local content (the known B-043 fetcher churn) and were preserved and verified.
+
+**STOPPED AT THE CHECKPOINT. 37.B not started** — the coverage report shapes its lifecycle rules, per the prompt.
+
 ### Session 96 — 2026-07-30 — B-036 (settled activation-price source) + 36.E0.1 (evidence-base refresh automation) (Claude Code, autonomous batch)
 
 **Branch `phase-36-b036-activation-source` off `9aa2fbc`. No engine, worker or public-site change — `git diff main -- workers/ app/` empty and gated in CI and in the refresh workflow itself.**
