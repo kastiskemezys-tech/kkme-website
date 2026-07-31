@@ -1,0 +1,449 @@
+{
+  "band": {
+    "upper_bess_mw": 16020.4,
+    "lower_bess_mw": 11975.7,
+    "width_mw": 4044.7,
+    "basis": "upper = every entry counted at full site MW (status quo); lower = publicly-identifiable hybrids contribute 0 BESS MW",
+    "derivation": "PUBLIC FLEET ONLY — no private-tier input of any kind"
+  },
+  "flagged_count": 34,
+  "total_entries": 188,
+  "flagged": [
+    {
+      "id": "uab-sauletas-pasaulis-lt",
+      "name": "UAB \"Saulėtas Pasaulis\"",
+      "country": "LT",
+      "mw": 500,
+      "status": "announced",
+      "signal": {
+        "wind": false,
+        "solar": true,
+        "basis": "generation technology named in the public fleet entry"
+      }
+    },
+    {
+      "id": "uab-troskun-vejas-lt",
+      "name": "UAB \"Troškūnų vėjas\"",
+      "country": "LT",
+      "mw": 390,
+      "status": "announced",
+      "signal": {
+        "wind": true,
+        "solar": false,
+        "basis": "generation technology named in the public fleet entry"
+      }
+    },
+    {
+      "id": "uab-vejas-vienas-lt",
+      "name": "UAB \"Vėjas vienas\"",
+      "country": "LT",
+      "mw": 266.4,
+      "status": "announced",
+      "signal": {
+        "wind": true,
+        "solar": false,
+        "basis": "generation technology named in the public fleet entry"
+      }
+    },
+    {
+      "id": "uab-idarbintas-vejas-lt",
+      "name": "UAB \"Įdarbintas vėjas\"",
+      "country": "LT",
+      "mw": 224,
+      "status": "announced",
+      "signal": {
+        "wind": true,
+        "solar": false,
+        "basis": "generation technology named in the public fleet entry"
+      }
+    },
+    {
+      "id": "naudingas-vejas-uab-lt",
+      "name": "Naudingas vėjas, UAB",
+      "country": "LT",
+      "mw": 210,
+      "status": "announced",
+      "signal": {
+        "wind": true,
+        "solar": false,
+        "basis": "generation technology named in the public fleet entry"
+      }
+    },
+    {
+      "id": "uab-sviecia-saule-lt",
+      "name": "UAB \"Šviečia saulė\"",
+      "country": "LT",
+      "mw": 200,
+      "status": "announced",
+      "signal": {
+        "wind": false,
+        "solar": true,
+        "basis": "generation technology named in the public fleet entry"
+      }
+    },
+    {
+      "id": "uab-nord-wind-park-lt",
+      "name": "UAB \"Nord Wind Park\"",
+      "country": "LT",
+      "mw": 200,
+      "status": "announced",
+      "signal": {
+        "wind": true,
+        "solar": false,
+        "basis": "generation technology named in the public fleet entry"
+      }
+    },
+    {
+      "id": "uab-telsi-vejo-jegaines-lt",
+      "name": "UAB \"Telšių vėjo jėgainės\"",
+      "country": "LT",
+      "mw": 200,
+      "status": "announced",
+      "signal": {
+        "wind": true,
+        "solar": false,
+        "basis": "generation technology named in the public fleet entry"
+      }
+    },
+    {
+      "id": "windlita-uab-lt",
+      "name": "Windlita, UAB",
+      "country": "LT",
+      "mw": 152,
+      "status": "announced",
+      "signal": {
+        "wind": true,
+        "solar": false,
+        "basis": "generation technology named in the public fleet entry"
+      }
+    },
+    {
+      "id": "uab-pv-investment-group-lt",
+      "name": "UAB \"PV Investment Group\"",
+      "country": "LT",
+      "mw": 150,
+      "status": "announced",
+      "signal": {
+        "wind": false,
+        "solar": true,
+        "basis": "generation technology named in the public fleet entry"
+      }
+    },
+    {
+      "id": "silutes-vejo-parkas-3-uab-lt",
+      "name": "Šilutės vėjo parkas 3, UAB",
+      "country": "LT",
+      "mw": 150,
+      "status": "announced",
+      "signal": {
+        "wind": true,
+        "solar": false,
+        "basis": "generation technology named in the public fleet entry"
+      }
+    },
+    {
+      "id": "uab-pagegi-vejas-lt",
+      "name": "UAB \"Pagėgių vėjas\"",
+      "country": "LT",
+      "mw": 144,
+      "status": "announced",
+      "signal": {
+        "wind": true,
+        "solar": false,
+        "basis": "generation technology named in the public fleet entry"
+      }
+    },
+    {
+      "id": "uab-telsi-vejo-energija-lt",
+      "name": "UAB \"Telšių vėjo energija\"",
+      "country": "LT",
+      "mw": 120,
+      "status": "announced",
+      "signal": {
+        "wind": true,
+        "solar": false,
+        "basis": "generation technology named in the public fleet entry"
+      }
+    },
+    {
+      "id": "uab-telsi-vejo-parkas-lt",
+      "name": "UAB \"Telšių vėjo parkas\"",
+      "country": "LT",
+      "mw": 111.6,
+      "status": "announced",
+      "signal": {
+        "wind": true,
+        "solar": false,
+        "basis": "generation technology named in the public fleet entry"
+      }
+    },
+    {
+      "id": "uab-pv-energy-200-lt",
+      "name": "UAB \"PV Energy 200\"",
+      "country": "LT",
+      "mw": 108,
+      "status": "announced",
+      "signal": {
+        "wind": false,
+        "solar": true,
+        "basis": "generation technology named in the public fleet entry"
+      }
+    },
+    {
+      "id": "uab-solar-akmene-one-lt",
+      "name": "UAB \"Solar Akmenė One\"",
+      "country": "LT",
+      "mw": 100,
+      "status": "announced",
+      "signal": {
+        "wind": false,
+        "solar": true,
+        "basis": "generation technology named in the public fleet entry"
+      }
+    },
+    {
+      "id": "uab-vejoteka-lt",
+      "name": "UAB \"Vėjoteka\"",
+      "country": "LT",
+      "mw": 90,
+      "status": "announced",
+      "signal": {
+        "wind": true,
+        "solar": false,
+        "basis": "generation technology named in the public fleet entry"
+      }
+    },
+    {
+      "id": "uab-boniski-vejas-lt",
+      "name": "UAB \"Boniškių vėjas\"",
+      "country": "LT",
+      "mw": 70,
+      "status": "announced",
+      "signal": {
+        "wind": true,
+        "solar": false,
+        "basis": "generation technology named in the public fleet entry"
+      }
+    },
+    {
+      "id": "anyksciai-pv-uab-lt",
+      "name": "Anykščiai PV, UAB",
+      "country": "LT",
+      "mw": 65,
+      "status": "announced",
+      "signal": {
+        "wind": false,
+        "solar": true,
+        "basis": "generation technology named in the public fleet entry"
+      }
+    },
+    {
+      "id": "uab-enefit-wind-lt",
+      "name": "UAB \"Enefit Wind\"",
+      "country": "LT",
+      "mw": 60,
+      "status": "announced",
+      "signal": {
+        "wind": true,
+        "solar": false,
+        "basis": "generation technology named in the public fleet entry"
+      }
+    },
+    {
+      "id": "uab-silales-vejas-lt",
+      "name": "UAB \"Šilalės vėjas\"",
+      "country": "LT",
+      "mw": 60,
+      "status": "announced",
+      "signal": {
+        "wind": true,
+        "solar": false,
+        "basis": "generation technology named in the public fleet entry"
+      }
+    },
+    {
+      "id": "degaici-vejas-uab-lt",
+      "name": "Degaičių vėjas, UAB",
+      "country": "LT",
+      "mw": 59.2,
+      "status": "announced",
+      "signal": {
+        "wind": true,
+        "solar": false,
+        "basis": "generation technology named in the public fleet entry"
+      }
+    },
+    {
+      "id": "uab-vejo-galia-lt",
+      "name": "UAB \"Vėjo galia\"",
+      "country": "LT",
+      "mw": 41,
+      "status": "operational",
+      "signal": {
+        "wind": true,
+        "solar": false,
+        "basis": "generation technology named in the public fleet entry"
+      }
+    },
+    {
+      "id": "uab-aukstaitijos-vejas-lt",
+      "name": "UAB \"Aukštaitijos vėjas\"",
+      "country": "LT",
+      "mw": 49,
+      "status": "announced",
+      "signal": {
+        "wind": true,
+        "solar": false,
+        "basis": "generation technology named in the public fleet entry"
+      }
+    },
+    {
+      "id": "uab-pakruojo-vejas-lt",
+      "name": "UAB \"Pakruojo vėjas\"",
+      "country": "LT",
+      "mw": 45,
+      "status": "announced",
+      "signal": {
+        "wind": true,
+        "solar": false,
+        "basis": "generation technology named in the public fleet entry"
+      }
+    },
+    {
+      "id": "uab-vejo-pasvaiste-lt",
+      "name": "UAB \"Vėjo pašvaistė\"",
+      "country": "LT",
+      "mw": 40,
+      "status": "announced",
+      "signal": {
+        "wind": true,
+        "solar": false,
+        "basis": "generation technology named in the public fleet entry"
+      }
+    },
+    {
+      "id": "uab-solar-pv-lt",
+      "name": "UAB \"SOLAR PV\"",
+      "country": "LT",
+      "mw": 40,
+      "status": "announced",
+      "signal": {
+        "wind": false,
+        "solar": true,
+        "basis": "generation technology named in the public fleet entry"
+      }
+    },
+    {
+      "id": "uab-surdegio-vejas-lt",
+      "name": "UAB \"Surdegio vėjas\"",
+      "country": "LT",
+      "mw": 40,
+      "status": "announced",
+      "signal": {
+        "wind": true,
+        "solar": false,
+        "basis": "generation technology named in the public fleet entry"
+      }
+    },
+    {
+      "id": "uab-wind-p2-lt",
+      "name": "UAB Wind P2",
+      "country": "LT",
+      "mw": 36,
+      "status": "announced",
+      "signal": {
+        "wind": true,
+        "solar": false,
+        "basis": "generation technology named in the public fleet entry"
+      }
+    },
+    {
+      "id": "uab-skuodas-wind-lt",
+      "name": "UAB \"Skuodas wind\"",
+      "country": "LT",
+      "mw": 30,
+      "status": "announced",
+      "signal": {
+        "wind": true,
+        "solar": false,
+        "basis": "generation technology named in the public fleet entry"
+      }
+    },
+    {
+      "id": "tausolos-saule-uab-lt",
+      "name": "Tausolos saulė, UAB",
+      "country": "LT",
+      "mw": 30,
+      "status": "operational",
+      "signal": {
+        "wind": false,
+        "solar": true,
+        "basis": "generation technology named in the public fleet entry"
+      }
+    },
+    {
+      "id": "vejo-seses-1-uab-lt",
+      "name": "Vėjo sesės 1, UAB",
+      "country": "LT",
+      "mw": 30,
+      "status": "announced",
+      "signal": {
+        "wind": true,
+        "solar": false,
+        "basis": "generation technology named in the public fleet entry"
+      }
+    },
+    {
+      "id": "pp-wind-energy-uab-lt",
+      "name": "PP Wind Energy, UAB",
+      "country": "LT",
+      "mw": 25,
+      "status": "announced",
+      "signal": {
+        "wind": true,
+        "solar": false,
+        "basis": "generation technology named in the public fleet entry"
+      }
+    },
+    {
+      "id": "uab-vejo-jegaini-projektai-lt",
+      "name": "UAB \"Vėjo jėgainių projektai\"",
+      "country": "LT",
+      "mw": 8.5,
+      "status": "announced",
+      "signal": {
+        "wind": true,
+        "solar": false,
+        "basis": "generation technology named in the public fleet entry"
+      }
+    }
+  ],
+  "rules_for_consumers": [
+    "DO NOT apply a point correction to hybrid BESS capacity. Carry the band.",
+    "The private BESS-MW column must never contribute to a published or client-facing number, in either direction.",
+    "Any published sd_ratio / cannibalisation / IRR figure derived from supply must state the band, not a midpoint. A midpoint is a point estimate wearing a range costume.",
+    "The band is a FLOOR ON UNCERTAINTY, not a complete accounting: an unknown further subset of entries are hybrids that carry no public generation-technology signal, so the true lower bound sits below lower_bess_mw."
+  ],
+  "incompleteness": {
+    "note": "Hybrid identification here uses only the generation technology named in the public entry. Entries named after a company rather than a technology cannot be classified publicly, and the public fleet carries a usable type field on a small minority of entries.",
+    "consequence": "flagged_count UNDERSTATES the hybrid population; the band understates the uncertainty."
+  },
+  "unblocker": {
+    "what": "A PUBLIC hybrid decomposition source — battery MW stated separately from site connection capacity, for hybrid sites.",
+    "candidates": [
+      "VERT permit register (LT) — permits may state storage capacity separately from generation",
+      "Litgrid connection queue (LT) — connection capacity vs installed storage",
+      "Grid-connection permits / TSO queue documents naming the storage component",
+      "Elering connection queue (EE)"
+    ],
+    "effect": "When one lands, the band collapses to a citable point value and the flag becomes a decomposition. Until then the band is the honest representation.",
+    "status": "NOT YET SOURCED — this is the named unblocker for 37.D"
+  },
+  "provenance": {
+    "generated_by": "tools/fleet-intel/build-hybrid-band.mjs",
+    "fleet_source": "https://kkme-fetch-s1.kastis-kemezys.workers.dev/s4/fleet",
+    "phase": "37.A.1",
+    "generated_at": "2026-07-31T09:23:18.786Z",
+    "fleet_updated_at": "2026-07-31T08:01:14.694Z"
+  }
+}

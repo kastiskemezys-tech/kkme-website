@@ -20,6 +20,7 @@ import { fileURLToPath } from 'node:url';
 import { normaliseRow } from './lib/normalise.mjs';
 import { matchAll } from './lib/match.mjs';
 import { gatherEvidence, SOURCE_REGISTRY } from './lib/evidence.mjs';
+import { buildIndex as buildLvIndex, REGISTER_CSV } from './lib/lv-register.mjs';
 import { computeTier, toPublicRow, findPrivateLeaks, findContactShapedContent, TIERS } from './lib/tiers.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -95,12 +96,23 @@ const pct = (n, d) => (d ? `${Math.round((n / d) * 1000) / 10}%` : '—');
   // ── evidence pass ───────────────────────────────────────────────────────────
   const dossiers = [];
   const sourceStats = {};
+  let ctx = null;
+  if (WITH_EVIDENCE) {
+    // Build the LV register index once per run (122 MB streamed, ~3 s).
+    if (fs.existsSync(REGISTER_CSV)) {
+      const lvIndex = await buildLvIndex();
+      ctx = { lvIndex };
+      console.log(`  LV register index: ${lvIndex.stats.entities} entities, ${lvIndex.stats.historic} former names`);
+    } else {
+      console.log('  ! LV register not downloaded — LV rows will report the source as unreachable');
+    }
+  }
   if (WITH_EVIDENCE) {
     const targets = results.slice(0, LIMIT === Infinity ? results.length : LIMIT);
     console.log(`evidence pass over ${targets.length} rows (polite pacing)…`);
     let i = 0;
     for (const { row, match } of targets) {
-      const { evidence, attempts } = await gatherEvidence(row);
+      const { evidence, attempts } = await gatherEvidence(row, { ctx });
       for (const a of attempts) {
         const s = (sourceStats[a.source_key] = sourceStats[a.source_key] || { attempted: 0, reachable: 0, unreachable: 0, na: 0, found: 0 });
         s.attempted++;
@@ -201,6 +213,24 @@ const pct = (n, d) => (d ? `${Math.round((n / d) * 1000) / 10}%` : '—');
     else basisByType[t].neither++;
     if (!/^BESS$/i.test(t)) { hybN++; hybBess += r.bess_mw || 0; hybPublic += pub || 0; }
   }
+  // ── what a registry confirmation actually proves ────────────────────────────
+  const regCodes = {};
+  for (const r of enriched) {
+    const a = (r._attempts || []).find((x) => x.source_key === 'lv_ur_opendata' && x.found);
+    if (a) regCodes[a.locator] = (regCodes[a.locator] || 0) + 1;
+  }
+  const distinctCodes = Object.keys(regCodes).length;
+  const sharedRows = Object.values(regCodes).filter((n) => n > 1).reduce((s, n) => s + n, 0);
+  lines.push('## What a `public-confirmed` tier actually proves');
+  lines.push('');
+  lines.push('Registry evidence confirms that **the named legal entity exists and is active** — it does NOT confirm that the project exists, is permitted, or will be built. That distinction matters for 37.D weighting.');
+  lines.push('');
+  lines.push(`- LV rows confirmed: **${Object.values(regCodes).reduce((a, b) => a + b, 0)}** across **${distinctCodes}** distinct registration codes`);
+  lines.push(`- rows whose SPV is shared with another row (entity-level evidence only): **${sharedRows}**`);
+  lines.push(`- rows with a 1:1 SPV (the SPV *is* the project vehicle — closest to project-level): **${Object.values(regCodes).reduce((a, b) => a + b, 0) - sharedRows}**`);
+  lines.push('');
+  lines.push('This still does real work: it satisfies rule #3\'s named-entity requirement and would catch a phantom company. It is not a substitute for permit or TSO evidence.');
+  lines.push('');
   lines.push('## Capacity basis — what does the public fleet `mw` measure?');
   lines.push('');
   lines.push('Agreement (within 5%) of the public fleet value against each private column, by plant type:');
@@ -214,7 +244,13 @@ const pct = (n, d) => (d ? `${Math.round((n / d) * 1000) / 10}%` : '—');
   if (hybN > 0 && hybBess > 0) {
     lines.push(`**Hybrid rows (n=${hybN}):** private BESS component totals **${hybBess.toFixed(1)} MW**; the matched public fleet entries total **${hybPublic.toFixed(1)} MW** — a **${(hybPublic / hybBess).toFixed(2)}×** difference (**+${(hybPublic - hybBess).toFixed(0)} MW**).`);
     lines.push('');
-    lines.push('Reading: for pure-BESS projects the public value tracks the battery rating, but for hybrid sites it tracks the grid-connection/site total. If the supply trajectory treats those entries as battery capacity, hybrid storage is **overstated**, not undercounted. HYPOTHESIS pending 37.D: this rests on the private BESS column being correct (operator testimony, unverified) and covers only the matched subset.');
+    lines.push('Reading: for pure-BESS projects the public value tracks the battery rating, but for hybrid sites it tracks the grid-connection/site total. If the supply trajectory treats those entries as battery capacity, hybrid storage is **overstated**, not undercounted.');
+    lines.push('');
+    lines.push('**The magnitudes in this section are PRIVATE-TIER and NOT PUBLISHABLE.** They rest on the operator\'s BESS-MW column, which is testimony with no public corroboration. They are recorded here as an operator-view sensitivity only.');
+    lines.push('');
+    lines.push('**37.D must NOT apply this as a correction.** The correction runs in the flattering direction — less real BESS supply → lower sd_ratio → less cannibalisation → HIGHER IRR — which is precisely when an unciteable input must not be allowed to move a client number.');
+    lines.push('');
+    lines.push('What 37.D inherits instead is the BAND in `tools/fleet-intel/data/hybrid-band.json`, every bound of which is computed from the PUBLIC fleet alone (upper = status quo; lower = publicly-identifiable hybrids contribute 0 BESS MW). Flag and band; do not correct. The named unblocker is a **public hybrid decomposition source** — battery MW stated separately from site connection capacity — with VERT\'s permit register and the Litgrid/Elering connection queues as the candidates. Until one lands, the band is the honest representation.');
   }
   lines.push('');
   lines.push('## Parse confidence');
@@ -249,6 +285,19 @@ const pct = (n, d) => (d ? `${Math.round((n / d) * 1000) / 10}%` : '—');
   lines.push(`- private-field leaks: **${leaks.length}**`);
   lines.push(`- contact-shaped strings: **${contactLeaks.length}**`);
   lines.push('');
+
+  // The hand-written narrative (APVA verdict, LV coverage, controls) lives in its
+  // own committed file and is APPENDED on every regeneration. Without this the
+  // generator would silently delete it on the next run — the same shape as B10,
+  // where a refresh destroys the evidence about the data while the data survives.
+  const NARRATIVE = path.join(ROOT, 'docs/investigations/2026-07-31-phase-37-a-narrative.md');
+  if (fs.existsSync(NARRATIVE)) {
+    lines.push('---');
+    lines.push('');
+    lines.push(fs.readFileSync(NARRATIVE, 'utf8'));
+  } else {
+    lines.push('> NOTE: narrative companion file missing — APVA/LV verdict sections are absent from this regeneration.');
+  }
 
   fs.writeFileSync(REPORT_OUT, lines.join('\n'));
   console.log(`coverage report → ${path.relative(ROOT, REPORT_OUT)}`);

@@ -8,7 +8,7 @@
 
 import { describe, it, expect } from 'vitest';
 import {
-  parsePower, decomposeLT, normaliseRow, stableId, isLegalEntity, normName, CONFIDENCE,
+  parsePower, decomposeLT, normaliseRow, stableId, isLegalEntity, normName, bareName, CONFIDENCE,
 } from '../lib/normalise.mjs';
 import {
   PUBLIC_FIELDS, ALWAYS_PRIVATE_FIELDS, TIERS, computeTier, isPublishable,
@@ -323,5 +323,123 @@ describe('match engine — placename-only agreement is not identity', () => {
       'Max power MW': 30, 'Bess (MW)': 30, Vieta: 'Anytown', Kontaktas: '', Komentaras: '',
     }, 'LT');
     expect(matchRow(row, PUBLIC).status).toBe(MATCH.MATCHED);
+  });
+});
+
+// ── B4/B5 REGRESSION FIXTURES ────────────────────────────────────────────────
+// Both defects below were live while all 39 tests passed. They were found by
+// reading the output of the first real intake run and asking whether an 89%
+// match rate was too good — then, after fixing them, whether 100% was too good.
+// A suite that only answers "did the code run" cannot answer "is the answer
+// sane", so these fixtures are the independent check the suite was missing.
+//
+// Golden cases are drawn from the SHAPE of the real defects, with synthetic
+// names — no private row appears here.
+describe('REGRESSION — defects found by auditing output, not by tests', () => {
+  /**
+   * Defect 1: bareName stripped only LEADING legal forms. The public fleet DB
+   * writes "Name, UAB"; the private workbook writes 'UAB "Name"'. Exact matching
+   * therefore never fired across the entire LT sheet — 61 exact matches were
+   * being scored as partial.
+   */
+  describe('bareName — legal form at either end', () => {
+    it('strips a TRAILING legal form (the public fleet DB style)', () => {
+      expect(bareName('Testonys BESS, UAB')).toBe('Testonys BESS');
+      expect(bareName('Testonys BESS UAB')).toBe('Testonys BESS');
+    });
+
+    it('strips a LEADING legal form with quotes (the workbook style)', () => {
+      expect(bareName('UAB "Testonys BESS"')).toBe('Testonys BESS');
+    });
+
+    it('the two styles normalise to the SAME string — the property that was broken', () => {
+      expect(normName(bareName('UAB "Testonys BESS"')))
+        .toBe(normName(bareName('Testonys BESS, UAB')));
+    });
+
+    it('handles the other Baltic legal forms at both ends', () => {
+      expect(normName(bareName('SIA "Kaut Kas"'))).toBe(normName(bareName('Kaut Kas, SIA')));
+      expect(normName(bareName('Miski Solar OÜ'))).toBe(normName(bareName('OÜ Miski Solar')));
+    });
+
+    it('cross-style pair scores as an exact match end to end', () => {
+      const row = normaliseRow({
+        SPV: 'UAB "Testonys BESS"', Organizacija: 'Org', 'Power plant type': 'BESS',
+        'Max power MW': 50, 'Bess (MW)': 50, Vieta: 'Testonys', Kontaktas: '', Komentaras: '',
+      }, 'LT');
+      const m = matchRow(row, [{ id: 'x', name: 'Testonys BESS, UAB', mw: 50, country: 'LT' }]);
+      expect(m.status).toBe(MATCH.MATCHED);
+      expect(m.score).toBe(1);
+    });
+  });
+
+  /**
+   * Defect 2 — THE GOLDEN CASE. Two different projects of one developer in one
+   * town. The discriminating suffixes (PV vs BS) were filtered as too short, so
+   * both names collapsed to the placename and matched EACH OTHER at 0.75 while
+   * the correct counterpart scored 0.70 and lost.
+   */
+  describe('golden case: Anytown PV vs Anytown BS (shape of the real defect)', () => {
+    const FLEET = [
+      { id: 'anytown-bs-lt', name: 'UAB "Anytown BS"', mw: 30, country: 'LT' },   // the decoy
+      { id: 'anytown-pv-lt', name: 'Anytown PV, UAB', mw: 65, country: 'LT' },    // the truth
+    ];
+    const row = normaliseRow({
+      SPV: 'UAB "Anytown PV"', Organizacija: 'Some Org', 'Power plant type': 'BESS',
+      'Max power MW': 25, 'Bess (MW)': 25, Vieta: 'Anytown', Kontaktas: '', Komentaras: '',
+    }, 'LT');
+
+    it('picks the correctly-named counterpart, NOT the same-town decoy', () => {
+      const m = matchRow(row, FLEET);
+      expect(m.best?.id).toBe('anytown-pv-lt');
+    });
+
+    it('beats the decoy even though the decoy agrees on MW and the truth does not', () => {
+      // the decoy matches 25 vs 30 far better than the truth's 25 vs 65 —
+      // MW corroboration must not override a name disagreement
+      const truth = scorePair(row, FLEET[1]);
+      const decoy = scorePair(row, FLEET[0]);
+      expect(truth).toBeGreaterThan(decoy);
+    });
+
+    it('the 2-char discriminator survives tokenisation', () => {
+      // if PV/BS are filtered, these two collapse to the same token set
+      expect(scorePair(row, FLEET[0])).toBeLessThan(1);
+    });
+
+    it('placename-only agreement never reaches matched', () => {
+      const decoyOnly = matchRow(row, [FLEET[0]]);
+      expect(decoyOnly.status).not.toBe(MATCH.MATCHED);
+    });
+  });
+
+  /**
+   * Defect 2 ISOLATED.
+   *
+   * The golden case above does not actually exercise the token floor: once
+   * bareName strips trailing legal forms, "Anytown PV" and "Anytown PV, UAB"
+   * are an EXACT match and scorePair short-circuits to 1 before tokenisation
+   * matters. Restoring the 2-char filter left all tests green — proven by
+   * mutation, which is why this block exists.
+   *
+   * Here NEITHER candidate is an exact match, so the 2-char token is the only
+   * thing that can discriminate them.
+   */
+  describe('token floor, isolated — no exact match available', () => {
+    const row = normaliseRow({
+      SPV: 'UAB "Anytown PV"', Organizacija: 'Some Org', 'Power plant type': 'BESS',
+      'Max power MW': 25, 'Bess (MW)': 25, Vieta: 'Anytown', Kontaktas: '', Komentaras: '',
+    }, 'LT');
+    // both carry an extra word, so neither collapses to the private name
+    const WRONG = { id: 'bs-lt', name: 'Anytown BS elektrine, UAB', mw: 25, country: 'LT' };
+    const RIGHT = { id: 'pv-lt', name: 'Anytown PV elektrine, UAB', mw: 25, country: 'LT' };
+
+    it('the 2-char suffix discriminates when nothing else can', () => {
+      expect(scorePair(row, RIGHT)).toBeGreaterThan(scorePair(row, WRONG));
+    });
+
+    it('picks the right one out of the pair', () => {
+      expect(matchRow(row, [WRONG, RIGHT]).best?.id).toBe('pv-lt');
+    });
   });
 });

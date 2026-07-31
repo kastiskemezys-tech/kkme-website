@@ -10,7 +10,8 @@
 // A source that starts 403-ing produces reachable:false, which is loudly different
 // from a genuine zero — the silent-failure path this design exists to close.
 
-import { bareName } from './normalise.mjs';
+import { bareName, isLegalEntity } from './normalise.mjs';
+import { lookupLV, citationFor } from './lv-register.mjs';
 
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -22,6 +23,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 export const SOURCE_REGISTRY = Object.freeze([
   { key: 'esinvesticijos', country: ['LT'], source_type: 'registry', status: 'implemented',
     note: 'EU-beneficiary register; server-rendered result count via ?query=' },
+  { key: 'lv_ur_opendata', country: ['LV'], source_type: 'registry', status: 'implemented',
+    note: 'Latvian Uzņēmumu reģistrs BULK OPEN DATA (data.gov.lv, CC0, daily) — register.csv 486,509 entities + register_name_history.csv 93,696 former names. Replaces the Lursoft scrape. B11 controls pass: Latvenergo/Sadales tikls/Augstsprieguma tikls all resolve active with real registration dates; nonsense terms do not resolve' },
   { key: 'lursoft', country: ['LV'], source_type: 'registry', status: 'excluded',
     note: 'CORRECTION to the Pause-A table: company.lursoft.lv/en/search?q= is NOT a query endpoint — it returns a byte-similar ~107 kB landing page for every term and never echoes the query. Control case: "Latvenergo", which certainly exists in the LV register, returns the same page as a nonsense term. The first run\'s 0/36 was a measurement artifact, not evidence about those companies. LV registry lookup needs the real endpoint (or data.gov.lv open data) — a build spike, not a probe' },
   { key: 'developer_site', country: ['LT', 'LV', 'EE'], source_type: 'developer_site', status: 'implemented',
@@ -98,6 +101,37 @@ export async function probeLursoft() {
   };
 }
 
+/**
+ * LV: resolve the SPV against the Uzņēmumu reģistrs bulk index.
+ * Requires a prebuilt index (see lv-register.buildIndex) passed through ctx —
+ * the 122 MB register is parsed once per run, not once per row.
+ */
+export function probeLvRegister(row, ctx) {
+  if (!ctx || !ctx.lvIndex) {
+    return { source_key: 'lv_ur_opendata', reachable: false, found: false, reason: 'register index not loaded — run the download step first' };
+  }
+  if (!isLegalEntity(row.spv)) {
+    return { source_key: 'lv_ur_opendata', reachable: null, found: false, reason: 'SPV is a project descriptor, not a legal entity — registry lookup not applicable' };
+  }
+  const res = lookupLV(ctx.lvIndex, row.spv);
+  if (!res.found) {
+    return { source_key: 'lv_ur_opendata', source_type: 'registry', reachable: true, found: false, reason: 'no entity of that name in the register' };
+  }
+  const cit = citationFor(res);
+  return {
+    source_key: 'lv_ur_opendata',
+    source_type: 'registry',
+    reachable: true,
+    found: true,
+    url: cit.url,
+    what_it_confirms: cit.what_it_confirms,
+    locator: res.regcode,
+    entity_status: res.status,
+    matched_via: res.matched_via,
+    confidence: 'normal',
+  };
+}
+
 /** Developer-site signal for the parent org. */
 const DEV_SITES = Object.freeze({
   'enery': 'https://www.enery.energy/',
@@ -136,13 +170,17 @@ export async function probeDeveloperSite(row) {
  * Run the implemented probes for one row. Returns the dossier's evidence array plus
  * a per-source reachability record (kept even when nothing was found — B8).
  */
-export async function gatherEvidence(row, { politeDelayMs = 1100 } = {}) {
-  const probes = [];
-  if (row.country === 'LT') probes.push(probeEsinvesticijos);
-  probes.push(probeDeveloperSite);
-
+export async function gatherEvidence(row, { politeDelayMs = 1100, ctx = null } = {}) {
   const attempts = [];
-  for (const p of probes) {
+
+  // local, offline lookups first — no network, no pacing needed
+  if (row.country === 'LV') attempts.push(probeLvRegister(row, ctx));
+
+  // network probes, politely paced
+  const netProbes = [];
+  if (row.country === 'LT') netProbes.push(probeEsinvesticijos);
+  netProbes.push(probeDeveloperSite);
+  for (const p of netProbes) {
     attempts.push(await p(row));
     await sleep(politeDelayMs);
   }
