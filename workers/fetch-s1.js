@@ -8656,6 +8656,59 @@ export default {
       return jsonResp({ ok: true, period: payload.period, lt_afrr_3m_p50: payload.countries?.Lithuania?.afrr_recent_3m?.avg_p50 });
     }
 
+    // ── Phase 37.A — private fleet-intel overlay (fleet_private:*) ──────────────
+    // The operator's pipeline table: contacts, deal comments, unverified testimony.
+    // NEVER served on a public route, NEVER merged into s4_fleet. Both endpoints are
+    // UPDATE_SECRET-gated and the GET returns 401 without it — there is no public
+    // tier here at all, unlike the calculator's sample tier.
+    //
+    // A7: writers of fleet_private:* = this endpoint only. Readers = the GET below
+    // and (from 37.C) the authed CRM route. Nothing else in the worker touches it.
+    if (request.method === 'POST' && url.pathname === '/admin/fleet-private') {
+      const secret = request.headers.get('X-Update-Secret');
+      if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
+      let body;
+      try { body = await request.json(); } catch { return jsonResp({ error: 'Invalid JSON' }, 400); }
+      if (!Array.isArray(body.rows)) return jsonResp({ error: 'rows[] required' }, 400);
+
+      // B10: a refresh must not be able to shrink the overlay silently. A smaller
+      // batch than what is stored is rejected unless explicitly acknowledged —
+      // "the prices are correct but the reason to trust them is gone" is the
+      // failure this guards.
+      let prevCount = 0;
+      try {
+        const prevRaw = await env.KKME_SIGNALS.get('fleet_private:index');
+        if (prevRaw) prevCount = (JSON.parse(prevRaw).rows || []).length;
+      } catch { prevCount = 0; }
+      if (prevCount > 0 && body.rows.length < prevCount && body.allow_shrink !== true) {
+        return jsonResp({
+          error: 'refusing to shrink the private overlay',
+          stored: prevCount, incoming: body.rows.length,
+          hint: 'set allow_shrink:true if the reduction is intended',
+        }, 409);
+      }
+
+      const payload = {
+        rows: body.rows,
+        generated: body.generated || new Date().toISOString(),
+        stored_at: new Date().toISOString(),
+        count: body.rows.length,
+      };
+      await env.KKME_SIGNALS.put('fleet_private:index', JSON.stringify(payload));
+      console.log(`[admin/fleet-private] stored ${payload.count} rows (was ${prevCount})`);
+      return jsonResp({ ok: true, count: payload.count, previous_count: prevCount });
+    }
+
+    // ── GET /admin/fleet-private — operator-only read of the private overlay ──
+    if (request.method === 'GET' && url.pathname === '/admin/fleet-private') {
+      const secret = request.headers.get('X-Update-Secret');
+      if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
+      const raw = await env.KKME_SIGNALS.get('fleet_private:index').catch(() => null);
+      if (!raw) return jsonResp({ rows: [], count: 0, reason: 'no private overlay stored yet' }, 200);
+      return new Response(raw, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+      // deliberately NOT ...CORS — this must not be readable from a browser origin
+    }
+
     // ── POST /admin/trigger-s1-capture — force recompute S1 capture ──
     if (request.method === 'POST' && url.pathname === '/admin/trigger-s1-capture') {
       const secret = request.headers.get('X-Update-Secret');
