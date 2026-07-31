@@ -193,6 +193,50 @@ See [docs/map.md](map.md) for the full concept-to-file lookup table.
 
 ## Session log
 
+### Session 98 — 2026-07-31 — Phase 37.A.1 corrective pass + 37.B lifecycle (Claude Code, semi-autonomous — STOPPED BEFORE DEPLOY)
+
+**Branch `phase-37-batch-1`, pushed. Suite 1816 green. Worker additive-only (132 insertions, 0 deletions).**
+
+**ORIGIN-SHA COMPARE — both refs synced:**
+```
+main                : e4218b25e66a5e83d09b0f186f69ea363f97216b  == origin/main
+phase-37-batch-1    : (see below)                               == origin/phase-37-batch-1
+```
+`main`'s earlier push failed **non-fast-forward** — local `main` was 5 commits BEHIND origin while carrying `dabb549` on an older base, which is why it silently didn't land. Resolved by **merging** `origin/main` into `main` in an isolated worktree (not rebasing), so `dabb549`'s SHA is preserved unrewritten — verified `git merge-base --is-ancestor dabb549 origin/main`. Its three files are byte-identical to `dabb549` after the merge. **Playbook B9/B10 are now on `origin/main`.** B11 committed on the branch; the merge conflict in `failure-modes.md` was resolved by keeping both sides verbatim in numeric order (B9, B10, B11 — B9/B10 verified byte-identical to origin's).
+
+**APVA — VERDICT: NOT CITABLE today. No scheme guessed.** Operator confirmed it is a business RES+storage grant under the **Modernisation Fund** (not structural funds), so the earlier zeros were retested under B11.
+- **esinvesticijos probe VALIDATED** — known-good `kaupimo` 57 / `Ignitis` 3 / `saulės elektrinė` 221 vs nonsense `zzqqxx…` **0**. It discriminates, so the 84/84 SPV zeros are real findings, not a broken probe.
+- **But probably the wrong register**: MF coverage is thin — `Modernizavimo fondas` **1**, `Modernizavimo fondo` **6** — consistent with the operator's hypothesis.
+- **APVIS** serves **calls, not beneficiaries**; its statistics page carries no beneficiary listing. **APVA's own MF page publishes no beneficiary list.**
+- **EU State Aid Transparency (TAM)** responds but is a client-rendered app behind a language gate with no reachable query interface inside the 45-min timebox — recorded as **NOT EVALUATED, not as a negative result**.
+- `apva_flag` stays **private tier, opaque, never scored**. **Named unblocker: TAM** — aid above €100k must be published there by law, and utility-scale storage grants clear that comfortably. Needs a query-interface spike, not another probe.
+
+**LV — 0 → 36/42 public-confirmed (85.7%).** Lursoft dropped and not retried. Replaced by **Uzņēmumu reģistrs bulk open data** (data.gov.lv, CC0, daily): `register.csv` 486,509 entities + `register_name_history.csv` 93,696 former names. B11 controls run BEFORE the number: `Latvenergo` / `Sadales tīkls` / `Augstsprieguma tīkls` all resolve active with real registration dates; two nonsense terms do not resolve. The 6 unconfirmed are project-descriptor rows naming no legal entity — reported not-applicable, not failure. Cached under `.cache/` (gitignored, re-downloadable).
+
+**A defect caught before 37.B could act on it.** The UR export writes whitespace-only cells — `closed` is a single space on live companies — and an untrimmed truthiness check marked **all 486,509 entities terminated**, Latvenergo included. Wired into decay detection that retires the entire Latvian fleet **while satisfying every rule**: evidence present, citations resolvable, log complete, nothing deleted. Every gate green, answer catastrophically wrong. This is what 37.B's meta-monitoring is built around.
+
+**HYBRID — 37.D inherits a BAND, never the private correction.** `tools/fleet-intel/data/hybrid-band.json`, every bound from the **public fleet alone**: upper **16,020.4 MW** (status quo, all site MW counted as BESS), lower **11,975.7 MW** (34 publicly-identifiable hybrids contribute 0 BESS MW), width **4,044.7 MW**. Rules travel with the number: no point correction, no midpoint, private column never contributes to a published figure in either direction. Tests assert the private magnitudes are ABSENT from the artifact. The artifact **declares its own incompleteness** — only 24 of 45 known hybrids carry a public technology signal, so the band **understates** uncertainty. **Named unblocker: a public hybrid decomposition source** — battery MW stated separately from site connection capacity (VERT permit register, Litgrid/Elering connection queues).
+
+**37.B — lifecycle.** `lifecycle-rules.json` holds 7 signals as **data**: action, confidence, rationale, and a written B8 answer each. **Exactly one signal may retire** (`registry_terminated`, confidence high); a test asserts only high-confidence signals hold that power. Rename guard consults the former-name file before any decay signal may act — a rebranded SPV records a `renamed` transition, never a retirement. Every detector declares liveness invariants and an unhealthy detector is **suppressed, not obeyed**, with the suppression itself written to the log.
+
+Worker additions: `POST/GET /admin/fleet-lifecycle` (append-only log, rejects uncited retirements) · `/health.fleet_lifecycle` (per-detector never_run / degraded / ok) · `POST /admin/fleet-lifecycle-digest`.
+
+**⚠️ OPERATOR ACTION — the digest is deliberately NOT cron-armed.** B10's corollary: new automation gets a proof run against real state before its first scheduled firing. Arm it only after a successful manual run:
+```bash
+# 1. proof run (dry, returns the rendered message, sends nothing)
+curl -sS -X POST https://kkme-fetch-s1.kastis-kemezys.workers.dev/admin/fleet-lifecycle-digest \
+  -H "X-Update-Secret: $UPDATE_SECRET" -H 'Content-Type: application/json' -d '{}' | jq -r .message
+# 2. once it reads correctly, send for real
+#    -d '{"dry_run":false}'
+# 3. only then add a weekly cron to wrangler.toml and deploy
+```
+
+**Matcher regression fixtures (mutation-proven).** Reverting `bareName`'s trailing-strip turns 4 red; restoring the 2-char token floor turns 2 red. Worth recording: the **first** golden case did NOT isolate the token defect — with `bareName` fixed the pair becomes an exact match and short-circuits, so all tests stayed green under that mutation. A second case with no exact match available was added. Found by mutation, not assumed.
+
+**Report regeneration no longer destroys its own narrative** — the hand-written verdict sections live in a companion file appended on every run. Previously the generator would have silently deleted them (B10 shape).
+
+**STOPPED BEFORE DEPLOY per the arc.** 37.C (private CRM) + 37.D (forecast wiring, own CP before deploy) are batch-2.
+
 ### Session 97 — 2026-07-31 — Phase 37.A: private fleet-intel intake, match engine, evidence engine (Claude Code, semi-autonomous — STOPPED AT CHECKPOINT)
 
 **Branch `phase-37-batch-1` off `origin/main` @ `e05f757`. 3 commits. Worker change purely additive (53 insertions, 0 deletions). Suite 94 files / 1746 tests green, 49 new.**
