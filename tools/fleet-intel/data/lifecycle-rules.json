@@ -1,0 +1,164 @@
+{
+  "version": "37.B.1",
+  "generated_for": "Phase 37.B — fleet lifecycle infrastructure",
+  "principles": [
+    "Soft-retire, never delete. A retired row stays in the DB: it is the audit trail, and 'X MW of announced pipeline died in 2026' is itself market intelligence.",
+    "Every status change carries evidence. A transition with no evidence is not applied.",
+    "Absence is not death. A project missing from a feed may have been renamed, re-scoped, or the feed may have broken. Only an explicit positive signal retires anything.",
+    "No signal derived from private-tier data may drive a published status change.",
+    "Every detector answers 'how would we know THIS detector broke' — B8. A detector with no liveness invariant is not deployed."
+  ],
+
+  "retirement": {
+    "mode": "soft",
+    "never_delete": true,
+    "status_shape": {
+      "status": "retired",
+      "reason": "<signal id>",
+      "evidence": "[{source_type,url,what_it_confirms,fetched}]",
+      "date": "<ISO date>",
+      "reversible": true
+    },
+    "effect": "retired rows leave SUPPLY calculations but stay in the DB and in the transition log"
+  },
+
+  "signals": [
+    {
+      "id": "registry_terminated",
+      "label": "Company terminated or closed in the national register",
+      "kind": "decay",
+      "source": "lv_ur_opendata",
+      "countries": ["LV"],
+      "action": "soft_retire",
+      "confidence": "high",
+      "evidence_required": true,
+      "guard": "rename_check",
+      "rationale": "An explicit terminated/closed date on the SPV is primary-source evidence that the vehicle is gone. Requires the rename guard: a name that merely disappeared is NOT this signal.",
+      "meta_monitor": {
+        "how_we_know_it_broke": "The register parse yields an implausible entity count, or the terminated-share leaves its expected band. A parse bug once marked ALL 486,509 entities terminated because whitespace-only cells read as truthy — that must fail loudly, not retire the fleet.",
+        "invariants": {
+          "min_entities": 400000,
+          "max_terminated_share": 0.75,
+          "min_terminated_share": 0.2
+        },
+        "max_age_hours": 720
+      }
+    },
+    {
+      "id": "registry_absent",
+      "label": "SPV no longer resolvable in the register",
+      "kind": "decay",
+      "source": "lv_ur_opendata",
+      "countries": ["LV"],
+      "action": "flag_review",
+      "confidence": "low",
+      "evidence_required": true,
+      "guard": "rename_check",
+      "rationale": "Absence has at least three causes — rename, restructure, broken parse — and only one of them is death. Never retires; flags for a human.",
+      "meta_monitor": {
+        "how_we_know_it_broke": "A sudden spike in absent rows across many projects at once indicates a parse or download failure, not a wave of liquidations. Absence affecting more than the spike threshold in one run suppresses the signal and alerts instead.",
+        "invariants": { "max_absent_share_per_run": 0.25 },
+        "max_age_hours": 720
+      }
+    },
+    {
+      "id": "vert_permit_expired",
+      "label": "VERT permit valid_until passed with no generation-permit succession",
+      "kind": "decay",
+      "source": "vert_monthly",
+      "countries": ["LT"],
+      "action": "flag_review",
+      "confidence": "medium",
+      "evidence_required": true,
+      "rationale": "An expired development permit is a strong but not conclusive death signal — succession may simply not be published yet. Flags; a second consecutive month expired escalates.",
+      "escalation": { "after_consecutive_runs": 2, "to": "soft_retire" },
+      "meta_monitor": {
+        "how_we_know_it_broke": "The monthly VERT parse produces zero permits, or zero permits carrying a valid_until date. Either means the parser broke rather than that no permits exist.",
+        "invariants": { "min_permits_parsed": 1, "min_with_expiry": 1 },
+        "max_age_hours": 1080
+      }
+    },
+    {
+      "id": "queue_disappearance",
+      "label": "Project vanished from the TSO connection queue between snapshots",
+      "kind": "decay",
+      "source": "litgrid_elering_snapshot",
+      "countries": ["LT", "EE"],
+      "action": "flag_review",
+      "confidence": "low",
+      "evidence_required": true,
+      "rationale": "Queue publications are reformatted, re-scoped and re-keyed often. A disappearance is a question, never an answer.",
+      "meta_monitor": {
+        "how_we_know_it_broke": "The new snapshot is empty or drastically smaller than the previous one — that is a fetch/parse failure presenting as mass disappearance. The diff is suppressed and an alert fires instead of retiring every project at once.",
+        "invariants": { "min_snapshot_rows": 10, "max_shrink_ratio": 0.5 },
+        "max_age_hours": 336
+      }
+    },
+    {
+      "id": "press_negative",
+      "label": "Press signal indicating cancellation or insolvency",
+      "kind": "decay",
+      "source": "lv_press_tripwire",
+      "countries": ["LT", "LV", "EE"],
+      "action": "flag_review",
+      "confidence": "low",
+      "evidence_required": true,
+      "rationale": "Alert-not-ingest per rule #3. Press is corroboration, never a primary status source.",
+      "meta_monitor": {
+        "how_we_know_it_broke": "The tripwire returns zero items for consecutive runs — indistinguishable from a quiet news week unless tracked, so a never-had-items state is reported as BLIND, not as silence.",
+        "invariants": { "alert_if_zero_items_consecutive_runs": 4 },
+        "max_age_hours": 336
+      }
+    },
+    {
+      "id": "evidence_stale",
+      "label": "No evidence refresh within the staleness window",
+      "kind": "hygiene",
+      "source": "internal",
+      "countries": ["LT", "LV", "EE"],
+      "action": "flag_review",
+      "confidence": "n/a",
+      "evidence_required": false,
+      "rationale": "A dossier nobody has re-verified in months is not evidence of death — it is evidence that we stopped looking. Surfaces as a review flag so coverage decay is visible.",
+      "staleness_months": 6,
+      "meta_monitor": {
+        "how_we_know_it_broke": "This detector cannot go blind — it is computed from stored timestamps. If EVERY row flags stale at once, the intake stopped running, which is itself the alert.",
+        "invariants": { "alert_if_all_rows_stale": true },
+        "max_age_hours": 1440
+      }
+    },
+    {
+      "id": "new_entity_unmatched",
+      "label": "Registry/permit sweep found a storage-relevant entity we do not track",
+      "kind": "discovery",
+      "source": "lv_ur_opendata",
+      "countries": ["LV"],
+      "action": "report_only",
+      "confidence": "n/a",
+      "evidence_required": true,
+      "rationale": "Inflow, not decay. Alert-not-ingest: a discovered entity enters the review queue with its citation, never the public fleet directly (rule #3).",
+      "meta_monitor": {
+        "how_we_know_it_broke": "The sweep returns zero candidates across consecutive runs while the register itself grew — that mismatch means the matcher broke, not that Latvia stopped incorporating companies.",
+        "invariants": { "alert_if_zero_candidates_consecutive_runs": 3 },
+        "max_age_hours": 720
+      }
+    }
+  ],
+
+  "guards": {
+    "rename_check": {
+      "description": "Before any decay signal is allowed to act on a missing or terminated entity, the former-name history is consulted. If the name resolves as a FORMER name whose regcode is still active, the project renamed and the signal is cancelled.",
+      "source": "register_name_history.csv",
+      "on_hit": "cancel_signal",
+      "records": "rename transition with old and new name"
+    }
+  },
+
+  "digest": {
+    "cadence": "weekly",
+    "channel": "telegram",
+    "sections": ["new", "changed", "decayed", "review_flagged", "detectors_unhealthy"],
+    "include_detector_health": true,
+    "rationale": "The digest carries detector health in the same message as the findings, so a week of silence from a broken detector cannot read as a quiet week."
+  }
+}

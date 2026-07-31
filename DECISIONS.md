@@ -3092,3 +3092,58 @@ the placename and matched each other). Both surfaced from reading the actual out
 real run and asking whether an 89% match rate was too good — then, after fixing them, whether
 100% was too good as well. A gate that only answers "did the code run" cannot answer "is the
 answer sane", and on new code the second question is the one that pays.
+
+## Phase 37.B — the detector that would have retired all of Latvia, and why rules became data
+
+Two hours before writing the lifecycle engine I fixed a one-character-class bug in the Latvian
+register parser: the UR export writes whitespace-only cells, `closed` is a single space on live
+companies, and an untrimmed truthiness check therefore marked **all 486,509 entities terminated**
+— Latvenergo included.
+
+That bug was harmless where I found it, because I was reading a coverage number and a coverage
+number that says "100% of Latvia is dead" gets checked. Wired into 37.B's decay detection it is
+not harmless at all: `registry_terminated` fires on every LV row, every row carries a real
+citation to a real register file, and the system soft-retires the entire Latvian fleet **while
+satisfying every rule it has**. Evidence required: present. Citation resolvable: yes. Soft-retire,
+never delete: honoured. Transition log: complete and accurate. The gates would all be green and
+the answer would be catastrophically wrong, because none of them asks whether the *detector* is
+working.
+
+So every signal in `lifecycle-rules.json` declares a liveness invariant, and a signal whose
+invariant fails is **suppressed** rather than obeyed. For this one: entity count below 400,000
+means the parse broke; terminated share above 75% or below 20% means the field stopped meaning
+what it means. The 100%-terminated state now produces `DETECTOR.UNHEALTHY`, fires nothing, and
+writes a `signal_suppressed` transition so the suppression is itself visible.
+
+The same shape recurs across the other signals and each got the same treatment: mass queue
+disappearance is a fetch failure, not mass death (`max_shrink_ratio`); a press tripwire with
+nothing to show for four consecutive runs is `BLIND`, not quiet (36.D's precedent); every row
+going stale at once means intake stopped, not that the fleet aged. **The general form: every
+decay detector has a failure mode that looks exactly like a large true positive.** Mass death and
+broken parser are the same observation until you add an invariant that separates them, and the
+invariant has to be written before the detector runs, not after it does damage.
+
+**The rename guard is the same lesson at row scale.** A name that vanishes from the register has
+at least three causes — liquidated, renamed, parser drifted — and only one is death. Latvian
+open data ships `register_name_history.csv` precisely because renames are common, so the guard
+consults it before any decay signal may act: if the name resolves as a *former* name whose
+regcode is still active, the signal is cancelled and a `renamed` transition is recorded instead.
+Without it, a developer rebranding an SPV would retire a live project, and the transition log
+would carry a confident citation proving it.
+
+**Why the rules are data.** They started as code, and the first version had the retire/flag
+decision scattered across a switch statement where the difference between "flags for a human" and
+"removes megawatts from the supply curve" was one string literal in one branch. As
+`lifecycle-rules.json` that decision is a reviewable column: which signals may retire (exactly
+one, and a test asserts only `confidence: high` signals hold that power), which merely flag, what
+each one's B8 answer is. A dangerous change now shows up in a diff as a dangerous change, instead
+of as a plausible-looking edit three levels into a control flow.
+
+**What is deliberately NOT armed.** The weekly digest exists as a manual endpoint defaulting to
+`dry_run`, not as a cron. B10's corollary says run new automation against real state before its
+first scheduled firing — the proof run is the gate on the gates — and I have not been able to
+give this one a real firing yet. An unproven cron that emails the operator every week is exactly
+the kind of thing that quietly fails and is trusted anyway. The digest also carries detector
+health in the same message as the findings, so a week of silence from a broken detector cannot be
+read as a quiet week; and when *nothing* has ever reported it says so explicitly rather than
+rendering a confident-looking zero.

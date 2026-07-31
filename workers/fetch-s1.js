@@ -8709,6 +8709,103 @@ export default {
       // deliberately NOT ...CORS — this must not be readable from a browser origin
     }
 
+    // ── POST /admin/fleet-lifecycle — append transitions + detector health ──
+    // Append-only: the stored log is never rewritten or truncated by this endpoint.
+    if (request.method === 'POST' && url.pathname === '/admin/fleet-lifecycle') {
+      const secret = request.headers.get('X-Update-Secret');
+      if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
+      let body;
+      try { body = await request.json(); } catch { return jsonResp({ error: 'Invalid JSON' }, 400); }
+
+      let log = [];
+      try { log = JSON.parse((await env.KKME_SIGNALS.get('fleet_lifecycle:transitions')) || '[]'); } catch { log = []; }
+      const before = log.length;
+      const incoming = Array.isArray(body.transitions) ? body.transitions : [];
+
+      // A transition that changes status MUST carry cited evidence (rule #3).
+      const rejected = [];
+      const accepted = [];
+      for (const t of incoming) {
+        if (t && t.type === 'retired') {
+          const cited = (t.evidence || []).filter(e => e && /^https?:\/\//.test(e.url || ''));
+          if (cited.length === 0) { rejected.push({ id: t.id, why: 'retirement without cited evidence' }); continue; }
+        }
+        accepted.push(t);
+      }
+      log = log.concat(accepted);
+      await env.KKME_SIGNALS.put('fleet_lifecycle:transitions', JSON.stringify(log));
+
+      if (body.detectors) {
+        await env.KKME_SIGNALS.put('fleet_lifecycle:detectors', JSON.stringify({
+          detectors: body.detectors,
+          updated_at: new Date().toISOString(),
+          transition_log_size: log.length,
+        }));
+      }
+      console.log(`[admin/fleet-lifecycle] +${accepted.length} transitions (log ${before}→${log.length}), ${rejected.length} rejected`);
+      return jsonResp({ ok: true, appended: accepted.length, rejected, log_size: log.length });
+    }
+
+    // ── GET /admin/fleet-lifecycle — operator-only transition log ──
+    if (request.method === 'GET' && url.pathname === '/admin/fleet-lifecycle') {
+      const secret = request.headers.get('X-Update-Secret');
+      if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
+      const raw = await env.KKME_SIGNALS.get('fleet_lifecycle:transitions').catch(() => null);
+      return jsonResp({ transitions: raw ? JSON.parse(raw) : [], count: raw ? JSON.parse(raw).length : 0 });
+    }
+
+    // ── POST /admin/fleet-lifecycle-digest — weekly digest, MANUAL trigger ──
+    // Deliberately NOT wired to a cron yet. B10's corollary: run new automation
+    // against real state BEFORE its first scheduled firing — the proof run is the
+    // gate on the gates. Arm the weekly cron only after this has been fired once
+    // successfully; see docs/handover.md for the arming step.
+    // `dry_run` (default true) returns the rendered digest without sending it.
+    if (request.method === 'POST' && url.pathname === '/admin/fleet-lifecycle-digest') {
+      const secret = request.headers.get('X-Update-Secret');
+      if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
+      let body = {};
+      try { body = await request.json(); } catch { body = {}; }
+      const dryRun = body.dry_run !== false;
+
+      let transitions = [];
+      try { transitions = JSON.parse((await env.KKME_SIGNALS.get('fleet_lifecycle:transitions')) || '[]'); } catch { transitions = []; }
+      let detectors = {};
+      try { detectors = (JSON.parse((await env.KKME_SIGNALS.get('fleet_lifecycle:detectors')) || '{}')).detectors || {}; } catch { detectors = {}; }
+
+      // Only transitions since the last digest go in the body; the log is append-only.
+      const sinceIso = body.since || (await env.KKME_SIGNALS.get('fleet_lifecycle:last_digest_at').catch(() => null));
+      const recent = sinceIso ? transitions.filter(t => t && t.at && t.at > sinceIso) : transitions;
+
+      const count = (type) => recent.filter(t => t && t.type === type).length;
+      const unhealthy = Object.entries(detectors).filter(([, d]) => (d.status ?? 'never_run') !== 'healthy');
+
+      const lines = [];
+      lines.push('*KKME fleet lifecycle — weekly digest*');
+      lines.push(`New: ${count('discovered')} · Renamed: ${count('renamed')} · Retired: ${count('retired')} · Review-flagged: ${count('review_flagged')}`);
+      for (const t of recent.filter(t => t.type === 'retired').slice(0, 10)) {
+        lines.push(`• RETIRED ${t.id} — ${t.reason} (${(t.evidence || []).length} citation(s))`);
+      }
+      for (const t of recent.filter(t => t.type === 'renamed').slice(0, 10)) {
+        lines.push(`• RENAMED ${t.id} — ${t.detail?.from_name} → ${t.detail?.to_name}`);
+      }
+      if (unhealthy.length) {
+        lines.push(`⚠️ Detectors not healthy (${unhealthy.length}) — findings above may be incomplete:`);
+        for (const [id, d] of unhealthy) lines.push(`  • ${id}: ${d.status} (${(d.reasons || []).join('; ')})`);
+      } else if (Object.keys(detectors).length === 0) {
+        lines.push('⚠️ No detector has ever reported — this digest cannot distinguish a quiet week from a dead pipeline.');
+      } else {
+        lines.push('All detectors healthy.');
+        if (!recent.length) lines.push('_No transitions — a genuine quiet week, not silence._');
+      }
+      const message = lines.join('\n');
+
+      if (!dryRun) {
+        await notifyTelegram(env, message).catch(e => console.error('[lifecycle-digest]', String(e)));
+        await env.KKME_SIGNALS.put('fleet_lifecycle:last_digest_at', new Date().toISOString());
+      }
+      return jsonResp({ ok: true, dry_run: dryRun, transitions_in_window: recent.length, unhealthy_detectors: unhealthy.length, message });
+    }
+
     // ── POST /admin/trigger-s1-capture — force recompute S1 capture ──
     if (request.method === 'POST' && url.pathname === '/admin/trigger-s1-capture') {
       const secret = request.headers.get('X-Update-Secret');
@@ -10860,11 +10957,46 @@ export default {
       }));
       demand_watch.all_current = Object.values(demand_watch.targets).every((t) => t.stale === false);
 
+      // ── Phase 37.B — fleet lifecycle detector liveness ──────────────────────
+      // B8: every decay detector surfaces its own health here. A detector that has
+      // never run, has gone stale, or has breached a liveness invariant must be
+      // visibly different from one that ran and found nothing — otherwise a broken
+      // detector reads as a quiet week. Detector state carries NO private data:
+      // only ids, statuses and counts.
+      const fleet_lifecycle = { detectors: {}, all_healthy: null, unhealthy_count: 0 };
+      try {
+        const raw = await env.KKME_SIGNALS.get('fleet_lifecycle:detectors').catch(() => null);
+        const stored = raw ? JSON.parse(raw) : null;
+        if (!stored || !stored.detectors) {
+          fleet_lifecycle.detectors = {};
+          fleet_lifecycle.all_healthy = null;
+          fleet_lifecycle.status = 'never_run';
+        } else {
+          for (const [id, d] of Object.entries(stored.detectors)) {
+            const ageH = d.last_run_at ? (Date.now() - new Date(d.last_run_at).getTime()) / 3600000 : null;
+            fleet_lifecycle.detectors[id] = {
+              status: d.status ?? 'never_run',
+              last_run_at: d.last_run_at ?? null,
+              age_hours: ageH === null ? null : Math.round(ageH * 10) / 10,
+              reasons: Array.isArray(d.reasons) ? d.reasons : [],
+            };
+            if ((d.status ?? 'never_run') !== 'healthy') fleet_lifecycle.unhealthy_count++;
+          }
+          fleet_lifecycle.all_healthy = fleet_lifecycle.unhealthy_count === 0;
+          fleet_lifecycle.status = fleet_lifecycle.all_healthy ? 'ok' : 'degraded';
+        }
+        fleet_lifecycle.transition_log_size = stored?.transition_log_size ?? 0;
+      } catch (e) {
+        fleet_lifecycle.status = 'error';
+        fleet_lifecycle.error = e.message;
+      }
+
       const health = {
         checked_at: new Date().toISOString(),
         all_fresh:  allFresh,
         signals,
         demand_watch,
+        fleet_lifecycle,
         mac_cron:   macCron,
       };
 
