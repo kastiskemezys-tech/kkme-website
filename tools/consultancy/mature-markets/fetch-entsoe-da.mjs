@@ -59,10 +59,13 @@ const GB = {
   url: (from, to) => `https://data.elexon.co.uk/bmrs/api/v1/balancing/pricing/market-index?from=${from}&to=${to}`,
 };
 
+// The environment wins over the file so this runs unchanged under GitHub Actions, where the key
+// arrives as a repository secret and there is no .env.local (36.E0.1). Never logged.
 async function token() {
+  if (process.env.ENTSOE_API_KEY?.trim()) return process.env.ENTSOE_API_KEY.trim();
   const env = await fs.readFile(path.join(import.meta.dirname, '..', '..', '..', '.env.local'), 'utf8');
   const t = (/ENTSOE_API_KEY=(.*)/.exec(env)?.[1] ?? '').trim();
-  if (!t) throw new Error('ENTSOE_API_KEY missing from .env.local');
+  if (!t) throw new Error('ENTSOE_API_KEY missing from both the environment and .env.local');
   return t;
 }
 

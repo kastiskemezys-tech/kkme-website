@@ -14,6 +14,13 @@
 //   vwap_accepted       — mean accepted bid price (pay-as-bid: what a provider actually
 //                         earns, and the number a revenue model needs)
 //   settlement          — a settled spot/imbalance price
+//   vwap_activated      — volume-weighted average price of the balancing energy ACTUALLY
+//                         ACTIVATED in one ISP and direction, as settled. This is the
+//                         activation price an operating battery is paid. Distinct from
+//                         vwap_accepted (a CAPACITY auction's mean accepted bid) and the
+//                         opposite of offer_curve_mean: it describes what cleared, not
+//                         what was offered. Sparse by construction — an ISP with no
+//                         activation has no price, which is not a price of zero.
 //   offer_curve_mean    — mean price of the OFFERED merit-order list, accepted or not.
 //                         NOT a settled price. German RAM energy exports are of this
 //                         kind: they describe the supply curve, not what was activated.
@@ -48,7 +55,7 @@ export const PRODUCTS = /** @type {const} */ ([
 export const MECHANISMS = /** @type {const} */ (['cap', 'energy']);
 export const DIRECTIONS = /** @type {const} */ (['up', 'down', 'symmetric']);
 export const PRICE_BASES = /** @type {const} */ ([
-  'clearing', 'marginal_accepted', 'vwap_accepted', 'settlement', 'offer_curve_mean',
+  'clearing', 'marginal_accepted', 'vwap_accepted', 'settlement', 'vwap_activated', 'offer_curve_mean',
 ]);
 
 export const NORM_UNITS = /** @type {const} */ (['EUR/MW/h', 'EUR/MWh']);

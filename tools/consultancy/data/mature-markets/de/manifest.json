@@ -18,7 +18,7 @@
   "break_calendar": "https://www.regelleistung.net/de-de/Marktinformationen/Historie-Regelreservebeschaffung"
  },
  "licence": "Published by the German TSOs for market transparency under EU Regulation 543/2013 and the EB Guideline. The portal states no explicit open licence; stored here in derived form for internal calibration, not redistribution.",
- "retrieved_at": "2026-07-30T06:48:19.352Z",
+ "retrieved_at": "2026-07-30T10:35:56.055Z",
  "requested_span": "2018-07..2026-07",
  "resolution": "native product blocks: capacity PT4H (FCR PT24H 2019-07-01..2020-06-30); energy PT4H until the 15-min switch, then PT15M",
  "timezone": "product windows are German local wall clock (Europe/Berlin), stored as UTC instants",
@@ -74,7 +74,7 @@
  },
  "area_semantics": "row.area is the EIC of the country whose column the price came from. GERMANY=10Y1001A1001A82H. FCR rows include the whole FCR Cooperation (AT, BE, DK, FR, NL, SI, CH, CZ) plus area=\"CROSSBORDER\" for the uniform cross-border price. aFRR/mFRR rows include AT and CZ from the capacity cooperation plus area=\"COOPERATION_TOTAL\". Filter by area for a single-country series.",
  "exports_fetched": 14378,
- "rows": 934085,
+ "rows": 934217,
  "warnings": [],
  "n_warnings": 0,
  "missing": [
@@ -480,7 +480,7 @@
   {
    "file": "de-reserve-2025.ndjson.gz",
    "rows": 185310,
-   "bytes_gz": 6017491,
+   "bytes_gz": 6053502,
    "span": "2025-01-01T00:00:00Z..2026-01-01T00:00:00Z",
    "products": [
     "FCR/cap",
@@ -489,12 +489,12 @@
     "mFRR/cap",
     "mFRR/energy"
    ],
-   "sha256": "78fd501a1fa7033174f42b1984865fe91a3dd2ee2f4210c65b8de0888505d529"
+   "sha256": "45d7e23f2c26faa2404475ce9b78eacce294df1abafd4b5a4da0e075043a36ed"
   },
   {
    "file": "de-reserve-2026.ndjson.gz",
-   "rows": 108568,
-   "bytes_gz": 3578433,
+   "rows": 108700,
+   "bytes_gz": 3582628,
    "span": "2026-01-01T00:00:00Z..2026-07-31T22:00:00Z",
    "products": [
     "FCR/cap",
@@ -503,7 +503,79 @@
     "mFRR/cap",
     "mFRR/energy"
    ],
-   "sha256": "d6ebc8c89608004740a25b0af58f6150500ca0c827d9253008c7d0ec1cc6be38"
+   "sha256": "64c1ad8325b4e6a1151afc23fef07aeda2700d25d79f7c1611389df612a0507a"
   }
- ]
+ ],
+ "acquisition_retrieved_at": "2026-07-30T06:48:19.352Z",
+ "last_refresh": {
+  "window": "2026-01..2026-07",
+  "retrieved_at": "2026-07-30T10:35:56.055Z",
+  "note": "Metadata from the most recent WINDOWED refresh. The top-level coverage_verification is acquisition-time evidence about how this source behaves and is deliberately not overwritten by a partial window.",
+  "windowed_metadata": {
+   "dataset": "de-reserve",
+   "market": "DE",
+   "products": [
+    "FCR",
+    "aFRR",
+    "mFRR"
+   ],
+   "mechanisms": [
+    "cap",
+    "energy"
+   ],
+   "source": "regelleistung.net — joint balancing platform of 50Hertz, Amprion, TenneT DE, TransnetBW",
+   "source_urls": {
+    "tender_list": "https://www.regelleistung.net/apps/crds/api/v2/tenders?from=<date>&to=<date>&markets=<CAPACITY|ENERGY>&pageSize=2000",
+    "aggregated_results": "https://www.regelleistung.net/apps/crds/api/v2/tenders/results/aggregated?deliveryDate=<date>&productType=<FCR|aFRR|mFRR>&market=<CAPACITY|ENERGY>&exportFormat=xlsx",
+    "human_readable": "https://www.regelleistung.net/apps/datacenter/tenders/",
+    "break_calendar": "https://www.regelleistung.net/de-de/Marktinformationen/Historie-Regelreservebeschaffung"
+   },
+   "licence": "Published by the German TSOs for market transparency under EU Regulation 543/2013 and the EB Guideline. The portal states no explicit open licence; stored here in derived form for internal calibration, not redistribution.",
+   "resolution": "native product blocks: capacity PT4H (FCR PT24H 2019-07-01..2020-06-30); energy PT4H until the 15-min switch, then PT15M",
+   "timezone": "product windows are German local wall clock (Europe/Berlin), stored as UTC instants",
+   "coverage_verification": {
+    "claimed_by_arc_doc": "2011 → now",
+    "actual_first_tender": {
+     "aFRR|CAPACITY": "2026-01-01",
+     "FCR|CAPACITY": "2026-01-01",
+     "mFRR|CAPACITY": "2026-01-01"
+    },
+    "verdict": "Arc-doc claim FALSE. Only the daily-auction era is served. Pre-2018-07-12 (aFRR/mFRR) and pre-2019-07-01 (FCR) are unavailable through this channel and were not located in any other public bulk channel during 36.E0.",
+    "page_cap": 2000,
+    "page_cap_behaviour": "truncates silently with no hasMore flag; pageSize>2000 errors",
+    "bid_level_endpoint_rejected": "/tenders/{id}/bid-results caps at 100 rows per page with no flag; aggregating over it without paging covers 1 of 12 product blocks",
+    "export_bytes_downloaded": 7769486,
+    "exports_missing": 2
+   },
+   "price_semantics": {
+    "FCR_cap": "clearing — FCR Cooperation settles pay-as-clear; per-country SETTLEMENTCAPACITY_PRICE",
+    "aFRR_mFRR_cap": "vwap_accepted — German capacity auctions are pay-as-bid, so there is no clearing price; AVERAGE is what a provider earns, MARGINAL is in extra",
+    "aFRR_mFRR_energy": "offer_curve_mean — statistics of the OFFERED merit-order list, NOT the settled activation price",
+    "normalisation": "price_norm is EUR/MW/h (cap) or EUR/MWh (energy), derived from each file's own unit header and the product duration",
+    "observed_unit_transitions": [],
+    "fcr_unit_check": "FCR EUR/MW is per product period, verified against its own 2020-07-01 product-length change: 6x4h prices on 2020-07-01 sum to 140.42 vs 150.3 for the single 24h product on 2020-06-30"
+   },
+   "area_semantics": "row.area is the EIC of the country whose column the price came from. GERMANY=10Y1001A1001A82H. FCR rows include the whole FCR Cooperation (AT, BE, DK, FR, NL, SI, CH, CZ) plus area=\"CROSSBORDER\" for the uniform cross-border price. aFRR/mFRR rows include AT and CZ from the capacity cooperation plus area=\"COOPERATION_TOTAL\". Filter by area for a single-country series.",
+   "exports_fetched": 1060,
+   "warnings": [],
+   "n_warnings": 0,
+   "missing": [
+    {
+     "productType": "aFRR",
+     "market": "ENERGY",
+     "deliveryDate": "2026-07-31",
+     "reason": "empty sheet"
+    },
+    {
+     "productType": "mFRR",
+     "market": "ENERGY",
+     "deliveryDate": "2026-07-31",
+     "reason": "empty sheet"
+    }
+   ],
+   "manifest_files_carried_forward": 7
+  }
+ },
+ "refresh_cadence_months": 1,
+ "last_successful_refresh": "2026-07-30T10:35:31.048Z"
 }

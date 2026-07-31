@@ -1,0 +1,1 @@
+https://web-api.tp.entsoe.eu/api?documentType=A84&processType=A16&businessType=A96&controlArea_Domain=10YDE-VE-------2&periodStart=202601050000&periodEnd=202601060000&securityToken=<key>

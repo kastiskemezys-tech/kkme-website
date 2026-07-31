@@ -12,7 +12,7 @@
   "eacLive": "https://api.neso.energy/datastore/dump/596f29ac-0387-4ba4-a6d3-95c243140707"
  },
  "licence": "NESO Open Data Licence — explicit open licence permitting reuse and redistribution with attribution. Source CSVs are committed as served (gzipped).",
- "retrieved_at": "2026-07-30T06:32:31.177Z",
+ "retrieved_at": "2026-07-30T10:36:18.513Z",
  "resolution": "EFA blocks (PT4H) for response services; PT30M for some reserve products; PT24H for the 2020-21 bid-level era",
  "timezone": "delivery windows are published as UTC instants and stored unchanged",
  "coverage_verification": {
@@ -432,5 +432,7 @@
    ],
    "sha256": "5938ebb7e1bbb245f738ae44bcec38a25f532fbcb769bd416e32d27f78f09eee"
   }
- ]
+ ],
+ "refresh_cadence_months": 1,
+ "last_successful_refresh": "2026-07-30T10:35:31.048Z"
 }
