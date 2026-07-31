@@ -13,7 +13,7 @@
   "human_readable": "https://mimer.svk.se/PrimaryRegulation/PrimaryRegulationIndex"
  },
  "licence": "Svenska kraftnät publishes Mimer market data for public reuse; no explicit licence text is served with the download endpoint. Stored here for internal calibration.",
- "retrieved_at": "2026-07-30T06:59:18.813Z",
+ "retrieved_at": "2026-07-30T10:36:01.999Z",
  "requested_span": "2020-06..2026-07",
  "resolution": "PT1H",
  "timezone": "timestamps are Swedish local wall clock (Europe/Stockholm), stored as UTC instants",
@@ -543,5 +543,105 @@
    "span": "2026-01-01T00:00:00Z..2026-07-31T22:00:00Z",
    "sha256": "b1980c5d82671f65a55a7f04ec23c4ed39f73eb8ca884071065f049d6bc5135f"
   }
- ]
+ ],
+ "acquisition_retrieved_at": "2026-07-30T06:59:18.813Z",
+ "last_refresh": {
+  "window": "2026-01..2026-07",
+  "retrieved_at": "2026-07-30T10:36:01.999Z",
+  "note": "Metadata from the most recent WINDOWED refresh. The top-level coverage_verification is acquisition-time evidence about how this source behaves and is deliberately not overwritten by a partial window.",
+  "windowed_metadata": {
+   "dataset": "se-fcr",
+   "market": "SE",
+   "products": [
+    "FCR-N",
+    "FCR-D-up",
+    "FCR-D-down"
+   ],
+   "mechanism": "cap",
+   "source": "Svenska kraftnät — Mimer portal, Primary regulation",
+   "source_urls": {
+    "download": "https://mimer.svk.se/PrimaryRegulation/DownloadText?periodFrom=<YYYY-MM-DD>&periodTo=<YYYY-MM-DD>",
+    "human_readable": "https://mimer.svk.se/PrimaryRegulation/PrimaryRegulationIndex"
+   },
+   "licence": "Svenska kraftnät publishes Mimer market data for public reuse; no explicit licence text is served with the download endpoint. Stored here for internal calibration.",
+   "resolution": "PT1H",
+   "timezone": "timestamps are Swedish local wall clock (Europe/Stockholm), stored as UTC instants",
+   "coverage_verification": {
+    "claimed": "the endpoint accepts any date range and returns 200",
+    "actual_first_month_with_data": "2026-01",
+    "verdict": "Dates before the first real month return HTTP 200 with a complete grid of zeros. Absence is served as zero, not as an error or an empty body. All-zero rows are dropped as no_coverage.",
+    "all_zero_rows_dropped": 0,
+    "per_product_leading_absence": {
+     "FCR-N": {
+      "first_real_period": "2025-12-31T23:00:00Z",
+      "leading_zero_rows_nulled": 0,
+      "mid_series_zero_rows_nulled": 0
+     },
+     "FCR-D-up": {
+      "first_real_period": "2025-12-31T23:00:00Z",
+      "leading_zero_rows_nulled": 0,
+      "mid_series_zero_rows_nulled": 0
+     },
+     "FCR-D-down": {
+      "first_real_period": "2025-12-31T23:00:00Z",
+      "leading_zero_rows_nulled": 0,
+      "mid_series_zero_rows_nulled": 0
+     }
+    },
+    "per_product_note": "Three layers of the absence-as-zero trap in one source: (1) whole rows of zeros before coverage starts, dropped by the parser; (2) one product column of zeros while the row is otherwise real — FCR-D down from 2020-12 until its market opened 2021-12; (3) a single missing hour published as zeros mid-series, 2021-12-06T23:00Z for FCR-D up, between hours clearing near 97 EUR/MW on 495 MW. Any row with price and volume BOTH exactly zero is nulled as no_coverage. Justified by measurement: across the committed dataset there is no row with volume 0 and a positive price, and none with price 0 and positive volume, so the combination only ever means absence here.",
+    "per_month": [
+     {
+      "month": "2026-01",
+      "rows": 2232,
+      "zero_rows_dropped": 0,
+      "non_zero_prices": 2232
+     },
+     {
+      "month": "2026-02",
+      "rows": 2016,
+      "zero_rows_dropped": 0,
+      "non_zero_prices": 2016
+     },
+     {
+      "month": "2026-03",
+      "rows": 2229,
+      "zero_rows_dropped": 0,
+      "non_zero_prices": 2229
+     },
+     {
+      "month": "2026-04",
+      "rows": 2160,
+      "zero_rows_dropped": 0,
+      "non_zero_prices": 2160
+     },
+     {
+      "month": "2026-05",
+      "rows": 2232,
+      "zero_rows_dropped": 0,
+      "non_zero_prices": 2232
+     },
+     {
+      "month": "2026-06",
+      "rows": 2160,
+      "zero_rows_dropped": 0,
+      "non_zero_prices": 2160
+     },
+     {
+      "month": "2026-07",
+      "rows": 2232,
+      "zero_rows_dropped": 0,
+      "non_zero_prices": 2232
+     }
+    ]
+   },
+   "price_semantics": {
+    "basis": "clearing",
+    "unit_note": "published EUR/MW on hourly products, so price_norm (EUR/MW/h) equals price; asserted in the loader test rather than assumed"
+   },
+   "area_semantics": "row.area = \"SE\" for the market-wide price. Per-zone procured volumes (SE1-SE4, DK2) are in extra.zone_volumes_mw; DK2 buys through the Swedish market.",
+   "manifest_files_carried_forward": 5
+  }
+ },
+ "refresh_cadence_months": 1,
+ "last_successful_refresh": "2026-07-30T10:35:31.048Z"
 }

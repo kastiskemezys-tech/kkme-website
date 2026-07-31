@@ -1,6 +1,6 @@
 {
  "dataset": "structural-break-calendar",
- "retrieved_at": "2026-07-30T06:50:18.660Z",
+ "retrieved_at": "2026-07-30T10:38:02.707Z",
  "purpose": "Segment price series before fitting any decay parameter. A half-life fitted across a rule change is a measurement of the rule change.",
  "disciplines": {
   "rule#3 / A5": "every date from a TSO, ENTSO-E or ACER page; raw HTML parsed here, not a summariser's reading of it",
@@ -19,7 +19,7 @@
    "url": "https://www.entsoe.eu/network_codes/eb/picasso/",
    "what": "PICASSO (aFRR energy platform) accession dates per TSO",
    "authority": "ENTSO-E",
-   "verified_at": "2026-07-30T06:50:16.753Z",
+   "verified_at": "2026-07-30T10:38:00.698Z",
    "http_status": 200,
    "bytes": 51009,
    "sha256": "b0ae9fcf2fd924e3e2827c19977eddb0e98f6e64e5e78ce37b16c60bc581d090",
@@ -98,7 +98,7 @@
    "url": "https://www.entsoe.eu/network_codes/eb/mari/",
    "what": "MARI (mFRR energy platform) accession dates per TSO",
    "authority": "ENTSO-E",
-   "verified_at": "2026-07-30T06:50:17.115Z",
+   "verified_at": "2026-07-30T10:38:01.140Z",
    "http_status": 200,
    "bytes": 48181,
    "sha256": "cae4202762189f2a63fe5b7890b9102441ff978465d6752625b525f795b48381",
@@ -187,10 +187,10 @@
    "url": "https://www.regelleistung.net/de-de/Marktinformationen/Historie-Regelreservebeschaffung",
    "what": "German procurement-design history: auction frequency, product length, RAM split, platform accessions, battery prequalification",
    "authority": "the four German TSOs (50Hertz, Amprion, TenneT DE, TransnetBW)",
-   "verified_at": "2026-07-30T06:50:17.178Z",
+   "verified_at": "2026-07-30T10:38:01.211Z",
    "http_status": 200,
    "bytes": 75545,
-   "sha256": "d3b1386aa2e4321380d46203b311e1406e8f24b2d212f2d4d33a39658539b0ca",
+   "sha256": "0c0043741fadad593bdebee4fa6a1a844c6aee1db26f75b0a12a05ad44ed8046",
    "evidence_lines_seen": 16,
    "evidence_lines": [
     "01.12.2006",
@@ -219,10 +219,10 @@
    "url": "https://www.regelleistung.net/de-de/EU-Kooperationen/ALPACA-aFRR-Leistungsmarkt",
    "what": "ALPACA — the aFRR CAPACITY cooperation whose members appear as extra control blocks in the German capacity series",
    "authority": "the four German TSOs",
-   "verified_at": "2026-07-30T06:50:17.902Z",
+   "verified_at": "2026-07-30T10:38:01.889Z",
    "http_status": 200,
    "bytes": 51516,
-   "sha256": "0dc86240fbae6a905581dbdf3dcca7595d0299b569282ce02ad5f34a9e4756a7",
+   "sha256": "df44a193b56e516d4cd6197035915ea60f6251633a448a974b214986ef81ad43",
    "evidence_lines_seen": 8,
    "evidence_lines": [
     "Regelleistung > EU Kooperationen > ALPACA (aFRR Leistungsmarkt)",
@@ -243,10 +243,10 @@
    "url": "https://www.regelleistung.net/de-de/EU-Kooperationen/FCR-Cooperation",
    "what": "FCR Cooperation — why the German FCR series carries eight other countries and a uniform cross-border price",
    "authority": "the four German TSOs",
-   "verified_at": "2026-07-30T06:50:18.307Z",
+   "verified_at": "2026-07-30T10:38:02.428Z",
    "http_status": 200,
    "bytes": 52262,
-   "sha256": "b47e54b1f27ac30b388f866b630df15f080d65281af4a8b4cead347931ca7d16",
+   "sha256": "49e837e07432c03c137bfa7758e9b72ecc532bcdd981f63d2ca800a99555dd34",
    "evidence_lines_seen": 3,
    "evidence_lines": [
     "Regelleistung > EU Kooperationen > FCR Cooperation",
@@ -643,5 +643,7 @@
   }
  ],
  "n_events": 24,
- "orphan_events": []
+ "orphan_events": [],
+ "refresh_cadence_months": 3,
+ "last_successful_refresh": "2026-07-30T10:35:31.048Z"
 }
