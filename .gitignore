@@ -99,3 +99,6 @@ skills-lock.json
 docs/_private/
 docs/_clients/
 .wrangler/
+
+# bulk open-data caches (re-downloadable, never committed)
+.cache/
