@@ -260,6 +260,10 @@ controls, unchanged:  /revenue → Content-Type, X-Update-Secret
 
 The third row is the defect reproduced live on a route that still has the old constant: it is the same `TypeError` the calculator's catch turned into "Could not reach the engine", which is why this is evidence and not an argument.
 
+**The rendered full-tier round trip — DONE, operator signed in, CC drove the rest.** `POST /calculate` from `https://kkme.eu` → **200**, `tier: "full"`, 17 top-level keys including `scenarios` and `sensitivity` (sample carries neither). Rendered on the page: no SAMPLE OUTPUT chip, `· CENTRAL` scenario in the header, the RETURNS block (**NPV @ 8% €15.75M · MOIC 3.45× · payback 4 yr · gross capex €16.40M · engine project IRR 22.3% post-tax geared**) and the Year-1 revenue bridge with per-line expansion (`€8,293,550`, `−€297,266`) — all full-tier-only surfaces. **This is the step whose absence let B-045 ship.**
+
+*One observation, not a claim.* The first COMPUTE after the sign-in still rendered the sample tier, and full tier appeared only after a page reload — at that point the signed-in chrome (scenario selector, SIGN OUT) appeared too, so this tab's React state had no knowledge of the sign-in beforehand. If the sign-in happened in a **different tab**, that is correct behaviour (localStorage is shared per-origin; React state is not). If it happened in **this** tab, the 35.2 spec's "token to localStorage → page re-renders full tier" is not holding and it is a defect. CC cannot tell which without signing in again, so it is recorded as an open question rather than filed as a bug.
+
 **Regression test at the browser layer** — 6 tests in `workers/__tests__/calculator.test.ts` simulating what a browser actually checks (status, allowed origin, allowed method, every requested header matched case-insensitively). The ALL-N assertion **derives the bearer-reading route list from the worker source** rather than restating it, so a future bearer route that forgets its preflight fails the suite. **Failability: with the new OPTIONS branch disabled, 4 of the 6 go red with the defect's own signature** — `header Authorization not allowed. Allow-Headers was "Content-Type, X-Update-Secret"`.
 
 **Byte-identity, both layers:**
@@ -323,9 +327,11 @@ Batch-2's 0 MW is correct **and indistinguishable from inert code**. Now proved 
 
 #### Owed
 
-1. **The rendered full-tier browser round trip.** The preflight is fixed and proven from a real browser origin, but a rendered full-tier *result* needs a signed-in session, and CC does not enter passwords into fields. Operator signs in at kkme.eu/calculator (KKME link in the footer); the remaining verification is a single COMPUTE click.
-2. **A fleet-lifecycle detector runner** — the real blocker on the weekly digest. Scope it as a phase, not a hygiene item.
+1. ~~The rendered full-tier browser round trip.~~ **DONE in-session** — operator signed in, CC drove COMPUTE and captured the rendered full-tier result. See above.
+2. **A fleet-lifecycle detector runner** — the real blocker on the weekly digest. Now queued as **Phase 37.B.1** rather than a hygiene item.
 3. **`/fleet` authenticated-serve verification**, which needs the `FLEET_SECRET` value.
+4. **B-048 recovery**, and it is time-boxed: the four destroyed provenance keys survive in `git show HEAD:…/activation/manifest.json` **only until the worktree manifest is committed**. Restore before committing, or the loss becomes permanent.
+5. **The open question on calculator sign-in re-render** (above) — one line to settle next time anyone signs in on that page.
 
 ### Session 99 — 2026-08-01 — Phase 37 batch-2: /fleet console + forecast wiring (Claude Code, semi-autonomous — STOPPED AT CP)
 
