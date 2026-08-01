@@ -33,6 +33,7 @@ crons = [
   "0 * * * *",      # Hourly: time-sensitive only (genload, S8, wind, solar, load)
   "30 9 * * *",     # 09:30 UTC daily: S2 watchdog
   "0 8 * * *",      # 08:00 UTC daily: daily digest to Telegram
+  "30 7 * * 1",     # Mondays 07:30 UTC: weekly fleet-lifecycle digest (37.B.1)
 ]
 
 [[kv_namespaces]]

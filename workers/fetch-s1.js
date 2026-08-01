@@ -104,13 +104,25 @@ const AUTH_PREFLIGHT_PATHS = new Set(['/calculate']);
  * a test asserts the two agree, so the health surface can never claim a
  * schedule the worker does not actually have, or miss one it does.
  *
- * Still null as of 37.H1: arming requires a first real detector run, and no
- * detector runner exists yet — nothing outside the tests has ever POSTed to
- * /admin/fleet-lifecycle, so `fleet_lifecycle:detectors` cannot populate. See
- * the handover. Arming ahead of that would ship the exact B8 shape 37.B was
- * built to prevent: a weekly "all quiet" that cannot tell quiet from dead.
+ * ARMED in 37.B.1 (2026-08-01), after — and only after — the two preconditions
+ * 37.H1 was waiting on were actually met:
+ *
+ *   1. A real detector run happened. The runner exists, ran against live sources,
+ *      and populated `fleet_lifecycle:detectors` with seven stamped records.
+ *   2. The digest can tell quiet from dead. It renders a per-detector verdict and
+ *      counts how many detectors were CAPABLE of firing, so a week with no working
+ *      sensors cannot render as a quiet week.
+ *
+ * Armed knowingly partially-sighted: 2 of 7 detectors cannot fire today
+ * (vert_permit_expired blind, press_negative no-source — both filed as 37.B.3).
+ * A heartbeat that says so beats no heartbeat, because an unarmed digest is also
+ * how we would fail to notice that the runner never ran again.
+ *
+ * Three places must agree and all three are asserted by tests: this constant,
+ * wrangler.toml's [triggers], and the `scheduled()` branch that actually sends.
+ * A cron with no handler would satisfy the old drift test and silently do nothing.
  */
-const LIFECYCLE_DIGEST_CRON = null;
+const LIFECYCLE_DIGEST_CRON = '30 7 * * 1';
 const LIFECYCLE_DIGEST_PERIOD_H = 168;   // weekly
 const LIFECYCLE_DIGEST_GRACE_H = 24;     // one missed day is late; two is overdue
 
@@ -7897,6 +7909,23 @@ export default {
     // 08:00 UTC: daily digest to Telegram
     if (event.cron === '0 8 * * *') {
       await sendDailyDigest(env).catch(e => console.error('[Digest]', e));
+      return;
+    }
+
+    // Weekly fleet-lifecycle digest. The schedule is declared once, in
+    // LIFECYCLE_DIGEST_CRON, and compared against it here rather than repeated as
+    // a literal — a fourth copy of '30 7 * * 1' is a fourth thing that can drift.
+    if (event.cron === LIFECYCLE_DIGEST_CRON) {
+      const built = await buildLifecycleDigest(env).catch(e => ({ blocked: true, error: String(e) }));
+      if (built.blocked) {
+        // A blocked digest must not fail silently: the whole point of this surface
+        // is that absence is never ambiguous. Report the refusal on the same channel.
+        console.error('[lifecycle-digest/cron] BLOCKED —', built.error);
+        await notifyTelegram(env, `⚠️ Weekly fleet-lifecycle digest BLOCKED and not sent: ${built.error}`).catch(() => {});
+        return;
+      }
+      await sendLifecycleDigest(env, built.message);
+      console.log(`[lifecycle-digest/cron] sent — ${built.summary.detectors_capable}/${built.summary.detectors_total} detectors capable, ${built.summary.transitions_in_window} transitions`);
       return;
     }
 

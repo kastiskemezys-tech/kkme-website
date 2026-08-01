@@ -212,13 +212,43 @@ const healthDigest = async (store = new Map<string, string>()) =>
   (await (await call(env(store), '/health')).json()).fleet_lifecycle.digest;
 
 describe('B-046 digest staleness surface', () => {
-  it('reports the digest as deliberately unarmed rather than healthy', async () => {
+  // 37.B.1 — MADE STATE-AWARE, NOT RELAXED. As written in B-046 this asserted the
+  // unarmed state through the live constant, and 37.B.1 arms it. The property it
+  // was protecting is not "the digest is unarmed" — it is "neither state may read
+  // as an untroubled ok". Both halves are now asserted, so the test keeps working
+  // in whichever state the constant is in and is vacuous in neither. The B-046
+  // author flagged this exact trap in the comment two tests below.
+  it('reports the digest\'s armed state accurately, and never as an untroubled ok', async () => {
+    const src = readFileSync(join(__dirname, '../fetch-s1.js'), 'utf8');
+    const declared = /const LIFECYCLE_DIGEST_CRON = (null|'[^']*');/.exec(src)![1];
     const d = await healthDigest();
-    expect(d.armed).toBe(false);
-    expect(d.status).toBe('not_armed');
-    // The failure this guards: an unarmed digest reading as "ok" and nobody
-    // noticing that the weekly message was never scheduled at all.
+
+    if (declared === 'null') {
+      expect(d.armed).toBe(false);
+      expect(d.status).toBe('not_armed');
+    } else {
+      // Armed but never sent is its OWN state: it must not read as ok (nothing has
+      // happened yet) and must not read as overdue (nothing is late yet).
+      expect(d.armed).toBe(true);
+      expect(d.cron).toBe(declared.slice(1, -1));
+      expect(d.status).toBe('armed_never_sent');
+    }
+    // The invariant that outlives either state — the failure B-046 was written for.
     expect(d.status).not.toBe('ok');
+  });
+
+  it('the status vocabulary keeps unarmed, armed-never-sent and ok distinct', async () => {
+    // Asserted as arithmetic rather than through the live constant, so arming or
+    // disarming cannot make this vacuous either way.
+    const status = (cron: string | null, lastSent: string | null, ageH: number) =>
+      cron === null ? 'not_armed'
+        : lastSent === null ? 'armed_never_sent'
+          : ageH > 168 + 24 ? 'overdue' : 'ok';
+    expect(status(null, null, 0)).toBe('not_armed');
+    expect(status('30 7 * * 1', null, 0)).toBe('armed_never_sent');
+    expect(status('30 7 * * 1', 'x', 1)).toBe('ok');
+    expect(status('30 7 * * 1', 'x', 500)).toBe('overdue');
+    expect(new Set([status(null, null, 0), status('30 7 * * 1', null, 0), status('30 7 * * 1', 'x', 1)]).size).toBe(3);
   });
 
   it('surfaces the last send and its age once one has happened', async () => {
@@ -265,6 +295,60 @@ describe('B-046 digest staleness surface', () => {
       expect(d.armed).toBe(true);
       expect(d.cron).toBe(declared);
     }
+  });
+
+  // 37.B.1 — the gap the two-way drift gate above could not see. A cron declared in
+  // BOTH places and handled in NEITHER passes it and silently never sends: the
+  // schedule exists, the health surface advertises it, and nothing runs. Arming is
+  // three edits, so the gate checks three things.
+  it('an armed cron actually reaches a handler that sends', async () => {
+    const src = readFileSync(join(__dirname, '../fetch-s1.js'), 'utf8');
+    const declared = /const LIFECYCLE_DIGEST_CRON = (null|'[^']*');/.exec(src)![1];
+    if (declared === 'null') return;   // unarmed: nothing to dispatch
+
+    const store = new Map<string, string>();
+    store.set('fleet_lifecycle:detectors', JSON.stringify({
+      detectors: { a: { status: 'healthy', last_run_at: new Date().toISOString(), rows_eligible: 5, source_usable: true, max_age_hours: 720, reasons: [] } },
+    }));
+    store.set('fleet_lifecycle:transitions', '[]');
+
+    const sent: string[] = [];
+    const e = {
+      ...env(store),
+      TELEGRAM_BOT_TOKEN: 'test-token',
+      TELEGRAM_CHAT_ID: 'test-chat',
+    } as Any;
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (async (u: Any, init: Any) => {
+      sent.push(String(init?.body ?? u));
+      return new Response('{"ok":true}', { status: 200 });
+    }) as Any;
+    try {
+      await (worker as Any).scheduled({ cron: declared.slice(1, -1) }, e, ctx);
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+
+    expect(sent.length, `cron ${declared} is declared but no scheduled() branch sends anything`).toBeGreaterThan(0);
+    expect(sent.join(' ')).toMatch(/fleet lifecycle/i);
+    // and the send stamped, so the staleness surface can age it
+    expect(store.get('fleet_lifecycle:last_digest_at')).toBeTruthy();
+  });
+
+  it('a cron the worker does NOT declare reaches no lifecycle handler', async () => {
+    // Vacuity guard for the test above: proves the dispatch is keyed on the cron
+    // and not simply firing for anything.
+    const store = new Map<string, string>();
+    store.set('fleet_lifecycle:detectors', JSON.stringify({ detectors: { a: { status: 'healthy', last_run_at: new Date().toISOString(), rows_eligible: 5, source_usable: true, reasons: [] } } }));
+    const sent: string[] = [];
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (async (u: Any, init: Any) => { sent.push(String(init?.body ?? u)); return new Response('{}', { status: 200 }); }) as Any;
+    try {
+      await (worker as Any).scheduled({ cron: '13 13 13 13 13' }, env(store), ctx);
+    } catch { /* other branches may reject on absent bindings; only the send matters */ }
+    finally { globalThis.fetch = realFetch; }
+    expect(sent.join(' ')).not.toMatch(/fleet lifecycle/i);
+    expect(store.get('fleet_lifecycle:last_digest_at')).toBeUndefined();
   });
 
   it('the staleness surface leaks nothing private', async () => {
