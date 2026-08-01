@@ -77,6 +77,9 @@ Semi-autonomous. Step 0 first (deploy batch-1's additive worker changes after th
 Non-negotiables: no public tier at /fleet at all · leak tests non-vacuous and proven failable at API AND rendered-UI level (seed private values, vacuity guard, inject-then-remove proof) · private-only rows excluded from every published number, asserted in payload tests · hybrid ships as a band re-derived from hybrid-band.json, never as a correction from the private column · apva_flag renders as opaque private testimony, never as a verification signal.
 ```
 
+### 2.5 · Phase 37.H1 — hygiene: browser-auth fix (B-045) + digest arming (B-046) + 37.D counterfactual
+**Prompt: `docs/phases/phase-37-h1-prompt.md`.** Autonomous, ~1.5-2 h. Runs before the E-arc: B-045 is a live product defect on the gated calculator's front door, B-046 is an alert pipeline that can't yet be trusted, and the counterfactual makes 37.D's wiring verifiable. All three are the same class — green but not actually working.
+
 ### 3 · 36.E batch — E1 (FCR) + E2 (aFRR/PICASSO)
 Prompt authored at boundary on E0's approved evidence base. Autonomous unless E0's checkpoint changed the specs.
 
@@ -103,6 +106,9 @@ F0 visual checkpoint (you approve every chart type in both themes) · F1 copy-de
 - **Phase 37 candidate (dispatch-card → hourly-engine cutover):** raises public IRR materially; deliberately parked for sequencing optics. Revisit after the E-arc ships.
 - **BTD/AST reply:** if AST answers the sent email, small follow-up (worker-secondary self-heal or UA/rate adjustments) — slot at any boundary.
 - **Prosperus:** delivery bundle regenerates on the current measured basis with one command whenever the conversation warrants; after 37.D + E6, regenerate before any client send (numbers will have moved — attributably).
+- **B-045 (CORS `Authorization` preflight) — NEXT, ahead of the E-arc.** The calculator's full tier cannot authenticate from any browser; endpoint tests pass because they bypass the browser. One word in the shared CORS constant + a browser-layer regression test so the class can't recur. Small, but it is the gated product's front door and it is broken in production today.
+- **B-046 (arm the weekly digest):** blocked on a first REAL detector run, not another dry run — `/health.fleet_lifecycle` reports `never_run`, and the renderer correctly refuses to distinguish a quiet week from a dead pipeline. Sequence: trigger detectors once → confirm `/health` shows populated detectors → arm the cron in its own commit.
+- **37.D counterfactual test (do it with B-045 or the next fleet slot):** every CP delta was zero because the citable capacity contribution is 0 MW — which means the enrichment path is currently unverifiable by its effect. Add a synthetic fixture carrying a CITABLE capacity source and assert the supply trajectory moves; without it, 37.D's wiring is code no test can prove is live.
 - **B-044 (TAM / EU State-aid Transparency Award Module):** the only route to making `apva_flag` citable (aid >€100k must be published by law). Client-rendered app behind a language gate — needs a browser-rendering pass or its query API, not a plain fetch. Slot when a citation for 55 LT rows is worth an hour.
 - **B-043:** AU/DA fetchers rewrite their own fixtures each run — churn in every monthly refresh PR.
 - **EE coverage 2/15:** the weakest arm after batch-1. EE bulk open data was a demonstrated build spike, not a dead end — a batch-3 or hygiene slot closes it the way LV closed.
