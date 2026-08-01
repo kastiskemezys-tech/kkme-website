@@ -193,6 +193,58 @@ See [docs/map.md](map.md) for the full concept-to-file lookup table.
 
 ## Session log
 
+### Session 99 — 2026-08-01 — Phase 37 batch-2: /fleet console + forecast wiring (Claude Code, semi-autonomous — STOPPED AT CP)
+
+**Branch `phase-37-batch-2`, pushed, 2 commits. Suite 100 files / 1874 tests green. Worker additive-only (101 insertions, 0 deletions).**
+
+**ORIGIN-SHA COMPARE — both refs synced:**
+```
+local  phase-37-batch-2 : ebec776446c69f4a301536d9052e4b9878e9e6cf
+origin phase-37-batch-2 : ebec776446c69f4a301536d9052e4b9878e9e6cf
+local  main             : 46d1bdf094e4a5a68c3ab4091b09b0489aa1d091
+origin main             : 46d1bdf094e4a5a68c3ab4091b09b0489aa1d091
+origin/phase-37-batch-2..phase-37-batch-2 : 0 commits ahead
+origin/main..main                         : 0 commits ahead
+```
+
+**Step 0.1 — batch-1 DEPLOYED.** Version `2e558602-6154-4aae-b615-1060b09aba2b`, 472.81 KiB / gzip 121.23 KiB, same 4 cron triggers. Pre-flight: main = origin/main, `origin/main..main` empty, `workers/` byte-identical to origin/main, suite 1816 green first. Post-deploy with a **nonsense-path control** (B11): `/admin/fleet-lifecycle-digest` and `/admin/fleet-lifecycle` both 401 unauth vs control `/admin/zzqqxx-nonsense` 405 — the endpoints discriminate. All public routes 200. `all_fresh:false` is **pre-existing, not deploy-caused**: sole cause `extreme:latest` missing, threshold from `fec8c96` (Phase 12.9) commented "events are sparse — missing is normal"; batch-1 never touched `workers/lib/`.
+
+**⚠️ Step 0.2 — digest NOT ARMED, and the reason is a finding.** `/health.fleet_lifecycle` = `{"detectors":{},"status":"never_run","transition_log_size":0}`. Read against the renderer that lands in the branch emitting *"⚠️ No detector has ever reported — this digest cannot distinguish a quiet week from a dead pipeline."* Something surfaces ⇒ arming stops per the prompt. Arming a weekly digest whose detectors have never run would ship exactly the B8 shape 37.B was built to prevent. **The prerequisite for arming is a first real detector run, not a second dry run.** CC does not hold `UPDATE_SECRET` (keychain lookup rc=44, not found) — the operator's own dry-run output is owed and the finding above is derived from the unauthenticated `/health` surface.
+
+**37.C — `/fleet` console. No public tier, leak-tested at BOTH layers, proven failable at both.**
+`FLEET_SECRET` is a NEW secret — not `UPDATE_SECRET` (authorises mutation, must never be typed into a browser) and not `CALC_SECRET` (gates a product tier whose audience is not guaranteed operator-only, while this console holds contacts and deal comments). Token signs `fleet:<expiry>` vs the calculator's `calc:<expiry>`, so neither verifies at the other's endpoint **even if both secrets were set to the same string** — asserted by test. Unset secret ⇒ 503 with zero data.
+- **API failability**: injected a naive overlay merge into `GET /s?/fleet` → **3 red across BOTH suites** (incl. the KV-read spy); removed → 30 green; worker `sha256 38ab0a14…3476` identical either side.
+- **UI failability**: injected a `"141 / 141 projects tracked · contact …"` teaser into the gate → **3 red** (canary, contact-shape, count-tease); removed → 14 green; `FleetConsole.tsx sha256 40f9ba26…f033a` identical either side.
+- UI assertions **decode HTML entities first** — React escapes `"` to `&quot;` and real SPV names carry quotes, so a raw substring check would miss a leak that shipped escaped.
+
+**A defect this batch shipped and then caught — and no private-value test would ever have fired.** `hybrid-band.json` was imported by the client component. It is public-derived, so every leak test stayed green — but the build put **34 public fleet entry names and KKME's hybrid analysis into a JS chunk fetchable at /fleet with no token**, which is a public tier by another name. Found only by sweeping the **built artifact**. The band now travels in the worker and reaches the browser inside the authed payload; a regression test asserts the route imports nothing from `tools/` or `docs/`. Re-swept clean across all 19 artifacts reachable from `/fleet`.
+
+**37.D — THE HEADLINE: the verified fleet's citable contribution to published supply is 0 MW.**
+Intake is **141 rows** (LT 84 / LV 42 / EE 15), not the arc's 42 — that was the LV seed only (A9). Tiers: 36 public-confirmed, 105 private-only, 0 corroborated. Every one of the 36 is LV, `new-to-us`, and carries **exactly one** citation, all `data.gov.lv`, every `what_it_confirms` reading *"entity resolves in the Latvian Uzņēmumu reģistrs, reg. NNNN, status active"*. **Σ bess_mw across all 36 = 0.0 MW.** Their only power figure (`site_total_mw`, Σ 3 583.5 MW) and only technology figure (`plant_type`) come from the **private workbook, not the citation**. A registry entry proves a company exists; it proves nothing about a battery. So publishability is a **conjunction** — tier decides the haircut, capacity-citability decides whether there is anything to haircut. Implementing the arc's tier mapping alone would have licensed publishing 3 583.5 MW of private testimony behind a registry citation.
+
+**CP DELTA TABLE — `docs/investigations/2026-08-01-phase-37-d-cp-delta.md`. AWAITING SIGNATURE, NOTHING DEPLOYED.** Baseline from a **clean worktree** of `46d1bdf` (C6, never a stash); both sides against **one frozen KV snapshot** `sha256 b52cc355…` copied byte-identical into each tree; no magnitude predicted before measuring (A8).
+- **Public**: **54/54 configurations byte-identical**; largest relative movement across 54 configs × 4 metrics = **0.0000000000 %**. Reference config gross Y1 €7 994 239 · IRR 0.2228 · **min DSCR 2.36** · NPV €16 139 595 — all Δ 0.
+- **Client**: `portfolio.json` **identical** to baseline (timestamps stripped). Gross Y1 €12 770 114 · NPV@8 % €37 177 495 · three project IRRs Δ +0.000000.
+- Secondary reason nothing could have moved far: `cpi` sits at its **0.30 floor** in the live fleet payload.
+
+**Hybrid ships as a BAND** re-derived from `hybrid-band.json` — 11 975.7 – 16 020.4 MW, width 4 044.7 — never a correction from the private column. **No midpoint is exposed** and a test asserts the midpoint value appears nowhere in the object. The band's **upper bound IS the status quo** (live `Σ raw_entries[].mw` = 16 020.4 = `upper_bess_mw`), so adopting it moves no published point; it only states uncertainty that was always there, and **understates** it (24 of 45 known hybrids carry a public technology signal). **Direction check:** a hybrid correction moves supply DOWN → sd_ratio down → cannibalisation down → **IRR UP** — the flattering direction, which is exactly why it is a band.
+
+**Private-only exclusion asserted at PAYLOAD level**, not only in code: `assertNoPrivateOnlyInPublished` runs inside the artifact builder *before* it writes, and a test proves it catches a barred row planted in a payload. 141 of 141 rows currently barred. **Retired-MW accounting** is a gated first-class check that refuses to subtract a retirement matching no fleet entry or carrying no citation; a test replays batch-1's near-miss shape (500 uncited retirements) and asserts `ok:false, retired_mw:0`.
+
+**A7 ALL-N, re-derived by grep (12 matches, 8 code + 4 comment):** `fleet_private:index` — 1 writer (`POST /admin/fleet-private`), 3 reads (its own shrink guard, `GET /admin/fleet-private`, `GET /fleet/data`). `fleet_private:comments` — 1 writer (`POST /fleet/comment`), 2 reads (its own read-modify-write, `GET /fleet/data`).
+
+**⚠️ INCIDENTAL, VERIFIED LIVE — the calculator's full tier cannot authenticate from a browser.** Preflight omits `Authorization`:
+```
+$ curl -i -X OPTIONS .../calculate -H "Origin: https://kkme.eu" \
+    -H "Access-Control-Request-Method: POST" -H "Access-Control-Request-Headers: content-type, authorization"
+access-control-allow-headers: Content-Type, X-Update-Secret
+```
+A browser on kkme.eu will refuse to send the bearer token cross-origin, so `postCalculate` falls into its `catch` and the user sees "Could not reach the engine." Sample tier unaffected (no header ⇒ no preflight). A B2 shape: endpoint tests pass because they call the worker directly, where CORS does not apply. **NOT fixed here** — one word in the shared `CORS` constant (`fetch-s1.js:62`), which is not additive and this batch's gates say additive-only. The CRM avoids inheriting it via its own fleet-scoped preflight. **Operator to schedule.**
+
+**Two smaller notes.** (1) 36.D's `supplyBasisComparison` is exported and **called by nothing** — which is why 37.D's comparison ships as a committed artifact (`tools/fleet-intel/data/supply-bases.json`) rather than another uncalled function. (2) Collateral from a CC command (A10): running `run-portfolio.mjs` overwrote the gitignored `tools/consultancy/output/` set, leaving `portfolio.json` at a 1-Aug KV vintage against 29-Jul per-project files and turning the xlsx tie-out test red. Repaired by regenerating the whole runner chain `--offline` at one vintage; **the operator's local `output/` deliverables now reflect 1-Aug data, not 29-Jul.** Nothing committed (directory is gitignored).
+
+**OPERATOR ACTIONS before any deploy:** (a) sign the CP delta table; (b) `npx wrangler secret put FLEET_SECRET` — until set, `/fleet/*` returns 503 with zero data (fail-closed, asserted); (c) the digest dry-run output, still owed; (d) schedule the calculator CORS fix.
+
 ### Session 98 — 2026-07-31 — Phase 37.A.1 corrective pass + 37.B lifecycle (Claude Code, semi-autonomous — STOPPED BEFORE DEPLOY)
 
 **Branch `phase-37-batch-1`, pushed. Suite 1816 green. Worker additive-only (132 insertions, 0 deletions).**
