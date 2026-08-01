@@ -69,6 +69,33 @@ const CORS = {
   'Access-Control-Allow-Headers': 'Content-Type, X-Update-Secret',
 };
 
+/**
+ * B-045 — CORS for the routes that read a bearer token from the browser.
+ *
+ * The shared constant above does not list `Authorization`, so a browser refuses
+ * the preflight and the token never leaves the page: the calculator's full tier
+ * was unreachable from kkme.eu while every endpoint test passed, because the
+ * tests call the worker directly and never perform a preflight (failure-modes
+ * B2 — the gate measured a layer no customer uses).
+ *
+ * Scoped rather than widened, on the 37.C precedent: every other route's CORS
+ * behaviour stays byte-identical. `AUTH_PREFLIGHT_PATHS` is asserted in vitest
+ * against the set of routes that actually call `bearerToken()`, so adding a
+ * bearer-reading route without adding it here fails the suite instead of
+ * shipping another silent browser-only defect.
+ *
+ * Origin stays `*`: unlike the fleet console this is a public product surface
+ * that also serves an unauthenticated sample tier, and the token lives in
+ * kkme.eu's localStorage, which no other origin can read.
+ */
+const AUTH_CORS = {
+  ...CORS,
+  'Access-Control-Allow-Headers': 'Content-Type, X-Update-Secret, Authorization',
+};
+
+/** Non-fleet paths whose handler reads an `Authorization: Bearer` token. */
+const AUTH_PREFLIGHT_PATHS = new Set(['/calculate']);
+
 // ─── Fleet tracker helpers ──────────────────────────────────────────────────────
 
 function jsonResp(data, status = 200) {
@@ -7987,6 +8014,11 @@ export default {
     // these paths keeps every existing route's CORS behaviour byte-identical.
     if (request.method === 'OPTIONS' && url.pathname.startsWith('/fleet/')) {
       return new Response(null, { status: 200, headers: FLEET_CORS });
+    }
+
+    // B-045 — bearer-reading routes, likewise before the general preflight.
+    if (request.method === 'OPTIONS' && AUTH_PREFLIGHT_PATHS.has(url.pathname)) {
+      return new Response(null, { status: 200, headers: AUTH_CORS });
     }
 
     if (request.method === 'OPTIONS') {
