@@ -114,6 +114,35 @@ const LIFECYCLE_DIGEST_CRON = null;
 const LIFECYCLE_DIGEST_PERIOD_H = 168;   // weekly
 const LIFECYCLE_DIGEST_GRACE_H = 24;     // one missed day is late; two is overdue
 
+/**
+ * 37.B.1 — the digest is an EGRESS PATH. It is the only thing in the fleet stack
+ * that pushes fleet content off the platform unprompted (Telegram), so it gets a
+ * boundary of its own rather than relying on everything upstream having behaved.
+ *
+ * Mirrors ALWAYS_PRIVATE_FIELDS in tools/fleet-intel/lib/tiers.mjs. A test asserts
+ * the two lists are identical, because a field added there and forgotten here is
+ * exactly how a private column ends up in a Telegram message.
+ */
+const DIGEST_FORBIDDEN_KEYS = ['contact', 'comment', 'apva_flag', 'raw_power_text', 'source_row'];
+const DIGEST_EMAIL_RE = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
+const DIGEST_PHONE_RE = /(?:\+370|\+371|\+372)\s?\d[\d\s-]{6,}/;
+
+/** Does this transition carry a private field at ANY depth? Field-name check. */
+function carriesPrivateField(node) {
+  if (node === null || typeof node !== 'object') return false;
+  if (Array.isArray(node)) return node.some(carriesPrivateField);
+  for (const [k, v] of Object.entries(node)) {
+    if (DIGEST_FORBIDDEN_KEYS.includes(k)) return true;
+    if (carriesPrivateField(v)) return true;
+  }
+  return false;
+}
+
+/** Contact-shaped CONTENT, regardless of what the field is called. */
+function carriesContactShape(text) {
+  return DIGEST_EMAIL_RE.test(text) || DIGEST_PHONE_RE.test(text);
+}
+
 // ─── Fleet tracker helpers ──────────────────────────────────────────────────────
 
 function jsonResp(data, status = 200) {
@@ -8836,7 +8865,15 @@ export default {
 
       // Only transitions since the last digest go in the body; the log is append-only.
       const sinceIso = body.since || (await env.KKME_SIGNALS.get('fleet_lifecycle:last_digest_at').catch(() => null));
-      const recent = sinceIso ? transitions.filter(t => t && t.at && t.at > sinceIso) : transitions;
+      const inWindow = sinceIso ? transitions.filter(t => t && t.at && t.at > sinceIso) : transitions;
+
+      // EGRESS BOUNDARY. A transition carrying a private field never reaches the
+      // rendered message — it is withheld and COUNTED, so a suppressed row is
+      // visible as a suppression rather than as an absence. The runner already
+      // refuses to post private-tier proposals; this is the second wall, sited at
+      // the point where content actually leaves.
+      const withheld = inWindow.filter(carriesPrivateField);
+      const recent = inWindow.filter(t => !carriesPrivateField(t));
 
       const count = (type) => recent.filter(t => t && t.type === type).length;
       const unhealthy = Object.entries(detectors).filter(([, d]) => (d.status ?? 'never_run') !== 'healthy');
@@ -8859,13 +8896,28 @@ export default {
         lines.push('All detectors healthy.');
         if (!recent.length) lines.push('_No transitions — a genuine quiet week, not silence._');
       }
+      if (withheld.length) {
+        lines.push(`🔒 ${withheld.length} transition(s) withheld from this digest: they carry private-tier fields and must not leave the platform.`);
+      }
       const message = lines.join('\n');
+
+      // Last line of defence: contact-shaped CONTENT in the rendered payload, whatever
+      // field it arrived in. A rename recorded under a person's email address would
+      // pass every field-name check above and still be a leak. Refusing to send is the
+      // correct failure here — a missed digest is recoverable, an egressed contact is not.
+      if (carriesContactShape(message)) {
+        console.error('[lifecycle-digest] BLOCKED — contact-shaped content in the rendered payload');
+        return jsonResp({
+          ok: false, blocked: true, dry_run: dryRun, sent: false,
+          error: 'digest blocked: contact-shaped content in the rendered payload',
+        }, 500);
+      }
 
       if (!dryRun) {
         await notifyTelegram(env, message).catch(e => console.error('[lifecycle-digest]', String(e)));
         await env.KKME_SIGNALS.put('fleet_lifecycle:last_digest_at', new Date().toISOString());
       }
-      return jsonResp({ ok: true, dry_run: dryRun, transitions_in_window: recent.length, unhealthy_detectors: unhealthy.length, message });
+      return jsonResp({ ok: true, dry_run: dryRun, transitions_in_window: recent.length, withheld: withheld.length, unhealthy_detectors: unhealthy.length, message });
     }
 
     // ── Phase 37.C — operator-only fleet CRM (/fleet/*) ────────────────────────
@@ -11125,13 +11177,36 @@ export default {
         } else {
           for (const [id, d] of Object.entries(stored.detectors)) {
             const ageH = d.last_run_at ? (Date.now() - new Date(d.last_run_at).getTime()) / 3600000 : null;
+
+            // 37.B.1 / B12 — the stored status is a claim made by the last run that
+            // completed. If the runner then STOPS, nothing rewrites it: a detector
+            // that was healthy stays "healthy" here forever while its `last_run_at`
+            // silently ages, and the surface reassures instead of alarming. The
+            // damage would disable its own detector, which is precisely B-048's
+            // shape. So staleness is COMPUTED here from the stamp, and it overrides
+            // whatever the record claims.
+            const reasons = Array.isArray(d.reasons) ? d.reasons.slice() : [];
+            let status = d.status ?? 'never_run';
+            if (d.last_run_at === null || d.last_run_at === undefined) {
+              // A record asserting health with no run stamp is self-contradictory.
+              if (status === 'healthy') {
+                status = 'never_run';
+                reasons.push('record claimed healthy with no last_run_at — a run that never happened cannot be healthy');
+              }
+            } else if (d.max_age_hours && ageH !== null && ageH > d.max_age_hours) {
+              status = 'stale';
+              reasons.push(`last run ${ageH.toFixed(0)}h ago exceeds this detector's ${d.max_age_hours}h ceiling — the runner may have stopped`);
+            }
+
             fleet_lifecycle.detectors[id] = {
-              status: d.status ?? 'never_run',
+              status,
               last_run_at: d.last_run_at ?? null,
               age_hours: ageH === null ? null : Math.round(ageH * 10) / 10,
-              reasons: Array.isArray(d.reasons) ? d.reasons : [],
+              max_age_hours: d.max_age_hours ?? null,
+              rows_eligible: d.rows_eligible ?? null,
+              reasons,
             };
-            if ((d.status ?? 'never_run') !== 'healthy') fleet_lifecycle.unhealthy_count++;
+            if (status !== 'healthy') fleet_lifecycle.unhealthy_count++;
           }
           fleet_lifecycle.all_healthy = fleet_lifecycle.unhealthy_count === 0;
           fleet_lifecycle.status = fleet_lifecycle.all_healthy ? 'ok' : 'degraded';
