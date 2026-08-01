@@ -193,6 +193,138 @@ See [docs/map.md](map.md) for the full concept-to-file lookup table.
 
 ## Session log
 
+### Session 100 — 2026-08-01 — Phase 37.H1 hygiene batch: browser-auth fix · digest staleness · 37.D counterfactual (Claude Code, autonomous)
+
+**Branch `phase-37-h1-hygiene`, pushed, 4 commits. Suite 100 files / 1895 tests green (1874 → 1895, +21). Two worker deploys.**
+
+**ORIGIN-SHA COMPARE — checked before each deploy:**
+```
+deploy 1 (B-045):
+  local  phase-37-h1-hygiene : a17df6d98ff63ee3e57dda8b3c04b21fcd00ccab
+  origin phase-37-h1-hygiene : a17df6d98ff63ee3e57dda8b3c04b21fcd00ccab   equal
+  git status --porcelain -- workers/ wrangler.toml : empty
+  → worker version 2eb99c6c-dbd4-4fd6-9f1c-aa046c9f8f1b
+
+deploy 2 (B-046 staleness surface):
+  local  phase-37-h1-hygiene : 0ab7779ae8b61f36ea2134b22453a710b479a571
+  origin phase-37-h1-hygiene : 0ab7779ae8b61f36ea2134b22453a710b479a571   equal
+  git status --porcelain -- workers/ wrangler.toml tools/fleet-intel/ : empty
+  → worker version b0707bd6-4ec8-441f-b32a-632c0983da19
+```
+Six tracked files were dirty on arrival and were **not touched**: `docs/research/mature-market-summary-table.md` and five under `tools/consultancy/` (`runs.jsonl` +13 rows stamped `2026-08-01T10:45–10:50Z`, `engine_git_sha ...-dirty`). They are a pre-session consultancy run, are not part of the deployed artifact, and are left for whoever owns them. **One thing in them is worth a look (B10 shape):** `data/mature-markets/activation/manifest.json` is −584 lines net across the diff (185 insertions / 622 deletions overall). A refresh that shrinks a manifest is the exact corruption path B10 names — checksums pass while the record of coverage is destroyed. Not diagnosed here; flagged.
+
+**Pause-A, the four standing questions.** (a) *Premises:* B-045's was **verified live before any edit** — the pre-fix `OPTIONS /calculate` returned `Content-Type, X-Update-Secret` with no `authorization`. B-046's premise ("trigger the detectors once for real") is **FALSE** — see below. 37.D's framing held. (b) *What consumes what changes:* the shared `CORS` constant is read at **107 sites across 34 routes** in `workers/fetch-s1.js`; the fix therefore does not touch it. (c) *What fails silently:* the digest, which is why the staleness surface is the deliverable rather than the arming. (d) *Layer and time:* preflight layer via a real `OPTIONS` exchange, browser layer via a live cross-origin control from `https://kkme.eu`, and `/revenue` compared inside one cron hour and again across the tick.
+
+---
+
+#### 1 · B-045 — the calculator's full tier can authenticate from a browser · **FIXED, DEPLOYED**
+
+**Reproduced live before touching anything** (failure-modes A3 — the prompt's claim re-checked at execution time):
+```
+$ curl -i -X OPTIONS .../calculate -H 'Origin: https://kkme.eu' \
+    -H 'Access-Control-Request-Method: POST' -H 'Access-Control-Request-Headers: authorization,content-type'
+HTTP/2 200
+access-control-allow-headers: Content-Type, X-Update-Secret        ← no authorization
+```
+A browser refuses the preflight, `fetch` rejects, and `postCalculate`'s catch renders *"Could not reach the engine."* Endpoint tests passed throughout because they call the worker directly and never preflight — **B2, the gate measured a layer no customer uses.**
+
+**A7 / ALL-N.** `grep -n "CORS" workers/fetch-s1.js | grep -v FLEET_CORS | wc -l` → **107** uses across **34 routes**. Exactly **three** routes read a bearer token: `/fleet/data` and `/fleet/comment` (already covered by 37.C's `FLEET_CORS` branch) and `/calculate`.
+
+**Fix shape — a deliberate departure from the prompt, flagged rather than assumed.** The prompt called the change non-additive and asked for the ALL-N enumeration on that basis. Widening the shared constant would indeed be non-additive, but 37.C had already faced this and refused it in a code comment (*"rather than widen the shared constant, which would change behaviour for every existing route"*). I followed that precedent: a scoped `AUTH_CORS` served only for `AUTH_PREFLIGHT_PATHS`. **The change is therefore additive at runtime, and the byte-identity gate was run anyway.**
+
+**Proof at the preflight layer** — post-deploy, live:
+```
+$ curl -i -X OPTIONS .../calculate -H 'Origin: https://kkme.eu' \
+    -H 'Access-Control-Request-Method: POST' -H 'Access-Control-Request-Headers: authorization,content-type'
+HTTP/2 200
+access-control-allow-origin: *
+access-control-allow-headers: Content-Type, X-Update-Secret, Authorization
+access-control-allow-methods: GET, POST, OPTIONS
+
+controls, unchanged:  /revenue → Content-Type, X-Update-Secret
+                      /s2      → Content-Type, X-Update-Secret
+```
+
+**⚠️ The first post-deploy check read the OLD headers and would have been reported as a failed deploy.** It was edge propagation; the correct value appeared ~20 s later. This is B3 arriving in a new costume — the banked case is `/revenue` at the cron tick, and the same wrong-time trap exists at the deploy edge. **Bank it: a post-deploy CORS/header check is not valid until it has been re-read at least once after ~30 s.**
+
+**Proof at the layer the customer touches** — executed from a real browser at `https://kkme.eu`, so Chrome performed genuine preflights. Four cells, with the discriminate control B11 asks for:
+
+| probe | outcome |
+|---|---|
+| `/calculate` **with** `Authorization` — the B-045 path | request dispatched, **200**, `tier` returned |
+| `/calculate` without `Authorization` — sample tier | request dispatched, 200 |
+| **CONTROL** `/s2` **with** `Authorization` — unchanged shared CORS | **BLOCKED BY BROWSER**, `TypeError: Failed to fetch` |
+| **CONTROL** `/s2` without `Authorization` | request dispatched, 200 |
+
+The third row is the defect reproduced live on a route that still has the old constant: it is the same `TypeError` the calculator's catch turned into "Could not reach the engine", which is why this is evidence and not an argument.
+
+**Regression test at the browser layer** — 6 tests in `workers/__tests__/calculator.test.ts` simulating what a browser actually checks (status, allowed origin, allowed method, every requested header matched case-insensitively). The ALL-N assertion **derives the bearer-reading route list from the worker source** rather than restating it, so a future bearer route that forgets its preflight fails the suite. **Failability: with the new OPTIONS branch disabled, 4 of the 6 go red with the defect's own signature** — `header Authorization not allowed. Allow-Headers was "Content-Type, X-Update-Secret"`.
+
+**Byte-identity, both layers:**
+- route-level probe vs `main`, frozen KV, real `fetch` handler, 54 configs → **54/54 identical**
+- live `/revenue`, 54 configs, **pre-deploy 11:08:12Z vs post-deploy 11:10:00Z, same UTC hour** → **54/54 identical** (new `scripts/_phase-37-h1-live-revenue-probe.mjs`; refuses to write a capture that straddles the tick, and carries a vacuity guard against 54 error pages comparing equal)
+- across the 12:00 UTC tick → see the post-tick line at the end of this entry
+
+#### 2 · B-046 — digest **NOT ARMED**, and the reason is a bigger finding than last session's
+
+Two premises checked at execution time, both false:
+
+1. **No detector runner exists.** `grep -rn "admin/fleet-lifecycle" --include=*.{js,mjs,ts,sh,py,yml,yaml} . | grep -v node_modules | grep -v workers/fetch-s1.js` → **16 hits, every one in `workers/__tests__/fleetLifecycle.test.ts`**. `lifecycle.mjs` is a pure interpreter; `POST /admin/fleet-lifecycle` is its ingest endpoint; **nothing constructs observations from real sources and posts them.** `fleet_lifecycle:detectors` has one writer, fed by a caller that does not exist. "Trigger the detectors once for real" is not a trigger — it is an unbuilt runner, and a phase rather than a hygiene item. Session 99 reported the missing `UPDATE_SECRET`; the runner is the deeper blocker and was not visible then.
+2. **CC still holds no `UPDATE_SECRET`** — keychain empty, not in env, not in `.env` / `.env.local`. The admin endpoints are unreachable from here regardless.
+
+So arming stays refused, now on two grounds. `/health.fleet_lifecycle` still reads `"status":"never_run"`, and the renderer would emit *"No detector has ever reported — this digest cannot distinguish a quiet week from a dead pipeline."*
+
+**B8 — how would we know if the digest silently stopped? Before this session: we would not.** `fleet_lifecycle:last_digest_at` was written on a real send and read only to window the next one; it was surfaced nowhere. The prompt makes the staleness surface the precondition for arming, so that is what shipped (own commit, `d65beb5`):
+
+```
+/health.fleet_lifecycle.digest   BEFORE: (field did not exist)
+                                  AFTER: {"armed": false, "cron": null,
+                                          "expected_every_hours": 168,
+                                          "last_sent_at": null, "age_hours": null,
+                                          "status": "not_armed"}
+```
+`status` ∈ `not_armed | armed_never_sent | ok | overdue`. **Unarmed is a state, never "ok"** — asserted directly, because "unarmed reading as healthy" is the failure this exists to prevent.
+
+**Arming is now one edit in two places that must agree**, and a test reads both `LIFECYCLE_DIGEST_CRON` and `wrangler.toml`'s `[triggers]` and fails on divergence, so `/health` can never advertise a schedule the worker lacks. **Failability: setting the constant to `'0 7 * * 1'` without touching wrangler.toml turns 2 of the 5 new tests red** — `wrangler.toml has no cron matching 0 7 * * 1`.
+
+**First-firing statement, as required — there is none.** The digest is unarmed; no scheduled firing exists in UTC or in local time. When it is armed, the surface above will state its cron, and the first firing will be the first occurrence of that expression after the deploy that arms it.
+
+#### 3 · 37.D counterfactual — the enrichment path is live, proved by making it move
+
+Batch-2's 0 MW is correct **and indistinguishable from inert code**. Now proved by counterfactual, at the payload layer, with a synthetic citable-capacity row on `example.invalid` (RFC 2606) modelled on a VERT permit / Litgrid queue entry:
+
+| rows | `added_mw` | `baltic_mw` |
+|---|---|---|
+| baseline (real evidence shape) | 0 | 150 |
+| + permit row, 75 MW, tier 1.0 | **75** | **225** |
+| + queue row, 50 MW, tier 0.6 | **30** | **180** |
+| + both | **105** | — |
+| row removed | 0 | 150, payload identical to baseline |
+
+`site_total_mw` is 110 against a 75 MW battery, so a connection-capacity leak reads 110 and fails rather than passing plausibly.
+
+**FAILABILITY — the whole point.** With `threeSupplyBases` rewired to ignore the enrichment path, **all 26 of batch-2's original assertions still pass and only the 4 new ones go red** (`expected +0 to be 75`). That is the measured size of the gap this closes. One of the four initially passed for the wrong reason — `rows_considered` changes with the row list even when enrichment is dead — and was sharpened to assert on `added_mw` directly.
+
+**Conjunction rule, head-on.** A `public-confirmed` row (tier weight 1.0, asserted) carrying `bess_mw: 3583.5` behind a registry-only citation contributes **0 MW** at the unit layer and again at the payload layer, and 3583.5 appears nowhere in the payload. The same row with a capacity citation appended **does** contribute — so the refusal is demonstrably the citation, not something incidental. `tools/fleet-intel/lib/supply.mjs` verified byte-identical to HEAD after the failability runs (empty `git diff`).
+
+**No production number moves:** all 8 fixture markers scanned against every committed artifact under `tools/fleet-intel/data/` (vacuity guard on the file count), and `supply-bases.json` asserted still at 0 MW citable / 0 rows contributing.
+
+#### Also confirmed
+
+- **`FLEET_SECRET` is set** — `wrangler secret list` lists it, and behaviourally `/fleet/data` returns **401 `{"error":"Authentication required."}"`**, not the 503 an unset secret produces. Fail-closed design intact.
+- **B11 discriminate control holds on the fleet routes:** `/fleet/data` → 401 vs `/fleet/zzqqxx-nonsense` → 200 (S1 payload, via the catch-all) — different responses, so the gate is a real gate and not "everything 401s". **Not proven: "serves authenticated."** That needs the `FLEET_SECRET` value, which CC does not hold. Owed.
+- Unrelated observation while running the control: the worker has **no 404** — any unmatched path falls through to the S1 payload with 200. Public data, so not a leak, but it means path-shaped probes cannot distinguish "route absent" from "route present". Worth a decision at some point.
+
+#### Gates at close
+
+`docs/_private/` never staged (`assert-no-private-staged.sh` PASS, run before and after staging) · no private value in any new surface, asserted · leak tests still failable · **suite 1895/1895, 100 files** · eslint **0 errors / 0 new warnings in all four changed files** (repo baseline of 87 errors / 110 warnings is pre-existing and untouched) · `lint:no-editorial-chips` and `lint-no-raw-spacing` clean · `/revenue` **54/54 at the route layer and 54/54 live across the deploy** · both deploys after origin-SHA equality with a clean deployed surface.
+
+#### Owed
+
+1. **The rendered full-tier browser round trip.** The preflight is fixed and proven from a real browser origin, but a rendered full-tier *result* needs a signed-in session, and CC does not enter passwords into fields. Operator signs in at kkme.eu/calculator (KKME link in the footer); the remaining verification is a single COMPUTE click.
+2. **A fleet-lifecycle detector runner** — the real blocker on the weekly digest. Scope it as a phase, not a hygiene item.
+3. **`/fleet` authenticated-serve verification**, which needs the `FLEET_SECRET` value.
+
 ### Session 99 — 2026-08-01 — Phase 37 batch-2: /fleet console + forecast wiring (Claude Code, semi-autonomous — STOPPED AT CP)
 
 **Branch `phase-37-batch-2`, pushed, 2 commits. Suite 100 files / 1874 tests green. Worker additive-only (101 insertions, 0 deletions).**
