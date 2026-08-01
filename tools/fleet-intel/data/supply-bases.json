@@ -1,0 +1,111 @@
+{
+  "_note": "Phase 37.D. Three supply bases side by side, plus the hybrid band that applies to all three. PUBLIC-SAFE: aggregate counts only. No project, SPV, contact, comment or APVA value appears, and the builder refuses to write if one does.",
+  "generated_at": "2026-08-01T10:45:28.006Z",
+  "id": "supply_basis_three_way",
+  "label": "KKME-verified bottom-up · Litgrid L TrSc · pre-37 baseline",
+  "gated": false,
+  "bases": {
+    "pre_37_baseline": {
+      "label": "Pre-37 baseline — the public fleet as published",
+      "baltic_mw": 16020.4,
+      "basis": "sum of public fleet entry MW, every entry at full site capacity"
+    },
+    "kkme_verified_bottom_up": {
+      "label": "KKME-verified bottom-up — 37.A evidence set",
+      "added_mw": 0,
+      "baltic_mw": 16020.4,
+      "rows_considered": 141,
+      "rows_contributing": 0,
+      "basis": "Only rows whose citation speaks to CAPACITY contribute. A registry citation confirms a legal entity, not a battery or its size.",
+      "note": "Zero. No row in the evidence set carries a citation that speaks to capacity, so there is nothing citable to add. This is a finding about the evidence, not about the market."
+    },
+    "litgrid_l_trsc": {
+      "label": "Litgrid L TrSc — the TSO's own published series (LT only)",
+      "by_year": {
+        "2028": 1260,
+        "2030": 2115,
+        "2033": 2428,
+        "2035": 2652
+      },
+      "basis": "as-published, no realisation rate and no haircut of ours"
+    }
+  },
+  "hybrid_band": {
+    "lower_mw": 11975.7,
+    "upper_mw": 16020.4,
+    "width_mw": 4044.7,
+    "basis": "upper = every entry counted at full site MW (status quo); lower = publicly-identifiable hybrids contribute 0 BESS MW",
+    "derivation": "PUBLIC FLEET ONLY — no private-tier input of any kind",
+    "incompleteness": {
+      "note": "Hybrid identification here uses only the generation technology named in the public entry. Entries named after a company rather than a technology cannot be classified publicly, and the public fleet carries a usable type field on a small minority of entries.",
+      "consequence": "flagged_count UNDERSTATES the hybrid population; the band understates the uncertainty."
+    },
+    "rules_for_consumers": [
+      "DO NOT apply a point correction to hybrid BESS capacity. Carry the band.",
+      "The private BESS-MW column must never contribute to a published or client-facing number, in either direction.",
+      "Any published sd_ratio / cannibalisation / IRR figure derived from supply must state the band, not a midpoint. A midpoint is a point estimate wearing a range costume.",
+      "The band is a FLOOR ON UNCERTAINTY, not a complete accounting: an unknown further subset of entries are hybrids that carry no public generation-technology signal, so the true lower bound sits below lower_bess_mw."
+    ],
+    "provenance": {
+      "generated_by": "tools/fleet-intel/build-hybrid-band.mjs",
+      "fleet_source": "https://kkme-fetch-s1.kastis-kemezys.workers.dev/s4/fleet",
+      "phase": "37.A.1",
+      "generated_at": "2026-07-31T09:23:18.786Z",
+      "fleet_updated_at": "2026-07-31T08:01:14.694Z"
+    }
+  },
+  "note": "Three claims about the same market, not a target and two measurements. The hybrid band applies to all three: any figure here counts hybrid sites at full connection capacity (the band's UPPER bound), because no public source decomposes them.",
+  "verified_contribution": {
+    "mw": 0,
+    "rows_considered": 141,
+    "rows_contributing": 0,
+    "rows_excluded": 141,
+    "exclusion_reasons": {
+      "no public source corroborates this row": 105,
+      "citation confirms the legal entity only — the capacity is not citable": 36
+    },
+    "tier_tally": {
+      "private-only": 105,
+      "public-confirmed": 36
+    },
+    "tier_weights": {
+      "public-confirmed": 1,
+      "corroborated": 0.6,
+      "private-only": 0
+    },
+    "finding": "The citable contribution to published supply is 0 MW. Every row in the evidence set is either private-only, or public-confirmed by a citation that establishes a legal entity without stating a capacity. A registry entry proves a company exists; it does not prove a battery exists or how large it is. Publishing the rows' site totals would mean publishing private testimony behind a registry citation."
+  },
+  "retired_mw_accounting": {
+    "id": "retired_mw_accounting",
+    "label": "Retired MW ties to fleet entries, every retirement cited",
+    "gated": true,
+    "ok": true,
+    "retired_count": 0,
+    "retired_mw": 0,
+    "unmatched_ids": [],
+    "uncited_ids": [],
+    "note": "Every retirement resolves to a fleet entry and carries a resolvable citation."
+  },
+  "litgrid_meta": {
+    "source": "litgrid-fna-2026",
+    "location": "table 41, p.145 — \"Esamos EEKĮ apimtys vertinime\"",
+    "basis": "as-published",
+    "interpolation": "linear",
+    "trend_basis": "last-segment",
+    "trend_reason": "The series decelerates hard — 29.5 %/yr over 2028-2030, then 4.7 % and 4.5 % — because the early years absorb a build-out surge that is already contracted. A full-range CAGR (11.2 %/yr) would extrapolate that surge to 2048 and produce a number Litgrid does not imply. The last published segment is the honest continuation.",
+    "scope_note": "Lithuania only. The scenario replaces the LT share of projected supply and leaves EE and LV on KKME's own projection, because Litgrid forecasts Lithuania and nothing else. Kruonis PSP remains additive: this series is EEKĮ (battery storage), which excludes it."
+  },
+  "unblocker": {
+    "what": "A public source stating BATTERY capacity for these projects — a permit register entry, a TSO connection-queue record, or a regulator decision naming MW.",
+    "effect": "Each one converts a row from entity-confirmed to capacity-citable and lets it enter published supply at its tier weight. Until then the bottom-up basis is a count of companies, not a quantity of storage.",
+    "status": "NOT YET SOURCED"
+  },
+  "provenance": {
+    "generated_by": "tools/fleet-intel/build-supply-bases.mjs",
+    "phase": "37.D",
+    "fleet_source": "https://kkme-fetch-s1.kastis-kemezys.workers.dev/s4/fleet",
+    "fleet_updated_at": "2026-08-01T08:00:51.983Z",
+    "fleet_offline_cache": false,
+    "private_intake_present": true
+  }
+}

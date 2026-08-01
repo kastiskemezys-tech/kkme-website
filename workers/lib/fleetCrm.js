@@ -23,6 +23,7 @@ import { timingSafeEqual } from './calculator.js';
 // authenticated payload. Single artifact either way (rule #4) — only the transport
 // changed.
 import HYBRID_BAND from '../../tools/fleet-intel/data/hybrid-band.json' with { type: 'json' };
+import { publishability } from '../../tools/fleet-intel/lib/publishability.mjs';
 
 export { HYBRID_BAND };
 
@@ -167,39 +168,11 @@ export function bessFigureForRow(row) {
 /**
  * Whether a row's facts may contribute to a published number.
  *
- * Deliberately stricter than `verification_status` alone. A registry citation
- * proves a legal entity exists; it does not prove a battery exists or how large
- * it is. Pause A found all 36 public-confirmed rows carry exactly one registry
- * citation of that shape and `bess_mw = 0`, so "public-confirmed" on its own
- * would have licensed publishing 3 583.5 MW of private testimony.
- *
- * Returns the reason as well as the verdict, because the CRM shows the reason.
+ * The implementation lives in tools/fleet-intel/lib/publishability.mjs so that the
+ * console and 37.D's supply weighting cannot drift apart (rule #4). Re-exported
+ * here because the console is its other consumer.
  */
-export function publishability(row) {
-  const tier = row?.verification_status;
-  if (tier !== 'public-confirmed' && tier !== 'corroborated') {
-    return { publishable: false, reason: 'no public source corroborates this row', capacity_citable: false };
-  }
-  const citations = Array.isArray(row?.citations) ? row.citations : [];
-  const resolvable = citations.filter((c) => c && /^https?:\/\//.test(String(c.url ?? '')));
-  if (resolvable.length === 0) {
-    return { publishable: false, reason: 'no citation with a resolvable URL', capacity_citable: false };
-  }
-  // Does any citation actually speak to CAPACITY, as opposed to the existence of
-  // the company? Entity-existence wording is the whole of the current evidence
-  // set, so this is the check that keeps 0 MW at 0 MW.
-  const capacityCitable = resolvable.some((c) => {
-    const what = String(c.what_it_confirms ?? '').toLowerCase();
-    return /\b(mw|mwh|capacity|jauda|galia|megavat)/.test(what);
-  });
-  return {
-    publishable: true,
-    reason: capacityCitable
-      ? 'citation speaks to capacity'
-      : 'citation confirms the legal entity only — the capacity is not citable',
-    capacity_citable: capacityCitable,
-  };
-}
+export { publishability };
 
 /**
  * Build the operator console payload.
