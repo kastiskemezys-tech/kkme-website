@@ -2,6 +2,43 @@
 
 ---
 
+## ✅ RESOLVED, 2026-08-01 — a stale worktree from a branch checkout. Not a defect. Nothing was ever lost.
+
+The reflog names the operation to the second. All times +0300 (UTC+3):
+
+```
+13:39:26  checkout: moving from phase-36-b036-activation-source to evidence-refresh/2026-07
+13:39:27  commit 1d8ae0a: 36.E0.1: evidence-base refresh 2026-07-30 — the first run, executed end-to-end
+13:39:41  push evidence-refresh/2026-07
+13:40:02  checkout: moving from evidence-refresh/2026-07 to phase-36-b036-activation-source   ← this
+```
+
+`13:40:02 +0300` = **10:40:02 UTC**, matching the mtime on all three files exactly. The refresh ran on `phase-36-b036-activation-source`, was committed and pushed on `evidence-refresh/2026-07`, and the checkout **back** to a branch whose tip predates it rewrote those tracked files to that branch's committed state — the pre-refresh acquisition data — stamping every one with the checkout's wall-clock time. Whole-file consistency plus a shared mtime is the signature of a ref-changing git operation, and it needs no rollback path in any script, which is why grepping for one found nothing.
+
+**Nothing was destroyed and nothing was at risk.** The refreshed state was committed at `1d8ae0a`, pushed, and is an **ancestor of HEAD** — verified, and HEAD's committed `.gz` blobs hash to exactly the shas the HEAD manifest records. The working tree was simply *stale* on three files. It carried nothing unique.
+
+**Which makes the correct restore the opposite of what this document first concluded.** Reconciling the manifest *down* to the stale data was the wrong direction: the authoritative state is in git, so all three files were restored together with `git checkout main -- <manifest> <2 shards>`, giving a consistent post-refresh artifact with genuine provenance.
+
+Verified after:
+
+```
+checksums  16/16 valid
+rows tie   sum(files)=286137  manifest.rows=286137  OK
+loader     rows = 286137 · filesChecked = 16 · manifest.rows = 286137
+coverage   8 fields · 186 per_month entries
+provenance retrieved_at, acquisition_retrieved_at, refresh_cadence_months,
+           last_successful_refresh, last_refresh   (all five present)
+
+source       status   cadence  last success  age   threshold
+activation   fresh    1m       2026-07-30    2d    60d
+```
+
+`fresh / 2d` — and it is true, because the data it describes is now on disk. **B-048 closes as not-a-defect.**
+
+What survives for 36.E0.2 is unchanged from the correction below: the two-writer gap in `fetch-activation-prices.mjs` is real but unexercised, and provenance-absence-as-ERROR must not be built.
+
+---
+
 ## ⚠️ CORRECTION, 2026-08-01, before the restore — the diagnosis below is WRONG about cause and severity
 
 Attempting the restore forced a check the diagnosis never made: **which state are the data files on disk actually in?** The answer inverts the finding.
