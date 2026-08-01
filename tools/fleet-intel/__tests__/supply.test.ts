@@ -17,6 +17,8 @@ import {
   threeSupplyBases, retiredMwAccounting, assertNoPrivateOnlyInPublished,
 } from '../lib/supply.mjs';
 import { publishability, citationSpeaksToCapacity } from '../lib/publishability.mjs';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 
 const REGISTRY_ONLY = {
   source_type: 'registry',
@@ -232,5 +234,165 @@ describe('37.D — retired-MW accounting ties', () => {
     const r = retiredMwAccounting({ fleetEntries: fleet, transitions: many });
     expect(r.ok).toBe(false);
     expect(r.retired_mw).toBe(0);
+  });
+});
+
+// ── 37.D counterfactual: the enrichment path is LIVE, not merely correct ────
+//
+// Batch-2's contribution was 0 MW, which is the right answer under our own
+// rules. It is also the answer that inert code gives. Nothing in the batch could
+// tell the two apart: a `verifiedSupplyContribution` that returned a hardcoded
+// zero, or a `threeSupplyBases` that never called it, would have passed every
+// assertion in this file. So the wiring is proved by counterfactual — a row that
+// SHOULD move supply is inserted, the movement is asserted at the payload layer
+// by its exact magnitude, and its removal must return the payload to baseline.
+//
+// The fixture is synthetic and lives only here. Its citability is modelled on
+// what a real VERT permit or TSO queue entry provides: a public document that
+// states a battery rating, not merely that a company exists. `example.invalid`
+// is reserved by RFC 2606 and can never resolve.
+
+const SYNTH_VERT_PERMIT = {
+  source_type: 'permit',
+  url: 'https://example.invalid/vert/leidimas/SYNTH-2026-0001',
+  what_it_confirms: 'permit states 75 MW / 150 MWh battery (galia 75 MW) at the named site',
+};
+const SYNTH_TSO_QUEUE = {
+  source_type: 'tso_queue',
+  url: 'https://example.invalid/litgrid/queue/SYNTH-Q-0002',
+  what_it_confirms: 'connection queue entry lists 50 MW of storage capacity',
+};
+
+/** Citable capacity, top tier → contributes bess_mw × 1.0. */
+const SYNTH_CITABLE_PERMIT_ROW = {
+  id: 'fi-synth-counterfactual-permit', country: 'LT', spv: 'UAB "Kontrafaktinis"',
+  verification_status: 'public-confirmed', citations: [SYNTH_VERT_PERMIT],
+  // Deliberately different from bess_mw: if site_total_mw ever leaked into the
+  // sum, the assertions below would read 110, not 75.
+  site_total_mw: 110, bess_mw: 75, plant_type: 'BESS',
+};
+/** Citable capacity, corroborated → contributes bess_mw × 0.6. */
+const SYNTH_CITABLE_QUEUE_ROW = {
+  id: 'fi-synth-counterfactual-queue', country: 'LT', spv: 'UAB "Eile"',
+  verification_status: 'corroborated', citations: [SYNTH_TSO_QUEUE],
+  site_total_mw: 60, bess_mw: 50, plant_type: 'BESS',
+};
+
+/** The real evidence set's shape — every row contributes nothing. */
+const BASELINE_ROWS = [ROW_ENTITY_ONLY, ROW_PRIVATE_ONLY];
+const FLEET = [{ id: 'a', mw: 100 }, { id: 'b', mw: 50 }];
+const bases = (privateRows: unknown[]) =>
+  threeSupplyBases({ fleetEntries: FLEET, privateRows, litgridMwForYear: () => null });
+
+describe('37.D counterfactual — the supply trajectory moves when it should', () => {
+  it('baseline: the real evidence shape adds exactly nothing', () => {
+    const b = bases(BASELINE_ROWS).bases.kkme_verified_bottom_up;
+    expect(b.added_mw).toBe(0);
+    expect(b.baltic_mw).toBe(150);
+    expect(b.rows_contributing).toBe(0);
+  });
+
+  it('one citable row moves the published trajectory by exactly its rating', () => {
+    const b = bases([...BASELINE_ROWS, SYNTH_CITABLE_PERMIT_ROW]).bases.kkme_verified_bottom_up;
+    expect(b.added_mw).toBe(75);            // 75 × 1.0 — not 110, not 0
+    expect(b.baltic_mw).toBe(225);          // 150 + 75, at the payload layer
+    expect(b.rows_contributing).toBe(1);
+    // The zero-note must disappear: it would be a false statement now.
+    expect(b.note).toBeNull();
+  });
+
+  it('a corroborated citable row moves it by the haircut amount, not the full rating', () => {
+    const b = bases([...BASELINE_ROWS, SYNTH_CITABLE_QUEUE_ROW]).bases.kkme_verified_bottom_up;
+    expect(b.added_mw).toBe(30);            // 50 × 0.6
+    expect(b.baltic_mw).toBe(180);
+  });
+
+  it('both rows compose — 75 + 30, so neither is silently overwriting the other', () => {
+    const b = bases([...BASELINE_ROWS, SYNTH_CITABLE_PERMIT_ROW, SYNTH_CITABLE_QUEUE_ROW])
+      .bases.kkme_verified_bottom_up;
+    expect(b.added_mw).toBe(105);
+    expect(b.rows_contributing).toBe(2);
+  });
+
+  it('removing the row returns the payload to baseline, byte for byte', () => {
+    const before = bases(BASELINE_ROWS);
+    const moved = bases([...BASELINE_ROWS, SYNTH_CITABLE_PERMIT_ROW]);
+    const after = bases(BASELINE_ROWS);
+
+    // Assert the MW moved, not merely that the payload differs: `rows_considered`
+    // changes with the row list even when the enrichment path is dead, so a
+    // whole-payload inequality would pass against inert code.
+    expect(moved.bases.kkme_verified_bottom_up.added_mw)
+      .not.toBe(before.bases.kkme_verified_bottom_up.added_mw);
+    expect(JSON.stringify(after)).toBe(JSON.stringify(before));       // and it really returned
+  });
+});
+
+describe('37.D counterfactual — the conjunction rule, tested head-on', () => {
+  // The arc's tier mapping alone said "public-confirmed → full STATUS_WEIGHT".
+  // Applied literally to the real evidence set, that licenses publishing
+  // 3 583.5 MW of private testimony standing behind a registry citation. This
+  // is the row shape that would have done it.
+  const ROW_TIER_WITHOUT_CAPACITY = {
+    id: 'fi-synth-counterfactual-registry-only', country: 'LV', spv: 'SIA "Registrs"',
+    verification_status: 'public-confirmed',
+    citations: [{
+      source_type: 'registry',
+      url: 'https://example.invalid/ur/40200000001',
+      what_it_confirms: 'entity resolves in the Latvian Uzņēmumu reģistrs, reg. 40200000001, status active',
+    }],
+    site_total_mw: 3583.5,
+    bess_mw: 3583.5,          // present and large — the gate must still refuse it
+    plant_type: 'BESS',
+  };
+
+  it('top tier plus a large battery figure still contributes 0 without a capacity citation', () => {
+    const v = verifiedSupplyContribution([ROW_TIER_WITHOUT_CAPACITY]);
+    expect(v.mw).toBe(0);
+    expect(v.included).toEqual([]);
+    expect(v.excluded[0].reason).toMatch(/legal entity only/i);
+    // Tier weight alone would have said 3583.5 — the second gate is what stops it.
+    expect(TIER_WEIGHT[ROW_TIER_WITHOUT_CAPACITY.verification_status]).toBe(1.0);
+  });
+
+  it('and it stays 0 at the payload layer, where the number would be published', () => {
+    const b = bases([...BASELINE_ROWS, ROW_TIER_WITHOUT_CAPACITY]).bases.kkme_verified_bottom_up;
+    expect(b.added_mw).toBe(0);
+    expect(b.baltic_mw).toBe(150);
+    expect(JSON.stringify(b)).not.toContain('3583.5');
+  });
+
+  it('the SAME row with a capacity citation added does contribute — so the refusal is the citation, not the row', () => {
+    const promoted = { ...ROW_TIER_WITHOUT_CAPACITY, bess_mw: 75, citations: [...ROW_TIER_WITHOUT_CAPACITY.citations, SYNTH_VERT_PERMIT] };
+    expect(verifiedSupplyContribution([promoted]).mw).toBe(75);
+  });
+});
+
+describe('37.D counterfactual — no production number moves', () => {
+  const FIXTURE_MARKERS = [
+    'example.invalid',
+    'fi-synth-counterfactual-permit',
+    'fi-synth-counterfactual-queue',
+    'fi-synth-counterfactual-registry-only',
+    'Kontrafaktinis', 'Eile', 'SYNTH-2026-0001', 'SYNTH-Q-0002',
+  ];
+
+  it('no fixture marker appears in any committed fleet-intel artifact', () => {
+    const dir = join(__dirname, '../data');
+    const files = readdirSync(dir).filter((f) => f.endsWith('.json'));
+    expect(files.length, 'no artifacts scanned — this gate would be vacuous').toBeGreaterThan(0);
+    for (const f of files) {
+      const text = readFileSync(join(dir, f), 'utf8');
+      for (const marker of FIXTURE_MARKERS) {
+        expect(text.includes(marker), `${f} contains fixture marker ${marker}`).toBe(false);
+      }
+    }
+  });
+
+  it('the committed supply-bases artifact still reports 0 MW citable', () => {
+    const artifact = JSON.parse(readFileSync(join(__dirname, '../data/supply-bases.json'), 'utf8'));
+    expect(artifact.verified_contribution.mw).toBe(0);
+    expect(artifact.verified_contribution.rows_contributing).toBe(0);
+    expect(artifact.bases.kkme_verified_bottom_up.added_mw).toBe(0);
   });
 });
