@@ -39,6 +39,14 @@ const has = (f) => args.includes(f);
 const WRITE = has('--write');
 const REFRESH_REGISTER = has('--refresh-register');
 const NO_VPS = has('--no-vps');
+/**
+ * `--emit-payload <file>` writes exactly the body `--write` would POST, and posts
+ * nothing. It exists so the send can be made from where UPDATE_SECRET already
+ * lives (the VPS config the crons source) instead of copying a production secret
+ * into a laptop shell to run one curl. Same payload, same leak assertions, one
+ * fewer place the secret has ever been.
+ */
+const EMIT_PAYLOAD = args.includes('--emit-payload') ? args[args.indexOf('--emit-payload') + 1] : null;
 
 const PRIVATE_INTAKE = path.join(ROOT, 'docs/_private/fleet-intel/intake-latest.json');
 const PRIVATE_OUT = path.join(ROOT, 'docs/_private/fleet-intel/lifecycle-proposals-latest.json');
@@ -196,6 +204,7 @@ const loadState = () => {
       population: pop,
       source_stats: sourceStatsFor(signal.id, { lv, vert, press, prevSnap, fleet }),
       ...(signal.source === 'lv_ur_opendata' ? { controls } : {}),
+      ...capability(signal.id, { lv, vert, press, prevSnap, fleet, controls }),
     };
 
     if (health.status !== DETECTOR.HEALTHY) {
@@ -249,6 +258,7 @@ const loadState = () => {
     max_age_hours: discoverySignal.meta_monitor?.max_age_hours ?? null,
     consecutive_zero_runs: zeroRuns,
     controls,
+    ...capability('new_entity_unmatched', { lv, vert, press, prevSnap, fleet, controls }),
     population: { rows_in_scope: sweep.scanned_name_keys ?? 0, rows_eligible: sweep.probed ? (sweep.scanned_name_keys ?? 0) : 0 },
     source_stats: { candidates_total: sweep.candidates_total ?? null, capped: sweep.capped ?? null, cap: sweep.cap ?? null },
   };
@@ -289,12 +299,10 @@ const loadState = () => {
   console.log(`report       → ${path.relative(ROOT, REPORT_OUT)}`);
 
   // ── 8. write path ──────────────────────────────────────────────────────────
-  if (!WRITE) {
-    console.log('\nREPORT-ONLY: nothing was written to the worker. Re-run with --write after review.');
+  if (!WRITE && !EMIT_PAYLOAD) {
+    console.log('\nREPORT-ONLY: nothing was written to the worker. Re-run with --write (or --emit-payload) after review.');
     return;
   }
-  const secret = process.env.UPDATE_SECRET;
-  if (!secret) { console.error('\n--write requires UPDATE_SECRET in the environment.'); process.exit(1); }
 
   // Hard rule: private-tier proposals NEVER enter fleet_lifecycle:transitions. That
   // log is what the weekly digest renders and sends to Telegram, so anything landing
@@ -307,6 +315,10 @@ const loadState = () => {
   const payloadDetectors = Object.fromEntries(Object.entries(detectors).map(([id, d]) => [id, {
     status: d.status, last_run_at: d.last_run_at, reasons: d.reasons,
     max_age_hours: d.max_age_hours, rows_eligible: d.population?.rows_eligible ?? null,
+    source_reachable: d.source_reachable ?? null,
+    source_usable: d.source_usable ?? null,
+    population_unit: id === 'new_entity_unmatched' ? 'register-name-keys' : 'fleet rows',
+    ...(d.baseline_present === undefined ? {} : { baseline_present: d.baseline_present }),
   }]));
   const check = findPrivateLeaks({ transitions: payloadTransitions, detectors: payloadDetectors });
   const checkContacts = findContactShapedContent({ transitions: payloadTransitions, detectors: payloadDetectors });
@@ -315,13 +327,60 @@ const loadState = () => {
     process.exit(1);
   }
 
+  const body = JSON.stringify({ transitions: payloadTransitions, detectors: payloadDetectors });
+
+  if (EMIT_PAYLOAD) {
+    fs.writeFileSync(EMIT_PAYLOAD, body);
+    console.log(`\npayload → ${EMIT_PAYLOAD} (${payloadTransitions.length} transitions, ${Object.keys(payloadDetectors).length} detectors)`);
+    console.log('POST it from a host that already holds UPDATE_SECRET. Nothing was sent from here.');
+    return;
+  }
+
+  const secret = process.env.UPDATE_SECRET;
+  if (!secret) { console.error('\n--write requires UPDATE_SECRET in the environment; use --emit-payload instead.'); process.exit(1); }
   const res = await fetch(`${WORKER}/admin/fleet-lifecycle`, {
     method: 'POST',
     headers: { 'X-Update-Secret': secret, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ transitions: payloadTransitions, detectors: payloadDetectors }),
+    body,
   });
   console.log(`\nPOST /admin/fleet-lifecycle → ${res.status} ${JSON.stringify(await res.json())}`);
 })();
+
+/**
+ * The FACTS the worker's classifyDetector derives a verdict from.
+ *
+ * Deliberately not a verdict. If the runner posted the word "checked", that string
+ * would sit in KV asserting a state of the world long after it stopped being true —
+ * the pre-written-prose failure rule #2 exists to forbid. What it posts instead is
+ * what it measured: was the source reachable, can that source produce this signal
+ * at all, and does the diff have a baseline. The reader computes the rest.
+ *
+ * `source_usable` is the sharp one. A source can be perfectly reachable and still
+ * be unable to produce its signal — lv_press returns 150 items a day and cannot
+ * detect a cancellation, because it scans for commissioning.
+ */
+function capability(signalId, { lv, vert, press, prevSnap, fleet, controls }) {
+  const registryUsable = Boolean(lv.reachable && controls.passed);
+  switch (signalId) {
+    case 'registry_terminated':
+    case 'registry_absent':
+    case 'new_entity_unmatched':
+      return { source_reachable: Boolean(lv.reachable), source_usable: registryUsable };
+    case 'vert_permit_expired':
+      // Reachable AND usable: VERT really does publish permit expiries, just very
+      // few of them. That makes this BLIND, not no-source — a different problem
+      // with a different fix, and the digest must not conflate them.
+      return { source_reachable: Boolean(vert.reachable), source_usable: Boolean(vert.reachable) };
+    case 'queue_disappearance':
+      return { source_reachable: Boolean(fleet.reachable), source_usable: Boolean(fleet.reachable), baseline_present: Boolean(prevSnap.reachable) };
+    case 'press_negative':
+      return { source_reachable: Boolean(press.reachable), source_usable: false };
+    case 'evidence_stale':
+      return { source_reachable: true, source_usable: true };
+    default:
+      return { source_reachable: null, source_usable: null };
+  }
+}
 
 function sourceStatsFor(signalId, s) {
   switch (signalId) {

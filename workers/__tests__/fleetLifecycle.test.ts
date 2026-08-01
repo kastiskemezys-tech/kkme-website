@@ -146,13 +146,34 @@ describe('weekly digest — manual trigger, not yet cron-armed (B10 corollary)',
     expect(j.message).toMatch(/cannot distinguish a quiet week from a dead pipeline/);
   });
 
+  // 37.B.1 — FIXTURE SHARPENED, ASSERTION UNCHANGED. As written in 37.B this seeded
+  // `{status:'healthy'}` with no `last_run_at` — a detector claiming health without
+  // ever having run — and asserted that yields a "genuine quiet week". Under the
+  // capability census that record classifies as `never-run`, because a run that
+  // never happened cannot have found nothing. The original fixture encoded the exact
+  // conflation this phase exists to remove, so it now describes a detector that
+  // really did run and look. The inverted case is asserted directly below, per the
+  // B-036 precedent: a test that asserted the wrong thing is inverted, not deleted.
   it('distinguishes a genuine quiet week from a broken one', async () => {
+    const store = new Map<string, string>();
+    store.set('fleet_lifecycle:detectors', JSON.stringify({
+      detectors: { a: { status: 'healthy', last_run_at: new Date().toISOString(), rows_eligible: 12, source_usable: true, max_age_hours: 720, reasons: [] } },
+    }));
+    const j = await (await call(env(store), '/admin/fleet-lifecycle-digest', {
+      method: 'POST', headers: { 'X-Update-Secret': SECRET }, body: '{}',
+    })).json();
+    expect(j.message).toMatch(/genuine quiet week/);
+  });
+
+  it('a detector claiming health with no run stamp is NOT a quiet week', async () => {
     const store = new Map<string, string>();
     store.set('fleet_lifecycle:detectors', JSON.stringify({ detectors: { a: { status: 'healthy', reasons: [] } } }));
     const j = await (await call(env(store), '/admin/fleet-lifecycle-digest', {
       method: 'POST', headers: { 'X-Update-Secret': SECRET }, body: '{}',
     })).json();
-    expect(j.message).toMatch(/genuine quiet week/);
+    expect(j.message).not.toMatch(/genuine quiet week/);
+    expect(j.message).toMatch(/no working sensors/);
+    expect(j.detectors_capable).toBe(0);
   });
 
   it('surfaces unhealthy detectors in the digest body itself', async () => {
@@ -302,6 +323,95 @@ describe('37.B.1 — detector staleness is computed, not inherited', () => {
   });
 });
 
+// ── 37.B.1 — the three kinds of zero, rendered per detector ──────────────────
+//
+// Four of seven detectors currently cannot act. "All quiet" would be honest for
+// three and structurally meaningless for four, so the digest states what each
+// detector was ABLE to do and the summary counts capability, not firings. The
+// verdict is COMPUTED from measured facts — rule #2: no label asserting what was
+// checked without computing it.
+
+describe('37.B.1 digest capability census', () => {
+  const NOWISO = () => new Date().toISOString();
+  const CHECKED = { status: 'healthy', last_run_at: NOWISO(), rows_eligible: 36, source_usable: true, max_age_hours: 720, reasons: [] };
+  const BLIND = { status: 'blind', last_run_at: NOWISO(), rows_eligible: 0, source_usable: true, max_age_hours: 720, reasons: ['0 rows eligible'] };
+  const NO_SOURCE = { status: 'never_run', last_run_at: null, rows_eligible: 0, source_reachable: true, source_usable: false, max_age_hours: 336, reasons: [] };
+  const NO_BASELINE = { status: 'never_run', last_run_at: null, rows_eligible: 0, source_usable: true, baseline_present: false, max_age_hours: 336, reasons: [] };
+
+  const census = (detectors: Any) => digest(seededStore([], detectors));
+
+  it('names each of the four verdicts explicitly', async () => {
+    const j = await census({ a: CHECKED, b: BLIND, c: NO_SOURCE, d: NO_BASELINE });
+    expect(j.verdicts).toEqual({ a: 'checked', b: 'blind', c: 'no-source', d: 'no-baseline' });
+    expect(j.message).toMatch(/a: checked/);
+    expect(j.message).toMatch(/b: blind/);
+    expect(j.message).toMatch(/c: no-source/);
+    expect(j.message).toMatch(/d: no-baseline/);
+  });
+
+  it('the summary line counts CAPABILITY, not firings', async () => {
+    const j = await census({ a: CHECKED, b: BLIND, c: NO_SOURCE, d: NO_BASELINE });
+    expect(j.detectors_capable).toBe(1);
+    expect(j.detectors_total).toBe(4);
+    expect(j.message).toMatch(/1 of 4 detectors were able to fire/);
+  });
+
+  it('carries the eligible count for a detector that really looked', async () => {
+    const j = await census({ a: CHECKED });
+    expect(j.message).toMatch(/a: checked — 36 rows eligible/);
+  });
+
+  it('a week where nothing HAPPENED reads differently from one where nothing COULD', async () => {
+    const happened = await census({ a: CHECKED, b: { ...CHECKED, rows_eligible: 12 } });
+    const couldNot = await census({ c: NO_SOURCE, d: NO_BASELINE });
+    expect(happened.message).toMatch(/2 of 2 detectors looked and found nothing — a genuine quiet week/);
+    expect(couldNot.message).toMatch(/NO detector was able to fire\. This is not a quiet week/);
+    // the distinction the operator has to see at a glance
+    expect(couldNot.message).not.toMatch(/genuine quiet week/);
+    expect(happened.message).not.toMatch(/no working sensors/);
+  });
+
+  it('a partially-sighted week says so — capable count AND the blocked list', async () => {
+    const j = await census({ a: CHECKED, b: BLIND, c: NO_SOURCE });
+    expect(j.message).toMatch(/1 of 3 detectors were able to fire/);
+    expect(j.message).toMatch(/2 detector\(s\) could not fire at all/);
+    expect(j.message).toMatch(/their silence is not a finding/);
+    expect(j.message).toMatch(/b \(blind\), c \(no-source\)/);
+  });
+
+  it('staleness outranks every other verdict — a stale record describes an old run', async () => {
+    const stale = { ...CHECKED, last_run_at: new Date(Date.now() - 800 * 3600_000).toISOString(), max_age_hours: 720 };
+    const j = await census({ a: stale });
+    expect(j.verdicts.a).toBe('stale');
+    expect(j.detectors_capable).toBe(0);
+  });
+
+  it('a reachable source that cannot produce the signal is no-source, not blind', async () => {
+    // lv_press returns 150 items a day and cannot detect a cancellation. Calling
+    // that "blind" would suggest a population problem; it is a source problem, and
+    // the two have different fixes.
+    const j = await census({ press_negative: NO_SOURCE });
+    expect(j.verdicts.press_negative).toBe('no-source');
+  });
+
+  it('an unreachable-but-capable source with no run still reads never-run', async () => {
+    const j = await census({ a: { status: 'never_run', last_run_at: null, source_usable: true, rows_eligible: 5, max_age_hours: 720, reasons: [] } });
+    expect(j.verdicts.a).toBe('never-run');
+  });
+
+  it('/health and the digest agree — one classifier, not two (rule #4)', async () => {
+    const detectors = { a: CHECKED, b: BLIND, c: NO_SOURCE, d: NO_BASELINE };
+    const store = seededStore([], detectors);
+    const dj = await digest(store);
+    const hj = (await (await call(env(store), '/health')).json()).fleet_lifecycle;
+    for (const id of Object.keys(detectors)) {
+      expect(hj.detectors[id].verdict, `${id} verdict drift between /health and the digest`).toBe(dj.verdicts[id]);
+    }
+    expect(hj.capable_count).toBe(dj.detectors_capable);
+    expect(hj.detector_count).toBe(dj.detectors_total);
+  });
+});
+
 // ── 37.B.1 — the digest is an EGRESS PATH, leak-tested like a route ──────────
 //
 // Batch-2's discipline, applied to the one surface that pushes content OFF the
@@ -424,6 +534,15 @@ describe('37.B.1 digest egress — private values are provably absent', () => {
     expect(findPrivateLeaks({ transitions: [DIRTY_TRANSITION] }).length).toBeGreaterThan(0);
     // and the guarded path, on the same input, does not
     const j = await digest(seededStore([CLEAN_TRANSITION, DIRTY_TRANSITION]));
+    expect(findContactShapedContent(j)).toEqual([]);
+  });
+
+  it('the capability census carries no private data either', async () => {
+    const j = await digest(seededStore([CLEAN_TRANSITION], {
+      registry_terminated: { status: 'healthy', last_run_at: new Date().toISOString(), rows_eligible: 36, source_usable: true, max_age_hours: 720, reasons: [] },
+    }));
+    expect(j.message).toMatch(/detectors were able to fire/);
+    expect(findPrivateLeaks(j)).toEqual([]);
     expect(findContactShapedContent(j)).toEqual([]);
   });
 

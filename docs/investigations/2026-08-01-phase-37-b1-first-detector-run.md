@@ -1,6 +1,6 @@
 # Phase 37.B.1 — first detector run against real data (REPORT-ONLY)
 
-**Generated:** 2026-08-01T12:09:45.868Z · **Mode:** REPORT-ONLY — no status writes
+**Generated:** 2026-08-01T12:49:31.468Z · **Mode:** REPORT-ONLY — no status writes
 
 Aggregate counts and publishable fields only. Private-tier proposals are counted here and enumerated only in the gitignored payload.
 
@@ -12,9 +12,9 @@ Aggregate counts and publishable fields only. Private-tier proposals are counted
 | lv_ur_opendata | true | 486509 entities, 93696 former names, terminated share 54.8%, file 2026-07-31T09:11:06.673Z |
 | vert_monthly | true | 23 permits, 1 carrying an expiry (vert_20260801.json) |
 | lv_press_tripwire | true | 150 items scanned, 0 candidates (lv_press_20260801.json) |
-| queue_snapshot (prior) | false | no snapshot directory — first run establishes the baseline |
+| queue_snapshot (prior) | true | 188 rows, taken 2026-08-01T12:45:00.161Z |
 
-Baseline snapshot written this run: `.cache/fleet-lifecycle/snapshot-2026-08-01T12-09-45-868Z.json`
+Baseline snapshot written this run: `.cache/fleet-lifecycle/snapshot-2026-08-01T12-49-31-468Z.json`
 
 ## B11 controls — re-proven this run, not inherited from Pause A
 
@@ -34,7 +34,7 @@ A registry zero means something about Latvian companies only if the lookup can t
 | registry_terminated | **healthy** | 36 / 48 | 0 | every eligible row is private-tier (36) — this detector cannot produce a PUBLISHABLE transition today |
 | registry_absent | **healthy** | 36 / 48 | 0 | every eligible row is private-tier (36) — this detector cannot produce a PUBLISHABLE transition today |
 | vert_permit_expired | **blind** | 0 / 243 | 0 | 0 of 243 rows in scope were eligible for this signal (no VERT permit matches this holder name=224, 1 matching permit(s), none carrying an expiry date — the field this signal depends on is absent=15, 2 matching permit(s), none carrying an expiry date — the field this signal depends on is absent=4) — its zero is about the population, not the world |
-| queue_disappearance | **never_run** | 0 / 281 | 0 | no successful run recorded |
+| queue_disappearance | **healthy** | 182 / 281 | 182 | — |
 | press_negative | **never_run** | 0 / 329 | 0 | no successful run recorded; NO SOURCE: the lv_press tripwire is reachable but scans for commissioning keywords; no cancellation/insolvency extractor exists, so this detector cannot run at all |
 | evidence_stale | **healthy** | 212 / 329 | 176 | — |
 | new_entity_unmatched | **healthy** | 41 candidates | n/a (report-only) | — |
@@ -49,7 +49,6 @@ _No public-tier proposal. That is a result, not a null run: the detector table a
 ## Suppressed / non-healthy detectors — logged, never obeyed
 
 - **vert_permit_expired** — blind: 0 of 243 rows in scope were eligible for this signal (no VERT permit matches this holder name=224, 1 matching permit(s), none carrying an expiry date — the field this signal depends on is absent=15, 2 matching permit(s), none carrying an expiry date — the field this signal depends on is absent=4) — its zero is about the population, not the world (243 rows in scope, not evaluated)
-- **queue_disappearance** — never_run: no successful run recorded (281 rows in scope, not evaluated)
 - **press_negative** — never_run: no successful run recorded; NO SOURCE: the lv_press tripwire is reachable but scans for commissioning keywords; no cancellation/insolvency extractor exists, so this detector cannot run at all (329 rows in scope, not evaluated)
 
 ## Discovery sweep (report-only by rule)
