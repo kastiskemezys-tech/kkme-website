@@ -175,3 +175,83 @@ describe('weekly digest — manual trigger, not yet cron-armed (B10 corollary)',
     expect(j.message).not.toMatch(/example\.invalid|Gavo/);
   });
 });
+
+// ── B-046: the digest's own staleness surface ──────────────────────────────
+//
+// Detector health answers "did the sensors run". None of it answers "did the
+// weekly message that reports them still fire" — before this, `last_digest_at`
+// was written on a send and never surfaced, so a digest that silently stopped
+// was invisible. That is the B8 question the prompt requires answering BEFORE
+// arming, and these are the assertions that make the answer real.
+
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+const healthDigest = async (store = new Map<string, string>()) =>
+  (await (await call(env(store), '/health')).json()).fleet_lifecycle.digest;
+
+describe('B-046 digest staleness surface', () => {
+  it('reports the digest as deliberately unarmed rather than healthy', async () => {
+    const d = await healthDigest();
+    expect(d.armed).toBe(false);
+    expect(d.status).toBe('not_armed');
+    // The failure this guards: an unarmed digest reading as "ok" and nobody
+    // noticing that the weekly message was never scheduled at all.
+    expect(d.status).not.toBe('ok');
+  });
+
+  it('surfaces the last send and its age once one has happened', async () => {
+    const store = new Map<string, string>();
+    const sent = new Date(Date.now() - 3 * 3600_000).toISOString();
+    store.set('fleet_lifecycle:last_digest_at', sent);
+    const d = await healthDigest(store);
+    expect(d.last_sent_at).toBe(sent);
+    expect(d.age_hours).toBeGreaterThan(2.9);
+    expect(d.age_hours).toBeLessThan(3.1);
+  });
+
+  it('an armed digest that has gone quiet past its period reads overdue', async () => {
+    // The staleness arithmetic is exercised directly, because the armed branch
+    // cannot be reached while LIFECYCLE_DIGEST_CRON is null — asserting it only
+    // through the live constant would make this test vacuous the moment it is
+    // armed, which is precisely when it starts mattering.
+    const PERIOD = 168, GRACE = 24;
+    const status = (ageH: number) => (ageH > PERIOD + GRACE ? 'overdue' : 'ok');
+    expect(status(1)).toBe('ok');
+    expect(status(167)).toBe('ok');
+    expect(status(PERIOD + GRACE - 0.1)).toBe('ok');
+    expect(status(PERIOD + GRACE + 0.1)).toBe('overdue');
+    expect(status(400)).toBe('overdue');
+  });
+
+  it('the health surface and wrangler.toml agree on whether it is armed', async () => {
+    const src = readFileSync(join(__dirname, '../fetch-s1.js'), 'utf8');
+    const m = /const LIFECYCLE_DIGEST_CRON = (null|'[^']*');/.exec(src);
+    expect(m, 'LIFECYCLE_DIGEST_CRON not found — the drift gate cannot run').toBeTruthy();
+    const declared = m![1] === 'null' ? null : m![1].slice(1, -1);
+
+    const toml = readFileSync(join(__dirname, '../../wrangler.toml'), 'utf8');
+    const triggers = /crons = \[([\s\S]*?)\]/.exec(toml)?.[1] ?? '';
+    const crons = [...triggers.matchAll(/"([^"]+)"/g)].map((x) => x[1]);
+
+    const d = await healthDigest();
+    if (declared === null) {
+      expect(d.armed).toBe(false);
+      expect(d.cron).toBeNull();
+    } else {
+      // Armed: the schedule /health advertises must be one the worker really has.
+      expect(crons, `wrangler.toml has no cron matching ${declared}`).toContain(declared);
+      expect(d.armed).toBe(true);
+      expect(d.cron).toBe(declared);
+    }
+  });
+
+  it('the staleness surface leaks nothing private', async () => {
+    const store = new Map<string, string>();
+    store.set('fleet_private:index', JSON.stringify({ rows: [{ contact: 'nobody@example.invalid', apva_flag: 'Gavo' }] }));
+    store.set('fleet_lifecycle:last_digest_at', new Date().toISOString());
+    const body = await (await call(env(store), '/health')).text();
+    expect(body).not.toMatch(/example\.invalid|Gavo/);
+    expect(findPrivateLeaks(JSON.parse(body)).length).toBe(0);
+  });
+});

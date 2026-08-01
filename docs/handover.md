@@ -177,6 +177,10 @@ See [docs/map.md](map.md) for the full concept-to-file lookup table.
 | B-041 | enhancement | P2 | Activated aFRR/mFRR **volumes** not acquired — activation revenue is price × energy and only the price is held | 2026-07-30 B-036 | open | The route is found, unauthenticated and fetched at pin time: `netztransparenz.de/DesktopModules/LotesCharts/CsvDownloadHandler.ashx?request=<base64 of {LocalFrom,LocalTo,ResultTimeZone,Settings}>` with `Settings.ProduktId=1` (aFRR, quality-assured) or `17` (mFRR), `WebApiRoute="NrvSaldo/aktiviertesrl/qualitaetsgesichert"`. Verified 2026-01-05: HTTP 200, `text/csv`, 9 353 bytes, columns `50Hertz/Amprion/TenneT TSO/TransnetBW/Deutschland` × `(Positiv)`/`(Negativ)`, 15-minute, MW. Deliberately not acquired in B-036: the phase's gate was the settled price, this is a second source needing its own licence and provenance treatment, and the right shape is a join onto the A84 price rows at the same ISP and direction — analysis, not acquisition. Recipe in `docs/investigations/2026-07-30-phase-36-b036-pause-a.md` §2.1. Needed before any activation-revenue term is calibrated in E2/E3. |
 | B-043 | tech-debt | P3 | AU and DA fetchers rewrite their own fixtures on every run | 2026-07-30 36.E0.1 | open | `fetch-au-aemo.mjs` and `fetch-entsoe-da.mjs` re-cut `au-price-demand-sample.csv` and `entsoe-a44-sample.xml` each time they run, so every monthly refresh PR carries thousands of lines of fixture churn that are not content changes — noise in a diff whose entire purpose is to be reviewable in two minutes. It also defeats the point of a committed fixture, which is to be a FIXED reference a parser change can be measured against. `fetch-activation-prices.mjs` was made write-once (`--refresh-fixture` to re-cut deliberately); the same one-line guard applied to the two E0 fetchers would fix it. Left alone in B-036 as out of scope: those fetchers were not otherwise touched and changing their write behaviour deserves its own verification. First observed in PR #117. |
 | B-042 | enhancement | P3 | FI settled activation prices not acquired; NL/BE stopped publishing | 2026-07-30 B-036 | open | FI serves A84 aFRR **and** mFRR from 2021-01, so it would take the activation-break evidence from n=1 (Austria alone) to n=2. Two blockers, both real: (a) Finland's PICASSO accession date is **not in the break calendar**, and segmenting on a date inferred from the price series would be circular — the calendar-only rule exists for that reason, so the date must be primary-sourced first; (b) FI mFRR jumps from ~1 420 points/month (2024-06) to ~11 116 (2026-06), which looks like a resolution change and needs its own investigation before the series is usable. Also measured in the same run: NL and BE serve through 2024 and return nothing for 2026 — recorded, not investigated, not needed. |
+| B-048 | bug | **not-a-defect (was P1 → P3 → closed)** | **RESOLVED: a stale worktree from a branch checkout.** Nothing was ever lost | 2026-08-01 Session 100 | **closed 2026-08-01** | Reflog names it to the second: `13:39:27 +0300` commit `1d8ae0a` (the refresh) on `evidence-refresh/2026-07`, pushed `13:39:41`, then **`13:40:02` checkout back to `phase-36-b036-activation-source`** — a branch whose tip predates the refresh — which rewrote the tracked files to that branch's committed state and stamped all three with the checkout's wall-clock time. `13:40:02 +0300` = **10:40:02 UTC**, matching every mtime exactly. Whole-file consistency + shared mtime is the signature of a ref-changing git operation, needing no rollback path in any script — which is why grepping for one found nothing. The refreshed state was committed, pushed, and **is an ancestor of HEAD** (verified; HEAD's `.gz` blobs hash to the shas the HEAD manifest records). The worktree was merely stale on three files and carried nothing unique. **Restored** with `git checkout main --` on the manifest *and* both shards together — the opposite direction from the first attempt, which reconciled the manifest *down* to stale data. Verified: **checksums 16/16 · rows tie 286 137 · loader rows 286 137 / 16 files · coverage 8 fields, 186 per_month · all five provenance keys present · `activation fresh 1m 2026-07-30 2d 60d`** — true, because the data it describes is on disk. Superseded rows below kept as the record of two wrong readings. |
+| ~~B-048 (2nd reading)~~ | bug | ~~P3~~ | ~~A successful refresh was rolled back by something outside both scripts; cause unexplained~~ | 2026-08-01 | superseded — the cause was a branch checkout | **Read the CORRECTION at the top of `docs/investigations/2026-08-01-b-048-manifest-shrink.md` before acting on the row below it.** The restore forced the check the first diagnosis skipped: the two changed `.gz` shards on disk match the **worktree** manifest's sha256, not HEAD's, and manifest + both shards share mtime **2026-07-30 10:40:02 UTC** — 3 min after the refresh. `fetch-activation-prices.mjs:610` stamps `retrieved_at` at end-of-run, so a run finishing 10:40:02 cannot stamp 10:25:46.517: **no writer re-ran, the pre-refresh artifacts were restored wholesale** by something outside both scripts. Manifest and data are therefore **consistent**; `never_refreshed` is the *correct* reading and the "acquired by hand in 36.E0" message is *true* of this artifact. My earlier claim that it was false was itself the false claim. **Self-exempting corruption did not occur here** — B12 stands as a latent hazard, not an observed event. **Restored** (merge, not checkout): `acquisition_retrieved_at` + `refresh_cadence_months` only; `last_successful_refresh`/`last_refresh` deliberately withheld because their data is not on disk. Verified: checksums **16/16**, rows tie 286 135, loader green, `coverage_verification` 8/8 fields intact. **Real open question: what rolled back a successful refresh 3 minutes after it completed?** Neither script has a rollback path. **Do not re-run the refresh until that is answered** — a human may have undone it on purpose. |
+| ~~B-048 (superseded reading)~~ | bug | ~~P1~~ | ~~Manifest lost refresh provenance to a second writer, making the source immune to the staleness alarm~~ | 2026-08-01 | superseded by the row above | Full write-up: `docs/investigations/2026-08-01-b-048-manifest-shrink.md`; evidence preserved as `2026-08-01-b-048-manifest-shrink.diff`. **Not the Sweden shape:** `coverage_verification` survives byte-identical (all 8 fields, `per_month` 186 entries), no source vanished, 16/16 shards and 4/4 series present. **What was lost:** `acquisition_retrieved_at`, `last_refresh`, `last_successful_refresh`, `refresh_cadence_months`, plus `retrieved_at` rewritten *backwards* 12 min. **Cause:** two writers, one guard. `refresh-mature-markets.mjs:224 preserveAcquisitionMetadata()` was written after the Sweden incident to prevent exactly this; `fetch-activation-prices.mjs:590` builds the manifest from scratch, never reads the previous one, and bypasses the guard entirely. Attribution confirmed twice over (worktree `retrieved_at` == HEAD `acquisition_retrieved_at`; `files[]` ordering is the fetcher's market order, not `mergeManifestFiles`'s localeCompare sort). **Why it was silent, and the reason this is P1:** `activation` now reads `never_refreshed` where it read `fresh/2d`; `never_refreshed` is non-failing *by design* (`check-freshness.mjs:92`) and ships a pre-written innocent explanation ("acquired by hand in 36.E0") that is now false. A source can only become `stale` by ageing a `last_successful_refresh`, so **deleting the stamp exempts the source from the alarm permanently** — the corruption disables its own detector and the monitor narrates it as benign. Recovery is cheap *until the worktree manifest is committed*: the four keys are intact in `git show HEAD:…/activation/manifest.json`. Fix deliberately not attempted in 37.H1 (not one line, not provably scoped). |
+| B-047 | tech-debt | P2 | Worker has no 404 — every unmatched path returns the S1 payload with 200, which weakens every B11 control run against it | 2026-08-01 Session 100 | open | Found while running the B11 discriminate control on the fleet routes: `/fleet/data` → 401, but `/fleet/zzqqxx-nonsense` → **200 with the full S1 payload**, and so does `/zzqqxx-nonsense`. Not a leak — S1 is public data on a public route — but it means a path-shaped probe **cannot distinguish "route absent" from "route present"**, because absence and presence both render 200 with a plausible body. That is precisely the B11 failure mode: a page that always renders is not a search that works. Consequence: any control of the form "the real route behaves differently from a nonsense path" is weaker than it looks against this worker — it currently passes only because the gated routes 401, i.e. the discrimination comes from the *gate*, not from routing. A future probe against an *ungated* route would return 200 for a path that does not exist and could be read as evidence the route is live. Session 99's batch-1 control (`/admin/zzqqxx-nonsense` → 405) worked only because that path shape happens to fall differently. Fix: a real 404 for unmatched paths, which needs an audit of what currently relies on the catch-all before it is changed. |
 | B-035 | tech-debt | P3 | `POST /s4/migrate-fleet` copies `s2_fleet` → `s4_fleet` verbatim without recomputing | 2026-07-29 Phase 36.D | open | Sixth writer of the fleet KV and the only one that does not run `processFleet`, so it would propagate whatever demand basis the source blob carries. Secret-gated, manual, one-time migration route from the s2→s4 rename; not on any cron and not a live risk. Either delete it (the migration is long done) or make it recompute. Found while enumerating fleet writers for the 935 retirement (A7 ALL-N). |
 
 ### Backlog notes
@@ -192,6 +196,144 @@ See [docs/map.md](map.md) for the full concept-to-file lookup table.
 - **33.B (revenue data depth, P2)** — (a) re-parse `afrr_cap_avg`/`mfrr_cap_avg` from the BTD feed (Litgrid "ordered capacity" page emptied; capacity moved to BTD, not re-parsed) so the engine uses live capacity prices instead of the Phase-33 conservative constants. (b) FCR disclosure: `fcr=0.36` constant chosen this phase, dropping live `s2.fcr_avg=63` (>50 ceiling). If FCR genuinely sustains €50-60/MW/h post-synchronisation, that's an explicit operator-signed IRR move, not a silent input. The `[revenue/s2-capacity-watch]` log surfaces persistence.
 
 ## Session log
+
+### Session 100 — 2026-08-01 — Phase 37.H1 hygiene batch: browser-auth fix · digest staleness · 37.D counterfactual (Claude Code, autonomous)
+
+**Branch `phase-37-h1-hygiene`, pushed, 4 commits. Suite 100 files / 1895 tests green (1874 → 1895, +21). Two worker deploys.**
+
+**ORIGIN-SHA COMPARE — checked before each deploy:**
+```
+deploy 1 (B-045):
+  local  phase-37-h1-hygiene : a17df6d98ff63ee3e57dda8b3c04b21fcd00ccab
+  origin phase-37-h1-hygiene : a17df6d98ff63ee3e57dda8b3c04b21fcd00ccab   equal
+  git status --porcelain -- workers/ wrangler.toml : empty
+  → worker version 2eb99c6c-dbd4-4fd6-9f1c-aa046c9f8f1b
+
+deploy 2 (B-046 staleness surface):
+  local  phase-37-h1-hygiene : 0ab7779ae8b61f36ea2134b22453a710b479a571
+  origin phase-37-h1-hygiene : 0ab7779ae8b61f36ea2134b22453a710b479a571   equal
+  git status --porcelain -- workers/ wrangler.toml tools/fleet-intel/ : empty
+  → worker version b0707bd6-4ec8-441f-b32a-632c0983da19
+```
+Six tracked files were dirty on arrival and were **not touched**: `docs/research/mature-market-summary-table.md` and five under `tools/consultancy/` (`runs.jsonl` +13 rows stamped `2026-08-01T10:45–10:50Z`, `engine_git_sha ...-dirty`). They are a pre-session consultancy run, are not part of the deployed artifact, and are left for whoever owns them. **One thing in them is worth a look (B10 shape):** `data/mature-markets/activation/manifest.json` is −584 lines net across the diff (185 insertions / 622 deletions overall). A refresh that shrinks a manifest is the exact corruption path B10 names — checksums pass while the record of coverage is destroyed. Not diagnosed here; flagged.
+
+**Pause-A, the four standing questions.** (a) *Premises:* B-045's was **verified live before any edit** — the pre-fix `OPTIONS /calculate` returned `Content-Type, X-Update-Secret` with no `authorization`. B-046's premise ("trigger the detectors once for real") is **FALSE** — see below. 37.D's framing held. (b) *What consumes what changes:* the shared `CORS` constant is read at **107 sites across 34 routes** in `workers/fetch-s1.js`; the fix therefore does not touch it. (c) *What fails silently:* the digest, which is why the staleness surface is the deliverable rather than the arming. (d) *Layer and time:* preflight layer via a real `OPTIONS` exchange, browser layer via a live cross-origin control from `https://kkme.eu`, and `/revenue` compared inside one cron hour and again across the tick.
+
+---
+
+#### 1 · B-045 — the calculator's full tier can authenticate from a browser · **FIXED, DEPLOYED**
+
+**Reproduced live before touching anything** (failure-modes A3 — the prompt's claim re-checked at execution time):
+```
+$ curl -i -X OPTIONS .../calculate -H 'Origin: https://kkme.eu' \
+    -H 'Access-Control-Request-Method: POST' -H 'Access-Control-Request-Headers: authorization,content-type'
+HTTP/2 200
+access-control-allow-headers: Content-Type, X-Update-Secret        ← no authorization
+```
+A browser refuses the preflight, `fetch` rejects, and `postCalculate`'s catch renders *"Could not reach the engine."* Endpoint tests passed throughout because they call the worker directly and never preflight — **B2, the gate measured a layer no customer uses.**
+
+**A7 / ALL-N.** `grep -n "CORS" workers/fetch-s1.js | grep -v FLEET_CORS | wc -l` → **107** uses across **34 routes**. Exactly **three** routes read a bearer token: `/fleet/data` and `/fleet/comment` (already covered by 37.C's `FLEET_CORS` branch) and `/calculate`.
+
+**Fix shape — a deliberate departure from the prompt, flagged rather than assumed.** The prompt called the change non-additive and asked for the ALL-N enumeration on that basis. Widening the shared constant would indeed be non-additive, but 37.C had already faced this and refused it in a code comment (*"rather than widen the shared constant, which would change behaviour for every existing route"*). I followed that precedent: a scoped `AUTH_CORS` served only for `AUTH_PREFLIGHT_PATHS`. **The change is therefore additive at runtime, and the byte-identity gate was run anyway.**
+
+**Proof at the preflight layer** — post-deploy, live:
+```
+$ curl -i -X OPTIONS .../calculate -H 'Origin: https://kkme.eu' \
+    -H 'Access-Control-Request-Method: POST' -H 'Access-Control-Request-Headers: authorization,content-type'
+HTTP/2 200
+access-control-allow-origin: *
+access-control-allow-headers: Content-Type, X-Update-Secret, Authorization
+access-control-allow-methods: GET, POST, OPTIONS
+
+controls, unchanged:  /revenue → Content-Type, X-Update-Secret
+                      /s2      → Content-Type, X-Update-Secret
+```
+
+**⚠️ The first post-deploy check read the OLD headers and would have been reported as a failed deploy.** It was edge propagation; the correct value appeared ~20 s later. This is B3 arriving in a new costume — the banked case is `/revenue` at the cron tick, and the same wrong-time trap exists at the deploy edge. **Bank it: a post-deploy CORS/header check is not valid until it has been re-read at least once after ~30 s.**
+
+**Proof at the layer the customer touches** — executed from a real browser at `https://kkme.eu`, so Chrome performed genuine preflights. Four cells, with the discriminate control B11 asks for:
+
+| probe | outcome |
+|---|---|
+| `/calculate` **with** `Authorization` — the B-045 path | request dispatched, **200**, `tier` returned |
+| `/calculate` without `Authorization` — sample tier | request dispatched, 200 |
+| **CONTROL** `/s2` **with** `Authorization` — unchanged shared CORS | **BLOCKED BY BROWSER**, `TypeError: Failed to fetch` |
+| **CONTROL** `/s2` without `Authorization` | request dispatched, 200 |
+
+The third row is the defect reproduced live on a route that still has the old constant: it is the same `TypeError` the calculator's catch turned into "Could not reach the engine", which is why this is evidence and not an argument.
+
+**The rendered full-tier round trip — DONE, operator signed in, CC drove the rest.** `POST /calculate` from `https://kkme.eu` → **200**, `tier: "full"`, 17 top-level keys including `scenarios` and `sensitivity` (sample carries neither). Rendered on the page: no SAMPLE OUTPUT chip, `· CENTRAL` scenario in the header, the RETURNS block (**NPV @ 8% €15.75M · MOIC 3.45× · payback 4 yr · gross capex €16.40M · engine project IRR 22.3% post-tax geared**) and the Year-1 revenue bridge with per-line expansion (`€8,293,550`, `−€297,266`) — all full-tier-only surfaces. **This is the step whose absence let B-045 ship.**
+
+*One observation, not a claim.* The first COMPUTE after the sign-in still rendered the sample tier, and full tier appeared only after a page reload — at that point the signed-in chrome (scenario selector, SIGN OUT) appeared too, so this tab's React state had no knowledge of the sign-in beforehand. If the sign-in happened in a **different tab**, that is correct behaviour (localStorage is shared per-origin; React state is not). If it happened in **this** tab, the 35.2 spec's "token to localStorage → page re-renders full tier" is not holding and it is a defect. CC cannot tell which without signing in again, so it is recorded as an open question rather than filed as a bug.
+
+**Regression test at the browser layer** — 6 tests in `workers/__tests__/calculator.test.ts` simulating what a browser actually checks (status, allowed origin, allowed method, every requested header matched case-insensitively). The ALL-N assertion **derives the bearer-reading route list from the worker source** rather than restating it, so a future bearer route that forgets its preflight fails the suite. **Failability: with the new OPTIONS branch disabled, 4 of the 6 go red with the defect's own signature** — `header Authorization not allowed. Allow-Headers was "Content-Type, X-Update-Secret"`.
+
+**Byte-identity, both layers:**
+- route-level probe vs `main`, frozen KV, real `fetch` handler, 54 configs → **54/54 identical**
+- live `/revenue`, 54 configs, **pre-deploy 11:08:12Z vs post-deploy 11:10:00Z, same UTC hour** → **54/54 identical** (new `scripts/_phase-37-h1-live-revenue-probe.mjs`; refuses to write a capture that straddles the tick, and carries a vacuity guard against 54 error pages comparing equal)
+- across the 12:00 UTC tick → see the post-tick line at the end of this entry
+
+#### 2 · B-046 — digest **NOT ARMED**, and the reason is a bigger finding than last session's
+
+Two premises checked at execution time, both false:
+
+1. **No detector runner exists.** `grep -rn "admin/fleet-lifecycle" --include=*.{js,mjs,ts,sh,py,yml,yaml} . | grep -v node_modules | grep -v workers/fetch-s1.js` → **16 hits, every one in `workers/__tests__/fleetLifecycle.test.ts`**. `lifecycle.mjs` is a pure interpreter; `POST /admin/fleet-lifecycle` is its ingest endpoint; **nothing constructs observations from real sources and posts them.** `fleet_lifecycle:detectors` has one writer, fed by a caller that does not exist. "Trigger the detectors once for real" is not a trigger — it is an unbuilt runner, and a phase rather than a hygiene item. Session 99 reported the missing `UPDATE_SECRET`; the runner is the deeper blocker and was not visible then.
+2. **CC still holds no `UPDATE_SECRET`** — keychain empty, not in env, not in `.env` / `.env.local`. The admin endpoints are unreachable from here regardless.
+
+So arming stays refused, now on two grounds. `/health.fleet_lifecycle` still reads `"status":"never_run"`, and the renderer would emit *"No detector has ever reported — this digest cannot distinguish a quiet week from a dead pipeline."*
+
+**B8 — how would we know if the digest silently stopped? Before this session: we would not.** `fleet_lifecycle:last_digest_at` was written on a real send and read only to window the next one; it was surfaced nowhere. The prompt makes the staleness surface the precondition for arming, so that is what shipped (own commit, `d65beb5`):
+
+```
+/health.fleet_lifecycle.digest   BEFORE: (field did not exist)
+                                  AFTER: {"armed": false, "cron": null,
+                                          "expected_every_hours": 168,
+                                          "last_sent_at": null, "age_hours": null,
+                                          "status": "not_armed"}
+```
+`status` ∈ `not_armed | armed_never_sent | ok | overdue`. **Unarmed is a state, never "ok"** — asserted directly, because "unarmed reading as healthy" is the failure this exists to prevent.
+
+**Arming is now one edit in two places that must agree**, and a test reads both `LIFECYCLE_DIGEST_CRON` and `wrangler.toml`'s `[triggers]` and fails on divergence, so `/health` can never advertise a schedule the worker lacks. **Failability: setting the constant to `'0 7 * * 1'` without touching wrangler.toml turns 2 of the 5 new tests red** — `wrangler.toml has no cron matching 0 7 * * 1`.
+
+**First-firing statement, as required — there is none.** The digest is unarmed; no scheduled firing exists in UTC or in local time. When it is armed, the surface above will state its cron, and the first firing will be the first occurrence of that expression after the deploy that arms it.
+
+#### 3 · 37.D counterfactual — the enrichment path is live, proved by making it move
+
+Batch-2's 0 MW is correct **and indistinguishable from inert code**. Now proved by counterfactual, at the payload layer, with a synthetic citable-capacity row on `example.invalid` (RFC 2606) modelled on a VERT permit / Litgrid queue entry:
+
+| rows | `added_mw` | `baltic_mw` |
+|---|---|---|
+| baseline (real evidence shape) | 0 | 150 |
+| + permit row, 75 MW, tier 1.0 | **75** | **225** |
+| + queue row, 50 MW, tier 0.6 | **30** | **180** |
+| + both | **105** | — |
+| row removed | 0 | 150, payload identical to baseline |
+
+`site_total_mw` is 110 against a 75 MW battery, so a connection-capacity leak reads 110 and fails rather than passing plausibly.
+
+**FAILABILITY — the whole point.** With `threeSupplyBases` rewired to ignore the enrichment path, **all 26 of batch-2's original assertions still pass and only the 4 new ones go red** (`expected +0 to be 75`). That is the measured size of the gap this closes. One of the four initially passed for the wrong reason — `rows_considered` changes with the row list even when enrichment is dead — and was sharpened to assert on `added_mw` directly.
+
+**Conjunction rule, head-on.** A `public-confirmed` row (tier weight 1.0, asserted) carrying `bess_mw: 3583.5` behind a registry-only citation contributes **0 MW** at the unit layer and again at the payload layer, and 3583.5 appears nowhere in the payload. The same row with a capacity citation appended **does** contribute — so the refusal is demonstrably the citation, not something incidental. `tools/fleet-intel/lib/supply.mjs` verified byte-identical to HEAD after the failability runs (empty `git diff`).
+
+**No production number moves:** all 8 fixture markers scanned against every committed artifact under `tools/fleet-intel/data/` (vacuity guard on the file count), and `supply-bases.json` asserted still at 0 MW citable / 0 rows contributing.
+
+#### Also confirmed
+
+- **`FLEET_SECRET` is set** — `wrangler secret list` lists it, and behaviourally `/fleet/data` returns **401 `{"error":"Authentication required."}"`**, not the 503 an unset secret produces. Fail-closed design intact.
+- **B11 discriminate control holds on the fleet routes:** `/fleet/data` → 401 vs `/fleet/zzqqxx-nonsense` → 200 (S1 payload, via the catch-all) — different responses, so the gate is a real gate and not "everything 401s". **Not proven: "serves authenticated."** That needs the `FLEET_SECRET` value, which CC does not hold. Owed.
+- Unrelated observation while running the control: the worker has **no 404** — any unmatched path falls through to the S1 payload with 200. Public data, so not a leak, but it means path-shaped probes cannot distinguish "route absent" from "route present". Worth a decision at some point.
+
+#### Gates at close
+
+`docs/_private/` never staged (`assert-no-private-staged.sh` PASS, run before and after staging) · no private value in any new surface, asserted · leak tests still failable · **suite 1895/1895, 100 files** · eslint **0 errors / 0 new warnings in all four changed files** (repo baseline of 87 errors / 110 warnings is pre-existing and untouched) · `lint:no-editorial-chips` and `lint-no-raw-spacing` clean · `/revenue` **54/54 at the route layer and 54/54 live across the deploy** · both deploys after origin-SHA equality with a clean deployed surface.
+
+#### Owed
+
+1. ~~The rendered full-tier browser round trip.~~ **DONE in-session** — operator signed in, CC drove COMPUTE and captured the rendered full-tier result. See above.
+2. **A fleet-lifecycle detector runner** — the real blocker on the weekly digest. Now queued as **Phase 37.B.1** rather than a hygiene item.
+3. **`/fleet` authenticated-serve verification**, which needs the `FLEET_SECRET` value.
+4. **B-048 recovery**, and it is time-boxed: the four destroyed provenance keys survive in `git show HEAD:…/activation/manifest.json` **only until the worktree manifest is committed**. Restore before committing, or the loss becomes permanent.
+5. **The open question on calculator sign-in re-render** (above) — one line to settle next time anyone signs in on that page.
 
 ### Session 99 — 2026-08-01 — Phase 37 batch-2: /fleet console + forecast wiring (Claude Code, semi-autonomous — STOPPED AT CP)
 

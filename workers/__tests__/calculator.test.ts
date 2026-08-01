@@ -511,6 +511,140 @@ describe('loadEngineKV', () => {
   });
 });
 
+// ── B-045: the browser layer ───────────────────────────────────────────────
+//
+// Every test above this line calls the worker directly. A browser does not: it
+// sends a CORS preflight first and refuses to dispatch the real request unless
+// the response permits every header the page wants to send. That gap is exactly
+// how the full tier shipped unreachable from kkme.eu with the suite green —
+// failure-modes B2. These tests simulate the preflight, so the class fails here
+// rather than in front of a customer.
+
+/** What a browser actually checks before dispatching a preflighted request. */
+function browserWouldAllow(
+  preflight: Response,
+  requestHeaders: string[],
+  method = 'POST',
+): { ok: boolean; why?: string } {
+  if (preflight.status < 200 || preflight.status > 299) {
+    return { ok: false, why: `preflight status ${preflight.status}` };
+  }
+  const origin = preflight.headers.get('Access-Control-Allow-Origin');
+  if (origin !== '*' && origin !== 'https://kkme.eu') {
+    return { ok: false, why: `origin not allowed (${origin})` };
+  }
+  const allowedMethods = (preflight.headers.get('Access-Control-Allow-Methods') ?? '')
+    .split(',').map((s) => s.trim().toUpperCase());
+  if (!allowedMethods.includes(method)) return { ok: false, why: `method ${method} not allowed` };
+
+  const allowed = new Set(
+    (preflight.headers.get('Access-Control-Allow-Headers') ?? '')
+      .split(',').map((s) => s.trim().toLowerCase()).filter(Boolean)
+  );
+  // A browser matches header names case-insensitively; it does not honour `*`
+  // for a request that carries Authorization, so the name must be listed.
+  for (const h of requestHeaders) {
+    if (!allowed.has(h.toLowerCase())) return { ok: false, why: `header ${h} not allowed` };
+  }
+  return { ok: true };
+}
+
+const preflight = (env: Any, path: string, requestHeaders: string) =>
+  (worker as Any).fetch(
+    new Request(`https://x.kkme.eu${path}`, {
+      method: 'OPTIONS',
+      headers: {
+        Origin: 'https://kkme.eu',
+        'Access-Control-Request-Method': 'POST',
+        'Access-Control-Request-Headers': requestHeaders,
+      },
+    }),
+    env, ctx
+  );
+
+describe('B-045 browser preflight', () => {
+  it('permits the exact header set postCalculate() sends with a token', async () => {
+    const { env } = makeEnv();
+    const res = await preflight(env, '/calculate', 'authorization,content-type');
+    const verdict = browserWouldAllow(res, ['Content-Type', 'Authorization']);
+    expect(
+      verdict.ok,
+      `a browser would block the full-tier call: ${verdict.why}. ` +
+      `Allow-Headers was "${res.headers.get('Access-Control-Allow-Headers')}"`,
+    ).toBe(true);
+  });
+
+  it('still permits the sample tier, which sends no Authorization', async () => {
+    const { env } = makeEnv();
+    const res = await preflight(env, '/calculate', 'content-type');
+    expect(browserWouldAllow(res, ['Content-Type']).ok).toBe(true);
+  });
+
+  it('the preflight answer does not depend on CALC_SECRET being configured', async () => {
+    const { env } = makeEnv({ noSecret: true });
+    const res = await preflight(env, '/calculate', 'authorization,content-type');
+    expect(browserWouldAllow(res, ['Content-Type', 'Authorization']).ok).toBe(true);
+  });
+
+  it('a full browser round trip: preflight, then the POST the preflight licensed', async () => {
+    const { env } = makeEnv();
+    const token = (await (await post(env, '/calculator/login', { password: SECRET })).json()).token;
+
+    const pre = await preflight(env, '/calculate', 'authorization,content-type');
+    const verdict = browserWouldAllow(pre, ['Content-Type', 'Authorization']);
+    expect(verdict.ok, verdict.why).toBe(true);
+
+    // Only reached because the preflight passed — which is the whole point.
+    const res = await post(env, '/calculate', VALID, { Authorization: `Bearer ${token}` });
+    expect(res.status).toBe(200);
+    expect((await res.json()).tier).toBe('full');
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*');
+  });
+
+  // A7 / ALL-N, enforced from the source rather than from a list a future edit
+  // can forget to update: every route that reads a bearer token must have a
+  // preflight that advertises Authorization.
+  it('every bearer-reading route has a preflight that allows Authorization', async () => {
+    const src = readFileSync(join(REPO, 'workers/fetch-s1.js'), 'utf8').split('\n');
+    const dispatch = /request\.method === '(\w+)' && .*url\.pathname (?:===|\.startsWith\()\s*'([^']+)'/;
+
+    const routes: Array<{ path: string; prefix: boolean }> = [];
+    let current: { path: string; prefix: boolean } | null = null;
+    for (const line of src) {
+      const m = dispatch.exec(line);
+      if (m) current = { path: m[2], prefix: line.includes('startsWith') };
+      if (/\bbearerToken\(request\)|\bfleetBearerToken\(request\)/.test(line) && current) {
+        if (!routes.some((r) => r.path === current!.path)) routes.push(current);
+      }
+    }
+
+    expect(
+      routes.length,
+      'found no bearer-reading routes — the scan broke, so this gate is vacuous',
+    ).toBeGreaterThan(0);
+
+    const { env } = makeEnv();
+    for (const r of routes) {
+      const path = r.prefix ? `${r.path}probe` : r.path;
+      const res = await preflight(env, path, 'authorization,content-type');
+      const verdict = browserWouldAllow(res, ['Content-Type', 'Authorization']);
+      expect(verdict.ok, `${r.path} is unreachable from a browser with a token: ${verdict.why}`).toBe(true);
+    }
+  });
+
+  it('leaves every other route\'s preflight byte-identical', async () => {
+    const { env } = makeEnv();
+    // The shared constant's exact value, restated here so widening it later is
+    // a deliberate act with a red test attached, not a silent blast radius.
+    const SHARED = 'Content-Type, X-Update-Secret';
+    for (const path of ['/revenue', '/s2', '/s4', '/feed', '/health', '/calculator/login', '/curate']) {
+      const res = await preflight(env, path, 'content-type');
+      expect(res.headers.get('Access-Control-Allow-Headers'), path).toBe(SHARED);
+      expect(res.headers.get('Access-Control-Allow-Origin'), path).toBe('*');
+    }
+  });
+});
+
 // ── Public-route regression ────────────────────────────────────────────────
 
 describe('/revenue is unaffected', () => {

@@ -69,6 +69,51 @@ const CORS = {
   'Access-Control-Allow-Headers': 'Content-Type, X-Update-Secret',
 };
 
+/**
+ * B-045 — CORS for the routes that read a bearer token from the browser.
+ *
+ * The shared constant above does not list `Authorization`, so a browser refuses
+ * the preflight and the token never leaves the page: the calculator's full tier
+ * was unreachable from kkme.eu while every endpoint test passed, because the
+ * tests call the worker directly and never perform a preflight (failure-modes
+ * B2 — the gate measured a layer no customer uses).
+ *
+ * Scoped rather than widened, on the 37.C precedent: every other route's CORS
+ * behaviour stays byte-identical. `AUTH_PREFLIGHT_PATHS` is asserted in vitest
+ * against the set of routes that actually call `bearerToken()`, so adding a
+ * bearer-reading route without adding it here fails the suite instead of
+ * shipping another silent browser-only defect.
+ *
+ * Origin stays `*`: unlike the fleet console this is a public product surface
+ * that also serves an unauthenticated sample tier, and the token lives in
+ * kkme.eu's localStorage, which no other origin can read.
+ */
+const AUTH_CORS = {
+  ...CORS,
+  'Access-Control-Allow-Headers': 'Content-Type, X-Update-Secret, Authorization',
+};
+
+/** Non-fleet paths whose handler reads an `Authorization: Bearer` token. */
+const AUTH_PREFLIGHT_PATHS = new Set(['/calculate']);
+
+/**
+ * B-046 — the weekly fleet-lifecycle digest's schedule, declared once.
+ *
+ * `null` means deliberately NOT armed. Arming means setting this to the cron
+ * expression AND adding the same expression to wrangler.toml's [triggers];
+ * a test asserts the two agree, so the health surface can never claim a
+ * schedule the worker does not actually have, or miss one it does.
+ *
+ * Still null as of 37.H1: arming requires a first real detector run, and no
+ * detector runner exists yet — nothing outside the tests has ever POSTed to
+ * /admin/fleet-lifecycle, so `fleet_lifecycle:detectors` cannot populate. See
+ * the handover. Arming ahead of that would ship the exact B8 shape 37.B was
+ * built to prevent: a weekly "all quiet" that cannot tell quiet from dead.
+ */
+const LIFECYCLE_DIGEST_CRON = null;
+const LIFECYCLE_DIGEST_PERIOD_H = 168;   // weekly
+const LIFECYCLE_DIGEST_GRACE_H = 24;     // one missed day is late; two is overdue
+
 // ─── Fleet tracker helpers ──────────────────────────────────────────────────────
 
 function jsonResp(data, status = 200) {
@@ -7989,6 +8034,11 @@ export default {
       return new Response(null, { status: 200, headers: FLEET_CORS });
     }
 
+    // B-045 — bearer-reading routes, likewise before the general preflight.
+    if (request.method === 'OPTIONS' && AUTH_PREFLIGHT_PATHS.has(url.pathname)) {
+      return new Response(null, { status: 200, headers: AUTH_CORS });
+    }
+
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 200, headers: CORS });
     }
@@ -11090,6 +11140,36 @@ export default {
       } catch (e) {
         fleet_lifecycle.status = 'error';
         fleet_lifecycle.error = e.message;
+      }
+
+      // B-046 / B8 — the digest's OWN staleness, which is a different question
+      // from detector health. Detector health answers "did the sensors run".
+      // This answers "did the thing that tells me about them still fire", and
+      // before this block the answer was: we would not know. `last_digest_at`
+      // was written on a real send and read only to window the next one, so a
+      // digest that silently stopped firing was invisible everywhere.
+      //
+      // Arming is a single edit in two places that must agree, and a test
+      // asserts they do: LIFECYCLE_DIGEST_CRON here, and the same expression in
+      // wrangler.toml's [triggers]. Null means deliberately unarmed.
+      try {
+        const lastRaw = await env.KKME_SIGNALS.get('fleet_lifecycle:last_digest_at').catch(() => null);
+        const ageH = lastRaw ? (Date.now() - new Date(lastRaw).getTime()) / 3600000 : null;
+        const digest = {
+          armed: LIFECYCLE_DIGEST_CRON !== null,
+          cron: LIFECYCLE_DIGEST_CRON,
+          expected_every_hours: LIFECYCLE_DIGEST_PERIOD_H,
+          last_sent_at: lastRaw ?? null,
+          age_hours: ageH === null ? null : Math.round(ageH * 10) / 10,
+        };
+        // Unarmed is a state, not a fault: it must not read as "overdue" and it
+        // must not read as "ok" either.
+        if (LIFECYCLE_DIGEST_CRON === null) digest.status = 'not_armed';
+        else if (lastRaw === null) digest.status = 'armed_never_sent';
+        else digest.status = ageH > LIFECYCLE_DIGEST_PERIOD_H + LIFECYCLE_DIGEST_GRACE_H ? 'overdue' : 'ok';
+        fleet_lifecycle.digest = digest;
+      } catch (e) {
+        fleet_lifecycle.digest = { status: 'error', error: e.message };
       }
 
       const health = {
