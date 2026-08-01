@@ -1,5 +1,30 @@
 # B-048 — a manifest shrank while every checksum passed. What was actually lost, and why the gate said nothing.
 
+---
+
+## ⚠️ CORRECTION, 2026-08-01, before the restore — the diagnosis below is WRONG about cause and severity
+
+Attempting the restore forced a check the diagnosis never made: **which state are the data files on disk actually in?** The answer inverts the finding.
+
+**The data was rolled back too, not just the manifest.** `activation-at-mfrr-2026.ndjson.gz` and `activation-de-afrr-2026.ndjson.gz` on disk match the **worktree** manifest's sha256, not HEAD's (14/16 shards are identical either way). All three files — manifest and both shards — share an mtime of **2026-07-30 10:40:02 UTC**, three minutes after the refresh completed.
+
+**No second writer ran.** `fetch-activation-prices.mjs:610` evaluates `retrieved_at: new Date().toISOString()` when the manifest literal is built, immediately before the write at line 647 — end of run. A run finishing at 10:40:02 stamps 10:40:02. It cannot stamp `10:25:46.517Z`. So the worktree files are **the 10:25 acquisition artifacts, restored wholesale** by something outside both scripts. The two signals the diagnosis cited as corroboration (`retrieved_at` matching the acquisition stamp; `files[]` in the fetcher's market order) are equally consistent with a restore, and were over-read as a re-run.
+
+**Nothing is lying, and the gate is not broken.** The manifest and the data on disk are *consistent with each other*: this dataset contains no refresh output, and its manifest claims none. `never_refreshed` — and the "acquired by hand in 36.E0" message — are **correct readings of the current artifact.** The claim below that the message "is now false" was itself the false claim, derived from HEAD's provenance describing data that is no longer present.
+
+**So the self-exempting-corruption event did not happen here.** The *property* is real and still worth closing — if a stamp were ever destroyed while the data stayed, the source would go permanently silent and the monitor would explain it away. But this incident does not evidence it, and B12 should be recorded as a latent hazard, not as a thing that occurred.
+
+**Consequence for 36.E0.2's scoping.** Two of the four lines survive intact — one canonical manifest writer, and an append-only assert on provenance keys — because the two-writers gap in `fetch-activation-prices.mjs` is genuinely there, merely unexercised. **The third line inverts:** making provenance-absence its own ERROR state would have fired a **false alarm** on this artifact, which is honest and self-consistent. Any such check must compare provenance against *what the data contains*, not merely against presence.
+
+**What is actually unexplained, and is the real open question:** something rolled back a successful refresh — data and manifest together, consistently — three minutes after it completed, on 2026-07-30 at 10:40:02 UTC. Neither script has a rollback path (`grep` for rollback/restore/backup/revert in `refresh-mature-markets.mjs` finds only comment text). Until that is explained, **do not re-run the refresh**: a human may have undone it deliberately.
+
+**What the restore therefore did.** Merged back only what is true of the artifact on disk — `acquisition_retrieved_at` and `refresh_cadence_months`. `last_successful_refresh` and `last_refresh` were **withheld**, because their data is not present and writing them would make the staleness surface assert a refresh this dataset does not contain — the exact lie `refresh-mature-markets.mjs:477` withholds the stamp to avoid. `retrieved_at` keeps the worktree value, which correctly describes this data. Verified after: **checksums 16/16 valid · rows tie 286 135 = 286 135 · loader green (286 135 rows) · `coverage_verification` 8/8 fields, `per_month` 186 entries.** Freshness still reads `never_refreshed`, and that is the correct answer, not a defect.
+
+The original diagnosis is left below unedited, as the record of what was concluded and how it was wrong.
+
+---
+
+
 **Status:** DIAGNOSED, NOT FIXED (deliberately — the fix is not one line and not provably scoped).
 **Evidence:** `2026-08-01-b-048-manifest-shrink.diff` (616 lines, captured before the next run could overwrite it), `2026-08-01-b-048-companion-diffs.diff`.
 **Subject:** `tools/consultancy/data/mature-markets/activation/manifest.json`, uncommitted in the worktree as of 2026-08-01.

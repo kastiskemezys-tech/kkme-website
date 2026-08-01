@@ -56,7 +56,8 @@
   "not_re_probed_here": "NL and LT were not re-probed against every German-style control-area EIC. Their absence from this dataset is an untested claim, not a measured one."
  },
  "licence": "ENTSO-E Transparency Platform data, reusable under the platform terms of use with attribution. Requires a free registered API key.",
- "retrieved_at": "2026-07-30T10:37:58.786Z",
+ "retrieved_at": "2026-07-30T10:25:46.517Z",
+ "acquisition_retrieved_at": "2026-07-30T10:25:46.517Z",
  "requested_span": "per-market first_month..2026-07",
  "resolution": "PT15M as published (the imbalance settlement period)",
  "timezone": "ENTSO-E publishes UTC instants; stored unchanged",
@@ -2005,8 +2006,108 @@
    }
   ]
  },
- "rows": 286137,
+ "rows": 286135,
  "files": [
+  {
+   "file": "activation-de-afrr-2022.ndjson.gz",
+   "market": "DE",
+   "product": "aFRR",
+   "year": 2022,
+   "rows": 30145,
+   "bytes_gz": 579493,
+   "span": "2022-06-21T22:00:00Z..2023-01-01T00:00:00Z",
+   "sha256": "41cb62ba2145a307a0e7c16d3a142ca864a2d380532d092c9358e05d526de4c2"
+  },
+  {
+   "file": "activation-de-afrr-2023.ndjson.gz",
+   "market": "DE",
+   "product": "aFRR",
+   "year": 2023,
+   "rows": 52207,
+   "bytes_gz": 989810,
+   "span": "2023-01-01T00:00:00Z..2024-01-01T00:00:00Z",
+   "sha256": "da56cc498da8889a784cb37b112276a53643553840a2ea288037305079e037cd"
+  },
+  {
+   "file": "activation-de-afrr-2024.ndjson.gz",
+   "market": "DE",
+   "product": "aFRR",
+   "year": 2024,
+   "rows": 55249,
+   "bytes_gz": 1054193,
+   "span": "2024-01-01T00:00:00Z..2025-01-01T00:00:00Z",
+   "sha256": "6a1b411284bed249c9b2df7c7bf0961d5e7f45b4c2e97188755a939ef05f958d"
+  },
+  {
+   "file": "activation-de-afrr-2025.ndjson.gz",
+   "market": "DE",
+   "product": "aFRR",
+   "year": 2025,
+   "rows": 55100,
+   "bytes_gz": 1043764,
+   "span": "2025-01-01T00:00:00Z..2026-01-01T00:00:00Z",
+   "sha256": "b0ba27c0fd5b9885cd317d909f3cd6ccc9bbf6d552399d30514287ed8faa4094"
+  },
+  {
+   "file": "activation-de-afrr-2026.ndjson.gz",
+   "market": "DE",
+   "product": "aFRR",
+   "year": 2026,
+   "rows": 33252,
+   "bytes_gz": 624970,
+   "span": "2026-01-01T00:00:00Z..2026-07-30T09:45:00Z",
+   "sha256": "b45ae4f27a44fb8d15ec197387bcec2a288a2997666b13909f0cee7392a2855f"
+  },
+  {
+   "file": "activation-de-mfrr-2022.ndjson.gz",
+   "market": "DE",
+   "product": "mFRR",
+   "year": 2022,
+   "rows": 132,
+   "bytes_gz": 3219,
+   "span": "2022-06-22T09:15:00Z..2022-12-24T19:15:00Z",
+   "sha256": "4ae3791904350ca480c86eb1ac5200c055c8683148a4b6b8e271758cbde9cd84"
+  },
+  {
+   "file": "activation-de-mfrr-2023.ndjson.gz",
+   "market": "DE",
+   "product": "mFRR",
+   "year": 2023,
+   "rows": 225,
+   "bytes_gz": 5271,
+   "span": "2023-01-01T13:15:00Z..2023-12-27T13:00:00Z",
+   "sha256": "d64c6148fd06e8273c517a4d9264a902eca842cddfc3f34511b6cf74b3b46aec"
+  },
+  {
+   "file": "activation-de-mfrr-2024.ndjson.gz",
+   "market": "DE",
+   "product": "mFRR",
+   "year": 2024,
+   "rows": 119,
+   "bytes_gz": 2984,
+   "span": "2024-01-09T05:45:00Z..2024-12-31T18:00:00Z",
+   "sha256": "8fb8c33073127c0c487ef83d64698ad71a816635cab78a9678c60d97f0605509"
+  },
+  {
+   "file": "activation-de-mfrr-2025.ndjson.gz",
+   "market": "DE",
+   "product": "mFRR",
+   "year": 2025,
+   "rows": 123,
+   "bytes_gz": 3083,
+   "span": "2025-01-12T10:15:00Z..2025-12-30T19:15:00Z",
+   "sha256": "d32d42cba03c2f621a5a3f9453945a802ccd40efc48de4287805a6ac7a376516"
+  },
+  {
+   "file": "activation-de-mfrr-2026.ndjson.gz",
+   "market": "DE",
+   "product": "mFRR",
+   "year": 2026,
+   "rows": 86,
+   "bytes_gz": 2232,
+   "span": "2026-01-02T06:00:00Z..2026-07-23T15:00:00Z",
+   "sha256": "3b38f71292eb3151a51091ae940eb4a199e8e3a19ddcf7b0aeddc5d47344f377"
+  },
   {
    "file": "activation-at-afrr-2025.ndjson.gz",
    "market": "AT",
@@ -2062,560 +2163,11 @@
    "market": "AT",
    "product": "mFRR",
    "year": 2026,
-   "rows": 1447,
-   "bytes_gz": 25322,
-   "span": "2026-01-01T10:45:00Z..2026-07-30T10:15:00Z",
-   "sha256": "f9a17cadcb734b7f11205a7a11e3f0a1557a1241cd1fde6c3c92d61574f75e9d"
-  },
-  {
-   "file": "activation-de-afrr-2022.ndjson.gz",
-   "market": "DE",
-   "product": "aFRR",
-   "year": 2022,
-   "rows": 30145,
-   "bytes_gz": 579493,
-   "span": "2022-06-21T22:00:00Z..2023-01-01T00:00:00Z",
-   "sha256": "41cb62ba2145a307a0e7c16d3a142ca864a2d380532d092c9358e05d526de4c2"
-  },
-  {
-   "file": "activation-de-afrr-2023.ndjson.gz",
-   "market": "DE",
-   "product": "aFRR",
-   "year": 2023,
-   "rows": 52207,
-   "bytes_gz": 989810,
-   "span": "2023-01-01T00:00:00Z..2024-01-01T00:00:00Z",
-   "sha256": "da56cc498da8889a784cb37b112276a53643553840a2ea288037305079e037cd"
-  },
-  {
-   "file": "activation-de-afrr-2024.ndjson.gz",
-   "market": "DE",
-   "product": "aFRR",
-   "year": 2024,
-   "rows": 55249,
-   "bytes_gz": 1054193,
-   "span": "2024-01-01T00:00:00Z..2025-01-01T00:00:00Z",
-   "sha256": "6a1b411284bed249c9b2df7c7bf0961d5e7f45b4c2e97188755a939ef05f958d"
-  },
-  {
-   "file": "activation-de-afrr-2025.ndjson.gz",
-   "market": "DE",
-   "product": "aFRR",
-   "year": 2025,
-   "rows": 55100,
-   "bytes_gz": 1043764,
-   "span": "2025-01-01T00:00:00Z..2026-01-01T00:00:00Z",
-   "sha256": "b0ba27c0fd5b9885cd317d909f3cd6ccc9bbf6d552399d30514287ed8faa4094"
-  },
-  {
-   "file": "activation-de-afrr-2026.ndjson.gz",
-   "market": "DE",
-   "product": "aFRR",
-   "year": 2026,
-   "rows": 33253,
-   "bytes_gz": 624991,
-   "span": "2026-01-01T00:00:00Z..2026-07-30T10:00:00Z",
-   "sha256": "a0ae2bbd9f6e71f7a511f7fe73c3d8de28dc206633c36a62308ccf62d53c98de"
-  },
-  {
-   "file": "activation-de-mfrr-2022.ndjson.gz",
-   "market": "DE",
-   "product": "mFRR",
-   "year": 2022,
-   "rows": 132,
-   "bytes_gz": 3219,
-   "span": "2022-06-22T09:15:00Z..2022-12-24T19:15:00Z",
-   "sha256": "4ae3791904350ca480c86eb1ac5200c055c8683148a4b6b8e271758cbde9cd84"
-  },
-  {
-   "file": "activation-de-mfrr-2023.ndjson.gz",
-   "market": "DE",
-   "product": "mFRR",
-   "year": 2023,
-   "rows": 225,
-   "bytes_gz": 5271,
-   "span": "2023-01-01T13:15:00Z..2023-12-27T13:00:00Z",
-   "sha256": "d64c6148fd06e8273c517a4d9264a902eca842cddfc3f34511b6cf74b3b46aec"
-  },
-  {
-   "file": "activation-de-mfrr-2024.ndjson.gz",
-   "market": "DE",
-   "product": "mFRR",
-   "year": 2024,
-   "rows": 119,
-   "bytes_gz": 2984,
-   "span": "2024-01-09T05:45:00Z..2024-12-31T18:00:00Z",
-   "sha256": "8fb8c33073127c0c487ef83d64698ad71a816635cab78a9678c60d97f0605509"
-  },
-  {
-   "file": "activation-de-mfrr-2025.ndjson.gz",
-   "market": "DE",
-   "product": "mFRR",
-   "year": 2025,
-   "rows": 123,
-   "bytes_gz": 3083,
-   "span": "2025-01-12T10:15:00Z..2025-12-30T19:15:00Z",
-   "sha256": "d32d42cba03c2f621a5a3f9453945a802ccd40efc48de4287805a6ac7a376516"
-  },
-  {
-   "file": "activation-de-mfrr-2026.ndjson.gz",
-   "market": "DE",
-   "product": "mFRR",
-   "year": 2026,
-   "rows": 86,
-   "bytes_gz": 2232,
-   "span": "2026-01-02T06:00:00Z..2026-07-23T15:00:00Z",
-   "sha256": "3b38f71292eb3151a51091ae940eb4a199e8e3a19ddcf7b0aeddc5d47344f377"
+   "rows": 1446,
+   "bytes_gz": 25302,
+   "span": "2026-01-01T10:45:00Z..2026-07-29T13:00:00Z",
+   "sha256": "8029a08a3168765a7f9afd7368d1de59e4778a0c40ccf96a0e554c10b5d82868"
   }
  ],
- "acquisition_retrieved_at": "2026-07-30T10:25:46.517Z",
- "last_refresh": {
-  "window": "2026-01..2026-07",
-  "retrieved_at": "2026-07-30T10:37:58.786Z",
-  "note": "Metadata from the most recent WINDOWED refresh. The top-level coverage_verification is acquisition-time evidence about how this source behaves and is deliberately not overwritten by a partial window.",
-  "windowed_metadata": {
-   "dataset": "settled-activation-prices",
-   "markets": [
-    {
-     "market": "DE",
-     "area": "DE",
-     "publisher": "50Hertz",
-     "control_area_eic": "10YDE-VE-------2",
-     "mirror_control_areas": [
-      {
-       "name": "TenneT DE",
-       "eic": "10YDE-EON------1"
-      },
-      {
-       "name": "TransnetBW",
-       "eic": "10YDE-ENBW-----N"
-      }
-     ],
-     "silent_control_areas": [
-      {
-       "name": "Amprion",
-       "eic": "10YDE-RWENET---I"
-      }
-     ],
-     "first_month": "2022-06",
-     "note": "One NRV-wide German price. Published per TSO control area by 50Hertz, TenneT DE and TransnetBW with identical values; Amprion publishes nothing. The series begins at the PICASSO DE accession (2022-06-22) — there is no pre-accession German segment."
-    },
-    {
-     "market": "AT",
-     "area": "AT",
-     "publisher": "APG",
-     "control_area_eic": "10YAT-APG------L",
-     "mirror_control_areas": [],
-     "silent_control_areas": [],
-     "first_month": "2023-01",
-     "note": "Austria acceded PICASSO 2022-06-22, the same date as Germany, and MARI 2023-06-27. Acquired hoping to supply the before/after Germany cannot — it does NOT: under the standard-product definition AT aFRR publication starts 2025-08-31, three years after its own accession, and AT mFRR starts 2023-06-12, essentially at its own MARI accession. AT is therefore a second market's level-and-frequency comparator, not accession-break evidence. Its apparent 2021-onward history exists only in the undeclared-product series that also carries the zero padding."
-    }
-   ],
-   "products": [
-    "aFRR",
-    "mFRR"
-   ],
-   "mechanism": "energy",
-   "source": "ENTSO-E Transparency Platform, documentType A84 — PRICES_OF_ACTIVATED_BALANCING_ENERGY_R3 [TR 17.1.F, IF aFRR 3.16]",
-   "source_urls": {
-    "api": "https://web-api.tp.entsoe.eu/api?documentType=A84&processType=A16&businessType=<A96|A97>&controlArea_Domain=<EIC>&periodStart=<YYYYMMDDHHmm>&periodEnd=<YYYYMMDDHHmm>&securityToken=<key>",
-    "api_note": "No standard_MarketProduct filter. The German TSOs prescribe \"Type of Product: Standard\", which is right for DE and returns nothing for AT before 2025-08 because those documents do not declare the element. Measured: AT aFRR 2021-01 gives 0 points with the filter and 5896 without.",
-    "de_tso_pointer": "https://www.netztransparenz.de/de-de/Regelenergie/Ausgleichsenergiepreis/AEP-Module",
-    "de_tso_crosscheck_csv": "https://www.netztransparenz.de/DesktopModules/LotesCharts/CsvDownloadHandler.ashx?request=<base64 of {LocalFrom,LocalTo,ResultTimeZone,Settings}>",
-    "human_readable": "https://newtransparency.entsoe.eu/balancing/energyPrices"
-   },
-   "why_this_channel": "netztransparenz.de publishes no settled activation-price series of its own. Its AEP-Module page states that the aFRR and mFRR VWAPs used to compute AEP Modul 1 — the German settlement price — are published on the ENTSO-E Transparency Platform under \"Balancing/Prices of Activated Balancing Energy\" with Reserve Type aFRR/mFRR, Source Not Specific, Type of Product Standard. That is documentType A84. The German TSOs are naming ENTSO-E as the channel for their own settled number.",
-   "e0_correction": {
-    "e0_recorded": "A84 + processType=A16 serves AT and FI; DE, NL and LT return empty (36.E0 Pause-A §3 consequence 3).",
-    "actual": "A84 serves DE. The DE-empty result was an EIC-choice artefact: Germany publishes per TSO control area, not against the DE-LU bidding zone, the DE control area or the German block. Isolated one parameter at a time — controlArea_Domain=10YDE-VE-------2 returns data on the same day that 10Y1001A1001A82H, 10Y1001A1001A83F and 10YCB-GERMANY--8 all return \"No matching data found\".",
-    "not_re_probed_here": "NL and LT were not re-probed against every German-style control-area EIC. Their absence from this dataset is an untested claim, not a measured one."
-   },
-   "licence": "ENTSO-E Transparency Platform data, reusable under the platform terms of use with attribution. Requires a free registered API key.",
-   "resolution": "PT15M as published (the imbalance settlement period)",
-   "timezone": "ENTSO-E publishes UTC instants; stored unchanged",
-   "price_semantics": {
-    "basis": "vwap_activated — the volume-weighted average price of balancing energy ACTUALLY ACTIVATED in that ISP and direction, as settled. Distinct from offer_curve_mean (the German RAM export, a statistic of the offered merit-order list) and from vwap_accepted (the mean accepted bid in a CAPACITY auction).",
-    "unit": "EUR/MWh native; price_norm equals price and fx_rate is 1 throughout",
-    "negative_prices_are_real": "Retained. Negative activation prices occur in both directions and are a market outcome, not a parsing fault.",
-    "technical_limit": "Values at 15000 EUR/MWh occur and are the platform technical price limit reached in scarcity. They are settled prices at the cap, not the artefact that made the RAM offer-curve export unusable.",
-    "sparse_by_construction": "A price exists only for ISPs in which energy was activated in that direction. Absent ISPs mean no activation, NOT a price of zero and NOT a gap in the data. Analysis must compute (a) the mean over activated ISPs and (b) the activation frequency separately; activated_isps_by_month below is the denominator for (b).",
-    "no_volume": "A84 carries no activated volume, so `volume` is null on every row. Activated MW per ISP is published separately by netztransparenz (Aktivierte Regelleistung) through the CSV handler above — not acquired here, see follow-ups."
-   },
-   "parsing_notes": {
-    "curveType_A03_not_carried_forward": "Documents are curveType A03. Its formal reading carries a price forward until the next position, which for an activation series would fabricate activations in unactivated ISPs. One row is emitted per published point and position contiguity is asserted; violations are counted in position_gaps below rather than resolved silently.",
-    "point_elements_seen": 70584,
-    "curve_a03_block_expansion": "curveType A03 compresses runs of quarter-hours into one point; each point is expanded across [position, nextPosition) and rows from a compressed block carry extra.block_isps. Reading one row per point loses activated quarter-hours — measured on DE mFRR 2022-06-22, where a 5-ISP Period carries positions 1, 3 and 5.",
-    "zero_price_isps_dropped": 40708,
-    "zero_price_note": "Rows whose activation price is exactly 0 are dropped as absence-published-as-zero, counted here and per series in coverage_verification. THIS IS A JUDGEMENT, and a large one, so it is stated rather than buried: DE and AT publish this dataItem in two different styles. Germany emits one short Period per activation episode, so its series is sparse and only ~0.1% of published points are zero. Austria emits a dense step function over the whole month in which 0 is the RESTING value meaning no activation — 5.1% of AT aFRR points and 61.6% of AT mFRR points, and each zero point expands across its A03 block, which is why the dropped count is large relative to the kept count. Dropping them is what makes the two markets comparable at all; keeping them would report Austria as activating in every quarter-hour at a mean dragged toward zero. The limit of the justification: A84 carries no volume, so unlike the Swedish case there is no second column to prove a zero means absence. It is inferred from the publication style and from the implausibility of an exactly-0.00 settled quarter-hourly price. Any analysis that needs Austrian activation FREQUENCY rather than level must re-examine this choice.",
-    "position_gaps": 0,
-    "position_gap_examples": [],
-    "zip": "multi-document responses are ZIP-wrapped; parsed via the central directory",
-    "imbalance_price_categories_seen": [
-     "A06",
-     "A08",
-     "A07"
-    ],
-    "currency_units_seen": [
-     "EUR/MWH"
-    ]
-   },
-   "coverage_verification": {
-    "claimed_by_e0": "no settled DE activation prices exist in any reachable channel",
-    "verdict": "FALSE — DE settled aFRR activation prices are served from 2022-06-21 onward. But E0's consequence still partly holds: the German series has no pre-PICASSO segment, so Germany cannot measure its own accession break on activation prices.",
-    "de_first_rows": "2022-06-21 (9 activated ISPs, the PICASSO go-live evening); first full day 2022-06-22",
-    "de_picasso_accession": "2022-06-22 — primary-sourced in the break calendar, and the series start coincides with it",
-    "window_limits_measured": {
-     "31_days": "OK",
-     "92_days": "OK (14152 points)",
-     "366_days": "HTTP 504 gateway timeout"
-    },
-    "mfrr_is_genuinely_sparse": "German mFRR activation is rare in this era: measured 9-32 activated ISPs per MONTH against roughly 4500-4900 for aFRR. That is a market fact, not missing data, and it constrains how much weight an mFRR activation-revenue term can carry.",
-    "activated_isps_by_series": {
-     "DE|aFRR": {
-      "months": 7,
-      "months_with_data": 7,
-      "activated_isps": 33253,
-      "up": 16699,
-      "down": 16554,
-      "zero_price_isps_dropped": 49
-     },
-     "DE|mFRR": {
-      "months": 7,
-      "months_with_data": 7,
-      "activated_isps": 86,
-      "up": 51,
-      "down": 35,
-      "zero_price_isps_dropped": 3
-     },
-     "AT|aFRR": {
-      "months": 7,
-      "months_with_data": 7,
-      "activated_isps": 33111,
-      "up": 16575,
-      "down": 16536,
-      "zero_price_isps_dropped": 1701
-     },
-     "AT|mFRR": {
-      "months": 7,
-      "months_with_data": 7,
-      "activated_isps": 1447,
-      "up": 538,
-      "down": 909,
-      "zero_price_isps_dropped": 38955
-     }
-    },
-    "per_month": [
-     {
-      "market": "DE",
-      "product": "aFRR",
-      "month": "2026-01",
-      "activated_isps": 4748,
-      "by_direction": {
-       "up": 2552,
-       "down": 2196
-      },
-      "zero_price_isps_dropped": 4
-     },
-     {
-      "market": "DE",
-      "product": "mFRR",
-      "month": "2026-01",
-      "activated_isps": 13,
-      "by_direction": {
-       "down": 3,
-       "up": 10
-      },
-      "zero_price_isps_dropped": 0
-     },
-     {
-      "market": "DE",
-      "product": "aFRR",
-      "month": "2026-02",
-      "activated_isps": 4407,
-      "by_direction": {
-       "up": 2260,
-       "down": 2147
-      },
-      "zero_price_isps_dropped": 1
-     },
-     {
-      "market": "DE",
-      "product": "mFRR",
-      "month": "2026-02",
-      "activated_isps": 4,
-      "by_direction": {
-       "down": 4
-      },
-      "zero_price_isps_dropped": 0
-     },
-     {
-      "market": "DE",
-      "product": "aFRR",
-      "month": "2026-03",
-      "activated_isps": 4987,
-      "by_direction": {
-       "up": 2515,
-       "down": 2472
-      },
-      "zero_price_isps_dropped": 5
-     },
-     {
-      "market": "DE",
-      "product": "mFRR",
-      "month": "2026-03",
-      "activated_isps": 3,
-      "by_direction": {
-       "up": 3
-      },
-      "zero_price_isps_dropped": 0
-     },
-     {
-      "market": "DE",
-      "product": "aFRR",
-      "month": "2026-04",
-      "activated_isps": 4840,
-      "by_direction": {
-       "up": 2340,
-       "down": 2500
-      },
-      "zero_price_isps_dropped": 5
-     },
-     {
-      "market": "DE",
-      "product": "mFRR",
-      "month": "2026-04",
-      "activated_isps": 12,
-      "by_direction": {
-       "down": 7,
-       "up": 5
-      },
-      "zero_price_isps_dropped": 0
-     },
-     {
-      "market": "DE",
-      "product": "aFRR",
-      "month": "2026-05",
-      "activated_isps": 4919,
-      "by_direction": {
-       "up": 2497,
-       "down": 2422
-      },
-      "zero_price_isps_dropped": 15
-     },
-     {
-      "market": "DE",
-      "product": "mFRR",
-      "month": "2026-05",
-      "activated_isps": 14,
-      "by_direction": {
-       "down": 8,
-       "up": 6
-      },
-      "zero_price_isps_dropped": 1
-     },
-     {
-      "market": "DE",
-      "product": "aFRR",
-      "month": "2026-06",
-      "activated_isps": 4674,
-      "by_direction": {
-       "up": 2354,
-       "down": 2320
-      },
-      "zero_price_isps_dropped": 12
-     },
-     {
-      "market": "DE",
-      "product": "mFRR",
-      "month": "2026-06",
-      "activated_isps": 33,
-      "by_direction": {
-       "up": 24,
-       "down": 9
-      },
-      "zero_price_isps_dropped": 2
-     },
-     {
-      "market": "DE",
-      "product": "aFRR",
-      "month": "2026-07",
-      "activated_isps": 4678,
-      "by_direction": {
-       "up": 2181,
-       "down": 2497
-      },
-      "zero_price_isps_dropped": 7
-     },
-     {
-      "market": "DE",
-      "product": "mFRR",
-      "month": "2026-07",
-      "activated_isps": 7,
-      "by_direction": {
-       "up": 3,
-       "down": 4
-      },
-      "zero_price_isps_dropped": 0
-     },
-     {
-      "market": "AT",
-      "product": "aFRR",
-      "month": "2026-01",
-      "activated_isps": 5648,
-      "by_direction": {
-       "up": 2943,
-       "down": 2705
-      },
-      "zero_price_isps_dropped": 304
-     },
-     {
-      "market": "AT",
-      "product": "mFRR",
-      "month": "2026-01",
-      "activated_isps": 202,
-      "by_direction": {
-       "up": 194,
-       "down": 8
-      },
-      "zero_price_isps_dropped": 5750
-     },
-     {
-      "market": "AT",
-      "product": "aFRR",
-      "month": "2026-02",
-      "activated_isps": 5210,
-      "by_direction": {
-       "up": 2607,
-       "down": 2603
-      },
-      "zero_price_isps_dropped": 166
-     },
-     {
-      "market": "AT",
-      "product": "mFRR",
-      "month": "2026-02",
-      "activated_isps": 90,
-      "by_direction": {
-       "up": 53,
-       "down": 37
-      },
-      "zero_price_isps_dropped": 5286
-     },
-     {
-      "market": "AT",
-      "product": "aFRR",
-      "month": "2026-03",
-      "activated_isps": 5658,
-      "by_direction": {
-       "up": 2835,
-       "down": 2823
-      },
-      "zero_price_isps_dropped": 294
-     },
-     {
-      "market": "AT",
-      "product": "mFRR",
-      "month": "2026-03",
-      "activated_isps": 130,
-      "by_direction": {
-       "up": 75,
-       "down": 55
-      },
-      "zero_price_isps_dropped": 5822
-     },
-     {
-      "market": "AT",
-      "product": "aFRR",
-      "month": "2026-04",
-      "activated_isps": 5450,
-      "by_direction": {
-       "up": 2660,
-       "down": 2790
-      },
-      "zero_price_isps_dropped": 310
-     },
-     {
-      "market": "AT",
-      "product": "mFRR",
-      "month": "2026-04",
-      "activated_isps": 260,
-      "by_direction": {
-       "up": 40,
-       "down": 220
-      },
-      "zero_price_isps_dropped": 5500
-     },
-     {
-      "market": "AT",
-      "product": "aFRR",
-      "month": "2026-05",
-      "activated_isps": 5666,
-      "by_direction": {
-       "up": 2816,
-       "down": 2850
-      },
-      "zero_price_isps_dropped": 286
-     },
-     {
-      "market": "AT",
-      "product": "mFRR",
-      "month": "2026-05",
-      "activated_isps": 223,
-      "by_direction": {
-       "up": 50,
-       "down": 173
-      },
-      "zero_price_isps_dropped": 5729
-     },
-     {
-      "market": "AT",
-      "product": "aFRR",
-      "month": "2026-06",
-      "activated_isps": 5419,
-      "by_direction": {
-       "up": 2684,
-       "down": 2735
-      },
-      "zero_price_isps_dropped": 341
-     },
-     {
-      "market": "AT",
-      "product": "mFRR",
-      "month": "2026-06",
-      "activated_isps": 250,
-      "by_direction": {
-       "up": 36,
-       "down": 214
-      },
-      "zero_price_isps_dropped": 5510
-     },
-     {
-      "market": "AT",
-      "product": "aFRR",
-      "month": "2026-07",
-      "activated_isps": 60,
-      "by_direction": {
-       "up": 30,
-       "down": 30
-      },
-      "zero_price_isps_dropped": 0
-     },
-     {
-      "market": "AT",
-      "product": "mFRR",
-      "month": "2026-07",
-      "activated_isps": 292,
-      "by_direction": {
-       "up": 90,
-       "down": 202
-      },
-      "zero_price_isps_dropped": 5358
-     }
-    ]
-   },
-   "manifest_files_carried_forward": 12
-  }
- },
- "refresh_cadence_months": 1,
- "last_successful_refresh": "2026-07-30T10:35:31.048Z"
+ "refresh_cadence_months": 1
 }
