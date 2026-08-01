@@ -36,6 +36,10 @@ import {
 import {
   WATCH_TARGETS, fingerprintPage, diffPages, buildAlert, fingerprintKey, isDue,
 } from './lib/publication-watcher.js';
+import {
+  FLEET_CORS, FLEET_NO_STORE, FLEET_TOKEN_TTL_MS, FLEET_COPY,
+  signFleetToken, verifyFleetToken, fleetBearerToken, buildCrmView,
+} from './lib/fleetCrm.js';
 
 const ENTSOE_API    = 'https://web-api.tp.entsoe.eu/api';
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
@@ -7977,6 +7981,14 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
+    // Fleet-console preflight, BEFORE the general one so it wins for /fleet/*.
+    // The shared CORS constant does not allow `Authorization`, so a browser would
+    // refuse to send the bearer token cross-origin. Scoping the wider allow-list to
+    // these paths keeps every existing route's CORS behaviour byte-identical.
+    if (request.method === 'OPTIONS' && url.pathname.startsWith('/fleet/')) {
+      return new Response(null, { status: 200, headers: FLEET_CORS });
+    }
+
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 200, headers: CORS });
     }
@@ -8804,6 +8816,95 @@ export default {
         await env.KKME_SIGNALS.put('fleet_lifecycle:last_digest_at', new Date().toISOString());
       }
       return jsonResp({ ok: true, dry_run: dryRun, transitions_in_window: recent.length, unhealthy_detectors: unhealthy.length, message });
+    }
+
+    // ── Phase 37.C — operator-only fleet CRM (/fleet/*) ────────────────────────
+    //
+    // THERE IS NO PUBLIC TIER ON THESE ROUTES. The calculator degrades an invalid
+    // token to its sample view; this must not, and does not. Every failure path
+    // below returns an error object and nothing else — no counts, no row shapes,
+    // no "N projects". Asserted by the leak tests, which seed private values first
+    // and carry a vacuity guard so an empty response cannot pass for a clean one.
+    //
+    // A7 — readers/writers of the private keys after this batch:
+    //   fleet_private:index    writers: POST /admin/fleet-private (1)
+    //                          readers: GET /admin/fleet-private, GET /fleet/data (2)
+    //   fleet_private:comments writers: POST /fleet/comment (1)
+    //                          readers: GET /fleet/data (1)
+    // The counts are re-derived by grep in the handover, not asserted from memory.
+
+    if (request.method === 'POST' && url.pathname === '/fleet/login') {
+      if (!env.FLEET_SECRET) {
+        return new Response(JSON.stringify({ error: FLEET_COPY.auth_unconfigured }),
+          { status: 503, headers: { ...FLEET_NO_STORE, ...FLEET_CORS } });
+      }
+      let body = {};
+      try { body = await request.json(); } catch { /* falls through to the 401 */ }
+      const password = body?.password;
+      if (typeof password !== 'string' || !CALC.timingSafeEqual(password, env.FLEET_SECRET)) {
+        return new Response(JSON.stringify({ error: FLEET_COPY.auth_failed }),
+          { status: 401, headers: { ...FLEET_NO_STORE, ...FLEET_CORS } });
+      }
+      const expires = Date.now() + FLEET_TOKEN_TTL_MS;
+      const token = await signFleetToken(env.FLEET_SECRET, expires);
+      console.log('[fleet/login] operator session issued');
+      return new Response(JSON.stringify({ token, expires }),
+        { status: 200, headers: { ...FLEET_NO_STORE, ...FLEET_CORS } });
+    }
+
+    // ── GET /fleet/data — the console payload. Token or nothing. ───────────────
+    if (request.method === 'GET' && url.pathname === '/fleet/data') {
+      if (!env.FLEET_SECRET) {
+        return new Response(JSON.stringify({ error: FLEET_COPY.auth_unconfigured }),
+          { status: 503, headers: { ...FLEET_NO_STORE, ...FLEET_CORS } });
+      }
+      const auth = await verifyFleetToken(env.FLEET_SECRET, fleetBearerToken(request));
+      if (!auth.ok) {
+        return new Response(JSON.stringify({ error: FLEET_COPY.auth_required }),
+          { status: 401, headers: { ...FLEET_NO_STORE, ...FLEET_CORS } });
+      }
+
+      let privateIndex = null, comments = {}, lifecycle = [];
+      try { privateIndex = JSON.parse((await env.KKME_SIGNALS.get('fleet_private:index')) || 'null'); } catch { privateIndex = null; }
+      try { comments = JSON.parse((await env.KKME_SIGNALS.get('fleet_private:comments')) || '{}'); } catch { comments = {}; }
+      try { lifecycle = JSON.parse((await env.KKME_SIGNALS.get('fleet_lifecycle:transitions')) || '[]'); } catch { lifecycle = []; }
+
+      const view = buildCrmView({ privateIndex, comments, lifecycle });
+      return new Response(JSON.stringify(view),
+        { status: 200, headers: { ...FLEET_NO_STORE, ...FLEET_CORS } });
+    }
+
+    // ── POST /fleet/comment — inline deal-comment edit ─────────────────────────
+    // Writes to its OWN key. Folding edits back into fleet_private:index would let
+    // the next intake run silently discard them — the B10 shape (the value survives,
+    // the record of how it got there does not).
+    if (request.method === 'POST' && url.pathname === '/fleet/comment') {
+      if (!env.FLEET_SECRET) {
+        return new Response(JSON.stringify({ error: FLEET_COPY.auth_unconfigured }),
+          { status: 503, headers: { ...FLEET_NO_STORE, ...FLEET_CORS } });
+      }
+      const auth = await verifyFleetToken(env.FLEET_SECRET, fleetBearerToken(request));
+      if (!auth.ok) {
+        return new Response(JSON.stringify({ error: FLEET_COPY.auth_required }),
+          { status: 401, headers: { ...FLEET_NO_STORE, ...FLEET_CORS } });
+      }
+      let body;
+      try { body = await request.json(); } catch { return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400, headers: { ...FLEET_NO_STORE, ...FLEET_CORS } }); }
+      const id = typeof body?.id === 'string' ? body.id.trim() : '';
+      if (!id) {
+        return new Response(JSON.stringify({ error: 'id required' }),
+          { status: 400, headers: { ...FLEET_NO_STORE, ...FLEET_CORS } });
+      }
+      const text = typeof body?.text === 'string' ? body.text : '';
+
+      let comments = {};
+      try { comments = JSON.parse((await env.KKME_SIGNALS.get('fleet_private:comments')) || '{}'); } catch { comments = {}; }
+      comments[id] = { text, updated_at: new Date().toISOString() };
+      await env.KKME_SIGNALS.put('fleet_private:comments', JSON.stringify(comments));
+      // The comment body is private — the log records that an edit happened, never what it said.
+      console.log(`[fleet/comment] edit stored for ${id} (${text.length} chars)`);
+      return new Response(JSON.stringify({ ok: true, id, updated_at: comments[id].updated_at }),
+        { status: 200, headers: { ...FLEET_NO_STORE, ...FLEET_CORS } });
     }
 
     // ── POST /admin/trigger-s1-capture — force recompute S1 capture ──
