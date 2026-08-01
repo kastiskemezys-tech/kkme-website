@@ -271,7 +271,21 @@ The third row is the defect reproduced live on a route that still has the old co
 **Byte-identity, both layers:**
 - route-level probe vs `main`, frozen KV, real `fetch` handler, 54 configs → **54/54 identical**
 - live `/revenue`, 54 configs, **pre-deploy 11:08:12Z vs post-deploy 11:10:00Z, same UTC hour** → **54/54 identical** (new `scripts/_phase-37-h1-live-revenue-probe.mjs`; refuses to write a capture that straddles the tick, and carries a vacuity guard against 54 error pages comparing equal)
-- across the 12:00 UTC tick → see the post-tick line at the end of this entry
+- **across the 12:00 UTC tick → 0/54 byte-identical, and that is the correct, expected result.** Captured 12:02:12Z vs the 11:10:00Z post-deploy baseline. The probe flagged the hour boundary itself rather than reporting a regression (B3), and the movement was then measured rather than assumed:
+
+```
+differing-leaf-count distribution across 54 configs:  {3: 54}   ← every config, exactly 3 fields
+
+   54/54   .prices.spread_eur_mwh          32.52 → 21.64
+   54/54   .eu_ranking[0].net_annual_per_mw 113643 → 111546   (derived from the spread)
+   54/54   .live_rate.as_of                10:17:25Z → 11:18:16Z
+
+ENGINE OUTPUTS THAT MOVED: NONE
+project_irr unchanged across the tick in 54/54 configs
+project_irr, reference config: pre 0.2229 · post-deploy 0.2229 · post-tick 0.2229
+```
+
+Every config moved in the *same three* live-data fields and no others: the live Baltic day-ahead spread, one figure derived from it, and the live-rate freshness stamp — precisely what the hourly cron (`0 * * * *`) refreshes. Because all 54 payloads embed the same live spread, one data refresh necessarily moves all 54, which is why a naïve byte-identity read across a tick reports 0/54 and means nothing. The code-change question was already answered inside a single cron hour: **54/54 identical**.
 
 #### 2 · B-046 — digest **NOT ARMED**, and the reason is a bigger finding than last session's
 
