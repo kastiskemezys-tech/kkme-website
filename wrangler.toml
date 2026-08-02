@@ -27,6 +27,18 @@ compatibility_date = "2025-01-01"
 workers_dev = true
 preview_urls = false
 
+# Phase 38.1 — Workers Logs. The S1 branch failed on 8 consecutive 4-hourly
+# ticks between 2026-08-01T00:01Z and 2026-08-02T08:00Z, and intermittently for
+# at least the preceding week, writing console.error into a worker with no log
+# sink configured. Every `console.error` in the cron handler was therefore
+# addressed to nobody. Diagnosis had to be reconstructed from `raw:s1:<date>`
+# KV TTL arithmetic after the fact. head_sampling_rate = 1 keeps every
+# invocation; this worker serves a low-traffic site, so the volume is not a
+# concern and losing the one failing tick in a sample would be.
+[observability]
+enabled = true
+head_sampling_rate = 1
+
 [triggers]
 crons = [
   "0 */4 * * *",    # Every 4h: all signals (S1-S9 + Euribor + gen/load)
