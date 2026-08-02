@@ -120,6 +120,7 @@ import path from 'node:path';
 import zlib from 'node:zlib';
 import crypto from 'node:crypto';
 import { row, validateRow } from './schema.mjs';
+import { writeManifest } from './manifest-writer.mjs';
 
 const API = 'https://web-api.tp.entsoe.eu/api';
 const OUT = path.join(import.meta.dirname, '..', 'data', 'mature-markets', 'activation');
@@ -644,7 +645,9 @@ async function main() {
     rows: nRows,
     files,
   };
-  await fs.writeFile(path.join(OUT, 'manifest.json'), JSON.stringify(manifest, null, 1) + '\n');
+  // 36.E0.2: manifest writes go through the one canonical writer, which preserves
+  // acquisition-time evidence and refuses any write that would REMOVE a provenance key.
+  await writeManifest({ dir: OUT, manifest, window: 'current_year', dataset: 'activation' });
 
   console.log(`\n${nRows} rows across ${files.length} files, ${(files.reduce((s, f) => s + f.bytes_gz, 0) / 1048576).toFixed(1)} MB gz`);
   if (allGaps.length) console.log(`position gaps: ${allGaps.length} — non-contiguous positions found, see manifest.parsing_notes`);

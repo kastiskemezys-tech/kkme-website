@@ -740,10 +740,17 @@ describe('refresh automation', () => {
   });
 
   it('a windowed refresh preserves acquisition-time coverage evidence', async () => {
+    // 36.E0.2 moved `preserveAcquisitionMetadata` out of the orchestrator and into the canonical
+    // writer, because defining it here protected only the manifests THIS file wrote — all eight
+    // fetchers bypassed it when run directly. The property is unchanged; the assertions follow it
+    // to its new home and gain one: that the orchestrator now goes through that writer too.
     const src = fs.readFileSync(path.join(ROOT, 'mature-markets', 'refresh-mature-markets.mjs'), 'utf8');
-    expect(src).toMatch(/preserveAcquisitionMetadata/);
+    const writer = fs.readFileSync(path.join(ROOT, 'mature-markets', 'manifest-writer.mjs'), 'utf8');
+    expect(writer).toMatch(/preserveAcquisitionMetadata/);
+    expect(src).toMatch(/writeManifest\(/);
+    expect(src).not.toMatch(/fs\.writeFile\(manifestPath/);
     // Only a FULL refresh may replace the manifest wholesale.
-    expect(src).toMatch(/source\.window === 'full'/);
+    expect(writer).toMatch(/window === 'full'/);
     // The evidence that must survive: SE's absence-as-zero measurements are the reason the
     // Swedish numbers are trustworthy, and a 2026-only window would have dropped them.
     const m = await readManifest('se');
@@ -754,8 +761,10 @@ describe('refresh automation', () => {
   it('writes the manifest even on anomaly, so it never disagrees with what is on disk', () => {
     const src = fs.readFileSync(path.join(ROOT, 'mature-markets', 'refresh-mature-markets.mjs'), 'utf8');
     // An earlier version skipped the write on anomaly and left a 2-shard manifest beside 7 files.
-    // Only last_successful_refresh is withheld.
-    expect(src).toMatch(/if \(status !== 'anomaly'\) toWrite\.last_successful_refresh/);
+    // Only last_successful_refresh is withheld. (36.E0.2 renamed the local `toWrite` to `after`,
+    // since the preserve step now happens inside writeManifest rather than before the call — same
+    // property, same withholding, one variable name.)
+    expect(src).toMatch(/if \(status !== 'anomaly'\) after\.last_successful_refresh/);
     expect(src).not.toMatch(/if \(status !== 'anomaly' && after\)/);
   });
 

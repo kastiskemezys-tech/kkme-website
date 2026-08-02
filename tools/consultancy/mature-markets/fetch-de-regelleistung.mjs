@@ -48,6 +48,7 @@ import crypto from 'node:crypto';
 import ExcelJS from 'exceljs';
 import { row, validateRow, capacityToEurPerMwPerHour } from './schema.mjs';
 import { berlinWallClockToUtc } from './tz.mjs';
+import { writeManifest } from './manifest-writer.mjs';
 
 const API = 'https://www.regelleistung.net/apps/crds/api/v2';
 const OUT = path.join(import.meta.dirname, '..', 'data', 'mature-markets', 'de');
@@ -587,7 +588,9 @@ async function main() {
     missing: missing.slice(0, 50),
     files,
   };
-  await fs.writeFile(path.join(OUT, 'manifest.json'), JSON.stringify(manifest, null, 1) + '\n');
+  // 36.E0.2: manifest writes go through the one canonical writer, which preserves
+  // acquisition-time evidence and refuses any write that would REMOVE a provenance key.
+  await writeManifest({ dir: OUT, manifest, window: 'current_year', dataset: 'de' });
 
   console.log(`\n${nRows} rows · ${files.length} files · ${(bytes / 1e6).toFixed(0)} MB downloaded`);
   if (unitTransitions.length) { console.log('unit transitions observed:'); for (const t of unitTransitions) console.log('  ', JSON.stringify(t)); }

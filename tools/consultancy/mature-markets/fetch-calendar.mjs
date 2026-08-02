@@ -27,6 +27,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { writeManifest } from './manifest-writer.mjs';
 
 const OUT = path.join(import.meta.dirname, '..', 'data', 'mature-markets', 'calendar');
 
@@ -195,7 +196,12 @@ async function main() {
     orphan_events: orphans.map((e) => `${e.market} ${e.date} → ${e.source}`),
   };
 
-  await fs.writeFile(path.join(OUT, 'structural-breaks.json'), JSON.stringify(out, null, 1) + '\n');
+  // 36.E0.2: structural-breaks.json IS this source's manifest (it has no manifest.json), so it
+  // goes through the canonical writer like every other. It already carries `last_successful_refresh`
+  // and `refresh_cadence_months`, which the orchestrator stamps and this from-scratch `out` does
+  // not — so before this change, running the calendar fetcher directly dropped the field the
+  // staleness surface ages, silently exempting the source from it.
+  await writeManifest({ dir: OUT, manifest: out, window: 'full', dataset: 'calendar', file: 'structural-breaks.json' });
   console.log(`\n${EVENTS.length} events · ${sources.length} sources · ${bad.length} source problems · ${orphans.length} orphan events`);
   if (bad.length || orphans.length) {
     console.error('CALENDAR NOT CLEAN — a pinned source that does not evidence its claim is the 36.D tripwire defect.');

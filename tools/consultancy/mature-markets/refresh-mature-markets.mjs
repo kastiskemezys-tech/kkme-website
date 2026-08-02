@@ -72,6 +72,10 @@ import zlib from 'node:zlib';
 import crypto from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+// 36.E0.2: the single sanctioned manifest writer. `preserveAcquisitionMetadata` used to be
+// defined here, which meant it protected only the manifests this orchestrator wrote — a fetcher
+// run directly bypassed it entirely. It now lives beside the write itself so both paths share it.
+import { writeManifest } from './manifest-writer.mjs';
 
 const exec = promisify(execFile);
 
@@ -203,40 +207,8 @@ async function appendOnlyAudit(source, manifest) {
  *
  * Mutates `after` in place and returns what happened.
  */
-/**
- * Preserve acquisition-time manifest metadata across a windowed refresh.
- *
- * The third face of the same trap. A windowed fetcher rewrites the WHOLE manifest from the window
- * it fetched — not just `files`, but `coverage_verification` too. Refreshing Sweden from 2026-01
- * replaced a `per_month` block covering 2020-2026 with one covering 2026, and dropped
- * `all_zero_rows_dropped: 5137`, `per_product_leading_absence` and the "absence served as zero"
- * verdict: E0's load-bearing evidence about how that source lies. Destroying that would be worse
- * than not refreshing, because the numbers would still be right and the reason they are trustworthy
- * would be gone.
- *
- * So for a WINDOWED source the previous manifest is the base, and the run overlays only what it
- * legitimately learned — file entries, row count, retrieval time — while its own windowed metadata
- * is kept beside it under `last_refresh` rather than on top of it. For a FULL source the new
- * manifest genuinely describes everything and replaces the old one.
- *
- * Returns the manifest to write.
- */
-function preserveAcquisitionMetadata(source, before, after) {
-  if (source.window === 'full' || !before || !after) return after;
-  const { files, rows, retrieved_at: retrievedAt, requested_span: span, ...windowed } = after;
-  return {
-    ...before,
-    files, rows,
-    retrieved_at: retrievedAt ?? before.retrieved_at,
-    acquisition_retrieved_at: before.acquisition_retrieved_at ?? before.retrieved_at,
-    last_refresh: {
-      window: span ?? null,
-      retrieved_at: retrievedAt ?? null,
-      note: 'Metadata from the most recent WINDOWED refresh. The top-level coverage_verification is acquisition-time evidence about how this source behaves and is deliberately not overwritten by a partial window.',
-      windowed_metadata: windowed,
-    },
-  };
-}
+// `preserveAcquisitionMetadata()` moved to ./manifest-writer.mjs in 36.E0.2 — see the note on the
+// import. It is reached here through `writeManifest()`, which every fetcher now also uses.
 
 async function mergeManifestFiles(source, before, after) {
   const out = { preserved: [], missing: [], drifted: [] };
@@ -479,10 +451,16 @@ async function main() {
     // bad run would make the staleness surface lie in the one situation it exists for, and a
     // source that quietly stopped publishing would read as fresh forever.
     if (after) {
-      const toWrite = preserveAcquisitionMetadata(source, before, after);
-      toWrite.refresh_cadence_months = cadence;
-      if (status !== 'anomaly') toWrite.last_successful_refresh = now.toISOString();
-      await fs.writeFile(manifestPath(source), JSON.stringify(toWrite, null, 1) + '\n');
+      after.refresh_cadence_months = cadence;
+      if (status !== 'anomaly') after.last_successful_refresh = now.toISOString();
+      // The fetcher already wrote through `writeManifest`, so `after` is the preserved manifest
+      // read back off disk. Writing it again through the same path is deliberate and safe:
+      // `preserveAcquisitionMetadata` is idempotent, and this second pass is what carries the
+      // reconciled shard list and the two orchestrator-owned stamps above.
+      await writeManifest({
+        dir: path.dirname(manifestPath(source)), file: path.basename(manifestPath(source)),
+        manifest: after, window: source.window, dataset: source.name,
+      });
     }
 
     results.push({
