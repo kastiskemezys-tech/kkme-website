@@ -1,0 +1,361 @@
+{
+ "artifact": "Baltic aFRR/mFRR activation price + activation rate, monthly",
+ "phase": "36.E2 calibration input",
+ "source": "baltic.transparency-dashboard.eu",
+ "data_class": "observed",
+ "period": "2025-09 to 2026-04",
+ "endpoint": "GET https://kkme-fetch-s1.kastis-kemezys.workers.dev/s2 (activation block)",
+ "retrieved_at": "2026-08-02T08:42:43.939Z",
+ "unit": "EUR/MWh",
+ "known_limitation": "NOT per direction — BTD serves one activation series per country per product with no up/down split, so the per-direction model calibrates its DIRECTION SPLIT on Germany and its LEVEL on these. activation_rate exceeds 1.0 on several mFRR months, which a rate cannot; it is count/(days x 96) and the excess indicates the count pools something the denominator does not. Reported, not corrected, and not used as a rate.",
+ "monthly": {
+  "lt_monthly_afrr": {
+   "2025-09": {
+    "avg": 64.9,
+    "p50": 66.9,
+    "p90": 86.23,
+    "count": 24,
+    "activation_rate": 0.008333333333333333
+   },
+   "2025-10": {
+    "avg": 73.8,
+    "p50": 38.71,
+    "p90": 137.66,
+    "count": 2283,
+    "activation_rate": 0.7927083333333333
+   },
+   "2025-11": {
+    "avg": 9.6,
+    "p50": 0.32,
+    "p90": 20,
+    "count": 635,
+    "activation_rate": 0.2204861111111111
+   },
+   "2025-12": {
+    "avg": 21.9,
+    "p50": 12,
+    "p90": 50,
+    "count": 681,
+    "activation_rate": 0.23645833333333333
+   },
+   "2026-01": {
+    "avg": 63.3,
+    "p50": 16.68,
+    "p90": 98.65,
+    "count": 2425,
+    "activation_rate": 0.8420138888888888
+   },
+   "2026-02": {
+    "avg": 60.5,
+    "p50": 33.33,
+    "p90": 99,
+    "count": 1719,
+    "activation_rate": 0.596875
+   },
+   "2026-03": {
+    "avg": 20.3,
+    "p50": 6.12,
+    "p90": 66.3,
+    "count": 1735,
+    "activation_rate": 0.6024305555555556
+   },
+   "2026-04": {
+    "avg": 2.7,
+    "p50": 1.18,
+    "p90": 6.56,
+    "count": 1346,
+    "activation_rate": 0.4673611111111111
+   }
+  },
+  "lt_monthly_mfrr": {
+   "2025-09": {
+    "avg": 43.1,
+    "p50": 19.4,
+    "p90": 99.3,
+    "count": 24,
+    "activation_rate": 0.008333333333333333
+   },
+   "2025-10": {
+    "avg": 36.4,
+    "p50": 19.4,
+    "p90": 74.13,
+    "count": 2952,
+    "activation_rate": 1.025
+   },
+   "2025-11": {
+    "avg": 12.9,
+    "p50": 9.43,
+    "p90": 24.4,
+    "count": 2880,
+    "activation_rate": 1
+   },
+   "2025-12": {
+    "avg": 17.9,
+    "p50": 12.81,
+    "p90": 35.94,
+    "count": 2976,
+    "activation_rate": 1.0333333333333334
+   },
+   "2026-01": {
+    "avg": 22,
+    "p50": 15.42,
+    "p90": 35.94,
+    "count": 2976,
+    "activation_rate": 1.0333333333333334
+   },
+   "2026-02": {
+    "avg": 33.1,
+    "p50": 19.4,
+    "p90": 80.7,
+    "count": 2688,
+    "activation_rate": 0.9333333333333333
+   },
+   "2026-03": {
+    "avg": 22.8,
+    "p50": 14.97,
+    "p90": 50.36,
+    "count": 2976,
+    "activation_rate": 1.0333333333333334
+   },
+   "2026-04": {
+    "avg": 11.4,
+    "p50": 9.07,
+    "p90": 21.59,
+    "count": 1824,
+    "activation_rate": 0.6333333333333333
+   }
+  },
+  "lv_monthly_afrr": {
+   "2025-09": {
+    "avg": 64.9,
+    "p50": 66.9,
+    "p90": 86.23,
+    "count": 24,
+    "activation_rate": 0.008333333333333333
+   },
+   "2025-10": {
+    "avg": 73.8,
+    "p50": 38.71,
+    "p90": 137.66,
+    "count": 2283,
+    "activation_rate": 0.7927083333333333
+   },
+   "2025-11": {
+    "avg": 9.6,
+    "p50": 0.32,
+    "p90": 20,
+    "count": 635,
+    "activation_rate": 0.2204861111111111
+   },
+   "2025-12": {
+    "avg": 21.9,
+    "p50": 12,
+    "p90": 50,
+    "count": 681,
+    "activation_rate": 0.23645833333333333
+   },
+   "2026-01": {
+    "avg": 62.4,
+    "p50": 16.68,
+    "p90": 96.75,
+    "count": 2499,
+    "activation_rate": 0.8677083333333333
+   },
+   "2026-02": {
+    "avg": 60.5,
+    "p50": 33.33,
+    "p90": 99,
+    "count": 1719,
+    "activation_rate": 0.596875
+   },
+   "2026-03": {
+    "avg": 20.3,
+    "p50": 6.18,
+    "p90": 66.3,
+    "count": 1749,
+    "activation_rate": 0.6072916666666667
+   },
+   "2026-04": {
+    "avg": 2.7,
+    "p50": 1.18,
+    "p90": 6.56,
+    "count": 1346,
+    "activation_rate": 0.4673611111111111
+   }
+  },
+  "lv_monthly_mfrr": {
+   "2025-09": {
+    "avg": 43.1,
+    "p50": 19.4,
+    "p90": 99.3,
+    "count": 24,
+    "activation_rate": 0.008333333333333333
+   },
+   "2025-10": {
+    "avg": 36.4,
+    "p50": 19.4,
+    "p90": 74.13,
+    "count": 2952,
+    "activation_rate": 1.025
+   },
+   "2025-11": {
+    "avg": 12.9,
+    "p50": 9.52,
+    "p90": 24.4,
+    "count": 2871,
+    "activation_rate": 0.996875
+   },
+   "2025-12": {
+    "avg": 17.9,
+    "p50": 12.81,
+    "p90": 35.94,
+    "count": 2976,
+    "activation_rate": 1.0333333333333334
+   },
+   "2026-01": {
+    "avg": 22.6,
+    "p50": 16.14,
+    "p90": 35.94,
+    "count": 2976,
+    "activation_rate": 1.0333333333333334
+   },
+   "2026-02": {
+    "avg": 33.1,
+    "p50": 19.4,
+    "p90": 80.7,
+    "count": 2688,
+    "activation_rate": 0.9333333333333333
+   },
+   "2026-03": {
+    "avg": 19.2,
+    "p50": 13.51,
+    "p90": 42.44,
+    "count": 2974,
+    "activation_rate": 1.0326388888888889
+   },
+   "2026-04": {
+    "avg": 10.2,
+    "p50": 7.75,
+    "p90": 20.48,
+    "count": 1822,
+    "activation_rate": 0.6326388888888889
+   }
+  },
+  "ee_monthly_afrr": {
+   "2025-09": {
+    "avg": 22.3,
+    "p50": 6.63,
+    "p90": 51.83,
+    "count": 16,
+    "activation_rate": 0.005555555555555556
+   },
+   "2025-10": {
+    "avg": 41.9,
+    "p50": 24.46,
+    "p90": 69.61,
+    "count": 1642,
+    "activation_rate": 0.5701388888888889
+   },
+   "2025-11": {
+    "avg": 0.7,
+    "p50": 0.26,
+    "p90": 0.37,
+    "count": 191,
+    "activation_rate": 0.06631944444444444
+   },
+   "2025-12": {
+    "avg": 24.6,
+    "p50": 35.4,
+    "p90": 35.4,
+    "count": 296,
+    "activation_rate": 0.10277777777777777
+   },
+   "2026-01": {
+    "avg": 46.8,
+    "p50": 16.68,
+    "p90": 95.25,
+    "count": 2398,
+    "activation_rate": 0.8326388888888889
+   },
+   "2026-02": {
+    "avg": 53.2,
+    "p50": 33.33,
+    "p90": 99,
+    "count": 1696,
+    "activation_rate": 0.5888888888888889
+   },
+   "2026-03": {
+    "avg": 12.5,
+    "p50": 5.08,
+    "p90": 44.2,
+    "count": 1581,
+    "activation_rate": 0.5489583333333333
+   },
+   "2026-04": {
+    "avg": 3.2,
+    "p50": 1.22,
+    "p90": 4.49,
+    "count": 1530,
+    "activation_rate": 0.53125
+   }
+  },
+  "ee_monthly_mfrr": {
+   "2025-09": {
+    "avg": 35.4,
+    "p50": 19.4,
+    "p90": 99.3,
+    "count": 24,
+    "activation_rate": 0.008333333333333333
+   },
+   "2025-10": {
+    "avg": 26.5,
+    "p50": 11.6,
+    "p90": 65.58,
+    "count": 2952,
+    "activation_rate": 1.025
+   },
+   "2025-11": {
+    "avg": 7.6,
+    "p50": 5.13,
+    "p90": 18.64,
+    "count": 2880,
+    "activation_rate": 1
+   },
+   "2025-12": {
+    "avg": 13,
+    "p50": 6.37,
+    "p90": 34.95,
+    "count": 2910,
+    "activation_rate": 1.0104166666666667
+   },
+   "2026-01": {
+    "avg": 22.6,
+    "p50": 16.02,
+    "p90": 38.29,
+    "count": 2923,
+    "activation_rate": 1.0149305555555554
+   },
+   "2026-02": {
+    "avg": 34.1,
+    "p50": 19.6,
+    "p90": 83.33,
+    "count": 2654,
+    "activation_rate": 0.9215277777777777
+   },
+   "2026-03": {
+    "avg": 14.2,
+    "p50": 8.73,
+    "p90": 23.91,
+    "count": 2499,
+    "activation_rate": 0.8677083333333333
+   },
+   "2026-04": {
+    "avg": 10.1,
+    "p50": 7.37,
+    "p90": 21,
+    "count": 1691,
+    "activation_rate": 0.5871527777777777
+   }
+  }
+ }
+}

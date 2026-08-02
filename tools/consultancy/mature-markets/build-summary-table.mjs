@@ -62,7 +62,8 @@
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { loadDataset, loadCalendar, bySeries, monthlyAggregate, segmentMonths, rowMinutes } from './loader.mjs';
+import { loadDataset, loadCalendar, bySeries, monthlyAggregate, segmentMonths } from './loader.mjs';
+import { arbitrageByMonth } from './arbitrage.mjs';
 
 const OUT_DIR = path.join(import.meta.dirname, '..', 'data', 'mature-markets');
 const DOC_DIR = path.join(import.meta.dirname, '..', '..', '..', 'docs', 'research');
@@ -101,51 +102,8 @@ const monthsBetween = (a, b) => {
   return (by - ay) * 12 + (bm - am);
 };
 
-// ── Arbitrage opportunity per market-month ─────────────────────────────────
-
-/**
- * Daily top-N-hours minus bottom-N-hours spread, averaged over the month.
- * Works from any energy series (day-ahead or spot) at any resolution: rows are collapsed to
- * hourly duration-weighted means first, so a 5-minute market and an hourly one give comparable
- * numbers instead of the finer one showing a mechanically wider spread.
- */
-function arbitrageByMonth(rows, windowHours) {
-  const hourly = new Map();   // 'YYYY-MM-DDTHH' -> {wSum, wTot}
-  for (const r of rows) {
-    if (r.price_norm === null) continue;
-    const mins = rowMinutes(r) ?? 0;
-    if (!mins) continue;
-    const h = r.period_start.slice(0, 13);
-    let g = hourly.get(h);
-    if (!g) hourly.set(h, g = { wSum: 0, wTot: 0 });
-    g.wSum += r.price_norm * mins; g.wTot += mins;
-  }
-  const byDay = new Map();
-  for (const [h, g] of hourly) {
-    const d = h.slice(0, 10);
-    (byDay.get(d) ?? byDay.set(d, []).get(d)).push(g.wSum / g.wTot);
-  }
-  const byMonth = new Map();
-  for (const [d, prices] of byDay) {
-    if (prices.length < windowHours * 2) continue;   // a partial day cannot give a day's spread
-    const s = [...prices].sort((a, b) => a - b);
-    const low = s.slice(0, windowHours).reduce((x, y) => x + y, 0) / windowHours;
-    const high = s.slice(-windowHours).reduce((x, y) => x + y, 0) / windowHours;
-    const m = d.slice(0, 7);
-    (byMonth.get(m) ?? byMonth.set(m, []).get(m)).push(high - low);
-  }
-  const out = new Map();
-  for (const [m, spreads] of byMonth) {
-    const mean = spreads.reduce((a, b) => a + b, 0) / spreads.length;
-    out.set(m, {
-      spread_eur_mwh: mean,
-      // Availability-equivalent: one cycle/day of `windowHours` at this spread, spread over 24 h.
-      arb_eur_mw_h: (mean * windowHours * CRITERIA.RTE) / 24,
-      n_days: spreads.length,
-    });
-  }
-  return out;
-}
+// Arbitrage opportunity moved to ./arbitrage.mjs in 36.E1 — same code, one implementation,
+// now shared with the price-formation calibration (rule #4). See that module's header.
 
 // ── Per-series statistics ──────────────────────────────────────────────────
 
