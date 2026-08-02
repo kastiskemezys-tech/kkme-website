@@ -8,6 +8,7 @@ import { describe, it, expect } from 'vitest';
 import {
   loadRules, checkDetectorHealth, applyRenameGuard, evaluateSignal,
   buildTransition, appendTransitions, buildDigest, ACTION, DETECTOR,
+  runnerHeartbeat, daysToDetection, RUNNER_HEARTBEAT_MAX_AGE_HOURS,
 } from '../lib/lifecycle.mjs';
 
 // Rules JSON is deeply dynamic; matches the convention in tools/consultancy/__tests__.
@@ -221,5 +222,51 @@ describe('digest — a quiet week and a broken week must not look the same', () 
   it('lists retirements with their citation counts', () => {
     const d = buildDigest([{ type: 'retired', id: 'x', reason: 'registry_terminated', evidence: CITED }], {});
     expect(d).toMatch(/RETIRED x/);
+  });
+});
+
+describe('B-054 — the runner heartbeat fires before any source threshold', () => {
+  it('fires strictly sooner than every per-detector ceiling', () => {
+    // The point of the heartbeat. If any source ceiling were lower, that sensor would be the
+    // first alarm for a dead runner and the heartbeat would be decoration.
+    const ceilings = rules.signals
+      .map((s: Any) => s.meta_monitor?.max_age_hours)
+      .filter((h: Any) => typeof h === 'number');
+    expect(ceilings.length).toBe(rules.signals.length);
+    for (const c of ceilings) expect(RUNNER_HEARTBEAT_MAX_AGE_HOURS).toBeLessThan(c);
+  });
+
+  it('is a fact about the run, carrying no claim about any source', () => {
+    const hb = runnerHeartbeat(NOW, 'health');
+    expect(hb.last_run_at).toBe(NOW);
+    expect(hb.max_age_hours).toBe(RUNNER_HEARTBEAT_MAX_AGE_HOURS);
+    // A source verdict here would be a lie: this record never looked at a source.
+    expect(hb.source_reachable).toBeNull();
+    expect(hb.source_usable).toBeNull();
+  });
+
+  it('goes stale on the reader clock once the runner stops', () => {
+    const hb = runnerHeartbeat(NOW, 'health');
+    // Same ageing the worker /health handler applies: status is computed from the stamp, so a
+    // stopped runner cannot leave a "healthy" record behind (B-048).
+    const ageAt = (iso: string) => (Date.parse(iso) - Date.parse(hb.last_run_at)) / 3600000;
+    expect(ageAt('2026-08-07T12:00:00.000Z')).toBeLessThan(hb.max_age_hours);   // 7d — one missed Sunday, quiet
+    expect(ageAt('2026-08-11T12:00:00.000Z')).toBeGreaterThan(hb.max_age_hours); // 11d — two misses, alarm
+  });
+
+  it('cuts detection of a dead runner from 14 days to 10', () => {
+    const d = daysToDetection(rules);
+    expect(d.days_if_runner_dies).toBe(10);
+    // 336 h was the smallest source ceiling and therefore the old answer.
+    expect(d.days_if_runner_dies_without_heartbeat).toBe(14);
+    expect(d.days_if_runner_dies).toBeLessThan(d.days_if_runner_dies_without_heartbeat);
+  });
+
+  it('answers B8 for every detector — no source is missing a threshold', () => {
+    const d = daysToDetection(rules);
+    expect(d.per_detector.length).toBe(rules.signals.length);
+    for (const r of d.per_detector) {
+      expect(r.days_if_source_dies, `${r.detector} has no max_age_hours`).toBeGreaterThan(0);
+    }
   });
 });

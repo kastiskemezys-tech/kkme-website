@@ -135,6 +135,65 @@ export function applyEligibility(health, pop) {
 }
 
 /**
+ * B-054 — the runner's own liveness, which no per-detector threshold can express.
+ *
+ * Each signal's `max_age_hours` is sized for ITS SOURCE (336 h snapshot, 720 h register,
+ * 1080 h monthly permits, 1440 h internal sweep). But every detector's `last_run_at` is
+ * advanced by the RUNNER, so when the weekly runner dies the whole map freezes together and
+ * the earliest alarm is the smallest source ceiling — 14 days, and 60 for the slowest. The
+ * failure is the runner; the sensors were setting its alarm clock.
+ *
+ * 240 h = 10 days: one missed Sunday (37.B.1a schedules Sun 22:00 UTC) plus three days of
+ * slack, so a delayed run is not an alarm and two consecutive misses are. It must stay
+ * strictly below every source ceiling or it is not the first thing to fire — asserted in
+ * lifecycle.test.ts rather than left as an intention.
+ */
+export const RUNNER_HEARTBEAT_MAX_AGE_HOURS = 240;
+
+/**
+ * The heartbeat record. Its only claim is "the runner reached this line at `nowIso`" — a fact
+ * about this process, never about a source, which is why it carries no invariants and no
+ * source fields. Staleness is computed by the reader from a stamp that stops advancing the
+ * moment the runner stops: the one shape a dead writer cannot fake (B-048).
+ */
+export function runnerHeartbeat(nowIso, mode = 'unknown') {
+  return {
+    status: DETECTOR.HEALTHY,
+    last_run_at: nowIso,
+    reasons: [`fleet-lifecycle runner completed a ${mode} run; weekly schedule, alarm at ${RUNNER_HEARTBEAT_MAX_AGE_HOURS}h`],
+    max_age_hours: RUNNER_HEARTBEAT_MAX_AGE_HOURS,
+    // One invocation, and the unit says so: rendered through the worker's classifier this
+    // reads "1 runner invocation eligible" rather than borrowing the fleet's row language.
+    rows_eligible: 1,
+    source_reachable: null,
+    source_usable: null,
+    population_unit: 'runner invocation',
+  };
+}
+
+/**
+ * Days between a source dying and the surface saying so, per detector — the B8 answer, computed
+ * from the thresholds rather than asserted beside them. `runner_heartbeat` is included because
+ * a dead RUNNER is the common-mode failure that freezes every other stamp at once.
+ */
+export function daysToDetection(rules, heartbeatHours = RUNNER_HEARTBEAT_MAX_AGE_HOURS) {
+  const rows = rules.signals.map((s) => ({
+    detector: s.id,
+    source: s.source,
+    max_age_hours: s.meta_monitor?.max_age_hours ?? null,
+    days_if_source_dies: s.meta_monitor?.max_age_hours ? s.meta_monitor.max_age_hours / 24 : null,
+  }));
+  // When the runner itself stops, nothing advances and the heartbeat is what fires.
+  const runnerDays = heartbeatHours / 24;
+  return {
+    per_detector: rows,
+    days_if_runner_dies: runnerDays,
+    // Before the heartbeat this was the smallest source ceiling — the number B-054 was filed on.
+    days_if_runner_dies_without_heartbeat: Math.min(...rows.filter((r) => r.max_age_hours).map((r) => r.max_age_hours)) / 24,
+  };
+}
+
+/**
  * The rename guard. A missing or terminated name that resolves as a FORMER name of
  * a still-active registration is a rename, not a death — the single most damaging
  * false positive available to this system, because it retires live projects.

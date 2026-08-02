@@ -23,6 +23,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   loadRules, checkDetectorHealth, applyEligibility, evaluateSignal, buildTransition, DETECTOR,
+  runnerHeartbeat,
 } from './lib/lifecycle.mjs';
 import {
   acquirePublicFleet, acquireLvRegister, acquireVert, acquireLvPress,
@@ -351,6 +352,32 @@ const loadState = () => {
     population_unit: id === 'new_entity_unmatched' ? 'register-name-keys' : 'fleet rows',
     ...(d.baseline_present === undefined ? {} : { baseline_present: d.baseline_present }),
   }]));
+  // ── B-054: the runner's own heartbeat ──────────────────────────────────────
+  //
+  // THE GAP THIS CLOSES. Every per-detector `max_age_hours` above is sized for its SOURCE's
+  // cadence — 336 h for a snapshot diff, 720 h for the LV register, 1080 h for monthly VERT,
+  // 1440 h for the internal hygiene sweep. But a detector's `last_run_at` only advances when
+  // THE RUNNER runs, so if the weekly runner (37.B.1a: Sun 22:00 UTC) dies, every stamp freezes
+  // and the first detector does not cross its ceiling for 14 days — the last not for 60. The
+  // thing that failed is the runner, and the slowest sensor was setting the alarm clock.
+  //
+  // A heartbeat is the fix and it belongs HERE rather than in the worker, because only this
+  // process knows it ran. It is a record in the same detector map deliberately: the worker
+  // already ages every entry that carries `last_run_at` + `max_age_hours` and overrides the
+  // stored status to `stale`, so the alarm needs no new endpoint and no new reader — and any
+  // future reader that learns to age detectors gets this for free.
+  //
+  // 240 h = 10 days: one missed Sunday plus three days of slack, so a single delayed run is not
+  // an alarm and two consecutive misses certainly are. Distinct from every source threshold
+  // above, which is the whole point.
+  //
+  // Note it is stamped with NOW unconditionally. That is correct and is not a self-certifying
+  // "healthy": this record's ONLY claim is "the runner reached this line at NOW", which is a
+  // fact about this process, not about any source. Its staleness is therefore computed by the
+  // reader from a stamp that stops advancing the moment the runner stops — the one shape B-048
+  // showed cannot be faked by a dead writer.
+  payloadDetectors.runner_heartbeat = runnerHeartbeat(NOW, MODE);
+
   const check = findPrivateLeaks({ transitions: payloadTransitions, detectors: payloadDetectors });
   const checkContacts = findContactShapedContent({ transitions: payloadTransitions, detectors: payloadDetectors });
   if (check.length || checkContacts.length) {
