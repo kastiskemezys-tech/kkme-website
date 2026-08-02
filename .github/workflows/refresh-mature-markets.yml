@@ -170,6 +170,10 @@ jobs:
             echo "tests=fail" >> "$GITHUB_OUTPUT"
           fi
 
+      # TEMPORARY 36.E0.3 GATE-FAILABILITY INJECTION — reverted in the next commit.
+      - name: INJECT app/ diff to prove the scope gate can fail
+        run: echo "gate-failability probe" > app/__gate_probe.txt
+
       - name: Gate — no engine, worker or public-site change
         id: scope
         if: github.event.inputs.dry_run != 'true'

@@ -602,3 +602,6 @@ function renderReport(r) {
 }
 
 await main();
+
+// TEMPORARY 36.E0.3 GATE-FAILABILITY INJECTION — reverted in the next commit.
+process.exitCode = 1;
