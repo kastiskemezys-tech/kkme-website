@@ -1,12 +1,12 @@
 {
  "artifact": "mature-market evidence-base refresh report",
  "phase": "36.E0.1",
- "refreshed_at": "2026-07-30T10:35:31.048Z",
+ "refreshed_at": "2026-08-02T05:53:22.057Z",
  "year_window": 2026,
- "gates_pass": true,
+ "gates_pass": false,
  "gates": {
   "all_sources_served": true,
-  "append_only": true,
+  "append_only": false,
   "checksums_and_schema": true,
   "summary_table_rebuilds": true,
   "summary_table_deterministic": true,
@@ -23,32 +23,32 @@
  "integrity": {
   "de": {
    "ok": true,
-   "rows": 934217,
+   "rows": 935557,
    "files_checked": 9
   },
   "se": {
    "ok": true,
-   "rows": 146733,
+   "rows": 146949,
    "files_checked": 7
   },
   "gb": {
    "ok": true,
-   "rows": 155705,
+   "rows": 156677,
    "files_checked": 7
   },
   "au": {
    "ok": true,
-   "rows": 1252128,
+   "rows": 1253856,
    "files_checked": 13
   },
   "da": {
    "ok": true,
-   "rows": 602402,
+   "rows": 603042,
    "files_checked": 33
   },
   "activation": {
    "ok": true,
-   "rows": 286137,
+   "rows": 286610,
    "files_checked": 16
   }
  },
@@ -56,11 +56,11 @@
   {
    "source": "de",
    "status": "ok",
-   "seconds": 25,
+   "seconds": 42,
    "cadence_months": 1,
-   "last_successful_refresh": "2026-07-30T10:35:31.048Z",
-   "rows_total": 934217,
-   "rows_added": 132,
+   "last_successful_refresh": "2026-08-02T05:53:22.057Z",
+   "rows_total": 935557,
+   "rows_added": 1340,
    "files_changed": [
     "de-reserve-2025.ndjson.gz",
     "de-reserve-2026.ndjson.gz"
@@ -77,34 +77,198 @@
   },
   {
    "source": "se",
-   "status": "no_change",
-   "seconds": 3,
+   "status": "anomaly",
+   "seconds": 5,
    "cadence_months": 1,
    "last_successful_refresh": "2026-07-30T10:35:31.048Z",
-   "rows_total": 146733,
-   "rows_added": 0,
-   "files_changed": [],
+   "rows_total": 146949,
+   "rows_added": 216,
+   "files_changed": [
+    "se-fcr-2025.ndjson.gz",
+    "se-fcr-2026.ndjson.gz"
+   ],
    "files_new": [],
-   "files_unchanged": 7,
+   "files_unchanged": 5,
    "manifest_entries_carried_forward": 5,
    "shards_reconciled": [
     "se-fcr-2025.ndjson.gz"
    ],
    "rows_carried_forward": 26277,
    "refresh_window_start": "2025-12-31T23:00:00Z",
-   "anomalies": []
+   "anomalies": [
+    {
+     "kind": "history_restated",
+     "file": "se-fcr-2026.ndjson.gz",
+     "examples": [
+      {
+       "key": "SE|SE|FCR-D-down|down|cap|2026-07-30T22:00:00Z|PT1H",
+       "was": [
+        "\"2026-07-30T23:00:00Z\"",
+        "\"PT1H\"",
+        "1",
+        "\"EUR/MW\"",
+        "\"EUR\"",
+        "1",
+        "1",
+        "\"EUR/MW/h\"",
+        "314",
+        "\"MW\"",
+        "\"clearing\""
+       ],
+       "now": [
+        "\"2026-07-30T23:00:00Z\"",
+        "\"PT1H\"",
+        "1.6154306262059288",
+        "\"EUR/MW\"",
+        "\"EUR\"",
+        "1.6154306262059288",
+        "1.6154306262059288",
+        "\"EUR/MW/h\"",
+        "570.1",
+        "\"MW\"",
+        "\"clearing\""
+       ]
+      },
+      {
+       "key": "SE|SE|FCR-D-up|up|cap|2026-07-30T22:00:00Z|PT1H",
+       "was": [
+        "\"2026-07-30T23:00:00Z\"",
+        "\"PT1H\"",
+        "1.6",
+        "\"EUR/MW\"",
+        "\"EUR\"",
+        "1.6",
+        "1.6",
+        "\"EUR/MW/h\"",
+        "298",
+        "\"MW\"",
+        "\"clearing\""
+       ],
+       "now": [
+        "\"2026-07-30T23:00:00Z\"",
+        "\"PT1H\"",
+        "2.2868376068376066",
+        "\"EUR/MW\"",
+        "\"EUR\"",
+        "2.2868376068376066",
+        "2.2868376068376066",
+        "\"EUR/MW/h\"",
+        "585",
+        "\"MW\"",
+        "\"clearing\""
+       ]
+      },
+      {
+       "key": "SE|SE|FCR-N|symmetric|cap|2026-07-30T22:00:00Z|PT1H",
+       "was": [
+        "\"2026-07-30T23:00:00Z\"",
+        "\"PT1H\"",
+        "16",
+        "\"EUR/MW\"",
+        "\"EUR\"",
+        "16",
+        "16",
+        "\"EUR/MW/h\"",
+        "138",
+        "\"MW\"",
+        "\"clearing\""
+       ],
+       "now": [
+        "\"2026-07-30T23:00:00Z\"",
+        "\"PT1H\"",
+        "15.65063649222065",
+        "\"EUR/MW\"",
+        "\"EUR\"",
+        "15.65063649222065",
+        "15.65063649222065",
+        "\"EUR/MW/h\"",
+        "212.1",
+        "\"MW\"",
+        "\"clearing\""
+       ]
+      },
+      {
+       "key": "SE|SE|FCR-D-down|down|cap|2026-07-30T23:00:00Z|PT1H",
+       "was": [
+        "\"2026-07-31T00:00:00Z\"",
+        "\"PT1H\"",
+        "1",
+        "\"EUR/MW\"",
+        "\"EUR\"",
+        "1",
+        "1",
+        "\"EUR/MW/h\"",
+        "306",
+        "\"MW\"",
+        "\"clearing\""
+       ],
+       "now": [
+        "\"2026-07-31T00:00:00Z\"",
+        "\"PT1H\"",
+        "5.028880866425993",
+        "\"EUR/MW\"",
+        "\"EUR\"",
+        "5.028880866425993",
+        "5.028880866425993",
+        "\"EUR/MW/h\"",
+        "554",
+        "\"MW\"",
+        "\"clearing\""
+       ]
+      },
+      {
+       "key": "SE|SE|FCR-D-up|up|cap|2026-07-30T23:00:00Z|PT1H",
+       "was": [
+        "\"2026-07-31T00:00:00Z\"",
+        "\"PT1H\"",
+        "1.04",
+        "\"EUR/MW\"",
+        "\"EUR\"",
+        "1.04",
+        "1.04",
+        "\"EUR/MW/h\"",
+        "298",
+        "\"MW\"",
+        "\"clearing\""
+       ],
+       "now": [
+        "\"2026-07-31T00:00:00Z\"",
+        "\"PT1H\"",
+        "1.623030303030303",
+        "\"EUR/MW\"",
+        "\"EUR\"",
+        "1.623030303030303",
+        "1.623030303030303",
+        "\"EUR/MW/h\"",
+        "594",
+        "\"MW\"",
+        "\"clearing\""
+       ]
+      }
+     ],
+     "consequence": "A previously published value changed. Settlement corrections do happen and A84 carries a revisionNumber for exactly this, so this may be legitimate — but it must be a decision, with the diff read, not an automatic merge."
+    }
+   ]
   },
   {
    "source": "gb",
-   "status": "no_change",
-   "seconds": 16,
+   "status": "ok",
+   "seconds": 19,
    "cadence_months": 1,
-   "last_successful_refresh": "2026-07-30T10:35:31.048Z",
-   "rows_total": 155705,
-   "rows_added": 0,
-   "files_changed": [],
+   "last_successful_refresh": "2026-08-02T05:53:22.057Z",
+   "rows_total": 156677,
+   "rows_added": 972,
+   "files_changed": [
+    "gb-response-reserve-2020.ndjson.gz",
+    "gb-response-reserve-2021.ndjson.gz",
+    "gb-response-reserve-2022.ndjson.gz",
+    "gb-response-reserve-2023.ndjson.gz",
+    "gb-response-reserve-2024.ndjson.gz",
+    "gb-response-reserve-2025.ndjson.gz",
+    "gb-response-reserve-2026.ndjson.gz"
+   ],
    "files_new": [],
-   "files_unchanged": 7,
+   "files_unchanged": 0,
    "manifest_entries_carried_forward": 0,
    "shards_reconciled": [],
    "rows_carried_forward": 0,
@@ -113,15 +277,18 @@
   },
   {
    "source": "au",
-   "status": "no_change",
-   "seconds": 20,
+   "status": "ok",
+   "seconds": 23,
    "cadence_months": 1,
-   "last_successful_refresh": "2026-07-30T10:35:31.048Z",
-   "rows_total": 1252128,
-   "rows_added": 0,
-   "files_changed": [],
+   "last_successful_refresh": "2026-08-02T05:53:22.057Z",
+   "rows_total": 1253856,
+   "rows_added": 1728,
+   "files_changed": [
+    "au-spot-2025.ndjson.gz",
+    "au-spot-2026.ndjson.gz"
+   ],
    "files_new": [],
-   "files_unchanged": 13,
+   "files_unchanged": 11,
    "manifest_entries_carried_forward": 11,
    "shards_reconciled": [
     "au-spot-2025.ndjson.gz"
@@ -132,18 +299,21 @@
   },
   {
    "source": "da",
-   "status": "ok",
+   "status": "anomaly",
    "seconds": 19,
    "cadence_months": 1,
    "last_successful_refresh": "2026-07-30T10:35:31.048Z",
-   "rows_total": 602402,
-   "rows_added": 103,
+   "rows_total": 603042,
+   "rows_added": 664,
    "files_changed": [
+    "da-de-2025.ndjson.gz",
     "da-de-2026.ndjson.gz",
-    "da-gb-2026.ndjson.gz"
+    "da-gb-2026.ndjson.gz",
+    "da-se-2025.ndjson.gz",
+    "da-se-2026.ndjson.gz"
    ],
    "files_new": [],
-   "files_unchanged": 31,
+   "files_unchanged": 28,
    "manifest_entries_carried_forward": 28,
    "shards_reconciled": [
     "da-de-2025.ndjson.gz",
@@ -151,22 +321,190 @@
    ],
    "rows_carried_forward": 56970,
    "refresh_window_start": "2025-12-31T23:00:00Z",
-   "anomalies": []
+   "anomalies": [
+    {
+     "kind": "rows_removed",
+     "file": "da-de-2026.ndjson.gz",
+     "n_removed": 24,
+     "examples": [
+      "DE|DE_LU|spot|-|energy|2026-07-23T22:00:00Z|PT60M",
+      "DE|DE_LU|spot|-|energy|2026-07-23T23:00:00Z|PT60M",
+      "DE|DE_LU|spot|-|energy|2026-07-24T00:00:00Z|PT60M",
+      "DE|DE_LU|spot|-|energy|2026-07-24T01:00:00Z|PT60M",
+      "DE|DE_LU|spot|-|energy|2026-07-24T02:00:00Z|PT60M"
+     ],
+     "consequence": "Coverage shrank. A source withdrawing published history is an event, not a refresh — do not merge without establishing why."
+    },
+    {
+     "kind": "history_restated",
+     "file": "da-de-2026.ndjson.gz",
+     "examples": [
+      {
+       "key": "DE|DE_LU|spot|-|energy|2026-07-23T22:00:00Z|PT15M",
+       "was": [
+        "\"2026-07-23T22:15:00Z\"",
+        "\"PT15M\"",
+        "169.2",
+        "\"EUR/MWh\"",
+        "\"EUR\"",
+        "169.2",
+        "169.2",
+        "\"EUR/MWh\"",
+        "null",
+        "null",
+        "\"clearing\""
+       ],
+       "now": [
+        "\"2026-07-23T22:15:00Z\"",
+        "\"PT15M\"",
+        "168.22",
+        "\"EUR/MWh\"",
+        "\"EUR\"",
+        "168.22",
+        "168.22",
+        "\"EUR/MWh\"",
+        "null",
+        "null",
+        "\"clearing\""
+       ]
+      },
+      {
+       "key": "DE|DE_LU|spot|-|energy|2026-07-23T22:15:00Z|PT15M",
+       "was": [
+        "\"2026-07-23T22:30:00Z\"",
+        "\"PT15M\"",
+        "166.09",
+        "\"EUR/MWh\"",
+        "\"EUR\"",
+        "166.09",
+        "166.09",
+        "\"EUR/MWh\"",
+        "null",
+        "null",
+        "\"clearing\""
+       ],
+       "now": [
+        "\"2026-07-23T22:30:00Z\"",
+        "\"PT15M\"",
+        "163.65",
+        "\"EUR/MWh\"",
+        "\"EUR\"",
+        "163.65",
+        "163.65",
+        "\"EUR/MWh\"",
+        "null",
+        "null",
+        "\"clearing\""
+       ]
+      },
+      {
+       "key": "DE|DE_LU|spot|-|energy|2026-07-23T22:30:00Z|PT15M",
+       "was": [
+        "\"2026-07-23T22:45:00Z\"",
+        "\"PT15M\"",
+        "163.63",
+        "\"EUR/MWh\"",
+        "\"EUR\"",
+        "163.63",
+        "163.63",
+        "\"EUR/MWh\"",
+        "null",
+        "null",
+        "\"clearing\""
+       ],
+       "now": [
+        "\"2026-07-23T22:45:00Z\"",
+        "\"PT15M\"",
+        "160.58",
+        "\"EUR/MWh\"",
+        "\"EUR\"",
+        "160.58",
+        "160.58",
+        "\"EUR/MWh\"",
+        "null",
+        "null",
+        "\"clearing\""
+       ]
+      },
+      {
+       "key": "DE|DE_LU|spot|-|energy|2026-07-23T22:45:00Z|PT15M",
+       "was": [
+        "\"2026-07-23T23:00:00Z\"",
+        "\"PT15M\"",
+        "161.17",
+        "\"EUR/MWh\"",
+        "\"EUR\"",
+        "161.17",
+        "161.17",
+        "\"EUR/MWh\"",
+        "null",
+        "null",
+        "\"clearing\""
+       ],
+       "now": [
+        "\"2026-07-23T23:00:00Z\"",
+        "\"PT15M\"",
+        "151.56",
+        "\"EUR/MWh\"",
+        "\"EUR\"",
+        "151.56",
+        "151.56",
+        "\"EUR/MWh\"",
+        "null",
+        "null",
+        "\"clearing\""
+       ]
+      },
+      {
+       "key": "DE|DE_LU|spot|-|energy|2026-07-23T23:00:00Z|PT15M",
+       "was": [
+        "\"2026-07-23T23:15:00Z\"",
+        "\"PT15M\"",
+        "164.86",
+        "\"EUR/MWh\"",
+        "\"EUR\"",
+        "164.86",
+        "164.86",
+        "\"EUR/MWh\"",
+        "null",
+        "null",
+        "\"clearing\""
+       ],
+       "now": [
+        "\"2026-07-23T23:15:00Z\"",
+        "\"PT15M\"",
+        "162.69",
+        "\"EUR/MWh\"",
+        "\"EUR\"",
+        "162.69",
+        "162.69",
+        "\"EUR/MWh\"",
+        "null",
+        "null",
+        "\"clearing\""
+       ]
+      }
+     ],
+     "consequence": "A previously published value changed. Settlement corrections do happen and A84 carries a revisionNumber for exactly this, so this may be legitimate — but it must be a decision, with the diff read, not an automatic merge."
+    }
+   ]
   },
   {
    "source": "activation",
    "status": "ok",
-   "seconds": 57,
+   "seconds": 45,
    "cadence_months": 1,
-   "last_successful_refresh": "2026-07-30T10:35:31.048Z",
-   "rows_total": 286137,
-   "rows_added": 2,
+   "last_successful_refresh": "2026-08-02T05:53:22.057Z",
+   "rows_total": 286610,
+   "rows_added": 473,
    "files_changed": [
+    "activation-at-afrr-2026.ndjson.gz",
     "activation-at-mfrr-2026.ndjson.gz",
-    "activation-de-afrr-2026.ndjson.gz"
+    "activation-de-afrr-2026.ndjson.gz",
+    "activation-de-mfrr-2026.ndjson.gz"
    ],
    "files_new": [],
-   "files_unchanged": 14,
+   "files_unchanged": 12,
    "manifest_entries_carried_forward": 12,
    "shards_reconciled": [],
    "rows_carried_forward": 0,
@@ -176,16 +514,20 @@
   {
    "source": "fx",
    "status": "ok",
-   "seconds": 1,
+   "seconds": 3,
    "cadence_months": 1,
-   "last_successful_refresh": "2026-07-30T10:35:31.048Z",
+   "last_successful_refresh": "2026-08-02T05:53:22.057Z",
    "rows_total": null,
    "rows_added": 0,
    "files_changed": [
+    "ecb-exr-M-GBP-EUR.csv",
+    "ecb-exr-M-AUD-EUR.csv",
+    "ecb-exr-M-SEK-EUR.csv",
+    "ecb-exr-M-NOK-EUR.csv",
     "fx-monthly.json"
    ],
    "files_new": [],
-   "files_unchanged": 4,
+   "files_unchanged": 0,
    "manifest_entries_carried_forward": 0,
    "shards_reconciled": [],
    "rows_carried_forward": 0,
@@ -195,9 +537,9 @@
   {
    "source": "calendar",
    "status": "ok",
-   "seconds": 2,
+   "seconds": 3,
    "cadence_months": 3,
-   "last_successful_refresh": "2026-07-30T10:35:31.048Z",
+   "last_successful_refresh": "2026-08-02T05:53:22.057Z",
    "rows_total": null,
    "rows_added": 0,
    "files_changed": [
@@ -213,10 +555,10 @@
   }
  ],
  "totals": {
-  "rows_added": 237,
-  "sources_ok": 5,
-  "sources_no_change": 3,
+  "rows_added": 5393,
+  "sources_ok": 6,
+  "sources_no_change": 0,
   "sources_failed": 0,
-  "sources_anomalous": 0
+  "sources_anomalous": 2
  }
 }

@@ -33,7 +33,7 @@
   "currency": "native GBP retained; converted at the ECB monthly-average GBP/EUR rate"
  },
  "licence": "ENTSO-E Transparency Platform data, reusable under the platform terms of use with attribution. Requires a free registered API key.",
- "retrieved_at": "2026-07-30T10:37:00.563Z",
+ "retrieved_at": "2026-08-02T05:55:31.447Z",
  "requested_span": "2015..2026",
  "purpose": "the arbitrage-opportunity denominator for the summary table's floor-vs-opportunity column",
  "resolution": "native, as published per document: PT60M for most of the span, PT15M or PT30M where the market moved to shorter MTUs",
@@ -2721,7 +2721,7 @@
    "GB 2026-12"
   ]
  },
- "rows": 602402,
+ "rows": 603042,
  "files": [
   {
    "file": "da-de-2018.ndjson.gz",
@@ -2785,15 +2785,15 @@
    "duplicates_dropped": 4,
    "bytes_gz": 718891,
    "span": "2025-01-01T00:00:00Z..2026-01-01T00:00:00Z",
-   "sha256": "76539c8dbbce8c8d683ca27715527a525c94053879413695c1691d99c357f3f0"
+   "sha256": "1b44bbb15c6356a31ea9f2865711a4033de64291c72760cba82c57bc41368cb5"
   },
   {
    "file": "da-de-2026.ndjson.gz",
-   "rows": 20366,
-   "duplicates_dropped": 20914,
-   "bytes_gz": 358882,
-   "span": "2026-01-01T00:00:00Z..2026-07-31T22:00:00Z",
-   "sha256": "b3ab517abc4337504deb73f2fea1dda88591e23f4874fdfb68530b0b1e2bc005"
+   "rows": 20630,
+   "duplicates_dropped": 21490,
+   "bytes_gz": 363529,
+   "span": "2026-01-01T00:00:00Z..2026-08-03T22:00:00Z",
+   "sha256": "04f28bfd2ce1cd97aad39ae9271af7cdc1d147e1e646279e7f53a960a1bc2413"
   },
   {
    "file": "da-gb-2016.ndjson.gz",
@@ -2877,11 +2877,11 @@
   },
   {
    "file": "da-gb-2026.ndjson.gz",
-   "rows": 8542,
+   "rows": 8630,
    "duplicates_dropped": 0,
-   "bytes_gz": 230531,
-   "span": "2026-01-01T00:00:00Z..2026-07-30T10:30:00Z",
-   "sha256": "a0b484bd4deed6ade344cd2e5625ac01901573c788e72cf6d46375de6264d85b"
+   "bytes_gz": 232889,
+   "span": "2026-01-01T00:00:00Z..2026-08-02T06:00:00Z",
+   "sha256": "a7a67a4b6a0bc8fe6618a46692a93aa7210ab35be261aaced68c2fbbb980b3e8"
   },
   {
    "file": "da-se-2014.ndjson.gz",
@@ -2977,21 +2977,21 @@
    "duplicates_dropped": 0,
    "bytes_gz": 267424,
    "span": "2025-01-01T00:00:00Z..2026-01-01T00:00:00Z",
-   "sha256": "ac69fc67186647f431f07cd95c27611936db6582df8fbeb62d841ff560eceadc"
+   "sha256": "692faa03a0c42daadbbd7f8165216c8046f081e0cde87c55a8a1f809fac93154"
   },
   {
    "file": "da-se-2026.ndjson.gz",
-   "rows": 20247,
-   "duplicates_dropped": 384,
-   "bytes_gz": 354599,
-   "span": "2026-01-01T00:00:00Z..2026-07-30T22:00:00Z",
-   "sha256": "7ae605b650bc3f616d066979216b59ad6b4dc73e1ef5a5a3dc84fe2a46d624c0"
+   "rows": 20535,
+   "duplicates_dropped": 480,
+   "bytes_gz": 359317,
+   "span": "2026-01-01T00:00:00Z..2026-08-02T22:00:00Z",
+   "sha256": "4b66149a5c8847f972b9af030ff6c3aa8ca72ea39c0ae126e4f1248be320f6f5"
   }
  ],
  "acquisition_retrieved_at": "2026-07-30T06:49:57.930Z",
  "last_refresh": {
   "window": "2026..2026",
-  "retrieved_at": "2026-07-30T10:37:00.563Z",
+  "retrieved_at": "2026-08-02T05:55:31.447Z",
   "note": "Metadata from the most recent WINDOWED refresh. The top-level coverage_verification is acquisition-time evidence about how this source behaves and is deliberately not overwritten by a partial window.",
   "windowed_metadata": {
    "dataset": "day-ahead-prices",
@@ -3079,13 +3079,13 @@
       "market": "DE",
       "month": "2026-07",
       "docs": 1,
-      "rows": 5782
+      "rows": 6142
      },
      {
       "market": "DE",
       "month": "2026-08",
-      "docs": 0,
-      "rows": 0
+      "docs": 1,
+      "rows": 480
      },
      {
       "market": "DE",
@@ -3151,13 +3151,13 @@
       "market": "SE",
       "month": "2026-07",
       "docs": 1,
-      "rows": 2880
+      "rows": 3072
      },
      {
       "market": "SE",
       "month": "2026-08",
-      "docs": 0,
-      "rows": 0
+      "docs": 1,
+      "rows": 192
      },
      {
       "market": "SE",
@@ -3223,13 +3223,13 @@
       "market": "GB",
       "month": "2026-07",
       "docs": 1,
-      "rows": 1219
+      "rows": 1247
      },
      {
       "market": "GB",
       "month": "2026-08",
-      "docs": 0,
-      "rows": 0
+      "docs": 1,
+      "rows": 60
      },
      {
       "market": "GB",
@@ -3257,17 +3257,14 @@
      }
     ],
     "months_empty": [
-     "DE 2026-08",
      "DE 2026-09",
      "DE 2026-10",
      "DE 2026-11",
      "DE 2026-12",
-     "SE 2026-08",
      "SE 2026-09",
      "SE 2026-10",
      "SE 2026-11",
      "SE 2026-12",
-     "GB 2026-08",
      "GB 2026-09",
      "GB 2026-10",
      "GB 2026-11",

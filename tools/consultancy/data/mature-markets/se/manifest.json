@@ -13,7 +13,7 @@
   "human_readable": "https://mimer.svk.se/PrimaryRegulation/PrimaryRegulationIndex"
  },
  "licence": "Svenska kraftnät publishes Mimer market data for public reuse; no explicit licence text is served with the download endpoint. Stored here for internal calibration.",
- "retrieved_at": "2026-07-30T10:36:01.999Z",
+ "retrieved_at": "2026-08-02T05:54:17.163Z",
  "requested_span": "2020-06..2026-07",
  "resolution": "PT1H",
  "timezone": "timestamps are Swedish local wall clock (Europe/Stockholm), stored as UTC instants",
@@ -492,7 +492,7 @@
   "unit_note": "published EUR/MW on hourly products, so price_norm (EUR/MW/h) equals price; asserted in the loader test rather than assumed"
  },
  "area_semantics": "row.area = \"SE\" for the market-wide price. Per-zone procured volumes (SE1-SE4, DK2) are in extra.zone_volumes_mw; DK2 buys through the Swedish market.",
- "rows": 146733,
+ "rows": 146949,
  "files": [
   {
    "file": "se-fcr-2020.ndjson.gz",
@@ -534,20 +534,20 @@
    "rows": 26280,
    "bytes_gz": 1102023,
    "span": "2025-01-01T00:00:00Z..2026-01-01T00:00:00Z",
-   "sha256": "3ac92917c5f060545d5c175754b0a5a64fd48fbc8ed833d416f01df80fbcfb48"
+   "sha256": "fd3ff9d25bc9ff2126f31d677164a205cca1972c8c6fd7d71ba6f5b148b803f9"
   },
   {
    "file": "se-fcr-2026.ndjson.gz",
-   "rows": 15258,
-   "bytes_gz": 632373,
-   "span": "2026-01-01T00:00:00Z..2026-07-31T22:00:00Z",
-   "sha256": "b1980c5d82671f65a55a7f04ec23c4ed39f73eb8ca884071065f049d6bc5135f"
+   "rows": 15474,
+   "bytes_gz": 640086,
+   "span": "2026-01-01T00:00:00Z..2026-08-03T22:00:00Z",
+   "sha256": "31a59080ac471ad2c713a12084fb5cef3fe4fc4696e201721f384853e5dabaea"
   }
  ],
  "acquisition_retrieved_at": "2026-07-30T06:59:18.813Z",
  "last_refresh": {
-  "window": "2026-01..2026-07",
-  "retrieved_at": "2026-07-30T10:36:01.999Z",
+  "window": "2026-01..2026-08",
+  "retrieved_at": "2026-08-02T05:54:17.163Z",
   "note": "Metadata from the most recent WINDOWED refresh. The top-level coverage_verification is acquisition-time evidence about how this source behaves and is deliberately not overwritten by a partial window.",
   "windowed_metadata": {
    "dataset": "se-fcr",
@@ -631,6 +631,12 @@
       "rows": 2232,
       "zero_rows_dropped": 0,
       "non_zero_prices": 2232
+     },
+     {
+      "month": "2026-08",
+      "rows": 216,
+      "zero_rows_dropped": 0,
+      "non_zero_prices": 216
      }
     ]
    },

@@ -14,7 +14,7 @@
   "pattern": "https://aemo.com.au/aemo/data/nem/priceanddemand/PRICE_AND_DEMAND_<YYYYMM>_<REGION>.csv"
  },
  "licence": "AEMO publishes NEM aggregated price and demand data for public use subject to its website terms; stored here for internal calibration.",
- "retrieved_at": "2026-07-30T10:36:39.819Z",
+ "retrieved_at": "2026-08-02T05:55:04.094Z",
  "requested_span": "2015-01..2026-07",
  "timezone": "SETTLEMENTDATE is NEM market time, AEST = UTC+10 with no daylight saving (not South Australian civil time, which is UTC+9:30 with DST). Stored as UTC instants.",
  "resolution_note": "native resolution measured per file from consecutive stamps, not assumed from the date",
@@ -44,7 +44,7 @@
   "negative_prices": "NEM spot prices are frequently negative and occasionally at the -1000 AUD/MWh floor or the market price cap. All retained: for a storage model the negative tail IS the charging opportunity."
  },
  "control_region_rationale": "NSW1 is included as a control, not a second observation. Compression measured only in SA cannot distinguish a battery effect from a market-wide one.",
- "rows": 1252128,
+ "rows": 1253856,
  "per_month": [
   {
    "region": "SA1",
@@ -1846,24 +1846,24 @@
     "NSW1",
     "SA1"
    ],
-   "sha256": "36a75043dc808df6ec03e53c03694dcfebee71c3df5076f430feca3b20b9fc02"
+   "sha256": "8344347706fe3c0b443a234902cedcd5a8d95f4bf6d431862708df5b485cd478"
   },
   {
    "file": "au-spot-2026.ndjson.gz",
-   "rows": 120722,
-   "bytes_gz": 2281400,
-   "span": "2026-01-01T00:00:00Z..2026-07-29T14:05:00Z",
+   "rows": 122450,
+   "bytes_gz": 2313107,
+   "span": "2026-01-01T00:00:00Z..2026-08-01T14:05:00Z",
    "regions": [
     "NSW1",
     "SA1"
    ],
-   "sha256": "7ecf9237bd5a26c32ef6b8f6dbffad47e206d123fa1757426737598c46038835"
+   "sha256": "e18b6f2cbd24fb1e130367ae462840b6eabf52077385b66ba794c6532f4504fd"
   }
  ],
  "acquisition_retrieved_at": "2026-07-30T06:41:26.631Z",
  "last_refresh": {
-  "window": "2026-01..2026-07",
-  "retrieved_at": "2026-07-30T10:36:39.819Z",
+  "window": "2026-01..2026-08",
+  "retrieved_at": "2026-08-02T05:55:04.094Z",
   "note": "Metadata from the most recent WINDOWED refresh. The top-level coverage_verification is acquisition-time evidence about how this source behaves and is deliberately not overwritten by a partial window.",
   "windowed_metadata": {
    "dataset": "au-spot",
@@ -1886,8 +1886,8 @@
    "resolutions_observed": {
     "PT5M": {
      "first": "2026-01",
-     "last": "2026-07",
-     "n": 120960
+     "last": "2026-08",
+     "n": 122688
     }
    },
    "coverage_verification": {
@@ -1944,7 +1944,13 @@
     {
      "region": "SA1",
      "month": "2026-07",
-     "rows": 8352,
+     "rows": 8928,
+     "resolution": "PT5M"
+    },
+    {
+     "region": "SA1",
+     "month": "2026-08",
+     "rows": 288,
      "resolution": "PT5M"
     },
     {
@@ -1986,7 +1992,13 @@
     {
      "region": "NSW1",
      "month": "2026-07",
-     "rows": 8352,
+     "rows": 8928,
+     "resolution": "PT5M"
+    },
+    {
+     "region": "NSW1",
+     "month": "2026-08",
+     "rows": 288,
      "resolution": "PT5M"
     }
    ],
@@ -1994,5 +2006,5 @@
   }
  },
  "refresh_cadence_months": 1,
- "last_successful_refresh": "2026-07-30T10:35:31.048Z"
+ "last_successful_refresh": "2026-08-02T05:53:22.057Z"
 }

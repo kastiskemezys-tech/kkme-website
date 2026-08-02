@@ -56,7 +56,7 @@
   "not_re_probed_here": "NL and LT were not re-probed against every German-style control-area EIC. Their absence from this dataset is an untested claim, not a measured one."
  },
  "licence": "ENTSO-E Transparency Platform data, reusable under the platform terms of use with attribution. Requires a free registered API key.",
- "retrieved_at": "2026-07-30T10:37:58.786Z",
+ "retrieved_at": "2026-08-02T05:56:19.004Z",
  "requested_span": "per-market first_month..2026-07",
  "resolution": "PT15M as published (the imbalance settlement period)",
  "timezone": "ENTSO-E publishes UTC instants; stored unchanged",
@@ -2005,7 +2005,7 @@
    }
   ]
  },
- "rows": 286137,
+ "rows": 286610,
  "files": [
   {
    "file": "activation-at-afrr-2025.ndjson.gz",
@@ -2025,7 +2025,7 @@
    "rows": 33111,
    "bytes_gz": 656978,
    "span": "2026-01-01T00:00:00Z..2026-07-01T07:30:00Z",
-   "sha256": "ea39eb151f71b8f94137b4dc81905eb418dd242b65e516356bc2e29aad252907"
+   "sha256": "05d52b77cca1c073630b38bc369109d5ed2c11d5153a1c94e967dbb5cf716dac"
   },
   {
    "file": "activation-at-mfrr-2023.ndjson.gz",
@@ -2062,10 +2062,10 @@
    "market": "AT",
    "product": "mFRR",
    "year": 2026,
-   "rows": 1447,
-   "bytes_gz": 25322,
-   "span": "2026-01-01T10:45:00Z..2026-07-30T10:15:00Z",
-   "sha256": "f9a17cadcb734b7f11205a7a11e3f0a1557a1241cd1fde6c3c92d61574f75e9d"
+   "rows": 1459,
+   "bytes_gz": 25544,
+   "span": "2026-01-01T10:45:00Z..2026-08-01T13:15:00Z",
+   "sha256": "5792c00e4cef4b974c6bb39937945367bdf4a8a79d56352c01ae79c396b0b092"
   },
   {
    "file": "activation-de-afrr-2022.ndjson.gz",
@@ -2112,10 +2112,10 @@
    "market": "DE",
    "product": "aFRR",
    "year": 2026,
-   "rows": 33253,
-   "bytes_gz": 624991,
-   "span": "2026-01-01T00:00:00Z..2026-07-30T10:00:00Z",
-   "sha256": "a0ae2bbd9f6e71f7a511f7fe73c3d8de28dc206633c36a62308ccf62d53c98de"
+   "rows": 33710,
+   "bytes_gz": 633579,
+   "span": "2026-01-01T00:00:00Z..2026-08-02T05:15:00Z",
+   "sha256": "8c485c7e1d917c0ded73bff47d21e52395c38c041980b51ea2bd6b60dcb6cee3"
   },
   {
    "file": "activation-de-mfrr-2022.ndjson.gz",
@@ -2162,16 +2162,16 @@
    "market": "DE",
    "product": "mFRR",
    "year": 2026,
-   "rows": 86,
-   "bytes_gz": 2232,
-   "span": "2026-01-02T06:00:00Z..2026-07-23T15:00:00Z",
-   "sha256": "3b38f71292eb3151a51091ae940eb4a199e8e3a19ddcf7b0aeddc5d47344f377"
+   "rows": 90,
+   "bytes_gz": 2314,
+   "span": "2026-01-02T06:00:00Z..2026-07-30T17:45:00Z",
+   "sha256": "871c03dec9c837055a526e0972a8c5ed668003b7f97fd8c35bfd72076b266b47"
   }
  ],
  "acquisition_retrieved_at": "2026-07-30T10:25:46.517Z",
  "last_refresh": {
-  "window": "2026-01..2026-07",
-  "retrieved_at": "2026-07-30T10:37:58.786Z",
+  "window": "2026-01..2026-08",
+  "retrieved_at": "2026-08-02T05:56:19.004Z",
   "note": "Metadata from the most recent WINDOWED refresh. The top-level coverage_verification is acquisition-time evidence about how this source behaves and is deliberately not overwritten by a partial window.",
   "windowed_metadata": {
    "dataset": "settled-activation-prices",
@@ -2243,9 +2243,9 @@
    },
    "parsing_notes": {
     "curveType_A03_not_carried_forward": "Documents are curveType A03. Its formal reading carries a price forward until the next position, which for an activation series would fabricate activations in unactivated ISPs. One row is emitted per published point and position contiguity is asserted; violations are counted in position_gaps below rather than resolved silently.",
-    "point_elements_seen": 70584,
+    "point_elements_seen": 71073,
     "curve_a03_block_expansion": "curveType A03 compresses runs of quarter-hours into one point; each point is expanded across [position, nextPosition) and rows from a compressed block carry extra.block_isps. Reading one row per point loses activated quarter-hours — measured on DE mFRR 2022-06-22, where a 5-ISP Period carries positions 1, 3 and 5.",
-    "zero_price_isps_dropped": 40708,
+    "zero_price_isps_dropped": 41236,
     "zero_price_note": "Rows whose activation price is exactly 0 are dropped as absence-published-as-zero, counted here and per series in coverage_verification. THIS IS A JUDGEMENT, and a large one, so it is stated rather than buried: DE and AT publish this dataItem in two different styles. Germany emits one short Period per activation episode, so its series is sparse and only ~0.1% of published points are zero. Austria emits a dense step function over the whole month in which 0 is the RESTING value meaning no activation — 5.1% of AT aFRR points and 61.6% of AT mFRR points, and each zero point expands across its A03 block, which is why the dropped count is large relative to the kept count. Dropping them is what makes the two markets comparable at all; keeping them would report Austria as activating in every quarter-hour at a mean dragged toward zero. The limit of the justification: A84 carries no volume, so unlike the Swedish case there is no second column to prove a zero means absence. It is inferred from the publication style and from the implausibility of an exactly-0.00 settled quarter-hourly price. Any analysis that needs Austrian activation FREQUENCY rather than level must re-examine this choice.",
     "position_gaps": 0,
     "position_gap_examples": [],
@@ -2272,23 +2272,23 @@
     "mfrr_is_genuinely_sparse": "German mFRR activation is rare in this era: measured 9-32 activated ISPs per MONTH against roughly 4500-4900 for aFRR. That is a market fact, not missing data, and it constrains how much weight an mFRR activation-revenue term can carry.",
     "activated_isps_by_series": {
      "DE|aFRR": {
-      "months": 7,
-      "months_with_data": 7,
-      "activated_isps": 33253,
-      "up": 16699,
-      "down": 16554,
-      "zero_price_isps_dropped": 49
+      "months": 8,
+      "months_with_data": 8,
+      "activated_isps": 33710,
+      "up": 16940,
+      "down": 16770,
+      "zero_price_isps_dropped": 51
      },
      "DE|mFRR": {
-      "months": 7,
+      "months": 8,
       "months_with_data": 7,
-      "activated_isps": 86,
-      "up": 51,
-      "down": 35,
+      "activated_isps": 90,
+      "up": 54,
+      "down": 36,
       "zero_price_isps_dropped": 3
      },
      "AT|aFRR": {
-      "months": 7,
+      "months": 8,
       "months_with_data": 7,
       "activated_isps": 33111,
       "up": 16575,
@@ -2296,12 +2296,12 @@
       "zero_price_isps_dropped": 1701
      },
      "AT|mFRR": {
-      "months": 7,
-      "months_with_data": 7,
-      "activated_isps": 1447,
-      "up": 538,
-      "down": 909,
-      "zero_price_isps_dropped": 38955
+      "months": 8,
+      "months_with_data": 8,
+      "activated_isps": 1459,
+      "up": 545,
+      "down": 914,
+      "zero_price_isps_dropped": 39481
      }
     },
     "per_month": [
@@ -2439,23 +2439,41 @@
       "market": "DE",
       "product": "aFRR",
       "month": "2026-07",
-      "activated_isps": 4678,
+      "activated_isps": 4949,
       "by_direction": {
-       "up": 2181,
-       "down": 2497
+       "up": 2319,
+       "down": 2630
       },
-      "zero_price_isps_dropped": 7
+      "zero_price_isps_dropped": 8
      },
      {
       "market": "DE",
       "product": "mFRR",
       "month": "2026-07",
-      "activated_isps": 7,
+      "activated_isps": 11,
       "by_direction": {
-       "up": 3,
-       "down": 4
+       "up": 6,
+       "down": 5
       },
       "zero_price_isps_dropped": 0
+     },
+     {
+      "market": "DE",
+      "product": "aFRR",
+      "month": "2026-08",
+      "activated_isps": 186,
+      "by_direction": {
+       "up": 103,
+       "down": 83
+      },
+      "zero_price_isps_dropped": 1
+     },
+     {
+      "market": "DE",
+      "product": "mFRR",
+      "month": "2026-08",
+      "activated_isps": 0,
+      "reason": "No matching data found for Data item PRICES_OF_ACTIVATED_BALANCING_ENERGY_R3 [TR 17.1.F, IF aFRR 3.16] (10YDE-VE-------2"
      },
      {
       "market": "AT",
@@ -2604,12 +2622,29 @@
       "market": "AT",
       "product": "mFRR",
       "month": "2026-07",
-      "activated_isps": 292,
+      "activated_isps": 297,
       "by_direction": {
        "up": 90,
-       "down": 202
+       "down": 207
       },
-      "zero_price_isps_dropped": 5358
+      "zero_price_isps_dropped": 5655
+     },
+     {
+      "market": "AT",
+      "product": "aFRR",
+      "month": "2026-08",
+      "activated_isps": 0,
+      "reason": "No matching data found for Data item PRICES_OF_ACTIVATED_BALANCING_ENERGY_R3 [TR 17.1.F, IF aFRR 3.16] (10YAT-APG------L"
+     },
+     {
+      "market": "AT",
+      "product": "mFRR",
+      "month": "2026-08",
+      "activated_isps": 7,
+      "by_direction": {
+       "up": 7
+      },
+      "zero_price_isps_dropped": 229
      }
     ]
    },
@@ -2617,5 +2652,5 @@
   }
  },
  "refresh_cadence_months": 1,
- "last_successful_refresh": "2026-07-30T10:35:31.048Z"
+ "last_successful_refresh": "2026-08-02T05:53:22.057Z"
 }
