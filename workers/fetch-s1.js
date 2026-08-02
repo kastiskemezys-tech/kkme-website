@@ -4267,8 +4267,11 @@ async function fetchBzn(bzn, apiKey) {
  * failure now costs a retry rather than a tick, and the log names the leg.
  *
  * `delayMs` is injectable so the retry path can be tested without a real wait.
+ * Kept short: the 2026-08-02T12:00Z tail shows this branch failing on the 30s
+ * wrapper timeout, not on a rejection, so dead wait inside computeS1 is spent
+ * from the same budget the timeout is measuring.
  */
-async function fetchBznGuarded(bzn, apiKey, label, delayMs = 750) {
+async function fetchBznGuarded(bzn, apiKey, label, delayMs = 400) {
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
       return await fetchBzn(bzn, apiKey);
@@ -4351,7 +4354,20 @@ const ENERGY_CHARTS_API = 'https://api.energy-charts.info/price';
 async function fetchEnergyCharts(startDate, endDate) {
   const end = endDate || startDate;
   const url = `${ENERGY_CHARTS_API}?bzn=LT&start=${startDate}T00:00Z&end=${end}T23:59Z`;
-  const res = await fetch(url);
+
+  // Phase 38.1 — one retry, on observed evidence rather than caution.
+  // energy-charts returned `HTTP 429` to this worker during the
+  // 2026-08-02T12:00:33Z tick (`[Gen/LT] Error: energy-charts lt: HTTP 429`, in
+  // the hourly cron firing the same second as the 4-hourly one). This is the
+  // sole upstream for the DA capture, and the capture is the number the S1 card
+  // publishes — the whole reason this phase exists. A single 429 taking it out
+  // for four hours is the failure this phase is closing, one host over.
+  let res = await fetch(url);
+  if (!res.ok && (res.status === 429 || res.status >= 500)) {
+    console.warn(`[S1/capture] energy-charts HTTP ${res.status} — one retry in 500ms`);
+    await new Promise((r) => setTimeout(r, 500));
+    res = await fetch(url);
+  }
   if (!res.ok) throw new Error(`energy-charts HTTP ${res.status}`);
   const json = await res.json();
   if (!json.price || !json.unix_seconds || !json.price.length) {
@@ -8068,8 +8084,36 @@ export default {
     }
 
     // Every 4h: fetch S1/S2/S3/S4/Euribor in parallel
+    //
+    // Phase 38.1 — computeS1's budget raised 30s → 60s on tail evidence, not on
+    // reasoning. The 2026-08-02T12:00:33Z invocation (Workers Logs, captured
+    // before this fix deployed) recorded:
+    //
+    //   [error] [S1] cron failed: Error: Timed out after 30000ms
+    //   [log]   [S1/PL] pl_avg=107.02 lt_pl_spread=-57.41€/MWh (-53.6%)
+    //   [log]   [S1] coupling_spread=9.32€/MWh intraday_swing=191.23€/MWh
+    //   cpu=83ms wall=50017ms
+    //
+    // computeS1's OWN completion logs are in the same invocation as the timeout
+    // that discarded it: the work finished, past the 30s wrapper, and the result
+    // was thrown away. cpu 83ms against wall 50s says the invocation is I/O-bound
+    // — it is waiting on connections, not computing. The pre-fix hypothesis was
+    // ENTSO-E throttling computeS1's 9-request burst; that was tested from
+    // outside and REFUTED (48/48 HTTP 200 across four rounds at 9- and
+    // 15-request concurrency), so a per-leg retry alone would have left the cause
+    // live and, under a timeout-bound failure, made it marginally worse.
+    //
+    // Five heavy computes share one invocation's connection budget, and the
+    // hourly cron fires in the same second at every 4h-aligned hour (both
+    // invocations stamped 12:00:33Z above; energy-charts returned HTTP 429 to
+    // the hourly one). HYPOTHESIS, not measured here: the Workers per-invocation
+    // simultaneous-connection cap queues ~20 fetches through far fewer slots,
+    // and computeHistorical's four ~425 KB XML windows are the long poles. The
+    // structural fix — staggering the block, or caching the historical windows
+    // that change daily rather than 4-hourly — is filed as B-057, not attempted
+    // here. Raising the budget is the change the evidence directly supports.
     const [s1Result, s2Result, s4Result, s3Result, eurResult] = await Promise.allSettled([
-      withTimeout(computeS1(env),      30000),  // includes tomorrow fetch (+2 ENTSO-E calls)
+      withTimeout(computeS1(env),      60000),  // includes tomorrow fetch (+2 ENTSO-E calls)
       withTimeout(computeS2(),         45000),  // BTD API + Litgrid scrape
       withTimeout(computeS4(),         25000),
       withTimeout(computeS3(),         25000),
