@@ -15,12 +15,34 @@ name: Refresh mature-market evidence base (36.E0.1)
 # `pull_request` trigger, so a fork PR can never run this job with the secret in scope.
 #
 # FIRST RUN. Executed manually via workflow_dispatch as the phase's proof, 2026-07-30.
+#
+# 36.E0.3 — CORRECTNESS OF THE INSTRUMENT. The first two scheduled firings (2026-08-01,
+# 2026-08-02) showed three defects in this file, all of the same family: the workflow reported
+# on itself and the report was wrong.
+#   * B-053 the `tests` gate could not fail. `if npx vitest … | tail -40` takes `tail`'s exit
+#     status, which is always 0. It recorded `tests=pass` on 2026-08-02 with 3 tests failing.
+#   * B-052 the schedule fired ~11×/month, not once, and the comment asserted otherwise.
+#   * B-051 the PR could not be created, so the review shape this workflow exists for did not
+#     exist — and nothing but a red job said so.
+# Every gate below is now demonstrated failable by injection before being trusted. A gate that
+# has not been shown to go red is not a gate.
 
 on:
   schedule:
-    # First Sunday of the month, 03:00 UTC. Cron has no "first Sunday", so this fires on any of
-    # days 1-7 that is a Sunday — exactly one day per month.
-    - cron: '0 3 1-7 * 0'
+    # Every Sunday, 03:00 UTC. The first-Sunday restriction is enforced by the `window` job
+    # below, NOT by this expression.
+    #
+    # WHY NOT `0 3 1-7 * 0`. POSIX cron ORs day-of-month with day-of-week when BOTH are
+    # restricted — it does not AND them. That expression therefore fires on every day 1-7 AND
+    # every Sunday, ~11 times a month. Measured, not reasoned: it ran Sat 2026-08-01 (day 1)
+    # and Sun 2026-08-02 (day 2, and a Sunday). Exactly one field may be restricted here; the
+    # other half of the condition lives in a job guard where it can be tested.
+    #
+    # This comment is not trusted either: `refreshWorkflow.test.ts` parses the cron out of this
+    # file, enumerates the firings it actually produces, applies the guard, and asserts the
+    # result is one per month. The claim is computed from the mechanism, never asserted beside
+    # it (rule #2).
+    - cron: '0 3 * * 0'
   workflow_dispatch:
     inputs:
       sources:
@@ -32,18 +54,55 @@ on:
         type: boolean
         required: false
         default: false
+      branch_suffix:
+        # Proof runs need the full end-to-end path — real gates, real push, real PR — WITHOUT
+        # overwriting the month's evidence branch, which is force-pushed below and may be under
+        # review. A suffix sends a test run to `evidence-refresh/YYYY-MM-<suffix>` instead.
+        # Empty (the default, and always the case on a schedule) means the real branch.
+        description: 'Suffix the evidence branch (proof runs only; leave empty for real refreshes)'
+        required: false
+        default: ''
 
-# Least privilege: the job needs to push a branch and open a PR, and nothing else.
+# Least privilege: the job needs to push a branch, open a PR, and — when PR creation is refused
+# by repo policy — file the issue that stops a blocked PR from being a silent success.
 permissions:
   contents: write
   pull-requests: write
+  issues: write
 
 concurrency:
   group: refresh-mature-markets
   cancel-in-progress: false
 
 jobs:
+  # The other half of "first Sunday of the month". The cron fires every Sunday; this drops all
+  # but the first of the month. It is a job rather than a step so the skip is visible in the
+  # Actions UI — a silently no-op job is the shape B8 exists to forbid — and so the condition is
+  # a plain shell expression a test can execute directly.
+  window:
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.check.outputs.run }}
+    steps:
+      - id: check
+        run: |
+          set -euo pipefail
+          DOM="$(date -u +%-d)"
+          if [ "${{ github.event_name }}" != "schedule" ]; then
+            # Manual dispatch is always deliberate: never second-guess the operator.
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Manual dispatch — first-Sunday guard not applied."
+          elif [ "$DOM" -le 7 ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Day $DOM of the month — this is the first Sunday, proceeding."
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Day $DOM of the month — not the first Sunday, skipping this firing."
+          fi
+
   refresh:
+    needs: window
+    if: needs.window.outputs.run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 120
 
@@ -90,11 +149,22 @@ jobs:
             echo "gates=fail" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Gate — loader, fixtures, manifests, calendar
+      - name: Gate — loader, fixtures, manifests, calendar, workflow self-check
         id: tests
         if: github.event.inputs.dry_run != 'true'
         run: |
-          if npx vitest run tools/consultancy/__tests__/matureMarkets.test.ts 2>&1 | tail -40; then
+          # B-053. `set -o pipefail` is the whole fix and it is not optional: without it this
+          # `if` reads `tail`'s exit status, which is 0 whether vitest passed or failed. On
+          # 2026-08-02 that recorded `tests=pass` while 3 tests failed, and the PR body would
+          # have told a reviewer the loader gate was green. Every green this gate had ever
+          # produced was green by construction.
+          #
+          # `-o pipefail` alone is enough here and `-e` is deliberately NOT set: a failing
+          # vitest must be CAUGHT by the `if` and carried into the report, not abort the job.
+          set -o pipefail
+          if npx vitest run \
+               tools/consultancy/__tests__/matureMarkets.test.ts \
+               tools/consultancy/__tests__/refreshWorkflow.test.ts 2>&1 | tail -40; then
             echo "tests=pass" >> "$GITHUB_OUTPUT"
           else
             echo "tests=fail" >> "$GITHUB_OUTPUT"
@@ -118,6 +188,7 @@ jobs:
         run: node tools/consultancy/mature-markets/check-freshness.mjs || true
 
       - name: Open or update the review PR
+        id: pr
         if: github.event.inputs.dry_run != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -128,7 +199,8 @@ jobs:
             exit 0
           fi
 
-          BRANCH="evidence-refresh/$(date -u +%Y-%m)"
+          SUFFIX="${{ github.event.inputs.branch_suffix }}"
+          BRANCH="evidence-refresh/$(date -u +%Y-%m)${SUFFIX:+-$SUFFIX}"
           git config user.name  "kkme-refresh[bot]"
           git config user.email "kkme-refresh@users.noreply.github.com"
           git checkout -b "$BRANCH" 2>/dev/null || git checkout "$BRANCH"
@@ -149,12 +221,96 @@ jobs:
             cat tools/consultancy/data/mature-markets/refresh-report.md
           } > /tmp/pr-body.md
 
+          COMPARE="${{ github.server_url }}/${{ github.repository }}/compare/main...$BRANCH?expand=1"
+
           if gh pr view "$BRANCH" --json number >/dev/null 2>&1; then
             gh pr edit "$BRANCH" --body-file /tmp/pr-body.md
             echo "::notice::Updated PR for $BRANCH"
+            gh pr view "$BRANCH" --json url --jq .url
+          elif gh pr create --base main --head "$BRANCH" \
+                 --title "36.E0.1: evidence-base refresh $(date -u +%Y-%m)" \
+                 --body-file /tmp/pr-body.md; then
+            gh pr view "$BRANCH" --json url --jq .url
           else
-            gh pr create --base main --head "$BRANCH" \
-              --title "36.E0.1: evidence-base refresh $(date -u +%Y-%m)" \
-              --body-file /tmp/pr-body.md
+            # B-051 FALLBACK. `Allow GitHub Actions to create and approve pull requests` is a
+            # repo/org setting, and when it is off `gh pr create` fails with a GraphQL refusal.
+            # The refresh itself has already SUCCEEDED at this point and the branch is pushed —
+            # so the danger is not lost data, it is that the review shape silently stops
+            # existing while the data keeps landing on a branch nobody is told about.
+            #
+            # An issue is the fallback because GITHUB_TOKEN can always open one (the policy
+            # restricts PRs, not issues) and issues notify the repo owner by the same route a
+            # PR would. The compare URL turns it into a one-click PR by hand.
+            echo "::error::PR creation refused by repo policy — falling back to an issue."
+            {
+              echo "The monthly evidence refresh ran and pushed **\`$BRANCH\`**, but GitHub Actions"
+              echo "is not permitted to open the pull request, so the PR-based review this workflow"
+              echo "exists to produce does not exist for this run."
+              echo ""
+              echo "**Open it by hand:** $COMPARE"
+              echo ""
+              echo "**Fix the cause:** Settings → Actions → General → *Allow GitHub Actions to"
+              echo "create and approve pull requests*."
+              echo ""
+              cat /tmp/pr-body.md
+            } > /tmp/issue-body.md
+
+            EXISTING="$(gh issue list --state open --label refresh-blocked --json number --jq '.[0].number // empty')"
+            if [ -n "$EXISTING" ]; then
+              gh issue comment "$EXISTING" --body-file /tmp/issue-body.md
+              echo "::notice::Commented on existing blocked-refresh issue #$EXISTING"
+            else
+              gh label create refresh-blocked --description "Evidence refresh could not open its PR" --color B60205 2>/dev/null || true
+              gh issue create --title "Evidence refresh $(date -u +%Y-%m) could not open its PR" \
+                --label refresh-blocked --body-file /tmp/issue-body.md
+            fi
+            # Not a success. The gate summary below turns this into a red job.
+            echo "pr_blocked=true" >> "$GITHUB_OUTPUT"
           fi
-          gh pr view "$BRANCH" --json url --jq .url
+
+      # 36.E0.3 — THE JOB STATUS MUST AGREE WITH THE GATES.
+      #
+      # Before this step a run could finish GREEN with `tests=fail` recorded, because the gate
+      # results were carried into the PR body and nowhere else. That is the same defect class as
+      # B-053 one layer out: the gate knew, and the surface the operator actually looks at — the
+      # green tick in the Actions list — did not say so.
+      #
+      # `if: always()` because this is the honesty check: it has to run even when an earlier step
+      # died, which is exactly the case where a missing summary would be most misleading.
+      - name: Gate summary — fail the job if any gate failed
+        if: always() && github.event.inputs.dry_run != 'true'
+        run: |
+          set -uo pipefail
+          REFRESH="${{ steps.refresh.outputs.gates }}"
+          TESTS="${{ steps.tests.outputs.tests }}"
+          SCOPE="${{ steps.scope.outputs.scope }}"
+          BLOCKED="${{ steps.pr.outputs.pr_blocked }}"
+
+          echo "refresh=${REFRESH:-<not reached>}"
+          echo "tests=${TESTS:-<not reached>}"
+          echo "scope=${SCOPE:-<not reached>}"
+          echo "pr_blocked=${BLOCKED:-false}"
+
+          {
+            echo "| gate | result |"
+            echo "|---|---|"
+            echo "| refresh | ${REFRESH:-not reached} |"
+            echo "| tests | ${TESTS:-not reached} |"
+            echo "| scope | ${SCOPE:-not reached} |"
+            echo "| PR opened | $([ "${BLOCKED:-false}" = "true" ] && echo 'NO — blocked by repo policy' || echo 'yes') |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          FAILED=0
+          # A gate that did not run is NOT a pass. Anything other than an explicit `pass` is a
+          # failure here, which is what makes "not reached" visible instead of assumed benign.
+          [ "${REFRESH:-}" = "pass" ] || { echo "::error::refresh gate: ${REFRESH:-not reached}"; FAILED=1; }
+          [ "${TESTS:-}"   = "pass" ] || { echo "::error::tests gate: ${TESTS:-not reached}";     FAILED=1; }
+          [ "${SCOPE:-}"   = "pass" ] || { echo "::error::scope gate: ${SCOPE:-not reached}";     FAILED=1; }
+          [ "${BLOCKED:-false}" != "true" ] || { echo "::error::PR creation was refused — see the tracking issue"; FAILED=1; }
+
+          if [ "$FAILED" = "1" ]; then
+            echo "One or more gates did not pass. The refreshed data is on its branch and the PR"
+            echo "body carries the report — this red status means REVIEW IT, not that data was lost."
+            exit 1
+          fi
+          echo "All gates passed."

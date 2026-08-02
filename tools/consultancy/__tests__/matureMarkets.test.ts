@@ -14,8 +14,22 @@
 // The second kind is what makes the first kind trustworthy. A fixture cut from a file that
 // parsed correctly passes forever, which is exactly how 36.D's tripwire fixtures gave no hint
 // that two of three targets were dead.
+//
+// TIMEOUT (36.E0.3). vitest's 5 000 ms default was silently adjudicating MACHINE SPEED as data
+// validity. Three tests here load whole datasets — de (934 217 rows), au (1 252 128) and the
+// per-row activation sweep (286 137 rows × 5 assertions) — and on 2026-08-02 all three timed
+// out on the GitHub runner while the same commit was 71/71 green locally. Measured, not
+// assumed: local 14.4 s wall / de 2 143 ms / au 1 752 ms / activation 4 138 ms, against 41.3 s
+// wall on Actions — a ~2.9× slower runner, which lands de at ~6.2 s, au at ~5.1 s and
+// activation at ~12.0 s. That predicts exactly the three that failed and exactly the one that
+// nearly did (au), and it predicts da (748 ms → ~2.2 s) surviving, which it did.
+//
+// Nothing about the ASSERTIONS changes here — the ceiling does. A timeout is not a gate on the
+// data; treating it as one meant a slow runner could report a valid evidence base as invalid,
+// and (via B-053) a broken one as valid. 60 s is ~5× the worst observed Actions time.
+vi.setConfig({ testTimeout: 60_000 });
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
@@ -641,8 +655,16 @@ describe('refresh automation', () => {
     expect(exists(WF)).toBe(true);
     const y = fs.readFileSync(WF, 'utf8');
     expect(y).toMatch(/schedule:/);
-    // First Sunday of the month.
-    expect(y).toMatch(/cron:\s*'0 3 1-7 \* 0'/);
+    // 36.E0.3 / B-052 — INVERTED, not updated. This line used to read
+    //     expect(y).toMatch(/cron:\s*'0 3 1-7 \* 0'/);   // "First Sunday of the month."
+    // which asserted the defect as the requirement: `0 3 1-7 * 0` ORs day-of-month with
+    // day-of-week and fires ~11×/month. The test was green for the entire life of the bug and
+    // was one of the reasons it survived — so it now asserts that form is ABSENT (B-036
+    // precedent: a test that asserted a wrong claim is inverted, never quietly corrected).
+    //
+    // What "monthly" actually means is not decided here. It is computed from the cron and the
+    // window guard in refreshWorkflow.test.ts, which is the only place that may make the claim.
+    expect(y).not.toMatch(/cron:\s*'0 3 1-7 \* 0'/);
     expect(y).toMatch(/gh pr create/);
     // A push to main would bypass the review the whole design exists to preserve.
     expect(y).not.toMatch(/git push (-f )?origin main/);
