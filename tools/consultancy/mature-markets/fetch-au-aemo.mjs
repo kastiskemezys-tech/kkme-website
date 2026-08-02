@@ -39,6 +39,7 @@ import path from 'node:path';
 import zlib from 'node:zlib';
 import crypto from 'node:crypto';
 import { row, validateRow } from './schema.mjs';
+import { writeManifest } from './manifest-writer.mjs';
 
 const OUT = path.join(import.meta.dirname, '..', 'data', 'mature-markets', 'au');
 const FIXTURES = path.join(import.meta.dirname, '..', 'fixtures', 'mature-markets');
@@ -210,7 +211,9 @@ async function main() {
     per_month: perMonth,
     files,
   };
-  await fs.writeFile(path.join(OUT, 'manifest.json'), JSON.stringify(manifest, null, 1) + '\n');
+  // 36.E0.2: manifest writes go through the one canonical writer, which preserves
+  // acquisition-time evidence and refuses any write that would REMOVE a provenance key.
+  await writeManifest({ dir: OUT, manifest, window: 'current_year', dataset: 'au' });
   console.log(`\n${nRows} rows · resolutions ${JSON.stringify(resolutionSpans)} · ${missing.length} months missing`);
 }
 

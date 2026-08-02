@@ -9,6 +9,7 @@
     "lint": "eslint",
     "lint:no-editorial-chips": "! grep -rEn \"phase: '(TIGHTENING|WIDENING|STABLE|RISING|FALLING|STEADY|ELEVATED|HIGH|LOW|COMPRESSED|OPEN)'\" app/components --include='*.tsx' | grep -v __tests__",
     "lint:no-raw-spacing": "bash scripts/lint-no-raw-spacing.sh",
+    "lint:manifest-single-writer": "bash scripts/lint-manifest-single-writer.sh",
     "evidence:freshness": "node tools/consultancy/mature-markets/check-freshness.mjs",
     "evidence:refresh": "node tools/consultancy/mature-markets/refresh-mature-markets.mjs",
     "test": "vitest run",

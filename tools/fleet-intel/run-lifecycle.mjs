@@ -37,6 +37,20 @@ import { findPrivateLeaks, findContactShapedContent } from './lib/tiers.mjs';
 const args = process.argv.slice(2);
 const has = (f) => args.includes(f);
 const WRITE = has('--write');
+/**
+ * 37.B.1a — the mode the weekly cron runs in. Posts detector HEALTH and never a transition.
+ *
+ * `--write` posts proposals into `fleet_lifecycle:transitions`, which is the log the weekly digest
+ * renders and sends to Telegram. This file's own header explains why that must not run unattended:
+ * a single untrimmed space in the LV register marked 486,509 entities terminated, Latvenergo
+ * included, and a runner wired straight through would have retired the entire Latvian fleet while
+ * satisfying every rule in the file. Scheduling `--write` would have been exactly that wiring.
+ *
+ * So the heartbeat and the acting are separated. The cron proves weekly that the runner ran, what
+ * each detector could see, and what it measured — which is what the staleness surface needs and
+ * all it needs. Proposals stay a reviewed, manual `--write`.
+ */
+const WRITE_HEALTH = has('--write-health');
 const REFRESH_REGISTER = has('--refresh-register');
 const NO_VPS = has('--no-vps');
 /**
@@ -48,21 +62,38 @@ const NO_VPS = has('--no-vps');
  */
 const EMIT_PAYLOAD = args.includes('--emit-payload') ? args[args.indexOf('--emit-payload') + 1] : null;
 
-const PRIVATE_INTAKE = path.join(ROOT, 'docs/_private/fleet-intel/intake-latest.json');
-const PRIVATE_OUT = path.join(ROOT, 'docs/_private/fleet-intel/lifecycle-proposals-latest.json');
-const REPORT_OUT = path.join(ROOT, 'docs/investigations/2026-08-01-phase-37-b1-first-detector-run.md');
-const STATE_PATH = path.join(SNAPSHOT_DIR, 'detector-state.json');
-const WORKER = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
+// Rule #2 on the runner's own label: the banner and the two `mode:` fields are COMPUTED from the
+// flags actually in force. They read REPORT-ONLY while --write-health was posting health — a label
+// asserting a state of the world it had not checked.
+const MODE = WRITE ? 'write' : WRITE_HEALTH ? 'write-health' : EMIT_PAYLOAD ? 'emit-payload' : 'report-only';
 
 const NOW = new Date().toISOString();
 const NOW_MS = Date.parse(NOW);
+
+const PRIVATE_INTAKE = path.join(ROOT, 'docs/_private/fleet-intel/intake-latest.json');
+const PRIVATE_OUT = path.join(ROOT, 'docs/_private/fleet-intel/lifecycle-proposals-latest.json');
+/**
+ * 37.B.1a — the report filename is COMPUTED, not hardcoded.
+ *
+ * It used to be a fixed `2026-08-01-phase-37-b1-first-detector-run.md`, which was accurate exactly
+ * once. Scheduling the runner weekly would have made every Monday rewrite 37.B.1's committed
+ * first-run report under a filename asserting a date it no longer held — rule #2, in the one place
+ * where the assertion is the filename itself. The first run keeps its name because it IS the
+ * first-run record; scheduled runs write dated files beside it.
+ */
+const FIRST_RUN_REPORT = path.join(ROOT, 'docs/investigations/2026-08-01-phase-37-b1-first-detector-run.md');
+const REPORT_OUT = fs.existsSync(FIRST_RUN_REPORT)
+  ? path.join(ROOT, `docs/investigations/${NOW.slice(0, 10)}-fleet-lifecycle-detector-run.md`)
+  : FIRST_RUN_REPORT;
+const STATE_PATH = path.join(SNAPSHOT_DIR, 'detector-state.json');
+const WORKER = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 
 const loadState = () => {
   try { return JSON.parse(fs.readFileSync(STATE_PATH, 'utf8')); } catch { return { detectors: {}, consecutive_fires: {} }; }
 };
 
 (async () => {
-  console.log(`── 37.B.1 detector run · ${NOW} · mode: ${WRITE ? 'WRITE' : 'REPORT-ONLY'} ──\n`);
+  console.log(`── 37.B.1 detector run · ${NOW} · mode: ${MODE.toUpperCase()} ──\n`);
   const rules = loadRules();
   const rulesById = Object.fromEntries(rules.signals.map((s) => [s.id, s]));
   const state = loadState();
@@ -269,7 +300,7 @@ const loadState = () => {
   fs.mkdirSync(SNAPSHOT_DIR, { recursive: true });
   fs.writeFileSync(STATE_PATH, JSON.stringify({
     last_run_at: NOW,
-    mode: WRITE ? 'write' : 'report-only',
+    mode: MODE,
     detectors: Object.fromEntries(Object.entries(detectors).map(([k, v]) => [k, {
       last_run_at: v.last_run_at, status: v.status, consecutive_zero_runs: v.consecutive_zero_runs ?? 0,
     }])),
@@ -280,7 +311,7 @@ const loadState = () => {
   const byTier = { public: proposals.filter((p) => p.tier === 'public'), private: proposals.filter((p) => p.tier === 'private') };
 
   fs.writeFileSync(PRIVATE_OUT, JSON.stringify({
-    generated: NOW, mode: WRITE ? 'write' : 'report-only', detectors, proposals, suppressed, sweep,
+    generated: NOW, mode: MODE, detectors, proposals, suppressed, sweep,
   }, null, 2));
 
   const report = renderReport({ detectors, byTier, suppressed, sweep, controls, sources: { fleet, lv, vert, press, prevSnap }, snapFile });
@@ -299,7 +330,7 @@ const loadState = () => {
   console.log(`report       → ${path.relative(ROOT, REPORT_OUT)}`);
 
   // ── 8. write path ──────────────────────────────────────────────────────────
-  if (!WRITE && !EMIT_PAYLOAD) {
+  if (!WRITE && !WRITE_HEALTH && !EMIT_PAYLOAD) {
     console.log('\nREPORT-ONLY: nothing was written to the worker. Re-run with --write (or --emit-payload) after review.');
     return;
   }
@@ -327,7 +358,14 @@ const loadState = () => {
     process.exit(1);
   }
 
-  const body = JSON.stringify({ transitions: payloadTransitions, detectors: payloadDetectors });
+  // In health mode the transition list is emptied HERE, at the one place the body is built, rather
+  // than filtered at the endpoint or trusted to be empty. If a proposal ever appears, the cron must
+  // not be the thing that acts on it — it stays in the local report for review.
+  const sentTransitions = WRITE_HEALTH ? [] : payloadTransitions;
+  if (WRITE_HEALTH && payloadTransitions.length) {
+    console.log(`\nHEALTH MODE: ${payloadTransitions.length} public-tier proposal(s) NOT posted — review the report and re-run with --write to act on them.`);
+  }
+  const body = JSON.stringify({ transitions: sentTransitions, detectors: payloadDetectors });
 
   if (EMIT_PAYLOAD) {
     fs.writeFileSync(EMIT_PAYLOAD, body);
@@ -337,13 +375,19 @@ const loadState = () => {
   }
 
   const secret = process.env.UPDATE_SECRET;
-  if (!secret) { console.error('\n--write requires UPDATE_SECRET in the environment; use --emit-payload instead.'); process.exit(1); }
+  if (!secret) { console.error('\n--write/--write-health requires UPDATE_SECRET in the environment; use --emit-payload instead.'); process.exit(1); }
   const res = await fetch(`${WORKER}/admin/fleet-lifecycle`, {
     method: 'POST',
     headers: { 'X-Update-Secret': secret, 'Content-Type': 'application/json' },
     body,
   });
-  console.log(`\nPOST /admin/fleet-lifecycle → ${res.status} ${JSON.stringify(await res.json())}`);
+  const bodyText = await res.text();
+  console.log(`\nPOST /admin/fleet-lifecycle → ${res.status} ${bodyText}`);
+  // Exit non-zero on a failed POST. Under cron the console output goes to a log nobody reads until
+  // something is already wrong; the exit code is what a wrapper can act on. Without this the runner
+  // would report success having posted nothing — B8, and precisely the silent stop this schedule
+  // exists to make visible.
+  if (!res.ok) process.exit(1);
 })();
 
 /**
