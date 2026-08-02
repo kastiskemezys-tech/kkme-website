@@ -113,6 +113,16 @@ async function readVpsJson(prefix, { host = VPS_HOST, dir = VPS_PROCESSED, local
   if (localOverride) {
     return { ok: true, via: 'local-override', body: fs.readFileSync(localOverride, 'utf8'), name: path.basename(localOverride) };
   }
+  // 37.B.1a: when the runner executes ON the VPS — which is where it is now scheduled — the
+  // directory is simply local, and SSHing to our own hostname would need a key we deliberately do
+  // not want to install. The condition is the directory's existence, not a hostname guess: it is
+  // the same thing the ssh branch is trying to reach, so a false positive is impossible.
+  if (fs.existsSync(dir) && fs.statSync(dir).isDirectory()) {
+    const files = fs.readdirSync(dir).filter((f) => f.startsWith(`${prefix}_`) && f.endsWith('.json')).sort();
+    if (!files.length) return { ok: false, error: `no ${prefix}_*.json found under ${dir}` };
+    const name = files[files.length - 1];
+    return { ok: true, via: 'local', name, body: fs.readFileSync(path.join(dir, name), 'utf8') };
+  }
   const { stdout } = await execFileP('ssh', [
     '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', host,
     `f=$(ls -1 ${dir}/${prefix}_*.json 2>/dev/null | tail -1); [ -n "$f" ] && echo "__NAME__$(basename $f)" && cat "$f"`,
