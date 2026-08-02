@@ -110,6 +110,12 @@ Four filings from Sunday's first real firing, all in the automation that grounds
 - **B-054:** `max_age_hours` 720-1080 makes a dead weekly runner invisible for 30-45 days. Set per-source thresholds from each source's own cadence (weekly runner → ~10 days), not one global constant.
 - **Also:** review the `evidence-refresh/2026-08` branch's append-only anomalies — se/da restated boundary-hour prices, da withdrew 24 rows. Both correctly withheld their stamps; the decision to accept or reject the restatement is an operator call and the model for every future month.
 
+### 2.8 · Trailing-edge lag (filed by E0.3, apply at the next refresh-touching slot, ~20 min)
+Both August anomalies tripped on the **trailing edge** — the refresh reads a market before it has finished publishing, so the newest window is provisional and gets restated next run. This recurs every month by construction. Fix: a 2-day exclusion (or equivalent lag) on the refresh window, orchestrator-side. Not applied in E0.3 because it changes the orchestrator rather than the month's data. Do it BEFORE the September firing, otherwise September reproduces August's two red flags for the same benign reason.
+
+### 2.9 · B-051 still OPEN (P1) — Actions cannot open PRs
+Repo tick did not take effect; an 08:09 UTC `workflow_dispatch` still returned *GitHub Actions is not permitted to create or approve pull requests*. **Check the ORG-level setting** — `kastiskemezys-tech` org → Settings → Actions → General → Workflow permissions → *Allow GitHub Actions to create and approve pull requests*; org policy overrides the repo setting and the repo toggle can appear ticked while the org forbids it. Fallback is shipped and demonstrated (labelled issue with the compare URL + a red job), but a notification is not a review shape — the monthly evidence PR is the thing E0.1 exists to produce.
+
 ### 3 · 36.E batch — E1 (FCR) + E2 (aFRR/PICASSO)
 Prompt authored at boundary on E0's approved evidence base. Autonomous unless E0's checkpoint changed the specs.
 
