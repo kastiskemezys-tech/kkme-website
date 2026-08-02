@@ -1,41 +1,41 @@
 {
  "dataset": "ecb-monthly-fx",
- "retrieved_at": "2026-07-30T10:37:59.672Z",
+ "retrieved_at": "2026-08-02T05:56:20.617Z",
  "licence": "ECB — free reuse with attribution (https://www.ecb.europa.eu/services/using-our-site/html/index.en.html)",
  "files": [
   {
    "file": "ecb-exr-M-GBP-EUR.csv",
    "source_url": "https://data-api.ecb.europa.eu/service/data/EXR/M.GBP.EUR.SP00.A?format=csvdata&startPeriod=2010-01",
    "resolution": "P1M",
-   "span": "2010-01..2026-06",
-   "n_months": 198,
-   "sha256": "1200e071abe40889d69648439c05c1b1d31227456b4727baa4228c8e2dad4a9c"
+   "span": "2010-01..2026-07",
+   "n_months": 199,
+   "sha256": "8b6a75dcf4f810502a66e34b4b1c1bd607b53f58b0c2d2287e731bb27eaff016"
   },
   {
    "file": "ecb-exr-M-AUD-EUR.csv",
    "source_url": "https://data-api.ecb.europa.eu/service/data/EXR/M.AUD.EUR.SP00.A?format=csvdata&startPeriod=2010-01",
    "resolution": "P1M",
-   "span": "2010-01..2026-06",
-   "n_months": 198,
-   "sha256": "e0fe3823e7e5e8c587e8fe219c78bbba70495024b80e5a5309617fa4471cee81"
+   "span": "2010-01..2026-07",
+   "n_months": 199,
+   "sha256": "f714ca3dac2a9243b4cd73c70ee4a71dc7217b7904f547aa5a5e70d1a8d48690"
   },
   {
    "file": "ecb-exr-M-SEK-EUR.csv",
    "source_url": "https://data-api.ecb.europa.eu/service/data/EXR/M.SEK.EUR.SP00.A?format=csvdata&startPeriod=2010-01",
    "resolution": "P1M",
-   "span": "2010-01..2026-06",
-   "n_months": 198,
-   "sha256": "513436f7d44e83f650941ddc9cc60156877e16768ba8d32462395247f69ec77f"
+   "span": "2010-01..2026-07",
+   "n_months": 199,
+   "sha256": "8ca6ead144c0f3ec7e6796d134e968537dfcdb7ff9a74db685adb2b52f170acc"
   },
   {
    "file": "ecb-exr-M-NOK-EUR.csv",
    "source_url": "https://data-api.ecb.europa.eu/service/data/EXR/M.NOK.EUR.SP00.A?format=csvdata&startPeriod=2010-01",
    "resolution": "P1M",
-   "span": "2010-01..2026-06",
-   "n_months": 198,
-   "sha256": "186ac412221de9dbbbe6a346ee404ab0dda757fe74a7482a376b95513036c52a"
+   "span": "2010-01..2026-07",
+   "n_months": 199,
+   "sha256": "3e8ec0a56ccc7aae27b8b3581127871eb44d3c6886b40fe7ee89c86763896ab0"
   }
  ],
  "refresh_cadence_months": 1,
- "last_successful_refresh": "2026-07-30T10:35:31.048Z"
+ "last_successful_refresh": "2026-08-02T05:53:22.057Z"
 }

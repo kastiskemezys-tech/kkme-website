@@ -12,12 +12,12 @@
   "eacLive": "https://api.neso.energy/datastore/dump/596f29ac-0387-4ba4-a6d3-95c243140707"
  },
  "licence": "NESO Open Data Licence — explicit open licence permitting reuse and redistribution with attribution. Source CSVs are committed as served (gzipped).",
- "retrieved_at": "2026-07-30T10:36:18.513Z",
+ "retrieved_at": "2026-08-02T05:54:37.525Z",
  "resolution": "EFA blocks (PT4H) for response services; PT30M for some reserve products; PT24H for the 2020-21 bid-level era",
  "timezone": "delivery windows are published as UTC instants and stored unchanged",
  "coverage_verification": {
   "claimed_by_arc_doc": "DC/DM/DR auction results + legacy FFR; the 2022-23 saturation episode must be fully covered",
-  "actual": "2020-10-01T22:00:00Z .. 2026-07-30T21:30:00Z",
+  "actual": "2020-10-01T22:00:00Z .. 2026-08-02T21:30:00Z",
   "verdict": "Covered, but only by chaining four resources. No single \"auction results\" resource spans the lifecycle: the 2020-10..2021-09 scarcity era exists only in the bid-level Masterdata file, and taking the summary resources alone would silently start the series after the peak.",
   "chain": [
    {
@@ -42,7 +42,7 @@
    },
    {
     "name": "EAC Results Summary (live)",
-    "span": "2026-03-31T22:00:00Z..2026-07-30T21:30:00Z"
+    "span": "2026-03-31T22:00:00Z..2026-08-02T21:30:00Z"
    }
   ],
   "ffr_not_normalised": "The FFR post-tender reports (89 monthly XLSX, package firm-frequency-response-post-tender-reports) would extend GB back past DC into the FFR era. Not normalised in 36.E0: 89 heterogeneous spreadsheet layouts for a pre-battery-dominance market is disproportionate to what E1-E5 calibrate. Located and left, not overlooked."
@@ -125,7 +125,8 @@
    "2026-04",
    "2026-05",
    "2026-06",
-   "2026-07"
+   "2026-07",
+   "2026-08"
   ]
  },
  "service_mapping": {
@@ -203,7 +204,7 @@
   }
  },
  "service_mapping_note": "GB names response products by the FREQUENCY they answer, which is the opposite of the power direction: DCL (low frequency) injects and is direction \"up\"; DCH absorbs and is \"down\". P/N prefixes on reserve products are positive/negative, i.e. up/down.",
- "rows": 155705,
+ "rows": 156677,
  "source_files": [
   {
    "key": "dcBidLevel",
@@ -301,9 +302,9 @@
    "name": "EAC Results Summary (live)",
    "source_url": "https://api.neso.energy/datastore/dump/596f29ac-0387-4ba4-a6d3-95c243140707",
    "package": "eac-auction-results",
-   "bytes": 2815606,
-   "rows": 39204,
-   "span": "2026-03-31T22:00:00Z..2026-07-30T21:30:00Z",
+   "bytes": 2885282,
+   "rows": 40176,
+   "span": "2026-03-31T22:00:00Z..2026-08-02T21:30:00Z",
    "products": [
     "BR-down",
     "BR-up",
@@ -318,7 +319,7 @@
     "SR-down",
     "SR-up"
    ],
-   "sha256_source": "8b495a0a69e1ef7bd10b2096567a4d219ba94f97248b132935c05662af37ab2e"
+   "sha256_source": "4572f6078bdd08d019dd44e4a7a80d3451363099f884bd5fd4adc16b13d0ccd7"
   }
  ],
  "warnings": [],
@@ -332,7 +333,7 @@
    "products": [
     "DC-low"
    ],
-   "sha256": "0bcefccd5dce1f833797c805720f083650de819eeaedc4c30c1e8eeec028fe37"
+   "sha256": "cf65edd40ba2de1b28c90645499f97d647d75f830cd1909552fa0c3da5d60c70"
   },
   {
    "file": "gb-response-reserve-2021.ndjson.gz",
@@ -343,7 +344,7 @@
     "DC-high",
     "DC-low"
    ],
-   "sha256": "49ba92eaee70d827bf5ef3f166b8aa9786fca8b2dbf042551ff6f31c0d45eb48"
+   "sha256": "619a452cb8ee24ac5e6d8e0a8534239f30689c442a49896114238dabbe5f3c2f"
   },
   {
    "file": "gb-response-reserve-2022.ndjson.gz",
@@ -358,7 +359,7 @@
     "DR-high",
     "DR-low"
    ],
-   "sha256": "f2c928dcbb25b057db9b295180fab19b0445ae0206cf934ad6cef5955a80b766"
+   "sha256": "3445e7b0d43377a4d0b10e177c296e9a3c7cc77523b4c69d69c574122a6f3cd8"
   },
   {
    "file": "gb-response-reserve-2023.ndjson.gz",
@@ -373,7 +374,7 @@
     "DR-high",
     "DR-low"
    ],
-   "sha256": "5e4d98c51c35f9b8bb0c193996a3e45a5cd23b1747a6ec84711a9e70cb85f717"
+   "sha256": "563d750552dafd997d6c65fc5c4c705b779a3c4fedb51b77b94bd75c8090e1c8"
   },
   {
    "file": "gb-response-reserve-2024.ndjson.gz",
@@ -390,7 +391,7 @@
     "QR-down",
     "QR-up"
    ],
-   "sha256": "0802103deba7710e42b7cac051ba019506aea6976f2c8c9216cb628387f64016"
+   "sha256": "d6a6ab4c0495e08e419f75b071628bc9e2bc9e810ac97d12e515e42d6e77c785"
   },
   {
    "file": "gb-response-reserve-2025.ndjson.gz",
@@ -409,13 +410,13 @@
     "QR-down",
     "QR-up"
    ],
-   "sha256": "f22e5e34f07854a12bb1c39ea5c2a386258e5b447ee94e7111fef4f4e870e631"
+   "sha256": "0668a7f566cd70578cd566be256eec9ec6094a59069a94616b464a646c7465ad"
   },
   {
    "file": "gb-response-reserve-2026.ndjson.gz",
-   "rows": 59702,
-   "bytes_gz": 725144,
-   "span": "2026-01-01T00:00:00Z..2026-07-30T22:00:00Z",
+   "rows": 60674,
+   "bytes_gz": 736075,
+   "span": "2026-01-01T00:00:00Z..2026-08-02T22:00:00Z",
    "products": [
     "BR-down",
     "BR-up",
@@ -430,9 +431,9 @@
     "SR-down",
     "SR-up"
    ],
-   "sha256": "5938ebb7e1bbb245f738ae44bcec38a25f532fbcb769bd416e32d27f78f09eee"
+   "sha256": "26f385f582f3061db6d59bbe04701942dd08dde3a260c1fb3b2a7396d47fe60f"
   }
  ],
  "refresh_cadence_months": 1,
- "last_successful_refresh": "2026-07-30T10:35:31.048Z"
+ "last_successful_refresh": "2026-08-02T05:53:22.057Z"
 }
