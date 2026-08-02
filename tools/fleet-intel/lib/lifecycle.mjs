@@ -109,6 +109,32 @@ export function checkDetectorHealth(signal, obs = {}, nowMs = null) {
 }
 
 /**
+ * A detector that passed every liveness invariant but had NOTHING TO LOOK AT is not
+ * healthy — it is blind, and its zero says nothing about the world (B11).
+ *
+ * The paid-for shape this closes: `registry_terminated` reports HEALTHY because the
+ * register parsed cleanly, while the population it was pointed at contained zero
+ * rows carrying a legal-entity name. Its "0 retirements" would then read as "no LV
+ * company died" when the truth is "no LV company was checked". Eligibility is a
+ * property of the RUN, not of the source, so it is applied after the invariants.
+ *
+ * @param {{status:string,reasons:string[]}} health  verdict from checkDetectorHealth
+ * @param {{rows_in_scope:number, rows_eligible:number, why_ineligible?:object}} pop
+ */
+export function applyEligibility(health, pop) {
+  if (!health || health.status !== DETECTOR.HEALTHY) return health;
+  if (!pop || pop.rows_eligible === undefined) return health;
+  if (pop.rows_eligible > 0) return health;
+  const why = pop.why_ineligible
+    ? Object.entries(pop.why_ineligible).map(([k, v]) => `${k}=${v}`).join(', ')
+    : 'no reason recorded';
+  return {
+    status: DETECTOR.BLIND,
+    reasons: [`0 of ${pop.rows_in_scope} rows in scope were eligible for this signal (${why}) — its zero is about the population, not the world`],
+  };
+}
+
+/**
  * The rename guard. A missing or terminated name that resolves as a FORMER name of
  * a still-active registration is a rename, not a death — the single most damaging
  * false positive available to this system, because it retires live projects.

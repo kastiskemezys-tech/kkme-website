@@ -104,15 +104,210 @@ const AUTH_PREFLIGHT_PATHS = new Set(['/calculate']);
  * a test asserts the two agree, so the health surface can never claim a
  * schedule the worker does not actually have, or miss one it does.
  *
- * Still null as of 37.H1: arming requires a first real detector run, and no
- * detector runner exists yet — nothing outside the tests has ever POSTed to
- * /admin/fleet-lifecycle, so `fleet_lifecycle:detectors` cannot populate. See
- * the handover. Arming ahead of that would ship the exact B8 shape 37.B was
- * built to prevent: a weekly "all quiet" that cannot tell quiet from dead.
+ * ARMED in 37.B.1 (2026-08-01), after — and only after — the two preconditions
+ * 37.H1 was waiting on were actually met:
+ *
+ *   1. A real detector run happened. The runner exists, ran against live sources,
+ *      and populated `fleet_lifecycle:detectors` with seven stamped records.
+ *   2. The digest can tell quiet from dead. It renders a per-detector verdict and
+ *      counts how many detectors were CAPABLE of firing, so a week with no working
+ *      sensors cannot render as a quiet week.
+ *
+ * Armed knowingly partially-sighted: 2 of 7 detectors cannot fire today
+ * (vert_permit_expired blind, press_negative no-source — both filed as 37.B.3).
+ * A heartbeat that says so beats no heartbeat, because an unarmed digest is also
+ * how we would fail to notice that the runner never ran again.
+ *
+ * Three places must agree and all three are asserted by tests: this constant,
+ * wrangler.toml's [triggers], and the `scheduled()` branch that actually sends.
+ * A cron with no handler would satisfy the old drift test and silently do nothing.
  */
-const LIFECYCLE_DIGEST_CRON = null;
+const LIFECYCLE_DIGEST_CRON = '30 7 * * 1';
 const LIFECYCLE_DIGEST_PERIOD_H = 168;   // weekly
 const LIFECYCLE_DIGEST_GRACE_H = 24;     // one missed day is late; two is overdue
+
+/**
+ * 37.B.1 — the digest is an EGRESS PATH. It is the only thing in the fleet stack
+ * that pushes fleet content off the platform unprompted (Telegram), so it gets a
+ * boundary of its own rather than relying on everything upstream having behaved.
+ *
+ * Mirrors ALWAYS_PRIVATE_FIELDS in tools/fleet-intel/lib/tiers.mjs. A test asserts
+ * the two lists are identical, because a field added there and forgotten here is
+ * exactly how a private column ends up in a Telegram message.
+ */
+const DIGEST_FORBIDDEN_KEYS = ['contact', 'comment', 'apva_flag', 'raw_power_text', 'source_row'];
+const DIGEST_EMAIL_RE = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
+const DIGEST_PHONE_RE = /(?:\+370|\+371|\+372)\s?\d[\d\s-]{6,}/;
+
+/** Does this transition carry a private field at ANY depth? Field-name check. */
+function carriesPrivateField(node) {
+  if (node === null || typeof node !== 'object') return false;
+  if (Array.isArray(node)) return node.some(carriesPrivateField);
+  for (const [k, v] of Object.entries(node)) {
+    if (DIGEST_FORBIDDEN_KEYS.includes(k)) return true;
+    if (carriesPrivateField(v)) return true;
+  }
+  return false;
+}
+
+/** Contact-shaped CONTENT, regardless of what the field is called. */
+function carriesContactShape(text) {
+  return DIGEST_EMAIL_RE.test(text) || DIGEST_PHONE_RE.test(text);
+}
+
+/**
+ * 37.B.1 — the three kinds of zero, COMPUTED (rule #2 in a new place).
+ *
+ * Four of seven detectors currently cannot act. A digest reading "all quiet" would
+ * be honest for three of them and structurally meaningless for the other four, and
+ * a week where nothing HAPPENED must not look like a week where nothing COULD.
+ *
+ * The verdict is derived here from facts the runner measured — was the source
+ * reachable, can that source produce this signal at all, does the diff have a
+ * baseline, how many rows were eligible — and never from a label the runner wrote.
+ * A posted string saying "checked" would be exactly the pre-written prose rule #2
+ * exists to forbid: true when written, silently false later.
+ *
+ * Staleness wins over everything, because a stale record's other fields describe a
+ * run that may be weeks old.
+ */
+function classifyDetector(d) {
+  const ageH = d && d.last_run_at ? (Date.now() - new Date(d.last_run_at).getTime()) / 3600000 : null;
+  if (d && d.max_age_hours && ageH !== null && ageH > d.max_age_hours) {
+    return { verdict: 'stale', capable: false, note: `last run ${ageH.toFixed(0)}h ago, past its ${d.max_age_hours}h ceiling` };
+  }
+  if (d && d.source_usable === false) {
+    return { verdict: 'no-source', capable: false, note: 'no source can produce this signal today' };
+  }
+  if (d && d.baseline_present === false) {
+    return { verdict: 'no-baseline', capable: false, note: 'nothing to diff against yet' };
+  }
+  if (!d || d.last_run_at === null || d.last_run_at === undefined) {
+    return { verdict: 'never-run', capable: false, note: 'has never completed a run' };
+  }
+  if (d.rows_eligible === 0) {
+    return { verdict: 'blind', capable: false, note: `0 ${d.population_unit || 'rows'} eligible — its zero is about the population, not the world` };
+  }
+  if (d.status && d.status !== 'healthy') {
+    return { verdict: 'unhealthy', capable: false, note: (d.reasons || []).join('; ') || 'liveness invariant breached' };
+  }
+  // The unit is a measured property of what this detector counts, not a label: the
+  // register sweep evaluates name keys, the fleet detectors evaluate rows. Rendering
+  // both as "rows" would make "412609 rows eligible" read as 412,609 projects checked.
+  return { verdict: 'checked', capable: true, note: `${d.rows_eligible ?? '?'} ${d.population_unit || 'rows'} eligible` };
+}
+
+/**
+ * Render the weekly digest. ONE renderer, called by both the manual route and the
+ * cron (rule #4).
+ *
+ * The reason this is a function rather than two copies: the digest is the egress
+ * path, and its leak guards live here. A cron branch that rebuilt the message
+ * inline would be a second writer of the thing that leaves the platform, free to
+ * drift away from the guarded version — B-048's "two writers, one guard" shape,
+ * pointed at Telegram instead of at a manifest.
+ *
+ * Returns `{blocked}` rather than throwing: a refusal is a result the caller must
+ * report, and a cron that swallowed it would go quiet in exactly the way this
+ * whole surface exists to prevent.
+ */
+async function buildLifecycleDigest(env, { since = null } = {}) {
+  let transitions = [];
+  try { transitions = JSON.parse((await env.KKME_SIGNALS.get('fleet_lifecycle:transitions')) || '[]'); } catch { transitions = []; }
+  let detectors = {};
+  try { detectors = (JSON.parse((await env.KKME_SIGNALS.get('fleet_lifecycle:detectors')) || '{}')).detectors || {}; } catch { detectors = {}; }
+
+  // Only transitions since the last digest go in the body; the log is append-only.
+  const sinceIso = since || (await env.KKME_SIGNALS.get('fleet_lifecycle:last_digest_at').catch(() => null));
+  const inWindow = sinceIso ? transitions.filter(t => t && t.at && t.at > sinceIso) : transitions;
+
+  // EGRESS BOUNDARY. A transition carrying a private field never reaches the
+  // rendered message — it is withheld and COUNTED, so a suppressed row is visible
+  // as a suppression rather than as an absence. The runner already refuses to post
+  // private-tier proposals; this is the second wall, sited where content leaves.
+  const withheld = inWindow.filter(carriesPrivateField);
+  const recent = inWindow.filter(t => !carriesPrivateField(t));
+
+  const count = (type) => recent.filter(t => t && t.type === type).length;
+  const unhealthy = Object.entries(detectors).filter(([, d]) => (d.status ?? 'never_run') !== 'healthy');
+
+  // The capability census. This, not the transition count, is what makes a quiet
+  // week readable: N detectors were ABLE to fire, and here is why each of the
+  // others was not.
+  const classified = Object.entries(detectors).map(([id, d]) => [id, classifyDetector(d), d]);
+  const capable = classified.filter(([, c]) => c.capable);
+  const incapable = classified.filter(([, c]) => !c.capable);
+
+  const lines = [];
+  lines.push('*KKME fleet lifecycle — weekly digest*');
+  lines.push(`New: ${count('discovered')} · Renamed: ${count('renamed')} · Retired: ${count('retired')} · Review-flagged: ${count('review_flagged')}`);
+  lines.push('');
+  lines.push(classified.length
+    ? `👁 *${capable.length} of ${classified.length} detectors were able to fire this week.*`
+    : '👁 *No detector has ever reported.*');
+  for (const t of recent.filter(t => t.type === 'retired').slice(0, 10)) {
+    lines.push(`• RETIRED ${t.id} — ${t.reason} (${(t.evidence || []).length} citation(s))`);
+  }
+  for (const t of recent.filter(t => t.type === 'renamed').slice(0, 10)) {
+    lines.push(`• RENAMED ${t.id} — ${t.detail?.from_name} → ${t.detail?.to_name}`);
+  }
+  if (classified.length === 0) {
+    lines.push('⚠️ No detector has ever reported — this digest cannot distinguish a quiet week from a dead pipeline.');
+  } else {
+    // Per-detector verdict, always — a reader must never have to assume that a
+    // detector not mentioned was one that looked and found nothing.
+    lines.push('');
+    for (const [id, c] of classified) {
+      lines.push(`  ${c.capable ? '✅' : '⛔'} ${id}: ${c.verdict} — ${c.note}`);
+    }
+    if (incapable.length) {
+      lines.push('');
+      lines.push(`⛔ *${incapable.length} detector(s) could not fire at all* — their silence is not a finding: ${incapable.map(([id, c]) => `${id} (${c.verdict})`).join(', ')}.`);
+    }
+    if (!recent.length) {
+      lines.push('');
+      lines.push(capable.length
+        ? `_No transitions. ${capable.length} of ${classified.length} detectors looked and found nothing — a genuine quiet week for those, and silence from the rest._`
+        : '_No transitions, and NO detector was able to fire. This is not a quiet week — it is a week with no working sensors._');
+    }
+  }
+  if (unhealthy.length) {
+    lines.push('');
+    lines.push(`⚠️ Detectors not healthy (${unhealthy.length}) — findings above may be incomplete:`);
+    for (const [id, d] of unhealthy) lines.push(`  • ${id}: ${d.status} (${(d.reasons || []).join('; ')})`);
+  }
+  if (withheld.length) {
+    lines.push(`🔒 ${withheld.length} transition(s) withheld from this digest: they carry private-tier fields and must not leave the platform.`);
+  }
+  const message = lines.join('\n');
+
+  // Last line of defence: contact-shaped CONTENT in the rendered payload, whatever
+  // field it arrived in. A rename recorded under a person's email address would pass
+  // every field-name check above and still be a leak. Refusing to send is the correct
+  // failure — a missed digest is recoverable, an egressed contact is not.
+  if (carriesContactShape(message)) {
+    return { blocked: true, error: 'digest blocked: contact-shaped content in the rendered payload' };
+  }
+
+  return {
+    blocked: false,
+    message,
+    summary: {
+      transitions_in_window: recent.length,
+      withheld: withheld.length,
+      unhealthy_detectors: unhealthy.length,
+      detectors_capable: capable.length,
+      detectors_total: classified.length,
+      verdicts: Object.fromEntries(classified.map(([id, c]) => [id, c.verdict])),
+    },
+  };
+}
+
+/** Send, then stamp. A blocked digest never reaches here, so it never stamps. */
+async function sendLifecycleDigest(env, message) {
+  await notifyTelegram(env, message).catch(e => console.error('[lifecycle-digest]', String(e)));
+  await env.KKME_SIGNALS.put('fleet_lifecycle:last_digest_at', new Date().toISOString());
+}
 
 // ─── Fleet tracker helpers ──────────────────────────────────────────────────────
 
@@ -7717,6 +7912,23 @@ export default {
       return;
     }
 
+    // Weekly fleet-lifecycle digest. The schedule is declared once, in
+    // LIFECYCLE_DIGEST_CRON, and compared against it here rather than repeated as
+    // a literal — a fourth copy of '30 7 * * 1' is a fourth thing that can drift.
+    if (event.cron === LIFECYCLE_DIGEST_CRON) {
+      const built = await buildLifecycleDigest(env).catch(e => ({ blocked: true, error: String(e) }));
+      if (built.blocked) {
+        // A blocked digest must not fail silently: the whole point of this surface
+        // is that absence is never ambiguous. Report the refusal on the same channel.
+        console.error('[lifecycle-digest/cron] BLOCKED —', built.error);
+        await notifyTelegram(env, `⚠️ Weekly fleet-lifecycle digest BLOCKED and not sent: ${built.error}`).catch(() => {});
+        return;
+      }
+      await sendLifecycleDigest(env, built.message);
+      console.log(`[lifecycle-digest/cron] sent — ${built.summary.detectors_capable}/${built.summary.detectors_total} detectors capable, ${built.summary.transitions_in_window} transitions`);
+      return;
+    }
+
     // 09:30 UTC daily: S2 watchdog fetch + upstream TLS-expiry tripwire.
     if (event.cron === '30 9 * * *') {
       // Phase 36.C — cert tripwire liveness. The inspection itself runs on the
@@ -8828,44 +9040,13 @@ export default {
       let body = {};
       try { body = await request.json(); } catch { body = {}; }
       const dryRun = body.dry_run !== false;
-
-      let transitions = [];
-      try { transitions = JSON.parse((await env.KKME_SIGNALS.get('fleet_lifecycle:transitions')) || '[]'); } catch { transitions = []; }
-      let detectors = {};
-      try { detectors = (JSON.parse((await env.KKME_SIGNALS.get('fleet_lifecycle:detectors')) || '{}')).detectors || {}; } catch { detectors = {}; }
-
-      // Only transitions since the last digest go in the body; the log is append-only.
-      const sinceIso = body.since || (await env.KKME_SIGNALS.get('fleet_lifecycle:last_digest_at').catch(() => null));
-      const recent = sinceIso ? transitions.filter(t => t && t.at && t.at > sinceIso) : transitions;
-
-      const count = (type) => recent.filter(t => t && t.type === type).length;
-      const unhealthy = Object.entries(detectors).filter(([, d]) => (d.status ?? 'never_run') !== 'healthy');
-
-      const lines = [];
-      lines.push('*KKME fleet lifecycle — weekly digest*');
-      lines.push(`New: ${count('discovered')} · Renamed: ${count('renamed')} · Retired: ${count('retired')} · Review-flagged: ${count('review_flagged')}`);
-      for (const t of recent.filter(t => t.type === 'retired').slice(0, 10)) {
-        lines.push(`• RETIRED ${t.id} — ${t.reason} (${(t.evidence || []).length} citation(s))`);
+      const built = await buildLifecycleDigest(env, { since: body.since });
+      if (built.blocked) {
+        console.error('[lifecycle-digest] BLOCKED — contact-shaped content in the rendered payload');
+        return jsonResp({ ok: false, blocked: true, dry_run: dryRun, sent: false, error: built.error }, 500);
       }
-      for (const t of recent.filter(t => t.type === 'renamed').slice(0, 10)) {
-        lines.push(`• RENAMED ${t.id} — ${t.detail?.from_name} → ${t.detail?.to_name}`);
-      }
-      if (unhealthy.length) {
-        lines.push(`⚠️ Detectors not healthy (${unhealthy.length}) — findings above may be incomplete:`);
-        for (const [id, d] of unhealthy) lines.push(`  • ${id}: ${d.status} (${(d.reasons || []).join('; ')})`);
-      } else if (Object.keys(detectors).length === 0) {
-        lines.push('⚠️ No detector has ever reported — this digest cannot distinguish a quiet week from a dead pipeline.');
-      } else {
-        lines.push('All detectors healthy.');
-        if (!recent.length) lines.push('_No transitions — a genuine quiet week, not silence._');
-      }
-      const message = lines.join('\n');
-
-      if (!dryRun) {
-        await notifyTelegram(env, message).catch(e => console.error('[lifecycle-digest]', String(e)));
-        await env.KKME_SIGNALS.put('fleet_lifecycle:last_digest_at', new Date().toISOString());
-      }
-      return jsonResp({ ok: true, dry_run: dryRun, transitions_in_window: recent.length, unhealthy_detectors: unhealthy.length, message });
+      if (!dryRun) await sendLifecycleDigest(env, built.message);
+      return jsonResp({ ok: true, dry_run: dryRun, ...built.summary, message: built.message });
     }
 
     // ── Phase 37.C — operator-only fleet CRM (/fleet/*) ────────────────────────
@@ -11114,7 +11295,7 @@ export default {
       // visibly different from one that ran and found nothing — otherwise a broken
       // detector reads as a quiet week. Detector state carries NO private data:
       // only ids, statuses and counts.
-      const fleet_lifecycle = { detectors: {}, all_healthy: null, unhealthy_count: 0 };
+      const fleet_lifecycle = { detectors: {}, all_healthy: null, unhealthy_count: 0, capable_count: 0, detector_count: 0 };
       try {
         const raw = await env.KKME_SIGNALS.get('fleet_lifecycle:detectors').catch(() => null);
         const stored = raw ? JSON.parse(raw) : null;
@@ -11125,15 +11306,46 @@ export default {
         } else {
           for (const [id, d] of Object.entries(stored.detectors)) {
             const ageH = d.last_run_at ? (Date.now() - new Date(d.last_run_at).getTime()) / 3600000 : null;
+
+            // 37.B.1 / B12 — the stored status is a claim made by the last run that
+            // completed. If the runner then STOPS, nothing rewrites it: a detector
+            // that was healthy stays "healthy" here forever while its `last_run_at`
+            // silently ages, and the surface reassures instead of alarming. The
+            // damage would disable its own detector, which is precisely B-048's
+            // shape. So staleness is COMPUTED here from the stamp, and it overrides
+            // whatever the record claims.
+            const reasons = Array.isArray(d.reasons) ? d.reasons.slice() : [];
+            let status = d.status ?? 'never_run';
+            if (d.last_run_at === null || d.last_run_at === undefined) {
+              // A record asserting health with no run stamp is self-contradictory.
+              if (status === 'healthy') {
+                status = 'never_run';
+                reasons.push('record claimed healthy with no last_run_at — a run that never happened cannot be healthy');
+              }
+            } else if (d.max_age_hours && ageH !== null && ageH > d.max_age_hours) {
+              status = 'stale';
+              reasons.push(`last run ${ageH.toFixed(0)}h ago exceeds this detector's ${d.max_age_hours}h ceiling — the runner may have stopped`);
+            }
+
+            // Same classifier the digest uses (rule #4). Health answers "is the
+            // sensor well"; the verdict answers "could it have fired at all" —
+            // different questions, and a detector can be healthy and incapable.
+            const cls = classifyDetector(d);
             fleet_lifecycle.detectors[id] = {
-              status: d.status ?? 'never_run',
+              status,
+              verdict: cls.verdict,
+              capable: cls.capable,
               last_run_at: d.last_run_at ?? null,
               age_hours: ageH === null ? null : Math.round(ageH * 10) / 10,
-              reasons: Array.isArray(d.reasons) ? d.reasons : [],
+              max_age_hours: d.max_age_hours ?? null,
+              rows_eligible: d.rows_eligible ?? null,
+              reasons,
             };
-            if ((d.status ?? 'never_run') !== 'healthy') fleet_lifecycle.unhealthy_count++;
+            if (status !== 'healthy') fleet_lifecycle.unhealthy_count++;
+            if (cls.capable) fleet_lifecycle.capable_count++;
           }
           fleet_lifecycle.all_healthy = fleet_lifecycle.unhealthy_count === 0;
+          fleet_lifecycle.detector_count = Object.keys(stored.detectors).length;
           fleet_lifecycle.status = fleet_lifecycle.all_healthy ? 'ok' : 'degraded';
         }
         fleet_lifecycle.transition_log_size = stored?.transition_log_size ?? 0;

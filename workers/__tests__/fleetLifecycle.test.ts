@@ -4,7 +4,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import worker from '../fetch-s1.js';
-import { findPrivateLeaks, findContactShapedContent } from '../../tools/fleet-intel/lib/tiers.mjs';
+import { findPrivateLeaks, findContactShapedContent, ALWAYS_PRIVATE_FIELDS } from '../../tools/fleet-intel/lib/tiers.mjs';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Any = any;
@@ -146,13 +146,34 @@ describe('weekly digest — manual trigger, not yet cron-armed (B10 corollary)',
     expect(j.message).toMatch(/cannot distinguish a quiet week from a dead pipeline/);
   });
 
+  // 37.B.1 — FIXTURE SHARPENED, ASSERTION UNCHANGED. As written in 37.B this seeded
+  // `{status:'healthy'}` with no `last_run_at` — a detector claiming health without
+  // ever having run — and asserted that yields a "genuine quiet week". Under the
+  // capability census that record classifies as `never-run`, because a run that
+  // never happened cannot have found nothing. The original fixture encoded the exact
+  // conflation this phase exists to remove, so it now describes a detector that
+  // really did run and look. The inverted case is asserted directly below, per the
+  // B-036 precedent: a test that asserted the wrong thing is inverted, not deleted.
   it('distinguishes a genuine quiet week from a broken one', async () => {
+    const store = new Map<string, string>();
+    store.set('fleet_lifecycle:detectors', JSON.stringify({
+      detectors: { a: { status: 'healthy', last_run_at: new Date().toISOString(), rows_eligible: 12, source_usable: true, max_age_hours: 720, reasons: [] } },
+    }));
+    const j = await (await call(env(store), '/admin/fleet-lifecycle-digest', {
+      method: 'POST', headers: { 'X-Update-Secret': SECRET }, body: '{}',
+    })).json();
+    expect(j.message).toMatch(/genuine quiet week/);
+  });
+
+  it('a detector claiming health with no run stamp is NOT a quiet week', async () => {
     const store = new Map<string, string>();
     store.set('fleet_lifecycle:detectors', JSON.stringify({ detectors: { a: { status: 'healthy', reasons: [] } } }));
     const j = await (await call(env(store), '/admin/fleet-lifecycle-digest', {
       method: 'POST', headers: { 'X-Update-Secret': SECRET }, body: '{}',
     })).json();
-    expect(j.message).toMatch(/genuine quiet week/);
+    expect(j.message).not.toMatch(/genuine quiet week/);
+    expect(j.message).toMatch(/no working sensors/);
+    expect(j.detectors_capable).toBe(0);
   });
 
   it('surfaces unhealthy detectors in the digest body itself', async () => {
@@ -191,13 +212,43 @@ const healthDigest = async (store = new Map<string, string>()) =>
   (await (await call(env(store), '/health')).json()).fleet_lifecycle.digest;
 
 describe('B-046 digest staleness surface', () => {
-  it('reports the digest as deliberately unarmed rather than healthy', async () => {
+  // 37.B.1 — MADE STATE-AWARE, NOT RELAXED. As written in B-046 this asserted the
+  // unarmed state through the live constant, and 37.B.1 arms it. The property it
+  // was protecting is not "the digest is unarmed" — it is "neither state may read
+  // as an untroubled ok". Both halves are now asserted, so the test keeps working
+  // in whichever state the constant is in and is vacuous in neither. The B-046
+  // author flagged this exact trap in the comment two tests below.
+  it('reports the digest\'s armed state accurately, and never as an untroubled ok', async () => {
+    const src = readFileSync(join(__dirname, '../fetch-s1.js'), 'utf8');
+    const declared = /const LIFECYCLE_DIGEST_CRON = (null|'[^']*');/.exec(src)![1];
     const d = await healthDigest();
-    expect(d.armed).toBe(false);
-    expect(d.status).toBe('not_armed');
-    // The failure this guards: an unarmed digest reading as "ok" and nobody
-    // noticing that the weekly message was never scheduled at all.
+
+    if (declared === 'null') {
+      expect(d.armed).toBe(false);
+      expect(d.status).toBe('not_armed');
+    } else {
+      // Armed but never sent is its OWN state: it must not read as ok (nothing has
+      // happened yet) and must not read as overdue (nothing is late yet).
+      expect(d.armed).toBe(true);
+      expect(d.cron).toBe(declared.slice(1, -1));
+      expect(d.status).toBe('armed_never_sent');
+    }
+    // The invariant that outlives either state — the failure B-046 was written for.
     expect(d.status).not.toBe('ok');
+  });
+
+  it('the status vocabulary keeps unarmed, armed-never-sent and ok distinct', async () => {
+    // Asserted as arithmetic rather than through the live constant, so arming or
+    // disarming cannot make this vacuous either way.
+    const status = (cron: string | null, lastSent: string | null, ageH: number) =>
+      cron === null ? 'not_armed'
+        : lastSent === null ? 'armed_never_sent'
+          : ageH > 168 + 24 ? 'overdue' : 'ok';
+    expect(status(null, null, 0)).toBe('not_armed');
+    expect(status('30 7 * * 1', null, 0)).toBe('armed_never_sent');
+    expect(status('30 7 * * 1', 'x', 1)).toBe('ok');
+    expect(status('30 7 * * 1', 'x', 500)).toBe('overdue');
+    expect(new Set([status(null, null, 0), status('30 7 * * 1', null, 0), status('30 7 * * 1', 'x', 1)]).size).toBe(3);
   });
 
   it('surfaces the last send and its age once one has happened', async () => {
@@ -246,6 +297,60 @@ describe('B-046 digest staleness surface', () => {
     }
   });
 
+  // 37.B.1 — the gap the two-way drift gate above could not see. A cron declared in
+  // BOTH places and handled in NEITHER passes it and silently never sends: the
+  // schedule exists, the health surface advertises it, and nothing runs. Arming is
+  // three edits, so the gate checks three things.
+  it('an armed cron actually reaches a handler that sends', async () => {
+    const src = readFileSync(join(__dirname, '../fetch-s1.js'), 'utf8');
+    const declared = /const LIFECYCLE_DIGEST_CRON = (null|'[^']*');/.exec(src)![1];
+    if (declared === 'null') return;   // unarmed: nothing to dispatch
+
+    const store = new Map<string, string>();
+    store.set('fleet_lifecycle:detectors', JSON.stringify({
+      detectors: { a: { status: 'healthy', last_run_at: new Date().toISOString(), rows_eligible: 5, source_usable: true, max_age_hours: 720, reasons: [] } },
+    }));
+    store.set('fleet_lifecycle:transitions', '[]');
+
+    const sent: string[] = [];
+    const e = {
+      ...env(store),
+      TELEGRAM_BOT_TOKEN: 'test-token',
+      TELEGRAM_CHAT_ID: 'test-chat',
+    } as Any;
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (async (u: Any, init: Any) => {
+      sent.push(String(init?.body ?? u));
+      return new Response('{"ok":true}', { status: 200 });
+    }) as Any;
+    try {
+      await (worker as Any).scheduled({ cron: declared.slice(1, -1) }, e, ctx);
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+
+    expect(sent.length, `cron ${declared} is declared but no scheduled() branch sends anything`).toBeGreaterThan(0);
+    expect(sent.join(' ')).toMatch(/fleet lifecycle/i);
+    // and the send stamped, so the staleness surface can age it
+    expect(store.get('fleet_lifecycle:last_digest_at')).toBeTruthy();
+  });
+
+  it('a cron the worker does NOT declare reaches no lifecycle handler', async () => {
+    // Vacuity guard for the test above: proves the dispatch is keyed on the cron
+    // and not simply firing for anything.
+    const store = new Map<string, string>();
+    store.set('fleet_lifecycle:detectors', JSON.stringify({ detectors: { a: { status: 'healthy', last_run_at: new Date().toISOString(), rows_eligible: 5, source_usable: true, reasons: [] } } }));
+    const sent: string[] = [];
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (async (u: Any, init: Any) => { sent.push(String(init?.body ?? u)); return new Response('{}', { status: 200 }); }) as Any;
+    try {
+      await (worker as Any).scheduled({ cron: '13 13 13 13 13' }, env(store), ctx);
+    } catch { /* other branches may reject on absent bindings; only the send matters */ }
+    finally { globalThis.fetch = realFetch; }
+    expect(sent.join(' ')).not.toMatch(/fleet lifecycle/i);
+    expect(store.get('fleet_lifecycle:last_digest_at')).toBeUndefined();
+  });
+
   it('the staleness surface leaks nothing private', async () => {
     const store = new Map<string, string>();
     store.set('fleet_private:index', JSON.stringify({ rows: [{ contact: 'nobody@example.invalid', apva_flag: 'Gavo' }] }));
@@ -253,5 +358,283 @@ describe('B-046 digest staleness surface', () => {
     const body = await (await call(env(store), '/health')).text();
     expect(body).not.toMatch(/example\.invalid|Gavo/);
     expect(findPrivateLeaks(JSON.parse(body)).length).toBe(0);
+  });
+});
+
+// ── 37.B.1 — /health must not trust a stored status forever (B12) ────────────
+//
+// The stored record is a claim made by the last run that COMPLETED. If the runner
+// stops, nothing rewrites it, so a detector that was healthy reads healthy forever
+// while its stamp silently ages — the damage disabling its own detector, which is
+// B-048's exact shape. Staleness is therefore computed here from the stamp and
+// overrides the record.
+
+describe('37.B.1 — detector staleness is computed, not inherited', () => {
+  const withDetector = (d: Any) => {
+    const store = new Map<string, string>();
+    store.set('fleet_lifecycle:detectors', JSON.stringify({ detectors: { registry_terminated: d } }));
+    return store;
+  };
+  const hoursAgo = (h: number) => new Date(Date.now() - h * 3600_000).toISOString();
+
+  it('a HEALTHY record whose stamp has aged past its ceiling reads stale', async () => {
+    const store = withDetector({ status: 'healthy', last_run_at: hoursAgo(800), max_age_hours: 720, reasons: [] });
+    const j = await (await call(env(store), '/health')).json();
+    expect(j.fleet_lifecycle.detectors.registry_terminated.status).toBe('stale');
+    expect(j.fleet_lifecycle.status).toBe('degraded');
+    expect(j.fleet_lifecycle.detectors.registry_terminated.reasons.join(' ')).toMatch(/runner may have stopped/);
+  });
+
+  it('the same record inside its ceiling still reads healthy — the override is not a blanket alarm', async () => {
+    const store = withDetector({ status: 'healthy', last_run_at: hoursAgo(24), max_age_hours: 720, reasons: [] });
+    const j = await (await call(env(store), '/health')).json();
+    expect(j.fleet_lifecycle.detectors.registry_terminated.status).toBe('healthy');
+    expect(j.fleet_lifecycle.status).toBe('ok');
+  });
+
+  it('a record claiming health with NO run stamp is contradictory and reads never_run', async () => {
+    const store = withDetector({ status: 'healthy', last_run_at: null, max_age_hours: 720, reasons: [] });
+    const j = await (await call(env(store), '/health')).json();
+    expect(j.fleet_lifecycle.detectors.registry_terminated.status).toBe('never_run');
+    expect(j.fleet_lifecycle.all_healthy).toBe(false);
+  });
+
+  it('surfaces rows_eligible, so a detector looking at nothing is visible as such', async () => {
+    const store = withDetector({ status: 'blind', last_run_at: hoursAgo(1), max_age_hours: 720, reasons: ['0 eligible rows'], rows_eligible: 0 });
+    const j = await (await call(env(store), '/health')).json();
+    expect(j.fleet_lifecycle.detectors.registry_terminated.rows_eligible).toBe(0);
+    expect(j.fleet_lifecycle.all_healthy).toBe(false);
+  });
+});
+
+// ── 37.B.1 — the three kinds of zero, rendered per detector ──────────────────
+//
+// Four of seven detectors currently cannot act. "All quiet" would be honest for
+// three and structurally meaningless for four, so the digest states what each
+// detector was ABLE to do and the summary counts capability, not firings. The
+// verdict is COMPUTED from measured facts — rule #2: no label asserting what was
+// checked without computing it.
+
+describe('37.B.1 digest capability census', () => {
+  const NOWISO = () => new Date().toISOString();
+  const CHECKED = { status: 'healthy', last_run_at: NOWISO(), rows_eligible: 36, source_usable: true, max_age_hours: 720, reasons: [] };
+  const BLIND = { status: 'blind', last_run_at: NOWISO(), rows_eligible: 0, source_usable: true, max_age_hours: 720, reasons: ['0 rows eligible'] };
+  const NO_SOURCE = { status: 'never_run', last_run_at: null, rows_eligible: 0, source_reachable: true, source_usable: false, max_age_hours: 336, reasons: [] };
+  const NO_BASELINE = { status: 'never_run', last_run_at: null, rows_eligible: 0, source_usable: true, baseline_present: false, max_age_hours: 336, reasons: [] };
+
+  const census = (detectors: Any) => digest(seededStore([], detectors));
+
+  it('names each of the four verdicts explicitly', async () => {
+    const j = await census({ a: CHECKED, b: BLIND, c: NO_SOURCE, d: NO_BASELINE });
+    expect(j.verdicts).toEqual({ a: 'checked', b: 'blind', c: 'no-source', d: 'no-baseline' });
+    expect(j.message).toMatch(/a: checked/);
+    expect(j.message).toMatch(/b: blind/);
+    expect(j.message).toMatch(/c: no-source/);
+    expect(j.message).toMatch(/d: no-baseline/);
+  });
+
+  it('the summary line counts CAPABILITY, not firings', async () => {
+    const j = await census({ a: CHECKED, b: BLIND, c: NO_SOURCE, d: NO_BASELINE });
+    expect(j.detectors_capable).toBe(1);
+    expect(j.detectors_total).toBe(4);
+    expect(j.message).toMatch(/1 of 4 detectors were able to fire/);
+  });
+
+  it('carries the eligible count for a detector that really looked', async () => {
+    const j = await census({ a: CHECKED });
+    expect(j.message).toMatch(/a: checked — 36 rows eligible/);
+  });
+
+  it('a week where nothing HAPPENED reads differently from one where nothing COULD', async () => {
+    const happened = await census({ a: CHECKED, b: { ...CHECKED, rows_eligible: 12 } });
+    const couldNot = await census({ c: NO_SOURCE, d: NO_BASELINE });
+    expect(happened.message).toMatch(/2 of 2 detectors looked and found nothing — a genuine quiet week/);
+    expect(couldNot.message).toMatch(/NO detector was able to fire\. This is not a quiet week/);
+    // the distinction the operator has to see at a glance
+    expect(couldNot.message).not.toMatch(/genuine quiet week/);
+    expect(happened.message).not.toMatch(/no working sensors/);
+  });
+
+  it('a partially-sighted week says so — capable count AND the blocked list', async () => {
+    const j = await census({ a: CHECKED, b: BLIND, c: NO_SOURCE });
+    expect(j.message).toMatch(/1 of 3 detectors were able to fire/);
+    expect(j.message).toMatch(/2 detector\(s\) could not fire at all/);
+    expect(j.message).toMatch(/their silence is not a finding/);
+    expect(j.message).toMatch(/b \(blind\), c \(no-source\)/);
+  });
+
+  it('staleness outranks every other verdict — a stale record describes an old run', async () => {
+    const stale = { ...CHECKED, last_run_at: new Date(Date.now() - 800 * 3600_000).toISOString(), max_age_hours: 720 };
+    const j = await census({ a: stale });
+    expect(j.verdicts.a).toBe('stale');
+    expect(j.detectors_capable).toBe(0);
+  });
+
+  it('a reachable source that cannot produce the signal is no-source, not blind', async () => {
+    // lv_press returns 150 items a day and cannot detect a cancellation. Calling
+    // that "blind" would suggest a population problem; it is a source problem, and
+    // the two have different fixes.
+    const j = await census({ press_negative: NO_SOURCE });
+    expect(j.verdicts.press_negative).toBe('no-source');
+  });
+
+  it('an unreachable-but-capable source with no run still reads never-run', async () => {
+    const j = await census({ a: { status: 'never_run', last_run_at: null, source_usable: true, rows_eligible: 5, max_age_hours: 720, reasons: [] } });
+    expect(j.verdicts.a).toBe('never-run');
+  });
+
+  it('/health and the digest agree — one classifier, not two (rule #4)', async () => {
+    const detectors = { a: CHECKED, b: BLIND, c: NO_SOURCE, d: NO_BASELINE };
+    const store = seededStore([], detectors);
+    const dj = await digest(store);
+    const hj = (await (await call(env(store), '/health')).json()).fleet_lifecycle;
+    for (const id of Object.keys(detectors)) {
+      expect(hj.detectors[id].verdict, `${id} verdict drift between /health and the digest`).toBe(dj.verdicts[id]);
+    }
+    expect(hj.capable_count).toBe(dj.detectors_capable);
+    expect(hj.detector_count).toBe(dj.detectors_total);
+  });
+});
+
+// ── 37.B.1 — the digest is an EGRESS PATH, leak-tested like a route ──────────
+//
+// Batch-2's discipline, applied to the one surface that pushes content OFF the
+// platform: seed private values first, prove the seed loaded before asserting any
+// absence, and keep the assertions failable. An emptiness check that runs against
+// an empty log proves nothing, which is why every test here seeds a populated log.
+//
+// Every value below is SYNTHETIC.
+
+const DIGEST_CANARY = {
+  email: 'nobody@example.invalid',
+  comment: 'ZZKANARY deal comment — synthetic',
+  apva: 'ZZKANARY-APVA-TESTIMONY',
+  phone: '+371 20000000',
+};
+
+/** A clean, publishable transition — the kind that SHOULD render. */
+const CLEAN_TRANSITION = {
+  id: 'fi-lv-canary-clean', at: '2026-07-31T12:00:00Z', type: 'retired',
+  reason: 'registry_terminated', status: 'retired',
+  evidence: [{ source_type: 'registry', url: 'https://data.gov.lv/dati/lv/dataset/synthetic', what_it_confirms: 'terminated' }],
+  removed_from_db: false, excluded_from_supply: true, reversible: true,
+};
+
+/** The same shape with private-tier fields welded on — must never render. */
+const DIRTY_TRANSITION = {
+  ...CLEAN_TRANSITION,
+  id: 'fi-lv-canary-dirty',
+  contact: DIGEST_CANARY.email,
+  comment: DIGEST_CANARY.comment,
+  apva_flag: DIGEST_CANARY.apva,
+};
+
+function seededStore(transitions: Any[], detectors: Any = { registry_terminated: { status: 'healthy', reasons: [] } }) {
+  const store = new Map<string, string>();
+  store.set('fleet_lifecycle:transitions', JSON.stringify(transitions));
+  store.set('fleet_lifecycle:detectors', JSON.stringify({ detectors }));
+  // The private overlay exists in KV alongside everything else — the digest must not
+  // reach into it either.
+  store.set('fleet_private:index', JSON.stringify({
+    rows: [{ id: 'fi-lv-canary-clean', contact: DIGEST_CANARY.email, comment: DIGEST_CANARY.comment, apva_flag: DIGEST_CANARY.apva }],
+  }));
+  return store;
+}
+
+const digest = async (store: Map<string, string>, body: Any = {}) =>
+  (await call(env(store), '/admin/fleet-lifecycle-digest', {
+    method: 'POST', headers: { 'X-Update-Secret': SECRET }, body: JSON.stringify(body),
+  })).json();
+
+describe('37.B.1 digest egress — private values are provably absent', () => {
+  it('VACUITY GUARD: the digest really does render seeded transitions', async () => {
+    // Without this, every absence assertion below could be passing against an empty
+    // message. The clean transition must appear BY ID for those tests to mean anything.
+    const j = await digest(seededStore([CLEAN_TRANSITION]));
+    expect(j.message).toContain('fi-lv-canary-clean');
+    expect(j.message).toMatch(/Retired: 1/);
+    expect(j.transitions_in_window).toBe(1);
+  });
+
+  it('withholds a transition carrying private fields — and says so rather than going quiet', async () => {
+    const j = await digest(seededStore([CLEAN_TRANSITION, DIRTY_TRANSITION]));
+    // vacuity guard: the clean sibling still rendered, so the message is not empty
+    expect(j.message).toContain('fi-lv-canary-clean');
+    // the withheld one is absent...
+    expect(j.message).not.toContain('fi-lv-canary-dirty');
+    expect(j.message).not.toContain(DIGEST_CANARY.email);
+    expect(j.message).not.toContain(DIGEST_CANARY.comment);
+    expect(j.message).not.toContain(DIGEST_CANARY.apva);
+    // ...and its suppression is COUNTED, not silent
+    expect(j.withheld).toBe(1);
+    expect(j.message).toMatch(/withheld from this digest/);
+  });
+
+  it('no private field name survives into the rendered payload, at any depth', async () => {
+    const j = await digest(seededStore([CLEAN_TRANSITION, DIRTY_TRANSITION]));
+    expect(findPrivateLeaks(j)).toEqual([]);
+    expect(findContactShapedContent(j)).toEqual([]);
+    expect(j.message).not.toMatch(/contact|apva_flag|raw_power_text/);
+  });
+
+  it('BLOCKS the send outright when contact-shaped content reaches the rendered payload', async () => {
+    // A rename recorded under an email address passes every field-name check and is
+    // still a leak. The correct failure is a refusal to send.
+    const emailInName = {
+      ...CLEAN_TRANSITION, id: 'fi-lv-canary-rename', type: 'renamed',
+      detail: { from_name: 'SIA Old', to_name: DIGEST_CANARY.email },
+    };
+    const j = await digest(seededStore([emailInName]), { dry_run: false });
+    expect(j.blocked).toBe(true);
+    expect(j.sent).toBe(false);
+    expect(j.message).toBeUndefined();
+  });
+
+  it('BLOCKS on a phone-shaped string too', async () => {
+    const phoneInName = {
+      ...CLEAN_TRANSITION, id: 'fi-lv-canary-phone', type: 'renamed',
+      detail: { from_name: 'SIA Old', to_name: `SIA New ${DIGEST_CANARY.phone}` },
+    };
+    const j = await digest(seededStore([phoneInName]));
+    expect(j.blocked).toBe(true);
+  });
+
+  it('a blocked digest does NOT stamp last_digest_at — a refused send is not a send', async () => {
+    const store = seededStore([{
+      ...CLEAN_TRANSITION, type: 'renamed', detail: { from_name: 'SIA Old', to_name: DIGEST_CANARY.email },
+    }]);
+    await digest(store, { dry_run: false });
+    expect(store.get('fleet_lifecycle:last_digest_at')).toBeUndefined();
+  });
+
+  it('FAILABILITY: the same assertions go red when the canary is allowed through', async () => {
+    // The inject-then-remove protocol, run inside the test rather than by hand: a
+    // digest built WITHOUT the guard is asserted to leak, which proves the guarded
+    // assertions above are load-bearing and not vacuously true.
+    const leaky = [CLEAN_TRANSITION, DIRTY_TRANSITION]
+      .map((t) => `• ${t.type.toUpperCase()} ${t.id} ${JSON.stringify(t)}`).join('\n');
+    expect(leaky).toContain(DIGEST_CANARY.email);
+    expect(findContactShapedContent({ message: leaky }).length).toBeGreaterThan(0);
+    expect(findPrivateLeaks({ transitions: [DIRTY_TRANSITION] }).length).toBeGreaterThan(0);
+    // and the guarded path, on the same input, does not
+    const j = await digest(seededStore([CLEAN_TRANSITION, DIRTY_TRANSITION]));
+    expect(findContactShapedContent(j)).toEqual([]);
+  });
+
+  it('the capability census carries no private data either', async () => {
+    const j = await digest(seededStore([CLEAN_TRANSITION], {
+      registry_terminated: { status: 'healthy', last_run_at: new Date().toISOString(), rows_eligible: 36, source_usable: true, max_age_hours: 720, reasons: [] },
+    }));
+    expect(j.message).toMatch(/detectors were able to fire/);
+    expect(findPrivateLeaks(j)).toEqual([]);
+    expect(findContactShapedContent(j)).toEqual([]);
+  });
+
+  it('the forbidden-key list matches ALWAYS_PRIVATE_FIELDS — drift here is a silent leak', async () => {
+    const src = readFileSync(join(__dirname, '../fetch-s1.js'), 'utf8');
+    const m = /const DIGEST_FORBIDDEN_KEYS = \[([^\]]*)\];/.exec(src);
+    expect(m, 'DIGEST_FORBIDDEN_KEYS not found — the drift gate cannot run').toBeTruthy();
+    const declared = [...m![1].matchAll(/'([^']+)'/g)].map((x) => x[1]).sort();
+    expect(declared).toEqual([...ALWAYS_PRIVATE_FIELDS].sort());
   });
 });
