@@ -63,7 +63,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { loadDataset, loadCalendar, bySeries, monthlyAggregate, segmentMonths } from './loader.mjs';
-import { arbitrageByMonth } from './arbitrage.mjs';
+import { arbitrageByMonth, ARB_RTE_E0_PUBLISHED } from './arbitrage.mjs';
 
 const OUT_DIR = path.join(import.meta.dirname, '..', 'data', 'mature-markets');
 const DOC_DIR = path.join(import.meta.dirname, '..', '..', '..', 'docs', 'research');
@@ -76,7 +76,10 @@ const CRITERIA = {
   SATURATION_TOL_SENSITIVITY: [0.5, 1.0, 2.0],  // reported alongside, so the constant is not load-bearing in silence
   SATURATION_MIN_TAIL: 6,   // months that must remain after the candidate month for a verdict
   ARB_WINDOW_HOURS: 4,      // battery duration assumed for the arbitrage proxy
-  RTE: 0.85,                // round-trip efficiency ASSUMPTION for the arbitrage proxy
+  // 36.E1: no longer a local literal. This is the value the table was PUBLISHED with; the
+  // engine's canonical RTE is RTE_BOL.h4 and differs. See arbitrage.mjs for the divergence and
+  // for why the published table is pinned rather than restated (B-055 precedent).
+  RTE: ARB_RTE_E0_PUBLISHED,
   MIN_MONTHS_FOR_CAGR: 24,
 };
 

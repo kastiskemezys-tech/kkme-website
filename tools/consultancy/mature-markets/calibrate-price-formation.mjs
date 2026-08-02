@@ -14,7 +14,8 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { loadDataset, bySeries, monthlyAggregate } from './loader.mjs';
-import { arbitrageByMonth, arbitrageByMonthFromHourly, ARB_WINDOW_HOURS, ARB_RTE } from './arbitrage.mjs';
+import { arbitrageByMonth, arbitrageByMonthFromHourly, ARB_WINDOW_HOURS, ARB_RTE_ENGINE, ARB_RTE_E0_PUBLISHED } from './arbitrage.mjs';
+import { splitActivationByDirection, afrrActivationRevenue, convergeK } from '../lib/price-formation.mjs';
 
 const HERE = import.meta.dirname;
 const DATA = path.join(HERE, '..', 'data');
@@ -92,7 +93,7 @@ async function main() {
     built_at: new Date().toISOString(),
     reproducible_offline: true,
     model: 'clearing(t) = max(endogenous floor(t), k(t) x arbitrage_opportunity(t)); floor = max(0, arb - marginal cycling cost)',
-    arbitrage_proxy: { window_hours: ARB_WINDOW_HOURS, rte: ARB_RTE, cycles_per_day: 1, note: 'RTE is an ASSUMPTION, not a measurement. Shared implementation with the E0 summary table (tools/consultancy/mature-markets/arbitrage.mjs) — rule #4.' },
+    arbitrage_proxy: { window_hours: ARB_WINDOW_HOURS, rte: ARB_RTE_ENGINE, rte_source: 'workers/fetch-s1.js RTE_BOL.h4 — the engine\'s canonical 4 h beginning-of-life RTE, single-sourced (rule #4). The E0 summary table was published at ' + ARB_RTE_E0_PUBLISHED + ' and is pinned there; see rte_sensitivity.', cycles_per_day: 1 },
     crisis_window: { ...CRISIS, basis: 'named, not fitted — see the module header' },
     parameters: {},
     notes: [],
@@ -116,7 +117,7 @@ async function main() {
   // the same statistic to within 2.57 % on average (max 8.24 %) — so the switch extends the window
   // without changing what is being measured. Filed for the E0 table separately; not edited here,
   // because changing the published summary table is not this batch's scope.
-  const arbDE = arbitrageByMonth(da.rows.filter((r) => r.market === 'DE'), ARB_WINDOW_HOURS);
+  const arbDE = arbitrageByMonth(da.rows.filter((r) => r.market === 'DE'), ARB_WINDOW_HOURS, ARB_RTE_ENGINE);
   const de = await loadDataset('de');
   const S = bySeries(de.rows);
 
@@ -187,7 +188,7 @@ async function main() {
   for (const y of years) {
     const f = path.join(DATA, `da-hourly-LT-${y}.json`);
     let j; try { j = JSON.parse(await fs.readFile(f, 'utf8')); } catch { out.notes.push(`no LT day-ahead file for ${y}`); continue; }
-    for (const [m, v] of arbitrageByMonthFromHourly(y, j.prices_eur_mwh, ARB_WINDOW_HOURS)) arbLT.set(m, v);
+    for (const [m, v] of arbitrageByMonthFromHourly(y, j.prices_eur_mwh, ARB_WINDOW_HOURS, ARB_RTE_ENGINE)) arbLT.set(m, v);
   }
 
   const byMonth = new Map();
@@ -296,6 +297,109 @@ async function main() {
     baltic: Object.fromEntries(Object.entries(out.parameters.baltic_k.per_product).map(([k, v]) => [k, v.p10])),
     finding: 'No product in either market displaces the full gross arbitrage opportunity. The arc specifies the floor as gross arbitrage net of cycling cost; every measured floor sits below that, because a reserve commitment reserves SoC headroom rather than the whole MW (36.B1 simultaneity).',
   };
+
+  // ── RTE sensitivity (operator condition 2) ───────────────────────────────────────────────────
+  //
+  // The engine's canonical RTE (RTE_BOL.h4) and the value E0 published its table with differ. The
+  // delta is REPORTED rather than silently adopted, and what it shows is that the model is immune
+  // to it: every parameter is a RATIO to the arbitrage series, so scaling the series scales k by
+  // exactly the inverse and the priced result k x arb is unchanged. Measured on DE FCR rather than
+  // argued, because "it cancels" is the kind of claim that is true until a convention slips.
+  {
+    const arbPub = arbitrageByMonth(da.rows.filter((r) => r.market === 'DE'), ARB_WINDOW_HOURS, ARB_RTE_E0_PUBLISHED);
+    const months = monthlyAggregate(S.get(SERIES.fcr)).filter((m) => m.mean !== null && arbDE.has(m.month) && arbPub.has(m.month));
+    const kEng = months.map((m) => m.mean / arbDE.get(m.month).arb_eur_mw_h);
+    const kPub = months.map((m) => m.mean / arbPub.get(m.month).arb_eur_mw_h);
+    const priced = months.map((m, i) => Math.abs(kEng[i] * arbDE.get(m.month).arb_eur_mw_h - kPub[i] * arbPub.get(m.month).arb_eur_mw_h));
+    out.parameters.rte_sensitivity = {
+      engine_rte: ARB_RTE_ENGINE, engine_rte_source: 'workers/fetch-s1.js RTE_BOL.h4',
+      e0_published_rte: ARB_RTE_E0_PUBLISHED,
+      delta_pct: r4((ARB_RTE_ENGINE / ARB_RTE_E0_PUBLISHED - 1) * 100),
+      arb_level_shift_pct: r4((ARB_RTE_ENGINE / ARB_RTE_E0_PUBLISHED - 1) * 100),
+      k_fcr_p50_at_engine_rte: r4(pct(kEng, 0.5)),
+      k_fcr_p50_at_e0_rte: r4(pct(kPub, 0.5)),
+      max_abs_priced_difference_eur_mw_h: r4(Math.max(...priced)),
+      verdict: 'The arbitrage LEVEL moves by the RTE delta and every ratio moves by its inverse, so the priced clearing price is invariant to within float noise. The exposure that does NOT cancel is the cycling cost, and that already reads RTE from the engine\'s own rteCurveFor. Nothing in this calibration depends on the 0.85 the E0 table was published with.',
+    };
+  }
+
+  // ── Convergence: does the Baltic multiple decay, and on what (operator condition 5) ───────────
+  //
+  // IT DECAYS, and holding it flat was the alternative that had to be refused. Baltic FCR clears at
+  // k = 3.03 against Germany's 1.09; carried forward unchanged that overstates out-year FCR by
+  // roughly threefold, which is the same flattering direction the "FCR is a rounding error" anchor
+  // exists to guard, arriving from the other side.
+  //
+  // The RATE is the question, and the honest answer is a band with a stated pick:
+  //   * SLOW bound — Germany's own WITHIN-REGIME FCR trend, lambda 0.0719/yr, t = -1.70. Not
+  //     statistically supported; descriptive only (operator condition 4) and never a driver.
+  //   * FAST bound and THE ADOPTED RATE — Germany's ex-crisis FCR trend, lambda 0.1310/yr,
+  //     t = -10.23. Statistically supported, and the conservative choice for a revenue line that
+  //     must not be inflated.
+  //
+  // The tension is stated rather than hidden: much of the ex-crisis fit's significance comes from a
+  // LEVEL SHIFT between the pre- and post-crisis regimes rather than from a smooth glide, so it is
+  // an upper bound on the decay a smooth model should claim. Adopting the upper bound is the
+  // conservative error. aFRR needs no such argument — its own post-crisis rate is supported
+  // (t = -3.08 up, -2.36 down) and is used directly.
+  {
+    const conv = {};
+    for (const [name, mature] of [['fcr', deK.fcr], ['afrr_up', deK.afrr_up], ['afrr_down', deK.afrr_down]]) {
+      const supported = Math.abs(mature.trend_post_crisis.t ?? 0) >= 2;
+      const adopted = supported ? mature.trend_post_crisis : mature.trend_ex_crisis;
+      conv[name] = {
+        k_now_baltic: out.parameters.baltic_k.per_product[name].p50,
+        k_mature_de: mature.k_post_crisis.p50,
+        lambda_per_yr: adopted.lambda_per_yr,
+        t: adopted.t,
+        basis: supported ? 'DE post-crisis within-regime trend (statistically supported)' : 'DE ex-crisis trend — the post-crisis within-regime rate is NOT statistically supported (t below 2) and is descriptive only',
+        evidence_class: supported ? 'measured, within regime' : 'measured across a regime shift — upper bound on decay, adopted because it is the conservative direction',
+        slow_bound_lambda: mature.trend_post_crisis.lambda_per_yr,
+        slow_bound_t: mature.trend_post_crisis.t,
+        half_life_yr: r4(Math.log(2) / adopted.lambda_per_yr),
+        projected_k: Object.fromEntries([1, 5, 10, 20].map((y) => [`t_plus_${y}yr`, r4(convergeK({
+          k_now: out.parameters.baltic_k.per_product[name].p50,
+          k_mature: mature.k_post_crisis.p50,
+          lambda_per_yr: adopted.lambda_per_yr, years_elapsed: y,
+        }))])),
+      };
+    }
+    conv.held_flat_is_not_the_default = 'projectClearing() requires lambda_per_yr and convergeK() throws without it. Holding a multiple flat remains available — pass 0 — but it has to be a stated choice, because omission would default to the flattering direction.';
+    out.parameters.convergence = conv;
+  }
+
+  // ── Baltic direction split: the one transferred input, banded (operator condition 3) ──────────
+  //
+  // BTD serves one pooled aFRR activation series per country. The LEVEL is Baltic and measured; the
+  // up/down SHAPE is transferred from Germany. It is the only unmeasured input in the activation
+  // model and it lands on the direction the engine has never modelled at all, so it gets a range.
+  {
+    const dirDe = out.parameters.afrr_activation_de.per_direction;
+    const deRatio = dirDe.down.p50 / dirDe.up.p50;
+    const pooled = out.parameters.afrr_activation_baltic.lt_afrr_price_eur_mwh.p50_of_monthly_avg;
+    // A 1 MW commitment, one year, at Germany's measured rates and the engine's canonical aFRR
+    // energy anchor. The DA charging price is the Baltic day-ahead mean over the calibration window
+    // — the price the avoided charge is avoided AT.
+    const daMean = r4(monthly.reduce((s, m) => s + m.arb_eur_mw_h, 0) / monthly.length * 24 / (ARB_WINDOW_HOURS * ARB_RTE_ENGINE) / 2);
+    const ENERGY_PER_MW_PER_ACTIVATED_H = 0.02;
+    const band = {};
+    for (const mode of ['de_shape', 'even']) {
+      const split = splitActivationByDirection({ pooled_price_eur_mwh: pooled, de_down_over_up: deRatio, mode });
+      const up = afrrActivationRevenue({ committed_mw: 1, activation_rate: dirDe.up.activation_rate, energy_per_mw_per_activated_h: ENERGY_PER_MW_PER_ACTIVATED_H, price_eur_mwh: split.up, direction: 'up' });
+      const down = afrrActivationRevenue({ committed_mw: 1, activation_rate: dirDe.down.activation_rate, energy_per_mw_per_activated_h: ENERGY_PER_MW_PER_ACTIVATED_H, price_eur_mwh: split.down, da_charge_price_eur_mwh: daMean, direction: 'down' });
+      band[mode] = { up_price: r4(split.up), down_price: r4(split.down), up_revenue_eur_mw_yr: r4(up.revenue), down_revenue_eur_mw_yr: r4(down.revenue), total_eur_mw_yr: r4(up.revenue + down.revenue) };
+    }
+    out.parameters.baltic_direction_split_sensitivity = {
+      transferred_input: 'DE down/up activation price ratio at p50',
+      de_down_over_up: r4(deRatio),
+      baltic_pooled_price_eur_mwh: pooled,
+      da_charge_price_eur_mwh: daMean,
+      energy_per_mw_per_activated_h: ENERGY_PER_MW_PER_ACTIVATED_H,
+      band,
+      down_revenue_range_eur_mw_yr: [r4(Math.min(band.de_shape.down_revenue_eur_mw_yr, band.even.down_revenue_eur_mw_yr)), r4(Math.max(band.de_shape.down_revenue_eur_mw_yr, band.even.down_revenue_eur_mw_yr))],
+      note: 'A band, not a parameter. `even` asks what happens if the Baltic market is simply not shaped like Germany\'s; both splits preserve the measured pooled level, so the band isolates the shape and nothing else.',
+    };
+  }
 
   await fs.writeFile(OUT, JSON.stringify(out, null, 1) + '\n');
   console.log(`wrote ${path.relative(path.join(HERE, '..', '..', '..'), OUT)}`);

@@ -16,8 +16,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   marginalCyclingCost, endogenousFloor, fcrClearing, afrrCapacityClearing,
-  convergeK, afrrActivationRevenue,
+  convergeK, projectClearing, splitActivationByDirection, afrrActivationRevenue,
 } from '../lib/price-formation.mjs';
+import { ARB_RTE_ENGINE, ARB_RTE_E0_PUBLISHED } from '../mature-markets/arbitrage.mjs';
+import { RTE_BOL } from '../../../workers/fetch-s1.js';
 
 const CAL = JSON.parse(fs.readFileSync(
   path.join(__dirname, '..', 'data', 'price-formation-calibration.json'), 'utf8',
@@ -392,3 +394,98 @@ function deAnnual(series: string): Map<string, { arb: number; price: number }> {
   const mean = (a: number[]) => a.reduce((x, y) => x + y, 0) / a.length;
   return new Map(Object.entries(raw).map(([y, v]) => [y, { arb: mean(v.arb), price: mean(v.price) }]));
 }
+
+// ── Operator conditions 2, 3 and 5 ──────────────────────────────────────────────────────────
+
+describe('condition 2 — the arbitrage proxy is single-sourced from the engine', () => {
+  it('takes its RTE from the engine, not from a local literal', () => {
+    expect(ARB_RTE_ENGINE).toBe(RTE_BOL.h4);
+  });
+
+  it('the engine value differs from the one E0 published, and the delta is reported', () => {
+    expect(ARB_RTE_ENGINE).not.toBe(ARB_RTE_E0_PUBLISHED);
+    const s = CAL.parameters.rte_sensitivity;
+    expect(s.engine_rte).toBe(ARB_RTE_ENGINE);
+    expect(s.e0_published_rte).toBe(ARB_RTE_E0_PUBLISHED);
+    expect(s.delta_pct).toBeLessThan(0);
+  });
+
+  it('and the priced result is invariant to it, measured rather than argued', () => {
+    // Every parameter is a RATIO to the arbitrage series, so scaling the series scales k by the
+    // inverse and k x arb does not move. Asserted on the calibration's own measurement of it.
+    expect(CAL.parameters.rte_sensitivity.max_abs_priced_difference_eur_mw_h).toBeLessThan(1e-9);
+    // The k levels themselves DO move — which is why the two must never be mixed across a run.
+    expect(CAL.parameters.rte_sensitivity.k_fcr_p50_at_engine_rte)
+      .toBeGreaterThan(CAL.parameters.rte_sensitivity.k_fcr_p50_at_e0_rte);
+  });
+});
+
+describe('condition 5 — the Baltic multiple converges and cannot silently hold flat', () => {
+  it('convergeK refuses to run without a rate', () => {
+    // Omission would hold the young market flat forever, which overstates every out-year. The
+    // flattering direction has to be chosen out loud.
+    // @ts-expect-error deliberately omitted
+    expect(() => convergeK({ k_now: 3, k_mature: 1, years_elapsed: 5 })).toThrow(/lambda_per_yr` is required/);
+    expect(convergeK({ k_now: 3, k_mature: 1, lambda_per_yr: 0, years_elapsed: 50 })).toBe(3);
+  });
+
+  it('projectClearing decays Baltic FCR toward the German level', () => {
+    const c = CAL.parameters.convergence.fcr;
+    const arb = 18, displacement = CAL.parameters.floor_displacement.baltic.fcr;
+    const at = (y: number) => projectClearing('fcr', {
+      arb_eur_mw_h: arb, cycling_eur_mw_h: cyclingFor(arb), displacement,
+      k_now: c.k_now_baltic, k_mature: c.k_mature_de, lambda_per_yr: c.lambda_per_yr, years_elapsed: y,
+    });
+    expect(at(0).k).toBeCloseTo(c.k_now_baltic, 10);
+    expect(at(10).k).toBeLessThan(at(0).k);
+    expect(at(10).clearing).toBeLessThan(at(0).clearing);
+    // Never below the mature market it is converging to.
+    expect(at(50).k).toBeGreaterThanOrEqual(c.k_mature_de);
+  });
+
+  it('the adopted FCR rate is the statistically supported one, not the within-regime one', () => {
+    // Condition 4: the within-regime rate is descriptive only (t = -1.70). The adopted rate clears
+    // |t| >= 2 and is the faster of the two, which is the conservative direction for a revenue line.
+    const c = CAL.parameters.convergence.fcr;
+    expect(Math.abs(c.t)).toBeGreaterThan(2);
+    expect(Math.abs(c.slow_bound_t)).toBeLessThan(2);
+    expect(c.lambda_per_yr).toBeGreaterThan(c.slow_bound_lambda);
+  });
+
+  it('aFRR uses its own within-regime rate, because that one IS supported', () => {
+    for (const dir of ['afrr_up', 'afrr_down'] as const) {
+      const c = CAL.parameters.convergence[dir];
+      expect(Math.abs(c.t)).toBeGreaterThan(2);
+      expect(c.basis).toMatch(/within-regime/);
+    }
+  });
+
+  it('aFRR down converges UPWARD — the Baltic multiple is below the German one', () => {
+    // Asserted because it is counter-intuitive and would otherwise look like a sign error to
+    // whoever reads the out-years first.
+    const c = CAL.parameters.convergence.afrr_down;
+    expect(c.k_now_baltic).toBeLessThan(c.k_mature_de);
+    expect(c.projected_k.t_plus_10yr).toBeGreaterThan(c.k_now_baltic);
+  });
+});
+
+describe('condition 3 — the transferred direction split, banded', () => {
+  it('both splits preserve the measured pooled level, so the band isolates the shape', () => {
+    const b = CAL.parameters.baltic_direction_split_sensitivity;
+    for (const mode of ['de_shape', 'even'] as const) {
+      expect((b.band[mode].up_price + b.band[mode].down_price) / 2).toBeCloseTo(b.baltic_pooled_price_eur_mwh, 6);
+    }
+  });
+
+  it('an even split is a materially different answer, which is why it is a band and not a footnote', () => {
+    const r = CAL.parameters.baltic_direction_split_sensitivity.down_revenue_range_eur_mw_yr;
+    expect(r[1] / r[0]).toBeGreaterThan(1.5);
+  });
+
+  it('splitActivationByDirection refuses a mode it does not measure', () => {
+    expect(() => splitActivationByDirection({ pooled_price_eur_mwh: 40, de_down_over_up: 0.36, mode: 'guess' as never }))
+      .toThrow(/mode must be/);
+    expect(() => splitActivationByDirection({ pooled_price_eur_mwh: 40, mode: 'de_shape' } as never))
+      .toThrow(/de_down_over_up is required/);
+  });
+});

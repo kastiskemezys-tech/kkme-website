@@ -214,10 +214,70 @@ export function afrrCapacityClearing({ arb_eur_mw_h, cycling_eur_mw_h, k, displa
  */
 export function convergeK({ k_now, k_mature, lambda_per_yr, years_elapsed }) {
   if (years_elapsed < 0) throw new Error('convergeK: years_elapsed must not be negative');
+  if (!Number.isFinite(lambda_per_yr)) {
+    throw new Error('convergeK: `lambda_per_yr` is required. Omitting it would hold the young market\'s multiple flat forever, which overstates every out-year — the flattering direction. Holding flat is available, but it has to be chosen: pass 0 and say why.');
+  }
   return k_mature + (k_now - k_mature) * Math.exp(-lambda_per_yr * years_elapsed);
 }
 
+/**
+ * The forward clearing price for a young market, at a horizon.
+ *
+ * THE FUNCTION THAT MAKES CONVERGENCE UNSKIPPABLE. `fcrClearing` and `afrrCapacityClearing` price a
+ * single moment and know nothing about time; used directly for an out-year they would carry today's
+ * scarcity multiple forward unchanged. Baltic FCR clears at k = 3.03 against Germany's 1.09, so
+ * holding it flat would overstate out-year FCR by roughly a factor of three — the same
+ * flattering-direction error the "FCR is a rounding error" anchor exists to prevent, arriving from
+ * the other side. Every forward projection goes through here, and `lambda_per_yr` has no default.
+ *
+ * @param {'fcr'|'afrr'} service
+ * @param {object} o
+ * @param {number} o.arb_eur_mw_h       projected arbitrage opportunity in the target year
+ * @param {number} o.cycling_eur_mw_h
+ * @param {number} o.displacement
+ * @param {number} o.k_now              the young market's measured multiple
+ * @param {number} o.k_mature           the mature market's level — where it converges TO
+ * @param {number} o.lambda_per_yr      convergence rate; 0 means "held flat", deliberately
+ * @param {number} o.years_elapsed
+ * @param {number} [o.symmetric_premium] FCR only
+ */
+export function projectClearing(service, {
+  arb_eur_mw_h, cycling_eur_mw_h, displacement, k_now, k_mature, lambda_per_yr, years_elapsed,
+  symmetric_premium,
+}) {
+  const k = convergeK({ k_now, k_mature, lambda_per_yr, years_elapsed });
+  if (service === 'fcr') return { ...fcrClearing({ arb_eur_mw_h, cycling_eur_mw_h, displacement, k, symmetric_premium }), k, years_elapsed };
+  if (service === 'afrr') return { ...afrrCapacityClearing({ arb_eur_mw_h, cycling_eur_mw_h, displacement, k }), k, years_elapsed };
+  throw new Error(`projectClearing: unknown service "${service}" — this batch models 'fcr' and 'afrr'. mFRR is 36.E3.`);
+}
+
 // ── E2 — aFRR activation, per direction ───────────────────────────────────────────────────────
+
+/**
+ * Split a market's pooled activation price into the two directions.
+ *
+ * WHY THIS IS A FUNCTION AND NOT A CONSTANT. BTD publishes ONE aFRR activation series per Baltic
+ * country with no up/down split, so the Baltic LEVEL is measured and the SHAPE is not. The shape is
+ * transferred from Germany, where 144 221 quarter-hours give it directly. That transfer is the only
+ * unmeasured input in the whole activation model, and it lands on the half of it the engine has
+ * never modelled at all — so it gets a stated range rather than a single number.
+ *
+ * `mode`:
+ *   * `'de_shape'` — up and down in the German price ratio (measured p50 47.00 / 130.48 = 0.360).
+ *   * `'even'`     — 50/50: both directions at the pooled level. The bound that asks what happens
+ *                    if the Baltic market simply is not shaped like Germany's.
+ *
+ * Both are reported as a band in the calibration; neither is a new parameter.
+ */
+export function splitActivationByDirection({ pooled_price_eur_mwh, de_down_over_up, mode }) {
+  if (mode === 'even') return { up: pooled_price_eur_mwh, down: pooled_price_eur_mwh, mode };
+  if (mode !== 'de_shape') throw new Error(`splitActivationByDirection: mode must be 'de_shape' or 'even', got ${mode}`);
+  if (!Number.isFinite(de_down_over_up)) throw new Error('splitActivationByDirection: de_down_over_up is required for de_shape');
+  // Preserve the pooled mean across the two directions, so the split redistributes rather than
+  // creates: (up + down)/2 = pooled.
+  const up = (2 * pooled_price_eur_mwh) / (1 + de_down_over_up);
+  return { up, down: up * de_down_over_up, mode };
+}
 
 /**
  * Activation revenue for one MW of committed aFRR over one year, per direction.

@@ -18,9 +18,31 @@
 // RTE IS AN ASSUMPTION, not a measurement, and every output that carries this number says so.
 
 import { rowMinutes } from './loader.mjs';
+import { RTE_BOL } from '../../../workers/fetch-s1.js';
 
 export const ARB_WINDOW_HOURS = 4;   // battery duration assumed for the proxy
-export const ARB_RTE = 0.85;         // round-trip efficiency ASSUMPTION
+
+/**
+ * Round-trip efficiency for the proxy. TWO values, and the divergence is the point.
+ *
+ * `ARB_RTE_ENGINE` is the canonical one — `RTE_BOL.h4`, the engine's own beginning-of-life RTE at
+ * the 4 h duration this proxy assumes. Rule #4: no local literal, single-sourced from the model.
+ *
+ * `ARB_RTE_E0_PUBLISHED` is the 0.85 the E0 summary table was built and published with. It is
+ * pinned here rather than corrected, because changing it would move every published
+ * `arbitrage_opportunity` and `floor_to_arbitrage_ratio` in a shipped table — the same reason
+ * B-055's truncation was filed rather than fixed mid-batch.
+ *
+ * WHAT THE DIVERGENCE COSTS, measured rather than feared: nothing, for this model. Every
+ * price-formation parameter is calibrated as a RATIO to the arbitrage series (k = price / arb,
+ * displacement = p10 of that same ratio), so scaling the series by RTE scales k by exactly its
+ * inverse and the product k x arb is invariant. The floor is `displacement x arb - cycling` and
+ * `displacement x arb` is invariant for the same reason, so only the cycling term is exposed —
+ * and that reads RTE from `rteCurveFor`, the engine's, already. The calibration measures the
+ * invariance rather than asserting it; see `rte_sensitivity` in the output.
+ */
+export const ARB_RTE_ENGINE = RTE_BOL.h4;
+export const ARB_RTE_E0_PUBLISHED = 0.85;
 
 /**
  * Daily top-N-hours minus bottom-N-hours spread, averaged over the month.
@@ -28,7 +50,7 @@ export const ARB_RTE = 0.85;         // round-trip efficiency ASSUMPTION
  * hourly duration-weighted means first, so a 5-minute market and an hourly one give comparable
  * numbers instead of the finer one showing a mechanically wider spread.
  */
-export function arbitrageByMonth(rows, windowHours) {
+export function arbitrageByMonth(rows, windowHours, rte = ARB_RTE_E0_PUBLISHED) {
   const hourly = new Map();   // 'YYYY-MM-DDTHH' -> {wSum, wTot}
   for (const r of rows) {
     if (r.price_norm === null) continue;
@@ -59,7 +81,7 @@ export function arbitrageByMonth(rows, windowHours) {
     out.set(m, {
       spread_eur_mwh: mean,
       // Availability-equivalent: one cycle/day of `windowHours` at this spread, spread over 24 h.
-      arb_eur_mw_h: (mean * windowHours * ARB_RTE) / 24,
+      arb_eur_mw_h: (mean * windowHours * rte) / 24,
       n_days: spreads.length,
     });
   }
@@ -75,7 +97,7 @@ export function arbitrageByMonth(rows, windowHours) {
  * calibration, and a comparison between two differently-computed spreads measures the difference
  * between the two computations at least as much as the difference between the two markets.
  */
-export function arbitrageByMonthFromHourly(year, prices, windowHours) {
+export function arbitrageByMonthFromHourly(year, prices, windowHours, rte = ARB_RTE_E0_PUBLISHED) {
   const rows = [];
   const start = Date.UTC(year, 0, 1);
   for (let i = 0; i < prices.length; i++) {
@@ -88,5 +110,5 @@ export function arbitrageByMonthFromHourly(year, prices, windowHours) {
       resolution: 'PT60M',
     });
   }
-  return arbitrageByMonth(rows, windowHours);
+  return arbitrageByMonth(rows, windowHours, rte);
 }

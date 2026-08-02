@@ -52,10 +52,15 @@ describe('assumptions register — schema', () => {
 
   it('covers every category the deliverable contract names', () => {
     const counts = categoryCounts(register) as Any;
+    // A CONTENT PIN, updated deliberately in 36.E1: +18 `price-formation` rows for the per-service
+    // FCR/aFRR parameters. Nothing existing moved — the seven original counts are unchanged, which
+    // is what makes this an addition rather than a rewrite. The pin exists so rows cannot appear
+    // without a reviewer seeing them, so updating it is the point of the pin, not a way round it.
     expect(counts).toEqual({
       technical: 7, market: 11, saturation: 4, cost: 7, capex: 8, project: 3, 'scenario-driver': 7,
+      'price-formation': 18,
     });
-    expect(register.rows).toHaveLength(47);
+    expect(register.rows).toHaveLength(65);
     for (const row of register.rows) expect(CATEGORIES).toContain(row.category);
   });
 
@@ -461,7 +466,10 @@ describe('register versioning', () => {
   });
 
   it('advances the sequence only when the content changes', () => {
-    const restamped = bumpVersion(register, { date: '2026-08-01' }) as Any;
+    // Dated AFTER the shipped changelog's last entry: bumpVersion appends, and the changelog is
+    // asserted chronological, so a synthetic bump has to sit in the future of the real ones.
+    // 36.E1's rows landed 2026-08-02 and moved this fixture's date with them.
+    const restamped = bumpVersion(register, { date: '2026-08-03' }) as Any;
     expect(restamped.version.seq).toBe(register.version.seq);
     expect(restamped.version.id).toBe(register.version.id);
     expect(restamped.changelog).toHaveLength(register.changelog.length);
@@ -473,8 +481,8 @@ describe('register versioning', () => {
     const bumped = bumpVersion(moved as Any, {
       moved: valueDiff(register, moved as Any),
       reason: 'Operator raised the discount rate after a financing conversation.',
-      source: 'operator decision, 2026-08-01',
-      decided_by: 'operator', phase: '37', date: '2026-08-01',
+      source: 'operator decision, 2026-08-03',
+      decided_by: 'operator', phase: '37', date: '2026-08-03',
     }) as Any;
     expect(bumped.version.seq).toBe(register.version.seq + 1);
     expect(bumped.changelog).toHaveLength(register.changelog.length + 1);

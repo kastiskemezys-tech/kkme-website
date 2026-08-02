@@ -16,6 +16,16 @@
  *   portfolio:<name>  portfolio-level constant
  *   driver:<id>       Central value of a Phase 34.4 scenario driver
  *   config:<id>.<key> value from a committed project config
+ *   calibration:<path> value in tools/consultancy/data/price-formation-calibration.json
+ *
+ * `calibration:` is 36.E1's addition and it exists because the E1/E2 price-formation parameters
+ * are MEASURED FROM DATA rather than written into code — they live behind their own seam and
+ * nothing in the engine holds them yet (wiring is E6). Binding them to the calibration artifact
+ * keeps the invariant intact rather than carving an exception out of it: a row still cannot float
+ * free, and re-running the calibration against refreshed evidence makes the register DRIFT, which
+ * is exactly the alarm a monthly review_cycle wants. The alternative — unbound rows — would have
+ * meant the one class of parameter whose values move every month was the one class nothing
+ * checked.
  *
  * There is exactly ONE kind of row that may carry no binding: a **superseded**
  * row (`basis: "superseded"`). It records a value the model USED to hold, kept
@@ -70,7 +80,11 @@ import { hashOf } from './lib/runs.mjs';
 
 export const REGISTER_PATH = join(HERE, 'assumptions-register.json');
 
-export const CATEGORIES = ['technical', 'market', 'saturation', 'cost', 'capex', 'project', 'scenario-driver'];
+// 'price-formation' is 36.E1's addition: the per-service scarcity multiples, convergence rates,
+// floor displacements and activation parameters. They are a category of their own rather than
+// folded into 'saturation' because none of them is a haircut on a base price — they are the price
+// formation itself, and E6 replaces `reservePrice()` with them.
+export const CATEGORIES = ['technical', 'market', 'saturation', 'cost', 'capex', 'project', 'scenario-driver', 'price-formation'];
 
 // ── Versioning + changelog (Phase 36.B6) ───────────────────────────────────
 
@@ -211,6 +225,16 @@ export function readWorkerConstant(name, src = workerSource()) {
 
 const at = (obj, path) => path.split('.').reduce((o, k) => o?.[k], obj);
 
+/** The E1/E2 calibration artifact, read once. */
+let _calibration = null;
+function loadCalibration() {
+  if (_calibration) return _calibration;
+  const file = join(import.meta.dirname, 'data', 'price-formation-calibration.json');
+  try { _calibration = JSON.parse(readFileSync(file, 'utf8')); }
+  catch (e) { throw new RegisterBindingError(`cannot read the price-formation calibration at ${file}: ${e.message}`); }
+  return _calibration;
+}
+
 /** Round to the register's declared precision so float noise never fails a tie. */
 export const roundTo = (v, dp = 6) =>
   typeof v === 'number' ? Math.round(v * 10 ** dp) / 10 ** dp : v;
@@ -249,6 +273,11 @@ export function resolveBinding(binding, ctx) {
       const d = DRIVERS[path];
       if (!d) throw new RegisterBindingError(`unknown scenario driver "${path}"`);
       return d.central;
+    }
+    case 'calibration': {
+      const v = at(loadCalibration(), path);
+      if (v === undefined) throw new RegisterBindingError(`price-formation calibration has no path "${path}" — re-run tools/consultancy/mature-markets/calibrate-price-formation.mjs`);
+      return v;
     }
     case 'config': {
       const [id, key] = path.split('.');
