@@ -208,7 +208,7 @@ See [docs/map.md](map.md) for the full concept-to-file lookup table.
 
 ### Session 105 — 2026-08-02 — Phase 38 audit + 38.1 S1 outage and its monitoring (Claude Code, semi-autonomous) — branch `phase-38-sync-audit`
 
-**Audit artifact:** `docs/investigations/2026-08-02-phase-38-sync-audit.md`. **38.1 code complete and pushed at `8f4464c`; NOT DEPLOYED — wrangler OAuth expired mid-session (see Blocker).** 38.2 and 38.3 signed but explicitly not started: separate batches, separate attribution.
+**Audit artifact:** `docs/investigations/2026-08-02-phase-38-sync-audit.md`. **38.1 SHIPPED AND DEPLOYED** — worker `ebd5eba4-8717-41f7-baf4-a287780f2d03`, deployed from `main` after PR #129 merged, recovery proven across two consecutive ticks. 38.2 and 38.3 signed but explicitly not started: separate batches, separate attribution.
 
 #### The audit — all four screenshot-derived items confirmed
 
@@ -289,11 +289,29 @@ inject 3  marketDayEndStamp guesses instead of nulling   → 1 red / 4 pass → 
 
 vitest **2068/2068** (107 files, +15) · `/revenue` **54/54 byte-identical** · `next build` 9 routes · eslint delta **zero** (S2Card's 4 problems verified identical on `git show main:`) · `lint:no-editorial-chips`, `lint:manifest-single-writer`, `lint:no-raw-spacing` pass · dry-run 506.22 KiB / gzip 129.28 KiB (Session 99: 472.81 / 121.23 — no bundle surprise) · `docs/_private/` never staged.
 
-#### ⚠ BLOCKER — not deployed
+#### Deploy
 
-`npx wrangler deploy` failed: *"Not logged in. Your auth token has expired and could not be refreshed, and the environment is non-interactive."* The same credentials served `whoami`, `kv key get` and `tail` earlier in this session, so the OAuth expired mid-session. **Operator action:** `wrangler login` in an interactive terminal (or set `CLOUDFLARE_API_TOKEN`), then `npx wrangler deploy` from this branch. Nothing else is outstanding — the working tree is byte-identical to `8f4464c` for `workers/` and `wrangler.toml`, so the deploy ships exactly what is committed.
+Worker `ebd5eba4-8717-41f7-baf4-a287780f2d03`, 506.22 KiB / gzip 129.28 KiB, deployed **from `main`** at 2026-08-02T15:56:43Z after PR #129 merged. Wrangler's OAuth expired mid-session and the operator re-authenticated; a first deploy had gone out from the branch at 15:55Z, so `workers/fetch-s1.js`, `workers/lib/defaults.js` and `wrangler.toml` were sha256-compared between `19f7cf8` and merged `main` — **all three byte-identical** — and redeployed from main so prod and git-main cannot diverge (C2). `origin/main..main` and `main..origin/main` both 0 at deploy time.
 
-**Recovery proof owed after deploy (C8):** the S1 branch recovering across two consecutive ticks. `s1_capture.updated_at` advancing and `raw:s1:<today>` appearing at both. Post-deploy ticks are the next two `0 */4` firings.
+Post-deploy route probe, three reads in agreement (C8): `/totally-bogus-route → 404`, `/s1 → 200`, `/health → 200`. `s1_capture` appeared in `/health` reading `{age_hours: 40, stale: true, threshold_hours: 12}` — the monitor's first act was to report the outage it had been blind to.
+
+**RECOVERY PROVEN — two consecutive post-deploy ticks, each polled to agreement (C8).**
+
+| | tick 1 · 16:00Z | tick 2 · 20:00Z |
+|---|---|---|
+| `s1_capture.updated_at` | `2026-08-02T16:01:17.915Z` | `2026-08-02T20:01:10.438Z` |
+| `raw:s1:2026-08-02` fetched | `2026-08-02T16:01:19.796Z` | `2026-08-02T20:01:12.134Z` |
+| capture written *before* the S1 branch | 1.881 s | 1.696 s |
+
+Both halves are provable from KV alone, and they discriminate: `s1_capture` advancing shows `computeCapture` ran, which after decoupling it would do **even if computeS1 failed**; `raw:s1` carrying a fresh `fetched` stamp shows the S1 branch itself completed, which it can only do if computeS1 neither rejected nor timed out. Before this phase those two facts were welded together, which is why nothing survived a computeS1 failure.
+
+**The ordering is the structural fingerprint of the fix, not just a successful tick.** Capture now writes ~1.7-1.9 s *before* `raw:s1`; on the last pre-fix success (2026-08-01) it wrote **18 s after** (`raw:s1` 00:01:22, capture 00:01:40). The branch had succeeded intermittently before, so a single green tick would have been consistent with variance — the inverted ordering is not.
+
+Tail corroboration from tick 1 (`wall=78683ms`, 2.6× the old 30 s wrapper, with `[S1/capture] ok`, `[S1] ACT` and `[S1/tomorrow] mirrored to da_tomorrow KV — 94 slots @ PT15M, delivery 2026-08-03` all present and **no** `[S1] cron failed`).
+
+**Public surfaces at close (2026-08-02T20:03Z):** S1 hero €85.99 on DA day 2026-08-02 with `n_prices 96` (was €142 frozen on 2026-08-01 at 88) · forecast dispatch `date_iso 2026-08-03` (was 2026-08-01) · `/health` `s1`, `s1_capture`, `da_tomorrow` all `age_hours 0, stale false`. `all_fresh` remains false on `extreme:latest` being absent, which is pre-existing and documented as normal.
+
+**Frontend verified at the outermost layer:** the deployed kkme.eu chunks carry `marketDayEndStamp`, `data_window_end`, `data through` and `data window unknown`. Against the live payload the S2 badge moves from `RECENT · 2h ago` (fetch stamp) to `STALE · 66h ago · data through 2026-07-30` (data stamp) — the card had been claiming a two-hour-old reading over a 66-hour-old window.
 
 #### Filed, not fixed
 
