@@ -204,6 +204,36 @@ See [docs/map.md](map.md) for the full concept-to-file lookup table.
 
 ## Session log
 
+### Session 104 — 2026-08-02 — 36.E1 (FCR) + 36.E2 (aFRR): per-service price formation (Claude Code, semi-autonomous) — branch `phase-36-e12-price-formation`
+
+**Behind its own seam throughout.** `/revenue` 54/54 byte-identical at all three commits; `summary-table.json` byte-for-byte unchanged. Wiring is E6.
+
+**Step 0 — trailing-edge lag (shipped, ran ~35 min against a 20 min box).** A row is withheld only if it is BOTH inside the 2-day window AND absent from the shard's committed predecessor — the second half is what makes it a lag rather than the coverage shrink the append-only gate exists to catch. Proven by inject-then-revert on the real mechanism (B13): condition (a) removed → 5 of 10 red, condition (b) removed → 2 of 10 red, restored → 10/10. Proof runs against `se` and `au` executed the wired path but produced **zero** withheld rows — every source's committed coverage already reaches its published edge, which is condition (b) working; stated rather than dressed up as a live demonstration. The overage was git reconciliation (local main 8 behind / 2 ahead, stale generated artifacts in the tree), not the fix.
+
+**Five premise corrections, each measured, each changing what E6 does:**
+
+| # | Correction |
+|---|---|
+| 1 | **E6 replaces `reservePrice()`, not `cpiCurve()`.** `cpiCurve` is disclosure-only — 3 call sites, all `cpi_*_at_cod`, no cash path. Re-verified at code level, not taken from the register. |
+| 2 | **German FCR's price rose AND its ratio to arbitrage fell.** Both true, different quantities. DE FCR procurement is flat (605 → 584 MW over 7 yr), so no demand-growth story exists; the nominal rise is the arbitrage opportunity rising €3.46 → €18.35/MW/h. Capacity price tracks it at **r(log) = 0.8373** over 87 months. German mFRR is the control at **0.2765** — its marginal provider is not a battery, and the statistic behaves differently where the mechanism differs. |
+| 3 | **The arc's endogenous floor is FALSIFIED.** "Gross arbitrage net of cycling cost" sits above every floor in the evidence base. Found by a reproduction test failing (Baltic aFRR down €17.85 modelled vs €10.04 measured), not by reasoning. A reserve commitment forgoes the SoC headroom it reserves, not the whole MW — 36.B1's simultaneity, finally priced. `displacement` is REQUIRED with no default; an implicit 1.0 is the assumption removed. |
+| 4 | **No PICASSO break exists to transfer.** AT aFRR 0 pre-accession quarter-hours vs 54,117; DE aFRR 9 vs 226,402. And our Baltic series starts 2025-10-01, after all three accessions — the break is already inside the level. The one parameter the prompt expected flagged TRANSFERRED must not be applied at all. |
+| 5 | **B-055** — the E0 table's DE arbitrage series silently stops at 2025-09 (PT60M filter vs Germany's 2025-10-01 15-min MTU). The truncation ALONE flips DE aFRR down from t = −2.36 to t = −1.43. Filed, not fixed. |
+
+**Checkpoint signed subject to five operator conditions, all applied:** (1) PICASSO non-application written into methodology §08B.5 with its counts, test-bound; (2) RTE single-sourced from `RTE_BOL.h4` (0.83 vs the table's published 0.85) — delta reported, and the priced result measured invariant at **0.0 €/MW/h max difference** because every parameter is a ratio to the same series; (3) direction-split band **€3,025–5,714/MW/yr**; (4) DE FCR within-regime λ marked descriptive-only with its own register row and a |t| ≥ 2 adoption rule; (5) **the Baltic multiple decays** — `projectClearing()` requires `lambda_per_yr` and `convergeK()` throws without it, so holding flat is a stated choice, never an omission. FCR λ 0.131/yr (t = −10.2, half-life 5.3 yr), aFRR 0.220/0.217 (t = −3.08/−2.36). aFRR **down converges upward** — the Baltic multiple sits below Germany's.
+
+**Down-activation, the half the engine never modelled.** Measured per direction on 144,221 German quarter-hours: down activates as often as up (0.792 vs 0.778) at a different price in kind (p50 €47.00 vs €130.48) and **negative 22.1 % of the time**. Valued as the charging cost avoided, signed, so the model can report it as a cost. Rejects an `activation_rate` > 1 — the Baltic mFRR source publishes 1.0333.
+
+**Validation, tolerances declared before the run** (±35 % DE annual, ±50 % Baltic window, both from each series' own k-dispersion): DE FCR 2024-26 PASS · DE FCR direction-of-change PASS · DE aFRR 2024-25 PASS · **DE aFRR up 2026 part-year MISSES at 38 %** · Baltic aFRR PASS. **The tolerance was not relaxed** — the miss is pinned by its own named test in both directions so it can neither grow nor quietly vanish. Reproduction tests are mirror-class, so each is paired with an invariant no calibration can satisfy by accident (B5).
+
+**One test claim narrowed rather than its assertion widened:** "every measured displacement is below gross arbitrage" is false for Baltic FCR at 1.0003, so the claim now covers the mature market and Baltic FCR gets its own assertion as a scarcity finding.
+
+**Register:** 18 `price-formation` rows, +3 changelog entries, r2.eb8712f9 → r2.48dcf518. New `calibration:` binding namespace resolving into the committed artifact — these parameters live outside the engine until E6, and binding them there keeps "nothing floats free" intact rather than carving an exception out of it. Re-running the calibration on refreshed evidence makes the register **drift**, which is what a monthly `review_cycle` wants. Three content pins updated deliberately and called out (register 47 → 65, methodology categories 7 → 8, deliverable-notes 47 → 65) plus one test fixture date moved for changelog chronology.
+
+**Methodology §08B**, eleven subsections, nine assertions tying its figures to the calibration so prose cannot outlive its numbers (rule #2). Closes with what it does NOT support: mFRR unmodelled (E3), no S/D elasticity (no fleet series in the evidence base), 10-month Baltic window, and **FCR at 4.8 % of reserve capacity revenue, not the ≤1 % the arc assumed** — Baltic FCR's multiple is the highest in the stack even at the smallest volume. Still a rounding error; the defensible bound asserted is 10 %.
+
+**Gates:** suite 2053/2053 · regression 54/54 byte-identical · manifest single-writer PASS · summary table unchanged · eslint clean on touched code (2 remaining errors are pre-existing `type Any` lines, verified against HEAD) · `docs/_private/` never staged.
+
 ### Session 103 — 2026-08-02 — 36.E0.3: refresh-workflow correctness (Claude Code, autonomous) — branch `phase-36-e03-workflow-correctness`
 
 **Fix the instrument before spending its evidence.** Sunday's first real firing showed the workflow's own gates could not be trusted; E1-E6 calibrate on the evidence base this workflow maintains.
