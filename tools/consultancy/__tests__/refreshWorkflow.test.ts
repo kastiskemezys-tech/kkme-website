@@ -255,9 +255,3 @@ describe('refresh workflow — a failed gate reaches the job status (B-053, one 
     expect(prStep).toMatch(/compare\/main\.\.\./);
   });
 });
-
-describe('INJECTED gate-failability probe (36.E0.3, reverted next commit)', () => {
-  it('fails on purpose to prove the tests gate can go red', () => {
-    expect('injected').toBe('this must fail');
-  });
-});
