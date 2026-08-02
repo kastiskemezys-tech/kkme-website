@@ -105,7 +105,8 @@ describe('quoted register state ties to the register', () => {
   it('the category table sums to the register\'s live + superseded total', () => {
     const table = doc.slice(doc.indexOf('| Category | Rows |'), doc.indexOf('Binding namespaces:'));
     const counts = [...table.matchAll(/^\| \w[\w-]* \| (\d+) \|/gm)].map((m) => Number(m[1]));
-    expect(counts).toHaveLength(7);
+    // Eight from 36.E1: `price-formation` joined the seven original categories.
+    expect(counts).toHaveLength(8);
     expect(counts.reduce((a, b) => a + b, 0)).toBe(register.rows.length);
   });
 
@@ -166,5 +167,67 @@ describe('the honesty constraints survive into the document', () => {
   it('does not claim the degradation loop converges in two passes', () => {
     expect(doc).toContain('Convergence takes **three**');
     expect(doc).not.toMatch(/converges in (two|2) passes(?!.*does not)/);
+  });
+});
+
+// ── §08B — per-service price formation (36.E1 + 36.E2) ──────────────────────────────────────
+//
+// The section quotes measured numbers. Prose that quotes a measurement can outlive it (rule #2),
+// so the load-bearing figures are asserted against the calibration artifact rather than trusted to
+// stay in step. What is checked is the NUMBER, not the wording around it.
+
+describe('§08B ties to the price-formation calibration', () => {
+  const cal = JSON.parse(
+    readFileSync(join(REPO_ROOT, 'tools/consultancy/data/price-formation-calibration.json'), 'utf8'),
+  ) as Any;
+  const sec = doc.slice(doc.indexOf('## 08B ·'), doc.indexOf('## 09 ·'));
+
+  it('exists, and says out loud that nothing is wired', () => {
+    expect(sec.length).toBeGreaterThan(4000);
+    expect(sec).toMatch(/[Nn]othing in this section is wired into the projection path/);
+    expect(sec).toMatch(/does \*\*not\*\* replace `cpiCurve\(\)`/);
+  });
+
+  it('quotes the FCR arbitrage correlation the calibration measured', () => {
+    expect(sec).toContain(String(cal.parameters.de_k.fcr.correlation_price_vs_arb.logs));
+    expect(sec).toContain(String(cal.parameters.de_k.mfrr_up.correlation_price_vs_arb.logs));
+  });
+
+  it('quotes the accession counts, so the non-application is evidenced not asserted', () => {
+    const a = cal.parameters.accession_constraint.quarter_hour_counts;
+    expect(sec).toContain(a['AT|aFRR'].post.toLocaleString('en-US'));
+    expect(sec).toContain(a['DE|aFRR'].post.toLocaleString('en-US'));
+    expect(sec).toContain(String(a['AT|mFRR'].pre));
+    expect(sec).toMatch(/explicit non-application/i);
+  });
+
+  it('quotes the per-direction activation measurements', () => {
+    const d = cal.parameters.afrr_activation_de.per_direction;
+    expect(sec).toContain(d.up.p50.toFixed(2));
+    expect(sec).toContain(d.down.p50.toFixed(2));
+    expect(sec).toContain(cal.parameters.afrr_activation_de.total_isp_in_window.toLocaleString('en-US'));
+  });
+
+  it('quotes the convergence rates and their t-statistics', () => {
+    for (const svc of ['fcr', 'afrr_up', 'afrr_down']) {
+      expect(sec, svc).toContain(cal.parameters.convergence[svc].lambda_per_yr.toFixed(3));
+    }
+  });
+
+  it('quotes the direction-split band at both ends', () => {
+    const b = cal.parameters.baltic_direction_split_sensitivity;
+    for (const mode of ['de_shape', 'even']) {
+      expect(sec, mode).toContain(Math.round(b.band[mode].down_revenue_eur_mw_yr).toLocaleString('en-US'));
+    }
+  });
+
+  it('reports the reproduction MISS rather than only the passes', () => {
+    expect(sec).toMatch(/MISS/);
+    expect(sec).toMatch(/tolerance was not relaxed/i);
+  });
+
+  it('states the limitations the section does not yet support', () => {
+    expect(sec).toMatch(/mFRR is not modelled here/);
+    expect(sec).toMatch(/Baltic window is 10 months/);
   });
 });

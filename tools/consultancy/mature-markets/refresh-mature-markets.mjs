@@ -76,6 +76,9 @@ import { promisify } from 'node:util';
 // defined here, which meant it protected only the manifests this orchestrator wrote — a fetcher
 // run directly bypassed it entirely. It now lives beside the write itself so both paths share it.
 import { writeManifest } from './manifest-writer.mjs';
+// 36.E1 step 0: the publication-lag exclusion. Both 2026-08 anomalies were the refresh reading a
+// market before it had finished publishing — see the module header for the diagnosis.
+import { applyTrailingEdgeLag, trailingEdgeCutoff, TRAILING_EDGE_LAG_DAYS } from './trailing-edge.mjs';
 
 const exec = promisify(execFile);
 
@@ -393,6 +396,8 @@ async function main() {
   const wanted = arg('sources', SOURCES.map((s) => s.name).join(',')).split(',').map((s) => s.trim());
   const sources = SOURCES.filter((s) => wanted.includes(s.name));
   const dryRun = has('dry-run');
+  const lagDays = Number(arg('lag-days', String(TRAILING_EDGE_LAG_DAYS)));
+  if (!Number.isFinite(lagDays) || lagDays < 0) throw new Error(`--lag-days must be a non-negative number, got ${arg('lag-days')}`);
   // Snapshot BEFORE any fetcher runs, so the human-owned gate measures this run and not the
   // working tree it inherited.
   const humanOwnedBefore = await snapshotHumanOwned();
@@ -419,6 +424,22 @@ async function main() {
     }
 
     const after = await readManifest(source);
+    // WITHHOLD THE TRAILING EDGE FIRST, before anything else looks at what the fetcher wrote.
+    // Ordering is load-bearing in both directions: after `reconcileShards` it would be trimming
+    // rows reconciliation had just carried forward from the committed shard (a coverage shrink,
+    // the exact thing the append-only gate exists to catch), and after `appendOnlyAudit` it would
+    // be grading content that is not what gets committed.
+    const lag = after
+      ? await applyTrailingEdgeLag({
+        manifest: after,
+        cutoff: trailingEdgeCutoff(now, lagDays),
+        rowKey,
+        readShard: (file) => fs.readFile(path.join(DATA, source.dir, file)),
+        readCommitted: (file) => gitHead(rel(path.join(DATA, source.dir, file))),
+        writeShard: (file, buf) => fs.writeFile(path.join(DATA, source.dir, file), buf),
+        removeShard: (file) => fs.rm(path.join(DATA, source.dir, file), { force: true }),
+      })
+      : { cutoff: trailingEdgeCutoff(now, lagDays), rows_withheld: 0, shards_trimmed: [], shards_emptied: [], newest_kept: null };
     // MERGE the manifest before auditing it. This is the second half of the incremental-refresh
     // trap and it is not obvious: the E0 fetchers build `files` from WHAT THIS RUN FETCHED, so a
     // windowed re-fetch writes a manifest listing only the current year's shards. The earlier
@@ -473,9 +494,10 @@ async function main() {
       shards_reconciled: reconciled.shards_reconciled,
       rows_carried_forward: reconciled.rows_carried_forward,
       refresh_window_start: reconciled.window_start,
+      trailing_edge: lag,
       anomalies: audit.anomalies,
     });
-    console.log(`${status}${audit.rows_added ? ` · +${audit.rows_added} rows` : ''}${audit.anomalies.length ? ` · ${audit.anomalies.length} ANOMALY` : ''} (${run.seconds}s)`);
+    console.log(`${status}${audit.rows_added ? ` · +${audit.rows_added} rows` : ''}${lag.rows_withheld ? ` · −${lag.rows_withheld} withheld (trailing edge)` : ''}${audit.anomalies.length ? ` · ${audit.anomalies.length} ANOMALY` : ''} (${run.seconds}s)`);
   }
 
   if (dryRun) { console.log('\ndry run — nothing fetched, nothing written'); return; }
@@ -496,6 +518,8 @@ async function main() {
     phase: '36.E0.1',
     refreshed_at: now.toISOString(),
     year_window: year,
+    trailing_edge_lag_days: lagDays,
+    trailing_edge_cutoff: trailingEdgeCutoff(now, lagDays),
     gates_pass: gatesPass,
     gates: {
       all_sources_served: !failed.length,
@@ -512,6 +536,7 @@ async function main() {
     sources: results,
     totals: {
       rows_added: results.reduce((s, r) => s + (r.rows_added ?? 0), 0),
+      rows_withheld_trailing_edge: results.reduce((s, r) => s + (r.trailing_edge?.rows_withheld ?? 0), 0),
       sources_ok: results.filter((r) => r.status === 'ok').length,
       sources_no_change: results.filter((r) => r.status === 'no_change').length,
       sources_failed: failed.length,
@@ -521,7 +546,7 @@ async function main() {
   await fs.writeFile(path.join(REPORT_DIR, 'refresh-report.json'), JSON.stringify(report, null, 1) + '\n');
   await fs.writeFile(path.join(REPORT_DIR, 'refresh-report.md'), renderReport(report));
 
-  console.log(`\n${report.totals.rows_added} rows added · ${report.totals.sources_ok} ok · ${report.totals.sources_no_change} unchanged · ${report.totals.sources_failed} failed · ${report.totals.sources_anomalous} anomalous`);
+  console.log(`\n${report.totals.rows_added} rows added · ${report.totals.rows_withheld_trailing_edge} withheld (trailing edge, cutoff ${report.trailing_edge_cutoff}) · ${report.totals.sources_ok} ok · ${report.totals.sources_no_change} unchanged · ${report.totals.sources_failed} failed · ${report.totals.sources_anomalous} anomalous`);
   console.log(`gates: ${gatesPass ? 'PASS' : 'FAIL'} — ${Object.entries(report.gates).filter(([, v]) => v === false).map(([k]) => k).join(', ') || 'all green'}`);
   console.log(`report: ${rel(path.join(REPORT_DIR, 'refresh-report.md'))}`);
   if (!gatesPass) process.exitCode = 1;
@@ -565,10 +590,25 @@ function renderReport(r) {
   }
   L.push('## Per source');
   L.push('');
-  L.push('| Source | Status | Rows total | Rows added | Files changed | New | Unchanged | Cadence | Last success |');
-  L.push('|---|---|---|---|---|---|---|---|---|');
+  L.push('| Source | Status | Rows total | Rows added | Withheld | Files changed | New | Unchanged | Cadence | Last success |');
+  L.push('|---|---|---|---|---|---|---|---|---|---|');
   for (const s of r.sources) {
-    L.push(`| \`${s.source}\` | ${s.status === 'ok' ? 'ok' : `**${s.status}**`} | ${s.rows_total ?? '—'} | ${s.rows_added ?? 0} | ${(s.files_changed ?? []).length} | ${(s.files_new ?? []).length} | ${s.files_unchanged ?? 0} | ${s.cadence_months}m | ${(s.last_successful_refresh ?? 'never').slice(0, 10)} |`);
+    L.push(`| \`${s.source}\` | ${s.status === 'ok' ? 'ok' : `**${s.status}**`} | ${s.rows_total ?? '—'} | ${s.rows_added ?? 0} | ${s.trailing_edge?.rows_withheld ?? 0} | ${(s.files_changed ?? []).length} | ${(s.files_new ?? []).length} | ${s.files_unchanged ?? 0} | ${s.cadence_months}m | ${(s.last_successful_refresh ?? 'never').slice(0, 10)} |`);
+  }
+  L.push('');
+  // Rendered at zero as well as non-zero, on purpose. "0 withheld" is a positive statement that
+  // every source had finished publishing everything this run reached; an omitted row would leave a
+  // reader unable to tell that from "the lag was never applied" (B8).
+  L.push('## Trailing-edge lag');
+  L.push('');
+  L.push(`Rows whose \`period_start\` is at or after **${r.trailing_edge_cutoff}** (now − ${r.trailing_edge_lag_days} d) were not ingested unless already committed, because a market that has not finished publishing serves provisional values that it later restates. Withheld rows are re-fetched next run.`);
+  L.push('');
+  L.push(`**${r.totals.rows_withheld_trailing_edge} rows withheld this run.**`);
+  L.push('');
+  for (const s of r.sources) {
+    const t = s.trailing_edge;
+    if (!t || (!t.rows_withheld && !t.shards_emptied?.length)) continue;
+    L.push(`- \`${s.source}\`: ${t.rows_withheld} withheld · newest kept \`${t.newest_kept ?? '—'}\`${t.shards_emptied?.length ? ` · shards wholly inside the lag window, not written: ${t.shards_emptied.join(', ')}` : ''}`);
   }
   L.push('');
   L.push('## Gates');
@@ -596,6 +636,7 @@ function renderReport(r) {
   L.push('');
   L.push('- It did not touch `docs/research/mature-market-comparability.md` or any other human-owned analysis. That file is a judgement about which market is a valid analogue for which service, and no scheduled job gets to revise it.');
   L.push('- It did not recompute structural-break segmentation and did not add events to the break calendar. New rows after a known break are data; deciding what a break means is 36.E1-E6\'s work.');
+  L.push(`- It did not ingest anything published in the last ${r.trailing_edge_lag_days} days. See the trailing-edge section above; those rows arrive next run.`);
   L.push('- It did not commit or push. A human merges this.');
   L.push('');
   return L.join('\n');

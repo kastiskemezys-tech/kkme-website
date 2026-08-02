@@ -1,6 +1,6 @@
 # KKME lender-grade methodology
 
-**Engine version:** v7.3 · **Assumption register:** r2.eb8712f9 (47 rows) · **Arc:** Phase 36.D
+**Engine version:** v7.3 · **Assumption register:** r2.48dcf518 (65 rows) · **Arc:** Phase 36.E
 **Prepared:** 2026-07-29 · **Maintainer:** UAB KKME · Kastytis Kemežys
 
 ---
@@ -58,7 +58,7 @@ The byte-identity gate is asserted after every commit in this arc. Where an arc 
 
 ### 1.2 The assumption register
 
-`tools/consultancy/assumptions-register.json` holds 47 rows across seven categories. Its governing property is that it **documents the engine and cannot contradict it**: every live row carries an `engine_binding`, and a test asserts the row's value equals what the code actually holds.
+`tools/consultancy/assumptions-register.json` holds 65 rows across eight categories. Its governing property is that it **documents the engine and cannot contradict it**: every live row carries an `engine_binding`, and a test asserts the row's value equals what the code actually holds.
 
 | Category | Rows | Examples |
 |---|---:|---|
@@ -69,8 +69,9 @@ The byte-identity gate is asserted after every commit in this arc. Where an arc 
 | capex | 8 | €/kWh installed, maintenance, augmentation (year / depth / cost), replacement (year / depth / cost) |
 | project | 3 | the three Prosperus site configurations |
 | scenario-driver | 7 | fleet realisation, spread growth, availability, trading realisation, cap-price delta, CPI floor |
+| price-formation | 18 | per-service scarcity multiples, convergence rates, floor displacements, per-direction activation rates and prices (§08B — NOT WIRED, see there) |
 
-Binding namespaces: `worker:` (anchored regex against the frozen worker source, each pattern asserted to match exactly once), `engine:` (a field the engine emits), `bridge:`, `portfolio:`, `driver:`, `config:`.
+Binding namespaces: `worker:` (anchored regex against the frozen worker source, each pattern asserted to match exactly once), `engine:` (a field the engine emits), `bridge:`, `portfolio:`, `driver:`, `config:`, `calibration:` (a value in the committed price-formation calibration artifact — see §08B.6).
 
 There is exactly **one** kind of row that may carry no binding: a **superseded** row, which records a value the model used to hold. It is not an input — nothing reads it — so binding it would be a lie. Such a row must name the row that replaced it and the date. The invariant is therefore not "most rows are bound" but "every row is either bound to live code or explicitly declared superseded, naming its replacement". Both directions are schema-enforced.
 
@@ -912,6 +913,158 @@ No Lithuanian share is derived from these documents.
 **Review cycle:** the flexibility assessment is updated every two years (next
 ≈ 2028); the dimensioning forecasts annually. Both are watched (§10.4), and
 adoption is a human decision, never automatic.
+
+---
+
+## 08B · Per-service price formation
+
+Phase 36.E1 and 36.E2. **Nothing in this section is wired into the projection path.** The modules are built, calibrated and validated behind their own seam; `/revenue` is byte-identical throughout, asserted by the 54-configuration regression gate at every commit. Wiring is 36.E6, after a continuity gate. This section is here now because the calibration is the reviewable artifact, and reviewing it before it moves a number is the point.
+
+### 8B.1 What it replaces, and what it does not
+
+It replaces `reservePrice(sd_ratio, base_price)` — the sigmoid S/D decay that forms reserve capacity prices in the projection, read at four sites in `computeTradingMix`.
+
+It does **not** replace `cpiCurve()`. That distinction was checked at code level rather than inherited: `cpiCurve` is read at exactly three sites, all of them the disclosure fields `cpi_fcr/afrr/mfrr_at_cod`, and none of them reaches revenue, EBITDA or cash flow. An earlier reading of this arc had the new models displacing the cannibalisation curve; they displace the price formation instead, and the two are different functions with different consumers.
+
+### 8B.2 The model
+
+For each service, each direction:
+
+```
+clearing(t) = max( floor(t), k(t) × arbitrage_opportunity(t) )
+```
+
+**`arbitrage_opportunity`** is the gross day-ahead value of a MW: the daily mean of the four highest-priced hours less the four lowest, round-trip-efficiency-adjusted, expressed as an availability-equivalent €/MW/h. One implementation, shared with the cross-market evidence table.
+
+**`k`** is the scarcity multiple — how many times the arbitrage opportunity the market pays for availability. It is calibrated as a level per market, product and regime, plus a convergence rate toward the mature-market level. It is deliberately **not** fitted as a function of supply/demand: no public German battery-fleet series exists in the evidence base, so an S/D curve would be fitted against a variable we do not hold.
+
+**`floor`** is endogenous — see §8B.4.
+
+### 8B.3 Why the model is anchored on arbitrage rather than on a decay curve
+
+Because that is what the German data shows, and it contradicts the intuition the arc started from in both directions.
+
+German FCR's capacity price did not decay. Measured over 87 months, it roughly doubled. But its **ratio** to the arbitrage opportunity fell over the same span, because the arbitrage opportunity rose faster — from €3.46/MW/h in 2019 to €18.35/MW/h in 2026. Both statements are true; they are about different quantities. A forecast that carries the nominal level forward carries a crisis-era energy price forward with it.
+
+Two measurements make the coupling the model rests on:
+
+| Measurement | Value | Window |
+|---|---|---|
+| DE FCR capacity price vs arbitrage opportunity, log correlation | **0.8373** | 2019-06 .. 2026-08, n = 87 months |
+| DE FCR procured volume, first year to last | **605 → 584 MW** | 2019 .. 2026 |
+
+Demand is flat, so no demand-growth story is available; the price moved because the marginal provider's alternative moved. German **mFRR** provides the control: its log correlation to the same series is **0.2765**, and that is the expected result — mFRR's marginal provider is usually not a battery, so its price should not track a battery's opportunity cost. A statistic that behaves differently where the mechanism differs is evidence about the mechanism.
+
+### 8B.4 The endogenous floor, and the correction to it
+
+The arc specified the floor as the arbitrage opportunity cost of the marginal MW, net of cycling cost. **The evidence falsifies that formula**, and it was falsified by a reproduction test failing rather than by argument: Baltic aFRR down modelled at €17.85/MW/h against €10.04 measured, because a gross floor bound the price at the full arbitrage value and the market plainly does not.
+
+The mechanism is the one the chronological dispatch engine measures and never priced. Committing a MW to reserve does not forgo that MW's whole arbitrage — it forgoes the state-of-charge headroom the commitment reserves, and the battery keeps arbitraging around it. So the opportunity cost is a **fraction** of the gross arbitrage value, and the fraction is a property of the product and the market design:
+
+```
+floor = max( 0, displacement × arbitrage_opportunity − marginal cycling cost )
+```
+
+`displacement` is measured per market and product as the low decile of that market's own observed multiple. It has **no default in code** — the function throws without it — because an implicit 1.0 is precisely the assumption being removed.
+
+The **marginal cycling cost** is the one genuinely new quantity, and it is new because the engine did not have it. It composes existing engine primitives rather than restating any of them: capex amortised over warranted throughput, plus the round-trip loss charged at the charging price, aged through the engine's own state-of-health and efficiency curves. The engine's levelised cost of storage is *not* used for this — it includes capital recovery over the whole project and is not a marginal cost.
+
+### 8B.5 The PICASSO break: an explicit non-application
+
+**No PICASSO compression is applied to the forward path, and none should be.** This is stated rather than left silent, because a reader who knows the platform accessions happened will look for them.
+
+The break in *activation* prices cannot be measured from any market in the evidence base, because no market in it holds a usable pre-accession activation series:
+
+| Series | Pre-accession quarter-hours | Post-accession | Accession |
+|---|---:|---:|---|
+| Austria aFRR | **0** | 54,117 | 2022-06-22 |
+| Germany aFRR | **9** | 226,402 | 2022-06-22 |
+| Austria mFRR | 49 | 5,344 | 2023-06-27 |
+| Germany mFRR | 101 | 588 | 2022-10-05 |
+
+Austria's standard-product aFRR series begins 2025-08-31 — three years and two months after its own accession. Germany's begins 2022-06-21, the day before its own.
+
+More decisively, the Baltic accessions have already happened and are **before** our own observation window:
+
+| Platform | Litgrid | Elering | AST |
+|---|---|---|---|
+| MARI | 2024-10-10 | 2024-10-10 | 2024-10-10 |
+| PICASSO | 2025-03-05 | 2025-04-11 | 2025-04-11 |
+
+The Baltic clearing series used for calibration runs 2025-10-01 to 2026-07-26 — every day of it post-accession for all three transmission system operators, and the source serves no complete day before 2025-10-01. **The structural break is therefore already inside the price level the model calibrates on.** Applying a forward compression on top would count it twice.
+
+The same structure is expected for MARI in 36.E3 and is verified there rather than assumed here.
+
+### 8B.6 Parameters, and how they stay honest
+
+Every parameter is measured from the committed evidence base by `tools/consultancy/mature-markets/calibrate-price-formation.mjs`, which runs offline and writes `tools/consultancy/data/price-formation-calibration.json` carrying, per parameter, its source file, window, sample size, and — where a trend is fitted — its t-statistic.
+
+The register binds to that artifact through a `calibration:` namespace. That is deliberate: these parameters live outside the engine until 36.E6, and binding them to the artifact keeps the register's invariant intact rather than carving an exception out of it. Re-running the calibration against refreshed evidence makes the register **drift**, which is exactly the alarm a monthly review cycle wants.
+
+**A trend is used as a forecast driver only if |t| ≥ 2.** Where it is not, the number is recorded as descriptive and marked so that nothing downstream can pick it up. German FCR's within-regime trend (t = −1.70) is such a row.
+
+### 8B.7 Convergence, and why nothing holds flat by default
+
+Baltic FCR clears at roughly **2.8×** the German multiple, Baltic aFRR up at roughly **1.8×**. Carried forward unchanged, that would overstate every out-year — the flattering direction. So the young market's multiple converges exponentially toward the mature one, and the forward-projection function **requires** a convergence rate: holding a multiple flat remains available, but only as a stated choice, never by omission.
+
+The rates:
+
+| Service | Rate (per year) | t | Basis |
+|---|---:|---:|---|
+| FCR | 0.131 | −10.2 | German ex-crisis trend. Measured *across* a regime shift, so it is an upper bound on the decay a smooth model should claim; adopted because over-decaying is the conservative error for a revenue line. The within-regime alternative (0.072, t = −1.70) is descriptive only. |
+| aFRR up | 0.220 | −3.08 | German within-regime trend. Statistically supported; no regime-shift caveat. |
+| aFRR down | 0.217 | −2.36 | German within-regime trend. |
+
+Baltic aFRR **down** converges *upward*: its multiple sits below Germany's, so the model raises it over time. That is stated because it looks like a sign error to anyone who reads the out-years before this paragraph.
+
+### 8B.8 Activation, per direction, and the half that was missing
+
+The current engine prices activation as a capacity-shaped €/MW/h with a steeper S/D curve. Activation is not that. It is energy: a quantity of MWh, called some fraction of the time, settled at an energy price. And it has been modelled **up-only**, which leaves out the direction in which a battery is paid to take energy it needed anyway.
+
+Measured on Germany's settled activation series over 144,221 quarter-hours (2022-06-21 to 2026-08-02):
+
+| | Up | Down |
+|---|---:|---:|
+| Activation rate (fraction of settlement periods) | 0.778 | **0.792** |
+| Price, median (€/MWh) | 130.48 | 47.00 |
+| Price, mean (€/MWh) | 174.74 | 34.65 |
+| Share of periods at a negative price | 1.3 % | **22.1 %** |
+
+Down activates as often as up. Its price distribution is different in kind, not in degree — and a negative down price means the provider is paid to charge. Down-activation is therefore valued as the charging cost it avoids, `day-ahead price − down-activation price`, **signed**, so the model can report it as a cost in the months when the down price sits above the day-ahead rather than silently flooring at zero.
+
+### 8B.9 The one transferred input, and its range
+
+The Baltic transparency source publishes **one** activation series per country per product, with no up/down split. So the Baltic *level* is measured and the *shape* is transferred from Germany. This is the only unmeasured input in the activation model, and it lands on the half of it that has never been modelled at all, so it carries a stated range rather than a single number:
+
+| Split | Up price (€/MWh) | Down price (€/MWh) | Down revenue (€/MW/yr) |
+|---|---:|---:|---:|
+| German shape (down/up = 0.360) | 60.58 | 21.82 | **5,714** |
+| Even 50/50 | 41.20 | 41.20 | **3,025** |
+
+Both preserve the measured pooled level, so the band isolates the shape and nothing else. Down-activation revenue runs **€3,025–5,714/MW/yr** across it.
+
+### 8B.10 Validation, with the miss reported
+
+Tolerances were fixed before the first run, from each series' own dispersion rather than from the error the model turned out to have: ±35 % on a German annual mean, ±50 % on the Baltic window aggregate.
+
+| Test | Result |
+|---|---|
+| DE FCR annual mean, 2024–2026 | PASS |
+| DE FCR direction of the 2020→2026 nominal change | PASS — reproduces the rise |
+| DE aFRR up/down annual mean, 2024–2025 | PASS |
+| **DE aFRR up, 2026 part-year (Jan–Aug)** | **MISS — 38 % against a 35 % bar** |
+| Baltic aFRR up/down, window aggregate | PASS |
+
+The tolerance was not relaxed. The miss is pinned by its own named test in both directions, so it can neither grow nor quietly disappear. Its likely cause: the measured post-crisis decay is fitted over 38 months and 2026's realised multiple fell faster than the fit, on eight months of a market whose monthly multiple spans 0.38 to 1.65.
+
+Because a reproduction test against the market a model was calibrated on can only prove the arithmetic round-trips, each one is paired with an invariant that no calibration can satisfy by accident: the floor never exceeds the clearing price, the floor never goes negative, the activation energy balance closes, convergence never overshoots its target, and the marginal cycling cost rises with age because the engine's efficiency and state-of-health curves say it must.
+
+### 8B.11 What this section does not yet support
+
+- **FCR is 4.8 % of reserve capacity revenue at Baltic procurement volumes**, not the ≤1 % the arc assumed — because Baltic FCR's multiple is the highest in the stack even though its volume (28 MW against mFRR's 604) is the smallest. It remains a rounding error; the defensible bound is 10 %, and that is the bound asserted.
+- **mFRR is not modelled here.** It is 36.E3, and the German evidence already says it needs a different mechanism: its correlation to the arbitrage opportunity is 0.2765, against FCR's 0.8373.
+- **No supply/demand elasticity.** The multiple is a level and a convergence rate, not a function of fleet growth, because the fleet series that would identify it is not in the evidence base.
+- **The Baltic window is 10 months.** Every Baltic parameter carries that sample size, and none of them should be read as a long-run statistic yet.
 
 ---
 

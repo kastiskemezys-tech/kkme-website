@@ -1,0 +1,2707 @@
+{
+ "artifact": "Baltic per-delivery-day reserve capacity clearing prices",
+ "phase": "36.C backfill, pinned for 36.E1/E2 calibration",
+ "source": "baltic.transparency-dashboard.eu (BTD) via KKME worker KV s2_daily_clearing",
+ "endpoint": "GET https://kkme-fetch-s1.kastis-kemezys.workers.dev/s2/daily-clearing",
+ "retrieved_at": "2026-08-02T08:42:43.920Z",
+ "unit": "EUR/MW/h",
+ "resolution": "per delivery day, mean of 96 PT15M ISPs",
+ "note": "Every day in this series is POST-accession for all three Baltic TSOs (MARI 2024-10-10; PICASSO Litgrid 2025-03-05, Elering + AST 2025-04-11). BTD serves no complete day before 2025-10-01, so no pre-accession counterfactual exists in this source.",
+ "span": "2025-10-01..2026-07-26",
+ "total_days": 299,
+ "isp_count_min": 96,
+ "isp_count_max": 96,
+ "days": [
+  {
+   "date": "2025-10-01",
+   "fcr": 114.1,
+   "afrr_up": 41.4,
+   "afrr_down": 8.12,
+   "mfrr_up": 30.06,
+   "mfrr_down": 21.49,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-10-02",
+   "fcr": 114.1,
+   "afrr_up": 52.72,
+   "afrr_down": 12.84,
+   "mfrr_up": 31.23,
+   "mfrr_down": 26.13,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-10-03",
+   "fcr": 114.1,
+   "afrr_up": 43.08,
+   "afrr_down": 25.67,
+   "mfrr_up": 66.52,
+   "mfrr_down": 11.51,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-10-04",
+   "fcr": 114.1,
+   "afrr_up": 54.63,
+   "afrr_down": 6.59,
+   "mfrr_up": 13.73,
+   "mfrr_down": 15.27,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-10-05",
+   "fcr": 114.1,
+   "afrr_up": 82.88,
+   "afrr_down": 15.63,
+   "mfrr_up": 24.26,
+   "mfrr_down": 30.59,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-10-06",
+   "fcr": 114.1,
+   "afrr_up": 1.99,
+   "afrr_down": 6.92,
+   "mfrr_up": 50.6,
+   "mfrr_down": 16.59,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-10-07",
+   "fcr": 106.14,
+   "afrr_up": 33.05,
+   "afrr_down": 1.51,
+   "mfrr_up": 29.73,
+   "mfrr_down": 4.23,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-10-08",
+   "fcr": 18.08,
+   "afrr_up": 35.33,
+   "afrr_down": 15.04,
+   "mfrr_up": 30.07,
+   "mfrr_down": 9.09,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-10-09",
+   "fcr": 21.22,
+   "afrr_up": 20,
+   "afrr_down": 11.72,
+   "mfrr_up": 26,
+   "mfrr_down": 7.92,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-10-10",
+   "fcr": 114.1,
+   "afrr_up": 31.08,
+   "afrr_down": 10.37,
+   "mfrr_up": 15.28,
+   "mfrr_down": 12.83,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-10-11",
+   "fcr": 114.1,
+   "afrr_up": 55.95,
+   "afrr_down": 15.37,
+   "mfrr_up": 15.99,
+   "mfrr_down": 35.92,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-10-12",
+   "fcr": 114.1,
+   "afrr_up": 35.8,
+   "afrr_down": 13.12,
+   "mfrr_up": 16.4,
+   "mfrr_down": 18.19,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-10-13",
+   "fcr": 105.81,
+   "afrr_up": 93.78,
+   "afrr_down": 7.23,
+   "mfrr_up": 43.43,
+   "mfrr_down": 13.02,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-10-14",
+   "fcr": 16.48,
+   "afrr_up": 44.13,
+   "afrr_down": 10.68,
+   "mfrr_up": 36.95,
+   "mfrr_down": 13.57,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-10-15",
+   "fcr": 43.08,
+   "afrr_up": 34.02,
+   "afrr_down": 8.65,
+   "mfrr_up": 35.16,
+   "mfrr_down": 9.98,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-10-16",
+   "fcr": 107.24,
+   "afrr_up": 52.37,
+   "afrr_down": 12.14,
+   "mfrr_up": 20.54,
+   "mfrr_down": 19.93,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-10-17",
+   "fcr": 38.61,
+   "afrr_up": 32.58,
+   "afrr_down": 1.09,
+   "mfrr_up": 23.58,
+   "mfrr_down": 10.84,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-10-18",
+   "fcr": 113.24,
+   "afrr_up": 35.61,
+   "afrr_down": 15.96,
+   "mfrr_up": 7.37,
+   "mfrr_down": 16.77,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-10-19",
+   "fcr": 104.66,
+   "afrr_up": 47.67,
+   "afrr_down": 8.19,
+   "mfrr_up": 9.97,
+   "mfrr_down": 12.02,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-10-20",
+   "fcr": 113.17,
+   "afrr_up": 16.09,
+   "afrr_down": 10.67,
+   "mfrr_up": 40.15,
+   "mfrr_down": 45.79,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-10-21",
+   "fcr": 103.07,
+   "afrr_up": 15.18,
+   "afrr_down": 99.5,
+   "mfrr_up": 12.79,
+   "mfrr_down": 6.51,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-10-22",
+   "fcr": 103.8,
+   "afrr_up": 54.31,
+   "afrr_down": 10.89,
+   "mfrr_up": 97.46,
+   "mfrr_down": 16.68,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-10-23",
+   "fcr": 103.8,
+   "afrr_up": 60.03,
+   "afrr_down": 14.63,
+   "mfrr_up": 53.7,
+   "mfrr_down": 16.04,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-10-24",
+   "fcr": 103.8,
+   "afrr_up": 123.95,
+   "afrr_down": 7.68,
+   "mfrr_up": 16.83,
+   "mfrr_down": 15.39,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-10-25",
+   "fcr": 103.8,
+   "afrr_up": 274.59,
+   "afrr_down": 10.76,
+   "mfrr_up": 42.29,
+   "mfrr_down": 15.17,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-10-26",
+   "fcr": 103.8,
+   "afrr_up": 103.25,
+   "afrr_down": 19.96,
+   "mfrr_up": 19.51,
+   "mfrr_down": 315.65,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-10-27",
+   "fcr": 103.8,
+   "afrr_up": 28.54,
+   "afrr_down": 24.33,
+   "mfrr_up": 146.65,
+   "mfrr_down": 31.86,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-10-28",
+   "fcr": 103.8,
+   "afrr_up": 116.2,
+   "afrr_down": 0,
+   "mfrr_up": 52.97,
+   "mfrr_down": 18.74,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-10-29",
+   "fcr": 103.8,
+   "afrr_up": 78.91,
+   "afrr_down": 0,
+   "mfrr_up": 69.96,
+   "mfrr_down": 18.95,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-10-30",
+   "fcr": 103.8,
+   "afrr_up": 55.11,
+   "afrr_down": 0.12,
+   "mfrr_up": 25.85,
+   "mfrr_down": 20.31,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-10-31",
+   "fcr": 103.8,
+   "afrr_up": 0.32,
+   "afrr_down": 7.71,
+   "mfrr_up": 14.38,
+   "mfrr_down": 9.76,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-11-01",
+   "fcr": 103.8,
+   "afrr_up": 6.71,
+   "afrr_down": 6.68,
+   "mfrr_up": 6.75,
+   "mfrr_down": 10.41,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-11-02",
+   "fcr": 103.8,
+   "afrr_up": 3.82,
+   "afrr_down": 9.22,
+   "mfrr_up": 6.47,
+   "mfrr_down": 17.17,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-11-03",
+   "fcr": 103.8,
+   "afrr_up": 6.69,
+   "afrr_down": 3.12,
+   "mfrr_up": 14.01,
+   "mfrr_down": 16.01,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-11-04",
+   "fcr": 103.8,
+   "afrr_up": 0.83,
+   "afrr_down": 10.9,
+   "mfrr_up": 5.68,
+   "mfrr_down": 14.75,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-11-05",
+   "fcr": 103.8,
+   "afrr_up": 0,
+   "afrr_down": 10.93,
+   "mfrr_up": 9.19,
+   "mfrr_down": 15.67,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-11-06",
+   "fcr": 103.8,
+   "afrr_up": 0,
+   "afrr_down": 4.89,
+   "mfrr_up": 21.65,
+   "mfrr_down": 11.58,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-11-07",
+   "fcr": 103.8,
+   "afrr_up": 0,
+   "afrr_down": 8.6,
+   "mfrr_up": 13.08,
+   "mfrr_down": 13.87,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-11-08",
+   "fcr": 103.8,
+   "afrr_up": 0,
+   "afrr_down": 4.69,
+   "mfrr_up": 7.02,
+   "mfrr_down": 15.68,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-11-09",
+   "fcr": 103.8,
+   "afrr_up": 0.01,
+   "afrr_down": 0.24,
+   "mfrr_up": 12.74,
+   "mfrr_down": 11.14,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-11-10",
+   "fcr": 103.8,
+   "afrr_up": 0.12,
+   "afrr_down": 0.62,
+   "mfrr_up": 23.72,
+   "mfrr_down": 11.46,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-11-11",
+   "fcr": 103.8,
+   "afrr_up": 0.24,
+   "afrr_down": 1.09,
+   "mfrr_up": 16.02,
+   "mfrr_down": 7.98,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-11-12",
+   "fcr": 125.37,
+   "afrr_up": 3.13,
+   "afrr_down": 3.02,
+   "mfrr_up": 8.21,
+   "mfrr_down": 7.78,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-11-13",
+   "fcr": 97.3,
+   "afrr_up": 0.1,
+   "afrr_down": 0,
+   "mfrr_up": 10.54,
+   "mfrr_down": 11.11,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-11-14",
+   "fcr": 61.64,
+   "afrr_up": 0,
+   "afrr_down": 1.91,
+   "mfrr_up": 10.61,
+   "mfrr_down": 11.6,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-11-15",
+   "fcr": 76.82,
+   "afrr_up": 1.65,
+   "afrr_down": 1.36,
+   "mfrr_up": 7.91,
+   "mfrr_down": 10.82,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-11-16",
+   "fcr": 54.3,
+   "afrr_up": 9.92,
+   "afrr_down": 0,
+   "mfrr_up": 13.36,
+   "mfrr_down": 9.95,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-11-17",
+   "fcr": 52.13,
+   "afrr_up": 8.94,
+   "afrr_down": 1.09,
+   "mfrr_up": 20.94,
+   "mfrr_down": 14.19,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-11-18",
+   "fcr": 4.38,
+   "afrr_up": 5.36,
+   "afrr_down": 8.91,
+   "mfrr_up": 21.28,
+   "mfrr_down": 12.49,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-11-19",
+   "fcr": 53.06,
+   "afrr_up": 10.69,
+   "afrr_down": 1.37,
+   "mfrr_up": 27.38,
+   "mfrr_down": 8.82,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-11-20",
+   "fcr": 26.25,
+   "afrr_up": 0,
+   "afrr_down": 3.82,
+   "mfrr_up": 7.51,
+   "mfrr_down": 14.02,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-11-21",
+   "fcr": 63.4,
+   "afrr_up": 0,
+   "afrr_down": 2.18,
+   "mfrr_up": 12.68,
+   "mfrr_down": 7.39,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-11-22",
+   "fcr": 63.02,
+   "afrr_up": 0.24,
+   "afrr_down": 0,
+   "mfrr_up": 2.25,
+   "mfrr_down": 9.74,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-11-23",
+   "fcr": 54.3,
+   "afrr_up": 0,
+   "afrr_down": 0.55,
+   "mfrr_up": 9.29,
+   "mfrr_down": 10.19,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-11-24",
+   "fcr": 54.3,
+   "afrr_up": 0.24,
+   "afrr_down": 0,
+   "mfrr_up": 15.87,
+   "mfrr_down": 15.57,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-11-25",
+   "fcr": 54.3,
+   "afrr_up": 0.04,
+   "afrr_down": 2.18,
+   "mfrr_up": 10.32,
+   "mfrr_down": 7.34,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-11-26",
+   "fcr": 54.3,
+   "afrr_up": 3.65,
+   "afrr_down": 1.91,
+   "mfrr_up": 18.46,
+   "mfrr_down": 11.29,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-11-27",
+   "fcr": 54.3,
+   "afrr_up": 0.06,
+   "afrr_down": 2.3,
+   "mfrr_up": 16.7,
+   "mfrr_down": 13.58,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-11-28",
+   "fcr": 54.3,
+   "afrr_up": 0.23,
+   "afrr_down": 0,
+   "mfrr_up": 7.91,
+   "mfrr_down": 12.03,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-11-29",
+   "fcr": 52.05,
+   "afrr_up": 1.04,
+   "afrr_down": 0,
+   "mfrr_up": 11.07,
+   "mfrr_down": 15.17,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-11-30",
+   "fcr": 0.37,
+   "afrr_up": 0,
+   "afrr_down": 3.27,
+   "mfrr_up": 17.36,
+   "mfrr_down": 18.6,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-12-01",
+   "fcr": 2.62,
+   "afrr_up": 0,
+   "afrr_down": 2.18,
+   "mfrr_up": 12.86,
+   "mfrr_down": 9.68,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-12-02",
+   "fcr": 52.05,
+   "afrr_up": 2.71,
+   "afrr_down": 3.27,
+   "mfrr_up": 16.51,
+   "mfrr_down": 14.29,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-12-03",
+   "fcr": 2.62,
+   "afrr_up": 10,
+   "afrr_down": 2.18,
+   "mfrr_up": 20.58,
+   "mfrr_down": 8.73,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-12-04",
+   "fcr": 52.05,
+   "afrr_up": 6.98,
+   "afrr_down": 2.63,
+   "mfrr_up": 28.11,
+   "mfrr_down": 11.97,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-12-05",
+   "fcr": 0.37,
+   "afrr_up": 0,
+   "afrr_down": 9.51,
+   "mfrr_up": 32.79,
+   "mfrr_down": 18.24,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-12-06",
+   "fcr": 0.37,
+   "afrr_up": 0,
+   "afrr_down": 2.01,
+   "mfrr_up": 6.27,
+   "mfrr_down": 11.3,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-12-07",
+   "fcr": 1.54,
+   "afrr_up": 0.03,
+   "afrr_down": 7.8,
+   "mfrr_up": 3.58,
+   "mfrr_down": 12.35,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-12-08",
+   "fcr": 29.46,
+   "afrr_up": 0.09,
+   "afrr_down": 0.12,
+   "mfrr_up": 5.2,
+   "mfrr_down": 9.33,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-12-09",
+   "fcr": 52.05,
+   "afrr_up": 0.07,
+   "afrr_down": 0.11,
+   "mfrr_up": 6.11,
+   "mfrr_down": 9.45,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-12-10",
+   "fcr": 3,
+   "afrr_up": 0.17,
+   "afrr_down": 1.65,
+   "mfrr_up": 6.2,
+   "mfrr_down": 11.18,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-12-11",
+   "fcr": 60.77,
+   "afrr_up": 1.53,
+   "afrr_down": 1.28,
+   "mfrr_up": 7.11,
+   "mfrr_down": 12.15,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-12-12",
+   "fcr": 0.37,
+   "afrr_up": 0,
+   "afrr_down": 1.47,
+   "mfrr_up": 11.86,
+   "mfrr_down": 10.22,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-12-13",
+   "fcr": 0.37,
+   "afrr_up": 0,
+   "afrr_down": 0.55,
+   "mfrr_up": 6.34,
+   "mfrr_down": 10.63,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-12-14",
+   "fcr": 0.37,
+   "afrr_up": 0,
+   "afrr_down": 2.18,
+   "mfrr_up": 3.16,
+   "mfrr_down": 9.2,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-12-15",
+   "fcr": 2.62,
+   "afrr_up": 0.43,
+   "afrr_down": 0.01,
+   "mfrr_up": 4.36,
+   "mfrr_down": 6.82,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-12-16",
+   "fcr": 52.05,
+   "afrr_up": 0.12,
+   "afrr_down": 0.15,
+   "mfrr_up": 11.68,
+   "mfrr_down": 8.95,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-12-17",
+   "fcr": 2.62,
+   "afrr_up": 0.37,
+   "afrr_down": 0,
+   "mfrr_up": 16.35,
+   "mfrr_down": 7.91,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-12-18",
+   "fcr": 52.05,
+   "afrr_up": 19.19,
+   "afrr_down": 0.85,
+   "mfrr_up": 35.88,
+   "mfrr_down": 11,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-12-19",
+   "fcr": 0.35,
+   "afrr_up": 16.62,
+   "afrr_down": 17.03,
+   "mfrr_up": 18.17,
+   "mfrr_down": 10.07,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-12-20",
+   "fcr": 0.02,
+   "afrr_up": 1.84,
+   "afrr_down": 0.31,
+   "mfrr_up": 9.54,
+   "mfrr_down": 7.85,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-12-21",
+   "fcr": 0.37,
+   "afrr_up": 10.32,
+   "afrr_down": 10.79,
+   "mfrr_up": 27.63,
+   "mfrr_down": 22.76,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-12-22",
+   "fcr": 0.37,
+   "afrr_up": 25.29,
+   "afrr_down": 8.08,
+   "mfrr_up": 48.55,
+   "mfrr_down": 27.49,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-12-23",
+   "fcr": 0.37,
+   "afrr_up": 22.63,
+   "afrr_down": 0,
+   "mfrr_up": 38.07,
+   "mfrr_down": 14.32,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-12-24",
+   "fcr": 0.37,
+   "afrr_up": 10.52,
+   "afrr_down": 10,
+   "mfrr_up": 27.09,
+   "mfrr_down": 17.56,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-12-25",
+   "fcr": 2.62,
+   "afrr_up": 0.5,
+   "afrr_down": 0.42,
+   "mfrr_up": 10.67,
+   "mfrr_down": 4.16,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-12-26",
+   "fcr": 52.05,
+   "afrr_up": 9.5,
+   "afrr_down": 1.47,
+   "mfrr_up": 28.5,
+   "mfrr_down": 11.86,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-12-27",
+   "fcr": 0.37,
+   "afrr_up": 10.27,
+   "afrr_down": 8.53,
+   "mfrr_up": 14.21,
+   "mfrr_down": 19.59,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-12-28",
+   "fcr": 0.37,
+   "afrr_up": 5.77,
+   "afrr_down": 10.03,
+   "mfrr_up": 15.34,
+   "mfrr_down": 17.1,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-12-29",
+   "fcr": 0.37,
+   "afrr_up": 0.03,
+   "afrr_down": 0.4,
+   "mfrr_up": 27.46,
+   "mfrr_down": 9.78,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-12-30",
+   "fcr": 0.37,
+   "afrr_up": 0.03,
+   "afrr_down": 0.36,
+   "mfrr_up": 21.32,
+   "mfrr_down": 10.25,
+   "isp_count": 96
+  },
+  {
+   "date": "2025-12-31",
+   "fcr": 0.37,
+   "afrr_up": 0.18,
+   "afrr_down": 1.92,
+   "mfrr_up": 33.75,
+   "mfrr_down": 12.43,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-01-01",
+   "fcr": 0.37,
+   "afrr_up": 10.93,
+   "afrr_down": 36.64,
+   "mfrr_up": 6.32,
+   "mfrr_down": 15.27,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-01-02",
+   "fcr": 1.53,
+   "afrr_up": 2.23,
+   "afrr_down": 14.61,
+   "mfrr_up": 11.18,
+   "mfrr_down": 18.35,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-01-03",
+   "fcr": 28.13,
+   "afrr_up": 9.51,
+   "afrr_down": 61.31,
+   "mfrr_up": 24.09,
+   "mfrr_down": 14.01,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-01-04",
+   "fcr": 28.39,
+   "afrr_up": 9.78,
+   "afrr_down": 10.16,
+   "mfrr_up": 12.16,
+   "mfrr_down": 20.74,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-01-05",
+   "fcr": 37.24,
+   "afrr_up": 32.94,
+   "afrr_down": 1.35,
+   "mfrr_up": 36.98,
+   "mfrr_down": 10.59,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-01-06",
+   "fcr": 103.8,
+   "afrr_up": 19.46,
+   "afrr_down": 29.6,
+   "mfrr_up": 45.96,
+   "mfrr_down": 16.5,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-01-07",
+   "fcr": 103.8,
+   "afrr_up": 50.14,
+   "afrr_down": 8.91,
+   "mfrr_up": 24.97,
+   "mfrr_down": 22.39,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-01-08",
+   "fcr": 103.8,
+   "afrr_up": 75.99,
+   "afrr_down": 10,
+   "mfrr_up": 73.87,
+   "mfrr_down": 22.05,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-01-09",
+   "fcr": 103.8,
+   "afrr_up": 72.94,
+   "afrr_down": 21.24,
+   "mfrr_up": 10.83,
+   "mfrr_down": 20.13,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-01-10",
+   "fcr": 102.5,
+   "afrr_up": 2.03,
+   "afrr_down": 123.74,
+   "mfrr_up": 11.4,
+   "mfrr_down": 19.74,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-01-11",
+   "fcr": 72.5,
+   "afrr_up": 60.72,
+   "afrr_down": 0.01,
+   "mfrr_up": 17.29,
+   "mfrr_down": 27.09,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-01-12",
+   "fcr": 72.5,
+   "afrr_up": 23.72,
+   "afrr_down": 23.05,
+   "mfrr_up": 24.12,
+   "mfrr_down": 24.32,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-01-13",
+   "fcr": 72.5,
+   "afrr_up": 34.99,
+   "afrr_down": 26.34,
+   "mfrr_up": 23.82,
+   "mfrr_down": 28.46,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-01-14",
+   "fcr": 72.5,
+   "afrr_up": 31.92,
+   "afrr_down": 0.45,
+   "mfrr_up": 6.2,
+   "mfrr_down": 13.24,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-01-15",
+   "fcr": 73.8,
+   "afrr_up": 81.04,
+   "afrr_down": 7.27,
+   "mfrr_up": 19.26,
+   "mfrr_down": 14.59,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-01-16",
+   "fcr": 103.8,
+   "afrr_up": 182.69,
+   "afrr_down": 0,
+   "mfrr_up": 23.69,
+   "mfrr_down": 15.77,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-01-17",
+   "fcr": 102.37,
+   "afrr_up": 61.64,
+   "afrr_down": 12.23,
+   "mfrr_up": 10.54,
+   "mfrr_down": 20.69,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-01-18",
+   "fcr": 64.37,
+   "afrr_up": 18.98,
+   "afrr_down": 7.79,
+   "mfrr_up": 19.27,
+   "mfrr_down": 26.45,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-01-19",
+   "fcr": 92.66,
+   "afrr_up": 53.12,
+   "afrr_down": 0.44,
+   "mfrr_up": 16.47,
+   "mfrr_down": 12.19,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-01-20",
+   "fcr": 89.74,
+   "afrr_up": 25.84,
+   "afrr_down": 9.6,
+   "mfrr_up": 17.93,
+   "mfrr_down": 17.33,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-01-21",
+   "fcr": 73.23,
+   "afrr_up": 35.73,
+   "afrr_down": 0.01,
+   "mfrr_up": 11.39,
+   "mfrr_down": 9.56,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-01-22",
+   "fcr": 90.78,
+   "afrr_up": 25.36,
+   "afrr_down": 10,
+   "mfrr_up": 11.04,
+   "mfrr_down": 14.72,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-01-23",
+   "fcr": 90.16,
+   "afrr_up": 152.68,
+   "afrr_down": 10,
+   "mfrr_up": 19.78,
+   "mfrr_down": 16.05,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-01-24",
+   "fcr": 90,
+   "afrr_up": 82.44,
+   "afrr_down": 11.09,
+   "mfrr_up": 5.97,
+   "mfrr_down": 22.43,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-01-25",
+   "fcr": 90,
+   "afrr_up": 57.23,
+   "afrr_down": 8.91,
+   "mfrr_up": 11.83,
+   "mfrr_down": 23.7,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-01-26",
+   "fcr": 90,
+   "afrr_up": 50.68,
+   "afrr_down": 10,
+   "mfrr_up": 21.2,
+   "mfrr_down": 17.85,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-01-27",
+   "fcr": 90,
+   "afrr_up": 53.87,
+   "afrr_down": 0.41,
+   "mfrr_up": 15.45,
+   "mfrr_down": 9.09,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-01-28",
+   "fcr": 90.16,
+   "afrr_up": 24.62,
+   "afrr_down": 9.93,
+   "mfrr_up": 18.19,
+   "mfrr_down": 13.51,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-01-29",
+   "fcr": 90.16,
+   "afrr_up": 83.21,
+   "afrr_down": 8.02,
+   "mfrr_up": 66.29,
+   "mfrr_down": 14.56,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-01-30",
+   "fcr": 90,
+   "afrr_up": 79.8,
+   "afrr_down": 0.02,
+   "mfrr_up": 56.45,
+   "mfrr_down": 14.96,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-01-31",
+   "fcr": 90,
+   "afrr_up": 91.96,
+   "afrr_down": 10,
+   "mfrr_up": 8.42,
+   "mfrr_down": 15.67,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-02-01",
+   "fcr": 90,
+   "afrr_up": 9.71,
+   "afrr_down": 114.84,
+   "mfrr_up": 19.01,
+   "mfrr_down": 41.49,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-02-02",
+   "fcr": 90,
+   "afrr_up": 41.96,
+   "afrr_down": 13.64,
+   "mfrr_up": 31.9,
+   "mfrr_down": 25.65,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-02-03",
+   "fcr": 90,
+   "afrr_up": 55.29,
+   "afrr_down": 7.5,
+   "mfrr_up": 63.92,
+   "mfrr_down": 17.07,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-02-04",
+   "fcr": 90,
+   "afrr_up": 68.62,
+   "afrr_down": 10.01,
+   "mfrr_up": 47.94,
+   "mfrr_down": 16.24,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-02-05",
+   "fcr": 90,
+   "afrr_up": 42.41,
+   "afrr_down": 11.09,
+   "mfrr_up": 26.99,
+   "mfrr_down": 11.69,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-02-06",
+   "fcr": 88.89,
+   "afrr_up": 112.54,
+   "afrr_down": 8.96,
+   "mfrr_up": 38.12,
+   "mfrr_down": 20.32,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-02-07",
+   "fcr": 63.4,
+   "afrr_up": 20,
+   "afrr_down": 10.77,
+   "mfrr_up": 12.96,
+   "mfrr_down": 23.41,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-02-08",
+   "fcr": 64.51,
+   "afrr_up": 109.48,
+   "afrr_down": 10.27,
+   "mfrr_up": 21.22,
+   "mfrr_down": 28.44,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-02-09",
+   "fcr": 90,
+   "afrr_up": 44.11,
+   "afrr_down": 9.12,
+   "mfrr_up": 36.77,
+   "mfrr_down": 13.79,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-02-10",
+   "fcr": 90,
+   "afrr_up": 65.68,
+   "afrr_down": 10.07,
+   "mfrr_up": 74.24,
+   "mfrr_down": 13.03,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-02-11",
+   "fcr": 90,
+   "afrr_up": 75.07,
+   "afrr_down": 10.08,
+   "mfrr_up": 101.29,
+   "mfrr_down": 19.22,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-02-12",
+   "fcr": 89.27,
+   "afrr_up": 60.46,
+   "afrr_down": 9.65,
+   "mfrr_up": 82.51,
+   "mfrr_down": 16.75,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-02-13",
+   "fcr": 73.23,
+   "afrr_up": 0,
+   "afrr_down": 2.47,
+   "mfrr_up": 10.1,
+   "mfrr_down": 9.23,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-02-14",
+   "fcr": 90,
+   "afrr_up": 1.39,
+   "afrr_down": 9.95,
+   "mfrr_up": 5.62,
+   "mfrr_down": 12.61,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-02-15",
+   "fcr": 90,
+   "afrr_up": 0,
+   "afrr_down": 3.64,
+   "mfrr_up": 10.12,
+   "mfrr_down": 15.28,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-02-16",
+   "fcr": 90,
+   "afrr_up": 5.09,
+   "afrr_down": 10.59,
+   "mfrr_up": 21.94,
+   "mfrr_down": 22.18,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-02-17",
+   "fcr": 90,
+   "afrr_up": 2.31,
+   "afrr_down": 1.17,
+   "mfrr_up": 16.83,
+   "mfrr_down": 11.37,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-02-18",
+   "fcr": 90,
+   "afrr_up": 61.75,
+   "afrr_down": 10.24,
+   "mfrr_up": 72.42,
+   "mfrr_down": 16.55,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-02-19",
+   "fcr": 87.66,
+   "afrr_up": 12.1,
+   "afrr_down": 9.71,
+   "mfrr_up": 20.94,
+   "mfrr_down": 14.29,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-02-20",
+   "fcr": 33.03,
+   "afrr_up": 29.65,
+   "afrr_down": 3.96,
+   "mfrr_up": 39.24,
+   "mfrr_down": 10.58,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-02-21",
+   "fcr": 15.66,
+   "afrr_up": 6.1,
+   "afrr_down": 10.04,
+   "mfrr_up": 14.53,
+   "mfrr_down": 12.88,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-02-22",
+   "fcr": 22.09,
+   "afrr_up": 17.15,
+   "afrr_down": 9.66,
+   "mfrr_up": 17.97,
+   "mfrr_down": 14.98,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-02-23",
+   "fcr": 33.59,
+   "afrr_up": 58.34,
+   "afrr_down": 11.09,
+   "mfrr_up": 24.42,
+   "mfrr_down": 22.61,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-02-24",
+   "fcr": 90.02,
+   "afrr_up": 36.55,
+   "afrr_down": 13.35,
+   "mfrr_up": 13.88,
+   "mfrr_down": 14.71,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-02-25",
+   "fcr": 68.84,
+   "afrr_up": 104.21,
+   "afrr_down": 10.29,
+   "mfrr_up": 79.05,
+   "mfrr_down": 15.37,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-02-26",
+   "fcr": 2.94,
+   "afrr_up": 1.27,
+   "afrr_down": 5.91,
+   "mfrr_up": 5.29,
+   "mfrr_down": 12.07,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-02-27",
+   "fcr": 12.45,
+   "afrr_up": 31.06,
+   "afrr_down": 10.02,
+   "mfrr_up": 4.05,
+   "mfrr_down": 13.32,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-02-28",
+   "fcr": 87.69,
+   "afrr_up": 10.56,
+   "afrr_down": 5.21,
+   "mfrr_up": 14.07,
+   "mfrr_down": 13.23,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-03-01",
+   "fcr": 23.75,
+   "afrr_up": 19.25,
+   "afrr_down": 6.15,
+   "mfrr_up": 19.85,
+   "mfrr_down": 13.86,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-03-02",
+   "fcr": 70.61,
+   "afrr_up": 66.57,
+   "afrr_down": 2.34,
+   "mfrr_up": 33.34,
+   "mfrr_down": 7.73,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-03-03",
+   "fcr": 26.62,
+   "afrr_up": 10.92,
+   "afrr_down": 3.75,
+   "mfrr_up": 27.65,
+   "mfrr_down": 8.16,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-03-04",
+   "fcr": 15.43,
+   "afrr_up": 11.56,
+   "afrr_down": 5.14,
+   "mfrr_up": 17.41,
+   "mfrr_down": 13.61,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-03-05",
+   "fcr": 19.01,
+   "afrr_up": 13.71,
+   "afrr_down": 61.06,
+   "mfrr_up": 43.95,
+   "mfrr_down": 13.3,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-03-06",
+   "fcr": 6.75,
+   "afrr_up": 9.6,
+   "afrr_down": 10.69,
+   "mfrr_up": 14.45,
+   "mfrr_down": 22.47,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-03-07",
+   "fcr": 87.04,
+   "afrr_up": 6.76,
+   "afrr_down": 7.83,
+   "mfrr_up": 15.55,
+   "mfrr_down": 21.44,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-03-08",
+   "fcr": 21.24,
+   "afrr_up": 1.76,
+   "afrr_down": 64.22,
+   "mfrr_up": 15.04,
+   "mfrr_down": 23.14,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-03-09",
+   "fcr": 72.12,
+   "afrr_up": 66.72,
+   "afrr_down": 1.75,
+   "mfrr_up": 40.96,
+   "mfrr_down": 12.11,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-03-10",
+   "fcr": 62.65,
+   "afrr_up": 1.91,
+   "afrr_down": 1.25,
+   "mfrr_up": 28.14,
+   "mfrr_down": 10.07,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-03-11",
+   "fcr": 44.59,
+   "afrr_up": 25.81,
+   "afrr_down": 5.01,
+   "mfrr_up": 16.94,
+   "mfrr_down": 14.41,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-03-12",
+   "fcr": 27.47,
+   "afrr_up": 12.74,
+   "afrr_down": 8.46,
+   "mfrr_up": 24.78,
+   "mfrr_down": 25.79,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-03-13",
+   "fcr": 7.44,
+   "afrr_up": 7.74,
+   "afrr_down": 4.93,
+   "mfrr_up": 12.58,
+   "mfrr_down": 16.78,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-03-14",
+   "fcr": 25.84,
+   "afrr_up": 4.62,
+   "afrr_down": 66.18,
+   "mfrr_up": 53.41,
+   "mfrr_down": 16.72,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-03-15",
+   "fcr": 0.37,
+   "afrr_up": 0.08,
+   "afrr_down": 21.18,
+   "mfrr_up": 9.03,
+   "mfrr_down": 16.17,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-03-16",
+   "fcr": 0.37,
+   "afrr_up": 8.22,
+   "afrr_down": 2.36,
+   "mfrr_up": 14.87,
+   "mfrr_down": 15.48,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-03-17",
+   "fcr": 4.1,
+   "afrr_up": 9.75,
+   "afrr_down": 10,
+   "mfrr_up": 15.12,
+   "mfrr_down": 16.46,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-03-18",
+   "fcr": 86.26,
+   "afrr_up": 12.3,
+   "afrr_down": 12.89,
+   "mfrr_up": 17.63,
+   "mfrr_down": 26.45,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-03-19",
+   "fcr": 0.25,
+   "afrr_up": 8.43,
+   "afrr_down": 5.31,
+   "mfrr_up": 26.46,
+   "mfrr_down": 16.22,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-03-20",
+   "fcr": 0.25,
+   "afrr_up": 5.26,
+   "afrr_down": 6.36,
+   "mfrr_up": 32.74,
+   "mfrr_down": 27.92,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-03-21",
+   "fcr": 0.26,
+   "afrr_up": 3.15,
+   "afrr_down": 0.64,
+   "mfrr_up": 9.87,
+   "mfrr_down": 14.22,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-03-22",
+   "fcr": 0.37,
+   "afrr_up": 15.83,
+   "afrr_down": 12.15,
+   "mfrr_up": 19.94,
+   "mfrr_down": 24.12,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-03-23",
+   "fcr": 0.37,
+   "afrr_up": 25.14,
+   "afrr_down": 10,
+   "mfrr_up": 36.79,
+   "mfrr_down": 12.97,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-03-24",
+   "fcr": 0.43,
+   "afrr_up": 3.12,
+   "afrr_down": 2.94,
+   "mfrr_up": 30.87,
+   "mfrr_down": 7.79,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-03-25",
+   "fcr": 0.37,
+   "afrr_up": 0.81,
+   "afrr_down": 0.37,
+   "mfrr_up": 8.2,
+   "mfrr_down": 3.26,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-03-26",
+   "fcr": 0.37,
+   "afrr_up": 0.58,
+   "afrr_down": 9.63,
+   "mfrr_up": 12.36,
+   "mfrr_down": 12.33,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-03-27",
+   "fcr": 0.37,
+   "afrr_up": 0.78,
+   "afrr_down": 9.83,
+   "mfrr_up": 20.12,
+   "mfrr_down": 16.66,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-03-28",
+   "fcr": 0.37,
+   "afrr_up": 11.67,
+   "afrr_down": 9.2,
+   "mfrr_up": 13.45,
+   "mfrr_down": 16.71,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-03-29",
+   "fcr": 0.37,
+   "afrr_up": 1.42,
+   "afrr_down": 5.98,
+   "mfrr_up": 16.89,
+   "mfrr_down": 27.67,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-03-30",
+   "fcr": 0.37,
+   "afrr_up": 0.19,
+   "afrr_down": 10.53,
+   "mfrr_up": 32.72,
+   "mfrr_down": 23.45,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-03-31",
+   "fcr": 0.37,
+   "afrr_up": 0.61,
+   "afrr_down": 7.87,
+   "mfrr_up": 26.52,
+   "mfrr_down": 21.71,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-04-01",
+   "fcr": 0.37,
+   "afrr_up": 2.84,
+   "afrr_down": 10.02,
+   "mfrr_up": 17.58,
+   "mfrr_down": 15.88,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-04-02",
+   "fcr": 0.37,
+   "afrr_up": 0.58,
+   "afrr_down": 1.05,
+   "mfrr_up": 30.77,
+   "mfrr_down": 13.25,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-04-03",
+   "fcr": 0.37,
+   "afrr_up": 0.76,
+   "afrr_down": 15.29,
+   "mfrr_up": 16.61,
+   "mfrr_down": 21.33,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-04-04",
+   "fcr": 0.37,
+   "afrr_up": 0.55,
+   "afrr_down": 0.36,
+   "mfrr_up": 6.23,
+   "mfrr_down": 4.59,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-04-05",
+   "fcr": 0.37,
+   "afrr_up": 0.64,
+   "afrr_down": 5.12,
+   "mfrr_up": 7.02,
+   "mfrr_down": 10,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-04-06",
+   "fcr": 0.37,
+   "afrr_up": 0.48,
+   "afrr_down": 0,
+   "mfrr_up": 10.56,
+   "mfrr_down": 3.19,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-04-07",
+   "fcr": 0.37,
+   "afrr_up": 0.79,
+   "afrr_down": 0.48,
+   "mfrr_up": 7.77,
+   "mfrr_down": 4.89,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-04-08",
+   "fcr": 0.37,
+   "afrr_up": 0.86,
+   "afrr_down": 0.23,
+   "mfrr_up": 6.86,
+   "mfrr_down": 4.66,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-04-09",
+   "fcr": 0.37,
+   "afrr_up": 0.81,
+   "afrr_down": 6.25,
+   "mfrr_up": 9.17,
+   "mfrr_down": 9.47,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-04-10",
+   "fcr": 0.37,
+   "afrr_up": 0.6,
+   "afrr_down": 7.54,
+   "mfrr_up": 13.14,
+   "mfrr_down": 13.88,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-04-11",
+   "fcr": 0.37,
+   "afrr_up": 4.05,
+   "afrr_down": 11.99,
+   "mfrr_up": 7.64,
+   "mfrr_down": 16.21,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-04-12",
+   "fcr": 0.37,
+   "afrr_up": 2.03,
+   "afrr_down": 12.43,
+   "mfrr_up": 8.82,
+   "mfrr_down": 26.34,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-04-13",
+   "fcr": 0.37,
+   "afrr_up": 2.3,
+   "afrr_down": 2.49,
+   "mfrr_up": 13.24,
+   "mfrr_down": 9.44,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-04-14",
+   "fcr": 0.37,
+   "afrr_up": 0.58,
+   "afrr_down": 5,
+   "mfrr_up": 5.96,
+   "mfrr_down": 10.09,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-04-15",
+   "fcr": 0.37,
+   "afrr_up": 0.84,
+   "afrr_down": 7.88,
+   "mfrr_up": 7.93,
+   "mfrr_down": 14,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-04-16",
+   "fcr": 0.37,
+   "afrr_up": 1.42,
+   "afrr_down": 7.72,
+   "mfrr_up": 10.5,
+   "mfrr_down": 14.4,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-04-17",
+   "fcr": 0.37,
+   "afrr_up": 6.99,
+   "afrr_down": 5.7,
+   "mfrr_up": 16.63,
+   "mfrr_down": 8.93,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-04-18",
+   "fcr": 0.37,
+   "afrr_up": 3.55,
+   "afrr_down": 7.05,
+   "mfrr_up": 9.03,
+   "mfrr_down": 12.9,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-04-19",
+   "fcr": 0.4,
+   "afrr_up": 7.34,
+   "afrr_down": 4.91,
+   "mfrr_up": 11.12,
+   "mfrr_down": 8.36,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-04-20",
+   "fcr": 0.77,
+   "afrr_up": 2.2,
+   "afrr_down": 5,
+   "mfrr_up": 14.68,
+   "mfrr_down": 7.15,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-04-21",
+   "fcr": 55.35,
+   "afrr_up": 4.37,
+   "afrr_down": 5.43,
+   "mfrr_up": 12.38,
+   "mfrr_down": 12.16,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-04-22",
+   "fcr": 60.48,
+   "afrr_up": 11.18,
+   "afrr_down": 5.14,
+   "mfrr_up": 10.29,
+   "mfrr_down": 8.46,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-04-23",
+   "fcr": 29.79,
+   "afrr_up": 3.84,
+   "afrr_down": 4.13,
+   "mfrr_up": 7.29,
+   "mfrr_down": 4.36,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-04-24",
+   "fcr": 41.56,
+   "afrr_up": 7.96,
+   "afrr_down": 7.11,
+   "mfrr_up": 9.74,
+   "mfrr_down": 9.87,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-04-25",
+   "fcr": 0.37,
+   "afrr_up": 4.72,
+   "afrr_down": 5.37,
+   "mfrr_up": 12.61,
+   "mfrr_down": 8.33,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-04-26",
+   "fcr": 0.37,
+   "afrr_up": 4.9,
+   "afrr_down": 3.55,
+   "mfrr_up": 7.17,
+   "mfrr_down": 4.36,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-04-27",
+   "fcr": 0.37,
+   "afrr_up": 4.88,
+   "afrr_down": 3.94,
+   "mfrr_up": 12.03,
+   "mfrr_down": 4.87,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-04-28",
+   "fcr": 0.37,
+   "afrr_up": 19.55,
+   "afrr_down": 3.73,
+   "mfrr_up": 18.22,
+   "mfrr_down": 5.41,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-04-29",
+   "fcr": 0.37,
+   "afrr_up": 8.9,
+   "afrr_down": 7.38,
+   "mfrr_up": 18.44,
+   "mfrr_down": 12.62,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-04-30",
+   "fcr": 0.37,
+   "afrr_up": 4.95,
+   "afrr_down": 4.97,
+   "mfrr_up": 11.27,
+   "mfrr_down": 11.65,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-05-01",
+   "fcr": 0.37,
+   "afrr_up": 3.99,
+   "afrr_down": 6.27,
+   "mfrr_up": 6.22,
+   "mfrr_down": 13.44,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-05-02",
+   "fcr": 2.7,
+   "afrr_up": 6.58,
+   "afrr_down": 7.5,
+   "mfrr_up": 6.58,
+   "mfrr_down": 10.58,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-05-03",
+   "fcr": 28.38,
+   "afrr_up": 6.86,
+   "afrr_down": 9.43,
+   "mfrr_up": 10.24,
+   "mfrr_down": 15.17,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-05-04",
+   "fcr": 26.04,
+   "afrr_up": 4.53,
+   "afrr_down": 5.81,
+   "mfrr_up": 9.98,
+   "mfrr_down": 10.63,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-05-05",
+   "fcr": 20.18,
+   "afrr_up": 6.23,
+   "afrr_down": 5.57,
+   "mfrr_up": 7.85,
+   "mfrr_down": 12.31,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-05-06",
+   "fcr": 0.34,
+   "afrr_up": 18.19,
+   "afrr_down": 4.69,
+   "mfrr_up": 16.74,
+   "mfrr_down": 6.57,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-05-07",
+   "fcr": 56.53,
+   "afrr_up": 4.36,
+   "afrr_down": 3.8,
+   "mfrr_up": 12.15,
+   "mfrr_down": 5.73,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-05-08",
+   "fcr": 24.77,
+   "afrr_up": 5.02,
+   "afrr_down": 3.83,
+   "mfrr_up": 7.72,
+   "mfrr_down": 5.78,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-05-09",
+   "fcr": 69.42,
+   "afrr_up": 20.22,
+   "afrr_down": 15.48,
+   "mfrr_up": 12.99,
+   "mfrr_down": 19.28,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-05-10",
+   "fcr": 72.72,
+   "afrr_up": 54.96,
+   "afrr_down": 9.74,
+   "mfrr_up": 24.89,
+   "mfrr_down": 20.95,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-05-11",
+   "fcr": 74.89,
+   "afrr_up": 8.47,
+   "afrr_down": 5.16,
+   "mfrr_up": 14.49,
+   "mfrr_down": 6.21,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-05-12",
+   "fcr": 73.11,
+   "afrr_up": 9.62,
+   "afrr_down": 4.83,
+   "mfrr_up": 14.15,
+   "mfrr_down": 6.77,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-05-13",
+   "fcr": 73.24,
+   "afrr_up": 5.7,
+   "afrr_down": 53.87,
+   "mfrr_up": 6.86,
+   "mfrr_down": 6.88,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-05-14",
+   "fcr": 71.74,
+   "afrr_up": 32.59,
+   "afrr_down": 5.56,
+   "mfrr_up": 20.31,
+   "mfrr_down": 6.18,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-05-15",
+   "fcr": 63.12,
+   "afrr_up": 47.44,
+   "afrr_down": 18.1,
+   "mfrr_up": 30.74,
+   "mfrr_down": 27.88,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-05-16",
+   "fcr": 60.79,
+   "afrr_up": 44.82,
+   "afrr_down": 11.49,
+   "mfrr_up": 33.5,
+   "mfrr_down": 23.99,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-05-17",
+   "fcr": 66.32,
+   "afrr_up": 19.39,
+   "afrr_down": 6.2,
+   "mfrr_up": 18.83,
+   "mfrr_down": 16.16,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-05-18",
+   "fcr": 32.19,
+   "afrr_up": 10.16,
+   "afrr_down": 4.81,
+   "mfrr_up": 20.94,
+   "mfrr_down": 7.79,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-05-19",
+   "fcr": 48.73,
+   "afrr_up": 11.26,
+   "afrr_down": 3.88,
+   "mfrr_up": 16.46,
+   "mfrr_down": 6.86,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-05-20",
+   "fcr": 44.67,
+   "afrr_up": 36.51,
+   "afrr_down": 7.26,
+   "mfrr_up": 41.97,
+   "mfrr_down": 10.16,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-05-21",
+   "fcr": 56.34,
+   "afrr_up": 36.31,
+   "afrr_down": 2.53,
+   "mfrr_up": 23.32,
+   "mfrr_down": 9.28,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-05-22",
+   "fcr": 49.63,
+   "afrr_up": 12.74,
+   "afrr_down": 9.21,
+   "mfrr_up": 18.62,
+   "mfrr_down": 6.88,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-05-23",
+   "fcr": 27.52,
+   "afrr_up": 5.04,
+   "afrr_down": 6.15,
+   "mfrr_up": 19.99,
+   "mfrr_down": 9.66,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-05-24",
+   "fcr": 27.52,
+   "afrr_up": 5.94,
+   "afrr_down": 7.02,
+   "mfrr_up": 15.55,
+   "mfrr_down": 8.6,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-05-25",
+   "fcr": 27.52,
+   "afrr_up": 19.44,
+   "afrr_down": 7.39,
+   "mfrr_up": 34.94,
+   "mfrr_down": 9.25,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-05-26",
+   "fcr": 27.52,
+   "afrr_up": 50,
+   "afrr_down": 8.57,
+   "mfrr_up": 47.17,
+   "mfrr_down": 10.97,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-05-27",
+   "fcr": 27.45,
+   "afrr_up": 5.55,
+   "afrr_down": 4.32,
+   "mfrr_up": 144.27,
+   "mfrr_down": 5.35,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-05-28",
+   "fcr": 27.72,
+   "afrr_up": 34.73,
+   "afrr_down": 45.77,
+   "mfrr_up": 35.42,
+   "mfrr_down": 5.89,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-05-29",
+   "fcr": 28.29,
+   "afrr_up": 210.46,
+   "afrr_down": 45.12,
+   "mfrr_up": 47.51,
+   "mfrr_down": 8.62,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-05-30",
+   "fcr": 30.89,
+   "afrr_up": 39.3,
+   "afrr_down": 33.18,
+   "mfrr_up": 51.19,
+   "mfrr_down": 49.62,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-05-31",
+   "fcr": 66.73,
+   "afrr_up": 61.54,
+   "afrr_down": 18.43,
+   "mfrr_up": 41.73,
+   "mfrr_down": 36.58,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-06-01",
+   "fcr": 49.8,
+   "afrr_up": 10.49,
+   "afrr_down": 4.07,
+   "mfrr_up": 38.39,
+   "mfrr_down": 20.15,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-06-02",
+   "fcr": 67.23,
+   "afrr_up": 39.6,
+   "afrr_down": 16.28,
+   "mfrr_up": 41.79,
+   "mfrr_down": 18.46,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-06-03",
+   "fcr": 50.58,
+   "afrr_up": 3.97,
+   "afrr_down": 8.04,
+   "mfrr_up": 17.3,
+   "mfrr_down": 8.94,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-06-04",
+   "fcr": 68.52,
+   "afrr_up": 4.11,
+   "afrr_down": 4.87,
+   "mfrr_up": 12.72,
+   "mfrr_down": 8.17,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-06-05",
+   "fcr": 64.7,
+   "afrr_up": 16.59,
+   "afrr_down": 8.15,
+   "mfrr_up": 39.08,
+   "mfrr_down": 21.76,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-06-06",
+   "fcr": 64.44,
+   "afrr_up": 76.82,
+   "afrr_down": 15.95,
+   "mfrr_up": 17.67,
+   "mfrr_down": 25.32,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-06-07",
+   "fcr": 64.44,
+   "afrr_up": 65.47,
+   "afrr_down": 24.88,
+   "mfrr_up": 34.49,
+   "mfrr_down": 36.61,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-06-08",
+   "fcr": 64.44,
+   "afrr_up": 26.57,
+   "afrr_down": 2.54,
+   "mfrr_up": 52.09,
+   "mfrr_down": 16.81,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-06-09",
+   "fcr": 64.44,
+   "afrr_up": 65.49,
+   "afrr_down": 5,
+   "mfrr_up": 27.4,
+   "mfrr_down": 13.8,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-06-10",
+   "fcr": 64.44,
+   "afrr_up": 187.15,
+   "afrr_down": 9.65,
+   "mfrr_up": 59.07,
+   "mfrr_down": 12.15,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-06-11",
+   "fcr": 63.88,
+   "afrr_up": 26.83,
+   "afrr_down": 5.7,
+   "mfrr_up": 36.69,
+   "mfrr_down": 7.67,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-06-12",
+   "fcr": 60,
+   "afrr_up": 60.65,
+   "afrr_down": 7.05,
+   "mfrr_up": 45.14,
+   "mfrr_down": 12.62,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-06-13",
+   "fcr": 60,
+   "afrr_up": 13.72,
+   "afrr_down": 11.1,
+   "mfrr_up": 25.67,
+   "mfrr_down": 34.17,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-06-14",
+   "fcr": 59.17,
+   "afrr_up": 56.39,
+   "afrr_down": 40.24,
+   "mfrr_up": 40.96,
+   "mfrr_down": 124.56,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-06-15",
+   "fcr": 50.91,
+   "afrr_up": 20.79,
+   "afrr_down": 6.55,
+   "mfrr_up": 40.47,
+   "mfrr_down": 21.77,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-06-16",
+   "fcr": 60,
+   "afrr_up": 7.06,
+   "afrr_down": 6.67,
+   "mfrr_up": 23.63,
+   "mfrr_down": 11.37,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-06-17",
+   "fcr": 60,
+   "afrr_up": 25.44,
+   "afrr_down": 6.12,
+   "mfrr_up": 44.67,
+   "mfrr_down": 7.35,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-06-18",
+   "fcr": 60.93,
+   "afrr_up": 59.33,
+   "afrr_down": 7.35,
+   "mfrr_up": 54.99,
+   "mfrr_down": 11.21,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-06-19",
+   "fcr": 60,
+   "afrr_up": 19.71,
+   "afrr_down": 6.38,
+   "mfrr_up": 28.96,
+   "mfrr_down": 12.99,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-06-20",
+   "fcr": 60,
+   "afrr_up": 6.36,
+   "afrr_down": 65.09,
+   "mfrr_up": 11.13,
+   "mfrr_down": 58.87,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-06-21",
+   "fcr": 60,
+   "afrr_up": 36.22,
+   "afrr_down": 8.87,
+   "mfrr_up": 35.49,
+   "mfrr_down": 25.21,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-06-22",
+   "fcr": 60,
+   "afrr_up": 10.75,
+   "afrr_down": 8.32,
+   "mfrr_up": 22.8,
+   "mfrr_down": 10.56,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-06-23",
+   "fcr": 60,
+   "afrr_up": 10.39,
+   "afrr_down": 4.87,
+   "mfrr_up": 22.35,
+   "mfrr_down": 10.77,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-06-24",
+   "fcr": 60,
+   "afrr_up": 67.42,
+   "afrr_down": 17.03,
+   "mfrr_up": 50.61,
+   "mfrr_down": 15.72,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-06-25",
+   "fcr": 59.87,
+   "afrr_up": 24.05,
+   "afrr_down": 6.28,
+   "mfrr_up": 36,
+   "mfrr_down": 16.73,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-06-26",
+   "fcr": 58.52,
+   "afrr_up": 17.05,
+   "afrr_down": 10.11,
+   "mfrr_up": 20.3,
+   "mfrr_down": 19.65,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-06-27",
+   "fcr": 60,
+   "afrr_up": 22.29,
+   "afrr_down": 18.58,
+   "mfrr_up": 28.54,
+   "mfrr_down": 71.69,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-06-28",
+   "fcr": 60,
+   "afrr_up": 51.27,
+   "afrr_down": 13.37,
+   "mfrr_up": 25.84,
+   "mfrr_down": 30.85,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-06-29",
+   "fcr": 59.11,
+   "afrr_up": 41.9,
+   "afrr_down": 11.62,
+   "mfrr_up": 37.19,
+   "mfrr_down": 17.3,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-06-30",
+   "fcr": 48.68,
+   "afrr_up": 21.99,
+   "afrr_down": 25.75,
+   "mfrr_up": 24.02,
+   "mfrr_down": 58.18,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-07-01",
+   "fcr": 43.23,
+   "afrr_up": 96.25,
+   "afrr_down": 2.04,
+   "mfrr_up": 48.15,
+   "mfrr_down": 14.25,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-07-02",
+   "fcr": 60,
+   "afrr_up": 29.16,
+   "afrr_down": 5.01,
+   "mfrr_up": 34.82,
+   "mfrr_down": 8.77,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-07-03",
+   "fcr": 60,
+   "afrr_up": 26.86,
+   "afrr_down": 3.49,
+   "mfrr_up": 29.37,
+   "mfrr_down": 5.01,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-07-04",
+   "fcr": 60,
+   "afrr_up": 8.13,
+   "afrr_down": 4.82,
+   "mfrr_up": 10.99,
+   "mfrr_down": 5.04,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-07-05",
+   "fcr": 58.78,
+   "afrr_up": 18.54,
+   "afrr_down": 6.66,
+   "mfrr_up": 18.65,
+   "mfrr_down": 7.03,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-07-06",
+   "fcr": 45.3,
+   "afrr_up": 14.66,
+   "afrr_down": 6.04,
+   "mfrr_up": 15.61,
+   "mfrr_down": 7.39,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-07-07",
+   "fcr": 46.53,
+   "afrr_up": 12.83,
+   "afrr_down": 15.41,
+   "mfrr_up": 14.81,
+   "mfrr_down": 14.6,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-07-08",
+   "fcr": 62.86,
+   "afrr_up": 42.83,
+   "afrr_down": 10.38,
+   "mfrr_up": 45.35,
+   "mfrr_down": 9.38,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-07-09",
+   "fcr": 91.47,
+   "afrr_up": 121.88,
+   "afrr_down": 5,
+   "mfrr_up": 79.94,
+   "mfrr_down": 9.29,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-07-10",
+   "fcr": 58.78,
+   "afrr_up": 62.8,
+   "afrr_down": 14,
+   "mfrr_up": 45.58,
+   "mfrr_down": 10.58,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-07-11",
+   "fcr": 45.3,
+   "afrr_up": 38.89,
+   "afrr_down": 5.69,
+   "mfrr_up": 30.61,
+   "mfrr_down": 7.2,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-07-12",
+   "fcr": 45.3,
+   "afrr_up": 48.35,
+   "afrr_down": 14.1,
+   "mfrr_up": 40.36,
+   "mfrr_down": 13.51,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-07-13",
+   "fcr": 45.3,
+   "afrr_up": 28.94,
+   "afrr_down": 9.15,
+   "mfrr_up": 25.6,
+   "mfrr_down": 8.26,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-07-14",
+   "fcr": 45.3,
+   "afrr_up": 61.46,
+   "afrr_down": 13.21,
+   "mfrr_up": 39.23,
+   "mfrr_down": 13.51,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-07-15",
+   "fcr": 45.3,
+   "afrr_up": 40.94,
+   "afrr_down": 21.15,
+   "mfrr_up": 34.62,
+   "mfrr_down": 14.02,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-07-16",
+   "fcr": 45.3,
+   "afrr_up": 47.65,
+   "afrr_down": 8.29,
+   "mfrr_up": 35.93,
+   "mfrr_down": 8.66,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-07-17",
+   "fcr": 46.53,
+   "afrr_up": 38.69,
+   "afrr_down": 5.62,
+   "mfrr_up": 30.69,
+   "mfrr_down": 6.99,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-07-18",
+   "fcr": 60,
+   "afrr_up": 42.77,
+   "afrr_down": 4.62,
+   "mfrr_up": 33.77,
+   "mfrr_down": 6.5,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-07-19",
+   "fcr": 58.45,
+   "afrr_up": 38,
+   "afrr_down": 13.97,
+   "mfrr_up": 26.39,
+   "mfrr_down": 18.77,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-07-20",
+   "fcr": 46.85,
+   "afrr_up": 65.18,
+   "afrr_down": 5.11,
+   "mfrr_up": 46.69,
+   "mfrr_down": 5.88,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-07-21",
+   "fcr": 46.78,
+   "afrr_up": 41.39,
+   "afrr_down": 5.45,
+   "mfrr_up": 29.93,
+   "mfrr_down": 5.61,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-07-22",
+   "fcr": 46.53,
+   "afrr_up": 37.6,
+   "afrr_down": 14.05,
+   "mfrr_up": 32.11,
+   "mfrr_down": 11.29,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-07-23",
+   "fcr": 39.98,
+   "afrr_up": 23.58,
+   "afrr_down": 12.9,
+   "mfrr_up": 25.61,
+   "mfrr_down": 15.15,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-07-24",
+   "fcr": 36.2,
+   "afrr_up": 25.94,
+   "afrr_down": 19.1,
+   "mfrr_up": 28.21,
+   "mfrr_down": 17.28,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-07-25",
+   "fcr": 36.2,
+   "afrr_up": 21.42,
+   "afrr_down": 5.52,
+   "mfrr_up": 23.79,
+   "mfrr_down": 6.72,
+   "isp_count": 96
+  },
+  {
+   "date": "2026-07-26",
+   "fcr": 36.2,
+   "afrr_up": 13.75,
+   "afrr_down": 5.37,
+   "mfrr_up": 15.12,
+   "mfrr_down": 5.45,
+   "isp_count": 96
+  }
+ ]
+}

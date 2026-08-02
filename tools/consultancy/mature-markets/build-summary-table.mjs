@@ -62,7 +62,8 @@
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { loadDataset, loadCalendar, bySeries, monthlyAggregate, segmentMonths, rowMinutes } from './loader.mjs';
+import { loadDataset, loadCalendar, bySeries, monthlyAggregate, segmentMonths } from './loader.mjs';
+import { arbitrageByMonth, ARB_RTE_E0_PUBLISHED } from './arbitrage.mjs';
 
 const OUT_DIR = path.join(import.meta.dirname, '..', 'data', 'mature-markets');
 const DOC_DIR = path.join(import.meta.dirname, '..', '..', '..', 'docs', 'research');
@@ -75,7 +76,10 @@ const CRITERIA = {
   SATURATION_TOL_SENSITIVITY: [0.5, 1.0, 2.0],  // reported alongside, so the constant is not load-bearing in silence
   SATURATION_MIN_TAIL: 6,   // months that must remain after the candidate month for a verdict
   ARB_WINDOW_HOURS: 4,      // battery duration assumed for the arbitrage proxy
-  RTE: 0.85,                // round-trip efficiency ASSUMPTION for the arbitrage proxy
+  // 36.E1: no longer a local literal. This is the value the table was PUBLISHED with; the
+  // engine's canonical RTE is RTE_BOL.h4 and differs. See arbitrage.mjs for the divergence and
+  // for why the published table is pinned rather than restated (B-055 precedent).
+  RTE: ARB_RTE_E0_PUBLISHED,
   MIN_MONTHS_FOR_CAGR: 24,
 };
 
@@ -101,51 +105,8 @@ const monthsBetween = (a, b) => {
   return (by - ay) * 12 + (bm - am);
 };
 
-// ── Arbitrage opportunity per market-month ─────────────────────────────────
-
-/**
- * Daily top-N-hours minus bottom-N-hours spread, averaged over the month.
- * Works from any energy series (day-ahead or spot) at any resolution: rows are collapsed to
- * hourly duration-weighted means first, so a 5-minute market and an hourly one give comparable
- * numbers instead of the finer one showing a mechanically wider spread.
- */
-function arbitrageByMonth(rows, windowHours) {
-  const hourly = new Map();   // 'YYYY-MM-DDTHH' -> {wSum, wTot}
-  for (const r of rows) {
-    if (r.price_norm === null) continue;
-    const mins = rowMinutes(r) ?? 0;
-    if (!mins) continue;
-    const h = r.period_start.slice(0, 13);
-    let g = hourly.get(h);
-    if (!g) hourly.set(h, g = { wSum: 0, wTot: 0 });
-    g.wSum += r.price_norm * mins; g.wTot += mins;
-  }
-  const byDay = new Map();
-  for (const [h, g] of hourly) {
-    const d = h.slice(0, 10);
-    (byDay.get(d) ?? byDay.set(d, []).get(d)).push(g.wSum / g.wTot);
-  }
-  const byMonth = new Map();
-  for (const [d, prices] of byDay) {
-    if (prices.length < windowHours * 2) continue;   // a partial day cannot give a day's spread
-    const s = [...prices].sort((a, b) => a - b);
-    const low = s.slice(0, windowHours).reduce((x, y) => x + y, 0) / windowHours;
-    const high = s.slice(-windowHours).reduce((x, y) => x + y, 0) / windowHours;
-    const m = d.slice(0, 7);
-    (byMonth.get(m) ?? byMonth.set(m, []).get(m)).push(high - low);
-  }
-  const out = new Map();
-  for (const [m, spreads] of byMonth) {
-    const mean = spreads.reduce((a, b) => a + b, 0) / spreads.length;
-    out.set(m, {
-      spread_eur_mwh: mean,
-      // Availability-equivalent: one cycle/day of `windowHours` at this spread, spread over 24 h.
-      arb_eur_mw_h: (mean * windowHours * CRITERIA.RTE) / 24,
-      n_days: spreads.length,
-    });
-  }
-  return out;
-}
+// Arbitrage opportunity moved to ./arbitrage.mjs in 36.E1 — same code, one implementation,
+// now shared with the price-formation calibration (rule #4). See that module's header.
 
 // ── Per-series statistics ──────────────────────────────────────────────────
 
