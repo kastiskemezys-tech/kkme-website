@@ -4251,6 +4251,42 @@ async function fetchBzn(bzn, apiKey) {
   return res.text();
 }
 
+/**
+ * Phase 38.1 — per-leg guard around `fetchBzn`.
+ *
+ * `fetchBzn` throws on any non-2xx. Both today-window legs sat naked inside
+ * computeS1's `Promise.all`, so a single ENTSO-E hiccup on EITHER rejected the
+ * whole function — and, until this phase, took the DA capture, the `raw:s1`
+ * archive and the `da_tomorrow` mirror down with it, because all three lived
+ * inside the cron's `s1Result.status === 'fulfilled'` branch. `fetchBznRange`
+ * and `computeHistorical` have always swallowed their own errors; these two were
+ * the only unguarded throw sites in the function.
+ *
+ * One retry, then null. The caller's `!ltPrices.length` guard still throws —
+ * S1 genuinely cannot be computed without both bidding zones — but a transient
+ * failure now costs a retry rather than a tick, and the log names the leg.
+ *
+ * `delayMs` is injectable so the retry path can be tested without a real wait.
+ * Kept short: the 2026-08-02T12:00Z tail shows this branch failing on the 30s
+ * wrapper timeout, not on a rejection, so dead wait inside computeS1 is spent
+ * from the same budget the timeout is measuring.
+ */
+async function fetchBznGuarded(bzn, apiKey, label, delayMs = 400) {
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      return await fetchBzn(bzn, apiKey);
+    } catch (e) {
+      if (attempt === 2) {
+        console.error(`[S1/fetchBzn] ${label} failed on both attempts — ${String(e)}`);
+        return null;
+      }
+      console.warn(`[S1/fetchBzn] ${label} attempt 1 failed (${String(e)}) — retrying in ${delayMs}ms`);
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+  return null;
+}
+
 async function fetchBznRange(bzn, apiKey, startOffset, endOffset) {
   const url = new URL(ENTSOE_API);
   url.searchParams.set('documentType', 'A44');
@@ -4318,7 +4354,20 @@ const ENERGY_CHARTS_API = 'https://api.energy-charts.info/price';
 async function fetchEnergyCharts(startDate, endDate) {
   const end = endDate || startDate;
   const url = `${ENERGY_CHARTS_API}?bzn=LT&start=${startDate}T00:00Z&end=${end}T23:59Z`;
-  const res = await fetch(url);
+
+  // Phase 38.1 — one retry, on observed evidence rather than caution.
+  // energy-charts returned `HTTP 429` to this worker during the
+  // 2026-08-02T12:00:33Z tick (`[Gen/LT] Error: energy-charts lt: HTTP 429`, in
+  // the hourly cron firing the same second as the 4-hourly one). This is the
+  // sole upstream for the DA capture, and the capture is the number the S1 card
+  // publishes — the whole reason this phase exists. A single 429 taking it out
+  // for four hours is the failure this phase is closing, one host over.
+  let res = await fetch(url);
+  if (!res.ok && (res.status === 429 || res.status >= 500)) {
+    console.warn(`[S1/capture] energy-charts HTTP ${res.status} — one retry in 500ms`);
+    await new Promise((r) => setTimeout(r, 500));
+    res = await fetch(url);
+  }
   if (!res.ok) throw new Error(`energy-charts HTTP ${res.status}`);
   const json = await res.json();
   if (!json.price || !json.unix_seconds || !json.price.length) {
@@ -4607,18 +4656,29 @@ async function computeS1(env) {
 
   // Fetch today, tomorrow (best-effort), and historical in parallel
   const [[ltXml, se4Xml, plXml], historical, ltTomorrow, se4Tomorrow] = await Promise.all([
-    Promise.all([fetchBzn(LT_BZN, apiKey), fetchBzn(SE4_BZN, apiKey), fetchBzn(PL_BZN, apiKey).catch(() => '')]),
+    Promise.all([
+      fetchBznGuarded(LT_BZN,  apiKey, 'LT'),
+      fetchBznGuarded(SE4_BZN, apiKey, 'SE4'),
+      fetchBzn(PL_BZN, apiKey).catch(() => ''),
+    ]),
     computeHistorical(apiKey),
     fetchBznRange(LT_BZN,  apiKey, 1, 2),  // null before ~13:00 CET publication
     fetchBznRange(SE4_BZN, apiKey, 1, 2),
   ]);
 
-  const ltPrices  = extractPrices(ltXml);
-  const se4Prices = extractPrices(se4Xml);
-  const plPrices  = extractPrices(plXml ?? '');
+  const ltPrices  = extractPrices(ltXml  ?? '');
+  const se4Prices = extractPrices(se4Xml ?? '');
+  const plPrices  = extractPrices(plXml  ?? '');
 
   if (!ltPrices.length || !se4Prices.length) {
-    throw new Error(`No price data: LT=${ltPrices.length}h SE4=${se4Prices.length}h`);
+    // Say which leg and whether it was the fetch or the document — the old
+    // message ("No price data: LT=0h SE4=96h") could not distinguish an ENTSO-E
+    // rejection from an empty but valid publication, and this error is the one
+    // that surfaces in the cron's Telegram alert.
+    throw new Error(
+      `No price data: LT=${ltPrices.length}h SE4=${se4Prices.length}h ` +
+      `(LT fetch ${ltXml == null ? 'FAILED' : 'ok'}, SE4 fetch ${se4Xml == null ? 'FAILED' : 'ok'})`,
+    );
   }
 
   const ltAvg  = avg(ltPrices);
@@ -4770,6 +4830,24 @@ async function computeS1(env) {
 
 const HISTORY_KEY = 's1_history';
 const MAX_HISTORY = 90; // days
+
+/**
+ * Read-only companion to `updateHistory` (Phase 38.1).
+ *
+ * `GET /s1` needs the rolling history to compute `spread_stats_90d` /
+ * `swing_stats_90d` for its response, but it must NOT append to it: the old
+ * catch-all called `updateHistory` on every unmatched GET, so a stray 404
+ * appended a row. `s1_history` currently holds 90 rows spanning 8 distinct
+ * dates as a result (B-056). Reading is the correct verb for a read endpoint.
+ */
+async function readHistory(env) {
+  try {
+    const raw = await env.KKME_SIGNALS.get(HISTORY_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
 
 async function updateHistory(env, todayEntry) {
   let history = [];
@@ -8006,14 +8084,69 @@ export default {
     }
 
     // Every 4h: fetch S1/S2/S3/S4/Euribor in parallel
+    //
+    // Phase 38.1 — computeS1's budget raised 30s → 60s on tail evidence, not on
+    // reasoning. The 2026-08-02T12:00:33Z invocation (Workers Logs, captured
+    // before this fix deployed) recorded:
+    //
+    //   [error] [S1] cron failed: Error: Timed out after 30000ms
+    //   [log]   [S1/PL] pl_avg=107.02 lt_pl_spread=-57.41€/MWh (-53.6%)
+    //   [log]   [S1] coupling_spread=9.32€/MWh intraday_swing=191.23€/MWh
+    //   cpu=83ms wall=50017ms
+    //
+    // computeS1's OWN completion logs are in the same invocation as the timeout
+    // that discarded it: the work finished, past the 30s wrapper, and the result
+    // was thrown away. cpu 83ms against wall 50s says the invocation is I/O-bound
+    // — it is waiting on connections, not computing. The pre-fix hypothesis was
+    // ENTSO-E throttling computeS1's 9-request burst; that was tested from
+    // outside and REFUTED (48/48 HTTP 200 across four rounds at 9- and
+    // 15-request concurrency), so a per-leg retry alone would have left the cause
+    // live and, under a timeout-bound failure, made it marginally worse.
+    //
+    // Five heavy computes share one invocation's connection budget, and the
+    // hourly cron fires in the same second at every 4h-aligned hour (both
+    // invocations stamped 12:00:33Z above; energy-charts returned HTTP 429 to
+    // the hourly one). HYPOTHESIS, not measured here: the Workers per-invocation
+    // simultaneous-connection cap queues ~20 fetches through far fewer slots,
+    // and computeHistorical's four ~425 KB XML windows are the long poles. The
+    // structural fix — staggering the block, or caching the historical windows
+    // that change daily rather than 4-hourly — is filed as B-057, not attempted
+    // here. Raising the budget is the change the evidence directly supports.
     const [s1Result, s2Result, s4Result, s3Result, eurResult] = await Promise.allSettled([
-      withTimeout(computeS1(env),      30000),  // includes tomorrow fetch (+2 ENTSO-E calls)
+      withTimeout(computeS1(env),      60000),  // includes tomorrow fetch (+2 ENTSO-E calls)
       withTimeout(computeS2(),         45000),  // BTD API + Litgrid scrape
       withTimeout(computeS4(),         25000),
       withTimeout(computeS3(),         25000),
       withTimeout(computeEuribor(),    20000),
     ]);
 
+    // ── S1 capture — computed FIRST, and unconditionally (Phase 38.1) ────────
+    //
+    // `computeCapture(env)` takes only `env`. It re-fetches its own source
+    // (energy-charts.info) and has no data dependency whatsoever on computeS1's
+    // ENTSO-E result. It nonetheless sat inside the `s1Result.status ===
+    // 'fulfilled'` branch, for no reason but code position — so when computeS1
+    // rejected on eight consecutive 4-hourly ticks (last successful S1-branch
+    // write 2026-08-01T00:01:22Z, measured from `raw:s1:<date>` TTL arithmetic)
+    // it took down a capture path that would have succeeded on every one of
+    // them, and the S1 card served a 33h-stale hero number under an impact line
+    // that said "today's".
+    //
+    // Hoisted out of that branch and above it. The result is merged into the s1
+    // payload below when there is one; when there is not, `s1_capture` is still
+    // written by computeCapture itself and `/read` serves it (see the /read
+    // handler, which now always prefers the canonical key over the embedded copy).
+    let capture = null;
+    let captureErr = null;
+    try {
+      capture = await withTimeout(computeCapture(env), 25000);
+      console.log(`[S1/capture] ok — ${capture.date} 2h=${capture.gross_2h ?? '—'}€ 4h=${capture.gross_4h ?? '—'}€`);
+    } catch (capErr) {
+      captureErr = String(capErr);
+      console.error('[S1/capture] cron failed:', captureErr);
+    }
+
+    let s1Err = null;
     if (s1Result.status === 'fulfilled') {
       const d = s1Result.value;
       // Update rolling history and embed stats in S1 payload
@@ -8024,6 +8157,20 @@ export default {
         console.log(`[S1/history] n=${history.length} spread_p50=${d.spread_stats_90d?.p50} swing_p50=${d.swing_stats_90d?.p50}`);
       } catch (he) {
         console.error('[S1/history] failed:', String(he));
+      }
+      // Capture summary embedded for frontend convenience. One write, not two —
+      // the capture merge used to re-put `s1` a second time.
+      if (capture) {
+        d.capture = {
+          gross_2h: capture.capture_2h?.gross_eur_mwh ?? null,
+          gross_4h: capture.capture_4h?.gross_eur_mwh ?? null,
+          net_2h:   capture.capture_2h?.net_eur_mwh   ?? null,
+          net_4h:   capture.capture_4h?.net_eur_mwh   ?? null,
+          rolling_30d: capture.rolling_30d,
+          shape_swing: capture.shape?.swing ?? null,
+          source: 'energy-charts.info',
+          data_class: 'derived',
+        };
       }
       await env.KKME_SIGNALS.put('s1', JSON.stringify(d));
       await env.KKME_SIGNALS.put(`raw:s1:${new Date().toISOString().slice(0,10)}`, JSON.stringify({ fetched: new Date().toISOString(), data: d }), { expirationTtl: 604800 });
@@ -8050,28 +8197,27 @@ export default {
         ]);
         console.log(`[S1/tomorrow] mirrored to da_tomorrow KV — ${d.da_tomorrow.slots} slots @ ${d.da_tomorrow.resolution}, delivery ${d.da_tomorrow.delivery_date}`);
       }
-
-      // S1 capture: DA gross capture from energy-charts.info
-      try {
-        const cap = await withTimeout(computeCapture(env), 25000);
-        // Merge capture summary into s1 KV for frontend consumption
-        d.capture = {
-          gross_2h: cap.capture_2h?.gross_eur_mwh ?? null,
-          gross_4h: cap.capture_4h?.gross_eur_mwh ?? null,
-          net_2h: cap.capture_2h?.net_eur_mwh ?? null,
-          net_4h: cap.capture_4h?.net_eur_mwh ?? null,
-          rolling_30d: cap.rolling_30d,
-          shape_swing: cap.shape?.swing ?? null,
-          source: 'energy-charts.info',
-          data_class: 'derived',
-        };
-        await env.KKME_SIGNALS.put('s1', JSON.stringify(d));
-        console.log(`[S1/capture] merged into s1 KV: 2h=${cap.capture_2h?.gross_eur_mwh ?? '—'}€ 4h=${cap.capture_4h?.gross_eur_mwh ?? '—'}€`);
-      } catch (capErr) {
-        console.error('[S1/capture] cron failed:', String(capErr));
-      }
     } else {
-      console.error('[S1] cron failed:', s1Result.reason);
+      s1Err = String(s1Result.reason);
+      console.error('[S1] cron failed:', s1Err);
+    }
+
+    // ── B8 — the failure that ran silent for a week now speaks on the tick ────
+    //
+    // Before Phase 38.1 an S1-branch rejection wrote `console.error` to a worker
+    // with no observability configured, i.e. to nowhere, and `s1_capture` had no
+    // staleness threshold. The eight-tick outage was found by the operator's eye
+    // and by nothing else. `/health` now carries `s1_capture` (12h) so the
+    // pull surface tells us within three ticks; this tells us on the failing
+    // tick itself, on the same channel the S2 watchdog already uses.
+    if (s1Err || captureErr) {
+      const lines = [
+        '⚠️ S1 4-hourly cron degraded',
+        s1Err     ? `• computeS1 rejected: ${s1Err.slice(0, 240)}` : '• computeS1: ok',
+        captureErr ? `• computeCapture rejected: ${captureErr.slice(0, 240)}` : '• computeCapture: ok',
+        s1Err ? '• knock-on: s1 / raw:s1 / da_tomorrow mirror all skipped this tick' : '',
+      ].filter(Boolean);
+      await notifyTelegram(env, lines.join('\n')).catch(() => {});
     }
 
     if (s2Result.status === 'fulfilled') {
@@ -11606,8 +11752,14 @@ export default {
       ]);
       if (!s1Raw) return jsonResp({ s1: null, reason: 'S1 not yet computed — awaiting first cron run' }, 200);
       const s1 = JSON.parse(s1Raw);
-      // Merge capture data if available and not already embedded
-      if (capRaw && !s1.capture) {
+      // Phase 38.1 — the canonical `s1_capture` key ALWAYS wins over the copy
+      // embedded in the s1 payload. Since computeCapture was decoupled from the
+      // computeS1 success branch the two can legitimately diverge: a tick where
+      // ENTSO-E rejects refreshes `s1_capture` but leaves `s1` (and therefore
+      // `s1.capture`) at the previous tick's vintage. The previous condition
+      // (`&& !s1.capture`) would have let that stale embedded copy shadow the
+      // fresh canonical value — discipline rule #4, one canonical field.
+      if (capRaw) {
         try {
           const cap = JSON.parse(capRaw);
           s1.capture = {
@@ -11629,20 +11781,41 @@ export default {
       return new Response(JSON.stringify(s1), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=300', ...CORS } });
     }
 
-    // ── GET / — fresh S1 + history update + write to KV ─────────────────────
-    if (request.method === 'GET') {
+    // ── GET /s1 — fresh S1, READ-ONLY (Phase 38.1, B-047) ────────────────────
+    //
+    // This used to be an unconditional `if (request.method === 'GET')`
+    // catch-all: EVERY unmatched GET — a bot, a scanner, a typo, an audit probe
+    // — ran computeS1() and WROTE the `s1` KV key. `s1` is monitored by /health
+    // with a 24h threshold, so that monitor was measuring inbound 404 traffic
+    // rather than the ingestion path, and it read green through the entire
+    // eight-tick S1 outage. A monitored key any stranger's 404 can refresh is
+    // not a monitor.
+    //
+    // Two changes: the route is explicit (only `/s1`, never a catch-all), and it
+    // no longer writes KV. The cron is now the sole writer of `s1`, which is
+    // what makes /health's s1 entry mean anything. Response shape, status and
+    // headers are unchanged, so `scripts/diagnose.sh` and any external prober
+    // see exactly what they saw before.
+    if (request.method === 'GET' && url.pathname === '/s1') {
       try {
         const data = await computeS1(env);
         try {
-          const history = await updateHistory(env, data);
+          const history = await readHistory(env);
           data.spread_stats_90d = rollingStats(history, 'spread_eur');
           data.swing_stats_90d  = rollingStats(history, 'lt_swing');
         } catch { /* non-fatal */ }
-        await env.KKME_SIGNALS.put('s1', JSON.stringify(data));
         return new Response(JSON.stringify(data, null, 2), { headers: { 'Content-Type': 'application/json', ...CORS } });
       } catch (err) {
         return new Response(JSON.stringify({ error: String(err) }), { status: 500, headers: { 'Content-Type': 'application/json', ...CORS } });
       }
+    }
+
+    // Unknown route. Verified safe to 404: all 32 distinct worker paths called
+    // from `app/`, `lib/` and `scripts/` resolve to an explicit route (A7 ALL-N
+    // check re-run at Phase 38.1 — 92 route forms, 32 called paths, 0 relying on
+    // the old catch-all).
+    if (request.method === 'GET') {
+      return jsonResp({ error: 'unknown route', path: url.pathname }, 404);
     }
 
     return new Response('Method Not Allowed', { status: 405, headers: CORS });
@@ -11666,6 +11839,10 @@ export { KNOWN_OPERATIONAL, applyKnownOperational, normName };
 export { CURATED_FLEET, injectCuratedFleet, injectManualAdditions };
 // Phase 33.B.3 — KV-persisted capacity-watch accumulator (pure helper for tests).
 export { accumulateCapacityWatch, CAPACITY_WATCH_FIELDS };
+// Phase 38.1 — per-leg ENTSO-E guard. Exported so the retry path can be proven
+// rather than assumed: it is the difference between one bad response costing a
+// retry and one bad response costing a 4-hourly tick.
+export { fetchBznGuarded };
 // Phase 36.B1 — the chronological hourly dispatch engine
 // (tools/consultancy/lib/dispatch.mjs) reuses these rather than restating them.
 // Discipline rule #4: one canonical implementation per quantity. Export

@@ -196,6 +196,14 @@ export const STALE_THRESHOLDS_HOURS = {
   s7:          12,    // TTF: every-4h cron, daily upstream; 12h = 3 missed crons
   s8:          12,    // Cross-border flows: every-4h cron; 12h = 3 missed crons
   s9:          12,    // EU ETS: every-4h cron, daily upstream; 12h = 3 missed crons
+  // Phase 38.1 — `s1_capture` backs the S1 card's hero €/MWh, its P-band chip,
+  // its "€N/day at a 100 MW plant" impact line and SpreadCaptureCard's canonical
+  // footnote, and it was monitored by NOTHING. It went 33h stale (8 missed
+  // 4-hourly ticks) and the only surface that noticed was the card's own chip,
+  // read by the operator's eye. 12h = 3 missed ticks, matching the s7/s8/s9
+  // convention. `s1` above cannot substitute: until this phase any unmatched GET
+  // rewrote it, so it measured probe traffic rather than the ingestion path (B-047).
+  s1_capture:  12,
   // Non-signal data feeds consumed by frontend. Tracked in /health alongside signals.
   'da_tomorrow':           36,   // Nord Pool DA: daily ~13:00 CET / 06:00 UTC publish
   'da_tomorrow:lastgood': 168,   // backstop mirror; only matters after a week of upstream failures

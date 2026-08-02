@@ -17,7 +17,7 @@ import {
 } from 'chart.js';
 import { Line, Bar } from 'react-chartjs-2';
 import { CHART_FONT, useChartColors, useTooltipStyle, buildScales, makeCrosshairPlugin, CHART_INTERACTION } from '@/app/lib/chartTheme';
-import { freshnessLabel, formatTimestamp } from '@/app/lib/freshness';
+import { freshnessLabel, formatTimestamp, marketDayEndStamp } from '@/app/lib/freshness';
 import { MarketThicknessChip } from '@/app/components/MarketThicknessChip';
 import type { ThicknessProduct } from '@/app/lib/financialDefinitions';
 
@@ -75,6 +75,13 @@ interface S2Signal {
   pct_above_100?: number | null;
   stress_index_p90?: number | null;
   source?: string | null;
+  /**
+   * Phase 38.1 — last complete day BTD has published (`YYYY-MM-DD`), written
+   * by `s2DataWindowEnd()` on every computeS2 payload and already load-bearing
+   * in the S2 admission gate (freshness-wins). It is the card's DATA stamp;
+   * `timestamp` is only when the fetch ran.
+   */
+  data_window_end?: string | null;
   activation?: {
     lt?: ActivationCountry;
     lv?: ActivationCountry;
@@ -194,6 +201,10 @@ export function S2Card() {
   const [country, setCountry] = useState<Country>('LT');
   const [pinned, setPinned] = useState<Pinned>(null);
   const flash = useRefreshFlash(isRefreshing);
+  // Data stamp, not fetch stamp (Phase 38.1). Null when the payload predates
+  // `data_window_end` — handled explicitly in LiveSignal rather than silently
+  // falling back to `timestamp`, which is the substitution this phase removes.
+  const dataStamp = marketDayEndStamp(data?.data_window_end);
   const drawerRef = useRef<DrawerHandle>(null);
   const openDrawer = (anchor: 'what' | 'how' | 'monthly' | 'bridge') => drawerRef.current?.open(anchor);
   const CC = useChartColors();
@@ -247,7 +258,18 @@ export function S2Card() {
         }}>
           S2 · Balancing · LT/LV/EE
         </span>
-        <LiveSignal updatedAt={data.timestamp} source="BTD" flash={flash} />
+        {/* Phase 38.1 — badge the DATA stamp, not the fetch stamp. `timestamp`
+            is when the fetch ran; `data_window_end` is the last complete day
+            BTD has published. Badging the former put a "1h ago" chip over a
+            three-day-old window. Fetch time is not lost — it moves to the
+            title and the source footer. */}
+        <LiveSignal
+          updatedAt={dataStamp}
+          source="BTD"
+          flash={flash}
+          fetchedAt={data.timestamp ?? null}
+          windowEnd={data.data_window_end ?? null}
+        />
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-xs)', marginLeft: 'auto' }}>
           <ProductToggle value={prod} onChange={setProd} />
           <span aria-hidden="true" style={{ width: '1px', height: '14px', background: 'var(--border-subtle)' }} />
@@ -415,7 +437,13 @@ function useRefreshFlash(isRefreshing: boolean): boolean {
   return flash;
 }
 
-function LiveSignal({ updatedAt, source, flash }: { updatedAt?: string | null; source: string; flash: boolean }) {
+function LiveSignal({ updatedAt, source, flash, fetchedAt, windowEnd }: {
+  updatedAt?: string | null; source: string; flash: boolean;
+  /** When the fetch ran. Disclosed, never substituted for the data stamp. */
+  fetchedAt?: string | null;
+  /** Last complete day the upstream has published, `YYYY-MM-DD`. */
+  windowEnd?: string | null;
+}) {
   const fresh = freshnessLabel(updatedAt);
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
@@ -464,6 +492,21 @@ function LiveSignal({ updatedAt, source, flash }: { updatedAt?: string | null; s
         letterSpacing: '0.04em',
       }}>
         {source}
+      </span>
+      {/* Phase 38.1 — the window the badge is describing, stated rather than
+          implied, plus the fetch time it used to be silently standing in for.
+          When `data_window_end` is absent (legacy payload) we say the window is
+          unknown instead of quietly badging the fetch stamp. */}
+      <span
+        style={{
+          fontFamily: 'var(--font-mono)', fontSize: 'var(--font-2xs, 10px)',
+          color: 'var(--text-tertiary)', letterSpacing: '0.04em',
+        }}
+        title={fetchedAt ? `Fetched ${formatTimestamp(fetchedAt)} — fetch time is not data age` : undefined}
+      >
+        {windowEnd
+          ? `data through ${fmtDate(windowEnd)}`
+          : 'data window unknown'}
       </span>
     </span>
   );

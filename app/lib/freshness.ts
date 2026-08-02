@@ -92,6 +92,32 @@ function isSameVilniusDay(tsMs: number, nowMs: number): boolean {
   return fmt(tsMs) === fmt(nowMs);
 }
 
+/**
+ * Phase 38.1 — data stamp for a series described by the last complete day it
+ * covers (`YYYY-MM-DD`).
+ *
+ * Freshness badges across the site were measuring two different things side by
+ * side: S1 badged when its DA capture was computed (a data stamp — honest, and
+ * it read `STALE · 33h ago` throughout an 8-tick ingestion outage), while S2
+ * badged `timestamp`, the moment the fetch ran. S2's `data_window_end` was
+ * 2026-07-30 while its badge read "1h ago", so the flagship balancing card
+ * showed a fresh chip over a three-day-old window and the omission hid the lag
+ * completely — `grep -rn "data_window_end" app/` returned nothing.
+ *
+ * A window ending on day D covers through the END of D, so the stamp is
+ * D + 24h UTC. Returns null for absent or malformed input rather than guessing;
+ * callers must decide what to render, never silently substitute a fetch stamp
+ * for a data stamp.
+ */
+export function marketDayEndStamp(
+  windowEndDate: string | null | undefined,
+): string | null {
+  if (!windowEndDate || !/^\d{4}-\d{2}-\d{2}$/.test(windowEndDate)) return null;
+  const ms = Date.parse(`${windowEndDate}T00:00:00Z`);
+  if (!Number.isFinite(ms)) return null;
+  return new Date(ms + 24 * 3_600_000).toISOString();
+}
+
 export function freshnessLabel(
   updatedAt: string | number | Date | null | undefined,
   now: number = Date.now(),
