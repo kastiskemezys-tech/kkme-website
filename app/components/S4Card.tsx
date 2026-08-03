@@ -156,6 +156,47 @@ export function SdFormulaLine({ fleet }: { fleet: FleetData | null | undefined }
   );
 }
 
+/**
+ * Phase 38.2 — the two-populations disclosure.
+ *
+ * Latvia publishes 80 MW at the TSO registry and 99 MW in the fleet tracker,
+ * and the 2026-08-02 audit spent a section establishing that neither is wrong:
+ * 80 answers "what has the TSO published as installed", 99 answers "what do we
+ * track as operational". The 40 that stood before this phase was the only wrong
+ * number, and it was wrong because nothing on the card made the distinction
+ * legible — a reader who noticed two figures had no way to tell a defect from a
+ * definition.
+ *
+ * Both figures come from the payload and the difference is computed, so this
+ * cannot drift from what it explains (rule #2). Renders nothing when the two
+ * agree — a disclosure about a gap that does not exist is noise.
+ */
+export function TwoPopulationsNote({ registryMw, fleetMw }: {
+  registryMw: number | null | undefined;
+  fleetMw: number | null | undefined;
+}) {
+  if (registryMw == null || fleetMw == null) return null;
+  const delta = Math.round((fleetMw - registryMw) * 10) / 10;
+  if (delta === 0) return null;
+  return (
+    <p
+      data-testid="two-populations-note"
+      style={{
+        fontFamily: 'var(--font-serif)', fontSize: 'var(--font-xs)',
+        color: 'var(--text-muted)', lineHeight: 1.6,
+        marginTop: '12px', marginBottom: 0,
+        paddingLeft: '10px', borderLeft: '1px solid var(--border-subtle)',
+      }}
+    >
+      {formatMW(registryMw)} MW is the TSO-published registry figure. The fleet
+      tracker carries {formatMW(fleetMw)} MW for the same country — a{' '}
+      {formatMW(delta)} MW difference, and both are correct: the registry
+      answers what the TSO has published as installed, the tracker answers what
+      we track as operational, commercial sites included.
+    </p>
+  );
+}
+
 interface S4Signal {
   timestamp?:         string | null;
   free_mw?:           number | null;
@@ -630,6 +671,14 @@ export function S4Card() {
             {sbc.LV?.assets?.map((a: CountryAsset) => <AssetRow key={a.id} asset={a} />) || (
               <p style={{ color: 'var(--text-muted)' }}>No asset data available</p>
             )}
+            {/* Phase 38.2 — the registry figure and the fleet figure differ for
+                LV and both are correct. Stating which question each answers is
+                cheaper than a reader discovering the gap and assuming one is
+                wrong. Computed from the payload, never asserted. */}
+            <TwoPopulationsNote
+              registryMw={lvMw}
+              fleetMw={fleetCountries.LV?.operational_mw ?? null}
+            />
             {sbc.LV?.coverage_note && (
               <div style={{
                 paddingTop: 'var(--space-xs)', paddingRight: '10px', paddingBottom: 'var(--space-xs)', paddingLeft: '10px', borderLeft: '2px solid var(--amber-subtle)',
