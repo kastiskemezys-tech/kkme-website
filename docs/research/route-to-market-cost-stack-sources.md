@@ -51,10 +51,12 @@ combined rate to `mwh_charged + mwh_discharged`, not to net position. Day-ahead 
 rate for the arbitrage line; balancing activation is not traded on the exchange and carries none
 of this.
 
-**Order of magnitude, reference asset (50 MW / 4h, post-partition):** ~113 EFC/yr × 200 MWh
-× 2 legs ≈ 45,200 MWh through the exchange → ≈ **€2,500/yr**. This line is real, correctly
-placed, and *immaterial* — which is itself worth knowing, because it was named as one of the
-five defects.
+**Order of magnitude, reference asset (50 MW / 4h, post-partition):** estimated at ≈ €2,500/yr
+when this note was written. **The shipped engine computes €1,030/yr** at that configuration, and
+€669–€1,030 across the 54 public configurations — the estimate was high because it applied a
+pre-partition throughput figure to a post-partition asset. Either way the conclusion is the
+same and is now measured rather than estimated: this line is real, correctly placed, and
+*immaterial* — worth knowing precisely because it was named as one of the five defects.
 
 ## 3 · BRP / balancing volume fees — NOT LOCATED
 

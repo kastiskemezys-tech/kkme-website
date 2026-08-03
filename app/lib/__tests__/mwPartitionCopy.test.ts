@@ -6,7 +6,7 @@
  * to drift from the payload it describes.
  */
 import { describe, it, expect } from 'vitest';
-import { partitionExplainer, PARTITION_REFERENCE, PARTITION_MEDIAN, costStackExplainer } from '../mwPartitionCopy';
+import { partitionExplainer, PARTITION_REFERENCE, PARTITION_MEDIAN, costStackExplainer, PMC_CLAIM_UPPER_BOUND_EUR_YR } from '../mwPartitionCopy';
 
 const all = (share: number | null) => partitionExplainer(share).paragraphs.join(' ');
 
@@ -158,5 +158,28 @@ describe('38.8a — the cost-stack explainer states what it does not know', () =
       expect(p).not.toContain('undefined');
       expect(p).not.toContain('NaN');
     }
+  });
+});
+
+/**
+ * Phase 38.8a-1 — the PMC claim is pinned to the number it describes.
+ *
+ * The first draft said "roughly two thousand euros a year", carried over from a
+ * pre-partition throughput estimate. The shipped engine computes €669-1,030
+ * across the 54 public configurations, so the copy overstated a published claim
+ * by about 2x. Caught by reading the live payload after deploy, not by a gate —
+ * which is why this test now exists.
+ */
+describe('38.8a-1 — the PMC paragraph matches the engine', () => {
+  it('claims an upper bound the engine actually respects', () => {
+    const t = costStackExplainer().paragraphs.join(' ');
+    expect(t).toContain('under a thousand euros a year');
+    expect(t).not.toContain('two thousand');
+    expect(PMC_CLAIM_UPPER_BOUND_EUR_YR).toBe(1000);
+  });
+
+  it('states the asset size the claim is scaled to', () => {
+    // "under a thousand euros" is meaningless without the MW it applies to.
+    expect(costStackExplainer().paragraphs.join(' ')).toContain('50 MW asset');
   });
 });
