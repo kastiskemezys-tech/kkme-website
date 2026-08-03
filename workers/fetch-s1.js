@@ -23,7 +23,7 @@
 
 import { DEFAULTS, STALE_THRESHOLDS_HOURS } from './lib/defaults.js';
 import { kvWrite, checkBounds, checkRequired } from './lib/kv.js';
-import { notifyTelegram } from './lib/notify.js';
+import { notifyTelegram, alertTransition, redactForAlert } from './lib/notify.js';
 import { computeEUATrend } from './lib/eua_trend.js';
 import * as CALC from './lib/calculator.js';
 // Phase 39 — debt sized from cash flows. The solver and its sourced parameter
@@ -4654,6 +4654,174 @@ function extractPrices(xml) {
   return prices;
 }
 
+/**
+ * ─── A44, parsed as the document actually is ─────────────────────────────────
+ *
+ * Phase 39.2. `extractPrices` above scrapes every `price.amount` in document
+ * order and returns one flat array. Two properties of a real A44 response make
+ * that array something other than "the prices of the day asked for", and both
+ * were measured against production on 2026-08-03, not inferred:
+ *
+ *  1. **curveType A03 omits repeated positions.** The LT document for
+ *     2026-08-03 declares 96 quarter-hours but carries 94 Points — positions 3
+ *     and 11 are absent because their price equals the position before. A
+ *     consumer must forward-fill. Scraping instead SHIFTS every later value one
+ *     slot earlier per omission: measured against Elering's independent series
+ *     for the same window, the flat scrape puts 92 of its 94 values at the
+ *     wrong time, while the forward-filled reconstruction matches 96/96 exactly.
+ *     This is the identical failure the 36.B batch-3 comment above describes
+ *     ("the whole element failed to match … every subsequent index shifted") —
+ *     that fix addressed the negative-sign character class and left the
+ *     position mechanism untouched, because a missing `<Point>` never had to
+ *     match anything to be lost.
+ *
+ *  2. **A UTC-bounded request returns whole CET/CEST market days.** Asking for
+ *     `periodStart=<D>0000&periodEnd=<D+1>0000` returns TWO `<TimeSeries>` —
+ *     22:00Z(D-1)→22:00Z(D) and 22:00Z(D)→22:00Z(D+1) in summer — which the
+ *     flat scrape concatenates into a single 190-entry array. Every consumer
+ *     downstream treats it as one day.
+ *
+ * These functions reconstruct the document faithfully instead: Periods with
+ * their declared time windows, positions forward-filled per A03, and a slice
+ * addressed by wall-clock UTC rather than by array index. `extractPrices` is
+ * deliberately left alone — changing it moves published S1 numbers, which this
+ * phase is not permitted to do (see the phase wrap, decision 1).
+ */
+function isoDurationToMinutes(res) {
+  const m = /^PT(?:(\d+)H)?(?:(\d+)M)?$/.exec(res || '');
+  if (!m) return null;
+  const mins = (Number(m[1] || 0) * 60) + Number(m[2] || 0);
+  return mins > 0 ? mins : null;
+}
+
+/**
+ * Every `<Period>` in an A44 document, with its positions forward-filled to the
+ * full length its own timeInterval and resolution declare.
+ *
+ * A Period whose position 1 is absent, or whose declared window is not a whole
+ * multiple of its resolution, is dropped rather than guessed at — a partially
+ * reconstructed price day is the input that produces a confidently wrong
+ * number, which is worse than no number (playbook B10).
+ *
+ * @returns {Array<{startMs:number,endMs:number,resolutionMin:number,prices:number[],declared:number,filled:number}>}
+ */
+function parseA44Periods(xml) {
+  const out = [];
+  if (!xml) return out;
+  const periodRe = /<Period>([\s\S]*?)<\/Period>/g;
+  let pm;
+  while ((pm = periodRe.exec(xml)) !== null) {
+    const body = pm[1];
+    const start = /<start>([^<]+)<\/start>/.exec(body)?.[1];
+    const end = /<end>([^<]+)<\/end>/.exec(body)?.[1];
+    const resolutionMin = isoDurationToMinutes(/<resolution>([^<]+)<\/resolution>/.exec(body)?.[1]);
+    if (!start || !end || !resolutionMin) continue;
+
+    const startMs = Date.parse(start);
+    const endMs = Date.parse(end);
+    if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) continue;
+
+    const spanMin = (endMs - startMs) / 60000;
+    if (spanMin % resolutionMin !== 0) continue;
+    const expected = spanMin / resolutionMin;
+
+    const byPos = new Map();
+    const pointRe = /<Point>([\s\S]*?)<\/Point>/g;
+    let ptm;
+    while ((ptm = pointRe.exec(body)) !== null) {
+      const pos = /<position>(\d+)<\/position>/.exec(ptm[1])?.[1];
+      const amt = /<price\.amount>([-\d.eE+]+)<\/price\.amount>/.exec(ptm[1])?.[1];
+      if (pos == null || amt == null) continue;
+      const v = parseFloat(amt);
+      if (!Number.isFinite(v)) continue;
+      byPos.set(Number(pos), v);
+    }
+    // A03: a Point holds until the next declared position. Position 1 must
+    // exist for that to have a starting value at all.
+    if (!byPos.has(1)) continue;
+
+    const prices = [];
+    let last = null;
+    for (let p = 1; p <= expected; p++) {
+      if (byPos.has(p)) last = byPos.get(p);
+      prices.push(last);
+    }
+    out.push({
+      startMs,
+      endMs,
+      resolutionMin,
+      prices,
+      declared: expected,
+      filled: expected - byPos.size,
+    });
+  }
+  return out;
+}
+
+/**
+ * The prices covering one UTC calendar day, addressed by wall-clock time.
+ *
+ * Returns `null` — never a partial array — when the parsed Periods do not cover
+ * every slot of the day. That is the normal state before ~11:00Z: the tail of a
+ * UTC day lives in the NEXT CET/CEST market day, whose auction has not been
+ * published yet. A caller that wants a capture number must treat null as "not
+ * available on this tick", not as zero.
+ *
+ * @param {ReturnType<typeof parseA44Periods>} periods
+ * @param {string} dateStr YYYY-MM-DD, interpreted as a UTC calendar day
+ */
+function pricesForUtcDay(periods, dateStr) {
+  const dayStart = Date.parse(`${dateStr}T00:00:00Z`);
+  if (!Number.isFinite(dayStart)) return null;
+  const dayEnd = dayStart + 86400000;
+
+  const contributing = periods.filter(p => p.endMs > dayStart && p.startMs < dayEnd);
+  if (!contributing.length) return null;
+
+  // Reconstruct on the finest grid any contributing Period declares, so a
+  // mixed-resolution day (hourly history meeting a 15-min ISP day) resolves
+  // without either side being resampled away.
+  const gridMin = Math.min(...contributing.map(p => p.resolutionMin));
+  const slots = 1440 / gridMin;
+  if (!Number.isInteger(slots)) return null;
+
+  const grid = new Array(slots).fill(null);
+  for (const p of contributing) {
+    const per = p.resolutionMin / gridMin; // grid slots per declared point
+    for (let i = 0; i < p.prices.length; i++) {
+      const tMs = p.startMs + (i * p.resolutionMin * 60000);
+      for (let k = 0; k < per; k++) {
+        const slotMs = tMs + (k * gridMin * 60000);
+        if (slotMs < dayStart || slotMs >= dayEnd) continue;
+        grid[(slotMs - dayStart) / (gridMin * 60000)] = p.prices[i];
+      }
+    }
+  }
+  if (grid.some(v => v == null)) return null;
+
+  // Report the NATIVE resolution where the grid merely repeats a coarser
+  // source, so `resolution` in the capture payload keeps meaning what it has
+  // always meant. Sort-and-dispatch is invariant to this expansion: repeating
+  // each hourly price four times multiplies both the charge and the discharge
+  // window by four and leaves every mean unchanged.
+  let nativeMin = gridMin;
+  for (const step of [60, 30, 15]) {
+    if (step < gridMin) continue;
+    const per = step / gridMin;
+    if (!Number.isInteger(per)) continue;
+    let uniform = true;
+    for (let i = 0; i < slots && uniform; i += per) {
+      for (let k = 1; k < per; k++) if (grid[i + k] !== grid[i]) { uniform = false; break; }
+    }
+    if (uniform) { nativeMin = step; break; }
+  }
+  const per = nativeMin / gridMin;
+  const prices = per === 1 ? grid : grid.filter((_, i) => i % per === 0);
+  const timestamps = prices.map((_, i) => (dayStart + (i * nativeMin * 60000)) / 1000);
+
+  return { prices, timestamps, resolution: nativeMin };
+}
+
 function avg(arr) {
   return arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
 }
@@ -4955,10 +5123,70 @@ function captureRollingStats(entries, field) {
  * Main capture orchestrator. Fetches today's LT DA prices from energy-charts.info,
  * computes 2h and 4h capture, updates rolling history, stores to KV.
  */
+/**
+ * The ENTSO-E-derived second source for the capture day (Phase 39.2).
+ *
+ * Same admission discipline as 36.C: one writer, source rank recorded, and the
+ * fallback visible in the payload rather than invisible in the result.
+ *
+ * The equivalence this rests on was verified, not assumed. energy-charts serves
+ * the LT day-ahead curve for a UTC calendar day; ENTSO-E A44 serves the same
+ * curve on CET/CEST market-day Periods. Reconstructed through
+ * `parseA44Periods` + `pricesForUtcDay` the two address the identical window in
+ * the identical unit (EUR/MWh, LT bidding zone, same MTU), and the
+ * reconstruction was checked slot-for-slot against Elering's independent NPS
+ * series for 2026-08-03: 96/96 exact.
+ *
+ * The one thing it CANNOT do is invent an auction that has not happened. The
+ * last two hours of a UTC day belong to the next CET/CEST market day, published
+ * around 11:00Z — so on the 00/04/08Z ticks `pricesForUtcDay` returns null and
+ * this source declines rather than computing a 22-hour "day". That is a real
+ * availability gap and it is reported as one, not papered over.
+ */
+async function fetchEntsoeCaptureDay(env, dateStr) {
+  const apiKey = env?.ENTSOE_API_KEY;
+  if (!apiKey) throw new Error('entsoe fallback: ENTSOE_API_KEY secret not set');
+  const xml = await fetchBznGuarded(LT_BZN, apiKey, 'LT/capture-fallback');
+  if (xml == null) throw new Error('entsoe fallback: LT A44 fetch failed on both attempts');
+  const periods = parseA44Periods(xml);
+  if (!periods.length) throw new Error(`entsoe fallback: no parseable Period in A44 document (${xml.length}B)`);
+  const day = pricesForUtcDay(periods, dateStr);
+  if (!day) {
+    const covered = periods.map(p => `${new Date(p.startMs).toISOString()}→${new Date(p.endMs).toISOString()}`).join(', ');
+    throw new Error(`entsoe fallback: UTC day ${dateStr} not fully covered by published periods [${covered}]`);
+  }
+  return day;
+}
+
+/**
+ * Resolve the capture day from the highest-ranked source that answers.
+ * Rank 1 energy-charts.info; rank 2 ENTSO-E A44. Rank is recorded on the
+ * payload so a fallback day is legible in the data instead of being a silent
+ * substitution.
+ */
+async function resolveCaptureDay(env, today) {
+  try {
+    const d = await fetchEnergyCharts(today);
+    return { ...d, capture_source: 'energy-charts', capture_source_rank: 1, capture_source_label: 'energy-charts.info (Fraunhofer ISE)', capture_fallback_reason: null };
+  } catch (primaryErr) {
+    const reason = String(primaryErr);
+    console.warn(`[S1/capture] primary source failed (${reason}) — trying ENTSO-E A44 fallback`);
+    try {
+      const d = await fetchEntsoeCaptureDay(env, today);
+      console.warn(`[S1/capture] FALLBACK ACTIVE — ${today} from ENTSO-E A44, ${d.prices.length}×${d.resolution}min`);
+      return { ...d, capture_source: 'entsoe-a44', capture_source_rank: 2, capture_source_label: 'ENTSO-E A44 (fallback)', capture_fallback_reason: reason.slice(0, 240) };
+    } catch (fallbackErr) {
+      // Both down: surface BOTH diagnoses. An alert naming only the last thing
+      // tried sends the operator after the wrong host.
+      throw new Error(`capture sources exhausted — primary: ${reason.slice(0, 200)} | fallback: ${String(fallbackErr).slice(0, 200)}`);
+    }
+  }
+}
+
 async function computeCapture(env) {
   const today = new Date().toISOString().slice(0, 10);
 
-  const { prices, timestamps, resolution } = await fetchEnergyCharts(today);
+  const { prices, timestamps, resolution, capture_source, capture_source_rank, capture_source_label, capture_fallback_reason } = await resolveCaptureDay(env, today);
 
   const capture_2h = computeDayCapture(prices, 2, resolution);
   const capture_4h = computeDayCapture(prices, 4, resolution);
@@ -4987,6 +5215,7 @@ async function computeCapture(env) {
     daily_avg: shape?.daily_avg ?? null,
     resolution,
     n_prices: prices.length,
+    capture_source,
   });
 
   // Keep last 400 days (for monthly aggregation depth)
@@ -5043,7 +5272,12 @@ async function computeCapture(env) {
     monthly,
     gross_to_net: grossToNet,
     history: history.slice(-30), // last 30 days for charts
-    source: 'energy-charts.info (Fraunhofer ISE)',
+    source: capture_source_label,
+    // Phase 39.2 — which source produced THIS day, and why, on the payload
+    // itself. A fallback that is only visible in a log line is invisible.
+    capture_source,
+    capture_source_rank,
+    capture_fallback_reason,
     data_class: 'derived',
     resolution: `${resolution}min`,
     updated_at: new Date().toISOString(),
@@ -5075,7 +5309,7 @@ async function computeCapture(env) {
     }
   }
 
-  console.log(`[S1/capture] ${today} 2h=${capture_2h?.gross_eur_mwh ?? '—'}€ 4h=${capture_4h?.gross_eur_mwh ?? '—'}€ swing=${shape?.swing ?? '—'}€ resolution=${resolution}min n=${prices.length}`);
+  console.log(`[S1/capture] ${today} 2h=${capture_2h?.gross_eur_mwh ?? '—'}€ 4h=${capture_4h?.gross_eur_mwh ?? '—'}€ swing=${shape?.swing ?? '—'}€ resolution=${resolution}min n=${prices.length} source=${capture_source}`);
 
   return captureData;
 }
@@ -5999,7 +6233,39 @@ Return ONLY valid JSON:
       headers: { 'Content-Type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 4000, tools: [{ type: 'web_search_20250305', name: 'web_search' }], messages: [{ role: 'user', content: prompt }] }),
     });
-    const data = await res.json();
+    // \u2500\u2500 Phase 39.2 \u2014 read the envelope before trusting the letter \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+    //
+    // The old path went straight to `res.json()` and then to `data.content`,
+    // with no status check anywhere. Every non-2xx from the Anthropic API \u2014
+    // 401 on a rotated key, 429, 529 overloaded \u2014 returns a well-formed JSON
+    // ERROR body, which parses fine, has no `content`, and collapses to
+    // `textContent === ''`. `JSON.parse('')` then throws "Unexpected end of
+    // JSON input" and the operator's phone said, in full: "S3 enrichment ran
+    // but JSON parse failed." The actual API error was read, discarded, and
+    // replaced by a message about the wrong layer. Same class as NordPool
+    // serving HTML where JSON was expected (36.C) \u2014 the bytes that arrived are
+    // the diagnosis, and they were the one thing not kept.
+    const bodyText = await res.text();
+    const envelope = {
+      status: res.status,
+      ctype: (res.headers.get('content-type') || 'none').split(';')[0],
+      bytes: bodyText.length,
+    };
+    if (!res.ok) {
+      const diag = `HTTP ${envelope.status} \u00b7 ${envelope.ctype} \u00b7 ${envelope.bytes}B \u00b7 ${redactForAlert(bodyText).slice(0, 200)}`;
+      console.error('[S3/enrichment] API error:', diag);
+      await alertTransition(env, 's3_enrichment', 'degraded', `S3 enrichment: API rejected the request\n${diag}`);
+      return;
+    }
+    let data;
+    try {
+      data = JSON.parse(bodyText);
+    } catch (envErr) {
+      const diag = `HTTP ${envelope.status} \u00b7 ${envelope.ctype} \u00b7 ${envelope.bytes}B \u00b7 ${redactForAlert(bodyText).slice(0, 200)}`;
+      console.error('[S3/enrichment] response envelope is not JSON:', String(envErr), diag);
+      await alertTransition(env, 's3_enrichment', 'degraded', `S3 enrichment: response was not JSON\n${diag}`);
+      return;
+    }
     const textContent = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
     let enrichment;
     try {
@@ -6009,12 +6275,23 @@ Return ONLY valid JSON:
       if (firstBrace > 0) cleaned = cleaned.substring(firstBrace);
       const lastBrace = cleaned.lastIndexOf('}');
       if (lastBrace >= 0 && lastBrace < cleaned.length - 1) cleaned = cleaned.substring(0, lastBrace + 1);
+      if (!cleaned) throw new Error('model returned no text block');
       enrichment = JSON.parse(cleaned);
     } catch (parseErr) {
-      console.error('[S3/enrichment] JSON parse failed:', parseErr.message, 'response:', textContent.substring(0, 200));
-      await notifyTelegram(env, '\u26a0\ufe0f S3 enrichment ran but JSON parse failed.');
+      // The model's own output failed to parse. Carry what it actually said,
+      // plus the envelope it arrived in and the stop_reason, which is what
+      // distinguishes a truncated answer (max_tokens) from a malformed one.
+      const diag = [
+        `HTTP ${envelope.status} \u00b7 ${envelope.ctype} \u00b7 ${envelope.bytes}B`,
+        `stop_reason=${data.stop_reason ?? '\u2014'} blocks=${(data.content || []).length} text=${textContent.length}B`,
+        `err=${parseErr.message}`,
+        `head: ${redactForAlert(textContent).slice(0, 200) || '(empty text block)'}`,
+      ].join('\n');
+      console.error('[S3/enrichment] JSON parse failed:', diag);
+      await alertTransition(env, 's3_enrichment', 'degraded', `S3 enrichment: model output did not parse\n${diag}`);
       return;
     }
+    await alertTransition(env, 's3_enrichment', 'ok', 'S3 enrichment parsed cleanly');
     if (!enrichment.findings || !enrichment.driver_sentiment) {
       console.error('[S3/enrichment] missing required fields');
       return;
@@ -6057,6 +6334,8 @@ async function computeS3() {
   const timer = setTimeout(() => controller.abort(), 20000);
 
   let teStatus = null;
+  let teCtype = null;
+  let teBytes = null;
   let bodyPreview = '';
 
   try {
@@ -6067,9 +6346,12 @@ async function computeS3() {
     ]);
     clearTimeout(timer);
     teStatus = teRes.status;
+    teCtype = (teRes.headers.get('content-type') || 'none').split(';')[0];
 
     if (!teRes.ok) {
-      bodyPreview = (await teRes.text().catch(() => '')).slice(0, 500);
+      const body = await teRes.text().catch(() => '');
+      teBytes = body.length;
+      bodyPreview = body.slice(0, 500);
       return {
         timestamp: new Date().toISOString(),
         unavailable: true,
@@ -6080,11 +6362,22 @@ async function computeS3() {
         interpretation: 'Data temporarily unavailable.',
         source: 'tradingeconomics.com + infolink-group.com',
         _scrape_error: `TE HTTP ${teRes.status}`,
+        // Phase 39.2 — the envelope, flat, so the alert can quote it without
+        // reaching into a debug blob. status + content-type + byte length +
+        // head is the minimum that distinguishes "upstream is down" from
+        // "upstream served an HTML error page where the scrape wanted markup"
+        // from "we were rate-limited" — the three cases the old
+        // one-line error could not tell apart.
+        _scrape_status: teStatus,
+        _scrape_ctype: teCtype,
+        _scrape_bytes: teBytes,
+        _scrape_head: redactForAlert(bodyPreview).slice(0, 200),
         _scrape_debug: { status: teStatus, bodyPreview },
       };
     }
 
     const teHtml = await teRes.text();
+    teBytes = teHtml.length;
     bodyPreview = teHtml.slice(0, 500);
 
     const parsed = parseLithiumPrice(teHtml);
@@ -6099,6 +6392,10 @@ async function computeS3() {
         interpretation: 'Price parse failed — check _scrape_debug.',
         source: 'tradingeconomics.com + infolink-group.com',
         _scrape_error: 'TE price not found in HTML',
+        _scrape_status: teStatus,
+        _scrape_ctype: teCtype,
+        _scrape_bytes: teBytes,
+        _scrape_head: redactForAlert(bodyPreview).slice(0, 200),
         _scrape_debug: { status: teStatus, bodyPreview },
       };
     }
@@ -6150,6 +6447,10 @@ async function computeS3() {
       interpretation: 'Data temporarily unavailable.',
       source: 'tradingeconomics.com + infolink-group.com',
       _scrape_error: String(err),
+      _scrape_status: teStatus,
+      _scrape_ctype: teCtype,
+      _scrape_bytes: teBytes,
+      _scrape_head: redactForAlert(bodyPreview).slice(0, 200),
       _scrape_debug: { status: teStatus, bodyPreview },
     };
   }
@@ -7091,6 +7392,44 @@ async function sendDailyDigest(env) {
   const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
   const newItems = idx.filter(i => i.added_at?.startsWith(yesterday));
   if (newItems.length > 0) lines.push(`📰 Feed: +${newItems.length} item${newItems.length > 1 ? 's' : ''} added`);
+
+  // ── Phase 39.2 — the alerter's heartbeat rides the digest (B8) ────────────
+  //
+  // "If the alerter stops sending, what tells us?" A dead alerter cannot report
+  // its own death — but this digest goes out on a fixed daily cadence on the
+  // SAME channel, so if the operator stops receiving it, the channel is the
+  // thing that is broken. What the digest adds is the positive statement:
+  // it names the currently-degraded surfaces, so a quiet channel and a healthy
+  // system are told apart by a message that arrived saying "nothing degraded"
+  // rather than by no message at all.
+  //
+  // Every value below is COMPUTED from the two stamps (rule #2). None of it is
+  // a pre-written reassurance that could outlive its premise.
+  try {
+    const alertRaw = await env.KKME_SIGNALS.get('alert_state').catch(() => null);
+    const state = alertRaw ? JSON.parse(alertRaw) : {};
+    const degraded = Object.entries(state).filter(([, s]) => s?.state === 'degraded');
+    if (degraded.length) {
+      lines.push(`🔴 Degraded surfaces (${degraded.length}):`);
+      for (const [surface, s] of degraded) {
+        lines.push(`  • ${surface} — ${s.consecutive ?? 0}× since ${s.first_failure_at?.slice(0, 16) ?? '?'}`);
+      }
+    } else if (Object.keys(state).length) {
+      lines.push(`🟢 Alerting: ${Object.keys(state).length} surface(s) tracked, none degraded`);
+    }
+
+    const healthRaw = await env.KKME_SIGNALS.get('alerter_health').catch(() => null);
+    if (healthRaw) {
+      const h = JSON.parse(healthRaw);
+      if ((h.consecutive_send_failures ?? 0) > 0) {
+        lines.push(`⚠️ Alerter: ${h.consecutive_send_failures} consecutive send failure(s) — last error ${String(h.last_error).slice(0, 120)}`);
+      }
+    } else {
+      lines.push('⚠️ Alerter: no send ever recorded — the alerting layer has not proven it can reach this channel');
+    }
+  } catch (e) {
+    lines.push(`⚠️ Alerting self-check failed: ${String(e).slice(0, 120)}`);
+  }
 
   const isMonday = new Date().getDay() === 1;
   if (lines.length > 1 || isMonday) {
@@ -8670,7 +9009,12 @@ export default {
           net_4h:   capture.capture_4h?.net_eur_mwh   ?? null,
           rolling_30d: capture.rolling_30d,
           shape_swing: capture.shape?.swing ?? null,
-          source: 'energy-charts.info',
+          // Phase 39.2 — was the literal 'energy-charts.info' regardless of what
+          // actually produced the day. With a fallback in the path a hardcoded
+          // provenance label is rule #2's failure mode exactly: a claim about
+          // where a number came from that was never computed from the number.
+          source: capture.capture_source === 'entsoe-a44' ? 'ENTSO-E A44 (fallback)' : 'energy-charts.info',
+          capture_source: capture.capture_source ?? null,
           data_class: 'derived',
         };
       }
@@ -8712,15 +9056,18 @@ export default {
     // and by nothing else. `/health` now carries `s1_capture` (12h) so the
     // pull surface tells us within three ticks; this tells us on the failing
     // tick itself, on the same channel the S2 watchdog already uses.
-    if (s1Err || captureErr) {
-      const lines = [
-        '⚠️ S1 4-hourly cron degraded',
-        s1Err     ? `• computeS1 rejected: ${s1Err.slice(0, 240)}` : '• computeS1: ok',
-        captureErr ? `• computeCapture rejected: ${captureErr.slice(0, 240)}` : '• computeCapture: ok',
-        s1Err ? '• knock-on: s1 / raw:s1 / da_tomorrow mirror all skipped this tick' : '',
-      ].filter(Boolean);
-      await notifyTelegram(env, lines.join('\n')).catch(() => {});
-    }
+    // Phase 39.2 — the same facts, routed through the transition machine so a
+    // continuing failure stops re-sending, a CHANGED failure still speaks, and
+    // a recovery produces a message. `capture` succeeding via the fallback is
+    // an `ok` state that names the fallback: the operator needs to know the
+    // number is being produced by the second source, but not at 03:00.
+    const s1Degraded = Boolean(s1Err || captureErr);
+    const lines = [
+      s1Err      ? `• computeS1 rejected: ${s1Err.slice(0, 240)}` : '• computeS1: ok',
+      captureErr ? `• computeCapture rejected: ${captureErr.slice(0, 240)}` : `• computeCapture: ok (source: ${capture?.capture_source ?? 'unknown'})`,
+      s1Err ? '• knock-on: s1 / raw:s1 / da_tomorrow mirror all skipped this tick' : '',
+    ].filter(Boolean);
+    await alertTransition(env, 's1_cron', s1Degraded ? 'degraded' : 'ok', lines.join('\n')).catch(() => {});
 
     if (s2Result.status === 'fulfilled') {
       const payload = s2Result.value;
@@ -8738,8 +9085,15 @@ export default {
       await env.KKME_SIGNALS.put('s4', JSON.stringify(d));
       console.log(`[S4] ${d.signal} free=${d.free_mw}MW utilisation=${d.utilisation_pct}%`);
       await appendSignalHistory(env, 's4', { free_mw: d.free_mw }).catch(e => console.error('[S4/history]', e));
+      await alertTransition(env, 's4_cron', 'ok', `S4 wrote free=${d.free_mw}MW`).catch(() => {});
     } else {
+      // Phase 39.2 — S4 last wrote 2026-08-03T08:01:04Z and missed the 12:00Z
+      // and 16:00Z ticks, while /health read `present · 8.5h · stale: false`
+      // against a 24h threshold. Three ticks of silence fit inside the
+      // threshold, so the staleness surface cannot see a same-day outage; only
+      // the failing tick can report it, and it was reporting to console.error.
       console.error('[S4] cron failed:', s4Result.reason);
+      await alertTransition(env, 's4_cron', 'degraded', `• computeS4 rejected: ${String(s4Result.reason).slice(0, 240)}`).catch(() => {});
     }
 
     // Phase 36.D — Litgrid publication tripwire. Rides the 4-hourly cron; the
@@ -8765,8 +9119,20 @@ export default {
       await env.KKME_SIGNALS.put('s3', JSON.stringify(d));
       await env.KKME_SIGNALS.put(`raw:s3:${new Date().toISOString().slice(0,10)}`, JSON.stringify({ fetched: new Date().toISOString(), data: d }), { expirationTtl: 604800 });
       if (d.unavailable) {
+        // Phase 39.2 — this branch has always existed and has never told anyone.
+        // computeS3 catches its own failure and writes a payload marked
+        // `unavailable`, which both keeps /health green (see the /health
+        // handler) and logs to a console nobody reads. Live at 16:00:28Z on
+        // 2026-08-03: `AbortError: The operation was aborted` — the 20s scrape
+        // timeout — with the card serving its editorial fallback silently.
         console.error(`[S3] scrape failed: ${d._scrape_error}`);
+        await alertTransition(env, 's3_scrape', 'degraded', [
+          `• computeS3 scrape unavailable: ${String(d._scrape_error).slice(0, 200)}`,
+          `• upstream: ${d._scrape_status != null ? `HTTP ${d._scrape_status}` : 'no status'} · ${d._scrape_ctype ?? 'no content-type'} · ${d._scrape_bytes ?? '?'}B`,
+          '• card falls back to editorial ranges; the published number is not live',
+        ].join('\n')).catch(() => {});
       } else {
+        await alertTransition(env, 's3_scrape', 'ok', `S3 scrape live — lithium €${d.lithium_eur_t}/t`).catch(() => {});
         console.log(`[S3] ${d.signal} lithium=€${d.lithium_eur_t}/t trend=${d.lithium_trend} cell=${d.cell_eur_kwh ?? '—'} €/kWh`);
         // Track S3 freshness
         await updateS3Freshness(env.KKME_SIGNALS, 'lithium_proxy', { confidence: 'proxy' }).catch(() => {});
@@ -11962,11 +12328,27 @@ export default {
           const ageH      = ts ? (Date.now() - new Date(ts).getTime()) / 3600000 : null;
           const threshold = STALE_THRESHOLDS_HOURS[key] ?? 48;
           const stale     = ageH !== null ? ageH > threshold : null;
+          // ── Phase 39.2 — a failure written on time is not freshness ────────
+          //
+          // computeS3 catches its own scrape failure and writes the key anyway,
+          // carrying `unavailable: true` and `_scrape_error`. That write stamps
+          // a new `timestamp`, so the staleness clock RESETS on every failure
+          // and s3 can never age past its threshold no matter how long the
+          // scrape has been broken. Measured live 2026-08-03T16:00:28Z:
+          // `unavailable: true, _scrape_error: "AbortError"` reported by /health
+          // as `present · 0.6h · stale: false`. That is B12 exactly — the damage
+          // disabling its own detector while the surface reassures.
+          //
+          // The key still gets written (the card keeps its last good editorial
+          // content); it simply stops counting as fresh while it is self-
+          // reporting failure.
+          const degraded = data.unavailable === true || Boolean(data._scrape_error);
           signals[key] = {
             status:          'present',
             age_hours:       ageH !== null ? parseFloat(ageH.toFixed(1)) : null,
             stale,
             threshold_hours: threshold,
+            ...(degraded ? { degraded: true, degraded_reason: String(data._scrape_error ?? 'payload self-reports unavailable').slice(0, 200) } : {}),
           };
         } catch (e) {
           signals[key] = { status: 'error', error: e.message };
@@ -11974,7 +12356,7 @@ export default {
       }));
 
       const allFresh = Object.values(signals).every(
-        r => r.status === 'present' && r.stale === false,
+        r => r.status === 'present' && r.stale === false && r.degraded !== true,
       );
 
       // Legacy: include mac_cron field for backward compat but mark as deprecated
@@ -11986,6 +12368,61 @@ export default {
           macCron.last_ping = cron.timestamp ?? null;
         }
       } catch { /* ignore */ }
+
+      // ── Phase 39.2 — the alerting layer's own liveness (B8 on the alerter) ──
+      //
+      // "If the alerter stops sending, what tells us?" The answer before this
+      // was: nothing. `notifyTelegram` swallowed every error, returned void,
+      // and left no trace — a revoked bot token would have made the channel go
+      // quiet, and quiet is precisely how a healthy system looks from a phone.
+      //
+      // Two records, both written on the ordinary path so they cannot only
+      // exist when something is already wrong:
+      //   `alerter_health` — stamped on EVERY send attempt, success or not.
+      //   `alert_state`    — the per-surface transition state machine.
+      //
+      // `send_ok` is COMPUTED from the two stamps rather than asserted (rule
+      // #2): a last_attempt newer than last_success means sends are failing now.
+      const alerting = { alerter: null, surfaces: {}, degraded_surfaces: [] };
+      try {
+        const raw = await env.KKME_SIGNALS.get('alerter_health').catch(() => null);
+        if (!raw) {
+          alerting.alerter = { status: 'never_sent', note: 'no send attempt recorded since this surface was added' };
+        } else {
+          const h = JSON.parse(raw);
+          const attemptMs = h.last_attempt_at ? Date.parse(h.last_attempt_at) : null;
+          const successMs = h.last_success_at ? Date.parse(h.last_success_at) : null;
+          alerting.alerter = {
+            status: h.consecutive_send_failures > 0 ? 'failing' : (successMs ? 'ok' : 'never_succeeded'),
+            configured: h.configured ?? null,
+            last_attempt_at: h.last_attempt_at ?? null,
+            last_success_at: h.last_success_at ?? null,
+            consecutive_send_failures: h.consecutive_send_failures ?? 0,
+            last_error: h.last_error ?? null,
+            sends_total: h.sends_total ?? 0,
+            send_ok: attemptMs !== null && successMs !== null ? successMs >= attemptMs : false,
+            success_age_hours: successMs ? parseFloat(((Date.now() - successMs) / 3600000).toFixed(1)) : null,
+          };
+        }
+      } catch (e) {
+        alerting.alerter = { status: 'error', error: e.message };
+      }
+      try {
+        const raw = await env.KKME_SIGNALS.get('alert_state').catch(() => null);
+        const map = raw ? JSON.parse(raw) : {};
+        for (const [surface, st] of Object.entries(map)) {
+          alerting.surfaces[surface] = {
+            state: st.state ?? null,
+            consecutive: st.consecutive ?? 0,
+            first_failure_at: st.first_failure_at ?? null,
+            last_seen_at: st.last_seen_at ?? null,
+            suppressed_since_alert: st.suppressed_since_alert ?? 0,
+          };
+          if (st.state === 'degraded') alerting.degraded_surfaces.push(surface);
+        }
+      } catch (e) {
+        alerting.surfaces = { _error: e.message };
+      }
 
       // Phase 36.D — the Litgrid publication watcher's own liveness.
       //
@@ -12124,6 +12561,7 @@ export default {
         checked_at: new Date().toISOString(),
         all_fresh:  allFresh,
         signals,
+        alerting,
         demand_watch,
         fleet_lifecycle,
         mac_cron:   macCron,
@@ -12478,6 +12916,15 @@ export {
   // real recorded ENTSO-E response, which means the test has to call the same
   // function the fetch paths call rather than a copy of its regex.
   extractPrices,
+  // Phase 39.2 — the day-correct A44 reconstruction. Exported so the tests
+  // exercise the SAME functions the capture fallback calls, against a real
+  // recorded ENTSO-E response, rather than a restatement of their regexes
+  // (playbook B13: a test whose subject is a string in a file has verified the
+  // file, not the behaviour).
+  parseA44Periods,
+  pricesForUtcDay,
+  isoDurationToMinutes,
+  resolveCaptureDay,
   // Phase 36.B5 — the one duration-anchor interpolation policy. Exported so the
   // property test sweeps the SAME function every engine site reads, rather than
   // a restatement of it that could drift away from the engine it is meant to pin.
