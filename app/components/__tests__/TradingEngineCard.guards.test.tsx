@@ -14,6 +14,7 @@ import {
   ISPTable,
   formatHeadlineAnnualLabel,
   formatSourceFooterLabel,
+  formatCaptureLine,
 } from '@/app/components/TradingEngineCard';
 
 // Minimal CC fixture — `useChartColors()` returns a flat string-only palette.
@@ -76,8 +77,12 @@ function buildPayload() {
       max_reserve_mw: 35, min_arb_mw: 15,
     },
     arbitrage_detail: {
+      // 38.5: this fixture used to carry `capture_eur_mwh: 12` alongside
+      // `discharge_isp_count: 0` — a realised €/MWh-discharged on a day nothing
+      // was discharged. That state is now unrepresentable in the worker, so the
+      // fixture stops asserting it is normal.
       capture_eur_mwh: 12, capture_eur_mwh_15min_uplifted: 14,
-      cycles_per_day_count: 0, charge_isp_count: 0, discharge_isp_count: 0,
+      cycles_per_day_count: 0, charge_isp_count: 0, discharge_isp_count: 8,
       capture_quality_label: 'low' as const,
     },
     reserves_detail: {
@@ -191,5 +196,42 @@ describe('Phase 12.8 — Candidate 5: qualityColor with unexpected string (no gu
     // (which isn't affected by quality_label) and then assert the source defines
     // the expected fallback branch.
     expect(() => renderToStaticMarkup(<HourlyChart data={data} CC={CC} />)).not.toThrow();
+  });
+});
+
+
+/**
+ * Phase 38.5 defect 1.1 — the capture line's rendered output, including its
+ * empty state. B13: these assert the STRING a reader sees, not an internal.
+ */
+describe('38.5 — realised-capture line renders honestly', () => {
+  it('renders the figure and the uplift when capture was measured', () => {
+    expect(formatCaptureLine(3.38, 3.89, 24))
+      .toBe('Capture €3.38/MWh (€3.89/MWh with 15-min uplift)');
+  });
+
+  it('renders a negative capture as negative, not as zero or absent', () => {
+    const out = formatCaptureLine(-290, -333.5, 12);
+    expect(out).toContain('-290');
+    expect(out).not.toContain('€null');
+  });
+
+  it('says why there is no figure when nothing was discharged', () => {
+    const out = formatCaptureLine(null, null, 0);
+    // The empty state must not render the literal null, and must not render a
+    // euro figure of any kind — a "€0/MWh" here would be the same confident
+    // claim the worker fix removed.
+    expect(out).toBe('Capture — no discharge today, so no realised €/MWh');
+    expect(out).not.toMatch(/€\s*-?\d/);
+    expect(out).not.toContain('null');
+  });
+
+  it('distinguishes "did not trade" from "figure unavailable"', () => {
+    expect(formatCaptureLine(null, null, 0)).toContain('no discharge today');
+    expect(formatCaptureLine(null, null, undefined)).toBe('Capture — not available');
+  });
+
+  it('drops the uplift clause rather than rendering it as null', () => {
+    expect(formatCaptureLine(12, null, 8)).toBe('Capture €12/MWh');
   });
 });

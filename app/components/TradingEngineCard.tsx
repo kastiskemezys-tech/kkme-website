@@ -48,9 +48,12 @@ interface DispatchResponse {
     max_reserve_mw: number; min_arb_mw: number;
   };
   arbitrage_detail: {
-    capture_eur_mwh: number; capture_eur_mwh_15min_uplifted: number;
+    // Nullable since 38.5: on a day the model discharged nothing there is no
+    // €/MWh-discharged to report, and the worker publishes null rather than a
+    // theoretical envelope dressed as a realised figure.
+    capture_eur_mwh: number | null; capture_eur_mwh_15min_uplifted: number | null;
     cycles_per_day_count: number; charge_isp_count: number;
-    discharge_isp_count: number; capture_quality_label: 'low' | 'moderate' | 'high';
+    discharge_isp_count: number; capture_quality_label: 'low' | 'moderate' | 'high' | null;
   };
   reserves_detail: {
     fcr_mw_avg: number; afrr_mw_avg: number; mfrr_mw_avg: number;
@@ -109,6 +112,36 @@ function qualityColor(q: string): string {
   if (q === 'high') return 'var(--teal-accent-text)';
   if (q === 'moderate') return 'var(--amber-accent-text)';
   return 'var(--text-muted)';
+}
+
+/**
+ * Realised-arbitrage capture line, including its empty state.
+ *
+ * Phase 38.5. The worker publishes `capture_eur_mwh: null` on a day the model
+ * discharged nothing, because €/MWh-discharged is 0/0 there, not zero. Rendered
+ * naively that produced the string "Capture €null/MWh"; rendered through the old
+ * worker fallback it produced a theoretical price envelope under a label that
+ * says realised. Both are a confident render of something unmeasured, so the
+ * empty state says what is true — no discharge, therefore no capture — and the
+ * ISP count is what makes that statement checkable rather than assertive.
+ *
+ * Hoisted (same precedent as the two helpers below) so tests assert on the
+ * rendered string rather than on the component's internals — B13.
+ */
+export function formatCaptureLine(
+  captureEurMwh: number | null | undefined,
+  upliftedEurMwh: number | null | undefined,
+  dischargeIspCount: number | null | undefined,
+): string {
+  if (captureEurMwh == null) {
+    return dischargeIspCount === 0
+      ? 'Capture — no discharge today, so no realised €/MWh'
+      : 'Capture — not available';
+  }
+  const uplift = upliftedEurMwh == null
+    ? ''
+    : ` (€${upliftedEurMwh}/MWh with 15-min uplift)`;
+  return `Capture €${captureEurMwh}/MWh${uplift}`;
 }
 
 // Throw-eligible inline expressions, hoisted to addressable helpers so the
@@ -413,11 +446,16 @@ export function TradingEngineCard() {
                   €{data.revenue_per_mw.daily_eur.toLocaleString('en-US')}</span>
                 <span style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-sm)',
                   color: 'var(--text-secondary)' }}>/MW/day</span>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
-                  color: qualityColor(data.arbitrage_detail.capture_quality_label),
-                  border: `1px solid ${qualityColor(data.arbitrage_detail.capture_quality_label)}`,
-                  borderRadius: 3, paddingTop: '1px', paddingRight: '6px', paddingBottom: '1px', paddingLeft: '6px' }}>
-                  {data.arbitrage_detail.capture_quality_label}</span>
+                {/* No chip when capture is unmeasured. A grade rendered from an
+                    absent measurement is a claim about a market the model did
+                    not trade in. */}
+                {data.arbitrage_detail.capture_quality_label != null && (
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
+                    color: qualityColor(data.arbitrage_detail.capture_quality_label),
+                    border: `1px solid ${qualityColor(data.arbitrage_detail.capture_quality_label)}`,
+                    borderRadius: 3, paddingTop: '1px', paddingRight: '6px', paddingBottom: '1px', paddingLeft: '6px' }}>
+                    {data.arbitrage_detail.capture_quality_label}</span>
+                )}
               </div>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
                 color: 'var(--text-muted)', marginTop: 'var(--space-2xs)' }}>
@@ -506,7 +544,9 @@ export function TradingEngineCard() {
               </div>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
                 color: 'var(--text-muted)', marginTop: 2 }}>
-                Capture €{data.arbitrage_detail.capture_eur_mwh}/MWh (€{data.arbitrage_detail.capture_eur_mwh_15min_uplifted} with 15-min uplift)
+                {formatCaptureLine(data.arbitrage_detail.capture_eur_mwh,
+                  data.arbitrage_detail.capture_eur_mwh_15min_uplifted,
+                  data.arbitrage_detail.discharge_isp_count)}
               </div>
             </div>
             <div style={{ flex: 1, minWidth: 140 }}>

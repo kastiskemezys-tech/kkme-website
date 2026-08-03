@@ -277,3 +277,102 @@ describe('computeDispatchV2 — regression of reasoning', () => {
     }
   });
 });
+
+/**
+ * Phase 38.5 defect 1.1 — realised capture must be realised.
+ *
+ * Pre-fix, `rawCapture` fell back to `(daMax - daMin) * rte * 0.5` — the day's
+ * raw price envelope — whenever `totalArbRev <= 0`, published under a field
+ * `app/lib/captureDefinitions.ts:30-37` defines as revenue per MWh actually
+ * discharged. It then floored the result at zero.
+ *
+ * Finding while writing these: **there is no fixture where the model declines
+ * to discharge on price grounds.** `dischargeThreshold` is the day's own p75,
+ * so the top quartile always clears it, and `soc` starts every day at 0.50 —
+ * so the only days with zero discharge are days with no usable DA price at all.
+ * That is defect 1.2 showing through 1.1's tests, and it is why the pre-existing
+ * SHAPE_FLAT case could not have caught this: on a flat day the envelope is 0,
+ * so the fallback and the truth agreed by coincidence.
+ */
+describe('computeDispatchV2 — realised capture is realised (38.5 #1.1)', () => {
+  /** No DA prices at all — the genuine "nothing to trade" day. */
+  const SHAPE_NO_DA: number[] = [];
+
+  /** Every hour priced at or below zero: `daPrice > 0` never holds. */
+  const SHAPE_ALL_NONPOSITIVE = new Array(24).fill(0);
+
+  /**
+   * A genuine LOSING day: expensive early hours, so the model discharges its
+   * (free, see 1.2) starting inventory first and then charges into a still-
+   * expensive evening it never sells. Found by exhaustive search over 55,840
+   * (shape, duration) pairs — 3,801 of them book negative arbitrage with
+   * discharge > 0, so this branch is common, not exotic.
+   *
+   * Pre-38.5 this day published `capture_eur_mwh: 159.90` with
+   * `capture_quality_label: 'high'`, while the same payload reported
+   * `arbitrage_eur_day: -435`. That is the defect in one payload.
+   */
+  const SHAPE_LOSING_DAY = new Array(24).fill(510);
+  for (let h = 0; h < 6; h++) SHAPE_LOSING_DAY[h] = 900;
+
+  for (const [label, shape] of [
+    ['no DA prices', SHAPE_NO_DA],
+    ['all prices non-positive', SHAPE_ALL_NONPOSITIVE],
+  ] as [string, number[]][]) {
+    it(`publishes null, not zero, when there is no discharge (${label})`, () => {
+      for (const dur_h of [2, 4]) {
+        const r = run(shape, dur_h);
+        expect(r.arbitrage_detail.discharge_isp_count).toBe(0);
+        expect(r.arbitrage_detail.capture_eur_mwh).toBeNull();
+        expect(r.arbitrage_detail.capture_eur_mwh_15min_uplifted).toBeNull();
+        // An unmeasured capture has no grade. Pre-fix this read 'low', because
+        // `null >= 15` is false — a market claim made from an absent trade.
+        expect(r.arbitrage_detail.capture_quality_label).toBeNull();
+      }
+    });
+  }
+
+  it('publishes the realised LOSS on a losing day, not the price envelope', () => {
+    for (const dur_h of [2, 4]) {
+      const r = run(SHAPE_LOSING_DAY, dur_h);
+      const envelope = (r.market_context.da_max_eur_mwh - r.market_context.da_min_eur_mwh)
+        * r.meta.rte_decimal * 0.5;
+
+      // Preconditions that make this fixture a real test rather than a
+      // coincidence: the day loses money, it did discharge, and the envelope a
+      // restored fallback would publish is large and positive.
+      expect(r.revenue_per_mw.arbitrage_eur_day).toBeLessThan(0);
+      expect(r.arbitrage_detail.discharge_isp_count).toBeGreaterThan(0);
+      expect(envelope).toBeGreaterThan(150);
+
+      // The published capture must carry the day's sign.
+      expect(r.arbitrage_detail.capture_eur_mwh).toBeLessThan(0);
+      // ...and must not be the envelope, nor the zero the old floor produced.
+      expect(r.arbitrage_detail.capture_eur_mwh).not.toBeCloseTo(envelope, 0);
+      expect(r.arbitrage_detail.capture_eur_mwh).not.toBe(0);
+
+      // A negative capture is not a quality grade of 'low' — 'low' is a claim
+      // about a market, this is a loss. It is graded, but graded from the real
+      // number, so the grade and the figure cannot disagree.
+      expect(r.arbitrage_detail.capture_quality_label).toBe('low');
+    }
+  });
+
+  it('reports capture as revenue per MWh actually discharged, sign included', () => {
+    for (const dur_h of [2, 4]) {
+      const r = run(SHAPE_SPREAD, dur_h);
+      const mwh_discharged = MW * (r.arbitrage_detail.discharge_isp_count / 4);
+      expect(mwh_discharged).toBeGreaterThan(0);
+      // Recomputed from two OTHER published fields, so this is not a
+      // restatement of the internal expression (B5).
+      const expected = r.revenue_per_mw.arbitrage_eur_day * MW / mwh_discharged;
+      expect(r.arbitrage_detail.capture_eur_mwh).toBeCloseTo(expected, 0);
+    }
+  });
+
+  it('applies the 15-min uplift to the realised figure, not to a floor', () => {
+    const r = run(SHAPE_SPREAD, 4);
+    expect(r.arbitrage_detail.capture_eur_mwh_15min_uplifted).toBeCloseTo(
+      r.arbitrage_detail.capture_eur_mwh * (1 + r.arbitrage_detail.uplift_factor_decimal), 1);
+  });
+});

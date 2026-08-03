@@ -1304,11 +1304,30 @@ function computeDispatchV2(btdData, daHourly, opts = {}) {
   const daAvg = daH.length ? daH.reduce((a, b) => a + b, 0) / daH.length : 0;
   const daMin = daH.length ? Math.min(...daH) : 0;
   const daMax = daH.length ? Math.max(...daH) : 0;
-  const rawCapture = totalArbRev > 0 && dischargeISPs.length > 0
-    ? totalArbRev / mw / (dischargeISPs.length / 4) // per MWh discharged approx
-    : (daMax - daMin) * rte * 0.5; // theoretical
-  const capture_hourly = Math.max(0, rawCapture);
-  const capture_15min = capture_hourly * (1 + RYSTAD_15MIN_UPLIFT_DECIMAL);
+  // Realised arbitrage capture — revenue per MWh ACTUALLY discharged.
+  // `app/lib/captureDefinitions.ts:30-37` pins this field as concept 3,
+  // "revenue per MWh discharged from the dispatch model's actual ISP-level
+  // allocation". Two constructions published something else under that label.
+  //
+  // (1) The `totalArbRev > 0` guard routed every LOSING day to a THEORETICAL
+  //     fallback, `(daMax - daMin) * rte * 0.5` — the day's raw price envelope,
+  //     which is largest exactly when the shape is volatile enough that the
+  //     model declined to trade it. So the field read most confidently on the
+  //     days it had least to report. Rule #2 on a live field: the label
+  //     asserted realised, the arithmetic produced theoretical, and nothing
+  //     rendered marked the switch.
+  // (2) `Math.max(0, …)` then floored a genuine loss to zero — the same floor
+  //     `arbitrage_eur_day` (:1330-1339) removed for the same stated reason:
+  //     "The honest number includes the losing days."
+  //
+  // A day with no discharge has no €/MWh-discharged. The quantity is 0/0, not
+  // zero, so it publishes `null` and the renderer shows an empty state. A null
+  // that renders honestly beats a number that renders confidently.
+  const mwh_discharged = mw * (dischargeISPs.length / 4);
+  const capture_hourly = mwh_discharged > 0 ? totalArbRev / mwh_discharged : null;
+  const capture_15min = capture_hourly == null
+    ? null
+    : capture_hourly * (1 + RYSTAD_15MIN_UPLIFT_DECIMAL);
 
   // Cycles
   const socValues = isps.map(p => p.soc);
@@ -1356,13 +1375,20 @@ function computeDispatchV2(btdData, daHourly, opts = {}) {
       min_arb_mw: t_r1(min_arb_mw),
     },
     arbitrage_detail: {
-      capture_eur_mwh: t_r2(capture_hourly),
-      capture_eur_mwh_15min_uplifted: t_r2(capture_15min),
+      // `t_r2` cannot be applied blind: `Math.round(null * 100) / 100` is 0, so
+      // rounding a null would reintroduce the confident zero this fix removes.
+      capture_eur_mwh: capture_hourly == null ? null : t_r2(capture_hourly),
+      capture_eur_mwh_15min_uplifted: capture_15min == null ? null : t_r2(capture_15min),
       uplift_factor_decimal: RYSTAD_15MIN_UPLIFT_DECIMAL,
       cycles_per_day_count: t_r2(cycleEstimate),
       charge_isp_count: chargeISPs.length,
       discharge_isp_count: dischargeISPs.length,
-      capture_quality_label: capture_hourly >= 40 ? 'high' : capture_hourly >= 15 ? 'moderate' : 'low',
+      // An unmeasured capture has no quality. `null >= 40` and `null >= 15` are
+      // both false, so the old ternary would have graded "we did not trade" as
+      // 'low' — a claim about the market made from the absence of a trade.
+      capture_quality_label: capture_hourly == null
+        ? null
+        : capture_hourly >= 40 ? 'high' : capture_hourly >= 15 ? 'moderate' : 'low',
     },
     reserves_detail: {
       fcr_mw_avg: t_r1(drr_active ? 0 : (mw * 0.20 * RESERVE_MW_CAP_FRACTION)),
