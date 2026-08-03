@@ -973,6 +973,86 @@
       "review_cycle": "monthly",
       "source": "DE settled aFRR p50 down / p50 up, 2022-06-21..2026-08-02",
       "note": "TRANSFERRED, not measured for the Baltics. BTD serves one pooled aFRR activation series per country with no up/down split, so the Baltic LEVEL is measured and only the SHAPE is German. The sole unmeasured input in the activation model. Banded: down-activation revenue runs EUR 3025-5714/MW/yr between a 50/50 split and the German shape. NOT WIRED — E6."
+    },
+    {
+      "id": "service_fee_pct",
+      "category": "cost",
+      "label": "Optimiser service fee",
+      "value": 8,
+      "unit": "% of owner net share after exchange fees",
+      "source": "No public source: bilaterally negotiated. Commercial terms observed in Baltic optimiser agreements — KKME private reference 2026-08-03. Banded 4-8%; base case at the CONSERVATIVE (higher) end, not the midpoint, because this correction moves IRR up and a flattering correction does not also get the benefit of the doubt.",
+      "sensitivity_range": [
+        4,
+        8
+      ],
+      "override": null,
+      "engine_binding": "worker:COST_STACK.service_fee_pct",
+      "review_cycle": "on any new optimiser agreement, or annually, whichever is sooner",
+      "note": "Replaces rtm_fee_pct (0.10/0.11/0.13 of GROSS), which was authored from market hearsay and was wrong in both rate and base. The base is the owner net share AFTER exchange fees, per the contracted waterfall structure. NO figure from any agreement is reproduced here — the band is wider than, and does not centre on, any observed value."
+    },
+    {
+      "id": "power_market_charge_eur_mwh",
+      "category": "cost",
+      "label": "Power exchange variable fee, day-ahead",
+      "value": 0.055,
+      "unit": "EUR/MWh traded",
+      "source": "Nord Pool AS, Fee Schedule — Nordic / Baltic Market, effective 2026-01-01, section 1.4: day-ahead trading fee 0.040 + clearing fee 0.015 EUR/MWh. https://www.nordpoolgroup.com/4a7ad8/globalassets/trading-and-services/nord-pool-fee-schedule-2026-nordic-and-baltic-market.pdf (fetched 2026-08-03).",
+      "sensitivity_range": [
+        0.055,
+        0.124
+      ],
+      "override": null,
+      "engine_binding": "worker:COST_STACK.power_market_charge_eur_mwh",
+      "review_cycle": "annually, on Nord Pool fee-schedule publication (each 1 January)",
+      "note": "Charged per MWh TRADED, so a storage asset pays on both legs. Range top is the intraday continuous combined rate (0.124), which applies if volume moves off day-ahead. MEASURED CONTRIBUTION: ~0.00 pp of project IRR — this line is real, correctly placed, and immaterial, which is itself the finding since it was named as one of five defects."
+    },
+    {
+      "id": "balancing_capacity_fee_eur_mwh",
+      "category": "cost",
+      "label": "TSO balancing-capacity fee",
+      "value": 3.73,
+      "unit": "EUR/MWh consumed and produced",
+      "source": "Elering (Estonian TSO) published balancing-capacity tariff effective 2026-01-01, 3.73 EUR/MWh excl. VAT on both consumed and produced energy. Corroborated by a licensed supplier customer notice (Alexela, 2025-11-26) and a second independent report; the TSO page itself sits behind bot protection and could not be read directly.",
+      "sensitivity_range": [
+        0,
+        3.73
+      ],
+      "override": null,
+      "engine_binding": "worker:COST_STACK.balancing_capacity_fee_eur_mwh",
+      "review_cycle": "annually, and immediately on any Litgrid tariff publication",
+      "note": "TWO DECLARED GAPS. (1) JURISDICTION: this is the ESTONIAN tariff; every asset the engine prices is Lithuanian, and no equivalent Litgrid figure has been located. Carried at the Estonian rate because it is a cost and that is the conservative choice. (2) STORAGE TREATMENT: no source states whether a storage asset is charged on both legs of its own round trip. Both legs assumed, again conservative. Replaces brp_fee_yr, a flat EUR180-210k annual platform fee of a shape that does not exist; the real cost is volume-based and sits inside the revenue pool before allocation."
+    },
+    {
+      "id": "standby_load_pct_of_nameplate_mw",
+      "category": "technical",
+      "label": "Standby auxiliary load, idle hours",
+      "value": 0.3,
+      "unit": "% of nameplate MW",
+      "source": "NOT SOURCED TO A DATASHEET. Bounded above by published operating auxiliary figures for containerised systems (8-13 kW per 5 MWh container); standby cannot exceed average operating load. Stated assumption pending a manufacturer specification.",
+      "sensitivity_range": [
+        0.1,
+        0.3
+      ],
+      "override": null,
+      "engine_binding": "worker:COST_STACK.standby_load_pct_of_nameplate_mw",
+      "review_cycle": "on receipt of any supplier auxiliary-load specification; otherwise annually",
+      "note": "RTE_BOL is measured at the POI INCLUDING auxiliaries, so cycle-driven auxiliary consumption is already inside round-trip efficiency. Modelling published operating aux figures as a share of throughput would bill the same electrons twice — which is why that construction collided with the literature ~10% RTE-error figure at 12-20% of throughput. Only the incremental standby load RTE cannot see is modelled, over IDLE hours only. THE WEAKEST-SOURCED ROW IN THIS PHASE and the only one whose sign is unfavourable: measured contribution -0.60 pp median project IRR."
+    },
+    {
+      "id": "integration_fee_eur",
+      "category": "cost",
+      "label": "Optimiser integration fee, one-off",
+      "value": 40000,
+      "unit": "EUR one-off",
+      "source": "No public source: bilaterally negotiated. Commercial terms observed in Baltic optimiser agreements — KKME private reference 2026-08-03. Banded low tens of thousands; base at the conservative (higher) end.",
+      "sensitivity_range": [
+        20000,
+        50000
+      ],
+      "override": null,
+      "engine_binding": "worker:COST_STACK.integration_fee_eur",
+      "review_cycle": "on any new optimiser agreement, or annually, whichever is sooner",
+      "note": "CAPEX-class day-one item, not annual opex. NOT WIRED INTO THE ENGINE: at the reference asset it is ~0.24% of gross capex and immaterial to IRR, so it is registered and disclosed rather than modelled. Carried here so it cannot be forgotten if a future phase models day-one cash."
     }
   ],
   "changelog": [
@@ -1220,11 +1300,11 @@
       "register_version": "r3.d74c7e18"
     }
   ],
-  "synced_at": "2026-08-03T08:46:54.606Z",
+  "synced_at": "2026-08-03T09:47:56.966Z",
   "version": {
-    "id": "r3.d74c7e18",
-    "seq": 3,
-    "hash": "d74c7e1822389b60784c3fadcebbf5bc5eb73240e9ad2b6769776f7e960e1a12",
+    "id": "r4.218d1c16",
+    "seq": 4,
+    "hash": "218d1c1658b42bd0f2b06b83adc33550c385eead64477c50a9e2d9b96481e68f",
     "effective_from": "2026-08-03",
     "changelog_entries": 14
   }

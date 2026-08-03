@@ -102,6 +102,3 @@ docs/_clients/
 
 # bulk open-data caches (re-downloadable, never committed)
 .cache/
-
-# Session handover scratch — carries client and counterparty names (Phase 38.8 NDA gate).
-_handover_s1_s2_rebuild.md

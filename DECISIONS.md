@@ -3446,3 +3446,108 @@ reader should not have to infer either.
 4. **Register rows still missing** for `RESERVE_PRODUCTS` shares, `HEADROOM_DRAG` and the
    three `dur_req_h` values. `fcr.dur_req_h = 0.5` now has its Baltic primary source (38.6 §5);
    the aFRR and mFRR values remain unsourced placeholders.
+
+---
+
+# Phase 38.8 — the fee and cost stack, 2026-08-03
+
+## D1 · Counterparty name in git history — NOT rewriting. Operator decision, recorded.
+
+The counterparty's name sits in four pushed commits (`ed47230`, `21e0b77`, `f7a92da`,
+`f6c129a`) in the `source` field of a superseded register row. HEAD is redacted; **history is
+not, and will not be.**
+
+**Reasoning, recorded so nobody re-litigates it in six months.** The repository is public. A
+force-push would invalidate every commit SHA the documentation cites — the roadmap, the
+investigations, and this file all reference commits by SHA — break existing clones, and orphan
+PR refs. Against that, the thing being removed is a vendor's own public marketing claim about
+its realisation performance, carried with no contractual terms attached and no relationship
+disclosed. **The redaction at HEAD plus this note is proportionate to what is actually
+exposed.**
+
+**The condition under which this is revisited, stated explicitly:** if the NDA contains an
+express restriction on *naming the counterparty* rather than on disclosing *terms*, the
+calculus changes and this decision is reopened. Nobody has read the agreement for that
+specific question; the extraction was done for the cost stack. That is a known gap, not an
+assumption that it is fine.
+
+## D2 · Structural protection over pattern protection
+
+`_handover_s1_s2_rebuild.md` (354 kB, carrying client and counterparty names) was first
+protected by adding its filename to `.gitignore`. That was replaced with a **move into
+`docs/_private/handover/`**, and the `.gitignore` line removed as redundant. A pattern can be
+defeated by a rename, a copy, or a second file; the folder cannot be reached by `git add -A`
+at all. Verified: `git add -An` cannot see it. The distinction is not academic — `git add -A`
+was run twice in this session and had to be reset out of both times.
+
+## D3 · `trading_realisation` provenance — VERIFIED, and it unblocks the BRP line
+
+The operator's claim was that 0.7234 was measured from market data, so no pool-level balancing
+or imbalance deductions can be inside it. **Verified at code level rather than taken on the
+claim** (it was offered as a claim, not a grep result):
+
+- `tools/consultancy/run-backtest.mjs` sources prices from `loadPriceYear()` in
+  `backfill-entsoe.mjs` — ENTSO-E day-ahead prices, nothing else.
+- `tools/consultancy/lib/backtest.mjs` computes
+  `(policy avg discharge − policy avg charge) ÷ (sorted avg discharge − sorted avg charge)`.
+  Both sides are gross €/MWh spreads on that same curve.
+- Settlement-ish terms (`settlement|invoice|self-bill|imbalance_charge|balancing_charge|penalt`)
+  match **0 times** across all three files; a control grep on `prices` returns 9, so the search
+  works.
+- The backtest's own docstring: it "does not measure intraday execution, bid rejection,
+  **imbalance exposure**, or forecast error on the balancing side."
+
+**Conclusion: modelling the balancing line separately is not double-counting.** Had any input
+been settlement-derived the opposite would follow and the line would have to be dropped.
+
+## D4 · Auxiliary consumption — the cross-check failure WAS the finding
+
+The earlier construction — published operating aux figures (8-13 kW per 5 MWh container) as a
+share of throughput — produced €196-319k/yr and collided with the literature's ~10 % RTE-error
+figure at 12-20 % of throughput. **That collision was the model being wrong, not the sources
+disagreeing.** `RTE_BOL` is measured at the point of interconnection *including auxiliaries*,
+so cycle-driven auxiliary consumption is already inside round-trip efficiency. A
+throughput-proportional aux line bills the same electrons twice.
+
+Modelled instead as **standby load only, over idle hours**: `mw × standby_pct × idle_hours`,
+where idle hours are derived from the year's own discharge energy rather than assumed. Base at
+0.3 % of nameplate MW, the conservative end of a 0.1-0.3 % band.
+
+**The band is not sourced to a datasheet** and the register row says so. It is bounded above by
+the published operating band on the argument that standby cannot exceed average operating load.
+This is the weakest-sourced row in the phase and the only one whose sign is unfavourable —
+those two facts together are uncomfortable and are stated rather than smoothed.
+
+## D5 · The balancing line — located, with two declared gaps
+
+**Elering (Estonia) publishes a balancing-capacity fee of €3.73/MWh excl. VAT effective
+2026-01-01, charged on consumed AND produced energy.** Corroborated by a licensed supplier's
+customer notice (2025-11-26) and a second independent report. The TSO's own page sits behind
+bot protection and could not be read directly, so this is **corroborated secondary, not
+primary**.
+
+Two gaps, both declared in the register row rather than buried:
+
+1. **Jurisdiction.** This is the Estonian tariff. Every asset the engine prices is Lithuanian,
+   and no equivalent Litgrid figure has been located — Litgrid's imbalance and balancing pages
+   both return HTTP 200 with ~95 kB and no numeric tariff. Carried at the Estonian rate because
+   it is a cost and that is the conservative direction.
+2. **Storage treatment.** No source states whether a storage asset pays on both legs of its own
+   round trip. Both legs assumed, again because it is conservative.
+
+"Not located" remains the wording for the Lithuanian figure. A page that always renders is not
+a tariff that was found.
+
+## D6 · What the measurement says, and the one number that did not move
+
+Five layers, measured marginally and cumulatively. The headline: **the cost stack recovers
+about a fifth of what the partition took, and the combined position is still materially worse
+than the pre-38.6a world in 54/54 configurations.**
+
+The line worth naming: **`min_dscr` at the reference asset goes 0.89 → 0.95. It does not cross
+1.00.** The favourable correction does not rescue the debt-service breach the partition
+created; that remains a capital-structure question.
+
+`pmc` — the only line with a firm primary source — contributes **≈0.00 pp of project IRR**. A
+publicly-sourced parameter that turns out immaterial is still worth having: it converts one of
+the five named defects from an open question into a closed and quantified non-issue.

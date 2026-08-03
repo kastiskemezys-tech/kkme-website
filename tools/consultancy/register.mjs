@@ -195,6 +195,23 @@ const WORKER_CONSTANTS = {
   'REVENUE_SCENARIOS.base.aug_restore': {
     re: /debt_margin_bp: 250, aug_cost_pct: [\d.]+, aug_restore: ([\d.]+),/, scale: 100,
   },
+  // Phase 38.8 — route-to-market and BRP cost stack. Bound so the register
+  // cannot drift from the constants, exactly as every other live figure is.
+  'COST_STACK.service_fee_pct': {
+    re: /  service_fee_pct: ([\d.]+),/, scale: 100,
+  },
+  'COST_STACK.power_market_charge_eur_mwh': {
+    re: /  power_market_charge_eur_mwh: ([\d.]+),/, scale: 1,
+  },
+  'COST_STACK.balancing_capacity_fee_eur_mwh': {
+    re: /  balancing_capacity_fee_eur_mwh: ([\d.]+),/, scale: 1,
+  },
+  'COST_STACK.standby_load_pct_of_nameplate_mw': {
+    re: /  standby_load_pct_of_nameplate_mw: ([\d.]+),/, scale: 100,
+  },
+  'COST_STACK.integration_fee_eur': {
+    re: /  integration_fee_eur: (\d+),/, scale: 1,
+  },
   'REVENUE_SCENARIOS.base.opex_esc': {
     re: /opex_per_kw_yr: 39, opex_esc: ([\d.]+),/, scale: 100,
   },

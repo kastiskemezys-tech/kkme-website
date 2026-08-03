@@ -52,15 +52,20 @@ describe('assumptions register — schema', () => {
 
   it('covers every category the deliverable contract names', () => {
     const counts = categoryCounts(register) as Any;
-    // A CONTENT PIN, updated deliberately in 36.E1: +18 `price-formation` rows for the per-service
-    // FCR/aFRR parameters. Nothing existing moved — the seven original counts are unchanged, which
-    // is what makes this an addition rather than a rewrite. The pin exists so rows cannot appear
-    // without a reviewer seeing them, so updating it is the point of the pin, not a way round it.
+    // A CONTENT PIN, updated deliberately in 36.E1 (+18 `price-formation` rows) and again in
+    // 38.8 (+4 `cost`, +1 `technical` for the route-to-market and BRP cost stack). Nothing
+    // existing moved either time, which is what makes both additions rather than rewrites. The
+    // pin exists so rows cannot appear without a reviewer seeing them, so updating it is the
+    // point of the pin, not a way round it.
+    //
+    // 38.8's five: service_fee_pct, power_market_charge_eur_mwh,
+    // balancing_capacity_fee_eur_mwh, integration_fee_eur (cost);
+    // standby_load_pct_of_nameplate_mw (technical).
     expect(counts).toEqual({
-      technical: 7, market: 11, saturation: 4, cost: 7, capex: 8, project: 3, 'scenario-driver': 7,
+      technical: 8, market: 11, saturation: 4, cost: 11, capex: 8, project: 3, 'scenario-driver': 7,
       'price-formation': 18,
     });
-    expect(register.rows).toHaveLength(65);
+    expect(register.rows).toHaveLength(70);
     for (const row of register.rows) expect(CATEGORIES).toContain(row.category);
   });
 

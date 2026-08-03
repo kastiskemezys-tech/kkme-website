@@ -1,6 +1,6 @@
 # KKME lender-grade methodology
 
-**Engine version:** v7.3 (MW partition default, Phase 38.6a) · **Assumption register:** r3.d74c7e18 (65 rows) · **Arc:** Phase 38.6
+**Engine version:** v7.3 (MW partition default, Phase 38.6a) · **Assumption register:** r4.218d1c16 (70 rows) · **Arc:** Phase 38.8
 **Prepared:** 2026-07-29 · **Maintainer:** UAB KKME · Kastytis Kemežys
 
 ---
@@ -58,14 +58,14 @@ The byte-identity gate is asserted after every commit in this arc. Where an arc 
 
 ### 1.2 The assumption register
 
-`tools/consultancy/assumptions-register.json` holds 65 rows across eight categories. Its governing property is that it **documents the engine and cannot contradict it**: every live row carries an `engine_binding`, and a test asserts the row's value equals what the code actually holds.
+`tools/consultancy/assumptions-register.json` holds 70 rows across eight categories. Its governing property is that it **documents the engine and cannot contradict it**: every live row carries an `engine_binding`, and a test asserts the row's value equals what the code actually holds.
 
 | Category | Rows | Examples |
 |---|---:|---|
-| technical | 7 | RTE at BOL (2h / 4h), RTE decay, cycles/yr, SOH restore on augmentation |
+| technical | 8 | RTE at BOL (2h / 4h), RTE decay, cycles/yr, SOH restore on augmentation, standby auxiliary load |
 | market | 11 | aFRR / mFRR / FCR capacity prices, activation p50s, DA capture, 15-min uplift, Euribor 3M |
 | saturation | 4 | Baltic weighted supply MW, pipeline MW, reserve demand MW, LT zone price correlation |
-| cost | 7 | optimiser / grid / market % of gross, €/kW/yr operating, calibration constant, opex escalation, WACC |
+| cost | 11 | optimiser service fee, power-exchange variable fee, TSO balancing-capacity fee, integration fee, €/kW/yr operating, calibration constant, opex escalation, WACC |
 | capex | 8 | €/kWh installed, maintenance, augmentation (year / depth / cost), replacement (year / depth / cost) |
 | project | 3 | the three Prosperus site configurations |
 | scenario-driver | 7 | fleet realisation, spread growth, availability, trading realisation, cap-price delta, CPI floor |
