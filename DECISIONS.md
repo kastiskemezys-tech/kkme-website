@@ -4466,3 +4466,83 @@ and a count on the cover.
 
 No signature needed — flagged because it is a deliberate refusal-by-default and those should be
 seen, not discovered.
+
+## 42 (item 10) · Pause A — four questions
+
+**(a) HYPOTHESIS vs verified.** The premise — "almost none of it is reachable from the
+calculator; a sponsor running it today gets last month's product" — is **verified, and the
+mechanism is one function**.
+
+`/calculate` DOES call `computeRevenueV7`. The engine result is computed in full on every
+calculator request and then discarded four lines later:
+`workers/lib/calculator.js:635-641` keeps **five** fields — `label`, `engine_scenario`,
+`headline`, `sum_20yr_prefin_cf`, `project_irr` — and drops everything else.
+
+| field | engine refs | /calculate | calculator UI |
+|---|---|---|---|
+| `debt_sizing` | 6 | **0** | **0** |
+| `min_dscr` | 27 | **0** | **0** |
+| `bankability` | 17 | **0** | **0** |
+| `equity_irr` | 13 | 1 | **0** |
+| `time_model` | 14 | **0** | **0** |
+| `dispatch_metrics` | 6 | **0** | **0** |
+| `effective_arb_pct` | 6 | **0** | **0** |
+| `mw_partition` | 5 | **0** | **0** |
+| `demand_basis` | 3 | **0** | **0** |
+
+Phase 39's entire deliverable is **0 % reachable**.
+
+*Prompt premise CORRECTED.* The Phase 38 audit filed the URL defect as "the site renders the
+default configuration regardless of URL parameters", which reads as framework-level and would
+have hit this phase's STOP condition ("if structural, do not rewrite routing"). **It is not
+structural.** `RegulatoryFeed` and `RegulatoryFilters` both use `useSearchParams` and work. The
+calculator simply never implemented it — zero `useSearchParams`/`URLSearchParams` matches under
+`app/calculator/`. So it was fixable in one component with routing untouched.
+
+**(b) What consumes what this changes.** One new module, one component, one test file. No
+worker change, no engine change; `/revenue` 54/54 byte-identical. eslint 87 errors, unchanged.
+
+**(c) What fails silently here.** A link that names a configuration and renders a different
+one. Out-of-range parameters are **dropped, not clamped** — clamping would silently reproduce a
+different configuration under the same link, which defeats the only thing a link is for — and
+the refusal is **surfaced in the UI**, naming the parameter.
+
+**(d) At which layer and time.** At the **browser layer**, because that is where B-045 lived.
+4/4 checks pass against a local build of this branch; 2/4 against production, and the two that
+fail there are §3's, which is correct — the branch is not deployed.
+
+### The browser check was wrong first, in the B11 way
+
+Its first version issued `fetch(..., { method: 'OPTIONS' })` from the page and read the response
+headers. **A browser will not let you do that** — an explicit OPTIONS is itself a non-simple
+request, so the browser preflights the preflight and the headers you read are not the ones under
+test. It reported `access-control-allow-headers: (absent)` and **I would have filed a B-045
+regression on it.**
+
+Checked a second way with curl: the header is present and carries `Authorization`, and the
+control route `/s2/update` returns the same header **without** it — two different responses, so
+the probe is valid and **the B-045 fix is live**. The check now makes a real cross-origin POST
+carrying `Authorization` and observes whether the browser blocks it, which is what the user
+actually experiences.
+
+### A bug I introduced and caught before committing
+
+Applying the URL patch as a render-time overlay (`{ ...formState, ...patch }`) makes the link
+value win over every subsequent keystroke — a shared link would render a field the user could
+not change. `setField` now retires that field's patch on first edit, and `chooseScenario` does
+the same for the scenario. Pinned by a test.
+
+### 42 · Decision 14 (NEEDS SIGNATURE) — wiring §2 is a bigger job than the box
+
+**Not wired: §2.1 debt sizing, §2.2 the contracted-share lever, §2.3 scenario presets,
+§2.4 provenance surfacing.** Only §3 (shareable configuration) and §4 (the browser-layer test)
+landed.
+
+That is a judgement, not an overrun: §2.1 alone requires the tie-sentence with a **computed**
+verdict (39.1's defect was a sentence asserting "the structure fails" beside a passing number),
+and doing that properly means deciding what the calculator is allowed to say about a
+configuration it has just been handed. That is a product decision, at 22:00, unsupervised.
+
+**Recommendation: §2.1 and §2.2 as their own phase, and start it from `runScenarios` —** the fix
+is to stop discarding the engine result, which is a five-line change, and then the whole job is
+deciding what to show and how to word it. The plumbing is not the work.
