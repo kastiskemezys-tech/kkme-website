@@ -10464,8 +10464,22 @@ export default {
               ],
             },
           };
+          // Phase 38.2 (B-058) — this read
+          // `getVal('installed_storage_baltic_mw', ltMw + lvMw + eeMw)`, so a
+          // STORED ASSERTION won over the sum of the three country figures
+          // printed beside it. On 2026-08-03 the assertion held 651 and
+          // 484 + 40 + 127 = 651, so the second writer was invisible — the
+          // B12 shape exactly: a duplicate that agrees today. The moment any
+          // country moved, the Baltic headline would have kept publishing the
+          // old total while silently ceasing to be the sum, and nothing would
+          // have detected it because both writers were "working".
+          //
+          // A total defined as the sum is now computed as the sum. There is no
+          // override, deliberately: an override on a derived quantity is the
+          // defect, not a feature of it (discipline rule #4). Asserted by
+          // workers/__tests__/balticTotalIsTheSum.test.ts.
           d.baltic_total = {
-            installed_mw: getVal('installed_storage_baltic_mw', ltMw + lvMw + eeMw),
+            installed_mw: ltMw + lvMw + eeMw,
             under_construction_mw: eeUcMw + 361, // EE UC + LT UC (Ignitis 291 + Olana 70)
           };
 
