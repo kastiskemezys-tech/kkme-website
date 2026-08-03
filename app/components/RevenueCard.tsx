@@ -9,6 +9,9 @@ import {
 } from 'chart.js';
 import { Line, Bar } from 'react-chartjs-2';
 import { useChartColors, CHART_FONT, CHART_FONT_DISPLAY, useTooltipStyle, SENTINEL_DASH, SENTINEL_LINE_WIDTH, makeCrosshairPlugin, CHART_INTERACTION } from '@/app/lib/chartTheme';
+import {
+  wearRangeVerdict, revenueLed, pct, MERCHANT_CYCLING_BAND_EFC_YR,
+} from '@/app/lib/wearModelRange';
 import { DetailsDrawer, ChartTooltipPortal, useChartTooltipState } from '@/app/components/primitives';
 import { buildExternalTooltipHandler } from '@/app/lib/chartTooltip';
 import { RevenueSensitivityTornado } from '@/app/components/RevenueSensitivityTornado';
@@ -436,6 +439,64 @@ export function RteSparkline({ curve }: { curve: number[] | undefined }) {
   );
 }
 
+/**
+ * Phase 38.3 — the two disclosures the parked cutover produced. Copy only; no
+ * published number moves, and `/revenue` stays byte-identical across all 54
+ * configurations because nothing here touches the payload.
+ *
+ * Both lines are COMPUTED from the payload being displayed rather than written
+ * by hand (rule #2): the validity verdict from this asset's own cycling rate,
+ * the revenue split from this asset's own year-1 lines.
+ */
+export function WearModelRangeNote({ totalCd, totalEfcYr, y1 }: {
+  totalCd?: number | null;
+  totalEfcYr?: number | null;
+  y1?: { rev_bal?: number | null; rev_trd?: number | null; rev_gross?: number | null } | null;
+}) {
+  const verdict = wearRangeVerdict(totalCd);
+  const led = revenueLed(y1);
+  if (!verdict && !led) return null;
+
+  return (
+    <div
+      data-testid="wear-model-range-note"
+      style={{
+        fontFamily: 'var(--font-serif)', fontSize: 'var(--font-xs)',
+        color: 'var(--text-muted)', lineHeight: 1.55,
+        marginTop: 'var(--space-xs)', paddingLeft: '10px',
+        borderLeft: '1px solid var(--border-subtle)',
+      }}
+    >
+      {verdict && (
+        <p data-testid="wear-model-floor" style={{ margin: 0 }}>
+          <strong style={{ fontWeight: 600 }}>Where this model stops being valid.</strong>{' '}
+          The state-of-health curves are calibrated at 1.0, 1.5 and 2.0 cycles/day and are
+          not extrapolated below the slowest of them. Wear is therefore modelled down to{' '}
+          {verdict.floor.toFixed(1)} c/d and clamped below it
+          {verdict.belowFloor
+            ? `. This asset cycles at ${verdict.cd.toFixed(2)} c/d${totalEfcYr != null ? ` (${Math.round(totalEfcYr)} EFC/yr)` : ''}, below that floor, so the wear model ages it as if it cycled at ${verdict.appliedCd.toFixed(1)} c/d — the cycle count is an accounting output here, not a wear input.`
+            : `, above which this asset sits at ${verdict.cd.toFixed(2)} c/d${totalEfcYr != null ? ` (${Math.round(totalEfcYr)} EFC/yr)` : ''}.`}
+        </p>
+      )}
+      {led && (
+        <p data-testid="wear-model-band" style={{ margin: 0, marginTop: '6px' }}>
+          <strong style={{ fontWeight: 600 }}>Why the {MERCHANT_CYCLING_BAND_EFC_YR.lo}–{MERCHANT_CYCLING_BAND_EFC_YR.hi} EFC/yr
+          benchmark does not apply directly.</strong>{' '}
+          That band is sourced to {MERCHANT_CYCLING_BAND_EFC_YR.basis} research. This asset is{' '}
+          {led.led}-led: {pct(led.reserveShare)} of year-1 gross is reserve capacity and
+          activation, {pct(led.merchantShare)} merchant. A reserve-led asset holds state-of-charge
+          headroom to deliver the MW it has committed instead of spending it on wholesale cycles,
+          so it cycles less by design rather than by underperformance — the hourly simulation puts
+          roughly a quarter of nameplate MW free to trade. Comparing the two populations directly
+          is a category error. The limit that carries: if reserve prices fell far enough that this
+          asset should switch to merchant-led, the model would understate the cycling it could
+          then achieve.
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ═══ Phase 7.7e — cycles_breakdown 4-bar mini-chart ════════════════════════
 //
 // FCR / aFRR / mFRR / DA EFCs/yr decomposition. Replaces the v7.3 italicized
@@ -691,10 +752,12 @@ export function CalibrationFooter({ source }: { source: EngineCalibrationSource 
 // Read-only display of engine assumptions. NO sliders / NO interactive
 // elements (capital-structure controls land in Phase 7.7c Session 2).
 
-function AssumptionsPanel({ panel, rteCurve, calibrationSource }: {
+function AssumptionsPanel({ panel, rteCurve, calibrationSource, y1 }: {
   panel: AssumptionsPanelData | undefined;
   rteCurve?: number[];
   calibrationSource?: EngineCalibrationSource;
+  /** Year-1 revenue lines — the reserve/merchant split is computed, not asserted. */
+  y1?: { rev_bal?: number | null; rev_trd?: number | null; rev_gross?: number | null } | null;
 }) {
   if (!panel) return null;
 
@@ -764,6 +827,11 @@ function AssumptionsPanel({ panel, rteCurve, calibrationSource }: {
               <CyclesBreakdownChart
                 breakdown={panel.cycles_breakdown}
                 warrantyStatus={panel.warranty_status}
+              />
+              <WearModelRangeNote
+                totalCd={panel.cycles_breakdown.total_cd}
+                totalEfcYr={panel.cycles_breakdown.total_efcs_yr}
+                y1={y1}
               />
             </div>
           </>
@@ -1770,6 +1838,7 @@ export function RevenueCard() {
           panel={data.assumptions_panel}
           rteCurve={data.roundtrip_efficiency_curve}
           calibrationSource={data.engine_calibration_source}
+          y1={data.years?.[0] ?? null}
         />
       </div>
 
