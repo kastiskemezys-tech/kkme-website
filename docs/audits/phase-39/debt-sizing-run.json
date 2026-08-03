@@ -12,6 +12,7 @@
       "url": "https://www.projectfinance.law/publications/2025/january/cost-of-capital-2025-outlook/",
       "date": "2025-01-24",
       "attributed": "Beth Waters, Managing Director, MUFG: \"Merchant storage 2.0 times debt service.\"",
+      "is_transfer": true,
       "transfer": "US bank panel, spreads quoted over SOFR. Carried to a EUR Baltic asset as a COVERAGE LEVEL only. Corroborated independently by NREL ATB, which cites Norton Rose Fulbright at a P50 DSCR of 2.0 for battery storage."
     },
     "dscr_contracted": {
@@ -25,6 +26,7 @@
       "url": "https://www.projectfinance.law/publications/cost-of-capital-2026-outlook",
       "date": "2026-01-29",
       "attributed": "Beth Waters, MUFG: \"Storage -- where there is no P factor -- is 1.15 to 1.20 times debt service.\" (2026); \"Storage coverage is 1.15 to 1.20.\" (2025)",
+      "is_transfer": true,
       "transfer": "Same US-panel transfer as dscr_merchant."
     },
     "tenor_years": {
@@ -38,6 +40,7 @@
       "url": "https://wholesale.banking.societegenerale.com/en/news-insights/all-news-insights/news-details/news/bess-emerging-asset-to-essential-infrastructure/",
       "date": "2025-06-24",
       "attributed": "Nathalie Lemarcis and Michael De Witte, Energy Finance & Advisory, SG CIB: \"7-year to 10-year legal tenor hard mini-perms with an underlying notional tenor being constrained by the underlying warranty duration\".",
+      "is_transfer": false,
       "transfer": "None material — European bank, European market. The same source notes longer tenors are reachable with \"a higher proportion and longer dated offtake/floor or tolling agreements\", which is the mechanism this phase quantifies in the contracted-share table."
     },
     "margin_bp": {
@@ -51,6 +54,7 @@
       "url": "https://www.projectfinance.law/publications/2025/january/cost-of-capital-2025-outlook/",
       "date": "2025-01-24",
       "attributed": "Ralph Cho, Co-CEO, Apterra Infrastructure Capital: \"For merchant battery assets, you are looking at 275 to 350\" bp. Beth Waters (MUFG) separately: batteries carry \"about a 25 basis-point premium on margins during operations over other renewables financings\".",
+      "is_transfer": true,
       "transfer": "US bank panel. Quoted over SOFR; applied here over 3M EURIBOR. A credit margin is not a risk-free-rate quote, so the level transfers more cleanly than the base rate does, but this is still a transfer and is NOT a Baltic quote. Note the engine's existing fixed-gearing diagnostic uses 250bp (fetch-s1.js:1636), i.e. BELOW the sourced merchant range — the diagnostic is left untouched, and the solver uses the sourced number."
     },
     "gearing_cap": {
@@ -64,6 +68,7 @@
       "url": "https://pexapark.com/blog/prmc-the-bess-brief-part-2-bess-financing/",
       "date": "2025-07-15",
       "attributed": "Pexapark: \"most deals today fall within the 40-60% range, rarely matching the 80-85% leverage seen in mature solar and wind.\"",
+      "is_transfer": false,
       "transfer": "None — European market commentary on European BESS deals."
     },
     "merchant_share_cap": {
@@ -80,6 +85,7 @@
       "url": "https://www.projectfinance.law/publications/cost-of-capital-2026-outlook",
       "date": "2026-01-29",
       "attributed": "Ralph Cho, Apterra/Apollo: \"For solar, wind and batteries, I would limit the merchant revenue to a maximum of 25% to 30%.\" Beth Waters, MUFG: \"I am definitely not going over 40% merchant.\"",
+      "is_transfer": true,
       "transfer": "US panel; European lenders in the same period are described as more merchant-tolerant in mature markets (Germany), so this is likely a TIGHT bound for the Baltics rather than a loose one. Direction stated, not quantified."
     },
     "base_rate": {
@@ -90,6 +96,7 @@
       "url": "https://www.ecb.europa.eu/stats/financial_markets_and_interest_rates/euro_short-term_rate/html/index.en.html",
       "date": "2026-07-28",
       "attributed": "Frozen regression fixture `tools/consultancy/fixtures/regression-kv.json`.",
+      "is_transfer": false,
       "transfer": null
     }
   },

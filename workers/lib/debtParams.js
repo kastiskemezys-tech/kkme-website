@@ -51,6 +51,7 @@ export const DEBT_PARAMS = {
     url: 'https://www.projectfinance.law/publications/2025/january/cost-of-capital-2025-outlook/',
     date: '2025-01-24',
     attributed: 'Beth Waters, Managing Director, MUFG: "Merchant storage 2.0 times debt service."',
+    is_transfer: true,
     transfer:
       'US bank panel, spreads quoted over SOFR. Carried to a EUR Baltic asset as a ' +
       'COVERAGE LEVEL only. Corroborated independently by NREL ATB, which cites ' +
@@ -71,6 +72,7 @@ export const DEBT_PARAMS = {
     attributed:
       'Beth Waters, MUFG: "Storage -- where there is no P factor -- is 1.15 to 1.20 times ' +
       'debt service." (2026); "Storage coverage is 1.15 to 1.20." (2025)',
+    is_transfer: true,
     transfer: 'Same US-panel transfer as dscr_merchant.',
   },
 
@@ -88,6 +90,7 @@ export const DEBT_PARAMS = {
       'Nathalie Lemarcis and Michael De Witte, Energy Finance & Advisory, SG CIB: ' +
       '"7-year to 10-year legal tenor hard mini-perms with an underlying notional tenor ' +
       'being constrained by the underlying warranty duration".',
+    is_transfer: false,
     transfer:
       'None material — European bank, European market. The same source notes longer ' +
       'tenors are reachable with "a higher proportion and longer dated offtake/floor or ' +
@@ -109,6 +112,7 @@ export const DEBT_PARAMS = {
       'you are looking at 275 to 350" bp. Beth Waters (MUFG) separately: batteries carry ' +
       '"about a 25 basis-point premium on margins during operations over other ' +
       'renewables financings".',
+    is_transfer: true,
     transfer:
       'US bank panel. Quoted over SOFR; applied here over 3M EURIBOR. A credit margin is not a ' +
       'risk-free-rate quote, so the level transfers more cleanly than the base rate ' +
@@ -132,6 +136,7 @@ export const DEBT_PARAMS = {
     attributed:
       'Pexapark: "most deals today fall within the 40-60% range, rarely matching the ' +
       '80-85% leverage seen in mature solar and wind."',
+    is_transfer: false,
     transfer: 'None — European market commentary on European BESS deals.',
   },
 
@@ -151,6 +156,7 @@ export const DEBT_PARAMS = {
       'Ralph Cho, Apterra/Apollo: "For solar, wind and batteries, I would limit the ' +
       'merchant revenue to a maximum of 25% to 30%." Beth Waters, MUFG: "I am definitely ' +
       'not going over 40% merchant."',
+    is_transfer: true,
     transfer: 'US panel; European lenders in the same period are described as more ' +
       'merchant-tolerant in mature markets (Germany), so this is likely a TIGHT bound ' +
       'for the Baltics rather than a loose one. Direction stated, not quantified.',
@@ -164,6 +170,7 @@ export const DEBT_PARAMS = {
     url: 'https://www.ecb.europa.eu/stats/financial_markets_and_interest_rates/euro_short-term_rate/html/index.en.html',
     date: '2026-07-28',
     attributed: 'Frozen regression fixture `tools/consultancy/fixtures/regression-kv.json`.',
+    is_transfer: false,
     transfer: null,
   },
 };
@@ -189,6 +196,58 @@ export function blendedDscrTarget(contractedShare, {
     throw new Error(`contractedShare must be a fraction in [0, 1], got ${contractedShare}`);
   }
   return contracted * contractedShare + merchant * (1 - contractedShare);
+}
+
+/**
+ * The cover ratios published beside the headline.
+ *
+ * NOT alternative sourced values — 1.50× and 1.75× are below anything published
+ * for MERCHANT cover. They ship so a reader can see how much of the gearing
+ * figure is the transferred parameter and how much is the asset. Operator
+ * condition on the Phase 39 sign-off, 2026-08-03.
+ */
+export const DSCR_SENSITIVITY_LADDER = Object.freeze([1.50, 1.75, 2.00]);
+
+/**
+ * REVIEW TRIGGER — operator condition on the Phase 39 sign-off, 2026-08-03.
+ *
+ * Every cover ratio here is a US bank panel carried onto a EUR Baltic asset. No
+ * European or Baltic source consulted in Phase 39 publishes a storage DSCR
+ * number at all. **If European or Baltic BESS financing terms become locatable,
+ * re-derive from them — do not inherit these.** The transfer is a stopgap for an
+ * absent source, not a considered view that US terms are the right ones.
+ */
+export const REVIEW_TRIGGER = Object.freeze({
+  condition: 'European or Baltic BESS financing terms become locatable',
+  action: 're-derive the cover ratios from them rather than inheriting the US panel',
+  set_by: 'operator sign-off, Phase 39',
+  set_on: '2026-08-03',
+});
+
+/**
+ * The one-line provenance the public surface carries.
+ *
+ * Rule #2: this asserts WHERE the numbers come from, so it is COMPUTED from the
+ * register rather than written as prose that can outlive its premise. Editing a
+ * source in `DEBT_PARAMS` rewrites this automatically; it cannot go stale
+ * silently.
+ */
+export function provenanceNote() {
+  const d = DEBT_PARAMS.dscr_merchant;
+  const t = DEBT_PARAMS.tenor_years;
+  const m = DEBT_PARAMS.margin_bp;
+  return {
+    summary:
+      `Cover ratio ${d.base.toFixed(2)}× is a US bank panel figure (${d.source}, ${d.date}), ` +
+      `carried onto a euro asset. No European or Baltic source publishes a storage ` +
+      `DSCR number. Tenor ${t.base} yr is European (${t.source}, ${t.date}); margin ` +
+      `${m.base} bp is US-panel, applied over EURIBOR.`,
+    transferred: Object.entries(DEBT_PARAMS)
+      .filter(([, p]) => p.is_transfer).map(([k]) => k),
+    sources: Object.fromEntries(Object.entries(DEBT_PARAMS)
+      .map(([k, p]) => [k, { source: p.source, url: p.url, date: p.date }])),
+    review_trigger: REVIEW_TRIGGER,
+  };
 }
 
 /** The base case: every sourced parameter at its conservative end. */
@@ -218,7 +277,7 @@ export function parameterTableMarkdown() {
     const u = UNIT[k] ?? String;
     const fmt = (v) => (Array.isArray(v) ? `${u(v[0])}–${u(v[1])}` : u(v));
     const range = p.range ? fmt(p.range) : '—';
-    return `| \`${k}\` | **${fmt(p.base)}** | ${range} | ${p.source}, ${p.date} | ${p.transfer ? 'yes' : 'no'} |`;
+    return `| \`${k}\` | **${fmt(p.base)}** | ${range} | ${p.source}, ${p.date} | ${p.is_transfer ? 'yes' : 'no'} |`;
   });
   return [
     '| Parameter | Base (conservative end) | Published range | Source | Transfer? |',

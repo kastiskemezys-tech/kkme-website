@@ -10,10 +10,10 @@
  */
 import { writeFileSync } from 'node:fs';
 import { publicParamMatrix, loadFixtureKV } from '../tools/consultancy/regression-reference.mjs';
-import { sizeDebt, assertDebtInvariants } from '../tools/consultancy/lib/debtSizing.mjs';
+import { sizeDebt, assertDebtInvariants } from '../workers/lib/debtSizing.js';
 import {
   DEBT_PARAMS, baseCase, blendedDscrTarget, parameterTableMarkdown,
-} from '../tools/consultancy/lib/debtParams.mjs';
+} from '../workers/lib/debtParams.js';
 import { normaliseContract, contractYear } from '../tools/consultancy/lib/contracted.mjs';
 
 const argv = process.argv.slice(2);

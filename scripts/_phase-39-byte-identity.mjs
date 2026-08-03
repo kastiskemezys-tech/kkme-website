@@ -12,11 +12,16 @@
  * phase's own diff (failure-modes B7). This gate compares against a clean
  * worktree of the reference commit instead — never a stash (C6).
  *
- * Usage:
- *   git worktree add /tmp/kkme-ref origin/main
- *   node scripts/_phase-39-byte-identity.mjs /tmp/kkme-ref
+ * Phase 39 ships ONE new field (`debt_sizing`). After that, whole-payload
+ * identity is expected to fail, and the gate that matters becomes ADDITIVE-ONLY:
+ * every pre-existing key still present, and byte-identical once the new field is
+ * pruned. `--additive` runs that instead of strict identity.
  *
- * Exit 0 = every configuration identical. Exit 1 = something moved.
+ * Usage:
+ *   node scripts/_phase-39-byte-identity.mjs /tmp/kkme-ref              # strict
+ *   node scripts/_phase-39-byte-identity.mjs /tmp/kkme-ref --additive   # additive-only
+ *
+ * Exit 0 = pass. Exit 1 = something moved.
  */
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
@@ -35,7 +40,9 @@ if (!existsSync(`${REF}/workers/fetch-s1.js`)) {
   process.exit(2);
 }
 
-const { publicParamMatrix, loadFixtureKV } =
+const ADDITIVE = process.argv.includes('--additive');
+
+const { publicParamMatrix, loadFixtureKV, firstDifference } =
   await import(`${WT}/tools/consultancy/regression-reference.mjs`);
 const kv = loadFixtureKV();
 const M = publicParamMatrix();
@@ -50,17 +57,45 @@ const hash = (o) =>
     .update(JSON.stringify(o, (k, v) => (VOLATILE.has(k) ? undefined : v)))
     .digest('hex');
 
+/** Fields this phase ADDS. Pruned before comparison in additive mode. */
+const ADDED_FIELDS = new Set(['debt_sizing']);
+const prune = (o) =>
+  JSON.parse(JSON.stringify(o, (k, v) => (ADDED_FIELDS.has(k) ? undefined : v)));
+
 let same = 0;
 const drift = [];
+const missing = [];
 for (const { id, params } of M) {
-  if (hash(refMod.computeRevenueV7(params, kv)) === hash(wtMod.computeRevenueV7(params, kv))) same++;
-  else drift.push(id);
+  const a = refMod.computeRevenueV7(params, kv);
+  const b = wtMod.computeRevenueV7(params, kv);
+
+  if (!ADDITIVE) {
+    if (hash(a) === hash(b)) same++;
+    else drift.push(id);
+    continue;
+  }
+
+  // Additive mode: no pre-existing key may vanish, and nothing outside the new
+  // fields may change. Removing a key is a silent break for any consumer of it,
+  // so it is checked separately from value drift.
+  for (const k of Object.keys(a)) if (!(k in b)) missing.push(`${id}.${k}`);
+  const d = firstDifference(prune(a), prune(b), '');
+  if (d) drift.push(`${id} -> ${d.path}: ${JSON.stringify(d.before)} => ${JSON.stringify(d.after)}`);
+  else same++;
 }
 
-console.error(`\nBYTE-IDENTITY vs ${REF}: ${same}/${M.length} identical`);
-if (drift.length) {
-  console.error('DRIFTED:');
-  for (const d of drift) console.error(`  ${d}`);
-  process.exit(1);
+console.error(`\n${ADDITIVE ? 'ADDITIVE-ONLY' : 'BYTE-IDENTITY'} vs ${REF}: ` +
+  `${same}/${M.length} ${ADDITIVE ? 'pre-existing payloads identical' : 'identical'}`);
+if (ADDITIVE) console.error(`  new fields: ${[...ADDED_FIELDS].join(', ')}`);
+if (missing.length) {
+  console.error(`  PRE-EXISTING KEYS REMOVED (${missing.length}):`);
+  for (const m of missing.slice(0, 10)) console.error(`    ${m}`);
 }
-console.error('GATE GREEN — no public configuration moved.');
+if (drift.length) {
+  console.error('  DRIFTED:');
+  for (const d of drift.slice(0, 10)) console.error(`    ${d}`);
+}
+if (drift.length || missing.length) process.exit(1);
+console.error(ADDITIVE
+  ? 'GATE GREEN — strictly additive. No existing public value moved.'
+  : 'GATE GREEN — no public configuration moved.');

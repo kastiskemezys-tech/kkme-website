@@ -12,9 +12,9 @@ Engine    : computeRevenueV7, workers/fetch-s1.js
 |---|---|---|---|---|
 | `dscr_merchant` | **2.00×** | 1.20×–2.00× | Norton Rose Fulbright / projectfinance.law, "Cost of Capital: 2025 Outlook", 2025-01-24 | yes |
 | `dscr_contracted` | **1.20×** | 1.15×–1.20× | Norton Rose Fulbright / projectfinance.law, "Cost of Capital" 2025 and 2026 Outlooks (the same figure in both years), 2026-01-29 | yes |
-| `tenor_years` | **7 yr** | 7 yr–10 yr | Société Générale Corporate & Investment Banking, "BESS - Emerging Asset to Essential Infrastructure", 2025-06-24 | yes |
+| `tenor_years` | **7 yr** | 7 yr–10 yr | Société Générale Corporate & Investment Banking, "BESS - Emerging Asset to Essential Infrastructure", 2025-06-24 | no |
 | `margin_bp` | **350 bp** | 275 bp–350 bp | Norton Rose Fulbright / projectfinance.law, "Cost of Capital: 2025 Outlook", 2025-01-24 | yes |
-| `gearing_cap` | **60 %** | 40 %–60 % | Pexapark, "The BESS Brief - Part 2: BESS Financing", 2025-07-15 | yes |
+| `gearing_cap` | **60 %** | 40 %–60 % | Pexapark, "The BESS Brief - Part 2: BESS Financing", 2025-07-15 | no |
 | `merchant_share_cap` | **25 %–40 %** | 25 %–40 % | Norton Rose Fulbright / projectfinance.law, "Cost of Capital: 2026 Outlook", 2026-01-29 | yes |
 | `base_rate` | **2.60 %** | — | ECB via the engine KV snapshot (`kv.euribor.euribor_nominal_3m`), 2026-07-28 | no |
 | `dscr_blend` (partial contracting) | weighted | — | **UNSOURCED — modelling choice** | n/a |
