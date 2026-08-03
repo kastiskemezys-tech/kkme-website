@@ -199,7 +199,11 @@ export function S1Card() {
         }}>
           At a{' '}
           <span style={{ fontFamily: 'var(--font-serif)', fontWeight: 500 }}>100 MW / {dur}</span>{' '}
-          plant, today&apos;s gross capture implies{' '}
+          {/* Phase 38.2 — read "today's gross capture" regardless of the value's
+              vintage. On 2026-08-02 it asserted "today's" over a 2026-08-01
+              number that had been frozen for 33 hours by the S1 outage. The
+              date is now the payload's own (rule #2). */}
+          plant, gross capture{cap.date ? ` on ${fmtDate(cap.date)}` : ''} implies{' '}
           <span style={{ fontFamily: 'var(--font-serif)', fontWeight: 500 }}>
             {fmtEuro(Math.round(heroVal * (dur === '2h' ? 200 : 400) / 100) * 100)}
           </span>

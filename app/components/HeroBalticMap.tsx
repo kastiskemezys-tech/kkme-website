@@ -8,6 +8,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { geoToPixel, MAP_WIDTH, MAP_HEIGHT, CABLE_PATHS, COUNTRY_LABEL_PIXELS, CITY_LABEL_PIXELS, WAYPOINT_START } from '@/lib/map-projection';
 import { INTERCONNECTORS, resolveFlow } from '@/lib/baltic-places';
 import { fleetSdCaption } from '@/app/lib/sdRatio';
+import { fleetOverRegistry, coverageRowsCaption } from '@/app/lib/fleetCoverage';
 import type { ResolvedFlow } from '@/lib/baltic-places';
 import { resolveCollisions } from '@/lib/label-layout';
 import type { LabelBox } from '@/lib/label-layout';
@@ -59,6 +60,7 @@ interface FleetData {
   baltic_operational_mw?: number | null;
   baltic_operational_mw_strict?: number | null;
   baltic_quarantined_mw?: number | null;
+  quarantined?: Array<{ name?: string }> | null;
   baltic_pipeline_mw?: number | null;
   eff_demand_mw?: number | null;
   countries?: Record<string, FleetCountry>;
@@ -76,6 +78,7 @@ interface S4Data {
   projects?: Array<{ id?: string; name: string; mw: number; status: string; country: string; cod?: string; lat?: number; lng?: number }>;
   free_mw?: number;
   baltic_total?: { installed_mw?: number | null } | null;
+  storage_by_country?: Record<string, { installed_mw?: number | null }> | null;
 }
 interface S2Data { afrr_up_avg?: number; mfrr_up_avg?: number; fcr_avg?: number }
 interface ReadData { capture?: { gross_4h?: number; shape_swing?: number }; updated_at?: string }
@@ -782,7 +785,21 @@ export function HeroBalticMap() {
         {/* Block 2 — Fleet composition */}
         <div
           style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 0, paddingTop: '12px', paddingRight: 'var(--space-sm)', paddingBottom: '12px', paddingLeft: 'var(--space-sm)' }}
-          title={`Baltic flexibility fleet · BESS + pumped hydro (Kruonis 205 MW). Includes ${fmt(fleet?.baltic_quarantined_mw ?? 0)} MW flagged _quarantine pending TSO operational evidence (Kruonis PSP, BSP Hertz 1, Eesti Energia BESS, Utilitas Targale, AJ Power). Strict-verified count: ${fmt(fleet?.baltic_operational_mw_strict ?? null)} MW. For BESS-only registry total see S4 "Grid access and buildability" card.`}
+          // Phase 38.2 — was "BESS + pumped hydro (Kruonis 205 MW)" against a
+          // population holding zero pumped-hydro entries, and named five assets
+          // as quarantined beside a computed 0 MW. The named list is now the
+          // worker's own `quarantined[]`, so it cannot outlive its premise
+          // (rule #2 applied to the label, playbook B12 point 4).
+          title={(() => {
+            const quarMw = fleet?.baltic_quarantined_mw;
+            const names = (fleet?.quarantined ?? []).map(q => q.name).filter(Boolean);
+            const quarantineLine = quarMw == null
+              ? 'Quarantine status unavailable in this payload.'
+              : quarMw > 0
+                ? `Includes ${fmt(quarMw)} MW flagged _quarantine pending TSO operational evidence${names.length ? ` (${names.join(', ')})` : ''}.`
+                : 'No entry is currently flagged _quarantine.';
+            return `Baltic flexibility fleet — grid-connected batteries tracked at project level (commercial, TSO-owned and Kaupikliai). ${quarantineLine} Strict-verified count: ${fmt(fleet?.baltic_operational_mw_strict ?? null)} MW. For the TSO-published national registry totals see S4 "Grid access and buildability" card.`;
+          })()}
         >
           <div style={{
             fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--text-tertiary)',
@@ -795,7 +812,7 @@ export function HeroBalticMap() {
               fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)',
               color: 'var(--text-muted)', textTransform: 'none',
               letterSpacing: '0.02em', marginLeft: '6px', fontWeight: 400,
-            }}>(BESS + pumped hydro)</span>
+            }}>(BESS)</span>
           </div>
           <div style={{
             fontFamily: 'var(--font-serif)', fontSize: 'var(--type-display-md)', fontWeight: 500,
@@ -837,16 +854,21 @@ export function HeroBalticMap() {
             + {fmt(fleet?.baltic_pipeline_mw)} MW PIPELINE
           </div>
           {(() => {
-            const bess = s4?.baltic_total?.installed_mw;
-            const flex = fleet?.baltic_operational_mw;
-            if (bess == null || flex == null) return null;
-            const kruonis = Math.max(0, Math.round(flex - bess));
+            // Phase 38.2 — this rendered `= TSO BESS 651 MW + Kruonis flex
+            // share 131 MW`, where the 131 was `max(0, flex − bess)` and the
+            // name on it was written by hand. Same subtraction, decomposed
+            // per country and labelled with what it is.
+            const cov = fleetOverRegistry(fleet?.countries, s4?.storage_by_country);
+            if (!cov || cov.gapMw <= 0) return null;
             return (
-              <div style={{
-                fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--text-muted)',
-                marginTop: '6px', letterSpacing: '0.02em', lineHeight: 1.4,
-              }}>
-                = TSO BESS {fmt(bess)} MW + Kruonis flex share {kruonis} MW
+              <div
+                style={{
+                  fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--text-muted)',
+                  marginTop: '6px', letterSpacing: '0.02em', lineHeight: 1.4,
+                }}
+                title={`Fleet tracker minus TSO-published national registry, per country: ${coverageRowsCaption(cov)} MW. Two populations with different as-of dates: the tracker counts project-level entries, the registries are country totals published by Litgrid, AST and Elering.`}
+              >
+                = {fmt(cov.registryMw)} MW in national registries · {fmt(cov.gapMw)} MW tracked above them
               </div>
             );
           })()}

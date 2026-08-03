@@ -47,7 +47,7 @@ export interface S4ForFleet {
   baltic_total?: S4BalticTotal | null;
 }
 
-/** Live commissioned flex fleet (BESS + pumped hydro). Headline number. */
+/** Live commissioned flex fleet — project-level battery entries. Headline number. */
 export function flexibilityFleetMw(s4: S4ForFleet | null | undefined): number | null {
   return s4?.fleet?.baltic_operational_mw ?? null;
 }
@@ -63,7 +63,7 @@ export function flexibilityFleetByCountry(s4: S4ForFleet | null | undefined): Re
   return out;
 }
 
-/** BESS-only registry total (excludes pumped hydro). Use for BESS pipeline analysis. */
+/** TSO-published national registry total. Use for BESS pipeline analysis. */
 export function bessInstalledMw(s4: S4ForFleet | null | undefined): number | null {
   return s4?.baltic_total?.installed_mw ?? null;
 }

@@ -557,7 +557,7 @@ export function S4Card() {
           )}
         </div>
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-          APVA grant call: ~{formatMW(pipe?.apva_applied_mw)} MW applied (operator estimate, pending APVA refresh)
+          APVA grant call: ~{formatMW(pipe?.apva_applied_mw)} MW applied · operator estimate, 2025-10 call · no register publishes beneficiary lists at citation grade
           {pipe?.apva_source_url && (
             <> · <SourceLink href={pipe.apva_source_url}>APVA</SourceLink></>
           )}
@@ -578,7 +578,7 @@ export function S4Card() {
         <div style={{ color: 'var(--text-secondary)' }}><span style={{ color: 'var(--text-tertiary)' }}>●</span> Grid agreement + tech project: ~700 MW</div>
         <div style={{ color: 'var(--text-tertiary)' }}><span style={{ color: 'var(--text-tertiary)' }}>●</span> Development permit only: ~3,600 MW</div>
         <div><span style={{ color: 'var(--text-tertiary)' }}>●</span> TSO reservation / protocol: {formatMW(tsoReservedMw)} MW</div>
-        <div style={{ fontStyle: 'italic' }}><span style={{ color: 'var(--text-tertiary)' }}>○</span> APVA applied: ~{formatMW(pipe?.apva_applied_mw)} MW (operator estimate)</div>
+        <div style={{ fontStyle: 'italic' }}><span style={{ color: 'var(--text-tertiary)' }}>○</span> APVA applied: ~{formatMW(pipe?.apva_applied_mw)} MW · operator estimate, 2025-10 call · unconfirmable at citation grade</div>
       </div>
           </>
         )}
@@ -719,7 +719,7 @@ export function S4Card() {
               display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 'var(--space-xs)',
               fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)',
             }}>
-              <div title="All commissioned, grid-connected flex assets — BESS + pumped hydro (Kruonis 205 MW). Distinct from BESS-only registry total shown in the LT pipeline bar above.">
+              <div title="All commissioned, grid-connected batteries tracked at project level — commercial, TSO-owned and Kaupikliai. Contains no pumped hydro. Distinct from the TSO-published national registry total shown in the LT pipeline bar above.">
                 <div style={{ color: 'var(--text-muted)' }}>Flex fleet</div>
                 <div style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>{fl.baltic_operational_mw ?? '—'} MW</div>
               </div>
@@ -742,7 +742,7 @@ export function S4Card() {
       <div className="card-footnotes">
         <div>
           <span className="card-footnotes__anchor">1</span>
-          TSO-tracked operational fleet: BESS + pumped hydro from LITGRID, ELERING, AST registries; entity-resolver deduplicated. <a href="/methodology">methodology</a>.
+          Operational fleet tracked at project level from LITGRID, ELERING and AST publications; entity-resolver deduplicated. Batteries only. <a href="/methodology">methodology</a>.
         </div>
       </div>
 
@@ -790,7 +790,7 @@ export function S4Card() {
               style={{ color: 'var(--text-secondary)' }}
               title="APVA 2025-10 large-power BESS support call (€44.97M budget per APVIS portal). MW/MWh totals reflect operator estimate from prior APVA briefings; exact paraiškų rezultatai pending publication. Source: https://apvis.apva.lt/paskelbti_kvietimai/dideles-galios-elektros-energijos-kaupimo-irenginiu-irengimas-siekiant-subalansuoti-elektros-energetikos-sistema-2025-10"
             >
-              ~{formatMW(pipe?.apva_applied_mw)} MW / ~{formatMW(pipe?.apva_applied_mwh)} MWh (against ~€{formatEurM(pipe?.apva_budget_eur)}M budget · operator estimate)
+              ~{formatMW(pipe?.apva_applied_mw)} MW / ~{formatMW(pipe?.apva_applied_mwh)} MWh (against ~€{formatEurM(pipe?.apva_budget_eur)}M budget) · operator estimate, 2025-10 call · 37.A found no register serving beneficiary lists at citation grade; TAM pending
             </span>
             <span style={{ color: 'var(--text-muted)' }}>Pipeline-to-installed</span>
             <span style={{ color: 'var(--text-secondary)' }}>{(tsoReservedMw / installedMw).toFixed(1)}× (TSO reserved / installed)</span>

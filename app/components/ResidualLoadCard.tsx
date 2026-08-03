@@ -111,13 +111,13 @@ export function ResidualLoadCard() {
         {interpretation(residualMw, totalLoad)}
       </p>
 
-      <SourceFooter source="ENTSO-E" updatedAt={formatTimestamp(ts)} dataClass="observed" />
+      <SourceFooter source="energy-charts.info" updatedAt={formatTimestamp(ts)} dataClass="observed" />
 
       <div style={{ marginTop: 'var(--space-xs)' }}>
         <DetailsDrawer label="View residual load detail">
           <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 'var(--space-xs)' }}>Source</p>
           <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-            ENTSO-E Transparency Platform load, wind, and solar actuals for the Baltic synchronous area. Aggregated by the S1 worker (`/s_wind`, `/s_solar`, `/s_load`), with per-country fields (`lt_mw`, `lv_mw`, `ee_mw`) and 7-day averages computed server-side.
+            Load, wind and solar actuals for the Baltic synchronous area, read from energy-charts.info (Fraunhofer ISE), which republishes ENTSO-E Transparency Platform data. The payloads carry `source: energy-charts.info`; the citation names what we read, not what it was read from. Aggregated by the S1 worker (`/s_wind`, `/s_solar`, `/s_load`), with per-country fields (`lt_mw`, `lv_mw`, `ee_mw`) and 7-day averages computed server-side.
           </p>
 
           <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 'var(--space-xs)', marginTop: 'var(--space-sm)' }}>Computation</p>
@@ -127,7 +127,7 @@ export function ResidualLoadCard() {
 
           <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 'var(--space-xs)', marginTop: 'var(--space-sm)' }}>Limitations</p>
           <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-            Residual conflates thermal generation, hydro, biomass, and net imports — it is not a pure thermal-only figure. Cross-border flows can mask the local generation mix at extreme renewable-surplus or deficit moments. ENTSO-E observed-data lag varies by TSO (typically &lt;1h).
+            Residual conflates thermal generation, hydro, biomass, and net imports — it is not a pure thermal-only figure. Cross-border flows can mask the local generation mix at extreme renewable-surplus or deficit moments. Observed-data lag varies by TSO (typically &lt;1h) and energy-charts adds its own republication lag.
           </p>
         </DetailsDrawer>
       </div>

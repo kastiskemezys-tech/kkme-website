@@ -66,15 +66,20 @@ export const METRIC_REGISTRY: Record<string, MetricDescriptor> = {
     workerPath: 's4.baltic_total.installed_mw',
     meaning:
       'Sum of LT + LV + EE installed BESS at TSO level. Distinct from fleet.baltic_operational_mw, ' +
-      'which is the live commissioned flex fleet (BESS + pumped hydro Kruonis).',
+      'which is the project-level fleet tracker — a wider population of the same technology, ' +
+      'not a different one (Phase 38.2: the fleet holds zero pumped-hydro entries).',
     introducedPhase: '12.10',
   },
   baltic_flexibility_fleet_mw: {
-    label: 'Baltic flexibility fleet (BESS + Kruonis PSP)',
+    label: 'Baltic flexibility fleet (project-level battery tracker)',
     workerPath: 's4.fleet.baltic_operational_mw',
     meaning:
-      'All commissioned grid-connected flex assets — BESS + pumped hydro (Kruonis 205 MW). ' +
-      'Distinct from baltic_total.installed_mw which excludes pumped hydro by definition.',
+      'All commissioned grid-connected batteries tracked at project level: commercial, TSO-owned ' +
+      'and Litgrid Kaupikliai. Phase 38.2 corrected a "BESS + pumped hydro (Kruonis 205 MW)" ' +
+      'scope carried since 12.10 — fleet.countries holds zero pumped-hydro entries and no entry ' +
+      'named Kruonis, so the total is the exact sum of batteries. Distinct from ' +
+      'baltic_total.installed_mw by POPULATION (project-level tracker vs TSO-published country ' +
+      'totals), not by technology.',
     introducedPhase: '12.10',
   },
   afrr_up_avg_90d_delta: {
