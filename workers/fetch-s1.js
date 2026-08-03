@@ -12916,6 +12916,13 @@ export {
   // real recorded ENTSO-E response, which means the test has to call the same
   // function the fetch paths call rather than a copy of its regex.
   extractPrices,
+  // Phase 43 — the IRR solver, exported so its edge cases can be driven
+  // directly. The 54 public configurations are profitable everywhere, so they
+  // cannot reach the uneconomic branch, the non-convergent branch or the
+  // two-sign-change case at all: an audit that runs only the public matrix is
+  // an audit of the happy path. Exported rather than copied — a restatement of
+  // the bisection in a test would verify the restatement (B13).
+  calcIRR as calcIRRForAudit,
   // Phase 39.2 — the day-correct A44 reconstruction. Exported so the tests
   // exercise the SAME functions the capture fallback calls, against a real
   // recorded ENTSO-E response, rather than a restatement of their regexes
