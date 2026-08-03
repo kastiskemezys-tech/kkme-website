@@ -4086,3 +4086,81 @@ undeclared rather than invisibly unchecked, which is the improvement — not the
 
 §4 politeness/legality (robots.txt verification per scraper, User-Agent identification, declared
 rate limits), §6 B-057 cron staggering, §6 37.B.3 detector matching. Listed rather than dropped.
+
+## 46 (item 5) · Pause A — four questions
+
+**(a) HYPOTHESIS vs verified.** Two premises understated, one phantom, one unverifiable.
+
+*Understated.* "B-050/B-053 malformed backlog table rows" is much larger than filed. **Eight**
+IDs existed only as sentences in session-log paragraphs and owned no table row: B-036, B-037,
+B-038, B-039, B-040 (all filed 2026-07-30 in one paragraph at ~:1069) and B-045, B-046 (both
+filed and CLOSED in 37.H1/37.B.1 prose, so two closed items were also invisible). Every
+`grep '^| B-'` sweep since — including the tooling the backlog exists to feed — was blind to
+all eight. Filed as **B-066** with the root fix.
+
+*Phantom.* **B-044 does not exist.** The prompt names it as "TAM / APVA citability";
+`grep -c 'B-044' docs/handover.md` returned **0** before I wrote about it. Tabled AS A PHANTOM
+rather than exempted inside the gate — special-casing an id inside a gate is how the gate stops
+being one. Needs the operator to say which item was meant.
+
+*Unverifiable tonight.* The prompt's B-055 claim that "the two filters agree to 2.57 % over the
+84 shared months" — I could not reproduce it and I am not repeating it. My count is **85**
+shared months, not 84. My own attempt at a delta used a mean-daily-(max−min) proxy and returned
+88 %, which is an **artefact of the proxy**: a quarter-hourly series has wider daily extremes
+than an hourly one by construction, so adding PT15M rows inflates that statistic regardless of
+what the real arbitrage metric does. Reporting that 88 % as the impact would have been an A8
+anchor invented by my own measurement error. `arbitrageByMonth` is not exported, so a faithful
+before/after needs the real helper — that is the first task of B-055's own phase, not a rider
+on a sweep.
+
+**(b) What consumes what this changes.** `docs/handover.md` (documentation) and one new test.
+No code path. `/revenue` 54/54 byte-identical.
+
+**(c) What fails silently here.** The backlog itself — that is the finding. An item filed in
+prose is recorded and unfindable at the same time, which is the worst of both states: the person
+who wrote it believes it is filed, and every downstream sweep reports it does not exist.
+
+**(d) At which layer and time.** The new gate is proven by inject-then-revert: adding a
+prose-only `B-777` mention turns it red naming B-777; reverting turns it green. The three
+"already closed" verdicts each carry the command that proves them (below).
+
+### 46 · Decision 7 (NEEDS SIGNATURE) — B-055 is a phase, not a fix
+
+Confirmed open and quantified: `build-summary-table.mjs:392` filters DE day-ahead to
+`r.resolution === 'PT60M'`. The evidence base holds **336,202** DE day-ahead rows spanning
+**96 months** (2018-09 → 2026-08), of which **274,835 are PT15M and 61,367 PT60M**. The filter
+keeps **85** months and silently drops **11**: 2025-10 through 2026-08 — every month since
+Germany's MTU change.
+
+It is not a one-line fix, because the summary table **feeds citations**, so changing it moves a
+client-facing number, and the size of that move is exactly what I could not measure (see (a)).
+
+**Recommendation: its own short phase.** Export `arbitrageByMonth`, compute the real before/after
+across the 85 shared months, and only then decide whether the switch is a correction or a
+restatement. Fold in the `ARB_RTE_E0_PUBLISHED` pinning so one rebuild closes both, as the
+prompt suggests. Estimate: 2-3 h with the measurement done first.
+
+### Schedulable-phase paragraphs for the deferred items
+
+**B-039 / B-040 (E4 compression coefficient, E5 evidence base).** Neither is code. B-039 needs a
+per-country installed-storage-MW time series to fit a per-GW compression coefficient; the
+candidate sources are ENTSO-E's installed-capacity tables and the national registers we already
+touch, so this is acquisition plus a licence/provenance treatment, not new machinery. B-040 is
+larger: E5 has no evidence base at all, so it needs the source question answered before anything
+can be fetched. **B-039: ~1 day, unblocks E4's compression term. B-040: scoping first, half a
+day, before any estimate is honest.**
+
+**B-064 (degradation below 1.0 c/d).** The internal fit was correctly declined — publishing a
+curve fitted to our own model would make the degradation term circular. What is needed is
+citable coefficients below 1.0 c/d from a characterisation study, and the constraint is that the
+three rate-tagged curves we hold start at 1.0. **~half a day once a citable source exists; zero
+until then.** Unblocks any 4h-duration scenario that cycles gently, which is most of them.
+
+**The reserve side of the MW identity (1.115 → 1.00).** Needs a directional split
+`RESERVE_PRODUCTS` cannot currently express — up and down reserve are not the same megawatt
+commitment and the shares sum to 1.00 as though they were. Moves numbers, needs a signature, and
+should follow B-065's residue rather than precede it. **~2 days, and it is the last structural
+piece of the MW identity.**
+
+**B-044.** Cannot be scheduled: the item does not exist. One sentence from the operator resolves
+it.
