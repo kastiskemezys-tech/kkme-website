@@ -1,0 +1,109 @@
+# Phase 40 — the gate set, in CI, on every PR.
+#
+# Before this workflow existed there was NO CI on pull requests at all. The two
+# workflows in this directory are both data jobs (fetch-btd, refresh-mature-
+# markets); neither runs a single gate against a proposed change. Every gate in
+# the repo was local-only and therefore optional, which is how a counterparty
+# name reached four pushed commits.
+#
+# `set -o pipefail` on every piped step. B-053: a step whose command ends
+# `| tail -40` reports TAIL's exit status, so the gate passes whenever tail can
+# read — i.e. always. That is not a hypothetical here; it shipped, in the
+# workflow next door, and the fix is in `refresh-mature-markets.yml` at line 164
+# with the reasoning attached. Steps below take the default shell explicitly so
+# the property is stated rather than inherited.
+#
+# What is NOT here, and why: the NDA name/figure gate. It matches against a
+# needle list that lives under `docs/_private/` and is gitignored by design —
+# publishing the list of forbidden strings would publish them. Running it in CI
+# means putting that list in a repository secret, and the overnight rules forbid
+# new secrets. Reported rather than worked around; see docs/gates.md and the
+# phase wrap for the decision this needs.
+
+name: gates
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+defaults:
+  run:
+    # Every `run:` in this file inherits pipefail. A gate whose exit status can
+    # be swallowed by the last command in a pipe is not a gate.
+    shell: bash -o pipefail -e {0}
+
+concurrency:
+  group: gates-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history: the byte-identity gate creates a worktree of the
+          # comparison ref, and a shallow clone cannot check one out.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - run: npm ci
+
+      # ── The registered gate set ─────────────────────────────────────────────
+      # One step, because the registry is the source of truth for what the gate
+      # set IS. Adding a gate to scripts/gates/registry.mjs adds it to CI with no
+      # edit here — the alternative (a hand-maintained list of steps) is a second
+      # place for the set to be defined, and a second place to forget.
+      - name: gates
+        id: gates
+        run: npm run --silent gates
+
+      # ── The gates' own self-test ────────────────────────────────────────────
+      # This is the step that stops the recurring class. It applies each declared
+      # injection to the real mechanism, asserts the gate goes red, reverts, and
+      # asserts it comes back green — and it FAILS on any gate that has no
+      # declared injection. A new gate therefore cannot merge unproven.
+      #
+      # It runs even when `gates` failed: knowing whether the gate set can still
+      # fail is worth more when something is already red, not less.
+      - name: gates:selftest
+        if: always() && steps.gates.conclusion != 'skipped'
+        run: npm run --silent gates:selftest
+
+      # ── Public-payload byte identity ────────────────────────────────────────
+      # Not in the registry: it needs a comparison ref, so it is parameterised
+      # rather than a fixed command. On a PR the meaningful comparison is against
+      # the merge base, not against whatever origin/main has drifted to.
+      - name: byte-identity vs base
+        if: github.event_name == 'pull_request'
+        run: npm run --silent gate:byte-identity -- "origin/${{ github.base_ref }}"
+
+      - name: working tree clean at exit
+        if: always()
+        run: |
+          # Redundant against `defaults.run.shell` above, and kept anyway. The
+          # B-053 guard in tools/consultancy/__tests__/refreshWorkflow.test.ts
+          # inspects `run:` blocks and cannot see a `defaults:` shell, so it
+          # flagged this block. Satisfying it by teaching it about `defaults:`
+          # would mean editing a guard to accept new code — the exact move B6
+          # forbids. Setting the flag here costs nothing and leaves the guard
+          # exactly as sharp as it was. (The guard's blind spot is recorded in
+          # docs/gates.md rather than patched at 2am.)
+          set -o pipefail
+          # The self-test applies real injections to real files. If it ever fails
+          # to restore one, the failure must be loud here rather than discovered
+          # later in a diff nobody expected.
+          DIRTY=$(git status --porcelain | grep -v '^??' || true)
+          if [ -n "$DIRTY" ]; then
+            echo "::error::gate run left the working tree dirty:"
+            echo "$DIRTY"
+            exit 1
+          fi
+          echo "working tree clean"

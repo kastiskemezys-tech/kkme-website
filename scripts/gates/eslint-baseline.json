@@ -1,0 +1,16 @@
+{
+  "_note": "eslint error/warning counts on the reference commit. The gate is a delta against these, because absolute zero is unreachable here.",
+  "represents_sha": "7297a1b25db10b46c1e9acc04e6d8ab8555835ce",
+  "captured_at": "2026-08-03T17:04:49.704Z",
+  "captured_from_dirty_tree": true,
+  "errors": 87,
+  "warnings": 111,
+  "byRule": {
+    "react-hooks/set-state-in-effect": 16,
+    "react-hooks/purity": 2,
+    "@typescript-eslint/no-explicit-any": 63,
+    "react-hooks/static-components": 2,
+    "react-hooks/rules-of-hooks": 2,
+    "@typescript-eslint/no-require-imports": 2
+  }
+}

@@ -3957,3 +3957,68 @@ Two stale premises corrected on the way (A3):
 - **The `s2_daily_clearing` importer is 7 days behind** — last stored day `2026-07-26`
   while BTD serves through `2026-08-02`. Those days are still inside retention so nothing
   is lost yet. B8: nothing alerted on this. Belongs with Phase 49 item 4's staleness sweep.
+
+## 40 (item 2) · Pause A — four questions
+
+**(a) Which premises are HYPOTHESIS vs verified.** The prompt's premise — that the
+repeated failure is gates that cannot fail — is *verified and understated*. Running the
+inventory found two more instances nobody had counted. `npm run lint` exits 1 on
+untouched main (87 errors), so it has never been able to distinguish a branch that broke
+something from a repo that has always been like this; and there was **no CI on pull
+requests at all** — the two workflows present are both data jobs, so every gate in the
+repo was local-only and therefore optional. That is how a counterparty name reached four
+pushed commits.
+
+**(b) What consumes what this changes.** Four new npm scripts, one new workflow, one
+generated doc. No production code path is touched, so `/revenue` identity is structural
+rather than earned — and it was still run (54/54). The one behavioural change to an
+existing artifact is `regression-reference.mjs --capture`, already altered in 39.2.
+
+**(c) What fails silently in what this touches.** The harness itself, in three ways, each
+of which is now an explicit failure rather than a pass: a **vacuous injection** (a patch
+whose `find` never matched — the gate "stayed green" after an edit that did not happen);
+a **restore that is not byte-identical** (sha256 compared before and after every
+injection, plus a whole-run tree fingerprint); and a **gate with no declared injection**,
+which fails rather than skips. The positive control covers the fourth case — a harness
+that passes everything.
+
+**(d) At which layer and time success is verified.** The harness's own claims are
+verified by running it, not by reading it: 9 gates × declared injection, each red under
+injection and green on revert, working tree byte-identical across the whole run. The two
+new registry gates (no-opt-out; manifest-in-sync) were themselves proven by
+inject-then-revert. CI-layer verification happens on the PR, which is the first time
+`gates.yml` will have run against a real event — stated as pending, not asserted.
+
+### What the harness found on its first run (the point of building it)
+
+| finding | what it was |
+|---|---|
+| `no-raw-spacing` "stayed green" | **My injection was wrong, not the gate.** It used `padding: 17`; the gate deliberately only forbids ON-scale values (4/8/16/24/32/48/64/96). Re-injected at 16 → red. |
+| `manifest-single-writer` "still red after revert" | **The registry was itself the violation.** `scripts/gates/registry.mjs` lives inside the gate's own grep scope, so writing the forbidden pattern literally — as the declaration of an injection — made the registry a permanent breach of the gate it was proving. Now assembled at run time. |
+| `eslint-delta` green at 88, red at the true 87 | **The baseline had been captured mid-edit**, while a stray `require` in an ESM module counted as an 88th error. The gate was right; the artifact was wrong. `--capture` now records `captured_from_dirty_tree` on the artifact rather than assuming (rule #2). |
+| two vacuous injections | `find` strings that did not occur. The harness refused to report them as proof — which is the behaviour that separates this from a self-test that passes because nothing happened. |
+
+### 40 · Decision 2 (NEEDS SIGNATURE) — the NDA gate cannot go into CI tonight
+
+§4.1 named it the top coverage gap. It is **blocked**, not skipped. The needle list lives
+under `docs/_private/` and is gitignored by design: publishing the list of forbidden
+strings would publish them. Putting it in CI means putting that list in a GitHub
+repository secret, and the overnight rules forbid new secrets.
+
+`npm run gates` reports it as `CI-BLOCKED` with the reason attached whenever `CI` is set,
+so it is visibly absent rather than quietly missing.
+
+**Recommendation: add the needle list as a repository secret** (`NDA_NEEDLES`), written to
+`docs/_private/commercial/_nda-gate-needles.txt` at the start of the gates job and never
+echoed. The gate already refuses to run without the list (exit 2) rather than reporting a
+pass, so a mis-wired secret fails loudly instead of silently disarming the gate. This
+needs your signature because it creates a secret.
+
+### 40 · Decision 3 (NEEDS SIGNATURE, low stakes) — `npm run lint` retired as a gate
+
+It is red on untouched main and cannot be passed. `eslint-delta` replaces it with a delta
+against a recorded baseline (87 errors at `7297a1b`), failing in BOTH directions — a
+shrink fails too, so the baseline is recaptured in the commit that earned it rather than
+drifting. **Recommendation: keep the delta gate, and burn the 87 down in a dedicated
+pass.** No action needed tonight; noted so the retirement is a decision rather than a
+silent omission.
