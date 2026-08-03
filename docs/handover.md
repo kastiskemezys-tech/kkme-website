@@ -213,6 +213,40 @@ See [docs/map.md](map.md) for the full concept-to-file lookup table.
 
 ## Session log
 
+### Session 107 — 2026-08-03 — Phase 38.3: the cutover, measured and PARKED — disclosure only (Claude Code, semi-autonomous, stopped before implementing) — branch `phase-38-3-hourly-cutover`
+
+**No public number moves.** 54-config engine delta against a **clean-worktree baseline** of `656d100` with one frozen KV (`md5 6511f342…`, byte-identical in both trees, never a stash — C6): **378 metric-config pairs, ZERO moved.** Route-level probe 54/54 identical.
+
+**Pause A, four questions.** *(a) HYPOTHESIS vs verified.* The phase's own premise — "the cutover raises the headline materially" — was treated as a hypothesis and **it failed measurement**. Also caught: 36.B1's stored artifact carries an `engine_branch_gap` (550 cycle vs 385 revenue EFC) that **36.B5 already closed**; re-derived live, `da_utilisation` 0.70 is applied today, anchor 1100 → delivered 747 (A3, A9). *(b) Consumer graph.* 80 references to `cycles_per_year` / `cycles_breakdown` / `total_efcs_yr` / `total_cd` across 14 files — `RevenueCard`, `S3Card`, `throughputCycles.ts`, seven consultancy runners, both engines. *(c) Silent failure.* The one this phase is about: two engines that agree with nothing except each other. *(d) Layer/time.* Engine AND route layer, both against the frozen fixture.
+
+#### The measurement that changed the decision
+
+| | |
+|---|---|
+| project IRR movement | **+0.07 to +0.15 pp**, median **+0.14 pp** |
+| configs that move | **18 of 54** |
+| `cycles_per_year` / `lcos` / `gross_y1` | unmoved |
+
+**The reason is the finding.** `sohYr` does `cd = Math.max(cd_total, 1.0)`; `getDegradation` floors its 2 c/d weight at zero. The SOH curves are calibrated at 1.0 / 1.5 / 2.0 c/d and nothing extrapolates below the slowest. **The engine cannot represent a 0.6 c/d asset ageing more slowly than a 1.0 c/d one** — the entire benefit of 1.36 → 0.60 c/d is the partial blend toward the 2C curve, and the stress scenario at 0.92 c/d is already under the floor, which is why a third of the matrix is inert. Publishing 222 EFC/yr would have put a cycle count into a wear model that cannot use it: the operator's "cycle count nobody can defend", arriving from the opposite direction.
+
+#### The mirror-class risk was real, and was refuted rather than assumed
+
+498/222 ≈ 2.24 looked like a units artifact — the hourly engine divides by `2 × usableMwh`, the shipped engine does not. **Refuted:** the conventions agree once worked through. The independent, non-mirror evidence was already in 36.B1's artifact and is exactly what would have been built: energy balance closing to **1.6e-9 MWh** (relative 7.6e-14), **zero** constraint violations over 8760 hours, and two independently derived ratios agreeing — free-MW share **27.5 %** vs DA achieved/anchor **28.9 %**. The gap is physical, and **94 % of it is DA cycling** (373.5 → 111.2 EFC).
+
+#### Both implementations rejected, and the blocking fact
+
+(i) wear-only buys **0.14 pp** by re-opening the wear/revenue throughput split 36.B5 had just closed, and is incoherent unless the published cycle count moves too. (ii) adopting the hourly dispatch wholesale takes arbitrage from 27 % of gross to 10.7 % and would move IRR **down** — inverting the arc's three-phase sequencing rationale. **Neither is adoptable, because the shipped engine books arbitrage at 27.1 % of Y1 gross and the hourly run at 10.7 % — same asset, largest merchant line, ~2.5× apart, and both passing every gate they own (B-063).** Mechanically: `trading_fraction` 0.70 is an ECONOMIC switching model; the hourly 27.5 % is a PHYSICAL MW constraint. Not composable, not obviously the same quantity — so they were neither multiplied nor substituted.
+
+#### What shipped — disclosure only
+
+`app/lib/wearModelRange.ts` + `WearModelRangeNote` in the RevenueCard drawer. **(1)** The wear model's validity floor stated as a limit. **(2)** The cycling answer as an answer: the 550-720 EFC/yr band is sourced to **merchant**-battery research and this asset is reserve-led at **72.6 %** of Y1 gross — computed from the payload being displayed, not the 87.6 % the hourly run showed on a different price basis. Comparing the populations is a category error; the honest limit travels with the claim. Both lines computed, never asserted.
+
+**Verification.** The floor spec is behavioural: it drives the real `sohYr` and **bisects** for where it stops responding, so a frontend constant disagreeing with the engine cannot pass. Inject-then-revert — worker clamp moved 1.0 → 0.5 and the rendered split hardcoded to 87.6 % → **4 failed** (`cd=0.1 year=1: expected 0.979 to be 0.967`; `expected …markup… to contain '72.6 %'`). Reverted; 15 passed.
+
+**Filed:** **B-063** (P1, the 2.5× arbitrage disagreement — B5 in its purest form, blocks the cutover), **B-064** (P2, no characterisation below 1.0 c/d; 38.3 published the limit, which is disclosure not a fix). **38.4 queued** with both questions and the three routed card defects, which this phase did not touch.
+
+**Gates:** `/revenue` **54/54 byte-identical** at engine and route layer · vitest **2129/2129, 116 files** (+15, none deleted or weakened) · `next build` clean · `lint:no-editorial-chips` / `no-raw-spacing` PASS · `docs/_private/` never staged.
+
 ### Session 106 — 2026-08-03 — Phase 38.2 corrections sweep — **SHIPPED & DEPLOYED** (Claude Code, semi-autonomous, one checkpoint) — PR #130, main `55dee3c`, worker `15f7c7ac`
 
 **All three stages shipped.** CP signed with six answers and a mandated order — the A68 wipe first, `installed_storage_baltic_mw` second, the write-path vendoring third, the LV value fourth, B-056 fifth, B-060 filed sixth — because 3a depended on the assertions surviving long enough to be corrected. CP artifact: `docs/investigations/2026-08-03-phase-38-2-cp-delta.md` (six questions). ALL-N artifact: `docs/investigations/2026-08-03-s4-whitelist-all-n.md`.
