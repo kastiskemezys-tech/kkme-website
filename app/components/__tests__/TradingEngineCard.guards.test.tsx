@@ -15,6 +15,7 @@ import {
   formatHeadlineAnnualLabel,
   formatSourceFooterLabel,
   formatCaptureLine,
+  formatAnnualisedBasisLabel,
 } from '@/app/components/TradingEngineCard';
 
 // Minimal CC fixture — `useChartColors()` returns a flat string-only palette.
@@ -233,5 +234,44 @@ describe('38.5 — realised-capture line renders honestly', () => {
 
   it('drops the uplift clause rather than rendering it as null', () => {
     expect(formatCaptureLine(12, null, 8)).toBe('Capture €12/MWh');
+  });
+});
+
+
+/**
+ * Phase 38.5 defect 1.3 — the annualised headline states its basis.
+ *
+ * `annual_eur = daily_eur × 365` is one day repeated. Against a seasonally
+ * resolved annual built from 16 months of observed capture the flat 365x lands
+ * between -38.5% and +89.3% of the year purely on which day it runs. The word
+ * "annualised" beside a date asserted an annual quantity; these specs assert the
+ * claim now carries its own scope.
+ */
+describe('38.5 — annualised headline carries its basis', () => {
+  const fmt = (d: string) => (d === '2026-08-03' ? '3 Aug 2026' : d);
+
+  it('names the day the figure is a repetition of', () => {
+    expect(formatAnnualisedBasisLabel(177755, '2026-08-03', fmt))
+      .toBe('€177,755/MW/yr if every day were 3 Aug 2026');
+  });
+
+  it('no longer claims the figure is "annualised" without qualification', () => {
+    const out = formatAnnualisedBasisLabel(177755, '2026-08-03', fmt);
+    // The bare word was the rule-#2 violation: an annual assertion over a
+    // daily computation, with the date sitting beside the claim rather than
+    // inside it.
+    expect(out).not.toMatch(/\bannualised\b/);
+    expect(out).toContain('if every day were');
+  });
+
+  it('degrades to a scope-carrying claim when the date is missing', () => {
+    const out = formatAnnualisedBasisLabel(177755, null, fmt);
+    expect(out).toBe('€177,755/MW/yr if every day matched this one');
+    expect(out).not.toMatch(/\bannualised\b/);
+  });
+
+  it('still renders a figure when annual_eur is null (12.8 guard preserved)', () => {
+    expect(() => formatAnnualisedBasisLabel(null, '2026-08-03', fmt)).not.toThrow();
+    expect(formatAnnualisedBasisLabel(null, '2026-08-03', fmt)).toContain('€0');
   });
 });

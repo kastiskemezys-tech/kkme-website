@@ -152,6 +152,33 @@ export function formatHeadlineAnnualLabel(annualEur: number | null | undefined):
   return `€${(annualEur ?? 0).toLocaleString()}`;
 }
 
+/**
+ * The annualised headline, with its basis stated inside the claim.
+ *
+ * Phase 38.5 #1.3. `annual_eur` is `daily_eur × 365` (`fetch-s1.js:1355`) — one
+ * day, repeated. Measured against a seasonally-resolved annual built from 16
+ * months of observed capture (`/s1/capture.monthly`), that figure lands between
+ * −38.5 % and +89.3 % of the year depending only on WHICH day the card runs on;
+ * today's live value is +14.8 %. So "annualised" beside a date was asserting an
+ * annual quantity while computing a daily one — rule #2 on the card's headline.
+ *
+ * The arithmetic is deliberately NOT changed here (see DECISIONS.md 38.5 #1.3):
+ * every candidate replacement basis is a phase, not a defect fix. What changes
+ * is that the claim now carries its own scope, so a reader cannot mistake it
+ * for a forecast. `/revenue` is the forecast, and it does not annualise this way.
+ */
+export function formatAnnualisedBasisLabel(
+  annualEur: number | null | undefined,
+  dateIso: string | null | undefined,
+  fmt: (d: string) => string,
+): string {
+  const money = formatHeadlineAnnualLabel(annualEur);
+  const when = dateIso ? fmt(dateIso) : null;
+  return when
+    ? `${money}/MW/yr if every day were ${when}`
+    : `${money}/MW/yr if every day matched this one`;
+}
+
 export function formatSourceFooterLabel(sources: ReadonlyArray<string> | null | undefined): string {
   return Array.isArray(sources) && sources.length > 0 ? sources.join(' + ') : '—';
 }
@@ -459,7 +486,7 @@ export function TradingEngineCard() {
               </div>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
                 color: 'var(--text-muted)', marginTop: 'var(--space-2xs)' }}>
-                {formatHeadlineAnnualLabel(data.revenue_per_mw.annual_eur)}/MW/yr annualised · {data.meta.mw_total}MW · {data.meta.dur_h}H · {data.meta.mode} · {fmtDate(data.meta.date_iso)}
+                {formatAnnualisedBasisLabel(data.revenue_per_mw.annual_eur, data.meta.date_iso, fmtDate)} · {data.meta.mw_total}MW · {data.meta.dur_h}H · {data.meta.mode}
               </div>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--type-mono-xs)',
                 color: 'var(--text-ghost)', marginTop: 'var(--space-2xs)', letterSpacing: '0.04em' }}>

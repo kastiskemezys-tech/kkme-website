@@ -758,12 +758,23 @@ export function HeroBalticMap() {
                 {lr.delta_pct < 0 ? '↓' : '↑'} {Math.abs(lr.delta_pct)}% vs Y1 base
               </span>
             )}
-            <span style={{
-              fontFamily: 'var(--font-mono)', fontSize: 'var(--type-body-md)', fontWeight: 500,
-              color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums',
-            }}>
+            {/* Phase 38.5 #1.3. `annualised` is `today_total × 365`
+                (`fetch-s1.js:3981`) — one day repeated, not a year. Measured
+                against a seasonally-resolved annual over 16 months of observed
+                capture, that basis lands between −38.5 % and +89.3 % of the year
+                depending only on which day it runs on. The arithmetic is
+                unchanged (see DECISIONS.md 38.5 #1.3); the claim now carries its
+                scope so the hero cannot be read as a forecast. */}
+            <span
+              title={lr?.annualised != null
+                ? `Today's revenue run-rate: €${fmt(lr.today_total_daily)}/MW/day × 365. One day repeated, not a seasonal forecast — a single day's shape moves this between roughly −38% and +89% of a full year. The financed figures are on the Returns card.`
+                : undefined}
+              style={{
+                fontFamily: 'var(--font-mono)', fontSize: 'var(--type-body-md)', fontWeight: 500,
+                color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums',
+              }}>
               {'€'}{lr?.annualised != null ? `${fmt(Math.round(lr.annualised / 1000))}k` : '···'}
-              <span style={{ fontSize: 'var(--type-label)', color: 'var(--text-secondary)', fontWeight: 400, marginLeft: '3px' }}>/MW/YR</span>
+              <span style={{ fontSize: 'var(--type-label)', color: 'var(--text-secondary)', fontWeight: 400, marginLeft: '3px' }}>/MW/YR RUN-RATE</span>
             </span>
           </div>
           {sparkData.length > 3 && (
