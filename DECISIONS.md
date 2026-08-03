@@ -4398,3 +4398,71 @@ robots configuration, or turn the override off so the repo's file is served agai
 is the better answer** — it puts the policy back under version control, where the AI-crawler
 denials would then also be reviewable in a diff. Both are dashboard actions I cannot and should
 not take.
+
+## 36.F0 (item 9) · Pause A — four questions
+
+**(a) HYPOTHESIS vs verified.** The premise — "no canvas, the Chart.js CSS-variable failure is
+on record" — is accepted and reinforced: a printed report has no runtime at all, so anything
+needing JS to render is a blank rectangle in a PDF. Everything here is a pure
+`(data, opts) → SVG string`.
+
+**(b) What consumes what this changes.** Nothing yet. New tree under `tools/report/`, one new
+doc. No engine path; `/revenue` 54/54 byte-identical. Intended consumer is the F1 copy pass,
+and the provenance spine (item 6) is the source of the `source` argument once both land.
+
+**(c) What fails silently here.** Charts, in three ways, all now gated: a non-deterministic
+render (an unreviewable diff, so every diff gets ignored), a chart with no source line (rule #3
+with a picture on it), and a chart that reads fine on screen and prints as identical greys.
+
+**(d) At which layer and time.** The palettes were **computed, not chosen** — run through the
+categorical validator until ALL CHECKS PASS. The charts were then **rendered and looked at**,
+which found four defects no assertion could: the waterfall's tallest value label sat on the top
+axis tick, the DSCR subtitle collided with both the binding annotation and the first bar's
+label, and the debt ladder's value labels ran off the right edge — the bars looked correct and
+the numbers were simply gone.
+
+### The finding: CVD-safe and greyscale-safe are opposed constraints
+
+The grayscale gate went red on its first run and was right to.
+
+- The categorical-palette validator requires slots inside a **narrow lightness band**, so no
+  series visually dominates.
+- Greyscale survival requires them **spread across luminance**, because greyscale printing IS a
+  luminance projection.
+
+These pull in opposite directions, and above two slots you cannot have both. Measured on our own
+CVD-validated dark palette: `#4a9b68` and `#b08430` sit at luminance **0.259 and 0.259** —
+identical — while passing every colour check. The light palette's worst pair is 0.018 apart.
+
+So **texture stops being decoration and becomes mandatory above two fills.** Five distinct
+patterns (0°/45°/90°/135°/dots), one per categorical slot, and the semantic fills carry them
+too: totals hatched in the waterfall, below-covenant bars hatched in the DSCR profile. The gate
+accepts luminance separation **or** pattern distinctness, and the rule is `patterns + 1 ≥ fills`
+because the untextured fill is itself one of the distinguishable marks.
+
+It still rejects the case it was written for: three fills, no texture, colours 0.02 apart.
+
+*Also rejected on the way, so nobody re-proposes it:* the **site's own chart hues fail as a
+categorical set** — `#4d7cb5` against `#7b5ea7` is ΔE 9.4 in NORMAL vision. The site gets away
+with it because those hues are rarely adjacent in one chart; a stacked revenue area puts them
+touching.
+
+### Built vs not built — 4 of 8
+
+**Built:** cashflow waterfall · revenue stack · DSCR profile with covenant · debt sizing ladder.
+**Not built:** percentile band · sensitivity tornado · monthly heatmap · degradation curve.
+
+**Do the degradation curve next.** It is the only one of the four whose job is to show where the
+model STOPS being characterised, and 38.3's 1.0 c/d validity floor currently exists as a number
+in a comment and nowhere a reader can see.
+
+### 36.F0 · Decision 13 — the shell REFUSES rather than shipping a placeholder
+
+`renderDocument({ mode: 'final' })` throws when any `{{SECTION:...}}` slot is unfilled. No prose
+is generated in this phase, per the brief, and the absence is made loud rather than left for
+someone to notice. "The operator will spot it" is not a mechanism, and a placeholder that
+reaches a client is worse than a build that refuses. Draft mode renders with the markers visible
+and a count on the cover.
+
+No signature needed — flagged because it is a deliberate refusal-by-default and those should be
+seen, not discovered.
