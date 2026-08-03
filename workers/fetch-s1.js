@@ -26,6 +26,14 @@ import { kvWrite, checkBounds, checkRequired } from './lib/kv.js';
 import { notifyTelegram } from './lib/notify.js';
 import { computeEUATrend } from './lib/eua_trend.js';
 import * as CALC from './lib/calculator.js';
+// Phase 39 — debt sized from cash flows. The solver and its sourced parameter
+// register live in lib/ so the worker and the consultancy harness drive exactly
+// one implementation (rule #4).
+import { sizeDebt, assertDebtInvariants } from './lib/debtSizing.js';
+import {
+  baseCase as debtBaseCase, provenanceNote as debtProvenanceNote,
+  DSCR_SENSITIVITY_LADDER,
+} from './lib/debtParams.js';
 import {
   addressableDemandMw,
   absorptionMw,
@@ -2722,6 +2730,86 @@ function computeRevenueV7(params, kv) {
     if (cumul >= 0 && payback === null) payback = t;
   }
 
+  // ── Phase 39: debt sized FROM the cash flows ─────────────────────────────
+  //
+  // Everything above sizes debt backwards — gearing is fixed at 55 %, a level
+  // annuity is built on it, and `min_dscr` is whatever falls out. That number is
+  // 0.95 at the reference configuration and never crosses 1.00. No lender writes
+  // a facility that way: debt is sized FROM cash flows to a target cover ratio,
+  // and gearing is the OUTPUT.
+  //
+  // Emitted ALONGSIDE the fixed-gearing figures, never replacing them. All 68
+  // existing references to `min_dscr` keep reading exactly what they read
+  // before; this is a new object and nothing repoints onto it.
+  let debt_sizing = null;
+  try {
+    // CFADS at an arbitrary interest path. EBITDA, depreciation and maintenance
+    // capex are financing-independent so they come off the rows already built;
+    // cash tax is the only line that moves with the structure being solved, and
+    // it uses the engine's own `cashTaxFor` rather than a copy of it (rule #4).
+    const cfadsFn = (interestByYear) => years.map((y, i) =>
+      y.ebitda - cashTaxFor(y.ebitda, y.depr, interestByYear[i] ?? 0, tax_rate) - y.maint_capex);
+
+    const bc = debtBaseCase();
+    const solved = sizeDebt({ cfadsFn, capexNet: capex_net_total, ...bc });
+    assertDebtInvariants(solved);
+
+    // Equity IRR at the SOLVED structure — the number that changes the sponsor
+    // conversation, and not comparable with the fixed-gearing `equity_irr` above
+    // because the equity cheque is different.
+    const solvedCfads = cfadsFn(Array.from({ length: 20 },
+      (_, i) => solved.schedule[i]?.interest ?? 0));
+    const solvedEquityCf = [-solved.equity];
+    for (let t = 1; t <= 20; t++) {
+      solvedEquityCf.push(solvedCfads[t - 1] - (solved.schedule[t - 1]?.debt_service ?? 0));
+    }
+
+    // The cover ratio is a TRANSFERRED parameter (US bank panel, over SOFR,
+    // carried onto a EUR asset), and the whole gearing figure rests on it. So
+    // the ladder ships WITH the headline rather than in a footnote: a reader who
+    // cannot see how much of the answer is the parameter cannot weigh the answer.
+    const sensitivity = DSCR_SENSITIVITY_LADDER.map((target) => {
+      const s = sizeDebt({ cfadsFn, capexNet: capex_net_total, ...bc, targetDscr: target });
+      return {
+        dscr_target: target,
+        debt: Math.round(s.debt),
+        gearing: Math.round(s.gearing * 1000) / 1000,
+        binding_constraint: s.binding_constraint,
+      };
+    });
+
+    debt_sizing = {
+      debt: Math.round(solved.debt),
+      gearing: Math.round(solved.gearing * 1000) / 1000,
+      equity: Math.round(solved.equity),
+      equity_irr: Math.round(calcIRR(solvedEquityCf) * 10000) / 10000,
+      binding_constraint: solved.binding_constraint,
+      avg_life_years: solved.avg_life != null ? Math.round(solved.avg_life * 100) / 100 : null,
+      target_dscr: solved.target_dscr,
+      tenor_years: solved.tenor_years,
+      grace_years: solved.grace_years,
+      rate_allin: Math.round(solved.rate * 100000) / 100000,
+      amortisation: 'sculpted',
+      sensitivity,
+      // Rule #2: this label asserts where the number came from, so it is
+      // COMPUTED from the parameter register rather than written as prose that
+      // can outlive its premise.
+      provenance: debtProvenanceNote(),
+      // The comparison, in one sentence, so nobody has to reconcile two numbers
+      // that look contradictory. Computed from both, never hardcoded.
+      comparison: `At the assumed ${Math.round(debt_pct * 100)} % gearing, minimum cover is `
+        + `${min_dscr != null ? min_dscr.toFixed(2) : '—'}× and the structure fails. Sized to a `
+        + `lender's ${solved.target_dscr.toFixed(2)}× target cover, the same asset supports `
+        + `€${(solved.debt / 1e6).toFixed(1)}M of debt — ${(solved.gearing * 100).toFixed(1)} % `
+        + `gearing. Same asset, different structure.`,
+    };
+  } catch (err) {
+    // A solver failure must not take the revenue payload down with it, and must
+    // not silently look like "no debt" either (B8) — it surfaces as an error
+    // field the UI can refuse to render.
+    debt_sizing = { error: String(err && err.message ? err.message : err) };
+  }
+
   // Reconciliation
   const recon = {
     gross_equals_bal_plus_trd: years.every(y => Math.abs(y.rev_gross - y.rev_bal - y.rev_trd) < 2),
@@ -2946,6 +3034,12 @@ function computeRevenueV7(params, kv) {
     net_mw_yr: y1 ? Math.round(y1.rev_net / mw) : 0,
     min_dscr: min_dscr != null ? Math.round(min_dscr * 100) / 100 : null,
     min_dscr_conservative: cons_min_dscr != null ? Math.round(cons_min_dscr * 100) / 100 : null,
+    // Phase 39. `min_dscr` above is the DIAGNOSTIC: cover at the assumed 55 %
+    // gearing on a level annuity. `debt_sizing` is the STRUCTURE a lender would
+    // actually write: debt solved from these cash flows to a target cover, with
+    // gearing as the output. Both ship, and `debt_sizing.comparison` states the
+    // relationship in one sentence so the two are never read as rivals.
+    debt_sizing,
     bankability,
     simple_payback_years: payback,
     payback_years: payback,

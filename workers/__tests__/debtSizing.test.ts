@@ -18,7 +18,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildSchedule, sizeDebt, closedFormDebt, assertDebtInvariants, DebtSizingError,
-} from '../lib/debtSizing.mjs';
+} from '../lib/debtSizing.js';
 
 // A CFADS vector that ignores the interest path — no tax coupling.
 const flat = (v: number[]) => () => v;

@@ -19,6 +19,7 @@ import { RevenueBacktest } from '@/app/components/RevenueBacktest';
 import type { BacktestRow } from '@/app/lib/backtest';
 import { findMatrixCell, type MatrixCell as SensMatrixCell } from '@/app/lib/sensitivityMatrix';
 import { partitionExplainer, costStackExplainer } from '@/app/lib/mwPartitionCopy';
+import { contractedFloorExplainer } from '@/app/lib/contractedFloorCopy';
 import { DISPATCH_LABELS, vsCanonicalDispatchFootnote } from '@/app/lib/dispatchDefinitions';
 import { IRR_LABELS, irrStatusDisclosure, type IrrStatus } from '@/app/lib/irrLabels';
 import {
@@ -132,6 +133,10 @@ interface RevenueData {
   project_irr: number | null; equity_irr: number | null;
   irr_status: string; net_rev_per_mw_yr: number;
   min_dscr: number | null; min_dscr_conservative: number | null;
+  // Phase 39 — debt solved FROM the cash flows. `min_dscr` above is cover at the
+  // ASSUMED 55 % gearing; this is the structure a lender would write, with
+  // gearing as the output. Both ship; `comparison` ties them in one sentence.
+  debt_sizing?: DebtSizing | null;
   payback_years: number | null; rate_allin: number;
   debt_initial: number; equity_initial: number;
   ebitda_y1: number; opex_y1: number;
@@ -1127,6 +1132,132 @@ function CannibalizationChart({ rows, codYear, CC }: {
 //
 // Covenant hairline at 1.20× (industry standard for Baltic merchant BESS).
 
+// ═══ Debt sizing — Phase 39 ═════════════════════════════════════════════════
+
+interface DebtSizing {
+  debt: number; gearing: number; equity: number; equity_irr: number | null;
+  binding_constraint: string; avg_life_years: number | null;
+  target_dscr: number; tenor_years: number; grace_years: number;
+  rate_allin: number; amortisation: string;
+  sensitivity: Array<{ dscr_target: number; debt: number; gearing: number }>;
+  provenance: { summary: string; transferred: string[] };
+  comparison: string;
+  error?: string;
+}
+
+/**
+ * Debt sized from cash flows, with gearing as the output.
+ *
+ * Three things ship together and none of them is optional:
+ *
+ *  1. The solved structure — debt and the gearing that falls out of it.
+ *  2. The COMPARISON sentence, because the page also carries a sub-1.00 minimum
+ *     cover and a reader must not be left to reconcile two numbers that look
+ *     contradictory. It is computed in the engine from both figures, never
+ *     written as prose here (rule #2).
+ *  3. The cover-ratio ladder and the US-panel origin. The entire gearing figure
+ *     rests on a transferred cover ratio; a reader who cannot see that cannot
+ *     weigh it. Operator condition on the Phase 39 sign-off.
+ *
+ * No editorial state labels — the numbers and the sentence carry it (rule #6).
+ */
+function DebtSizingPanel({ d }: { d: DebtSizing }) {
+  if (d.error) return null;
+
+  const label: React.CSSProperties = {
+    color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
+    fontFamily: 'var(--font-mono)', textTransform: 'uppercase',
+    letterSpacing: '0.08em', marginBottom: 'var(--space-2xs)',
+  };
+  const figure: React.CSSProperties = {
+    fontFamily: 'var(--font-serif)', fontSize: 'var(--type-display-md)',
+    fontWeight: 500, lineHeight: 1.1, color: 'var(--text-primary)',
+  };
+
+  return (
+    <div data-testid="debt-sizing-panel" style={{
+      paddingTop: '12px', paddingRight: 'var(--space-sm)',
+      paddingBottom: '12px', paddingLeft: 'var(--space-sm)',
+      border: '1px solid var(--border-card)', borderRadius: 0,
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between',
+        alignItems: 'baseline', marginBottom: 10 }}>
+        <div style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-xs)',
+          fontFamily: 'var(--font-mono)', textTransform: 'uppercase',
+          letterSpacing: '0.08em' }}>Debt sized from cash flows</div>
+        <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
+          fontFamily: 'var(--font-mono)' }}>
+          {d.amortisation} · {d.tenor_years}y · {formatNumber(d.target_dscr, 'ratio')} target
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={label}>Sustainable debt</div>
+          <div style={figure}>€{(d.debt / 1e6).toFixed(1)}M</div>
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <div style={label}>Implied gearing</div>
+          <div style={figure}>{(d.gearing * 100).toFixed(1)}%</div>
+          <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
+            fontFamily: 'var(--font-mono)', marginTop: 'var(--space-2xs)' }}>
+            output, not input
+          </div>
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <div style={label}>Equity cheque</div>
+          <div style={figure}>€{(d.equity / 1e6).toFixed(1)}M</div>
+          {d.avg_life_years != null && (
+            <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
+              fontFamily: 'var(--font-mono)', marginTop: 'var(--space-2xs)' }}>
+              {d.avg_life_years.toFixed(1)}y avg life
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* The tie-sentence. Engine-computed from both numbers. */}
+      <div data-testid="debt-sizing-comparison" style={{
+        marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border-card)',
+        color: 'var(--text-secondary)', fontSize: 'var(--font-sm)', lineHeight: 1.5,
+      }}>
+        {d.comparison}
+      </div>
+
+      {/* The ladder — how much of the answer is the transferred parameter. */}
+      {d.sensitivity?.length > 0 && (
+        <div style={{ marginTop: 12 }}>
+          <div style={label}>Sustainable debt by target cover</div>
+          <div style={{ display: 'grid',
+            gridTemplateColumns: `repeat(${d.sensitivity.length}, 1fr)`, gap: 12 }}>
+            {d.sensitivity.map((s) => (
+              <div key={s.dscr_target} style={{ minWidth: 0 }}>
+                <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
+                  fontFamily: 'var(--font-mono)' }}>
+                  {formatNumber(s.dscr_target, 'ratio')}
+                </div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)',
+                  color: s.dscr_target === d.target_dscr
+                    ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                  €{(s.debt / 1e6).toFixed(1)}M · {(s.gearing * 100).toFixed(1)}%
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Provenance. Engine-computed from the parameter register (rule #2). */}
+      <div data-testid="debt-sizing-provenance" style={{
+        marginTop: 10, color: 'var(--text-muted)', fontSize: 'var(--font-xs)',
+        lineHeight: 1.5,
+      }}>
+        {d.provenance?.summary}
+      </div>
+    </div>
+  );
+}
+
 function DSCRPanel({ base, conservative, worstMonth, covenant }: {
   base: number | null;
   conservative: number | null;
@@ -1580,6 +1711,12 @@ function DrawerContent({ data }: { data: RevenueData }) {
           to derive. */}
       <CopyBlock block={costStackExplainer()} />
 
+      {/* Phase 39 — what a contracted floor is worth in DEBT. Only the MEASURED
+          channel ships: the floor's own cash-flow effect with the cover ratio
+          held fixed. The lender-treatment channel rests on an unsourced DSCR
+          blend and stays in the methodology (operator decision at sign-off). */}
+      <CopyBlock block={contractedFloorExplainer()} />
+
       <div style={head}>Scenario comparison</div>
       <table style={{ width: '100%', borderCollapse: 'collapse',
         fontFamily: "var(--font-mono)", fontSize: 'var(--font-sm)' }}>
@@ -1869,6 +2006,15 @@ export function RevenueCard() {
         <DSCRPanel base={data.min_dscr} conservative={data.min_dscr_conservative}
           worstMonth={data.worst_month_dscr} covenant={DEFAULT_DSCR_COVENANT} />
       </div>
+
+      {/* Phase 39 — the structure a lender would write, immediately beneath the
+          cover panel it explains. Order matters: a reader meets the sub-1.00
+          minimum cover first, then the sentence that resolves it. */}
+      {data.debt_sizing && !data.debt_sizing.error && (
+        <div style={{ marginBottom: 'var(--space-sm)' }}>
+          <DebtSizingPanel d={data.debt_sizing} />
+        </div>
+      )}
 
       {/* Assumptions panel — RTE / cycles / availability / hold / WACC (7.7.5) */}
       <div style={{ marginBottom: 20 }}>
