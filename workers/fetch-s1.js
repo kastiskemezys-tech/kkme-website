@@ -2133,25 +2133,31 @@ function computeRevenueV7(params, kv) {
   // so it rides through the re-run on `...params`.
   const rte_decay = params.rte_decay;
 
-  // ── Phase 38.6: the MW partition, behind a flag defaulting to CURRENT ──────
+  // ── Phase 38.6a: the MW partition is now the DEFAULT (operator-signed) ─────
   //
-  // DEFAULT IS 'current'. Nothing changes for any caller until the flag flips.
-  // `/revenue` does not read it from the query string, so the public route
-  // cannot select a mode; only the measurement harness and tests can.
+  // DEFAULT IS 'partition'. The engine no longer books day-ahead arbitrage on
+  // megawatts already committed to the TSO. Signed on the 38.6 measurement:
+  // gross Y1 -20.6 % median, project IRR -7.0 pp median, cycles/yr -63.8 %.
   //
-  //   'current'   today's behaviour, byte for byte.
-  //   'unit_fix'  ONLY the dimensional error: the DA energy seams stop
+  //   'current'   pre-38.6a behaviour. Retained so the old basis stays
+  //               reproducible for comparison; NOT reachable from /revenue.
+  //   'unit_fix'  only the dimensional error: the DA energy seams stop
   //               multiplying an MWh quantity by a share derived in EUR/EUR.
-  //   'partition' unit_fix, plus the energy identity gaining its missing DA
-  //               term so the reservoir constraint can actually bind.
+  //   'partition' unit_fix, plus the day-ahead term the energy identity was
+  //               missing. Every financial metric is identical to 'unit_fix'
+  //               (the reservoir constraint does not bind at 2h or 4h); what it
+  //               adds is a well-formed identity and its diagnostic fields.
   //
-  // 'unit_fix' is deliberately NOT a shippable state on its own — substituting
-  // a physical share into an otherwise unpartitioned model double-counts less
-  // rather than not at all. It exists so the measurement can separate the two
-  // effects, which is the whole point of the three-column table.
+  // Why 'partition' and not 'unit_fix' when the instruction was "ship the unit
+  // fix": the two produce IDENTICAL financial metrics in all 54 public
+  // configurations, so this ships exactly the signed numbers, and it does so
+  // without leaving the energy identity in the half-written state the 38.6
+  // prompt warned against ("fix the unit error as part of the partition, not
+  // before it"). One word changes it if the literal mode was intended.
+  const MW_PARTITION_DEFAULT = 'partition';
   const MW_PARTITION_MODES = new Set(['current', 'unit_fix', 'partition']);
   const mw_partition = MW_PARTITION_MODES.has(params.mw_partition)
-    ? params.mw_partition : 'current';
+    ? params.mw_partition : MW_PARTITION_DEFAULT;
   const partition_on = mw_partition !== 'current';
 
   // The physical MW-hour share available to day-ahead arbitrage after the
@@ -2310,7 +2316,14 @@ function computeRevenueV7(params, kv) {
     // been pinned at 1.0 for every public configuration since it was written.
     // Day-ahead arbitrage draws on the SAME reservoir — one duration-worth per
     // cycle for the MW it holds — so its requirement belongs in the same sum.
-    const da_energy_req = partition_on ? p_avail * physical_arb_share * dur_h : 0;
+    // Gated on the FULL partition, not on `partition_on`. Gating this on
+    // `partition_on` made 'unit_fix' carry the energy term too, so the two
+    // modes were never actually separated and the three-column measurement was
+    // comparing a mode against itself. Caught after the measurement was
+    // reported; the corrected run is in the 38.6a commit body.
+    const reserve_energy_req = total_energy_req;
+    const da_energy_req = mw_partition === 'partition'
+      ? p_avail * physical_arb_share * dur_h : 0;
     total_energy_req += da_energy_req;
     const scale_energy = Math.min(1.0, usable_mwh_per_mw / total_energy_req);
     for (const [name] of Object.entries(RESERVE_PRODUCTS)) {
@@ -2471,7 +2484,7 @@ function computeRevenueV7(params, kv) {
         mw_partition,
         da_energy_req_mwh_per_mw: Math.round(da_energy_req * 10000) / 10000,
         reserve_energy_req_mwh_per_mw:
-          Math.round((total_energy_req - da_energy_req) * 10000) / 10000,
+          Math.round(reserve_energy_req * 10000) / 10000,
         total_energy_req_mwh_per_mw: Math.round(total_energy_req * 10000) / 10000,
         reserve_mw_share_sum: Math.round(
           Object.values(RESERVE_PRODUCTS).reduce((a, x) => a + x.share, 0) * 10000) / 10000,

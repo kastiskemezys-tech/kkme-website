@@ -1,1195 +1,1231 @@
 {
- "_note": "Phase 34.5 — the client-facing register of every adjustable input. It DOCUMENTS the engine and never contradicts it: each row with an `engine_binding` is asserted equal to the value the code actually holds (see register.mjs + __tests__/register.test.ts), so the register cannot drift from the model. Values are the canonical ones pulled FROM the engine/configs, never re-typed alongside them (discipline rule #4).",
- "_override_mechanism": "`override` is the Prosperus-adjustable handle. When non-null the runner uses it in place of `value`; `value` is never overwritten, so the engine-derived figure and the client's edit stay side by side and the delta is always visible.",
- "_value_basis": "Rows marked `basis: \"live-kv\"` carry a market observation rather than a modelling choice, synced from the frozen KV fixture so the binding tests gate code rather than detect overnight market movement. The delivery run refreshes them from the KV that produced the client numbers.",
- "_superseded_rows": "Rows marked `basis: \"superseded\"` record a value the model USED to hold, kept beside the value that replaced it. They are provenance, not inputs: nothing reads them, they carry no engine_binding and no override, and each names the row that superseded it and the date. Every other row is bound to live code and asserted equal to it. Those are the only two kinds of row there are.",
- "_sensitivity_range": "The plausible band for the assumption, for the tornado/sensitivity view. It is a disclosure of uncertainty, not a hard bound — the scenario driver values are the ones the client locked.",
- "_changelog": "Every register value change appends an entry: {date, id, old, new, reason, source, decided_by, phase, register_version}. `decided_by` is a closed vocabulary — operator (a human decision that moves delivered numbers) / measurement (evidence recorded, no value moved) / derived (a consequential re-derivation forced by another change) / governance (a change to the mechanism itself). The six entries dated before 2026-07-29 predate the versioning mechanism and carry register_version null; r1 pins the content as it stood when versioning was introduced. Enforced by validateRegister + __tests__/register.test.ts, not merely documented.",
- "_version": "`version.id` is r<seq>.<first 8 hex of a sha256 over every LIVE row's {id, value, override}, sorted by id>. seq counts MODEL changes, not tool invocations. Superseded rows are excluded from the hash because they are provenance, not inputs. validateRegister fails when the stored hash does not describe the current content, so a value cannot move without a bump and bumpVersion refuses a bump with no attributable reason. Every delivered report quotes this id; the changelog up to that version is the set of assumptions the report ran on.",
- "synced_from": "fixtures/regression-kv.json",
- "rows": [
-  {
-   "id": "rte_bol_2h",
-   "category": "technical",
-   "label": "Round-trip efficiency, BOL (2-hour)",
-   "value": 82,
-   "unit": "%",
-   "source": "NREL ATB (utility-scale battery storage) · Tier-1 LFP warranty envelope (BYD, Samsung SDI, CATL) · measured at POI incl. auxiliaries",
-   "sensitivity_range": [
-    79,
-    85
-   ],
-   "override": null,
-   "engine_binding": "worker:RTE_BOL.h2",
-   "note": "Canonical single source; app/lib/sohCurves.ts mirrors it and app/lib/__tests__/rteMirror.test.ts already pins the two together, so this row is transitively bound to both."
-  },
-  {
-   "id": "rte_bol_4h",
-   "category": "technical",
-   "label": "Round-trip efficiency, BOL (4-hour)",
-   "value": 83,
-   "unit": "%",
-   "source": "NREL ATB · 4-hour systems run at lower C-rate, so PCS stress and losses are lower than the 2-hour case",
-   "sensitivity_range": [
-    80,
-    86
-   ],
-   "override": null,
-   "engine_binding": "worker:RTE_BOL.h4",
-   "note": "All three Prosperus projects are 2-hour, so this row does not bind their numbers. Present because the engine serves both durations."
-  },
-  {
-   "id": "rte_decay_pp_yr",
-   "category": "technical",
-   "label": "RTE decay",
-   "value": 0.2,
-   "unit": "pp/yr",
-   "source": "NREL Annual Technology Baseline RTE projection, cross-checked against public Tier-1 LFP manufacturer warranty curves",
-   "sensitivity_range": [
-    0.1,
-    0.3
-   ],
-   "override": null,
-   "engine_binding": "worker:RTE_DECAY_PP_PER_YEAR",
-   "note": "Bound to the constant, not to assumptions_panel.rte.decay_pp_per_yr — that display field is a hardcoded literal and would not move with the model (see DECISIONS.md 34.4-G)."
-  },
-  {
-   "id": "rte_floor_drop",
-   "category": "technical",
-   "label": "RTE floor, below BOL",
-   "value": 4,
-   "unit": "pp",
-   "source": "Manufacturer warranty floors; efficiency loss flattens once cell resistance growth saturates",
-   "sensitivity_range": [
-    3,
-    5
-   ],
-   "override": null,
-   "engine_binding": "worker:RTE_FLOOR_DROP",
-   "note": "Caps the decay above: at 0.20 pp/yr the floor binds from year 21, at 0.30 pp/yr from year 14. This is why the RTE-decay sensitivity saturates."
-  },
-  {
-   "id": "cycles_efc_yr",
-   "category": "technical",
-   "label": "Equivalent full cycles per year",
-   "value": 498,
-   "unit": "EFC/yr",
-   "source": "Throughput-derived from the per-product MWh anchors (Modo / GEM / enspired 2025 Baltic + EU merchant-battery research), not assumed",
-   "sensitivity_range": null,
-   "override": null,
-   "engine_binding": "engine:assumptions_panel.cycles_breakdown.total_efcs_yr",
-   "basis": "derived",
-   "note": "Computed, not an input: FCR + aFRR + mFRR + DA throughput summed at the reference asset. Carried in the register because it is the figure the warranty is tested against. Phase 36.B5: re-based from 678 to 498 EFC/yr when cycle accounting and revenue were put on ONE day-ahead throughput figure (36.B1-O). The metric changed meaning — it was the nameplate anchor plus reserves, it is now DELIVERED throughput (anchor x trading fraction x availability). The observed band that used to be this row's sensitivity_range is retained as benchmark_band: the delivered figure falls below it, which is a reported finding and not a re-fitted band. B1's hourly physical simulation lands lower still (221 EFC/yr).",
-   "benchmark_band": [
-    550,
-    720
-   ],
-   "benchmark_source": "Modo Energy / GEM Baltic merchant-battery cycling research 2025 — MEASURED cycling of real assets. Retained as disclosure; the model now sits BELOW it (see reconciliation external_3_cycles_yr, declared deviation)."
-  },
-  {
-   "id": "cycles_per_day",
-   "category": "technical",
-   "label": "Total cycling rate",
-   "value": 1.36,
-   "unit": "cycles/day",
-   "source": "Same throughput derivation as the EFC figure; feeds the SOH curve interpolation directly",
-   "sensitivity_range": null,
-   "override": null,
-   "engine_binding": "engine:assumptions_panel.cycles_breakdown.total_cd",
-   "basis": "derived",
-   "note": "Drives cell degradation. The engine keys degradation off this computed rate rather than off a duration label. Phase 36.B5: re-based from 1.86 to 1.36 cycles/day when cycle accounting and revenue were put on ONE day-ahead throughput figure (36.B1-O). The metric changed meaning — it was the nameplate anchor plus reserves, it is now DELIVERED throughput (anchor x trading fraction x availability). The observed band that used to be this row's sensitivity_range is retained as benchmark_band: the delivered figure falls below it, which is a reported finding and not a re-fitted band. B1's hourly physical simulation lands lower still (221 EFC/yr).",
-   "benchmark_band": [
-    1.4,
-    2.1
-   ],
-   "benchmark_source": "Modo Energy / GEM Baltic merchant-battery cycling research 2025 — MEASURED cycling of real assets. Retained as disclosure; the model now sits BELOW it (see reconciliation external_3_cycles_yr, declared deviation)."
-  },
-  {
-   "id": "soh_aug_restore",
-   "category": "technical",
-   "label": "SOH restored by augmentation",
-   "value": 90,
-   "unit": "% of nameplate",
-   "source": "Engine base-scenario augmentation policy; restoring to full nameplate is not economic at Y8-10 cell prices",
-   "sensitivity_range": [
-    83,
-    95
-   ],
-   "override": null,
-   "engine_binding": "worker:REVENUE_SCENARIOS.base.aug_restore",
-   "note": "This is the engine's internal Y10 augmentation. The client bridge carries its own explicit CAPEX schedule (see the capex rows) — the two are separate treatments and are reconciled in the bridge output."
-  },
-  {
-   "id": "afrr_cap_price",
-   "category": "market",
-   "label": "aFRR capacity price",
-   "value": 7.06,
-   "unit": "EUR/MW/h",
-   "source": "Litgrid / Baltic reserve capacity auction results via the KKME S2 feed",
-   "sensitivity_range": [
-    3,
-    25
-   ],
-   "override": null,
-   "engine_binding": "engine:signal_inputs.afrr_cap",
-   "basis": "live-kv"
-  },
-  {
-   "id": "mfrr_cap_price",
-   "category": "market",
-   "label": "mFRR capacity price",
-   "value": 19.74,
-   "unit": "EUR/MW/h",
-   "source": "Litgrid / Baltic reserve capacity auction results via the KKME S2 feed",
-   "sensitivity_range": [
-    8,
-    40
-   ],
-   "override": null,
-   "engine_binding": "engine:signal_inputs.mfrr_cap",
-   "basis": "live-kv"
-  },
-  {
-   "id": "fcr_cap_price",
-   "category": "market",
-   "label": "FCR capacity price",
-   "value": 0.36,
-   "unit": "EUR/MW/h",
-   "source": "Litgrid / Baltic FCR auction results via the KKME S2 feed",
-   "sensitivity_range": [
-    0,
-    50
-   ],
-   "override": null,
-   "engine_binding": "engine:signal_inputs.fcr_cap",
-   "basis": "live-kv",
-   "note": "FCR is a diagnostic input in this engine — it informs the per-product S/D view but is not in the R revenue formula."
-  },
-  {
-   "id": "afrr_activation_p50",
-   "category": "market",
-   "label": "aFRR activation clearing, P50",
-   "value": 13.5,
-   "unit": "EUR/MWh",
-   "source": "PICASSO clearing observations parsed from the Baltic Transparency Dashboard",
-   "sensitivity_range": [
-    5,
-    200
-   ],
-   "override": null,
-   "engine_binding": "engine:signal_inputs.afrr_clearing",
-   "basis": "live-kv"
-  },
-  {
-   "id": "mfrr_activation_p50",
-   "category": "market",
-   "label": "mFRR activation clearing, P50",
-   "value": 14.5,
-   "unit": "EUR/MWh",
-   "source": "MARI clearing observations parsed from the Baltic Transparency Dashboard",
-   "sensitivity_range": [
-    5,
-    150
-   ],
-   "override": null,
-   "engine_binding": "engine:signal_inputs.mfrr_clearing",
-   "basis": "live-kv"
-  },
-  {
-   "id": "da_capture_2h",
-   "category": "market",
-   "label": "DA capture spread, 2-hour",
-   "value": 101.91,
-   "unit": "EUR/MWh",
-   "source": "KKME S1 sort-and-dispatch capture on Nord Pool LT day-ahead, 30-day rolling mean at 15-minute ISP resolution",
-   "sensitivity_range": [
-    70,
-    180
-   ],
-   "override": null,
-   "engine_binding": "engine:signal_inputs.s1_capture",
-   "basis": "live-kv",
-   "note": "Theoretical perfect-foresight capture. The trading-realisation driver discounts it to an achievable figure."
-  },
-  {
-   "id": "dispatch_15min_uplift",
-   "category": "market",
-   "label": "Sub-hourly capture uplift (15-min vs hourly)",
-   "value": 0.0885,
-   "unit": "x of hourly capture",
-   "source": "KKME 15-minute delta run 2025-10-01 → 2026-06-30, 273 complete PT15M LT day-ahead days: worker computeDayCapture at 15-min vs 60-min resolution on identical days. Volume-weighted 0.0885; simple mean 0.0979; median 0.0815; range 0.0005-0.845.",
-   "sensitivity_range": [
-    0.0815,
-    0.0979
-   ],
-   "override": null,
-   "engine_binding": "worker:RYSTAD_15MIN_UPLIFT_DECIMAL",
-   "basis": "measured",
-   "note": "MEASURED, not proxied (adopted Phase 36.B batch-3 Part 0). Applied on the public dispatch card only (computeDispatchV2 → capture_eur_mwh_15min_uplifted); it does not reach /revenue or any client deliverable number. The declared range is the measurement's own median-to-mean spread, not an external band. One market year of PT15M data, and the pre-2025-10-01 period is structurally hourly so it cannot be extended backwards — REMEASURE ANNUALLY. Superseded assertion kept as dispatch_15min_uplift_asserted_prior."
-  },
-  {
-   "id": "dispatch_15min_uplift_asserted_prior",
-   "category": "market",
-   "label": "Sub-hourly capture uplift — prior assertion (superseded)",
-   "value": 0.14,
-   "unit": "x of hourly capture",
-   "source": "Rystad Dec 2025, Lithuania 15-minute day-ahead arbitrage uplift over hourly. Carried as a placeholder proxy 2026-04 → 2026-07-28, never measured against the market.",
-   "sensitivity_range": null,
-   "override": null,
-   "engine_binding": null,
-   "basis": "superseded",
-   "superseded_by": "dispatch_15min_uplift",
-   "superseded_on": "2026-07-28",
-   "note": "Roughly 58% higher than what the LT market actually paid over the 273 measurable days. Kept so the correction is legible: the method did not change, only the sourced figure. Not an input: nothing reads this row."
-  },
-  {
-   "id": "euribor_3m",
-   "category": "market",
-   "label": "EURIBOR 3M",
-   "value": 2.6,
-   "unit": "%",
-   "source": "ECB / EMMI published 3-month EURIBOR via the KKME rates feed",
-   "sensitivity_range": [
-    1.5,
-    4
-   ],
-   "override": null,
-   "engine_binding": "engine:signal_inputs.euribor",
-   "basis": "live-kv",
-   "note": "Financing is excluded from this engagement's bridge; carried because it sets the engine's own post-tax NPV, which is reported alongside for contrast."
-  },
-  {
-   "id": "cap_price_ceiling",
-   "category": "market",
-   "label": "Reserve capacity price ceiling",
-   "value": 50,
-   "unit": "EUR/MW/h",
-   "source": "KKME structural ceiling (Phase 33) — guards against an S2 energy price being mistaken for a capacity price",
-   "sensitivity_range": [
-    50,
-    50
-   ],
-   "override": null,
-   "engine_binding": "worker:CAP_PRICE_CEIL",
-   "note": "Applies after any scenario capacity-price delta, so an Upside case cannot inflate a clipped product past the ceiling."
-  },
-  {
-   "id": "reserve_price_floor_fraction",
-   "category": "market",
-   "label": "Reserve price floor, saturated market",
-   "value": 0.04,
-   "unit": "fraction of unsaturated price",
-   "source": "UK FFR at S/D ~2.5 clears at GBP 1-2/MW/h on a GBP 24-27 base — the empirical floor a saturated reserve market finds",
-   "sensitivity_range": [
-    0.04,
-    0.12
-   ],
-   "override": null,
-   "engine_binding": "worker:reservePrice.floor_fraction",
-   "note": "This is the floor that actually binds reserve revenue. The cannibalisation-index floor in the scenario table is a disclosure figure and does not touch the cash lines (DECISIONS.md 34.4-C)."
-  },
-  {
-   "id": "baltic_weighted_supply_mw",
-   "category": "saturation",
-   "label": "Baltic BESS supply, confidence-weighted",
-   "value": 2385,
-   "unit": "MW",
-   "source": "KKME S4 fleet — Litgrid / VERT / Elering / AST registers, confidence-weighted by operational status",
-   "sensitivity_range": [
-    1500,
-    3500
-   ],
-   "override": null,
-   "engine_binding": "engine:fleet_context.weighted_supply",
-   "basis": "live-kv"
-  },
-  {
-   "id": "baltic_pipeline_mw",
-   "category": "saturation",
-   "label": "Baltic BESS pipeline, raw",
-   "value": 15239,
-   "unit": "MW",
-   "source": "KKME S4 fleet — permitted and grid-queued capacity not yet built, pre-dropout",
-   "sensitivity_range": [
-    8000,
-    20000
-   ],
-   "override": null,
-   "engine_binding": "engine:fleet_context.pipeline_mw",
-   "basis": "live-kv",
-   "note": "Raw queue. The pipeline-realisation driver is what turns this into effective competing supply — a grid queue is not a build plan."
-  },
-  {
-   "id": "reserve_demand_mw",
-   "category": "saturation",
-   "label": "Baltic reserve demand",
-   "value": 817,
-   "unit": "MW",
-   "source": "Tri-TSO Baltic LFC block dimensioning forecasts (Elering + AST + LITGRID): mFRR upward + aFRR upward + FCR, published year by year 2026-2035. Canonical module workers/lib/demand-forecast.js.",
-   "sensitivity_range": [
-    700,
-    1200
-   ],
-   "override": null,
-   "engine_binding": "engine:fleet_context.demand_mw",
-   "basis": "primary-source",
-   "note": "Fleet-global and project-independent by construction — it does not scale with the asset being modelled. Phase 36.D: was 935, an undocumented literal from fb088c4 kept alive by a cosmetic KV default read back into processFleet. The value shown is the first projected operating year of the reference asset; the module carries the full series (752 in 2026 to 922 in 2035, then component-trend).",
-   "review_cycle": "litgrid-biennial"
-  },
-  {
-   "id": "lt_zone_price_correlation",
-   "category": "saturation",
-   "label": "LT zone inter-project price correlation",
-   "value": 0.97,
-   "unit": "correlation",
-   "source": "All three assets sit in the Lithuanian price zone and bid into the same DA, intraday and Baltic balancing markets",
-   "sensitivity_range": [
-    0.9,
-    1
-   ],
-   "override": null,
-   "engine_binding": "portfolio:lt_zone_price_correlation",
-   "note": "No portfolio-effect uplift is modelled and none should be assumed. The only real smoothing in the consolidated view is temporal, from staggered commissioning."
-  },
-  {
-   "id": "optimiser_pct_gross",
-   "category": "cost",
-   "label": "Optimiser / BRP fee",
-   "value": 0.12,
-   "unit": "fraction of gross revenue",
-   "source": "Baltic route-to-market and trading-platform commercial terms, 2025-2026 range 8-15%",
-   "sensitivity_range": [
-    0.08,
-    0.15
-   ],
-   "override": null,
-   "engine_binding": "bridge:COST_DEFAULTS.optimiser_pct_gross"
-  },
-  {
-   "id": "grid_pct_gross",
-   "category": "cost",
-   "label": "Grid and auxiliary charges",
-   "value": 0.03,
-   "unit": "fraction of gross revenue",
-   "source": "Litgrid network use-of-system charges plus station auxiliary consumption",
-   "sensitivity_range": [
-    0.02,
-    0.05
-   ],
-   "override": null,
-   "engine_binding": "bridge:COST_DEFAULTS.grid_pct_gross"
-  },
-  {
-   "id": "market_pct_gross",
-   "category": "cost",
-   "label": "Market participation fees",
-   "value": 0.01,
-   "unit": "fraction of gross revenue",
-   "source": "Nord Pool membership and trading fees plus Baltic balancing-market participation",
-   "sensitivity_range": [
-    0.005,
-    0.02
-   ],
-   "override": null,
-   "engine_binding": "bridge:COST_DEFAULTS.market_pct_gross"
-  },
-  {
-   "id": "operating_eur_kw_yr",
-   "category": "cost",
-   "label": "Operating cost",
-   "value": 29,
-   "unit": "EUR/kW/yr",
-   "source": "Itemised build-up: O&M 18 + insurance 5 + warranty 4 + balance-of-system 2",
-   "sensitivity_range": [
-    24,
-    36
-   ],
-   "override": null,
-   "engine_binding": "bridge:COST_DEFAULTS.operating_eur_kw_yr"
-  },
-  {
-   "id": "operating_calibration_eur_kw_yr",
-   "category": "cost",
-   "label": "Operating cost, reconciling adjustment",
-   "value": 2.57,
-   "unit": "EUR/kW/yr",
-   "source": "Derived, not sourced: closes the 4.4% gap between the engine's cost taxonomy (RTM + BRP + OPEX) and the client's 4-line stack at the reference asset",
-   "sensitivity_range": [
-    0,
-    4
-   ],
-   "override": null,
-   "engine_binding": "bridge:COST_DEFAULTS.operating_calibration_eur_kw_yr",
-   "note": "Deliberately shown as a separate line rather than folded into EUR 29/kW/yr, so the sourced build-up and the reconciling constant stay distinguishable. It is not re-fitted per project — doing so would make every project agree with the engine by construction and destroy the reconciliation's value as a check. Re-derived 2026-07-28 from 2.08 to 2.56 when the measured trading realisation was adopted: the engine's flat lines (BRP fee, OPEX) do not fall with revenue while the client stack's 16% does, so a lower revenue level widens the taxonomy gap. Derived from the reference asset by bridgeCalibration(), asserted by test — it cannot go silently stale."
-  },
-  {
-   "id": "opex_escalation_pct",
-   "category": "cost",
-   "label": "Operating cost escalation",
-   "value": 2.5,
-   "unit": "%/yr",
-   "source": "Long-run euro-area inflation expectation; applied to the operating line only, not to the revenue-linked percentage fees",
-   "sensitivity_range": [
-    2,
-    3.5
-   ],
-   "override": null,
-   "engine_binding": "worker:REVENUE_SCENARIOS.base.opex_esc"
-  },
-  {
-   "id": "wacc",
-   "category": "cost",
-   "label": "Discount rate (WACC)",
-   "value": 8,
-   "unit": "%",
-   "source": "Weighted average cost of capital for Baltic merchant BESS; debt at EURIBOR + 250bps, equity hurdle ~12%",
-   "sensitivity_range": [
-    6,
-    11
-   ],
-   "override": null,
-   "engine_binding": "portfolio:DEFAULT_WACC",
-   "note": "The portfolio NPV discounts the bridge's pre-financing, PRE-TAX cash flow. That is not comparable with a post-tax equity NPV; the engine's own post-tax figure is carried alongside."
-  },
-  {
-   "id": "capex_eur_kwh",
-   "category": "capex",
-   "label": "Installed CAPEX",
-   "value": 164,
-   "unit": "EUR/kWh",
-   "source": "BNEF Q1-2026 Baltic turnkey range; equipment + EPC + HV connection",
-   "sensitivity_range": [
-    120,
-    262
-   ],
-   "override": null,
-   "engine_binding": "config:kkme-reference.capex_eur_kwh",
-   "note": "Per-project value lives in each project config; this row carries the reference-asset figure, which all three Prosperus projects currently share."
-  },
-  {
-   "id": "maintenance_capex_eur_kw_yr",
-   "category": "capex",
-   "label": "Maintenance CAPEX",
-   "value": 4,
-   "unit": "EUR/kW/yr",
-   "source": "Recurring non-opex capital maintenance; pro-rated in a partial first year",
-   "sensitivity_range": [
-    3,
-    6
-   ],
-   "override": null,
-   "engine_binding": "bridge:CAPEX_DEFAULTS.maintenance_eur_kw_yr"
-  },
-  {
-   "id": "augmentation_year",
-   "category": "capex",
-   "label": "Augmentation event",
-   "value": 8,
-   "unit": "operating year",
-   "source": "Counted in operating years from COD, so it lands on the same operating year for every project regardless of calendar date",
-   "sensitivity_range": [
-    7,
-    10
-   ],
-   "override": null,
-   "engine_binding": "bridge:CAPEX_DEFAULTS.augmentation_year"
-  },
-  {
-   "id": "augmentation_mwh_pct",
-   "category": "capex",
-   "label": "Augmentation depth",
-   "value": 0.4,
-   "unit": "fraction of nameplate MWh",
-   "source": "Cell addition needed to restore usable energy after eight years of the modelled cycling rate",
-   "sensitivity_range": [
-    0.3,
-    0.5
-   ],
-   "override": null,
-   "engine_binding": "bridge:CAPEX_DEFAULTS.augmentation_mwh_pct"
-  },
-  {
-   "id": "augmentation_eur_kwh",
-   "category": "capex",
-   "label": "Augmentation unit cost",
-   "value": 80,
-   "unit": "EUR/kWh",
-   "source": "BNEF 2035 cell-only projection — augmentation adds cells into existing PCS and BOS",
-   "sensitivity_range": [
-    60,
-    100
-   ],
-   "override": null,
-   "engine_binding": "bridge:CAPEX_DEFAULTS.augmentation_eur_kwh"
-  },
-  {
-   "id": "replacement_year",
-   "category": "capex",
-   "label": "Replacement event",
-   "value": 15,
-   "unit": "operating year",
-   "source": "Counted in operating years from COD, as with augmentation",
-   "sensitivity_range": [
-    13,
-    18
-   ],
-   "override": null,
-   "engine_binding": "bridge:CAPEX_DEFAULTS.replacement_year"
-  },
-  {
-   "id": "replacement_mwh_pct",
-   "category": "capex",
-   "label": "Replacement depth",
-   "value": 0.85,
-   "unit": "fraction of nameplate MWh",
-   "source": "Near-full re-power at year 15; the surviving 15% is BOS and civil works that do not need replacing",
-   "sensitivity_range": [
-    0.75,
-    1
-   ],
-   "override": null,
-   "engine_binding": "bridge:CAPEX_DEFAULTS.replacement_mwh_pct"
-  },
-  {
-   "id": "replacement_eur_kwh",
-   "category": "capex",
-   "label": "Replacement unit cost",
-   "value": 120,
-   "unit": "EUR/kWh",
-   "source": "BNEF 2042 projection, cell + PCS — a replacement renews power electronics as well as cells",
-   "sensitivity_range": [
-    90,
-    150
-   ],
-   "override": null,
-   "engine_binding": "bridge:CAPEX_DEFAULTS.replacement_eur_kwh",
-   "note": "At the reference asset this is a EUR 10.2M single-year event against a ~EUR 5.4M annual EBITDA. The contracted treatment carries no smoothing and no reserve account, so it lands as a cash-flow crater in pre-financing CF."
-  },
-  {
-   "id": "project_bitenai",
-   "category": "project",
-   "label": "Bitenai — 48 MW / 96 MWh, COD 2028-01",
-   "value": 48,
-   "unit": "MW",
-   "source": "VERT permit L-7441 (public register), Litgrid connection queue; full config at tools/consultancy/projects/prosperus/01-bitenai.json",
-   "sensitivity_range": null,
-   "override": null,
-   "engine_binding": "config:bitenai.mw",
-   "note": "12 operational months in its first operating year. Grid allowance 50 MW, non-binding."
-  },
-  {
-   "id": "project_stoniskiai",
-   "category": "project",
-   "label": "Stoniskiai — 45 MW / 90 MWh, COD 2028-06",
-   "value": 45,
-   "unit": "MW",
-   "source": "VERT permit L-7162 (public register), Litgrid connection queue; full config at tools/consultancy/projects/prosperus/02-stoniskiai.json",
-   "sensitivity_range": null,
-   "override": null,
-   "engine_binding": "config:stoniskiai.mw",
-   "note": "7 operational months in its first operating year — the partial-year treatment is documented in DECISIONS.md 34.1-A4."
-  },
-  {
-   "id": "project_eigirdziai",
-   "category": "project",
-   "label": "Eigirdziai — 30 MW / 60 MWh, COD 2029-Q1",
-   "value": 30,
-   "unit": "MW",
-   "source": "VERT permit L-7179 (public register), Litgrid connection queue; full config at tools/consultancy/projects/prosperus/03-eigirdziai.json",
-   "sensitivity_range": null,
-   "override": null,
-   "engine_binding": "config:eigirdziai.mw",
-   "note": "Its own operating year 1 is a full year; the staggered contribution shows up in the portfolio calendar view."
-  },
-  {
-   "id": "driver_fleet_realisation_pct",
-   "category": "scenario-driver",
-   "label": "Pipeline realisation rate",
-   "value": 50,
-   "unit": "%",
-   "source": "Fraction of the permitted / queued Baltic pipeline that actually reaches commissioning; typical grid-queue dropout",
-   "sensitivity_range": [
-    35,
-    65
-   ],
-   "override": null,
-   "engine_binding": "driver:fleet_realisation_pct",
-   "note": "Downside 65 / Central 50 / Upside 35 — HIGHER is worse, because more of the pipeline built means more competing supply."
-  },
-  {
-   "id": "driver_spread_growth_pct_yr",
-   "category": "scenario-driver",
-   "label": "DA spread growth",
-   "value": 2,
-   "unit": "%/yr",
-   "source": "German evidence that DA spreads widened despite 1.5 GW of BESS deployment; renewable-driven intermittency outpaces BESS smoothing",
-   "sensitivity_range": [
-    -1,
-    3.5
-   ],
-   "override": null,
-   "engine_binding": "driver:spread_growth_pct_yr",
-   "note": "Downside -1.0 / Central 2.0 / Upside 3.5. NO CASH EFFECT in the engine as calibrated: its only revenue path is the trading fraction, which sits on its 0.70 clamp in every year of every project. Reported as zero rather than re-pointed at a different multiplier — see DECISIONS.md 34.4-C."
-  },
-  {
-   "id": "driver_availability_pct",
-   "category": "scenario-driver",
-   "label": "Availability factor",
-   "value": 97,
-   "unit": "%",
-   "source": "Operator target with a 1pp haircut from the public 98% manufacturer warranty floor; covers forced outage plus scheduled maintenance",
-   "sensitivity_range": [
-    95,
-    98
-   ],
-   "override": null,
-   "engine_binding": "driver:availability_pct",
-   "note": "Downside 95 / Central 97 / Upside 98. Scales arbitrage revenue linearly; touches balancing only where the energy-stacking constraint binds."
-  },
-  {
-   "id": "driver_trading_realisation",
-   "category": "scenario-driver",
-   "label": "Trading realisation",
-   "value": 0.7234,
-   "unit": "x of perfect foresight",
-   "source": "KKME dispatch backtest 2025-07-01 → 2026-06-30, 349 traded days, LT day-ahead: B1 greedy policy capture ÷ perfect-foresight sort-and-dispatch capture. Volume-weighted 0.7234; monthly volume-weighted 0.6535 (2025-09) to 0.8155 (2026-05); single-year window.",
-   "sensitivity_range": [
-    0.6535,
-    0.8155
-   ],
-   "override": null,
-   "engine_binding": "driver:trading_realisation",
-   "note": "MEASURED, not assumed (adopted Phase 36.B batch-3 Part 0, operator decision 2026-07-28). Downside 0.6535 / Central 0.7234 / Upside 0.8155 — the declared range IS the measured monthly band and the two non-Central cases sit at its endpoints. Measures the day-ahead component only: intraday execution, bid rejection, imbalance exposure and balancing forecast error are outside it, and reserve realisation is unmeasured (BTD is the sole Baltic reserve-price source, deepest series 110 daily points). One market year, so the band is an observed range and not a distribution — REMEASURE ANNUALLY and widen the band if a second year disagrees. Superseded assumption kept as trading_realisation_assumed_prior.",
-   "basis": "measured"
-  },
-  {
-   "id": "trading_realisation_assumed_prior",
-   "category": "scenario-driver",
-   "label": "Trading realisation — prior assumption (superseded)",
-   "value": 0.85,
-   "unit": "x of perfect foresight",
-   "source": "Perfect-foresight discount on sort-and-dispatch capture; industry range 0.70-0.90, Capalo AI claims 0.85-0.90. Carried 2026-03 → 2026-07-28, never measured.",
-   "sensitivity_range": [
-    0.78,
-    0.88
-   ],
-   "override": null,
-   "engine_binding": null,
-   "basis": "superseded",
-   "superseded_by": "driver_trading_realisation",
-   "superseded_on": "2026-07-28",
-   "note": "The assumption the model carried before it was measured, kept so the delta is legible without reading the changelog: measured 0.7234 came in 0.1266 BELOW it, and below this row's own declared range [0.78, 0.88] — so the assumed band was understated, not merely the assumed point value. Not an input: nothing reads this row."
-  },
-  {
-   "id": "driver_cap_price_delta_pct",
-   "category": "scenario-driver",
-   "label": "Reserve capacity price delta",
-   "value": 0,
-   "unit": "%",
-   "source": "Shift in cleared reserve capacity prices against today's observed level; post-synchronisation Baltic reserve scarcity is the upside case",
-   "sensitivity_range": [
-    -25,
-    20
-   ],
-   "override": null,
-   "engine_binding": "driver:cap_price_delta_pct",
-   "note": "Downside -25 / Central 0 / Upside +20. This is by some distance the largest single driver in the model — a 45pp swing moves 20-year portfolio EBITDA by EUR 82.5M. The EUR 50/MW/h structural ceiling still applies after the delta."
-  },
-  {
-   "id": "driver_cpi_floor",
-   "category": "scenario-driver",
-   "label": "Cannibalisation-index floor",
-   "value": 0.3,
-   "unit": "x",
-   "source": "Floor on the compression curve — the residual value a reserve product retains at full market saturation",
-   "sensitivity_range": [
-    0.28,
-    0.35
-   ],
-   "override": null,
-   "engine_binding": "driver:cpi_floor",
-   "note": "Downside 0.28 / Central 0.30 / Upside 0.35. NO CASH EFFECT: cpiCurve feeds three disclosure fields (cpi_fcr/afrr/mfrr_at_cod) and nothing else. The floor that actually binds reserve revenue is reserve_price_floor_fraction above. The decoupling is deliberate engine design — it is what keeps fleet status and MW edits revenue-safe. See DECISIONS.md 34.4-C."
-  },
-  {
-   "id": "pf_de_k_fcr",
-   "category": "price-formation",
-   "label": "DE FCR scarcity multiple (post-crisis)",
-   "value": 1.1155,
-   "unit": "x arbitrage opportunity",
-   "sensitivity_range": [
-    0.8884,
-    1.5873
-   ],
-   "override": null,
-   "engine_binding": "calibration:parameters.de_k.fcr.k_post_crisis.p50",
-   "review_cycle": "monthly",
-   "source": "regelleistung.net DE FCR capacity clearing / DE day-ahead arbitrage opportunity, 2023-07..2026-08, n=38 months (tools/consultancy/data/mature-markets/de + da)",
-   "note": "The mature-market level Baltic FCR converges TOWARD. Price tracks the arbitrage opportunity at r=0.837 in logs over 87 months; DE FCR procurement is flat (605->584 MW), so no demand-growth story is available. NOT WIRED — E6."
-  },
-  {
-   "id": "pf_de_k_afrr_up",
-   "category": "price-formation",
-   "label": "DE aFRR up scarcity multiple (post-crisis)",
-   "value": 1.0896,
-   "unit": "x arbitrage opportunity",
-   "sensitivity_range": [
-    0.5564,
-    1.5213
-   ],
-   "override": null,
-   "engine_binding": "calibration:parameters.de_k.afrr_up.k_post_crisis.p50",
-   "review_cycle": "monthly",
-   "source": "regelleistung.net DE aFRR up capacity / DE day-ahead arbitrage opportunity, 2023-07..2026-08, n=38 months",
-   "note": "NOT WIRED — E6. Reproduces DE 2024-2025 within the declared 35% bar; MISSES the 2026 part-year at 38%, pinned by its own named test rather than tolerated."
-  },
-  {
-   "id": "pf_de_k_afrr_down",
-   "category": "price-formation",
-   "label": "DE aFRR down scarcity multiple (post-crisis)",
-   "value": 0.9943,
-   "unit": "x arbitrage opportunity",
-   "sensitivity_range": [
-    0.414,
-    1.4912
-   ],
-   "override": null,
-   "engine_binding": "calibration:parameters.de_k.afrr_down.k_post_crisis.p50",
-   "review_cycle": "monthly",
-   "source": "regelleistung.net DE aFRR down capacity / DE day-ahead arbitrage opportunity, 2023-07..2026-08, n=38 months",
-   "note": "NOT WIRED — E6."
-  },
-  {
-   "id": "pf_baltic_k_fcr",
-   "category": "price-formation",
-   "label": "Baltic FCR scarcity multiple",
-   "value": 3.1077,
-   "unit": "x arbitrage opportunity",
-   "sensitivity_range": [
-    1.0244,
-    3.927
-   ],
-   "override": null,
-   "engine_binding": "calibration:parameters.baltic_k.per_product.fcr.p50",
-   "review_cycle": "monthly",
-   "source": "BTD per-delivery-day clearing (299 days, 2025-10-01..2026-07-26) / LT day-ahead arbitrage opportunity",
-   "note": "2.8x the German multiple — Phase-1 scarcity in a 28 MW procurement. Every day post-accession. Converges toward pf_de_k_fcr at pf_lambda_fcr; NOT held flat. NOT WIRED — E6."
-  },
-  {
-   "id": "pf_baltic_k_afrr_up",
-   "category": "price-formation",
-   "label": "Baltic aFRR up scarcity multiple",
-   "value": 1.91,
-   "unit": "x arbitrage opportunity",
-   "sensitivity_range": [
-    0.2972,
-    2.4081
-   ],
-   "override": null,
-   "engine_binding": "calibration:parameters.baltic_k.per_product.afrr_up.p50",
-   "review_cycle": "monthly",
-   "source": "BTD per-delivery-day clearing (299 days) / LT day-ahead arbitrage opportunity",
-   "note": "NOT WIRED — E6."
-  },
-  {
-   "id": "pf_baltic_k_afrr_down",
-   "category": "price-formation",
-   "label": "Baltic aFRR down scarcity multiple",
-   "value": 0.6114,
-   "unit": "x arbitrage opportunity",
-   "sensitivity_range": [
-    0.2605,
-    0.7988
-   ],
-   "override": null,
-   "engine_binding": "calibration:parameters.baltic_k.per_product.afrr_down.p50",
-   "review_cycle": "monthly",
-   "source": "BTD per-delivery-day clearing (299 days) / LT day-ahead arbitrage opportunity",
-   "note": "BELOW the German down multiple, so convergence RAISES it — the one product in the batch that converges upward. NOT WIRED — E6."
-  },
-  {
-   "id": "pf_lambda_fcr",
-   "category": "price-formation",
-   "label": "FCR scarcity-multiple convergence rate",
-   "value": 0.131,
-   "unit": "per year",
-   "sensitivity_range": [
-    0.0719,
-    0.131
-   ],
-   "override": null,
-   "engine_binding": "calibration:parameters.convergence.fcr.lambda_per_yr",
-   "review_cycle": "monthly",
-   "source": "DE FCR k ex-crisis log-trend, t=-10.23, half-life 5.29 yr",
-   "note": "ADOPTED RATE. Measured ACROSS a regime shift, so it is an upper bound on the decay a smooth model should claim; adopted because over-decaying is the conservative direction for a revenue line. Slow bound is the DE post-crisis within-regime rate (lambda 0.0719, t=-1.70) which is DESCRIPTIVE ONLY — see pf_de_fcr_lambda_within_regime. NOT WIRED — E6."
-  },
-  {
-   "id": "pf_de_fcr_lambda_within_regime",
-   "category": "price-formation",
-   "label": "DE FCR within-regime k trend — DESCRIPTIVE ONLY",
-   "value": 0.0719,
-   "unit": "per year",
-   "sensitivity_range": null,
-   "override": null,
-   "engine_binding": "calibration:parameters.de_k.fcr.trend_post_crisis.lambda_per_yr",
-   "review_cycle": "monthly",
-   "source": "DE FCR k post-crisis log-trend, 2023-07..2026-08, n=38 months",
-   "note": "DESCRIPTIVE ONLY — t=-1.70, below the |t|>=2 bar this calibration uses. MUST NOT be used as a forecast driver; the adopted convergence rate is pf_lambda_fcr. Recorded so the number is legible beside the one that was adopted, not so it can be picked up."
-  },
-  {
-   "id": "pf_lambda_afrr_up",
-   "category": "price-formation",
-   "label": "aFRR up scarcity-multiple convergence rate",
-   "value": 0.2198,
-   "unit": "per year",
-   "sensitivity_range": null,
-   "override": null,
-   "engine_binding": "calibration:parameters.convergence.afrr_up.lambda_per_yr",
-   "review_cycle": "monthly",
-   "source": "DE aFRR up k post-crisis log-trend, t=-3.08, half-life 3.15 yr",
-   "note": "Statistically supported WITHIN regime — no regime-shift caveat, unlike FCR. NOT WIRED — E6."
-  },
-  {
-   "id": "pf_lambda_afrr_down",
-   "category": "price-formation",
-   "label": "aFRR down scarcity-multiple convergence rate",
-   "value": 0.217,
-   "unit": "per year",
-   "sensitivity_range": null,
-   "override": null,
-   "engine_binding": "calibration:parameters.convergence.afrr_down.lambda_per_yr",
-   "review_cycle": "monthly",
-   "source": "DE aFRR down k post-crisis log-trend, t=-2.36, half-life 3.19 yr",
-   "note": "NOT WIRED — E6."
-  },
-  {
-   "id": "pf_displacement_baltic_afrr_up",
-   "category": "price-formation",
-   "label": "Floor displacement — Baltic aFRR up",
-   "value": 0.2972,
-   "unit": "fraction of gross arbitrage",
-   "sensitivity_range": null,
-   "override": null,
-   "engine_binding": "calibration:parameters.floor_displacement.baltic.afrr_up",
-   "review_cycle": "monthly",
-   "source": "p10 of the Baltic aFRR up k distribution, 2025-10..2026-07",
-   "note": "The fraction of gross arbitrage value a reserve commitment is OBSERVED to forgo. Replaces the arc floor formula, which assumed 1.0 and is falsified by every product measured. No default exists in code — endogenousFloor() throws without it. NOT WIRED — E6."
-  },
-  {
-   "id": "pf_displacement_baltic_afrr_down",
-   "category": "price-formation",
-   "label": "Floor displacement — Baltic aFRR down",
-   "value": 0.2605,
-   "unit": "fraction of gross arbitrage",
-   "sensitivity_range": null,
-   "override": null,
-   "engine_binding": "calibration:parameters.floor_displacement.baltic.afrr_down",
-   "review_cycle": "monthly",
-   "source": "p10 of the Baltic aFRR down k distribution, 2025-10..2026-07",
-   "note": "NOT WIRED — E6."
-  },
-  {
-   "id": "pf_displacement_baltic_fcr",
-   "category": "price-formation",
-   "label": "Floor displacement — Baltic FCR",
-   "value": 1.0244,
-   "unit": "fraction of gross arbitrage",
-   "sensitivity_range": null,
-   "override": null,
-   "engine_binding": "calibration:parameters.floor_displacement.baltic.fcr",
-   "review_cycle": "monthly",
-   "source": "p10 of the Baltic FCR k distribution, 2025-10..2026-07",
-   "note": "At parity with the gross arbitrage opportunity — the only product in either market whose cheapest month still pays the full opportunity cost. Phase-1 scarcity. NOT WIRED — E6."
-  },
-  {
-   "id": "pf_symmetric_premium",
-   "category": "price-formation",
-   "label": "Symmetric-availability premium (FCR over aFRR)",
-   "value": 1.5055,
-   "unit": "x",
-   "sensitivity_range": [
-    0.8764,
-    4.3982
-   ],
-   "override": null,
-   "engine_binding": "calibration:parameters.symmetric_availability_premium.full.p50",
-   "review_cycle": "monthly",
-   "source": "DE FCR / mean(DE aFRR up, down) capacity price, same month, 2019-06..2026-08, n=87",
-   "note": "What the market itself pays for holding headroom in both directions at once. Measured, not a modelled adder. NOT WIRED — E6."
-  },
-  {
-   "id": "pf_afrr_act_rate_up",
-   "category": "price-formation",
-   "label": "aFRR up activation rate",
-   "value": 0.7778,
-   "unit": "fraction of ISPs",
-   "sensitivity_range": null,
-   "override": null,
-   "engine_binding": "calibration:parameters.afrr_activation_de.per_direction.up.activation_rate",
-   "review_cycle": "monthly",
-   "source": "ENTSO-E A84 settled DE aFRR, price_basis vwap_activated, 2022-06-21..2026-08-02, 144,221 PT15M ISPs",
-   "note": "NOT WIRED — E6."
-  },
-  {
-   "id": "pf_afrr_act_rate_down",
-   "category": "price-formation",
-   "label": "aFRR down activation rate",
-   "value": 0.7921,
-   "unit": "fraction of ISPs",
-   "sensitivity_range": null,
-   "override": null,
-   "engine_binding": "calibration:parameters.afrr_activation_de.per_direction.down.activation_rate",
-   "review_cycle": "monthly",
-   "source": "ENTSO-E A84 settled DE aFRR, price_basis vwap_activated, 2022-06-21..2026-08-02, 144,221 PT15M ISPs",
-   "note": "Down activates as often as up (0.792 vs 0.778) — the half the engine has never modelled. NOT WIRED — E6."
-  },
-  {
-   "id": "pf_afrr_act_price_down",
-   "category": "price-formation",
-   "label": "aFRR down activation price (DE p50)",
-   "value": 47,
-   "unit": "EUR/MWh",
-   "sensitivity_range": [
-    -46.75,
-    105.64
-   ],
-   "override": null,
-   "engine_binding": "calibration:parameters.afrr_activation_de.per_direction.down.p50",
-   "review_cycle": "monthly",
-   "source": "ENTSO-E A84 settled DE aFRR down, 2022-06-21..2026-08-02",
-   "note": "NEGATIVE 22.1% of the time — the battery is paid to charge. Valued as the charging cost avoided (da_price - down_price), signed, so the model can say when it is a cost. NOT WIRED — E6."
-  },
-  {
-   "id": "pf_de_down_over_up",
-   "category": "price-formation",
-   "label": "aFRR down/up price ratio — TRANSFERRED to the Baltics",
-   "value": 0.3602,
-   "unit": "x",
-   "sensitivity_range": null,
-   "override": null,
-   "engine_binding": "calibration:parameters.baltic_direction_split_sensitivity.de_down_over_up",
-   "review_cycle": "monthly",
-   "source": "DE settled aFRR p50 down / p50 up, 2022-06-21..2026-08-02",
-   "note": "TRANSFERRED, not measured for the Baltics. BTD serves one pooled aFRR activation series per country with no up/down split, so the Baltic LEVEL is measured and only the SHAPE is German. The sole unmeasured input in the activation model. Banded: down-activation revenue runs EUR 3025-5714/MW/yr between a 50/50 split and the German shape. NOT WIRED — E6."
+  "_note": "Phase 34.5 — the client-facing register of every adjustable input. It DOCUMENTS the engine and never contradicts it: each row with an `engine_binding` is asserted equal to the value the code actually holds (see register.mjs + __tests__/register.test.ts), so the register cannot drift from the model. Values are the canonical ones pulled FROM the engine/configs, never re-typed alongside them (discipline rule #4).",
+  "_override_mechanism": "`override` is the Prosperus-adjustable handle. When non-null the runner uses it in place of `value`; `value` is never overwritten, so the engine-derived figure and the client's edit stay side by side and the delta is always visible.",
+  "_value_basis": "Rows marked `basis: \"live-kv\"` carry a market observation rather than a modelling choice, synced from the frozen KV fixture so the binding tests gate code rather than detect overnight market movement. The delivery run refreshes them from the KV that produced the client numbers.",
+  "_superseded_rows": "Rows marked `basis: \"superseded\"` record a value the model USED to hold, kept beside the value that replaced it. They are provenance, not inputs: nothing reads them, they carry no engine_binding and no override, and each names the row that superseded it and the date. Every other row is bound to live code and asserted equal to it. Those are the only two kinds of row there are.",
+  "_sensitivity_range": "The plausible band for the assumption, for the tornado/sensitivity view. It is a disclosure of uncertainty, not a hard bound — the scenario driver values are the ones the client locked.",
+  "_changelog": "Every register value change appends an entry: {date, id, old, new, reason, source, decided_by, phase, register_version}. `decided_by` is a closed vocabulary — operator (a human decision that moves delivered numbers) / measurement (evidence recorded, no value moved) / derived (a consequential re-derivation forced by another change) / governance (a change to the mechanism itself). The six entries dated before 2026-07-29 predate the versioning mechanism and carry register_version null; r1 pins the content as it stood when versioning was introduced. Enforced by validateRegister + __tests__/register.test.ts, not merely documented.",
+  "_version": "`version.id` is r<seq>.<first 8 hex of a sha256 over every LIVE row's {id, value, override}, sorted by id>. seq counts MODEL changes, not tool invocations. Superseded rows are excluded from the hash because they are provenance, not inputs. validateRegister fails when the stored hash does not describe the current content, so a value cannot move without a bump and bumpVersion refuses a bump with no attributable reason. Every delivered report quotes this id; the changelog up to that version is the set of assumptions the report ran on.",
+  "synced_from": "fixtures/regression-kv.json",
+  "rows": [
+    {
+      "id": "rte_bol_2h",
+      "category": "technical",
+      "label": "Round-trip efficiency, BOL (2-hour)",
+      "value": 82,
+      "unit": "%",
+      "source": "NREL ATB (utility-scale battery storage) · Tier-1 LFP warranty envelope (BYD, Samsung SDI, CATL) · measured at POI incl. auxiliaries",
+      "sensitivity_range": [
+        79,
+        85
+      ],
+      "override": null,
+      "engine_binding": "worker:RTE_BOL.h2",
+      "note": "Canonical single source; app/lib/sohCurves.ts mirrors it and app/lib/__tests__/rteMirror.test.ts already pins the two together, so this row is transitively bound to both."
+    },
+    {
+      "id": "rte_bol_4h",
+      "category": "technical",
+      "label": "Round-trip efficiency, BOL (4-hour)",
+      "value": 83,
+      "unit": "%",
+      "source": "NREL ATB · 4-hour systems run at lower C-rate, so PCS stress and losses are lower than the 2-hour case",
+      "sensitivity_range": [
+        80,
+        86
+      ],
+      "override": null,
+      "engine_binding": "worker:RTE_BOL.h4",
+      "note": "All three Prosperus projects are 2-hour, so this row does not bind their numbers. Present because the engine serves both durations."
+    },
+    {
+      "id": "rte_decay_pp_yr",
+      "category": "technical",
+      "label": "RTE decay",
+      "value": 0.2,
+      "unit": "pp/yr",
+      "source": "NREL Annual Technology Baseline RTE projection, cross-checked against public Tier-1 LFP manufacturer warranty curves",
+      "sensitivity_range": [
+        0.1,
+        0.3
+      ],
+      "override": null,
+      "engine_binding": "worker:RTE_DECAY_PP_PER_YEAR",
+      "note": "Bound to the constant, not to assumptions_panel.rte.decay_pp_per_yr — that display field is a hardcoded literal and would not move with the model (see DECISIONS.md 34.4-G)."
+    },
+    {
+      "id": "rte_floor_drop",
+      "category": "technical",
+      "label": "RTE floor, below BOL",
+      "value": 4,
+      "unit": "pp",
+      "source": "Manufacturer warranty floors; efficiency loss flattens once cell resistance growth saturates",
+      "sensitivity_range": [
+        3,
+        5
+      ],
+      "override": null,
+      "engine_binding": "worker:RTE_FLOOR_DROP",
+      "note": "Caps the decay above: at 0.20 pp/yr the floor binds from year 21, at 0.30 pp/yr from year 14. This is why the RTE-decay sensitivity saturates."
+    },
+    {
+      "id": "cycles_efc_yr",
+      "category": "technical",
+      "label": "Equivalent full cycles per year",
+      "value": 198,
+      "unit": "EFC/yr",
+      "source": "Throughput-derived from the per-product MWh anchors (Modo / GEM / enspired 2025 Baltic + EU merchant-battery research), not assumed",
+      "sensitivity_range": null,
+      "override": null,
+      "engine_binding": "engine:assumptions_panel.cycles_breakdown.total_efcs_yr",
+      "basis": "derived",
+      "note": "Computed, not an input: FCR + aFRR + mFRR + DA throughput summed at the reference asset. Carried in the register because it is the figure the warranty is tested against. Phase 36.B5: re-based from 678 to 498 EFC/yr when cycle accounting and revenue were put on ONE day-ahead throughput figure (36.B1-O). The metric changed meaning — it was the nameplate anchor plus reserves, it is now DELIVERED throughput (anchor x trading fraction x availability). The observed band that used to be this row's sensitivity_range is retained as benchmark_band: the delivered figure falls below it, which is a reported finding and not a re-fitted band. B1's hourly physical simulation lands lower still (221 EFC/yr). Phase 38.6a: re-based again, 498 to 198 EFC/yr, when the MW partition became the engine default. The day-ahead share the engine spends on MWh moved from `trading_fraction` (0.70, a EUR/EUR price ratio) to the physical MW-hour share `effective_arb_pct` (0.139), so delivered day-ahead throughput fell ~80% and total cycling with it. NOTE THE INVERSION: the delivered figure now sits BELOW B1's hourly physical simulation (198 vs 221 EFC/yr), where it previously sat above it. That direction is optimistic for degradation and is a reported residual, not a re-fitted band.",
+      "benchmark_band": [
+        550,
+        720
+      ],
+      "benchmark_source": "Modo Energy / GEM Baltic merchant-battery cycling research 2025 — MEASURED cycling of real assets. Retained as disclosure; the model now sits BELOW it (see reconciliation external_3_cycles_yr, declared deviation)."
+    },
+    {
+      "id": "cycles_per_day",
+      "category": "technical",
+      "label": "Total cycling rate",
+      "value": 0.54,
+      "unit": "cycles/day",
+      "source": "Same throughput derivation as the EFC figure; feeds the SOH curve interpolation directly",
+      "sensitivity_range": null,
+      "override": null,
+      "engine_binding": "engine:assumptions_panel.cycles_breakdown.total_cd",
+      "basis": "derived",
+      "note": "Drives cell degradation. The engine keys degradation off this computed rate rather than off a duration label. Phase 36.B5: re-based from 1.86 to 1.36 cycles/day when cycle accounting and revenue were put on ONE day-ahead throughput figure (36.B1-O). The metric changed meaning — it was the nameplate anchor plus reserves, it is now DELIVERED throughput (anchor x trading fraction x availability). The observed band that used to be this row's sensitivity_range is retained as benchmark_band: the delivered figure falls below it, which is a reported finding and not a re-fitted band. B1's hourly physical simulation lands lower still (221 EFC/yr). Phase 38.6a: re-based again, 1.36 to 0.54 cycles/day, when the MW partition became the engine default. The day-ahead share the engine spends on MWh moved from `trading_fraction` (0.70, a EUR/EUR price ratio) to the physical MW-hour share `effective_arb_pct` (0.139), so delivered day-ahead throughput fell ~80% and total cycling with it. NOTE THE INVERSION: the delivered figure now sits BELOW B1's hourly physical simulation (198 vs 221 EFC/yr), where it previously sat above it. That direction is optimistic for degradation and is a reported residual, not a re-fitted band.",
+      "benchmark_band": [
+        1.4,
+        2.1
+      ],
+      "benchmark_source": "Modo Energy / GEM Baltic merchant-battery cycling research 2025 — MEASURED cycling of real assets. Retained as disclosure; the model now sits BELOW it (see reconciliation external_3_cycles_yr, declared deviation)."
+    },
+    {
+      "id": "soh_aug_restore",
+      "category": "technical",
+      "label": "SOH restored by augmentation",
+      "value": 90,
+      "unit": "% of nameplate",
+      "source": "Engine base-scenario augmentation policy; restoring to full nameplate is not economic at Y8-10 cell prices",
+      "sensitivity_range": [
+        83,
+        95
+      ],
+      "override": null,
+      "engine_binding": "worker:REVENUE_SCENARIOS.base.aug_restore",
+      "note": "This is the engine's internal Y10 augmentation. The client bridge carries its own explicit CAPEX schedule (see the capex rows) — the two are separate treatments and are reconciled in the bridge output."
+    },
+    {
+      "id": "afrr_cap_price",
+      "category": "market",
+      "label": "aFRR capacity price",
+      "value": 7.06,
+      "unit": "EUR/MW/h",
+      "source": "Litgrid / Baltic reserve capacity auction results via the KKME S2 feed",
+      "sensitivity_range": [
+        3,
+        25
+      ],
+      "override": null,
+      "engine_binding": "engine:signal_inputs.afrr_cap",
+      "basis": "live-kv"
+    },
+    {
+      "id": "mfrr_cap_price",
+      "category": "market",
+      "label": "mFRR capacity price",
+      "value": 19.74,
+      "unit": "EUR/MW/h",
+      "source": "Litgrid / Baltic reserve capacity auction results via the KKME S2 feed",
+      "sensitivity_range": [
+        8,
+        40
+      ],
+      "override": null,
+      "engine_binding": "engine:signal_inputs.mfrr_cap",
+      "basis": "live-kv"
+    },
+    {
+      "id": "fcr_cap_price",
+      "category": "market",
+      "label": "FCR capacity price",
+      "value": 0.36,
+      "unit": "EUR/MW/h",
+      "source": "Litgrid / Baltic FCR auction results via the KKME S2 feed",
+      "sensitivity_range": [
+        0,
+        50
+      ],
+      "override": null,
+      "engine_binding": "engine:signal_inputs.fcr_cap",
+      "basis": "live-kv",
+      "note": "FCR is a diagnostic input in this engine — it informs the per-product S/D view but is not in the R revenue formula."
+    },
+    {
+      "id": "afrr_activation_p50",
+      "category": "market",
+      "label": "aFRR activation clearing, P50",
+      "value": 13.5,
+      "unit": "EUR/MWh",
+      "source": "PICASSO clearing observations parsed from the Baltic Transparency Dashboard",
+      "sensitivity_range": [
+        5,
+        200
+      ],
+      "override": null,
+      "engine_binding": "engine:signal_inputs.afrr_clearing",
+      "basis": "live-kv"
+    },
+    {
+      "id": "mfrr_activation_p50",
+      "category": "market",
+      "label": "mFRR activation clearing, P50",
+      "value": 14.5,
+      "unit": "EUR/MWh",
+      "source": "MARI clearing observations parsed from the Baltic Transparency Dashboard",
+      "sensitivity_range": [
+        5,
+        150
+      ],
+      "override": null,
+      "engine_binding": "engine:signal_inputs.mfrr_clearing",
+      "basis": "live-kv"
+    },
+    {
+      "id": "da_capture_2h",
+      "category": "market",
+      "label": "DA capture spread, 2-hour",
+      "value": 101.91,
+      "unit": "EUR/MWh",
+      "source": "KKME S1 sort-and-dispatch capture on Nord Pool LT day-ahead, 30-day rolling mean at 15-minute ISP resolution",
+      "sensitivity_range": [
+        70,
+        180
+      ],
+      "override": null,
+      "engine_binding": "engine:signal_inputs.s1_capture",
+      "basis": "live-kv",
+      "note": "Theoretical perfect-foresight capture. The trading-realisation driver discounts it to an achievable figure."
+    },
+    {
+      "id": "dispatch_15min_uplift",
+      "category": "market",
+      "label": "Sub-hourly capture uplift (15-min vs hourly)",
+      "value": 0.0885,
+      "unit": "x of hourly capture",
+      "source": "KKME 15-minute delta run 2025-10-01 → 2026-06-30, 273 complete PT15M LT day-ahead days: worker computeDayCapture at 15-min vs 60-min resolution on identical days. Volume-weighted 0.0885; simple mean 0.0979; median 0.0815; range 0.0005-0.845.",
+      "sensitivity_range": [
+        0.0815,
+        0.0979
+      ],
+      "override": null,
+      "engine_binding": "worker:RYSTAD_15MIN_UPLIFT_DECIMAL",
+      "basis": "measured",
+      "note": "MEASURED, not proxied (adopted Phase 36.B batch-3 Part 0). Applied on the public dispatch card only (computeDispatchV2 → capture_eur_mwh_15min_uplifted); it does not reach /revenue or any client deliverable number. The declared range is the measurement's own median-to-mean spread, not an external band. One market year of PT15M data, and the pre-2025-10-01 period is structurally hourly so it cannot be extended backwards — REMEASURE ANNUALLY. Superseded assertion kept as dispatch_15min_uplift_asserted_prior."
+    },
+    {
+      "id": "dispatch_15min_uplift_asserted_prior",
+      "category": "market",
+      "label": "Sub-hourly capture uplift — prior assertion (superseded)",
+      "value": 0.14,
+      "unit": "x of hourly capture",
+      "source": "Rystad Dec 2025, Lithuania 15-minute day-ahead arbitrage uplift over hourly. Carried as a placeholder proxy 2026-04 → 2026-07-28, never measured against the market.",
+      "sensitivity_range": null,
+      "override": null,
+      "engine_binding": null,
+      "basis": "superseded",
+      "superseded_by": "dispatch_15min_uplift",
+      "superseded_on": "2026-07-28",
+      "note": "Roughly 58% higher than what the LT market actually paid over the 273 measurable days. Kept so the correction is legible: the method did not change, only the sourced figure. Not an input: nothing reads this row."
+    },
+    {
+      "id": "euribor_3m",
+      "category": "market",
+      "label": "EURIBOR 3M",
+      "value": 2.6,
+      "unit": "%",
+      "source": "ECB / EMMI published 3-month EURIBOR via the KKME rates feed",
+      "sensitivity_range": [
+        1.5,
+        4
+      ],
+      "override": null,
+      "engine_binding": "engine:signal_inputs.euribor",
+      "basis": "live-kv",
+      "note": "Financing is excluded from this engagement's bridge; carried because it sets the engine's own post-tax NPV, which is reported alongside for contrast."
+    },
+    {
+      "id": "cap_price_ceiling",
+      "category": "market",
+      "label": "Reserve capacity price ceiling",
+      "value": 50,
+      "unit": "EUR/MW/h",
+      "source": "KKME structural ceiling (Phase 33) — guards against an S2 energy price being mistaken for a capacity price",
+      "sensitivity_range": [
+        50,
+        50
+      ],
+      "override": null,
+      "engine_binding": "worker:CAP_PRICE_CEIL",
+      "note": "Applies after any scenario capacity-price delta, so an Upside case cannot inflate a clipped product past the ceiling."
+    },
+    {
+      "id": "reserve_price_floor_fraction",
+      "category": "market",
+      "label": "Reserve price floor, saturated market",
+      "value": 0.04,
+      "unit": "fraction of unsaturated price",
+      "source": "UK FFR at S/D ~2.5 clears at GBP 1-2/MW/h on a GBP 24-27 base — the empirical floor a saturated reserve market finds",
+      "sensitivity_range": [
+        0.04,
+        0.12
+      ],
+      "override": null,
+      "engine_binding": "worker:reservePrice.floor_fraction",
+      "note": "This is the floor that actually binds reserve revenue. The cannibalisation-index floor in the scenario table is a disclosure figure and does not touch the cash lines (DECISIONS.md 34.4-C)."
+    },
+    {
+      "id": "baltic_weighted_supply_mw",
+      "category": "saturation",
+      "label": "Baltic BESS supply, confidence-weighted",
+      "value": 2385,
+      "unit": "MW",
+      "source": "KKME S4 fleet — Litgrid / VERT / Elering / AST registers, confidence-weighted by operational status",
+      "sensitivity_range": [
+        1500,
+        3500
+      ],
+      "override": null,
+      "engine_binding": "engine:fleet_context.weighted_supply",
+      "basis": "live-kv"
+    },
+    {
+      "id": "baltic_pipeline_mw",
+      "category": "saturation",
+      "label": "Baltic BESS pipeline, raw",
+      "value": 15239,
+      "unit": "MW",
+      "source": "KKME S4 fleet — permitted and grid-queued capacity not yet built, pre-dropout",
+      "sensitivity_range": [
+        8000,
+        20000
+      ],
+      "override": null,
+      "engine_binding": "engine:fleet_context.pipeline_mw",
+      "basis": "live-kv",
+      "note": "Raw queue. The pipeline-realisation driver is what turns this into effective competing supply — a grid queue is not a build plan."
+    },
+    {
+      "id": "reserve_demand_mw",
+      "category": "saturation",
+      "label": "Baltic reserve demand",
+      "value": 817,
+      "unit": "MW",
+      "source": "Tri-TSO Baltic LFC block dimensioning forecasts (Elering + AST + LITGRID): mFRR upward + aFRR upward + FCR, published year by year 2026-2035. Canonical module workers/lib/demand-forecast.js.",
+      "sensitivity_range": [
+        700,
+        1200
+      ],
+      "override": null,
+      "engine_binding": "engine:fleet_context.demand_mw",
+      "basis": "primary-source",
+      "note": "Fleet-global and project-independent by construction — it does not scale with the asset being modelled. Phase 36.D: was 935, an undocumented literal from fb088c4 kept alive by a cosmetic KV default read back into processFleet. The value shown is the first projected operating year of the reference asset; the module carries the full series (752 in 2026 to 922 in 2035, then component-trend).",
+      "review_cycle": "litgrid-biennial"
+    },
+    {
+      "id": "lt_zone_price_correlation",
+      "category": "saturation",
+      "label": "LT zone inter-project price correlation",
+      "value": 0.97,
+      "unit": "correlation",
+      "source": "All three assets sit in the Lithuanian price zone and bid into the same DA, intraday and Baltic balancing markets",
+      "sensitivity_range": [
+        0.9,
+        1
+      ],
+      "override": null,
+      "engine_binding": "portfolio:lt_zone_price_correlation",
+      "note": "No portfolio-effect uplift is modelled and none should be assumed. The only real smoothing in the consolidated view is temporal, from staggered commissioning."
+    },
+    {
+      "id": "optimiser_pct_gross",
+      "category": "cost",
+      "label": "Optimiser / BRP fee",
+      "value": 0.12,
+      "unit": "fraction of gross revenue",
+      "source": "Baltic route-to-market and trading-platform commercial terms, 2025-2026 range 8-15%",
+      "sensitivity_range": [
+        0.08,
+        0.15
+      ],
+      "override": null,
+      "engine_binding": "bridge:COST_DEFAULTS.optimiser_pct_gross"
+    },
+    {
+      "id": "grid_pct_gross",
+      "category": "cost",
+      "label": "Grid and auxiliary charges",
+      "value": 0.03,
+      "unit": "fraction of gross revenue",
+      "source": "Litgrid network use-of-system charges plus station auxiliary consumption",
+      "sensitivity_range": [
+        0.02,
+        0.05
+      ],
+      "override": null,
+      "engine_binding": "bridge:COST_DEFAULTS.grid_pct_gross"
+    },
+    {
+      "id": "market_pct_gross",
+      "category": "cost",
+      "label": "Market participation fees",
+      "value": 0.01,
+      "unit": "fraction of gross revenue",
+      "source": "Nord Pool membership and trading fees plus Baltic balancing-market participation",
+      "sensitivity_range": [
+        0.005,
+        0.02
+      ],
+      "override": null,
+      "engine_binding": "bridge:COST_DEFAULTS.market_pct_gross"
+    },
+    {
+      "id": "operating_eur_kw_yr",
+      "category": "cost",
+      "label": "Operating cost",
+      "value": 29,
+      "unit": "EUR/kW/yr",
+      "source": "Itemised build-up: O&M 18 + insurance 5 + warranty 4 + balance-of-system 2",
+      "sensitivity_range": [
+        24,
+        36
+      ],
+      "override": null,
+      "engine_binding": "bridge:COST_DEFAULTS.operating_eur_kw_yr"
+    },
+    {
+      "id": "operating_calibration_eur_kw_yr",
+      "category": "cost",
+      "label": "Operating cost, reconciling adjustment",
+      "value": 5.83,
+      "unit": "EUR/kW/yr",
+      "source": "Derived, not sourced: closes the gap between the engine's cost taxonomy (RTM + BRP + OPEX) and the client's 4-line stack at the reference asset. That gap was 4.4% (EUR 128k) before Phase 38.6a and is 9-10% (EUR 291k) after it.",
+      "sensitivity_range": null,
+      "override": null,
+      "engine_binding": "bridge:COST_DEFAULTS.operating_calibration_eur_kw_yr",
+      "note": "Deliberately shown as a separate line rather than folded into EUR 29/kW/yr, so the sourced build-up and the reconciling constant stay distinguishable. It is not re-fitted per project — doing so would make every project agree with the engine by construction and destroy the reconciliation's value as a check. Re-derived 2026-07-28 from 2.08 to 2.56 when the measured trading realisation was adopted: the engine's flat lines (BRP fee, OPEX) do not fall with revenue while the client stack's 16% does, so a lower revenue level widens the taxonomy gap. Derived from the reference asset by bridgeCalibration(), asserted by test — it cannot go silently stale. Phase 38.6a: re-derived 2.57 to 5.83 when the MW partition became the engine default and Y1 gross fell 7,994,239 to 6,239,451 (-21.9%) at the reference asset. The mechanism is the same one described above and it is working — bridgeCalibration() re-derives, a vitest holds it — but the constant has now more than doubled and BREACHES the [0, 4] band originally declared for it, retained here as benchmark_band. A reconciling constant carrying EUR 291k is a candidate for replacing with a proper treatment of the engine's two flat lines, not a number to keep growing. Flagged for the operator; NOT resolved in 38.6a.",
+      "benchmark_band": [
+        0,
+        4
+      ],
+      "benchmark_source": "The band declared for this row when it stood at 2.57, i.e. the size of reconciling adjustment considered acceptable. Retained as disclosure: the value now sits ABOVE it. The band is NOT re-fitted to the value — the breach is the finding.",
+      "review_cycle": "every phase that moves Y1 gross revenue"
+    },
+    {
+      "id": "opex_escalation_pct",
+      "category": "cost",
+      "label": "Operating cost escalation",
+      "value": 2.5,
+      "unit": "%/yr",
+      "source": "Long-run euro-area inflation expectation; applied to the operating line only, not to the revenue-linked percentage fees",
+      "sensitivity_range": [
+        2,
+        3.5
+      ],
+      "override": null,
+      "engine_binding": "worker:REVENUE_SCENARIOS.base.opex_esc"
+    },
+    {
+      "id": "wacc",
+      "category": "cost",
+      "label": "Discount rate (WACC)",
+      "value": 8,
+      "unit": "%",
+      "source": "Weighted average cost of capital for Baltic merchant BESS; debt at EURIBOR + 250bps, equity hurdle ~12%",
+      "sensitivity_range": [
+        6,
+        11
+      ],
+      "override": null,
+      "engine_binding": "portfolio:DEFAULT_WACC",
+      "note": "The portfolio NPV discounts the bridge's pre-financing, PRE-TAX cash flow. That is not comparable with a post-tax equity NPV; the engine's own post-tax figure is carried alongside."
+    },
+    {
+      "id": "capex_eur_kwh",
+      "category": "capex",
+      "label": "Installed CAPEX",
+      "value": 164,
+      "unit": "EUR/kWh",
+      "source": "BNEF Q1-2026 Baltic turnkey range; equipment + EPC + HV connection",
+      "sensitivity_range": [
+        120,
+        262
+      ],
+      "override": null,
+      "engine_binding": "config:kkme-reference.capex_eur_kwh",
+      "note": "Per-project value lives in each project config; this row carries the reference-asset figure, which all three Prosperus projects currently share."
+    },
+    {
+      "id": "maintenance_capex_eur_kw_yr",
+      "category": "capex",
+      "label": "Maintenance CAPEX",
+      "value": 4,
+      "unit": "EUR/kW/yr",
+      "source": "Recurring non-opex capital maintenance; pro-rated in a partial first year",
+      "sensitivity_range": [
+        3,
+        6
+      ],
+      "override": null,
+      "engine_binding": "bridge:CAPEX_DEFAULTS.maintenance_eur_kw_yr"
+    },
+    {
+      "id": "augmentation_year",
+      "category": "capex",
+      "label": "Augmentation event",
+      "value": 8,
+      "unit": "operating year",
+      "source": "Counted in operating years from COD, so it lands on the same operating year for every project regardless of calendar date",
+      "sensitivity_range": [
+        7,
+        10
+      ],
+      "override": null,
+      "engine_binding": "bridge:CAPEX_DEFAULTS.augmentation_year"
+    },
+    {
+      "id": "augmentation_mwh_pct",
+      "category": "capex",
+      "label": "Augmentation depth",
+      "value": 0.4,
+      "unit": "fraction of nameplate MWh",
+      "source": "Cell addition needed to restore usable energy after eight years of the modelled cycling rate",
+      "sensitivity_range": [
+        0.3,
+        0.5
+      ],
+      "override": null,
+      "engine_binding": "bridge:CAPEX_DEFAULTS.augmentation_mwh_pct"
+    },
+    {
+      "id": "augmentation_eur_kwh",
+      "category": "capex",
+      "label": "Augmentation unit cost",
+      "value": 80,
+      "unit": "EUR/kWh",
+      "source": "BNEF 2035 cell-only projection — augmentation adds cells into existing PCS and BOS",
+      "sensitivity_range": [
+        60,
+        100
+      ],
+      "override": null,
+      "engine_binding": "bridge:CAPEX_DEFAULTS.augmentation_eur_kwh"
+    },
+    {
+      "id": "replacement_year",
+      "category": "capex",
+      "label": "Replacement event",
+      "value": 15,
+      "unit": "operating year",
+      "source": "Counted in operating years from COD, as with augmentation",
+      "sensitivity_range": [
+        13,
+        18
+      ],
+      "override": null,
+      "engine_binding": "bridge:CAPEX_DEFAULTS.replacement_year"
+    },
+    {
+      "id": "replacement_mwh_pct",
+      "category": "capex",
+      "label": "Replacement depth",
+      "value": 0.85,
+      "unit": "fraction of nameplate MWh",
+      "source": "Near-full re-power at year 15; the surviving 15% is BOS and civil works that do not need replacing",
+      "sensitivity_range": [
+        0.75,
+        1
+      ],
+      "override": null,
+      "engine_binding": "bridge:CAPEX_DEFAULTS.replacement_mwh_pct"
+    },
+    {
+      "id": "replacement_eur_kwh",
+      "category": "capex",
+      "label": "Replacement unit cost",
+      "value": 120,
+      "unit": "EUR/kWh",
+      "source": "BNEF 2042 projection, cell + PCS — a replacement renews power electronics as well as cells",
+      "sensitivity_range": [
+        90,
+        150
+      ],
+      "override": null,
+      "engine_binding": "bridge:CAPEX_DEFAULTS.replacement_eur_kwh",
+      "note": "At the reference asset this is a EUR 10.2M single-year event against a ~EUR 5.4M annual EBITDA. The contracted treatment carries no smoothing and no reserve account, so it lands as a cash-flow crater in pre-financing CF."
+    },
+    {
+      "id": "project_bitenai",
+      "category": "project",
+      "label": "Bitenai — 48 MW / 96 MWh, COD 2028-01",
+      "value": 48,
+      "unit": "MW",
+      "source": "VERT permit L-7441 (public register), Litgrid connection queue; full config at tools/consultancy/projects/prosperus/01-bitenai.json",
+      "sensitivity_range": null,
+      "override": null,
+      "engine_binding": "config:bitenai.mw",
+      "note": "12 operational months in its first operating year. Grid allowance 50 MW, non-binding."
+    },
+    {
+      "id": "project_stoniskiai",
+      "category": "project",
+      "label": "Stoniskiai — 45 MW / 90 MWh, COD 2028-06",
+      "value": 45,
+      "unit": "MW",
+      "source": "VERT permit L-7162 (public register), Litgrid connection queue; full config at tools/consultancy/projects/prosperus/02-stoniskiai.json",
+      "sensitivity_range": null,
+      "override": null,
+      "engine_binding": "config:stoniskiai.mw",
+      "note": "7 operational months in its first operating year — the partial-year treatment is documented in DECISIONS.md 34.1-A4."
+    },
+    {
+      "id": "project_eigirdziai",
+      "category": "project",
+      "label": "Eigirdziai — 30 MW / 60 MWh, COD 2029-Q1",
+      "value": 30,
+      "unit": "MW",
+      "source": "VERT permit L-7179 (public register), Litgrid connection queue; full config at tools/consultancy/projects/prosperus/03-eigirdziai.json",
+      "sensitivity_range": null,
+      "override": null,
+      "engine_binding": "config:eigirdziai.mw",
+      "note": "Its own operating year 1 is a full year; the staggered contribution shows up in the portfolio calendar view."
+    },
+    {
+      "id": "driver_fleet_realisation_pct",
+      "category": "scenario-driver",
+      "label": "Pipeline realisation rate",
+      "value": 50,
+      "unit": "%",
+      "source": "Fraction of the permitted / queued Baltic pipeline that actually reaches commissioning; typical grid-queue dropout",
+      "sensitivity_range": [
+        35,
+        65
+      ],
+      "override": null,
+      "engine_binding": "driver:fleet_realisation_pct",
+      "note": "Downside 65 / Central 50 / Upside 35 — HIGHER is worse, because more of the pipeline built means more competing supply."
+    },
+    {
+      "id": "driver_spread_growth_pct_yr",
+      "category": "scenario-driver",
+      "label": "DA spread growth",
+      "value": 2,
+      "unit": "%/yr",
+      "source": "German evidence that DA spreads widened despite 1.5 GW of BESS deployment; renewable-driven intermittency outpaces BESS smoothing",
+      "sensitivity_range": [
+        -1,
+        3.5
+      ],
+      "override": null,
+      "engine_binding": "driver:spread_growth_pct_yr",
+      "note": "Downside -1.0 / Central 2.0 / Upside 3.5. NO CASH EFFECT in the engine as calibrated: its only revenue path is the trading fraction, which sits on its 0.70 clamp in every year of every project. Reported as zero rather than re-pointed at a different multiplier — see DECISIONS.md 34.4-C."
+    },
+    {
+      "id": "driver_availability_pct",
+      "category": "scenario-driver",
+      "label": "Availability factor",
+      "value": 97,
+      "unit": "%",
+      "source": "Operator target with a 1pp haircut from the public 98% manufacturer warranty floor; covers forced outage plus scheduled maintenance",
+      "sensitivity_range": [
+        95,
+        98
+      ],
+      "override": null,
+      "engine_binding": "driver:availability_pct",
+      "note": "Downside 95 / Central 97 / Upside 98. Scales arbitrage revenue linearly; touches balancing only where the energy-stacking constraint binds."
+    },
+    {
+      "id": "driver_trading_realisation",
+      "category": "scenario-driver",
+      "label": "Trading realisation",
+      "value": 0.7234,
+      "unit": "x of perfect foresight",
+      "source": "KKME dispatch backtest 2025-07-01 → 2026-06-30, 349 traded days, LT day-ahead: B1 greedy policy capture ÷ perfect-foresight sort-and-dispatch capture. Volume-weighted 0.7234; monthly volume-weighted 0.6535 (2025-09) to 0.8155 (2026-05); single-year window.",
+      "sensitivity_range": [
+        0.6535,
+        0.8155
+      ],
+      "override": null,
+      "engine_binding": "driver:trading_realisation",
+      "note": "MEASURED, not assumed (adopted Phase 36.B batch-3 Part 0, operator decision 2026-07-28). Downside 0.6535 / Central 0.7234 / Upside 0.8155 — the declared range IS the measured monthly band and the two non-Central cases sit at its endpoints. Measures the day-ahead component only: intraday execution, bid rejection, imbalance exposure and balancing forecast error are outside it, and reserve realisation is unmeasured (BTD is the sole Baltic reserve-price source, deepest series 110 daily points). One market year, so the band is an observed range and not a distribution — REMEASURE ANNUALLY and widen the band if a second year disagrees. Superseded assumption kept as trading_realisation_assumed_prior.",
+      "basis": "measured"
+    },
+    {
+      "id": "trading_realisation_assumed_prior",
+      "category": "scenario-driver",
+      "label": "Trading realisation — prior assumption (superseded)",
+      "value": 0.85,
+      "unit": "x of perfect foresight",
+      "source": "Perfect-foresight discount on sort-and-dispatch capture; industry range 0.70-0.90, Capalo AI claims 0.85-0.90. Carried 2026-03 → 2026-07-28, never measured.",
+      "sensitivity_range": [
+        0.78,
+        0.88
+      ],
+      "override": null,
+      "engine_binding": null,
+      "basis": "superseded",
+      "superseded_by": "driver_trading_realisation",
+      "superseded_on": "2026-07-28",
+      "note": "The assumption the model carried before it was measured, kept so the delta is legible without reading the changelog: measured 0.7234 came in 0.1266 BELOW it, and below this row's own declared range [0.78, 0.88] — so the assumed band was understated, not merely the assumed point value. Not an input: nothing reads this row."
+    },
+    {
+      "id": "driver_cap_price_delta_pct",
+      "category": "scenario-driver",
+      "label": "Reserve capacity price delta",
+      "value": 0,
+      "unit": "%",
+      "source": "Shift in cleared reserve capacity prices against today's observed level; post-synchronisation Baltic reserve scarcity is the upside case",
+      "sensitivity_range": [
+        -25,
+        20
+      ],
+      "override": null,
+      "engine_binding": "driver:cap_price_delta_pct",
+      "note": "Downside -25 / Central 0 / Upside +20. This is by some distance the largest single driver in the model — a 45pp swing moves 20-year portfolio EBITDA by EUR 82.5M. The EUR 50/MW/h structural ceiling still applies after the delta."
+    },
+    {
+      "id": "driver_cpi_floor",
+      "category": "scenario-driver",
+      "label": "Cannibalisation-index floor",
+      "value": 0.3,
+      "unit": "x",
+      "source": "Floor on the compression curve — the residual value a reserve product retains at full market saturation",
+      "sensitivity_range": [
+        0.28,
+        0.35
+      ],
+      "override": null,
+      "engine_binding": "driver:cpi_floor",
+      "note": "Downside 0.28 / Central 0.30 / Upside 0.35. NO CASH EFFECT: cpiCurve feeds three disclosure fields (cpi_fcr/afrr/mfrr_at_cod) and nothing else. The floor that actually binds reserve revenue is reserve_price_floor_fraction above. The decoupling is deliberate engine design — it is what keeps fleet status and MW edits revenue-safe. See DECISIONS.md 34.4-C."
+    },
+    {
+      "id": "pf_de_k_fcr",
+      "category": "price-formation",
+      "label": "DE FCR scarcity multiple (post-crisis)",
+      "value": 1.1155,
+      "unit": "x arbitrage opportunity",
+      "sensitivity_range": [
+        0.8884,
+        1.5873
+      ],
+      "override": null,
+      "engine_binding": "calibration:parameters.de_k.fcr.k_post_crisis.p50",
+      "review_cycle": "monthly",
+      "source": "regelleistung.net DE FCR capacity clearing / DE day-ahead arbitrage opportunity, 2023-07..2026-08, n=38 months (tools/consultancy/data/mature-markets/de + da)",
+      "note": "The mature-market level Baltic FCR converges TOWARD. Price tracks the arbitrage opportunity at r=0.837 in logs over 87 months; DE FCR procurement is flat (605->584 MW), so no demand-growth story is available. NOT WIRED — E6."
+    },
+    {
+      "id": "pf_de_k_afrr_up",
+      "category": "price-formation",
+      "label": "DE aFRR up scarcity multiple (post-crisis)",
+      "value": 1.0896,
+      "unit": "x arbitrage opportunity",
+      "sensitivity_range": [
+        0.5564,
+        1.5213
+      ],
+      "override": null,
+      "engine_binding": "calibration:parameters.de_k.afrr_up.k_post_crisis.p50",
+      "review_cycle": "monthly",
+      "source": "regelleistung.net DE aFRR up capacity / DE day-ahead arbitrage opportunity, 2023-07..2026-08, n=38 months",
+      "note": "NOT WIRED — E6. Reproduces DE 2024-2025 within the declared 35% bar; MISSES the 2026 part-year at 38%, pinned by its own named test rather than tolerated."
+    },
+    {
+      "id": "pf_de_k_afrr_down",
+      "category": "price-formation",
+      "label": "DE aFRR down scarcity multiple (post-crisis)",
+      "value": 0.9943,
+      "unit": "x arbitrage opportunity",
+      "sensitivity_range": [
+        0.414,
+        1.4912
+      ],
+      "override": null,
+      "engine_binding": "calibration:parameters.de_k.afrr_down.k_post_crisis.p50",
+      "review_cycle": "monthly",
+      "source": "regelleistung.net DE aFRR down capacity / DE day-ahead arbitrage opportunity, 2023-07..2026-08, n=38 months",
+      "note": "NOT WIRED — E6."
+    },
+    {
+      "id": "pf_baltic_k_fcr",
+      "category": "price-formation",
+      "label": "Baltic FCR scarcity multiple",
+      "value": 3.1077,
+      "unit": "x arbitrage opportunity",
+      "sensitivity_range": [
+        1.0244,
+        3.927
+      ],
+      "override": null,
+      "engine_binding": "calibration:parameters.baltic_k.per_product.fcr.p50",
+      "review_cycle": "monthly",
+      "source": "BTD per-delivery-day clearing (299 days, 2025-10-01..2026-07-26) / LT day-ahead arbitrage opportunity",
+      "note": "2.8x the German multiple — Phase-1 scarcity in a 28 MW procurement. Every day post-accession. Converges toward pf_de_k_fcr at pf_lambda_fcr; NOT held flat. NOT WIRED — E6."
+    },
+    {
+      "id": "pf_baltic_k_afrr_up",
+      "category": "price-formation",
+      "label": "Baltic aFRR up scarcity multiple",
+      "value": 1.91,
+      "unit": "x arbitrage opportunity",
+      "sensitivity_range": [
+        0.2972,
+        2.4081
+      ],
+      "override": null,
+      "engine_binding": "calibration:parameters.baltic_k.per_product.afrr_up.p50",
+      "review_cycle": "monthly",
+      "source": "BTD per-delivery-day clearing (299 days) / LT day-ahead arbitrage opportunity",
+      "note": "NOT WIRED — E6."
+    },
+    {
+      "id": "pf_baltic_k_afrr_down",
+      "category": "price-formation",
+      "label": "Baltic aFRR down scarcity multiple",
+      "value": 0.6114,
+      "unit": "x arbitrage opportunity",
+      "sensitivity_range": [
+        0.2605,
+        0.7988
+      ],
+      "override": null,
+      "engine_binding": "calibration:parameters.baltic_k.per_product.afrr_down.p50",
+      "review_cycle": "monthly",
+      "source": "BTD per-delivery-day clearing (299 days) / LT day-ahead arbitrage opportunity",
+      "note": "BELOW the German down multiple, so convergence RAISES it — the one product in the batch that converges upward. NOT WIRED — E6."
+    },
+    {
+      "id": "pf_lambda_fcr",
+      "category": "price-formation",
+      "label": "FCR scarcity-multiple convergence rate",
+      "value": 0.131,
+      "unit": "per year",
+      "sensitivity_range": [
+        0.0719,
+        0.131
+      ],
+      "override": null,
+      "engine_binding": "calibration:parameters.convergence.fcr.lambda_per_yr",
+      "review_cycle": "monthly",
+      "source": "DE FCR k ex-crisis log-trend, t=-10.23, half-life 5.29 yr",
+      "note": "ADOPTED RATE. Measured ACROSS a regime shift, so it is an upper bound on the decay a smooth model should claim; adopted because over-decaying is the conservative direction for a revenue line. Slow bound is the DE post-crisis within-regime rate (lambda 0.0719, t=-1.70) which is DESCRIPTIVE ONLY — see pf_de_fcr_lambda_within_regime. NOT WIRED — E6."
+    },
+    {
+      "id": "pf_de_fcr_lambda_within_regime",
+      "category": "price-formation",
+      "label": "DE FCR within-regime k trend — DESCRIPTIVE ONLY",
+      "value": 0.0719,
+      "unit": "per year",
+      "sensitivity_range": null,
+      "override": null,
+      "engine_binding": "calibration:parameters.de_k.fcr.trend_post_crisis.lambda_per_yr",
+      "review_cycle": "monthly",
+      "source": "DE FCR k post-crisis log-trend, 2023-07..2026-08, n=38 months",
+      "note": "DESCRIPTIVE ONLY — t=-1.70, below the |t|>=2 bar this calibration uses. MUST NOT be used as a forecast driver; the adopted convergence rate is pf_lambda_fcr. Recorded so the number is legible beside the one that was adopted, not so it can be picked up."
+    },
+    {
+      "id": "pf_lambda_afrr_up",
+      "category": "price-formation",
+      "label": "aFRR up scarcity-multiple convergence rate",
+      "value": 0.2198,
+      "unit": "per year",
+      "sensitivity_range": null,
+      "override": null,
+      "engine_binding": "calibration:parameters.convergence.afrr_up.lambda_per_yr",
+      "review_cycle": "monthly",
+      "source": "DE aFRR up k post-crisis log-trend, t=-3.08, half-life 3.15 yr",
+      "note": "Statistically supported WITHIN regime — no regime-shift caveat, unlike FCR. NOT WIRED — E6."
+    },
+    {
+      "id": "pf_lambda_afrr_down",
+      "category": "price-formation",
+      "label": "aFRR down scarcity-multiple convergence rate",
+      "value": 0.217,
+      "unit": "per year",
+      "sensitivity_range": null,
+      "override": null,
+      "engine_binding": "calibration:parameters.convergence.afrr_down.lambda_per_yr",
+      "review_cycle": "monthly",
+      "source": "DE aFRR down k post-crisis log-trend, t=-2.36, half-life 3.19 yr",
+      "note": "NOT WIRED — E6."
+    },
+    {
+      "id": "pf_displacement_baltic_afrr_up",
+      "category": "price-formation",
+      "label": "Floor displacement — Baltic aFRR up",
+      "value": 0.2972,
+      "unit": "fraction of gross arbitrage",
+      "sensitivity_range": null,
+      "override": null,
+      "engine_binding": "calibration:parameters.floor_displacement.baltic.afrr_up",
+      "review_cycle": "monthly",
+      "source": "p10 of the Baltic aFRR up k distribution, 2025-10..2026-07",
+      "note": "The fraction of gross arbitrage value a reserve commitment is OBSERVED to forgo. Replaces the arc floor formula, which assumed 1.0 and is falsified by every product measured. No default exists in code — endogenousFloor() throws without it. NOT WIRED — E6."
+    },
+    {
+      "id": "pf_displacement_baltic_afrr_down",
+      "category": "price-formation",
+      "label": "Floor displacement — Baltic aFRR down",
+      "value": 0.2605,
+      "unit": "fraction of gross arbitrage",
+      "sensitivity_range": null,
+      "override": null,
+      "engine_binding": "calibration:parameters.floor_displacement.baltic.afrr_down",
+      "review_cycle": "monthly",
+      "source": "p10 of the Baltic aFRR down k distribution, 2025-10..2026-07",
+      "note": "NOT WIRED — E6."
+    },
+    {
+      "id": "pf_displacement_baltic_fcr",
+      "category": "price-formation",
+      "label": "Floor displacement — Baltic FCR",
+      "value": 1.0244,
+      "unit": "fraction of gross arbitrage",
+      "sensitivity_range": null,
+      "override": null,
+      "engine_binding": "calibration:parameters.floor_displacement.baltic.fcr",
+      "review_cycle": "monthly",
+      "source": "p10 of the Baltic FCR k distribution, 2025-10..2026-07",
+      "note": "At parity with the gross arbitrage opportunity — the only product in either market whose cheapest month still pays the full opportunity cost. Phase-1 scarcity. NOT WIRED — E6."
+    },
+    {
+      "id": "pf_symmetric_premium",
+      "category": "price-formation",
+      "label": "Symmetric-availability premium (FCR over aFRR)",
+      "value": 1.5055,
+      "unit": "x",
+      "sensitivity_range": [
+        0.8764,
+        4.3982
+      ],
+      "override": null,
+      "engine_binding": "calibration:parameters.symmetric_availability_premium.full.p50",
+      "review_cycle": "monthly",
+      "source": "DE FCR / mean(DE aFRR up, down) capacity price, same month, 2019-06..2026-08, n=87",
+      "note": "What the market itself pays for holding headroom in both directions at once. Measured, not a modelled adder. NOT WIRED — E6."
+    },
+    {
+      "id": "pf_afrr_act_rate_up",
+      "category": "price-formation",
+      "label": "aFRR up activation rate",
+      "value": 0.7778,
+      "unit": "fraction of ISPs",
+      "sensitivity_range": null,
+      "override": null,
+      "engine_binding": "calibration:parameters.afrr_activation_de.per_direction.up.activation_rate",
+      "review_cycle": "monthly",
+      "source": "ENTSO-E A84 settled DE aFRR, price_basis vwap_activated, 2022-06-21..2026-08-02, 144,221 PT15M ISPs",
+      "note": "NOT WIRED — E6."
+    },
+    {
+      "id": "pf_afrr_act_rate_down",
+      "category": "price-formation",
+      "label": "aFRR down activation rate",
+      "value": 0.7921,
+      "unit": "fraction of ISPs",
+      "sensitivity_range": null,
+      "override": null,
+      "engine_binding": "calibration:parameters.afrr_activation_de.per_direction.down.activation_rate",
+      "review_cycle": "monthly",
+      "source": "ENTSO-E A84 settled DE aFRR, price_basis vwap_activated, 2022-06-21..2026-08-02, 144,221 PT15M ISPs",
+      "note": "Down activates as often as up (0.792 vs 0.778) — the half the engine has never modelled. NOT WIRED — E6."
+    },
+    {
+      "id": "pf_afrr_act_price_down",
+      "category": "price-formation",
+      "label": "aFRR down activation price (DE p50)",
+      "value": 47,
+      "unit": "EUR/MWh",
+      "sensitivity_range": [
+        -46.75,
+        105.64
+      ],
+      "override": null,
+      "engine_binding": "calibration:parameters.afrr_activation_de.per_direction.down.p50",
+      "review_cycle": "monthly",
+      "source": "ENTSO-E A84 settled DE aFRR down, 2022-06-21..2026-08-02",
+      "note": "NEGATIVE 22.1% of the time — the battery is paid to charge. Valued as the charging cost avoided (da_price - down_price), signed, so the model can say when it is a cost. NOT WIRED — E6."
+    },
+    {
+      "id": "pf_de_down_over_up",
+      "category": "price-formation",
+      "label": "aFRR down/up price ratio — TRANSFERRED to the Baltics",
+      "value": 0.3602,
+      "unit": "x",
+      "sensitivity_range": null,
+      "override": null,
+      "engine_binding": "calibration:parameters.baltic_direction_split_sensitivity.de_down_over_up",
+      "review_cycle": "monthly",
+      "source": "DE settled aFRR p50 down / p50 up, 2022-06-21..2026-08-02",
+      "note": "TRANSFERRED, not measured for the Baltics. BTD serves one pooled aFRR activation series per country with no up/down split, so the Baltic LEVEL is measured and only the SHAPE is German. The sole unmeasured input in the activation model. Banded: down-activation revenue runs EUR 3025-5714/MW/yr between a 50/50 split and the German shape. NOT WIRED — E6."
+    }
+  ],
+  "changelog": [
+    {
+      "date": "2026-06-30",
+      "id": "trading_realisation_measured",
+      "old": null,
+      "new": 0.7234,
+      "observed_monthly_range": [
+        0.65,
+        0.82
+      ],
+      "reason": "Measured over 12 months of realised LT day-ahead prices. The assumed driver (0.85) is UNCHANGED and still engine-bound; this entry records the evidence and the gap (-0.1266) pending an operator cutover decision. The measurement sits below the assumption's declared sensitivity range [0.78, 0.88], so the range itself is understated, not just the point value.",
+      "source": "KKME dispatch backtest 2025-07-01 → 2026-06-30 (349 trading days, LT day-ahead): B1 greedy policy capture ÷ perfect-foresight sort-and-dispatch capture",
+      "decided_by": "measurement",
+      "phase": "36.B3",
+      "register_version": null
+    },
+    {
+      "date": "2026-06-30",
+      "id": "RYSTAD_15MIN_UPLIFT_DECIMAL",
+      "old": 0.14,
+      "new": null,
+      "reason": "Measured at 0.0885 over 273 complete PT15M days (2025-10-01 → 2026-06-30) against the engine's asserted 0.14. Constant left unchanged — it is a worker constant on the public dispatch path and changing it is a separate decision. Reported, not adopted.",
+      "source": "tools/consultancy/run-15min-delta.mjs",
+      "decided_by": "measurement",
+      "phase": "36.B3",
+      "register_version": null
+    },
+    {
+      "date": "2026-07-28",
+      "id": "driver_trading_realisation",
+      "old": 0.85,
+      "new": 0.7234,
+      "reason": "ADOPTED. Operator decision 2026-07-28: the measured value replaces the assumption as the Central driver, and the engine constant TRADING_REALISATION.base moved with it so Central still equals the shipped constant. Downside/Upside re-anchored from [0.78, 0.88] to the measurement's own monthly extremes [0.6535, 0.8155]; the declared sensitivity range follows, so it now contains the value it describes (it did not before). The engine ladder (conservative −5pp, stress −10pp) kept its shipped steps and re-anchored on the measurement. This moves published /revenue numbers — see the batch-3 handover for the quantified public delta.",
+      "source": "KKME dispatch backtest 2025-07-01 → 2026-06-30 (349 trading days, LT day-ahead)",
+      "decided_by": "operator",
+      "phase": "36.B batch-3 Part 0",
+      "evidence": {
+        "measurement": {
+          "window": "2025-07-01 → 2026-06-30 (LT day-ahead)",
+          "days_evaluated": 365,
+          "days_traded": 349,
+          "days_declined": 16,
+          "volume_weighted": 0.7234,
+          "simple_mean": 0.7321,
+          "daily_distribution": {
+            "min": 0.187,
+            "p25": 0.628,
+            "median": 0.756,
+            "p75": 0.849,
+            "max": 0.997
+          },
+          "monthly_band": {
+            "low": 0.6535,
+            "low_month": "2025-09",
+            "high": 0.8155,
+            "high_month": "2026-05"
+          },
+          "denominator": "the engine's own computeDayCapture sort-and-dispatch perfect-foresight capture, imported rather than restated, so the measured value sits on the same denominator as the assumption it replaced",
+          "declined_days_treatment": "excluded from both aggregates, not scored as zero — refusing a spread that cannot cover the round trip is the guard working, not a missed opportunity. Scoring them zero would have read 0.69."
+        },
+        "leakage_checks": [
+          "no day beats perfect foresight: 0 of 349 score > 1.0 (max 0.997)",
+          "headline below the 0.90 tripwire: 0.7234",
+          "realisation uncorrelated with day quality: Pearson r = -0.093 (slightly negative, the expected sign for a threshold rule)"
+        ],
+        "ladder": {
+          "conservative": 0.6734,
+          "stress": 0.6234,
+          "basis": "the shipped 5pp steps kept and re-anchored on the measurement; both rungs land inside the measured daily distribution (p25 0.628, median 0.756), so stress is 'a year made entirely of bottom-quartile trading days' rather than '20% worse than an assumption'"
+        },
+        "client_impact_frozen_fixture": {
+          "gross_y1_pct": -4.52,
+          "ebitda_y1_pct": -6.53,
+          "prefin_cf_y1_pct": -6.77,
+          "gross_20yr_pct": -3.99,
+          "ebitda_20yr_pct": -7.11,
+          "npv_pct": -16.05,
+          "moic_pct": -9.15,
+          "note": "measured on the frozen KV fixture so the delta is code-attributable in full. The gearing is the story: a 4.5% revenue correction lands as a 16% NPV correction. Stoniskiai's Downside NPV crosses zero (EUR 2 234 571 to -EUR 1 299)."
+        },
+        "limitation": "ONE market year. The band is an observed range, not a distribution; twelve monthly observations from a single year cannot separate seasonality from trend. Remeasure annually — run-backtest.mjs refuses to adopt a disagreeing remeasurement without a fresh operator decision."
+      },
+      "register_version": null
+    },
+    {
+      "date": "2026-07-28",
+      "id": "operating_calibration_eur_kw_yr",
+      "old": 2.08,
+      "new": 2.56,
+      "reason": "Consequential, not a decision. The constant closes the engine-vs-client cost-taxonomy gap AT the reference asset's revenue level; adopting the measured trading realisation lowered that revenue, and the engine's two flat cost lines did not follow it down, so the gap widened by EUR 24 245/yr at 50 MW. Re-derived by bridgeCalibration() rather than re-fitted by hand. Without it the reference asset stops closing within the contracted ±2%.",
+      "source": "tools/consultancy/bridge.mjs — bridgeCalibration(reference asset, frozen KV fixture)",
+      "decided_by": "derived",
+      "phase": "36.B batch-3 Part 0",
+      "register_version": null
+    },
+    {
+      "date": "2026-07-28",
+      "id": "dispatch_15min_uplift",
+      "old": 0.14,
+      "new": 0.0885,
+      "reason": "ADOPTED. Operator decision 2026-07-28: the measured sub-hourly uplift replaces the Rystad placeholder in RYSTAD_15MIN_UPLIFT_DECIMAL, and the constant gains a register row so it can never again be carried unmeasured. Moves the public dispatch card only — capture_eur_mwh_15min_uplifted falls 4.52% at any capture level; /revenue and every client deliverable number are untouched. Realised-mode card moves only once BTD returns and the cron rewrites dispatch:<date> KV (stored payloads carry the old factor until then, 90-day TTL); forecast-mode computes live but is structurally dead (36.B0-G).",
+      "source": "tools/consultancy/run-15min-delta.mjs",
+      "decided_by": "operator",
+      "phase": "36.B batch-3 Part 0",
+      "evidence": {
+        "measurement": {
+          "window": "2025-10-01 → 2026-06-30, 273 complete PT15M days",
+          "weighted_uplift": 0.0885,
+          "simple_mean": 0.0979,
+          "median": 0.0815,
+          "range": [
+            0.0005,
+            0.845
+          ],
+          "method": "computeDayCapture run at 15 and at 60 minutes on identical days, re-fetched at native resolution (the committed year files are averaged into the hour under decision D1)",
+          "vs_asserted": "the Rystad placeholder 0.14 is ~58% higher than measured"
+        },
+        "reach": {
+          "revenue_route": "unaffected — /revenue 54/54 byte-identical, asserted; the constant is read at exactly two sites, both display fields on the public dispatch card",
+          "dispatch_realised": "moves only once BTD returns and the ingest cron rewrites dispatch:<date> KV (stored payloads carry the old factor, 90-day TTL)",
+          "dispatch_forecast": "computes live but the branch is structurally dead (36.B0-G)"
+        },
+        "limitation": "a display correction, not a model one — no client deliverable number moves."
+      },
+      "register_version": null
+    },
+    {
+      "date": "2026-07-28",
+      "id": "cycles_efc_yr",
+      "old": 678,
+      "new": 498,
+      "reason": "Consequential, not a decision. Cycle accounting charged cell wear on the full day-ahead throughput anchor while revenue billed anchor x trading_fraction x availability, so the engine aged the battery for ~43% more day-ahead energy than it earned on (36.B1-O). Both now read one DELIVERED figure. The metric changed basis, so its declared sensitivity_range — the observed merchant-cycling band — was moved to benchmark_band rather than widened to fit: the model now sits below the observed band and says so. cycles_per_day follows at 1.86 -> 1.36.",
+      "source": "workers/fetch-s1.js computeThroughputBreakdown({da_utilisation, availability})",
+      "decided_by": "derived",
+      "phase": "36.B5",
+      "evidence": {
+        "cause": "36.B1-O: cycle accounting charged wear on the full day-ahead throughput anchor while revenue billed anchor x trading_fraction x availability, so the engine aged the battery for ~43% more day-ahead energy than it earned on. Closing it by RAISING revenue to the anchor was rejected — it would have added ~43% published revenue and is contradicted by B1's hourly simulation, which finds achieved day-ahead throughput at ~27% of the revenue anchor.",
+        "corroboration": [
+          "36.B1 hourly chronological simulation, single-year gate: 221 EFC/yr",
+          "36.B5 degradation fixed point, 20-year multi-pass: 222 EFC/yr",
+          "two independent routes — one a single-year hourly run, one a multi-year fixed point — landing on the same physical answer"
+        ],
+        "declared_breach": {
+          "check": "external_3_cycles_yr",
+          "band": [
+            550,
+            720
+          ],
+          "band_source": "Modo / GEM measured merchant-battery research",
+          "actual": 498,
+          "treatment": "the band keeps its sourced value and the breach is reported at full size and counted in the summary; only the build-failing status is lifted, under expected_deviation with a stated reason. The row's sensitivity_range moved to benchmark_band rather than being widened to contain the new value."
+        },
+        "side_effect": "less cycling means slower degradation means higher IRR (+0.9% relative on the reference asset). A consistency fix that improves the answer deserves more scrutiny than one that worsens it, which is why the benchmark consequence was chased rather than accepted quietly."
+      },
+      "register_version": null
+    },
+    {
+      "date": "2026-07-29",
+      "id": "reserve_demand_mw",
+      "old": 935,
+      "new": 817,
+      "reason": "Phase 36.D — demand basis moves from the unsourced 935 (undocumented literal, fb088c4) to the tri-TSO Baltic LFC-block procurement series, year-indexed 2026-2035; operator signed CP-1 decisions 2, 5 and 6. Bridge calibration re-derives as a consequence of the resulting revenue movement, not as an independent decision.",
+      "source": "Baltic LFC block FRR + FCR dimensioning forecasts 2026-2035 (Elering, AST, LITGRID); Litgrid Lankstumo poreikiu ataskaita 2026 for component structure",
+      "decided_by": "operator",
+      "phase": "36.D",
+      "register_version": "r2.eb8712f9"
+    },
+    {
+      "date": "2026-07-29",
+      "id": "operating_calibration_eur_kw_yr",
+      "old": 2.56,
+      "new": 2.57,
+      "reason": "Phase 36.D — demand basis moves from the unsourced 935 (undocumented literal, fb088c4) to the tri-TSO Baltic LFC-block procurement series, year-indexed 2026-2035; operator signed CP-1 decisions 2, 5 and 6. Bridge calibration re-derives as a consequence of the resulting revenue movement, not as an independent decision.",
+      "source": "Baltic LFC block FRR + FCR dimensioning forecasts 2026-2035 (Elering, AST, LITGRID); Litgrid Lankstumo poreikiu ataskaita 2026 for component structure",
+      "decided_by": "operator",
+      "phase": "36.D",
+      "register_version": "r2.eb8712f9"
+    },
+    {
+      "date": "2026-08-02",
+      "phase": "36.E1+36.E2",
+      "decided_by": "operator",
+      "register_version": "r2.48dcf518",
+      "source": "tools/consultancy/data/price-formation-calibration.json — every value re-derivable offline from the committed evidence base",
+      "id": "pf_*",
+      "old": null,
+      "new": "18 rows",
+      "reason": "36.E1+E2 per-service price formation. NOT WIRED — /revenue is byte-identical and E6 does the wiring, replacing reservePrice() (NOT cpiCurve(), which is disclosure-only). New binding namespace calibration: so these rows are bound to the artifact that measured them; re-running the calibration on refreshed evidence makes the register drift, which is the alarm a monthly review_cycle wants."
+    },
+    {
+      "date": "2026-08-02",
+      "phase": "36.E1+36.E2",
+      "decided_by": "operator",
+      "register_version": "r2.48dcf518",
+      "source": "tools/consultancy/data/price-formation-calibration.json — every value re-derivable offline from the committed evidence base",
+      "id": "pf_displacement_*",
+      "old": 1,
+      "new": 0.2972,
+      "reason": "The arc endogenous floor is FALSIFIED as written. Gross arbitrage net of cycling cost sits above every floor in the evidence base; found by a reproduction test failing (Baltic aFRR down 17.85 modelled vs 10.04 measured), not by reasoning. A reserve commitment forgoes the SoC headroom it reserves, not the whole MW (36.B1 simultaneity). Displacement is REQUIRED with no default in code — an implicit 1.0 is the assumption being removed. Value shown is Baltic aFRR up; see the sibling rows per product."
+    },
+    {
+      "date": "2026-08-02",
+      "phase": "36.E1+36.E2",
+      "decided_by": "operator",
+      "register_version": "r2.48dcf518",
+      "source": "tools/consultancy/data/price-formation-calibration.json — every value re-derivable offline from the committed evidence base",
+      "id": "pf_picasso_break",
+      "old": null,
+      "new": 0,
+      "reason": "NO PICASSO break parameter, and none should exist. Counted: AT aFRR 0 pre-accession quarter-hours against 54,117; DE aFRR 9 against 226,402. And our own Baltic clearing series starts 2025-10-01, after all three accessions (MARI 2024-10-10; PICASSO Litgrid 2025-03-05, Elering + AST 2025-04-11), so the break is already inside the level the calibration measures. Applying a forward compression would double-count it. Recorded as an explicit NON-APPLICATION so the silence is legible."
+    },
+    {
+      "date": "2026-08-03",
+      "id": "cycles_efc_yr",
+      "old": 498,
+      "new": 198,
+      "reason": "MW partition became the engine default (38.6a, operator-signed): day-ahead throughput is now allocated on the physical MW-hour share (0.139) instead of the EUR/EUR price ratio (0.70), so delivered cycling falls with it. Consequential re-derivation, not an independent decision about cycling.",
+      "source": "engine:assumptions_panel.cycles_breakdown against the frozen KV fixture, reference asset 50 MW / 2h",
+      "decided_by": "derived",
+      "phase": "38.6a",
+      "register_version": "r3.d74c7e18"
+    },
+    {
+      "date": "2026-08-03",
+      "id": "cycles_per_day",
+      "old": 1.36,
+      "new": 0.54,
+      "reason": "MW partition became the engine default (38.6a, operator-signed): day-ahead throughput is now allocated on the physical MW-hour share (0.139) instead of the EUR/EUR price ratio (0.70), so delivered cycling falls with it. Consequential re-derivation, not an independent decision about cycling.",
+      "source": "engine:assumptions_panel.cycles_breakdown against the frozen KV fixture, reference asset 50 MW / 2h",
+      "decided_by": "derived",
+      "phase": "38.6a",
+      "register_version": "r3.d74c7e18"
+    },
+    {
+      "date": "2026-08-03",
+      "id": "operating_calibration_eur_kw_yr",
+      "old": 2.57,
+      "new": 5.83,
+      "reason": "MW partition became the engine default (38.6a, operator-signed): day-ahead throughput is now allocated on the physical MW-hour share (0.139) instead of the EUR/EUR price ratio (0.70), so delivered cycling falls with it. Consequential re-derivation, not an independent decision about cycling.",
+      "source": "engine:assumptions_panel.cycles_breakdown against the frozen KV fixture, reference asset 50 MW / 2h",
+      "decided_by": "derived",
+      "phase": "38.6a",
+      "register_version": "r3.d74c7e18"
+    }
+  ],
+  "synced_at": "2026-08-03T08:46:54.606Z",
+  "version": {
+    "id": "r3.d74c7e18",
+    "seq": 3,
+    "hash": "d74c7e1822389b60784c3fadcebbf5bc5eb73240e9ad2b6769776f7e960e1a12",
+    "effective_from": "2026-08-03",
+    "changelog_entries": 14
   }
- ],
- "changelog": [
-  {
-   "date": "2026-06-30",
-   "id": "trading_realisation_measured",
-   "old": null,
-   "new": 0.7234,
-   "observed_monthly_range": [
-    0.65,
-    0.82
-   ],
-   "reason": "Measured over 12 months of realised LT day-ahead prices. The assumed driver (0.85) is UNCHANGED and still engine-bound; this entry records the evidence and the gap (-0.1266) pending an operator cutover decision. The measurement sits below the assumption's declared sensitivity range [0.78, 0.88], so the range itself is understated, not just the point value.",
-   "source": "KKME dispatch backtest 2025-07-01 → 2026-06-30 (349 trading days, LT day-ahead): B1 greedy policy capture ÷ perfect-foresight sort-and-dispatch capture",
-   "decided_by": "measurement",
-   "phase": "36.B3",
-   "register_version": null
-  },
-  {
-   "date": "2026-06-30",
-   "id": "RYSTAD_15MIN_UPLIFT_DECIMAL",
-   "old": 0.14,
-   "new": null,
-   "reason": "Measured at 0.0885 over 273 complete PT15M days (2025-10-01 → 2026-06-30) against the engine's asserted 0.14. Constant left unchanged — it is a worker constant on the public dispatch path and changing it is a separate decision. Reported, not adopted.",
-   "source": "tools/consultancy/run-15min-delta.mjs",
-   "decided_by": "measurement",
-   "phase": "36.B3",
-   "register_version": null
-  },
-  {
-   "date": "2026-07-28",
-   "id": "driver_trading_realisation",
-   "old": 0.85,
-   "new": 0.7234,
-   "reason": "ADOPTED. Operator decision 2026-07-28: the measured value replaces the assumption as the Central driver, and the engine constant TRADING_REALISATION.base moved with it so Central still equals the shipped constant. Downside/Upside re-anchored from [0.78, 0.88] to the measurement's own monthly extremes [0.6535, 0.8155]; the declared sensitivity range follows, so it now contains the value it describes (it did not before). The engine ladder (conservative −5pp, stress −10pp) kept its shipped steps and re-anchored on the measurement. This moves published /revenue numbers — see the batch-3 handover for the quantified public delta.",
-   "source": "KKME dispatch backtest 2025-07-01 → 2026-06-30 (349 trading days, LT day-ahead)",
-   "decided_by": "operator",
-   "phase": "36.B batch-3 Part 0",
-   "evidence": {
-    "measurement": {
-     "window": "2025-07-01 → 2026-06-30 (LT day-ahead)",
-     "days_evaluated": 365,
-     "days_traded": 349,
-     "days_declined": 16,
-     "volume_weighted": 0.7234,
-     "simple_mean": 0.7321,
-     "daily_distribution": {
-      "min": 0.187,
-      "p25": 0.628,
-      "median": 0.756,
-      "p75": 0.849,
-      "max": 0.997
-     },
-     "monthly_band": {
-      "low": 0.6535,
-      "low_month": "2025-09",
-      "high": 0.8155,
-      "high_month": "2026-05"
-     },
-     "denominator": "the engine's own computeDayCapture sort-and-dispatch perfect-foresight capture, imported rather than restated, so the measured value sits on the same denominator as the assumption it replaced",
-     "declined_days_treatment": "excluded from both aggregates, not scored as zero — refusing a spread that cannot cover the round trip is the guard working, not a missed opportunity. Scoring them zero would have read 0.69."
-    },
-    "leakage_checks": [
-     "no day beats perfect foresight: 0 of 349 score > 1.0 (max 0.997)",
-     "headline below the 0.90 tripwire: 0.7234",
-     "realisation uncorrelated with day quality: Pearson r = -0.093 (slightly negative, the expected sign for a threshold rule)"
-    ],
-    "ladder": {
-     "conservative": 0.6734,
-     "stress": 0.6234,
-     "basis": "the shipped 5pp steps kept and re-anchored on the measurement; both rungs land inside the measured daily distribution (p25 0.628, median 0.756), so stress is 'a year made entirely of bottom-quartile trading days' rather than '20% worse than an assumption'"
-    },
-    "client_impact_frozen_fixture": {
-     "gross_y1_pct": -4.52,
-     "ebitda_y1_pct": -6.53,
-     "prefin_cf_y1_pct": -6.77,
-     "gross_20yr_pct": -3.99,
-     "ebitda_20yr_pct": -7.11,
-     "npv_pct": -16.05,
-     "moic_pct": -9.15,
-     "note": "measured on the frozen KV fixture so the delta is code-attributable in full. The gearing is the story: a 4.5% revenue correction lands as a 16% NPV correction. Stoniskiai's Downside NPV crosses zero (EUR 2 234 571 to -EUR 1 299)."
-    },
-    "limitation": "ONE market year. The band is an observed range, not a distribution; twelve monthly observations from a single year cannot separate seasonality from trend. Remeasure annually — run-backtest.mjs refuses to adopt a disagreeing remeasurement without a fresh operator decision."
-   },
-   "register_version": null
-  },
-  {
-   "date": "2026-07-28",
-   "id": "operating_calibration_eur_kw_yr",
-   "old": 2.08,
-   "new": 2.56,
-   "reason": "Consequential, not a decision. The constant closes the engine-vs-client cost-taxonomy gap AT the reference asset's revenue level; adopting the measured trading realisation lowered that revenue, and the engine's two flat cost lines did not follow it down, so the gap widened by EUR 24 245/yr at 50 MW. Re-derived by bridgeCalibration() rather than re-fitted by hand. Without it the reference asset stops closing within the contracted ±2%.",
-   "source": "tools/consultancy/bridge.mjs — bridgeCalibration(reference asset, frozen KV fixture)",
-   "decided_by": "derived",
-   "phase": "36.B batch-3 Part 0",
-   "register_version": null
-  },
-  {
-   "date": "2026-07-28",
-   "id": "dispatch_15min_uplift",
-   "old": 0.14,
-   "new": 0.0885,
-   "reason": "ADOPTED. Operator decision 2026-07-28: the measured sub-hourly uplift replaces the Rystad placeholder in RYSTAD_15MIN_UPLIFT_DECIMAL, and the constant gains a register row so it can never again be carried unmeasured. Moves the public dispatch card only — capture_eur_mwh_15min_uplifted falls 4.52% at any capture level; /revenue and every client deliverable number are untouched. Realised-mode card moves only once BTD returns and the cron rewrites dispatch:<date> KV (stored payloads carry the old factor until then, 90-day TTL); forecast-mode computes live but is structurally dead (36.B0-G).",
-   "source": "tools/consultancy/run-15min-delta.mjs",
-   "decided_by": "operator",
-   "phase": "36.B batch-3 Part 0",
-   "evidence": {
-    "measurement": {
-     "window": "2025-10-01 → 2026-06-30, 273 complete PT15M days",
-     "weighted_uplift": 0.0885,
-     "simple_mean": 0.0979,
-     "median": 0.0815,
-     "range": [
-      0.0005,
-      0.845
-     ],
-     "method": "computeDayCapture run at 15 and at 60 minutes on identical days, re-fetched at native resolution (the committed year files are averaged into the hour under decision D1)",
-     "vs_asserted": "the Rystad placeholder 0.14 is ~58% higher than measured"
-    },
-    "reach": {
-     "revenue_route": "unaffected — /revenue 54/54 byte-identical, asserted; the constant is read at exactly two sites, both display fields on the public dispatch card",
-     "dispatch_realised": "moves only once BTD returns and the ingest cron rewrites dispatch:<date> KV (stored payloads carry the old factor, 90-day TTL)",
-     "dispatch_forecast": "computes live but the branch is structurally dead (36.B0-G)"
-    },
-    "limitation": "a display correction, not a model one — no client deliverable number moves."
-   },
-   "register_version": null
-  },
-  {
-   "date": "2026-07-28",
-   "id": "cycles_efc_yr",
-   "old": 678,
-   "new": 498,
-   "reason": "Consequential, not a decision. Cycle accounting charged cell wear on the full day-ahead throughput anchor while revenue billed anchor x trading_fraction x availability, so the engine aged the battery for ~43% more day-ahead energy than it earned on (36.B1-O). Both now read one DELIVERED figure. The metric changed basis, so its declared sensitivity_range — the observed merchant-cycling band — was moved to benchmark_band rather than widened to fit: the model now sits below the observed band and says so. cycles_per_day follows at 1.86 -> 1.36.",
-   "source": "workers/fetch-s1.js computeThroughputBreakdown({da_utilisation, availability})",
-   "decided_by": "derived",
-   "phase": "36.B5",
-   "evidence": {
-    "cause": "36.B1-O: cycle accounting charged wear on the full day-ahead throughput anchor while revenue billed anchor x trading_fraction x availability, so the engine aged the battery for ~43% more day-ahead energy than it earned on. Closing it by RAISING revenue to the anchor was rejected — it would have added ~43% published revenue and is contradicted by B1's hourly simulation, which finds achieved day-ahead throughput at ~27% of the revenue anchor.",
-    "corroboration": [
-     "36.B1 hourly chronological simulation, single-year gate: 221 EFC/yr",
-     "36.B5 degradation fixed point, 20-year multi-pass: 222 EFC/yr",
-     "two independent routes — one a single-year hourly run, one a multi-year fixed point — landing on the same physical answer"
-    ],
-    "declared_breach": {
-     "check": "external_3_cycles_yr",
-     "band": [
-      550,
-      720
-     ],
-     "band_source": "Modo / GEM measured merchant-battery research",
-     "actual": 498,
-     "treatment": "the band keeps its sourced value and the breach is reported at full size and counted in the summary; only the build-failing status is lifted, under expected_deviation with a stated reason. The row's sensitivity_range moved to benchmark_band rather than being widened to contain the new value."
-    },
-    "side_effect": "less cycling means slower degradation means higher IRR (+0.9% relative on the reference asset). A consistency fix that improves the answer deserves more scrutiny than one that worsens it, which is why the benchmark consequence was chased rather than accepted quietly."
-   },
-   "register_version": null
-  },
-  {
-   "date": "2026-07-29",
-   "id": "reserve_demand_mw",
-   "old": 935,
-   "new": 817,
-   "reason": "Phase 36.D — demand basis moves from the unsourced 935 (undocumented literal, fb088c4) to the tri-TSO Baltic LFC-block procurement series, year-indexed 2026-2035; operator signed CP-1 decisions 2, 5 and 6. Bridge calibration re-derives as a consequence of the resulting revenue movement, not as an independent decision.",
-   "source": "Baltic LFC block FRR + FCR dimensioning forecasts 2026-2035 (Elering, AST, LITGRID); Litgrid Lankstumo poreikiu ataskaita 2026 for component structure",
-   "decided_by": "operator",
-   "phase": "36.D",
-   "register_version": "r2.eb8712f9"
-  },
-  {
-   "date": "2026-07-29",
-   "id": "operating_calibration_eur_kw_yr",
-   "old": 2.56,
-   "new": 2.57,
-   "reason": "Phase 36.D — demand basis moves from the unsourced 935 (undocumented literal, fb088c4) to the tri-TSO Baltic LFC-block procurement series, year-indexed 2026-2035; operator signed CP-1 decisions 2, 5 and 6. Bridge calibration re-derives as a consequence of the resulting revenue movement, not as an independent decision.",
-   "source": "Baltic LFC block FRR + FCR dimensioning forecasts 2026-2035 (Elering, AST, LITGRID); Litgrid Lankstumo poreikiu ataskaita 2026 for component structure",
-   "decided_by": "operator",
-   "phase": "36.D",
-   "register_version": "r2.eb8712f9"
-  },
-  {
-   "date": "2026-08-02",
-   "phase": "36.E1+36.E2",
-   "decided_by": "operator",
-   "register_version": "r2.48dcf518",
-   "source": "tools/consultancy/data/price-formation-calibration.json — every value re-derivable offline from the committed evidence base",
-   "id": "pf_*",
-   "old": null,
-   "new": "18 rows",
-   "reason": "36.E1+E2 per-service price formation. NOT WIRED — /revenue is byte-identical and E6 does the wiring, replacing reservePrice() (NOT cpiCurve(), which is disclosure-only). New binding namespace calibration: so these rows are bound to the artifact that measured them; re-running the calibration on refreshed evidence makes the register drift, which is the alarm a monthly review_cycle wants."
-  },
-  {
-   "date": "2026-08-02",
-   "phase": "36.E1+36.E2",
-   "decided_by": "operator",
-   "register_version": "r2.48dcf518",
-   "source": "tools/consultancy/data/price-formation-calibration.json — every value re-derivable offline from the committed evidence base",
-   "id": "pf_displacement_*",
-   "old": 1,
-   "new": 0.2972,
-   "reason": "The arc endogenous floor is FALSIFIED as written. Gross arbitrage net of cycling cost sits above every floor in the evidence base; found by a reproduction test failing (Baltic aFRR down 17.85 modelled vs 10.04 measured), not by reasoning. A reserve commitment forgoes the SoC headroom it reserves, not the whole MW (36.B1 simultaneity). Displacement is REQUIRED with no default in code — an implicit 1.0 is the assumption being removed. Value shown is Baltic aFRR up; see the sibling rows per product."
-  },
-  {
-   "date": "2026-08-02",
-   "phase": "36.E1+36.E2",
-   "decided_by": "operator",
-   "register_version": "r2.48dcf518",
-   "source": "tools/consultancy/data/price-formation-calibration.json — every value re-derivable offline from the committed evidence base",
-   "id": "pf_picasso_break",
-   "old": null,
-   "new": 0,
-   "reason": "NO PICASSO break parameter, and none should exist. Counted: AT aFRR 0 pre-accession quarter-hours against 54,117; DE aFRR 9 against 226,402. And our own Baltic clearing series starts 2025-10-01, after all three accessions (MARI 2024-10-10; PICASSO Litgrid 2025-03-05, Elering + AST 2025-04-11), so the break is already inside the level the calibration measures. Applying a forward compression would double-count it. Recorded as an explicit NON-APPLICATION so the silence is legible."
-  }
- ],
- "synced_at": "2026-07-29T10:20:15.615Z",
- "version": {
-  "id": "r2.48dcf518",
-  "seq": 2,
-  "hash": "48dcf518524bd916933628c54add7dacd03f610365aca9f3f96721488422f653",
-  "effective_from": "2026-08-02",
-  "changelog_entries": 11
- }
 }

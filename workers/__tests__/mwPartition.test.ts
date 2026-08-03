@@ -25,21 +25,64 @@ const run = (params: Any, mode?: string) =>
 /** The per-year rows the assumptions panel publishes. */
 const yearsOf = (r: Any): Any[] => r.years ?? [];
 
-describe('38.6 — the flag defaults to current behaviour', () => {
-  it('is a no-op unless explicitly selected, including for unknown values', () => {
-    for (const bogus of [undefined, null, '', 'partiton', 'true', 1]) {
-      const a = JSON.stringify(run(REF.params), (k, v) => (k === 'timestamp' ? undefined : v));
-      const b = JSON.stringify(run({ ...REF.params, mw_partition: bogus }),
-        (k, v) => (k === 'timestamp' ? undefined : v));
-      expect(b).toBe(a);
+describe('38.6a — the flag defaults to the PARTITION (operator-signed)', () => {
+  it('partitions by default, with no mw_partition supplied', () => {
+    const y = yearsOf(run(REF.params))[0];
+    expect(y.mw_partition).toBe('partition');
+    expect(y.arb_share_basis).toBe('mw_hours_physical');
+  });
+
+  it('an unknown or absent value falls back to the partition, never to current', () => {
+    // A typo must not silently restore the pre-38.6a numbers.
+    for (const bogus of [undefined, null, '', 'partiton', 'true', 1, 'CURRENT']) {
+      const y = yearsOf(run({ ...REF.params, mw_partition: bogus }))[0];
+      expect(y.mw_partition, String(bogus)).toBe('partition');
     }
   });
 
-  it('does not add fields to the payload while it is off', () => {
-    const y = yearsOf(run(REF.params))[0];
-    expect(y).toBeDefined();
-    expect(y.arb_share_used).toBeUndefined();
+  it("'current' still reproduces the pre-38.6a basis, for comparison", () => {
+    const y = yearsOf(run(REF.params, 'current'))[0];
     expect(y.mw_partition).toBeUndefined();
+    expect(y.arb_share_used).toBeUndefined();
+    // The old basis is the price ratio, pinned at its ceiling.
+    expect(y.trading_fraction).toBeCloseTo(0.70, 3);
+  });
+
+  it('the signed delta is reproducible from the payload', () => {
+    // Pins the numbers the operator signed. If any of these move, the change
+    // that moved them has to explain itself against a signed figure.
+    const c = run(REF.params, 'current'), p = run(REF.params);
+    expect(c.gross_revenue_y1).toBe(8842883);
+    expect(p.gross_revenue_y1).toBe(6593902);
+    expect(c.project_irr).toBeCloseTo(0.1068, 4);
+    expect(p.project_irr).toBeCloseTo(0.0383, 4);
+    expect(c.min_dscr).toBeCloseTo(1.40, 2);
+    expect(p.min_dscr).toBeCloseTo(0.89, 2);
+    expect(c.cycles_per_year).toBe(317);
+    expect(p.cycles_per_year).toBe(113);
+  });
+
+  it('unit_fix and partition agree on every financial metric', () => {
+    // The 38.6 wrap reported this from a comparison that was broken: the
+    // energy term was gated on `partition_on`, true for BOTH modes, so the
+    // measurement compared a mode against itself. Corrected in 38.6a and
+    // re-measured — the conclusion held, but it is now actually tested.
+    for (const { params, id } of MATRIX) {
+      const u = run(params, 'unit_fix'), p = run(params, 'partition');
+      for (const k of ['gross_revenue_y1', 'project_irr', 'equity_irr', 'min_dscr',
+        'lcos_eur_mwh', 'npv_project', 'cycles_per_year', 'arbitrage_pct']) {
+        expect(p[k], `${id}.${k}`).toEqual(u[k]);
+      }
+    }
+  });
+
+  it('and differ ONLY in the energy identity they publish', () => {
+    const u = run(REF.params, 'unit_fix'), p = run(REF.params, 'partition');
+    expect(u.years[0].da_energy_req_mwh_per_mw).toBe(0);
+    expect(p.years[0].da_energy_req_mwh_per_mw).toBeGreaterThan(0);
+    // ...and it still does not bind at any public duration.
+    expect(u.years[0].scale_energy).toBe(1);
+    expect(p.years[0].scale_energy).toBe(1);
   });
 });
 
@@ -53,9 +96,9 @@ describe('38.6 — the power identity', () => {
   it('FAILS today: reserve commitment + day-ahead commitment exceeds P_max', () => {
     for (const { params } of MATRIX) {
       const reserveSum = Object.values(RESERVE_PRODUCTS).reduce((a: number, p: Any) => a + p.share, 0);
-      for (const y of yearsOf(run(params))) {
-        // `trading_fraction` is what the DA energy seams spend when the flag is
-        // off. This documents the violation rather than asserting it is fine.
+      for (const y of yearsOf(run(params, 'current'))) {
+        // `trading_fraction` is what the DA energy seams spent before 38.6a.
+        // Retained so the defect stays reproducible against the fix.
         expect(reserveSum + y.trading_fraction).toBeGreaterThan(1.0);
       }
     }
@@ -109,8 +152,10 @@ describe('38.6 — the energy identity', () => {
   it('carries a day-ahead term under the partition and none without it', () => {
     const on = yearsOf(run(REF.params, 'partition'))[0];
     expect(on.da_energy_req_mwh_per_mw).toBeGreaterThan(0);
+    // Each of the three is independently rounded to 4dp, so allow the sum of
+    // two roundings rather than asserting exactness on rounded inputs.
     expect(on.total_energy_req_mwh_per_mw).toBeCloseTo(
-      on.reserve_energy_req_mwh_per_mw + on.da_energy_req_mwh_per_mw, 6);
+      on.reserve_energy_req_mwh_per_mw + on.da_energy_req_mwh_per_mw, 3);
   });
 
   it('reserved + day-ahead energy stays inside the usable reservoir', () => {
@@ -182,8 +227,8 @@ describe('38.6 — the dimensional guard at the seam', () => {
     }
   });
 
-  it('measures the disagreement that exists WITHOUT the partition', () => {
-    const r = run(REF.params);
+  it('measures the disagreement that existed BEFORE the partition', () => {
+    const r = run(REF.params, 'current');
     const published = r.base_year.time_model.effective_arb_pct;
     const spent = yearsOf(r)[0].trading_fraction;
     expect(spent / published).toBeGreaterThan(4); // ~6x at current market state
@@ -195,7 +240,7 @@ describe('38.6 — no double discount', () => {
     // The two act on different quantities, so applying both is not a double
     // discount. Shown rather than argued: the partition changes the day-ahead
     // energy line and leaves the balancing line where it was.
-    const c = run(REF.params), p = run(REF.params, 'partition');
+    const c = run(REF.params, 'current'), p = run(REF.params, 'partition');
     const cy = yearsOf(c)[0], py = yearsOf(p)[0];
     // Balancing revenue is pinned to an OBSERVED base year through
     // `bal_calibration = by_balancing_per_mw / R_now`, so it must not move.

@@ -18,6 +18,7 @@ import { RevenueSensitivityTornado } from '@/app/components/RevenueSensitivityTo
 import { RevenueBacktest } from '@/app/components/RevenueBacktest';
 import type { BacktestRow } from '@/app/lib/backtest';
 import { findMatrixCell, type MatrixCell as SensMatrixCell } from '@/app/lib/sensitivityMatrix';
+import { partitionExplainer } from '@/app/lib/mwPartitionCopy';
 import { DISPATCH_LABELS, vsCanonicalDispatchFootnote } from '@/app/lib/dispatchDefinitions';
 import { IRR_LABELS, irrStatusDisclosure, type IrrStatus } from '@/app/lib/irrLabels';
 import {
@@ -1505,6 +1506,29 @@ function DSCRChart({ monthly, CC }: {
 
 // ═══ Drawer Content ═════════════════════════════════════════════════════════
 
+/**
+ * Phase 38.6a. Prose lives in `app/lib/mwPartitionCopy.ts` so it is assertable
+ * as rendered strings rather than as JSX internals (B13).
+ */
+function PartitionExplainer({ daShareOfGrossPct }: { daShareOfGrossPct: number | null }) {
+  const block = partitionExplainer(daShareOfGrossPct);
+  return (
+    <div>
+      <div style={{
+        color: 'var(--text-tertiary)', fontSize: 'var(--font-xs)',
+        fontFamily: "var(--font-mono)", textTransform: 'uppercase',
+        letterSpacing: '0.1em', marginTop: 20, marginBottom: 'var(--space-xs)',
+      }}>{block.heading}</div>
+      {block.paragraphs.map((t, i) => (
+        <p key={i} style={{
+          fontSize: 'var(--font-sm)', color: 'var(--text-secondary)',
+          lineHeight: 1.55, marginTop: 0, marginBottom: 'var(--space-xs)',
+        }}>{t}</p>
+      ))}
+    </div>
+  );
+}
+
 function DrawerContent({ data }: { data: RevenueData }) {
   const y1 = data.years[0];
   if (!y1) return null;
@@ -1541,6 +1565,12 @@ function DrawerContent({ data }: { data: RevenueData }) {
       <R label="= Net" val={`€${fmtK(y1.rev_net / MW)}`} bold />
       <R label="− OPEX" val={`€${fmtK(y1.opex / MW)}`} />
       <R label="= EBITDA" val={`€${fmtK(y1.ebitda / MW)}`} bold />
+
+      {/* Phase 38.6a — why the trading line is what it is. The DA share is
+          computed from the two figures rendered directly above, so the number in
+          the prose and the number in the table cannot disagree (rule #2). */}
+      <PartitionExplainer
+        daShareOfGrossPct={y1.rev_gross > 0 ? (y1.rev_trd / y1.rev_gross) * 100 : null} />
 
       <div style={head}>Scenario comparison</div>
       <table style={{ width: '100%', borderCollapse: 'collapse',

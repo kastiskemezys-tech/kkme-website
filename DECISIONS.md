@@ -3360,3 +3360,89 @@ registered BEFORE the flag flips. Not added in this run: adding rows bumps the r
 version hash, and every delivered report quotes that id, so bumping it while the operator is
 away would invalidate report provenance for a flag that is still off. Filed as a
 before-flip gate with the FCR source above already located for the first row.
+
+## 38.6a — flag flipped to the partition (operator-signed), and one correction to 38.6
+
+### 10. A correction to what 38.6 reported
+
+**The 38.6 wrap reported "the third column is empty" from a comparison that was broken.**
+`da_energy_req` was gated on `partition_on`, which is true for BOTH `unit_fix` and
+`partition`, so the energy term was present in both modes and the three-column measurement
+was comparing a mode against itself. The separability claim was measuring my own harness.
+
+Corrected in 38.6a — the term is now gated on `mw_partition === 'partition'` — and
+re-measured. **The conclusion held:** across all 54 configurations `unit_fix` and `partition`
+agree on every financial metric (gross Y1, project IRR, equity IRR, min DSCR, LCOS, NPV,
+cycles/yr, DA share), differing only in the three diagnostic energy fields. `scale_energy`
+stays 1.0 in both: 1.067 MWh/MW required against 3.83 usable at 4h. So the reported figures
+and the signed decision are unaffected. It is now asserted by a test rather than assumed.
+
+Recorded as a correction rather than quietly fixed (B9). The lesson is the one already in
+B13's corollary: when a comparison shows no difference, suspect the harness before concluding
+the system has no difference. I did not, and reported it.
+
+### 11. Which default, given "ship the unit fix"
+
+Flipped to **`'partition'`**, not `'unit_fix'`. The two produce identical financial metrics in
+all 54 configurations (§10), so this ships exactly the signed numbers; and it does so without
+leaving the energy identity in the half-written state the 38.6 prompt itself warned against
+("fix the unit error as part of the partition, not before it"). `MW_PARTITION_DEFAULT` is a
+single named constant — one word changes it if the literal mode was intended.
+
+`'current'` is retained as a reachable mode so the pre-38.6a basis stays reproducible for
+comparison, and `throughputAlignment` asserts both bases rather than overwriting the old one.
+
+### 12. Eleven tests went red. Why each fired, before any of them was touched (B6)
+
+**`throughputAlignment` × 3.**
+(a) *"the utilisation IS the trading fraction the revenue line applies"* — 36.B1-O's invariant
+(cycle accounting and revenue read ONE figure) is unchanged and still enforced; what moved is
+WHICH figure. Re-pointed at `arb_share_used`, which is a **sharpening**: the old assertion
+would now assert the defect. A second assertion confirms the two figures genuinely differ, so
+the test cannot pass vacuously.
+(b) *"cycling sits between the old anchor and B1's physical simulation"* — **this bound
+inverted, and it is a real residual, not a stale number.** 498 → 198 EFC/yr, against the
+hourly engine's 221. The engine used to age the asset FASTER than the physics and now ages it
+SLOWER, which is optimistic on wear. Pinned tight on the far side (`< 221`) so the inversion
+is a visible asserted fact rather than a loosened band.
+(c) *"leaves Y1 revenue untouched — the fix is on the wear side only"* — a property of 36.B1-O
+that 38.6a deliberately supersedes, with sign-off. Re-purposed as a pin on the signed figures,
+with the pre-partition figures still asserted alongside.
+
+**`bridge` × 3.** The reconciliation constant. `bridge.mjs` documents this exact mechanism:
+the engine's flat lines (BRP fee, OPEX) do not fall with revenue while the client stack's 16 %
+does, so any downward revenue move widens the taxonomy gap, and `bridgeCalibration()`
+re-derives it. Working as designed. Re-derived 2.57 → 5.83; the gap went −€128,404 → −€291,368.
+**The size is itself a finding and is filed, not absorbed:** the two taxonomies now disagree
+about 9-10 % of the client stack against 4.4 % before, and a constant this large is a
+candidate for replacing with a proper treatment of the two flat lines rather than a number to
+keep growing. Flagged for the operator; NOT resolved here.
+
+**`register` × 5, in two waves.** First `cycles_efc_yr` (498 → 198) and `cycles_per_day`
+(1.36 → 0.54) drifted from their bindings — the forced consequence I had filed in 38.6 as a
+before-flip gate. Synced through the repo's own governed CLI (`register.mjs --sync --by
+derived --phase 38.6a`), which also caught the bridge constant and bumped
+**r2.48dcf518 → r3.d74c7e18**, 3 values moved, changelog appended. `derived` is the honest
+classification: consequential re-derivation, no independent decision about cycling.
+
+Then a second wave: the new constant **breaches its own declared `sensitivity_range` [0, 4]**.
+Not re-fitted. Applied the register's established pattern instead — band moved to
+`benchmark_band` with its source and the direction of the miss, `sensitivity_range` set null,
+note recording that the breach IS the finding. Same treatment `cycles_efc_yr` already carries.
+
+**`methodologyLender` × 2 (second run).** The lender annex quotes the register version and the
+cycling figures. Updated — and §5.5 and §9.7 rewritten rather than number-swapped, because
+the under-cycling finding changed shape: the gap to the observed band roughly doubled (9 % →
+64 % below its floor) AND the sign of the error against the hourly simulation reversed. A
+reader should not have to infer either.
+
+### 13. Residual after 38.6a, stated at full size
+
+1. **Power identity: 1.00 + 0.115 = 1.115 × P_max.** Better than 1.70, not closed. Needs each
+   product split by direction; `RESERVE_PRODUCTS` carries one undirected share per product.
+2. **Wear is now modelled optimistically.** 198 EFC/yr against the hourly engine's 221, and
+   against a Modo/GEM observed band of 550-720. The sign of this error reversed in 38.6a.
+3. **The reconciliation constant carries €291k.** See §12.
+4. **Register rows still missing** for `RESERVE_PRODUCTS` shares, `HEADROOM_DRAG` and the
+   three `dur_req_h` values. `fcr.dur_req_h = 0.5` now has its Baltic primary source (38.6 §5);
+   the aFRR and mFRR values remain unsourced placeholders.

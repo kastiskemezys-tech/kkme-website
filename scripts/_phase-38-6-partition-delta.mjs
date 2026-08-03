@@ -66,7 +66,7 @@ console.log('  metric                  |------ unit-fix only ------|  |------ fu
 console.log('                             min      median      max      min      median      max');
 const median = a => { const s = [...a].sort((x, y) => x - y); return s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2; };
 const summary = {};
-for (const [key, label, dp, xf = (v => v)] of METRICS) {
+for (const [key, label, , xf = (v => v)] of METRICS) {
   const cells = [];
   for (const mode of ['unit_fix', 'partition']) {
     const deltas = rows.map(x => {
@@ -110,7 +110,7 @@ const belowOne = rows.filter(x => num(x.r.current.min_dscr) >= 1
 console.log(`  min DSCR crosses BELOW 1.00 in ${belowOne}/${rows.length} configurations.`);
 
 // ── Separability check ─────────────────────────────────────────────────────
-const VOL = new Set(['timestamp']);
+const VOL = new Set(['timestamp', 'mw_partition']);  // mw_partition is the mode's own name
 const strip = o => JSON.stringify(o, (k, v) => (VOL.has(k) ? undefined : v));
 const sameCount = rows.filter(x => strip(x.r.unit_fix) === strip(x.r.partition)).length;
 console.log(`\n  unit-fix and full partition payloads are IDENTICAL (timestamp excluded) in ${sameCount}/${rows.length}.`);

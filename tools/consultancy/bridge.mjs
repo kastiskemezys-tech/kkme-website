@@ -47,7 +47,7 @@ export const COST_DEFAULTS = {
   grid_pct_gross: 0.03,        // Litgrid NUS + auxiliary
   market_pct_gross: 0.01,      // Nord Pool + BTD participation
   operating_eur_kw_yr: 29,     // O&M 18 + insurance 5 + warranty 4 + BOS 2
-  operating_calibration_eur_kw_yr: 2.57,
+  operating_calibration_eur_kw_yr: 5.83,
 };
 
 /**
@@ -59,19 +59,26 @@ export const COST_DEFAULTS = {
  * (−€128 104 on €2 929 925). Under the ±5% decision rule that gap is closed with
  * a single constant on the operating line rather than left open.
  *
- * Derivation — reference asset, frozen KV fixture, RE-DERIVED at the Phase 36.D
- * demand basis (it was 2.56 before, and 2.08 at the pre-batch-3 assumed trading
- * realisation of 0.85):
- *   gap ÷ 50 000 kW → €2.57/kW/yr → 2.57
+ * Derivation — reference asset, frozen KV fixture, RE-DERIVED at the Phase 38.6a
+ * MW-partition basis (it was 2.57 at the 36.D demand basis, 2.56 before that,
+ * and 2.08 at the pre-batch-3 assumed trading realisation of 0.85):
+ *   gap ÷ 50 000 kW → €5.83/kW/yr → 5.83
  *
- * The constant grew twice for the same structural reason: the engine's two flat
- * lines (BRP fee, OPEX) do not fall with revenue while the client stack's 16%
- * does, so any downward revenue move widens the gap. Phase 36.D moved Y1 gross
- * 7 999 249 → 7 994 239 when demand left the unsourced 935 for the tri-TSO
- * Baltic LFC-block series, and the constant followed by a cent. That it moved
- * at all is the mechanism working: `bridgeCalibration()` re-derives from the
- * reference asset and the vitest below holds the two together, so a demand-side
- * change cannot leave a stale reconciliation behind it.
+ * The constant has now grown three times for the same structural reason: the
+ * engine's two flat lines (BRP fee, OPEX) do not fall with revenue while the
+ * client stack's 16% does, so any downward revenue move widens the gap. Phase
+ * 36.D moved Y1 gross 7 999 249 → 7 994 239 and the constant followed by a
+ * cent. Phase 38.6a moved it 7 994 239 → 6 239 451 (−21.9%, the MW partition),
+ * and the gap widened −128 404 → −291 368, so the constant more than doubled.
+ *
+ * THAT SIZE IS ITSELF THE FINDING and is reported rather than absorbed: a
+ * reconciling constant carrying €291k means the two taxonomies disagree about
+ * 9-10% of the client stack at the post-partition revenue level, against 4.4%
+ * before. The mechanism is working — `bridgeCalibration()` re-derives from the
+ * reference asset and the vitest below holds the two together, so no revenue
+ * change can leave a stale reconciliation behind it — but a constant this large
+ * is a candidate for replacing with a proper treatment of the two flat lines,
+ * not a number to keep growing. Filed for the operator, not silently widened.
  *
  * The sourced €29/kW/yr build-up is left intact and this rides alongside it, so
  * the register shows both the itemised figure and the reconciling adjustment
@@ -84,7 +91,7 @@ export const COST_DEFAULTS = {
  * percentage lines scale with revenue while this does not, so a residual
  * reappears as revenue moves. That residual is reported, never absorbed.
  */
-export const OPERATING_CALIBRATION_EUR_KW_YR = 2.57;
+export const OPERATING_CALIBRATION_EUR_KW_YR = 5.83;
 
 /** Re-derive the calibration constant from a reference-asset engine result. */
 export function bridgeCalibration(referenceResult, referenceConfig) {

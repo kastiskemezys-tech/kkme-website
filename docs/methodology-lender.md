@@ -1,6 +1,6 @@
 # KKME lender-grade methodology
 
-**Engine version:** v7.3 · **Assumption register:** r2.48dcf518 (65 rows) · **Arc:** Phase 36.E
+**Engine version:** v7.3 (MW partition default, Phase 38.6a) · **Assumption register:** r3.d74c7e18 (65 rows) · **Arc:** Phase 38.6
 **Prepared:** 2026-07-29 · **Maintainer:** UAB KKME · Kastytis Kemežys
 
 ---
@@ -381,7 +381,7 @@ A live re-measurement run on 2026-07-29 reproduced 0.0885 exactly against the no
 |---|---|---:|---|
 | trading realisation (day-ahead) | **measured** | 0.7234 | 349 traded days, 2025-07 → 2026-06 |
 | sub-hourly capture uplift | **measured** | 0.0885 | 273 PT15M days |
-| cycling / EFC per year | **derived + corroborated** | 498 (engine) / 219–222 (hourly, closed-loop) | §05 |
+| cycling / EFC per year | **derived + corroborated** | 198 (engine, post-38.6a) / 219–222 (hourly, closed-loop) | §05 |
 | reserve realisation | **assumed** | acceptance factors, flat | §9.1 — no data exists to measure it |
 | reserve capacity price | **assumed** (live-KV) | from the KV snapshot | flat across shape-years |
 | activation price | **assumed** | observed p50 | §9.2 — a heavily skewed distribution |
@@ -544,7 +544,9 @@ Reference asset, LT 2025 shape replayed across a 20-year horizon, prices and pol
 
 ### 5.5 The alignment breaches an external benchmark, and the band did not move
 
-`external_3_cycles_yr` holds modelled cycling against **[550, 720] EFC/yr** from Modo / GEM measured merchant-battery research. The aligned reference asset comes in at **498** — below the band, on Central and on the reference asset, which are fail-level subjects.
+`external_3_cycles_yr` holds modelled cycling against **[550, 720] EFC/yr** from Modo / GEM measured merchant-battery research. The aligned reference asset comes in at **198** — below the band, on Central and on the reference asset, which are fail-level subjects.
+
+**Phase 38.6a widened this breach and inverted a second one.** When the MW partition became the engine default, day-ahead throughput was re-based from a €/€ price ratio (0.70) onto the physical MW-hour share (0.139), and delivered cycling fell 498 → 198 EFC/yr. Two consequences a reader should not have to infer. First, the gap to the observed band roughly doubled: the model was 9 % below the band's floor, it is now 64 % below it. Second, and more important, the engine previously sat **above** the hourly closed-loop simulation (498 against 219–222) and now sits **below** it (198 against 219–222). The direction of the modelling error on wear has therefore reversed: the annual-average engine used to age the asset faster than the physics and now ages it slower, which is optimistic. Neither figure was re-fitted, and the band did not move.
 
 The tempting move is to widen the band to [450, 720]. That is re-fitting evidence to the model.
 
@@ -657,10 +659,10 @@ External bands fail for Central and the reference asset and **warn** for Downsid
 
 | # | check | subject | actual | band | status |
 |---|---|---|---:|---|---|
-| 1 | `external_3_cycles_yr` | reference / central | 498 | 550–720 | fail — **declared** |
-| 2 | `external_3_cycles_yr` | bitenai / central | 498 | 550–720 | fail — **declared** |
-| 3 | `external_3_cycles_yr` | stoniskiai / central | 498 | 550–720 | fail — **declared** |
-| 4 | `external_3_cycles_yr` | eigirdziai / central | 498 | 550–720 | fail — **declared** |
+| 1 | `external_3_cycles_yr` | reference / central | 198 | 550–720 | fail — **declared** |
+| 2 | `external_3_cycles_yr` | bitenai / central | 198 | 550–720 | fail — **declared** |
+| 3 | `external_3_cycles_yr` | stoniskiai / central | 198 | 550–720 | fail — **declared** |
+| 4 | `external_3_cycles_yr` | eigirdziai / central | 198 | 550–720 | fail — **declared** |
 | 5–7 | `external_3_cycles_yr` | all three / downside | 487 | 550–720 | warn — **declared** |
 | 8–10 | `external_3_cycles_yr` | all three / upside | 503 | 550–720 | warn — **declared** |
 | 11 | `external_1_project_irr` | bitenai / upside | 32.2 % | 6 %–31 % | warn |
@@ -1110,9 +1112,11 @@ Activation prices are taken at the observed median (€13.5/MWh aFRR, €14.5/MW
 
 ### 9.7 The model cycles less than the observed merchant fleet
 
-498 EFC/yr in the shipped engine, 219–222 EFC/yr in the hourly simulation and the closed degradation loop, against a Modo/GEM observed band of 550–720. Two independent routes agree the modelled asset under-cycles.
+198 EFC/yr in the shipped engine since Phase 38.6a (498 before it), 219–222 EFC/yr in the hourly simulation and the closed degradation loop, against a Modo/GEM observed band of 550–720. All three routes agree the modelled asset under-cycles, and the shipped engine now under-cycles the most.
 
-Under-cycling is conservative on revenue and optimistic on wear; the net measured effect is +0.9 % relative project IRR. The open question is whether the benchmark fleet carries a different reserve/day-ahead mix from the modelled stack — which would make the comparison apples-to-oranges rather than the model wrong. That is a calibration question and is unresolved.
+Under-cycling is conservative on revenue and optimistic on wear. Before 38.6a the shipped engine sat between the hourly simulation and the observed band, so the wear side was the conservative of the two; the net measured effect was +0.9 % relative project IRR. After 38.6a the engine sits **below** the hourly simulation, so the wear side is now the optimistic one and the offset runs the other way. The magnitude is small next to the partition's own −7.0 pp median IRR move, but the sign changed and the change is not a re-calibration — it is a consequence of allocating day-ahead energy correctly for the first time.
+
+Two open questions, both unresolved. Whether the benchmark fleet carries a different reserve/day-ahead mix from the modelled stack, which would make the band comparison apples-to-oranges rather than the model wrong. And whether the reserve side of the throughput allocation — still at raw shares summing to 1.00 of nameplate, as though every product were committed every hour — is now the dominant remaining error in cycling, since it is the one part of the stack the partition did not touch. See §5.5.
 
 ### 9.8 The cycle governor has a second-order effect on the contracted stack
 
