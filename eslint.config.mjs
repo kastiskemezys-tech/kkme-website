@@ -12,6 +12,14 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // The private tree is never linted. It is gitignored, so its files are not
+    // ours to hold to a lint standard — but the real reason is disclosure:
+    // `eslint -f json` prints absolute filePaths for every file it visits, and
+    // the private tree's filenames are themselves counterparty-suggestive. A
+    // lint report pasted into a PR, an issue or a chat would carry those names
+    // even though it carries no file CONTENT. Ignoring the tree removes the
+    // paths from the report entirely. See docs/gates.md, NDA gate coverage.
+    "docs/_private/**",
   ]),
 ]);
 

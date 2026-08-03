@@ -116,6 +116,22 @@ export const GATES = [
     name: 'NDA counterparty-name and contracted-figure gate',
     command: 'bash scripts/nda-gate.sh main',
     covers: 'Diff vs base + uncommitted + staged + every untracked non-ignored file, against the private needle list. Carries its own positive control.',
+    // COVERAGE EDGE — what this gate does NOT see, recorded so the omission is a
+    // known limit rather than a discovery. The gate scans file CONTENT. A
+    // disclosure can also travel as a file PATH: `eslint -f json` prints an
+    // absolute filePath for every file it visits, and the private tree's
+    // filenames are themselves counterparty-suggestive (a term-sheet filename
+    // names the counterparty without quoting a line of it). A lint report pasted
+    // into a PR, an issue or a chat therefore leaked names the needle scan would
+    // never fire on, because no needle appears in the JSON — only paths do.
+    //
+    // Closed at the source rather than by adding path-shaped needles: the private
+    // tree is in eslint's globalIgnores, so those paths are no longer produced.
+    // The general form stays open and is the thing to watch: ANY tool that
+    // enumerates paths over the repo (test reporters, coverage output, tsc,
+    // bundle analysers, `git status` pasted verbatim) can disclose by path while
+    // this gate reports a clean pass on content.
+    notSeen: 'disclosure by FILE PATH rather than file content — tool output that enumerates private-tree paths',
     where: 'local ONLY — blocked from CI, see below',
     expect: 'green',
     // BLOCKED FROM CI, reported rather than worked around. The needle list lives
@@ -140,6 +156,31 @@ export const GATES = [
         if (!lines.length) throw new Error('needle list empty — cannot construct a positive control');
         return `${lines[0]}\n`;
       },
+    }],
+  },
+
+  {
+    id: 'fixture-currency',
+    name: 'B-034 frozen deliverable-input fixture is current',
+    command: 'npm run --silent fixtures:regen -- --check',
+    covers: 'The committed deliverable-input fixture vs a fresh `build-all --offline`. '
+      + 'deliverable.test.ts and xlsx.test.ts grade the FIXTURE, so this is what stops them '
+      + 'grading a reviewed-but-stale artifact — the currency half of B-034.',
+    // COVERAGE EDGE. The two consumer suites are structurally insensitive to
+    // fixture VALUES: the consistency gate compares HTML generated FROM the
+    // inputs against those same inputs, so moving an input moves both sides
+    // together (B5, a mirror). Injection-verified — `portfolio.mw + 7` leaves
+    // all 62 tests green. Those suites test the GATE, not the numbers; value
+    // movement is caught here and by the fixture hash manifest, not by them.
+    notSeen: 'value drift INSIDE the fixture — the consumer suites mirror it; this gate and the hash manifest catch that',
+    where: 'local + CI',
+    expect: 'green',
+    injections: [{
+      label: 'age the fixture by moving an engine number in it',
+      kind: 'patch',
+      file: 'tools/consultancy/__fixtures__/deliverable-inputs/portfolio.json',
+      find: '"moic"',
+      replace: '"moic_STALE"',
     }],
   },
 

@@ -9,6 +9,7 @@
 import { describe, it, expect } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { GATES, RUNNABLE } from '../registry.mjs';
+import { classifyInjectionResult } from '../lib.mjs';
 
 describe('gate registry', () => {
   it('every gate declares at least one injection — no opt-out', () => {
@@ -60,6 +61,50 @@ describe('gate registry', () => {
       expect(typeof g.ciBlocked, `${g.id}.ciBlocked`).toBe('string');
       expect(g.ciBlocked.length).toBeGreaterThan(20);
     }
+  });
+
+  it('an already-red gate is untestable, and is NOT reported as a revert failure', () => {
+    // The bug this pins. A gate already red for an unrelated reason is red under
+    // injection and red after revert — observationally identical to a botched
+    // revert. Without consulting the pre-state the harness said "STILL RED AFTER
+    // REVERT — the injection was not fully undone", accusing the injection of
+    // leaving damage behind and sending the reader after a restore bug that was
+    // not there. Verified against the live harness by disabling the check and
+    // watching that exact string come back.
+    const red = classifyInjectionResult({ preGreen: false, wentRed: true, backToGreen: false });
+    expect(red.verdict).toBe('cannot-self-test');
+    expect(red.message).toMatch(/CANNOT SELF-TEST/);
+    expect(red.message).not.toMatch(/STILL RED AFTER REVERT/);
+
+    // …and it is a failure, not a quiet skip: a self-test that declines to test
+    // and reports success is the silent-skip class this harness exists to close.
+    expect(red.ok).toBe(false);
+
+    // The same observations WITH a green pre-state are the genuine revert bug,
+    // and must still be diagnosed as one — the fix must not swallow that case.
+    const stuck = classifyInjectionResult({ preGreen: true, wentRed: true, backToGreen: false });
+    expect(stuck.verdict).toBe('stuck-red');
+    expect(stuck.message).toMatch(/STILL RED AFTER REVERT/);
+    expect(stuck.ok).toBe(false);
+  });
+
+  it('classifies the remaining outcomes without collision', () => {
+    const v = (o: Parameters<typeof classifyInjectionResult>[0]) => classifyInjectionResult(o).verdict;
+    expect(v({ preGreen: true, wentRed: true, backToGreen: true })).toBe('proven');
+    expect(v({ preGreen: true, wentRed: false, backToGreen: true })).toBe('unfailable');
+    expect(v({ preGreen: true, wentRed: false, backToGreen: true, isPositiveControl: true })).toBe('control-ok');
+    expect(v({ preGreen: true, wentRed: true, backToGreen: true, isPositiveControl: true })).toBe('control-broken');
+    // only 'proven' and 'control-ok' are passes
+    expect(classifyInjectionResult({ preGreen: true, wentRed: true, backToGreen: true }).ok).toBe(true);
+    expect(classifyInjectionResult({ preGreen: true, wentRed: false, backToGreen: true }).ok).toBe(false);
+  });
+
+  it('an already-red gate outranks the control exemption', () => {
+    // A control that is already red is untestable too — the inverted expectation
+    // does not license reporting it as a healthy control.
+    expect(classifyInjectionResult({
+      preGreen: false, wentRed: false, backToGreen: false, isPositiveControl: true,
+    }).verdict).toBe('cannot-self-test');
   });
 
   it('docs/gates.md is in sync with the registry', () => {

@@ -26,7 +26,8 @@ export function render() {
       ? g.injections.map((i) => i.label).join('; ')
       : '**NONE — fails gates:selftest**';
     const where = g.ciBlocked ? `${g.where} · **CI-BLOCKED:** ${g.ciBlocked}` : g.where;
-    return `| \`${g.id}\` | \`${g.command}\` | ${g.covers} | ${where} | ${inj} |`;
+    const covers = g.notSeen ? `${g.covers} · **NOT seen:** ${g.notSeen}` : g.covers;
+    return `| \`${g.id}\` | \`${g.command}\` | ${covers} | ${where} | ${inj} |`;
   });
 
   const withInjection = GATES.filter((g) => g.injections?.length).length;
@@ -83,10 +84,28 @@ Recorded rather than fixed, so they stay visible:
    what a manifest exists to distinguish.
 
 3. **\`npm run lint\` is not a gate and is not registered as one.** Repo-wide eslint exits 1
-   on untouched \`main\` (87 errors, mostly react-compiler diagnostics in long-lived
+   on untouched \`main\` (85 errors, mostly react-compiler diagnostics in long-lived
    components). A check that is red before anyone touches anything cannot tell "this branch
    broke something" from "this repo has always been like this". \`eslint-delta\` replaces it
    with a delta against a recorded baseline, which is failable in both directions.
+
+4. **The NDA gate scans file CONTENT, not file PATHS — and a path can disclose.**
+   \`eslint -f json\` prints an absolute \`filePath\` for every file it visits. The private
+   tree's filenames are themselves counterparty-suggestive: a term-sheet filename names the
+   counterparty without quoting a line of it. A lint report pasted into a PR, an issue or a
+   chat therefore carried names the needle scan would never fire on — no needle appears in
+   that JSON, only paths do, so the gate reported a clean pass on a real disclosure.
+
+   Closed at the source rather than by inventing path-shaped needles: \`docs/_private/**\` is
+   now in eslint's \`globalIgnores\`, so those paths are no longer produced. That also moved
+   the eslint baseline from 87 errors to **85** — the two that disappeared were the private
+   file's own, which is the accounting check that the ignore did what it claims and nothing
+   more.
+
+   **The general form stays open, and is the thing to watch.** Any tool that enumerates
+   paths across the repo can disclose by path while the NDA gate passes on content: test
+   reporters, coverage output, \`tsc\` diagnostics, bundle analysers, or a \`git status\`
+   pasted verbatim. Recorded on the \`nda\` gate as its \`notSeen\` field.
 
 ## Positive control
 

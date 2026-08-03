@@ -99,3 +99,45 @@ export function applyInjection(inj) {
 export function treeFingerprint() {
   return execSync('git status --porcelain', { cwd: ROOT, encoding: 'utf8' });
 }
+
+/**
+ * Decide what one injection attempt proved, from the three observations the
+ * harness makes. Pure, so the decision table can be tested directly instead of
+ * by grepping selftest.mjs — a test whose subject is a string in a file has
+ * verified the file, not the behaviour (B13).
+ *
+ * The case this exists to get right: `preGreen === false`. A gate already red
+ * for an unrelated reason is red under injection and red after revert, which is
+ * indistinguishable from a botched revert unless the pre-state is consulted.
+ * Reporting it as `stuck-red` accuses the injection of leaving damage behind
+ * and sends the reader after a restore bug that is not there.
+ *
+ * @param {{preGreen: boolean, wentRed: boolean, backToGreen: boolean,
+ *          isPositiveControl?: boolean}} obs
+ * @returns {{verdict: string, ok: boolean, message: string}}
+ */
+export function classifyInjectionResult({ preGreen, wentRed, backToGreen, isPositiveControl = false }) {
+  if (!preGreen) {
+    return {
+      verdict: 'cannot-self-test',
+      ok: false,
+      message: '✗ CANNOT SELF-TEST — already red before injection; fix the gate, then re-run',
+    };
+  }
+  if (isPositiveControl) {
+    return wentRed
+      ? { verdict: 'control-broken', ok: false,
+          message: 'CONTROL UNEXPECTEDLY FAILABLE — the control is no longer a control; fix the registry' }
+      : { verdict: 'control-ok', ok: true,
+          message: '✓ correctly REPORTED BROKEN (stayed green under injection, as a control must)' };
+  }
+  if (!wentRed) {
+    return { verdict: 'unfailable', ok: false,
+      message: '✗ STAYED GREEN — this gate cannot fail; it is not a gate' };
+  }
+  if (!backToGreen) {
+    return { verdict: 'stuck-red', ok: false,
+      message: '✗ STILL RED AFTER REVERT — the injection was not fully undone' };
+  }
+  return { verdict: 'proven', ok: true, message: '✓ red under injection, green on revert' };
+}

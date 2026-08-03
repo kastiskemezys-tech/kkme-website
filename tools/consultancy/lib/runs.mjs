@@ -57,7 +57,17 @@ import { dirname, join } from 'node:path';
 import { HERE, OUTPUT_DIR, REPO_ROOT } from '../engine.mjs';
 import { VERSION as DEMAND_FORECAST_VERSION } from '../../../workers/lib/demand-forecast.js';
 
-export const RUNS_PATH = join(HERE, 'runs.jsonl');
+/**
+ * The committed registry. `KKME_RUNS_REGISTRY` redirects it, and exists for one
+ * reason: `runs.jsonl` is append-only and COMMITTED, so anything that runs the
+ * build for rehearsal — the B-034 generator smoke test, a local dry run — would
+ * otherwise append rehearsal rows to a delivery audit trail and leave the tree
+ * dirty after `npm test` (C1).
+ *
+ * This does not weaken the registry. A delivery build sets no override and
+ * writes where it always did; the override only lets a non-delivery run say so.
+ */
+export const RUNS_PATH = process.env.KKME_RUNS_REGISTRY || join(HERE, 'runs.jsonl');
 
 /**
  * Fields stripped before hashing an output payload. Every one of them records
