@@ -28,22 +28,55 @@ interface S1Signal {
     p50?: number | null;
     p75?: number | null;
     p90?: number | null;
+    n?: number | null;
+    /** Phase 38.2 — DISTINCT DATES, not rows. Was the row count until B-056. */
+    days_of_data?: number | null;
   } | null;
   updated_at?: string | null;
 }
 
-function dotColor(swing: number, stats: S1Signal['swing_stats_90d']): string {
+/**
+ * Below this many distinct market days a "P90" is a ranked sample, not a
+ * percentile, and saying "P90" of it claims more than the data supports.
+ */
+const MIN_DAYS_FOR_TAIL = 10;
+
+export function dotColor(swing: number, stats: S1Signal['swing_stats_90d']): string {
   if (!stats?.p50) return 'var(--text-muted)';
-  if (swing > (stats.p90 ?? Infinity)) return 'var(--green)';
+  // Phase 38.2 — the green state is a tail claim, so it obeys the same floor
+  // as the sentence. A dot that says "exceptional" off nine days is the
+  // interpretation defect in one pixel.
+  const days = stats.days_of_data ?? stats.n ?? null;
+  const tailUsable = days == null || days >= MIN_DAYS_FOR_TAIL;
+  if (tailUsable && swing > (stats.p90 ?? Infinity)) return 'var(--green)';
   if (swing > (stats.p50 ?? 0)) return 'var(--amber-accent-text)';
   return 'var(--text-muted)';
 }
 
-function interpretation(swing: number, stats: S1Signal['swing_stats_90d']): string {
-  if (!stats?.p50 || !stats?.p90) return `Swing €${swing.toFixed(0)}/MWh`;
+/**
+ * Phase 38.2 (B-056) — this sentence said "the 90D median" unconditionally.
+ * The underlying array was 90 ROWS over nine distinct dates, so the window in
+ * the label was a constant someone typed, not a property of the distribution
+ * it described — discipline rule #2 on the site's public interpretation line.
+ *
+ * The window is now the payload's own `days_of_data`, which counts distinct
+ * dates, and the tail comparison is withheld when there are too few days to
+ * support the word "P90" at all.
+ */
+export function interpretation(swing: number, stats: S1Signal['swing_stats_90d']): string {
+  if (!stats?.p50) return `Swing €${swing.toFixed(0)}/MWh`;
+  const days = stats.days_of_data ?? stats.n ?? null;
+  const window = days != null ? `${days}D` : 'trailing';
   const ratioMedian = (swing / stats.p50).toFixed(2);
+  const head = `Swing €${swing.toFixed(0)}/MWh · ${ratioMedian}× the ${window} median (€${stats.p50.toFixed(0)})`;
+
+  if (stats.p90 == null) return `${head}.`;
+  if (days != null && days < MIN_DAYS_FOR_TAIL) {
+    // Say what the sample is instead of naming a percentile it cannot carry.
+    return `${head}; ${days} market ${days === 1 ? 'day' : 'days'} of history — too few for a tail estimate.`;
+  }
   const ratioP90 = (swing / stats.p90).toFixed(2);
-  return `Swing €${swing.toFixed(0)}/MWh · ${ratioMedian}× the 90D median (€${stats.p50.toFixed(0)}), ${ratioP90}× the P90 (€${stats.p90.toFixed(0)}).`;
+  return `${head}, ${ratioP90}× the P90 (€${stats.p90.toFixed(0)}).`;
 }
 
 export function PeakForecastCard() {

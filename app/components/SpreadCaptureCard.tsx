@@ -20,10 +20,21 @@ interface S1Signal {
   updated_at?: string | null;
 }
 
-interface HistoryEntry {
+/**
+ * Phase 38.2 (B-056) — the 14D swing sparkline used to read `/s1/history`,
+ * whose rows are stamped with the WRITE date. On 2026-08-03 `slice(-14)`
+ * resolved to fourteen rows spanning TWO distinct dates, rendered under a
+ * "14D daily swing" label: a rule-#2 shape on a live chart.
+ *
+ * It now reads the same per-market-day array the S1 card's honest 30-day
+ * figures sit on — `/s1/capture`.history, which dedupes by market date on
+ * write (rule #4, one canonical writer for the swing quantity). The card
+ * already fetches that endpoint for the canonical gross, so this is one source
+ * fewer, not one more.
+ */
+interface CaptureHistoryEntry {
   date: string;
-  lt_swing: number | null;
-  spread_eur: number | null;
+  swing?: number | null;
 }
 
 function dotColor(capture: number): string {
@@ -43,22 +54,26 @@ function interpretation(grossCapture: number, netCapture: number | null | undefi
 
 export function SpreadCaptureCard() {
   const { status, data } = useSignal<S1Signal>(`${WORKER_URL}/read`, { refreshInterval: REFRESH_HOT });
-  const [history, setHistory] = useState<number[]>([]);
+  const [history, setHistory] = useState<Array<{ date: string; swing: number }>>([]);
   // Canonical DA capture (gross_4h) for the vs-canonical footnote — never derive it locally
   const [canonicalGross4h, setCanonicalGross4h] = useState<number | null>(null);
 
   useEffect(() => {
-    fetch(`${WORKER_URL}/s1/history`)
-      .then(r => r.json())
-      .then((h: HistoryEntry[]) => {
-        const vals = h.slice(-14).map(e => e.lt_swing).filter((v): v is number => v != null && isFinite(v));
-        setHistory(vals);
-      })
-      .catch(() => {});
     fetch(`${WORKER_URL}/s1/capture`)
       .then(r => r.json())
-      .then((c: { gross_4h?: number | null }) => {
+      .then((c: { gross_4h?: number | null; history?: CaptureHistoryEntry[] }) => {
         if (c?.gross_4h != null) setCanonicalGross4h(c.gross_4h);
+        // Dedupe defensively even though the writer already does: the label
+        // this feeds counts days, and a day counted twice is the whole bug.
+        const byDate = new Map<string, number>();
+        for (const e of c?.history ?? []) {
+          if (e?.date && e.swing != null && isFinite(e.swing)) byDate.set(e.date, e.swing);
+        }
+        const rows = [...byDate.entries()]
+          .sort(([a], [b]) => a.localeCompare(b))
+          .slice(-14)
+          .map(([date, swing]) => ({ date, swing }));
+        setHistory(rows);
       })
       .catch(() => {});
   }, []);
@@ -138,21 +153,25 @@ export function SpreadCaptureCard() {
         Cross-border: {crossBorder >= 0 ? '+' : ''}{'\u20AC'}{crossBorder.toFixed(1)}/MWh LT–SE4
       </p>
 
-      {/* 14D swing history sparkline */}
+      {/* Daily-swing sparkline. Phase 38.2 — the label is COMPUTED from the
+          series, never the window asked for: it read "14D daily swing" over
+          two distinct dates for as long as the array was row-stamped. */}
       {history.length >= 2 && (() => {
-        const sMin = Math.min(...history);
-        const sMax = Math.max(...history);
-        const sLast = history[history.length - 1];
+        const vals = history.map(h => h.swing);
+        const sMin = Math.min(...vals);
+        const sMax = Math.max(...vals);
+        const sLast = vals[vals.length - 1];
+        const days = history.length;
         return (
           <div style={{ marginBottom: '6px' }}>
             <div
               role="img"
-              aria-label={`14-day daily swing history, ${history.length} days; range €${sMin.toFixed(0)} to €${sMax.toFixed(0)} per MWh; latest €${sLast.toFixed(0)} per MWh`}
+              aria-label={`Daily swing history, ${days} market ${days === 1 ? 'day' : 'days'} from ${history[0].date} to ${history[days - 1].date}; range €${sMin.toFixed(0)} to €${sMax.toFixed(0)} per MWh; latest €${sLast.toFixed(0)} per MWh`}
             >
-              <Sparkline values={history} color="var(--amber)" height={20} />
+              <Sparkline values={vals} color="var(--amber)" height={20} />
             </div>
             <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-xs)', color: 'var(--text-ghost)', marginTop: '2px' }}>
-              14D daily swing
+              {days}D daily swing
             </p>
           </div>
         );
@@ -168,7 +187,7 @@ export function SpreadCaptureCard() {
         <DetailsDrawer label="View spread capture detail">
           <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 'var(--space-xs)' }}>Source</p>
           <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-            Nord Pool day-ahead hourly prices for the LT zone, ingested by the S1 worker (`/read`). The 14D swing history comes from `/s1/history`; the canonical 4h gross capture used in the vs-canonical footnote is sourced from `/s1/capture`. Today&apos;s 24h LT price curve is the worker&apos;s `lt_hourly_24` downsample (averaged across 15-min sub-bars where present).
+            Nord Pool day-ahead hourly prices for the LT zone, ingested by the S1 worker (`/read`). The daily-swing sparkline and the canonical 4h gross capture both come from `/s1/capture` — one row per market day, so the day count in the label is the number of distinct days plotted rather than the number of rows stored (Phase 38.2). Today&apos;s 24h LT price curve is the worker&apos;s `lt_hourly_24` downsample (averaged across 15-min sub-bars where present).
           </p>
 
           <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 'var(--space-xs)', marginTop: 'var(--space-sm)' }}>Computation</p>
