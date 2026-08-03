@@ -3689,3 +3689,82 @@ phase with a captured pre-state (C3), not as a rider on anything.** The correct
 parser already exists, is exported and is under test (`parseA44Periods`,
 `pricesForUtcDay`) — the remaining work is the cutover and the delta measurement, not
 the algorithm.
+
+## 43 (item 3) · Pause A — four questions
+
+**(a) HYPOTHESIS vs verified.** Two prompt premises turned out **false**, both by running the
+thing rather than reading about it.
+
+*False #1 — the IRR sentinel.* "It currently reports `0.00` with `irr_status: 'uneconomic'`
+rather than a negative root." Measured across all 54 public configurations: **0 nulls, 0
+exactly-zero, 12 NEGATIVE IRRs**, min −6.07 %, max 22.9 %, and the only statuses emitted are
+`investable` / `marginal` / `below_hurdle`. `uneconomic` never fires. The engine *does* report
+negative roots. (There IS a defect nearby, but it is a different one — see below.)
+
+*False #2 — B-065 is live in the revenue path.* `MW_PARTITION_DEFAULT = 'partition'`
+(`fetch-s1.js:2239`), shipped by `aaac252 38.6a — MW partition becomes the engine default
+(operator-signed)`. Verified by running all four modes on one fixture: default, `partition` and
+`unit_fix` agree exactly (gross_y1 6,343,597 · IRR 4.53 %) and only the legacy `current` mode
+reproduces the pre-fix numbers (8,519,445 · 10.36 %). **The handover register's B-065 row still
+reads "open — nothing changed in 38.4", and `_post-12-8-roadmap.md` repeats it. Both are stale
+(A9).** Roadmap rule #5 forbids me editing the roadmap; reported here instead.
+
+**(b) What consumes what this changes.** Nothing in a production path. One additive export
+(`calcIRR as calcIRRForAudit`), one new registry module, one gate script, one npm script, four
+recorded fixtures, one test file. `/revenue` 54/54 byte-identical.
+
+**(c) What fails silently here.** The gate itself, and it nearly did. Its first version reported
+**77 statements containing a multiplication in a 9,400-line engine and found zero violations** —
+because the template-literal stripper collapsed multi-line regions to two characters, destroying
+line alignment and merging unrelated statements. A scanner whose line numbers are wrong is worse
+than none: its green result describes a file that does not exist. It also scanned line-by-line,
+and the one multiplication it was built to catch is written across three lines. Both fixed; the
+gate now reports its own **coverage (6.0 %, 130/2161 operands)** on every run, because a
+dimensional check that silently examines a twentieth of the arithmetic is the most reassuring
+possible way to have no dimensional check.
+
+**(d) At which layer and time.** Gate proven by inject-then-revert on the real engine: injecting
+`da_mwh_per_mw_yr * trading_fraction * mw` turns it RED with the correct file, line and
+diagnosis; reverting turns it GREEN. Time facts verified against four A44 documents fetched live
+from ENTSO-E on 2026-08-03 and committed verbatim — never a synthetic 24-hour day, which would
+merely restate the assumption under test.
+
+### 43 · Decision 4 (NEEDS SIGNATURE) — the B-065 residue in `computeBaseYear`
+
+38.6a fixed the projection seam. It did not touch `computeBaseYear`, which
+`computeRevenueV7` calls on **every** request, and which at `fetch-s1.js:4201` still commits
+
+    trd_monthly = capture * rte * trd_real * da_mwh_per_mw_day * y1_mix.trading_fraction * days
+                                            [MWh/MW/d]          [EUR/EUR]
+
+— the B-065 shape exactly, in a different function. Its output `by_trading_per_mw` reaches the
+payload through exactly one path: the capture fallback at `:3120-3121`, which fires only when the
+`s1_capture` KV key is **absent**. Phase 39.2 established that key does go absent in production
+(energy-charts 503, two consecutive ticks, live at the time of writing).
+
+**Measured, on the frozen fixture, 4h/base/COD 2028:** with `s1_capture` present,
+gross_y1 = 6,343,597 and IRR = 4.53 %. With `s1_capture` deleted, gross_y1 = 5,780,510 (−8.9 %)
+and **`project_irr` comes back `null`**. I have NOT established the mechanism linking an 8.9 %
+gross fall to a sub-−50 % IRR, and I am not going to guess at it — the measurement is the finding
+and the mechanism is the next phase's first question.
+
+**Recommendation:** its own phase, with the pre-state captured first (C3). Two things to settle
+there, in this order: (1) whether `/revenue` may legitimately serve `project_irr: null` when an
+upstream price feed is down — I think it may not, and that a stale-but-honest capture is better
+than a null IRR; (2) the dimensional fix at `:4201`. The gate suppresses this one site with its
+register ID and prints it on every green run, so it cannot be forgotten.
+
+### 43 · Decision 5 (NEEDS SIGNATURE, smaller) — the IRR solver's upper bracket escapes
+
+The low end is guarded: `project_irr < -0.50 → null`. The high end is not. `calcIRR` bisects on a
+bracket whose ceiling is 2.0, so a stream whose true IRR exceeds 200 % returns **exactly 2** and
+is published as a 200 % return. `calcIRR([-100, 10000, 10000]) === 2` — asserted in
+`workers/__tests__/numericsAudit.test.ts`. "IRR = 200 %" and "IRR > 200 %, not determined" are
+indistinguishable downstream. Same class for `calcIRR([0,0,0]) === -0.99`: an undefined IRR
+returned as a finite number that looks like data.
+
+Unreachable from the public matrix today (max 22.9 %), reachable from the consultancy runners,
+which take arbitrary capex and grant inputs. **Recommendation: return `null` at both bracket
+edges and let the existing `irr_status` carry the reason.** Not done tonight: it changes a
+published field's type on a path I have not enumerated the consumers of, and enumerating them is
+the fix, not a rider on an audit.
