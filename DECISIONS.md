@@ -3147,3 +3147,216 @@ the kind of thing that quietly fails and is trusted anyway. The digest also carr
 health in the same message as the findings, so a week of silence from a broken detector cannot be
 read as a quiet week; and when *nothing* has ever reported it says so explicitly rather than
 rendering a confident-looking zero.
+
+---
+---
+
+# Phase 38.5 + 38.6 — autonomous long run, 2026-08-03
+
+Branch `phase-38-56-partition` off `0b062ed`. Operator away. Every internal stop is an entry
+here, not a pause. **Nothing deployed, nothing merged.**
+
+## 38.5/38.6 — Pause A
+
+### The four standing questions (failure-modes.md §"standing enforcement")
+
+**(a) Which premises are HYPOTHESIS vs verified.** Every line number in the prompt was
+re-checked at execution time (A3) and is listed in §"Premises" below with its verdict; four
+are false and one is superseded by a better in-repo method. The prompt's central claim — that
+`trading_fraction` is derived in €/€ and spent in MWh/MWh — is **verified**, and verified by
+the engine's own docstring rather than by inference (`workers/fetch-s1.js:1723-1727`).
+**(b) What consumes what this changes.** `trading_fraction` has 9 consuming sites in the
+worker and 2 in the app; `capture_eur_mwh` has 1 rendering site and 1 vocabulary definition;
+`RESERVE_PRODUCTS.share` has 17 worker sites. Full counts with search commands in §1 below.
+The non-obvious consumer is **degradation**: `trading_fraction` is also `da_utilisation`
+(`:2135-2137`), which drives `total_cd` → `getDegradation` → retention → every year's revenue
+and the augmentation trigger. So the partition moves revenue *and* battery life in opposite
+directions, and any measurement that reports only revenue is measuring half the effect.
+**(c) What fails silently.** The energy-stacking constraint at `:2228-2237` — it computes
+`scale_energy = min(1, usable_mwh_per_mw / total_energy_req)` where `total_energy_req` ≈ 0.518
+MWh/MW and `usable_mwh_per_mw` ≈ 3.6 for a 4h asset, so `scale_energy` is pinned at 1.0 and
+the constraint has never bound for any public configuration. It fails silently by never
+firing. Confirmed numerically in §2. Likewise `bal_calibration` silently absorbs any change
+to `R_yr` (§3), so a partition applied to the balancing side would produce **no delta at all**
+and would look like a correctly-neutral change rather than a cancelled one.
+**(d) At which layer and time.** Route layer, via `scripts/_phase-36-b1-route-probe.mjs`,
+which drives the real `fetch` handler over all 54 public configurations against the frozen KV
+fixture and compares byte-for-byte — and which loads BOTH engine versions **in one process**
+(`git show <ref>:workers/fetch-s1.js` → temp module), satisfying the `engine-baseline-one-process`
+rule and C6 without a worktree or a stash. Time: not applicable — the fixture is frozen, so
+there is no refresh cycle to be early or late for. Baseline captured before any edit:
+`route-level /revenue probe vs main: 54/54 identical`.
+
+### 1. The identity that does not hold — with the arithmetic
+
+`RESERVE_PRODUCTS` (`:1777-1781`) declares `fcr 0.16 + afrr 0.34 + mfrr 0.50 = 1.00` — the
+whole asset, committed to reserve. `computeThroughputBreakdown` (`:1741-1743, :1748`) then
+allocates those same shares for cycle accounting **and** gives day-ahead `MW × durBlend(...)`
+at full nameplate. The revenue path multiplies the DA anchor by `mix.trading_fraction`
+(`:2283`), which is pinned at its `0.70` ceiling in every year of every public configuration
+(`:2131-2133`, engine's own comment). So, per MW installed:
+
+```
+reserve committed   0.16 + 0.34 + 0.50 = 1.00 × P_max
+day-ahead committed                      0.70 × P_max
+                                       ─────────────────
+total committed                          1.70 × P_max        ← the identity fails by 70 %
+```
+
+The power identity the prompt asks for (`Σ committed + DA power ≤ P_max`) is violated **by
+construction**, not by a data path — no input can make 1.70 ≤ 1.00.
+
+### 2. The energy identity is not violated; it is absent
+
+`:2228-2237` is the only energy constraint in the engine and it contains **no DA term**:
+
+```
+total_energy_req = Σ_p (avail × share_p × dur_req_h_p)
+                 = 0.95 × (0.16×0.5 + 0.34×1.0 + 0.50×0.25) = 0.95 × 0.545 = 0.5178 MWh/MW
+usable_mwh_per_mw ≈ dur_h × retention   →  4h: ~3.6   ·   2h: ~1.8
+scale_energy = min(1, 3.6 / 0.5178) = 1.0                    ← pinned, all 54 configs
+```
+
+So the second line of the prompt's identity is not "violated" — it is unwritten. Adding the DA
+energy term is what would make it a constraint rather than a formality.
+
+### 3. What `bal_calibration` is anchored to — the prompt's premise here is wrong in a way
+that matters
+
+`:2261`: `bal_calibration = by_balancing_per_mw / R_now`, where `by_balancing_per_mw =
+base_year.annual_totals.balancing` (`:2167`) — the **observed** trailing-12-month balancing
+revenue per MW, assembled by `computeBaseYear` from real S1/S2 captures. It is recomputed on
+every engine invocation from that observation, not stored.
+
+Consequence: `rev_bal = R_yr × bal_calibration × mw × …` reproduces observed base-year
+balancing revenue *whatever `R_yr` is*. If a partition scales `R_yr` by a reserve-MW fraction,
+`bal_calibration` scales by exactly its inverse and `rev_bal` does not move. So the prompt's
+"any partition invalidates `bal_calibration` unless it is re-derived" is **false as stated** —
+it self-re-derives — but the true statement underneath is sharper: **the balancing side cannot
+be partitioned at all in this engine**, because it is pinned to an observation. The partition
+can only act on the trading side. What it *would* have to be re-derived against, if one wanted
+the balancing side to move, is a base-year observation decomposed by product and by committed
+MW — which the S1/S2 captures do not carry. That is a data gap, recorded here, not solved.
+
+### 4. `effective_arb_pct` is NOT inert — the prompt's premise 2.1.4 is false
+
+`grep -rn "effective_arb_pct" --include=*.js --include=*.ts --include=*.tsx . | grep -v node_modules`
+→ 11 matches. It is **consumed** at `:2703` and `:2704`, as the divisor in the `capture_*`
+back-solve, with a hardcoded `0.115` fallback. So it is a live input to a published capture
+figure, and proposing it as the partition's physical share is a change to an existing consumer,
+not the activation of a dormant one.
+
+It is also the partition, already written. `computeEffectiveArbPct` (`:3546-3570`) computes
+exactly the average-consistent allocation the prompt asks to be designed: the MW-hour share
+left for arbitrage after FCR's always-on commitment and aFRR/mFRR's time-sliced commitments,
+weighted by the four occupancy states. With defaults it is **≈ 0.115**. The revenue path spends
+**0.70**. The engine therefore publishes its own physical share and bills a different one, and
+`app/lib/__tests__/refinementProbes.test.ts:240` **asserts the two must differ** — a test that
+encodes the disagreement as intentional. That test is the reason the 6× gap survived; it is
+addressed as its own decision below, not silently edited (B6, B7).
+
+## 38.6 — the design, what was built, and what it measures
+
+### 5. What a correct partition looks like in an annual-average engine
+
+The engine is an annual-average model. So the partition must be an **average-consistent
+allocation**, not a dispatch — and the crucial consequence is that the two-direction identity
+the prompt writes collapses. `RESERVE_PRODUCTS` carries ONE undirected `share` per product;
+there is no `afrr_up`/`afrr_down` anywhere in the file. FCR consuming up- and down-headroom
+simultaneously is therefore **neither modelled nor violated here — it is unrepresentable**,
+and a test asserts the single-pool shape so that adding a directional split is a reviewed
+change rather than a silent one. Representing it needs directional procurement volumes and
+directional prices we do not hold.
+
+**Availability ≠ delivery** is already respected on the revenue side and was the confusing
+part: capacity revenue is billed on committed MW while activation energy is billed on
+activation. What was NOT respected is that the committed MW is unavailable to day-ahead for
+the whole committed period. That is the entire defect, and it lives at two seams.
+
+**Do not double-discount.** Bid acceptance haircuts reserve REVENUE by product; the partition
+allocates day-ahead ENERGY. Different quantities, so applying both is not a double discount.
+Shown rather than argued: under the partition `rev_bal` does not move at all, and `rev_trd`
+moves by exactly the ratio of the two shares. A spec asserts both.
+
+**The Baltic energy-reservoir requirement — LOCATED, so STOP condition 2.6c is NOT hit.**
+AST, *Harmonised principles for Baltic LFC reserve prequalification*, 31.03.2022
+(`https://www.ast.lv/sites/default/files/editor/Harmonised_principles_for_Baltic_LFC_reserve_prequalification.pdf`),
+§4.3.2: *"As of triggering the alert state and during the alert state, each LER FCR provider
+shall ensure a continuous FCR full activation for a time period no less than 30 minutes,
+defined as TminLER … The TminLER requirement is fulfilled by dimensioning the energy reservoir
+to meet the minimum requirement."* §4.3 defines an LER provider as one for which full
+continuous activation *"for a period of 2 hours in either positive or negative direction"*
+might deplete the reservoir. §4.3.1 requires a described active ERM controlling SoC.
+
+Three things follow. (1) `RESERVE_PRODUCTS.fcr.dur_req_h = 0.5` is **correct and now
+sourced** — 30 minutes, from the Baltic document, not the continental one. (2) The prompt's
+"minimum ratio of rated to prequalified power" is **not** a Baltic requirement; the Baltic
+document defines LER status by a 2-hour depletion test instead. (3) `afrr.dur_req_h = 1.0`
+and `mfrr.dur_req_h = 0.25` have **no basis in this document** — §5.3.4 and §5.7.4 require an
+ERM *strategy description* for aFRR and mFRR providers but state no numeric minimum. Those
+two remain unsourced placeholders and are flagged as such rather than left to look sourced by
+proximity to the FCR value that now is.
+
+### 6. What was built
+
+A flag, `params.mw_partition`, defaulting to `'current'`. `/revenue` does not read it from
+the query string, so no public caller can select a mode. Three values: `current`, `unit_fix`
+(only the dimensional error at the two DA energy seams), `partition` (unit_fix plus the
+missing day-ahead term in the energy identity). `unit_fix` is deliberately not a shippable
+state — it exists so the measurement can separate the two effects.
+
+The physical share is not new maths: it is `computeEffectiveArbPct` (`:3602`), which the
+engine has always computed and published as `time_model.effective_arb_pct` (≈0.115) while the
+revenue path spent `trading_fraction` (0.70) on the same megawatt-hours. Held flat across
+projection years, matching how `trading_fraction` is itself pinned at its ceiling in every
+year of every public configuration. `computeEffectiveArbPctForYear` exists for a year-varying
+version but its `reserve_shift` argument has no defined source anywhere in the file — it has
+never been called — so using it would mean inventing a parameter. Recorded, not guessed.
+
+New payload fields are emitted **only when the flag is on**. Writing them unconditionally
+changed the public payload for all 54 configurations while the flag still defaulted to
+current behaviour — caught by the byte-identity gate on the first attempt, which is exactly
+the job that gate exists to do.
+
+### 7. Two honest negative results
+
+**The third column is empty.** `unit_fix` and `partition` produce identical payloads in 54/54
+configurations once the timestamp is excluded. The new day-ahead energy term never binds at
+2h or 4h: reserves require 0.518 MWh/MW, day-ahead adds 0.95 × 0.115 × dur_h (0.22 at 2h,
+0.44 at 4h), against ~1.8–3.6 MWh/MW usable. So adding the term corrected the identity's
+FORM and changed no number. **The entire measured partition effect is the unit fix.**
+
+**The reserve side of the power identity is still open.** `computeThroughputBreakdown`
+(`:1741-1743`) allocates reserve MWh at the RAW shares — 1.00 of nameplate, as though every
+product were committed every hour — while `computeEffectiveArbPct` treats aFRR and mFRR as
+committed only ~75 % and ~80 % of the time, which is the only reason arbitrage gets any
+MW-hours at all. The two disagree, so:
+
+```
+before   1.00 (reserve) + 0.70  (DA)  = 1.70  × P_max
+after    1.00 (reserve) + 0.115 (DA)  = 1.115 × P_max
+```
+
+Better, not closed. Closing it means moving the reserve throughput allocation onto the same
+time-weighted basis, which moves cycle accounting and therefore degradation — a second and
+larger change, deliberately not made. A spec fails the day someone believes the identity holds.
+
+### 8. `bal_calibration` — no re-derivation needed, and why that is the finding
+
+`bal_calibration = by_balancing_per_mw / R_now` is recomputed on every invocation from the
+OBSERVED trailing-12-month balancing revenue. Under the partition `rev_bal` is byte-identical
+to current in every configuration, because the calibration pins it to an observation. The old
+and new anchors the prompt asked to see side by side are therefore **the same anchor**:
+observed base-year balancing revenue per MW, unchanged. What would have to be re-derived, if
+the balancing side were ever to move, is a base-year observation decomposed by product and by
+committed MW — which the S1/S2 captures do not carry. Data gap, recorded, not solved.
+
+### 9. Register
+
+The partition introduces no new numeric parameter; it promotes existing ones from diagnostic
+to load-bearing. `RESERVE_PRODUCTS` shares, `HEADROOM_DRAG` (0.70) and the three `dur_req_h`
+values have **no rows in `assumptions-register.json`** (65 rows, none matching). They must be
+registered BEFORE the flag flips. Not added in this run: adding rows bumps the register
+version hash, and every delivered report quotes that id, so bumping it while the operator is
+away would invalidate report provenance for a flag that is still off. Filed as a
+before-flip gate with the FCR source above already located for the first row.

@@ -2133,6 +2133,41 @@ function computeRevenueV7(params, kv) {
   // so it rides through the re-run on `...params`.
   const rte_decay = params.rte_decay;
 
+  // ── Phase 38.6: the MW partition, behind a flag defaulting to CURRENT ──────
+  //
+  // DEFAULT IS 'current'. Nothing changes for any caller until the flag flips.
+  // `/revenue` does not read it from the query string, so the public route
+  // cannot select a mode; only the measurement harness and tests can.
+  //
+  //   'current'   today's behaviour, byte for byte.
+  //   'unit_fix'  ONLY the dimensional error: the DA energy seams stop
+  //               multiplying an MWh quantity by a share derived in EUR/EUR.
+  //   'partition' unit_fix, plus the energy identity gaining its missing DA
+  //               term so the reservoir constraint can actually bind.
+  //
+  // 'unit_fix' is deliberately NOT a shippable state on its own — substituting
+  // a physical share into an otherwise unpartitioned model double-counts less
+  // rather than not at all. It exists so the measurement can separate the two
+  // effects, which is the whole point of the three-column table.
+  const MW_PARTITION_MODES = new Set(['current', 'unit_fix', 'partition']);
+  const mw_partition = MW_PARTITION_MODES.has(params.mw_partition)
+    ? params.mw_partition : 'current';
+  const partition_on = mw_partition !== 'current';
+
+  // The physical MW-hour share available to day-ahead arbitrage after the
+  // reserve commitments take theirs. This is NOT new maths: it is
+  // `computeEffectiveArbPct` (:3602), which the engine has always computed and
+  // published as `time_model.effective_arb_pct` (≈0.115) while the revenue path
+  // spent `trading_fraction` (pinned at 0.70) on the same megawatt-hours.
+  //
+  // Held flat across projection years, matching how `trading_fraction` is
+  // itself pinned at its ceiling in every year of every public configuration
+  // (34.4-C). `computeEffectiveArbPctForYear` exists for a year-varying
+  // version but its `reserve_shift` argument has no defined source anywhere in
+  // the file — it has never been called — so using it would mean inventing the
+  // parameter, not reading one. Recorded as a gap, not filled by guess.
+  const physical_arb_share = computeEffectiveArbPct(kv, sc);
+
   // Partial operating year 1 (e.g. Stoniškiai COD 2028-06 → 7 months). Scales
   // Y1 revenue and OPEX linearly. Fixed annual fees (BRP) and the degradation
   // curve are deliberately NOT pro-rated — both readings are conservative
@@ -2158,8 +2193,16 @@ function computeRevenueV7(params, kv) {
   // project at current market state (34.4-C), so Y1 is not a special case; if
   // the ceiling ever stops binding, this becomes the Y1 approximation it is
   // described as, and the residual is reported in `cycles_breakdown`.
-  const da_utilisation = Math.min(1, Math.max(0,
-    computeTradingMix(kv, dur_h, cod_year + 1, params.scenario || 'base', sc, 1, drv)
+  //
+  // Phase 38.6: `da_utilisation` is a PHYSICAL quantity — the fraction of the
+  // day-ahead throughput anchor the asset actually cycles. Under the partition
+  // it is sourced from the MW-hour allocation instead of the EUR/EUR price
+  // ratio. This is the same substitution as the two revenue seams below and
+  // must move with them, or cycle accounting and revenue would disagree about
+  // how much energy the asset moved — which is the misalignment 36.B1-O fixed.
+  const da_utilisation = Math.min(1, Math.max(0, partition_on
+    ? physical_arb_share
+    : computeTradingMix(kv, dur_h, cod_year + 1, params.scenario || 'base', sc, 1, drv)
       .trading_fraction));
   const tp = computeThroughputBreakdown(1, dur_h, sc,
     { da_utilisation, availability: sc.avail });
@@ -2260,6 +2303,15 @@ function computeRevenueV7(params, kv) {
       total_energy_req += raw * prod.dur_req_h;
       products[name] = { raw };
     }
+    // Phase 38.6. The DA term was absent, so this "energy stacking constraint"
+    // measured the reserve stack against the whole reservoir and could never
+    // bind: reserves need 0.518 MWh/MW (0.95 x [0.16x0.5 + 0.34x1.0 +
+    // 0.50x0.25]) against ~3.6 usable for a 4h asset, so `scale_energy` has
+    // been pinned at 1.0 for every public configuration since it was written.
+    // Day-ahead arbitrage draws on the SAME reservoir — one duration-worth per
+    // cycle for the MW it holds — so its requirement belongs in the same sum.
+    const da_energy_req = partition_on ? p_avail * physical_arb_share * dur_h : 0;
+    total_energy_req += da_energy_req;
     const scale_energy = Math.min(1.0, usable_mwh_per_mw / total_energy_req);
     for (const [name] of Object.entries(RESERVE_PRODUCTS)) {
       products[name].eff = products[name].raw * scale_energy;
@@ -2304,14 +2356,20 @@ function computeRevenueV7(params, kv) {
     // `dur_h × cycles × 365` (which assumed cycles_2h/4h scenario constants).
     // This is per-product DA throughput, not total throughput — capture × MWh
     // formula is for arbitrage specifically.
+    // THE SEAM. `da_mwh_per_mw_yr` is MWh/MW/yr. `mix.trading_fraction` is
+    // `min(0.70, T/(T+R) x 0.75)` where T and R are both EUR per MW-hour of
+    // VALUE (:3536, :3560) — so the share is dimensionless EUR/EUR, and it is
+    // spent here as MWh/MWh. Under the partition it is replaced by the MW-hour
+    // share the engine already computes for exactly this purpose.
+    const arb_share_yr = partition_on ? physical_arb_share : mix.trading_fraction;
     const rev_trd = yr_capture * spread_mult * depth * rte_yr * trading_real
                   * da_mwh_per_mw_yr
-                  * mix.trading_fraction * sc.avail * deg_ratio_vs_y1 * mw * yr_op_frac;
+                  * arb_share_yr * sc.avail * deg_ratio_vs_y1 * mw * yr_op_frac;
 
     if (arb_energy) {
       // Same factor chain as rev_trd above, minus the price terms: MWh through
       // the cells from DA arbitrage. Discharged = charged × RTE.
-      const mwh_charged = da_mwh_per_mw_yr * mix.trading_fraction * sc.avail
+      const mwh_charged = da_mwh_per_mw_yr * arb_share_yr * sc.avail
                         * deg_ratio_vs_y1 * mw * yr_op_frac;
       arb_energy.push({
         yr, cal_year,
@@ -2396,6 +2454,28 @@ function computeRevenueV7(params, kv) {
       rev_bal: Math.round(rev_bal), rev_trd: Math.round(rev_trd),
       rev_gross: Math.round(rev_gross),
       trading_fraction: Math.round(mix.trading_fraction * 1000) / 1000,
+      // Phase 38.6. The share the DA ENERGY seams actually spent this year, and
+      // where it came from — so the identity tests assert on the PAYLOAD rather
+      // than on internals, and the two shares can never silently disagree
+      // again: `trading_fraction` above is a EUR/EUR value share,
+      // `arb_share_used` is what multiplied MWh.
+      //
+      // Emitted ONLY when the partition is on. Adding a field unconditionally
+      // would change the public payload for every caller while the flag still
+      // defaults to current behaviour — which is precisely what the flag exists
+      // to prevent, and what the 54/54 byte-identity gate caught when this was
+      // first written unconditionally.
+      ...(partition_on ? {
+        arb_share_used: Math.round(arb_share_yr * 10000) / 10000,
+        arb_share_basis: 'mw_hours_physical',
+        mw_partition,
+        da_energy_req_mwh_per_mw: Math.round(da_energy_req * 10000) / 10000,
+        reserve_energy_req_mwh_per_mw:
+          Math.round((total_energy_req - da_energy_req) * 10000) / 10000,
+        total_energy_req_mwh_per_mw: Math.round(total_energy_req * 10000) / 10000,
+        reserve_mw_share_sum: Math.round(
+          Object.values(RESERVE_PRODUCTS).reduce((a, x) => a + x.share, 0) * 10000) / 10000,
+      } : {}),
       switching_friction: mix.switching_friction,
       sd_ratio: mix.sd_ratio,
       // Phase 36.D — the demand and absorption this year's S/D was computed
