@@ -8817,6 +8817,135 @@ async function fetchBalticGeneration() {
   return { wind, solar, load };
 }
 
+// ─── Phase 48: request-body validation for the admin write endpoints ──────────
+//
+// The defect these exist to remove: `/feed/clean` parsed its body under
+// `catch { /* empty body ok */ }`, so malformed JSON produced `body = {}`, the
+// 60-day default cutoff applied, and the route wrote `feed_index` anyway. A
+// parse failure must never fall through to a default that deletes. These are
+// pure so the validation is testable without a request.
+
+/**
+ * Validate a raw request-body string as JSON of the expected shape.
+ * @param {string|null} raw            body text, or null if it could not be read
+ * @param {object}  [opts]             options
+ * @param {boolean} [opts.allowArray]  accept a top-level JSON array
+ * @param {boolean} [opts.allowEmpty]  accept an absent/blank body as `{}`
+ * @returns {{ok: true, body: object} | {ok: false, error: string}}
+ */
+function parseJsonBody(raw, { allowArray = false, allowEmpty = false } = {}) {
+  const isEmpty = raw === null || raw === undefined
+    || (typeof raw === 'string' && raw.trim() === '');
+  if (isEmpty) {
+    return allowEmpty
+      ? { ok: true, body: {} }
+      : { ok: false, error: 'Request body required: expected a JSON object' };
+  }
+  if (typeof raw !== 'string') {
+    return { ok: false, error: 'Request body could not be read' };
+  }
+  let parsed;
+  try { parsed = JSON.parse(raw); }
+  catch { return { ok: false, error: 'Malformed JSON body' }; }
+  if (parsed === null || typeof parsed !== 'object') {
+    return { ok: false, error: 'Request body must be a JSON object' };
+  }
+  if (Array.isArray(parsed) && !allowArray) {
+    return { ok: false, error: 'Request body must be a JSON object, not an array' };
+  }
+  return { ok: true, body: parsed };
+}
+
+/**
+ * Largest fraction of `feed_index` that `/feed/clean` may remove before it
+ * demands an explicit `"confirm": true`. Bounds the blast radius even when the
+ * caller is authenticated.
+ */
+const FEED_CLEAN_MAX_REMOVED_FRACTION = 0.5;
+
+/**
+ * Validate the `/feed/clean` parameters. `before` is REQUIRED — there is no
+ * default, because the default was the destructive part.
+ * @returns {{ok: true, before: string, confirm: boolean} | {ok: false, error: string}}
+ */
+function validateFeedCleanParams(body, nowIso) {
+  const { before } = body;
+  if (typeof before !== 'string' || before.trim() === '') {
+    return { ok: false, error: '`before` is required: an ISO 8601 date or date-time, no default' };
+  }
+  const t = Date.parse(before);
+  if (Number.isNaN(t)) {
+    return { ok: false, error: '`before` is not a valid ISO 8601 date' };
+  }
+  if (t > Date.parse(nowIso)) {
+    return { ok: false, error: '`before` must not be in the future' };
+  }
+  if ('confirm' in body && typeof body.confirm !== 'boolean') {
+    return { ok: false, error: '`confirm` must be a boolean' };
+  }
+  return { ok: true, before, confirm: body.confirm === true };
+}
+
+/**
+ * Refuse an over-broad clean unless the caller explicitly confirmed it.
+ * @returns {{ok: true, fraction: number} | {ok: false, fraction: number, error: string}}
+ */
+function feedCleanBlastRadius(total, removed, confirm, maxFraction = FEED_CLEAN_MAX_REMOVED_FRACTION) {
+  if (total <= 0) return { ok: true, fraction: 0 };
+  const fraction = removed / total;
+  if (fraction > maxFraction && !confirm) {
+    return {
+      ok: false,
+      fraction,
+      error: `Refusing to remove ${removed} of ${total} items (${(fraction * 100).toFixed(1)}% `
+        + `> ${(maxFraction * 100).toFixed(0)}% limit) without "confirm": true`,
+    };
+  }
+  return { ok: true, fraction };
+}
+
+/**
+ * Field-length and shape bounds for the public `/contact` form. `/contact` stays
+ * unauthenticated by design — it is a contact form — so its protection is
+ * bounds, not auth. Rate limiting is NOT implemented here; see the phase-48
+ * write-up for the proposal and the gap.
+ */
+const CONTACT_MAX_BODY_BYTES = 16 * 1024;
+const CONTACT_TYPES = ['project', 'investment', 'market', 'other'];
+const CONTACT_FIELD_LIMITS = {
+  name: 200, email: 320, message: 5000, company: 200,
+  projectName: 200, mwMwh: 100, country: 100, targetCod: 100,
+};
+
+/**
+ * Validate a `/contact` submission: required fields, known `type`, plausible
+ * email shape, and a length cap per field.
+ * @returns {{ok: true} | {ok: false, error: string}}
+ */
+function validateContactBody(body) {
+  const { type, name, email, message } = body;
+  if (!name || !email || !message || !type) {
+    return { ok: false, error: 'Missing required fields: type, name, email, message' };
+  }
+  if (!CONTACT_TYPES.includes(type)) {
+    return { ok: false, error: `\`type\` must be one of: ${CONTACT_TYPES.join(', ')}` };
+  }
+  for (const [field, limit] of Object.entries(CONTACT_FIELD_LIMITS)) {
+    const v = body[field];
+    if (v === undefined || v === null) continue;
+    if (typeof v !== 'string') {
+      return { ok: false, error: `\`${field}\` must be a string` };
+    }
+    if (v.length > limit) {
+      return { ok: false, error: `\`${field}\` exceeds ${limit} characters` };
+    }
+  }
+  if (typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return { ok: false, error: '`email` is not a valid address' };
+  }
+  return { ok: true };
+}
+
 // ─── Main export ───────────────────────────────────────────────────────────────
 
 export default {
@@ -9427,13 +9556,22 @@ export default {
     }
 
     // ── POST /feed/events — accept typed event items ─────────────────────────
+    // Phase 48: UPDATE_SECRET-gated. The one live caller (daily_intel.py, VPS
+    // 07:30 UTC) already sent X-Update-Secret before this gate existed — the
+    // worker simply ignored it — so gating breaks no ingestion path.
     if (request.method === 'POST' && url.pathname === '/feed/events') {
-      let body;
-      try { body = await request.json(); } catch {
-        return jsonResp({ error: 'Invalid JSON body' }, 400);
+      if (request.headers.get('x-update-secret') !== env.UPDATE_SECRET) {
+        return jsonResp({ error: 'unauthorized' }, 401);
       }
+      const rawBody = await request.text().catch(() => null);
+      // A bare array of items is a legitimate shape here, unlike /feed/clean.
+      const parsed = parseJsonBody(rawBody, { allowArray: true });
+      if (!parsed.ok) return jsonResp({ error: parsed.error }, 400);
+      const body = parsed.body;
       const items = Array.isArray(body) ? body : body.items || [body];
-      if (!items.length) return jsonResp({ error: 'No items provided' }, 400);
+      if (!Array.isArray(items) || !items.length) {
+        return jsonResp({ error: 'No items provided' }, 400);
+      }
 
       const rawIdx = await env.KKME_SIGNALS.get('feed_index').catch(() => null);
       let idx = rawIdx ? JSON.parse(rawIdx) : [];
@@ -9497,7 +9635,16 @@ export default {
     }
 
     // ── POST /feed/backfill-curations — one-time migration: write-time merge ─
+    // Phase 48: UPDATE_SECRET-gated. Takes no parameters, so body validation
+    // here means an absent body is fine but a malformed one is a 400 — never a
+    // silent fall-through into the KV write below.
     if (request.method === 'POST' && url.pathname === '/feed/backfill-curations') {
+      if (request.headers.get('x-update-secret') !== env.UPDATE_SECRET) {
+        return jsonResp({ error: 'unauthorized' }, 401);
+      }
+      const rawBody = await request.text().catch(() => null);
+      const parsed = parseJsonBody(rawBody, { allowArray: true, allowEmpty: true });
+      if (!parsed.ok) return jsonResp({ error: parsed.error }, 400);
       const ids = await readIndex(env.KKME_SIGNALS);
       const rawIdx = await env.KKME_SIGNALS.get('feed_index').catch(() => null);
       const idx = rawIdx ? JSON.parse(rawIdx) : [];
@@ -9667,20 +9814,51 @@ export default {
     }
 
     // ── POST /feed/clean — remove expired/old + low-quality items ───────────
+    // Phase 48. This route was unauthenticated, remote and destructive: it took
+    // a caller-supplied `before`, kept only items at or after it, and wrote the
+    // result straight to feed_index — so `{"before":"2099-01-01"}` emptied the
+    // published intel feed. Four changes, in this order:
+    //   1. UPDATE_SECRET, the same gate /feed/purge-irrelevant already uses.
+    //   2. `before` is required and explicitly validated; a malformed body is a
+    //      400, never a fall-through to a default that deletes.
+    //   3. A future `before` is refused — it can only mean "remove everything".
+    //   4. Removing more than FEED_CLEAN_MAX_REMOVED_FRACTION needs `confirm`.
+    // Every invocation is logged with its parameters and resulting counts.
     if (request.method === 'POST' && url.pathname === '/feed/clean') {
-      let body = {};
-      try { body = await request.json(); } catch { /* empty body ok */ }
-      const cutoffDate = body.before || new Date(Date.now() - 60 * 86400000).toISOString();
+      if (request.headers.get('x-update-secret') !== env.UPDATE_SECRET) {
+        return jsonResp({ error: 'unauthorized' }, 401);
+      }
+      const rawBody = await request.text().catch(() => null);
+      const parsed = parseJsonBody(rawBody);
+      if (!parsed.ok) return jsonResp({ error: parsed.error }, 400);
+      const params = validateFeedCleanParams(parsed.body, new Date().toISOString());
+      if (!params.ok) return jsonResp({ error: params.error }, 400);
+
       const rawIdx = await env.KKME_SIGNALS.get('feed_index').catch(() => null);
       if (!rawIdx) return jsonResp({ cleaned: 0, remaining: 0 });
       const idx = JSON.parse(rawIdx);
       const kept = idx.filter(i => {
         if (!isValidFeedItem(i)) return false;
         const d = i.published_at || i.date || i.added_at || '';
-        return d >= cutoffDate;
+        return d >= params.before;
       });
       const cleaned = idx.length - kept.length;
+
+      const blast = feedCleanBlastRadius(idx.length, cleaned, params.confirm);
+      if (!blast.ok) {
+        console.log(`[feed/clean] REFUSED before=${params.before} confirm=${params.confirm} `
+          + `total=${idx.length} would_clean=${cleaned} fraction=${blast.fraction.toFixed(3)}`);
+        return jsonResp({
+          error: blast.error,
+          would_clean: cleaned,
+          total: idx.length,
+          fraction: Number(blast.fraction.toFixed(4)),
+        }, 409);
+      }
+
       await env.KKME_SIGNALS.put('feed_index', JSON.stringify(kept));
+      console.log(`[feed/clean] OK before=${params.before} confirm=${params.confirm} `
+        + `total=${idx.length} cleaned=${cleaned} remaining=${kept.length}`);
       return jsonResp({ cleaned, remaining: kept.length });
     }
 
@@ -10615,15 +10793,21 @@ export default {
     }
 
     // ── POST /contact ─────────────────────────────────────────────────────────
+    // Phase 48: stays unauthenticated by design — it is a public contact form —
+    // so it is bounded rather than gated: a body-size cap, a known `type`, and a
+    // length limit per field. It is NOT rate-limited; that needs an edge
+    // rate-limit binding we do not have configured. See the phase-48 write-up.
     if (request.method === 'POST' && url.pathname === '/contact') {
-      let body;
-      try { body = await request.json(); } catch {
-        return jsonResp({ error: 'Invalid JSON' }, 400);
+      const rawBody = await request.text().catch(() => null);
+      if (typeof rawBody === 'string' && rawBody.length > CONTACT_MAX_BODY_BYTES) {
+        return jsonResp({ error: `Request body exceeds ${CONTACT_MAX_BODY_BYTES} bytes` }, 413);
       }
+      const parsed = parseJsonBody(rawBody);
+      if (!parsed.ok) return jsonResp({ error: parsed.error }, 400);
+      const bounds = validateContactBody(parsed.body);
+      if (!bounds.ok) return jsonResp({ error: bounds.error }, 400);
+      const body = parsed.body;
       const { type, name, email, message, company, projectName, mwMwh, country, targetCod } = body;
-      if (!name || !email || !message || !type) {
-        return jsonResp({ error: 'Missing required fields: type, name, email, message' }, 400);
-      }
       const entry = {
         id: makeId(), type, name, email, message,
         company: company || null, projectName: projectName || null,
@@ -12881,6 +13065,17 @@ export { fetchBznGuarded };
 // expose it: `days_of_data` counting rows instead of dates was invisible to
 // every test that existed, because none of them ever looked at it.
 export { dedupeByDateKeepLast, rollingStats };
+// Phase 48 — endpoint-auth body validation and blast-radius bounds.
+export {
+  parseJsonBody,
+  validateFeedCleanParams,
+  feedCleanBlastRadius,
+  validateContactBody,
+  FEED_CLEAN_MAX_REMOVED_FRACTION,
+  CONTACT_MAX_BODY_BYTES,
+  CONTACT_TYPES,
+  CONTACT_FIELD_LIMITS,
+};
 // Phase 36.B1 — the chronological hourly dispatch engine
 // (tools/consultancy/lib/dispatch.mjs) reuses these rather than restating them.
 // Discipline rule #4: one canonical implementation per quantity. Export
