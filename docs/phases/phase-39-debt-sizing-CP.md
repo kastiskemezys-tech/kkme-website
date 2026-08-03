@@ -103,11 +103,13 @@ At 50 % contracted, **floor alone, no blend assumption** — how much faster deb
 
 | scenario | revenue | debt | lever |
 |---|---|---|---|
-| base | +0.29 % | +0.37 % | **1.28×** |
-| conservative | +0.86 % | +1.94 % | **2.26×** |
+| base | +0.29 % | +0.37 % | **1.30×** |
+| conservative | +0.86 % | +1.94 % | **2.25×** |
 | stress | +1.84 % | +4.80 % | **2.61×** |
 
-**A floor converts into debt 2.04× more efficiently in the downside than in the central case.** Sculpting is set by the low years, so the worse the case, the more a floor is worth as debt rather than as revenue. That is 36.B4's tail-vs-median asymmetry in its financing form — **measured here on the deterministic scenario ladder, not inherited from B4's P90**, which the five-shape-year sample cannot resolve (`methodology-lender.md` §4, `resolved: false`).
+> **Correction, 2026-08-03.** These levers were first reported as 1.28 / 2.26 with a ratio of 2.04×. Those were computed from the ROUNDED percentage deltas in the printed table rather than from the underlying values. The run artifact carries 1.3030 / 2.2538 / 2.6108. The published copy uses the unrounded values and derives the ratio from them. The conclusion is unchanged.
+
+**A floor converts into debt 2.00× more efficiently in the downside than in the central case.** Sculpting is set by the low years, so the worse the case, the more a floor is worth as debt rather than as revenue. That is 36.B4's tail-vs-median asymmetry in its financing form — **measured here on the deterministic scenario ladder, not inherited from B4's P90**, which the five-shape-year sample cannot resolve (`methodology-lender.md` §4, `resolved: false`).
 
 This is the answer to "why would I contract away upside", and it is derived rather than asserted. The honest number is smaller than the naive one and it stands on its own mechanism.
 

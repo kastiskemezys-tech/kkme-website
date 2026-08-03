@@ -214,7 +214,37 @@ See [docs/map.md](map.md) for the full concept-to-file lookup table.
 
 ## Session log
 
-### Session 109 — 2026-08-03 — Phase 39: debt sized from cash flows — **AT CP, NOT MERGED** (Claude Code, semi-autonomous) — branch `phase-39-debt-sizing`
+### Session 109b — 2026-08-03 — Phase 39 signed, surfaced and **DEPLOYED** — PRs #137 · #138 · #139, main `8f5c5e6`, worker `5852319b`
+
+**Public numbers move, additively.** One new payload field `debt_sizing`; 54/54 pre-existing payloads byte-identical vs clean `origin/main` worktree, zero keys removed. `min_dscr` and all 68 of its references untouched.
+
+**Operator signed the CP with three conditions, all shipped.** (1) The transferred US-panel origin is visible on the public surface, with the 1.50 / 1.75 / 2.00 ladder beside the headline (31.9 / 27.3 / 23.9 % at the reference, DSCR-bound at every point) and a **review trigger** in the register — if European or Baltic BESS financing terms become locatable, re-derive rather than inherit. (2) Gearing publishes as an OUTPUT with an engine-computed tie-sentence. (3) §4 publishes the **measured channel only**; the blend channel stays in the CP as the record of the correction, with a test asserting "blend"/"25.5"/the blended targets never reach the copy.
+
+**Solver + parameter register moved to `workers/lib/`** so the worker runtime and the consultancy harness drive one implementation (rule #4).
+
+#### 39.1 — the sentence asserted a verdict it never computed. Caught LIVE.
+
+The tie-sentence shipped ending *"…minimum cover is X× and the structure fails"* for **every** configuration, because it was written against the reference config (cover 0.95). The live default is 2h/mid/2028, cover **1.76**. The page rendered *"minimum cover is 1.76× and the structure fails"* — a claim contradicted by the number beside it.
+
+**Rule #2 in the phase's own subject matter:** the phase exists because the engine asserted a capital structure instead of deriving one; its public sentence then asserted a verdict instead of deriving one. Caught by looking at the rendered page during post-deploy verification, **not by a gate** — the tests asserted the sentence was present and carried both figures, never that its verdict tracked the cover ratio. Verdict now computed against `DEBT_COVENANT_DSCR` (mirrors `financialDefinitions.DEFAULT_DSCR_COVENANT` so the sentence and the card's covenant marker cannot drift). Five tests over all 54 configs, both bands proven non-empty, inject-then-revert turns three red.
+
+#### Two more defects caught before shipping
+
+**The transfer flag was the truthiness of a note**, and the notes for the two EUROPEAN-sourced parameters begin with the word "None". So `tenor_years` and `gearing_cap` were listed as *transferred* — in the generated CP table and in the payload's provenance line. Replaced with an explicit `is_transfer` boolean.
+
+**The §4 levers were computed from rounded percentages.** Reported at sign-off as 1.28 / 2.26, ratio 2.04×. The artifact carries **1.3030 / 2.2538 / 2.6108** → published **1.30 / 2.25 / 2.61, ratio 2.00×**. Numbers cross from a run into copy via the committed artifact, never via a figure read off a formatted table (C4). Conclusion unchanged.
+
+**C8 verification.** Post-deploy reads alternated old/new across edge nodes for ~4 reads before settling — the propagation window is real and a single read would have been evidence of nothing. Confirmed 12/12 new text, 0/12 old, then verified in-browser at the reference config.
+
+**Deploy note.** The `/calculator` route is a separate standalone tool; RevenueCard mounts on `/`. A bundle-grep probe for the panel returned zero **and its control also returned zero** — probe unvalidated, no conclusion drawn (B11). Confirmed instead via `wrangler pages deployment list` (production `54d624fb` ← source `46ef1bb`) and a real browser.
+
+**Gates:** 2279 tests, 123 files · `next build` clean · eslint delta zero · additive-only gate green.
+
+**Open:** `regression-baseline.json` recapture still owed at the next boundary — see Session 109 below.
+
+---
+
+### Session 109 — 2026-08-03 — Phase 39: debt sized from cash flows — CP (Claude Code, semi-autonomous) — branch `phase-39-debt-sizing`
 
 **No public number moved. 54/54 byte-identical vs clean `origin/main` worktree (b7e9618).** CP: `docs/phases/phase-39-debt-sizing-CP.md`. Run artifacts: `docs/audits/phase-39/`.
 
