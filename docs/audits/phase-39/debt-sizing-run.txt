@@ -1,0 +1,648 @@
+
+==============================================================================
+PHASE 39 — SCULPTED DEBT SIZING
+==============================================================================
+
+KV fixture: tools/consultancy/fixtures/regression-kv.json (frozen)
+Engine    : computeRevenueV7, workers/fetch-s1.js
+
+--- PARAMETERS (base case = conservative end of every sourced range) ---
+
+| Parameter | Base (conservative end) | Published range | Source | Transfer? |
+|---|---|---|---|---|
+| `dscr_merchant` | **2.00×** | 1.20×–2.00× | Norton Rose Fulbright / projectfinance.law, "Cost of Capital: 2025 Outlook", 2025-01-24 | yes |
+| `dscr_contracted` | **1.20×** | 1.15×–1.20× | Norton Rose Fulbright / projectfinance.law, "Cost of Capital" 2025 and 2026 Outlooks (the same figure in both years), 2026-01-29 | yes |
+| `tenor_years` | **7 yr** | 7 yr–10 yr | Société Générale Corporate & Investment Banking, "BESS - Emerging Asset to Essential Infrastructure", 2025-06-24 | yes |
+| `margin_bp` | **350 bp** | 275 bp–350 bp | Norton Rose Fulbright / projectfinance.law, "Cost of Capital: 2025 Outlook", 2025-01-24 | yes |
+| `gearing_cap` | **60 %** | 40 %–60 % | Pexapark, "The BESS Brief - Part 2: BESS Financing", 2025-07-15 | yes |
+| `merchant_share_cap` | **25 %–40 %** | 25 %–40 % | Norton Rose Fulbright / projectfinance.law, "Cost of Capital: 2026 Outlook", 2026-01-29 | yes |
+| `base_rate` | **2.60 %** | — | ECB via the engine KV snapshot (`kv.euribor.euribor_nominal_3m`), 2026-07-28 | no |
+| `dscr_blend` (partial contracting) | weighted | — | **UNSOURCED — modelling choice** | n/a |
+
+Base case: DSCR 2.00x · tenor 7y (incl. 1y grace) · rate 6.10% (EURIBOR 2.60% + 350bp) · gearing cap 60%
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+
+
+------------------------------------------------------------------------------
+REFERENCE CONFIGURATION — dur=4h capex=mid cod=2027 scenario=base
+------------------------------------------------------------------------------
+
+  Engine today (fixed 55% gearing, level annuity, 8y tenor + 1y grace):
+    min DSCR                 0.95    <- does not cross 1.00
+    debt drawn               EUR 18.04M  (55.0% of net capex)
+    equity IRR               4.78%
+
+  Sized from cash flows to a 2.00x target (this phase):
+    solved debt              EUR 7.85M
+    implied gearing          23.9%
+    binding constraint       DSCR
+    DSCR-implied quantum     EUR 7.85M
+    gearing-cap quantum      EUR 19.68M
+    average life             4.49 years
+    equity cheque            EUR 24.95M
+    equity IRR               4.70%
+    tax circularity binds    true
+
+  Solved amortisation schedule:
+    yr    CFADS      interest   principal   debt svc    DSCR   closing bal
+     1      3.93M       0.48M       0.00M      0.48M    8.20        7.85M   (interest only)
+     2      3.67M       0.48M       1.36M      1.84M    2.00        6.49M
+     3      3.38M       0.40M       1.30M      1.69M    2.00        5.20M
+     4      3.20M       0.32M       1.29M      1.60M    2.00        3.91M
+     5      3.03M       0.24M       1.27M      1.51M    2.00        2.64M
+     6      2.96M       0.16M       1.32M      1.48M    2.00        1.32M
+     7      2.79M       0.08M       1.32M      1.40M    2.00        0.00M
+
+
+------------------------------------------------------------------------------
+ALL 54 PUBLIC CONFIGURATIONS
+------------------------------------------------------------------------------
+
+  configuration                                    old   solved   gear  bind   eqIRR   avgL
+                                                  DSCR    debt
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=2h capex=low cod=2027 scenario=base         2.32    6.99M   58% dscr     39.9%   4.5
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=2h capex=low cod=2027 scenario=conservative  2.11    6.51M   54% dscr     33.3%   4.5
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=2h capex=low cod=2027 scenario=stress       1.57    5.71M   48% dscr     24.1%   4.4
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=2h capex=low cod=2028 scenario=base         2.33    6.78M   56% dscr     36.3%   4.5
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=2h capex=low cod=2028 scenario=conservative  2.11    6.30M   53% dscr     30.4%   4.5
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=2h capex=low cod=2028 scenario=stress       1.57    5.50M   46% dscr     21.5%   4.4
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=2h capex=low cod=2029 scenario=base         2.25    6.65M   55% dscr     33.9%   4.5
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=2h capex=low cod=2029 scenario=conservative  2.12    6.18M   51% dscr     28.6%   4.5
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=2h capex=low cod=2029 scenario=stress       1.57    5.30M   44% dscr     19.9%   4.5
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=2h capex=mid cod=2027 scenario=base         1.76    7.17M   44% dscr     20.4%   4.5
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=2h capex=mid cod=2027 scenario=conservative   1.6    6.69M   41% dscr     17.6%   4.5
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=2h capex=mid cod=2027 scenario=stress        1.2    5.89M   36% dscr     12.1%   4.4
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=2h capex=mid cod=2028 scenario=base         1.76    6.96M   42% dscr     19.1%   4.5
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=2h capex=mid cod=2028 scenario=conservative   1.6    6.49M   40% dscr     16.5%   4.5
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=2h capex=mid cod=2028 scenario=stress        1.2    5.69M   35% dscr     10.9%   4.4
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=2h capex=mid cod=2029 scenario=base          1.7    6.84M   42% dscr     18.3%   4.6
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=2h capex=mid cod=2029 scenario=conservative   1.6    6.37M   39% dscr     15.7%   4.5
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=2h capex=mid cod=2029 scenario=stress       1.21    5.49M   33% dscr     10.1%   4.5
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=2h capex=high cod=2027 scenario=base        1.17    7.59M   29% dscr      8.2%   4.5
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=2h capex=high cod=2027 scenario=conservative  1.05    7.08M   27% dscr      6.6%   4.5
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=2h capex=high cod=2027 scenario=stress      0.75    6.17M   24% dscr      2.3%   4.4
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=2h capex=high cod=2028 scenario=base        1.17    7.38M   28% dscr      7.8%   4.5
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=2h capex=high cod=2028 scenario=conservative  1.05    6.86M   26% dscr      6.2%   4.5
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=2h capex=high cod=2028 scenario=stress      0.76    5.93M   23% dscr      1.7%   4.4
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=2h capex=high cod=2029 scenario=base        1.13    7.26M   28% dscr      7.4%   4.6
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=2h capex=high cod=2029 scenario=conservative  1.05    6.72M   26% dscr      5.9%   4.5
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=2h capex=high cod=2029 scenario=stress      0.76    5.69M   22% dscr      1.3%   4.4
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=4h capex=low cod=2027 scenario=base         1.29    7.64M   32% dscr     10.3%   4.5
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=4h capex=low cod=2027 scenario=conservative  1.17    7.14M   30% dscr      8.7%   4.5
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=4h capex=low cod=2027 scenario=stress       0.85    6.28M   26% dscr      4.3%   4.4
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=4h capex=low cod=2028 scenario=base         1.29    7.42M   31% dscr      9.8%   4.5
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=4h capex=low cod=2028 scenario=conservative  1.18    6.94M   29% dscr      8.2%   4.5
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=4h capex=low cod=2028 scenario=stress       0.85    6.05M   25% dscr      3.6%   4.4
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=4h capex=low cod=2029 scenario=base         1.25    7.30M   30% dscr      9.4%   4.6
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=4h capex=low cod=2029 scenario=conservative  1.18    6.81M   28% dscr      7.8%   4.5
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=4h capex=low cod=2029 scenario=stress       0.85    5.82M   24% dscr      3.2%   4.4
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=4h capex=mid cod=2027 scenario=base         0.95    7.85M   24% dscr      4.7%   4.5
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=4h capex=mid cod=2027 scenario=conservative  0.86    7.27M   22% dscr      3.3%   4.5
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=4h capex=mid cod=2027 scenario=stress       0.62    6.32M   19% dscr     -0.8%   4.4
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=4h capex=mid cod=2028 scenario=base         0.96    7.60M   23% dscr      4.4%   4.5
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=4h capex=mid cod=2028 scenario=conservative  0.86    7.02M   21% dscr      2.9%   4.5
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=4h capex=mid cod=2028 scenario=stress       0.62    6.07M   18% dscr     -1.2%   4.4
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=4h capex=mid cod=2029 scenario=base         0.92    7.45M   23% dscr      4.1%   4.6
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=4h capex=mid cod=2029 scenario=conservative  0.86    6.87M   21% dscr      2.7%   4.5
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=4h capex=mid cod=2029 scenario=stress       0.62    5.83M   18% dscr     -1.5%   4.4
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=4h capex=high cod=2027 scenario=base         0.6    7.85M   15% dscr     -1.6%   4.5
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=4h capex=high cod=2027 scenario=conservative  0.54    7.27M   14% dscr     -2.7%   4.5
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=4h capex=high cod=2027 scenario=stress      0.39    6.32M   12% dscr     -6.4%   4.4
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=4h capex=high cod=2028 scenario=base         0.6    7.60M   15% dscr     -1.8%   4.5
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=4h capex=high cod=2028 scenario=conservative  0.54    7.02M   13% dscr     -2.9%   4.5
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=4h capex=high cod=2028 scenario=stress      0.39    6.07M   12% dscr     -6.7%   4.4
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=4h capex=high cod=2029 scenario=base        0.58    7.45M   14% dscr     -1.9%   4.6
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=4h capex=high cod=2029 scenario=conservative  0.54    6.87M   13% dscr     -2.9%   4.5
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+  dur=4h capex=high cod=2029 scenario=stress      0.39    5.83M   11% dscr     -6.8%   4.4
+
+  binding constraint: DSCR-bound 54/54 · gearing-capped 0/54
+  tax circularity binds in 42/54 configurations
+  solved gearing: min 11.1% · median 27.7% · max 58.2%
+
+
+------------------------------------------------------------------------------
+CONTRACTED-SHARE TABLE — what a floor is worth in DEBT, not in revenue
+------------------------------------------------------------------------------
+
+  Floor: EUR 116k/MW/yr, 10-year term, blended (the floor is an option the asset holds; upside retained).
+  Basis: median of merchant net market revenue per MW, operating years 1-10,
+  taken from the CENTRAL case — a floor is negotiated off central expectations,
+  so it is central-derived and then tested against the downside.
+
+  TWO EFFECTS, REPORTED SEPARATELY. Contracting raises sustainable debt through
+  two distinct channels, and conflating them would credit the floor with movement
+  that is really an assumption:
+    (A) CASH-FLOW effect — MEASURED. The floor lifts CFADS in the years it binds.
+        DSCR target held at the merchant 2.00x, so this is the floor alone.
+    (B) LENDER-TREATMENT effect — ASSUMED. Contracted revenue is underwritten at a
+        lower DSCR. Uses the UNSOURCED blend of 2.00x/1.20x (see debtParams.mjs).
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+
+
+  === BASE scenario (engine min DSCR at fixed 55% gearing: 0.95) ===
+
+   contracted   20yr net rev    debt @2.00x     debt @blended   gearing   equity IRR
+        share       (EUR M)     (A) measured    (A+B) w/ blend
+           0%        101.81            7.85              7.85     23.9%       4.70%
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+          25%        101.95            7.87              8.74     26.6%       4.73%
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+          50%        102.10            7.88              9.85     30.0%       4.76%
+
+   decomposition vs 0% contracted:
+      25%: revenue +0.14%  ·  debt from the FLOOR ALONE +0.19% (lever 1.30x)  ·  debt with the blend +11.32%  ·  98% of that is the ASSUMED blend  ·  floor pays in 6/10 yrs
+      50%: revenue +0.29%  ·  debt from the FLOOR ALONE +0.37% (lever 1.30x)  ·  debt with the blend +25.47%  ·  99% of that is the ASSUMED blend  ·  floor pays in 6/10 yrs
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+
+
+  === CONSERVATIVE scenario (engine min DSCR at fixed 55% gearing: 0.86) ===
+
+   contracted   20yr net rev    debt @2.00x     debt @blended   gearing   equity IRR
+        share       (EUR M)     (A) measured    (A+B) w/ blend
+           0%         98.67            7.27              7.27     22.2%       3.29%
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+          25%         99.10            7.34              8.16     24.9%       3.40%
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+          50%         99.52            7.41              9.26     28.2%       3.50%
+
+   decomposition vs 0% contracted:
+      25%: revenue +0.43%  ·  debt from the FLOOR ALONE +0.97% (lever 2.25x)  ·  debt with the blend +12.19%  ·  92% of that is the ASSUMED blend  ·  floor pays in 7/10 yrs
+      50%: revenue +0.86%  ·  debt from the FLOOR ALONE +1.94% (lever 2.25x)  ·  debt with the blend +27.43%  ·  93% of that is the ASSUMED blend  ·  floor pays in 7/10 yrs
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+
+
+  === STRESS scenario (engine min DSCR at fixed 55% gearing: 0.62) ===
+
+   contracted   20yr net rev    debt @2.00x     debt @blended   gearing   equity IRR
+        share       (EUR M)     (A) measured    (A+B) w/ blend
+           0%         93.63            6.32              6.32     19.3%      -0.76%
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+          25%         94.49            6.47              7.19     21.9%      -0.49%
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+          50%         95.35            6.62              8.27     25.2%      -0.25%
+
+   decomposition vs 0% contracted:
+      25%: revenue +0.92%  ·  debt from the FLOOR ALONE +2.40% (lever 2.61x)  ·  debt with the blend +13.78%  ·  83% of that is the ASSUMED blend  ·  floor pays in 8/10 yrs
+      50%: revenue +1.84%  ·  debt from the FLOOR ALONE +4.80% (lever 2.61x)  ·  debt with the blend +31.00%  ·  85% of that is the ASSUMED blend  ·  floor pays in 8/10 yrs
+
+
+  THE MEASURED ASYMMETRY (50% contracted, floor alone, no blend assumption):
+    base          debt rises 1.30x as fast as revenue
+    conservative  debt rises 2.25x as fast as revenue
+    stress        debt rises 2.61x as fast as revenue
+    -> the floor converts into debt 2.00x more efficiently in the
+       downside than in the central case. Sculpting is set by the low years, so
+       the worse the case, the more a floor is worth as DEBT rather than revenue.
+       This is 36.B4's tail-vs-median asymmetry in its financing form — measured
+       here on the deterministic scenario ladder, NOT inherited from B4's P90
+       (which the five-shape-year sample cannot resolve; methodology-lender.md §4).
+
+
+  Floor sensitivity — solved debt (EUR M) at the MEASURED 2.00x target,
+  i.e. the floor's own cash-flow effect with no blend assumption:
+   scenario        floor        0%        25%        50%
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+   base              93k       7.85       7.85       7.85
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+   base             116k       7.85       7.87       7.88
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+   base             139k       7.85       8.41       8.96
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+   stress            93k       6.32       6.32       6.32
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+   stress           116k       6.32       6.47       6.62
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+   stress           139k       6.32       7.11       7.90
+
+
+------------------------------------------------------------------------------
+DSCR SENSITIVITY — how much of the answer is the transferred parameter?
+------------------------------------------------------------------------------
+
+  Base case 2.00x is a US-panel transfer (debtParams.dscr_merchant). 1.50x and
+  1.75x are shown NOT as alternative sourced values but to expose how much of
+  the conclusion depends on it. Contracted storage is published at 1.15-1.20x,
+  so 1.50x is already well below anything sourced for MERCHANT cover.
+
+   DSCR target      solved debt    gearing    equity IRR   bind    configs <30% gearing
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+   1.50x            10.47M      31.9%         4.64%   dscr           16/54
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+   1.75x             8.97M      27.4%         4.68%   dscr           26/54
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+[revenue/cap-clip] fcr 54.51→50 €/MW/h (Phase 33 ceiling)
+   2.00x             7.85M      23.9%         4.70%   dscr           33/54
+
+   Across 1.50x-2.00x the reference config's gearing moves 23.9% -> 31.9% (33% more debt at the loose end).
+   Median gearing across all 54 configurations: 27.7% at 2.00x -> 37.1% at 1.50x.
+   Every configuration stays DSCR-bound at every point on the ladder — the 60%
+   gearing cap never binds, so the cap is not what produces the low gearing.
+
+
+------------------------------------------------------------------------------
+PARAMETER SENSITIVITY — reference config, one parameter moved at a time
+------------------------------------------------------------------------------
+
+   parameter                       value    solved debt   gearing   equity IRR
+   base case                                   7.85M     23.9%       4.70%  [dscr]
+   DSCR target -> 1.20x (contracted end)      13.08M     39.9%       4.57%  [dscr]
+   DSCR target -> 1.60x (midpoint)             9.81M     29.9%       4.66%  [dscr]
+   tenor -> 10y (long end)                    10.25M     31.3%       4.56%  [dscr]
+   margin -> 275bp (tight end)                 8.03M     24.5%       4.81%  [dscr]
+   gearing cap -> 40% (tight end)              7.85M     23.9%       4.70%  [dscr]
+
+==============================================================================
+
