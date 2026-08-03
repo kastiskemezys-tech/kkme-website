@@ -49,6 +49,7 @@ import ExcelJS from 'exceljs';
 import { row, validateRow, capacityToEurPerMwPerHour } from './schema.mjs';
 import { berlinWallClockToUtc } from './tz.mjs';
 import { writeManifest } from './manifest-writer.mjs';
+import { writeFixture } from './fixture-guard.mjs';
 
 const API = 'https://www.regelleistung.net/apps/crds/api/v2';
 const OUT = path.join(import.meta.dirname, '..', 'data', 'mature-markets', 'de');
@@ -542,8 +543,8 @@ async function main() {
   const fixJob = jobs.find((j) => j.market === 'CAPACITY' && j.productType === 'aFRR' && j.deliveryDate >= '2026-01-01') ?? jobs.at(-1);
   const fixUrl = `${API}/tenders/results/aggregated?deliveryDate=${fixJob.deliveryDate}&productType=${fixJob.productType}&market=${fixJob.market}&exportFormat=xlsx`;
   const fixBuf = Buffer.from(await (await fetch(fixUrl)).arrayBuffer());
-  await fs.writeFile(path.join(FIXTURES, 'de-aggregated-afrr-capacity.xlsx'), fixBuf);
-  await fs.writeFile(path.join(FIXTURES, 'de-aggregated-afrr-capacity.url.txt'), fixUrl + '\n');
+  await writeFixture(path.join(FIXTURES, 'de-aggregated-afrr-capacity.xlsx'), fixBuf);
+  await writeFixture(path.join(FIXTURES, 'de-aggregated-afrr-capacity.url.txt'), fixUrl + '\n');
 
   const manifest = {
     dataset: 'de-reserve',

@@ -32,6 +32,7 @@ import crypto from 'node:crypto';
 import { row, validateRow } from './schema.mjs';
 import { stockholmWallClockToUtc } from './tz.mjs';
 import { writeManifest } from './manifest-writer.mjs';
+import { writeFixture } from './fixture-guard.mjs';
 
 const BASE = 'https://mimer.svk.se/PrimaryRegulation/DownloadText';
 const OUT = path.join(import.meta.dirname, '..', 'data', 'mature-markets', 'se');
@@ -229,8 +230,8 @@ async function main() {
   }
 
   if (sample) {
-    await fs.writeFile(path.join(FIXTURES, 'se-mimer-sample.csv'), sample.text.split('\n').slice(0, 200).join('\n') + '\n');
-    await fs.writeFile(path.join(FIXTURES, 'se-mimer-sample.url.txt'), sample.url + '\n');
+    await writeFixture(path.join(FIXTURES, 'se-mimer-sample.csv'), sample.text.split('\n').slice(0, 200).join('\n') + '\n');
+    await writeFixture(path.join(FIXTURES, 'se-mimer-sample.url.txt'), sample.url + '\n');
   }
 
   const manifest = {
