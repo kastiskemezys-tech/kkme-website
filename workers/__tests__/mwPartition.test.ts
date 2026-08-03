@@ -51,7 +51,10 @@ describe('38.6a — the flag defaults to the PARTITION (operator-signed)', () =>
   it('the signed delta is reproducible from the payload', () => {
     // Pins the numbers the operator signed. If any of these move, the change
     // that moved them has to explain itself against a signed figure.
-    const c = run(REF.params, 'current'), p = run(REF.params);
+    // 38.8a note: `run` here must hold the COST STACK off, or this pins the
+    // partition delta plus a later phase's delta and stops measuring 38.6a.
+    const c = computeRevenueV7({ ...REF.params, mw_partition: 'current', cost_stack: 'current' }, kv) as Any;
+    const p = computeRevenueV7({ ...REF.params, cost_stack: 'current' }, kv) as Any;
     expect(c.gross_revenue_y1).toBe(8842883);
     expect(p.gross_revenue_y1).toBe(6593902);
     expect(c.project_irr).toBeCloseTo(0.1068, 4);

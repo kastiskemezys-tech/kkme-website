@@ -3551,3 +3551,47 @@ created; that remains a capital-structure question.
 `pmc` — the only line with a firm primary source — contributes **≈0.00 pp of project IRR**. A
 publicly-sourced parameter that turns out immaterial is still worth having: it converts one of
 the five named defects from an open question into a closed and quantified non-issue.
+
+## D7 · 38.8a — the flip, and three assertions that inverted
+
+Flag flipped to the full stack on operator signature: *"leaving a better-evidenced stack
+switched off is its own kind of wrong number."* `'current'` stays reachable so the pre-38.8a
+basis remains reproducible.
+
+**A typo must never restore the old basis.** An array of unrecognised layer names, an empty
+array, an unknown string and `null` all fall through to the DEFAULT, not to `'current'`. The old
+numbers are reachable only by asking for them by name. A spec asserts every one of those inputs.
+
+**Three assertions inverted, each explained rather than relaxed.**
+
+1. `bridge`: *"leaves a residual without the calibration — the constant is doing real work"* →
+   its opposite. The uncalibrated reconciliation gap fell from −€291,368 to **−€32,770** (−1.31 %
+   at the reference asset, inside the contracted ±2 % on its own), and the constant from 5.83 to
+   **0.66** — back inside the [0, 4] band it breached in 38.6a. **The band was never widened; the
+   model moved back inside it.** This is independent corroboration: the reconciliation checks the
+   engine against a client-shaped cost taxonomy and nothing in 38.8 was fitted to it.
+2. `projectConfig`: *"does NOT pro-rate the fixed BRP fee (conservative — DECISIONS A4)"* → its
+   opposite. A fixed annual platform fee genuinely does not pro-rate, and A4's conservatism was
+   right for that object. A volume-based TSO charge on metered energy pro-rates by construction,
+   and charging per-MWh for energy the asset never moved would be wrong rather than conservative.
+   **The conservatism A4 bought is gone because the thing it protected against no longer exists.**
+   `brp_fee` moved from the payload's `not_pro_rated` disclosure to a new `newly_pro_rated`, so
+   the change is visible to a reader rather than silent.
+3. `mwPartition`'s signed-delta pin now holds `cost_stack: 'current'`. Without it, it would have
+   pinned the partition delta plus a later phase's delta and quietly stopped measuring 38.6a.
+
+## D8 · The NDA gate caught its own documentation, and then a false positive
+
+Two things happened that are worth keeping.
+
+**The gate flagged its own comment.** An explanatory comment in `scripts/nda-gate.sh` quoted the
+contracted figures it was describing. The gate failed on it, correctly: §4's rule is that a
+contracted figure reproduced to the decimal is a disclosure *even with no name attached*, and a
+comment is no exception. Rewritten to describe the collision without reproducing either figure.
+
+**A real false positive, fixed at the matcher rather than the needle.** Our own measured project
+IRR extends one numeric needle by a digit, so substring matching flagged our own output as a
+disclosure. Numeric needles are now matched at NUMBER boundaries; name needles stay
+substring-matched, because a name inside longer text *is* the disclosure. **The needle was not
+weakened** — proven by control: the exact value still fires, the longer value does not. Both
+controls run, per B11.

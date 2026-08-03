@@ -146,12 +146,30 @@ describe('reconciliation against the engine cost stack', () => {
     expect(Math.abs(rc.delta_pct)).toBeLessThan(0.02);
   });
 
-  it('leaves a residual without the calibration — the constant is doing real work', () => {
+  it('the calibration constant has become nearly redundant — 38.8a, INVERTED', () => {
+    // THIS ASSERTION USED TO BE ITS OPPOSITE, and the flip is the finding.
+    //
+    // Before 38.8a the engine's cost taxonomy missed the client's 4-line stack
+    // by 4.4% (pre-partition) and then 9-10% (post-partition), so a reconciling
+    // constant was load-bearing: remove it and the reconciliation fell outside
+    // the contracted ±2%. That is what this test asserted.
+    //
+    // Replacing the invented flat BRP fee with a volume-based charge and moving
+    // the service fee onto the owner's net share took the UNCALIBRATED gap to
+    // −1.31% at the reference asset — inside ±2% on its own. The constant now
+    // trims 1.31pp to 0.01pp rather than rescuing a failure.
+    //
+    // This is independent corroboration: the reconciliation is a separate check
+    // against a client-shaped taxonomy and nothing in 38.8a was fitted to it.
     const uncal = reconcile(ALL[0].result, ALL[0].config, {
       ...COST_DEFAULTS, operating_calibration_eur_kw_yr: 0,
     });
-    expect(uncal.within_2pct).toBe(false);
-    expect(Math.abs(uncal.delta_pct)).toBeGreaterThan(0.02);
+    expect(uncal.within_2pct).toBe(true);
+    expect(Math.abs(uncal.delta_pct)).toBeLessThan(0.02);
+    // ...but it is not zero, so the constant still has a job and still re-derives.
+    expect(Math.abs(uncal.delta_pct)).toBeGreaterThan(0.001);
+    const cal = reconcile(ALL[0].result, ALL[0].config, COST_DEFAULTS);
+    expect(Math.abs(cal.delta_pct)).toBeLessThan(Math.abs(uncal.delta_pct));
   });
 
   it('attributes the partial-year divergence to the un-pro-rated BRP fee', () => {

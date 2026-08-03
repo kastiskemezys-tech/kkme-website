@@ -18,7 +18,7 @@ import { RevenueSensitivityTornado } from '@/app/components/RevenueSensitivityTo
 import { RevenueBacktest } from '@/app/components/RevenueBacktest';
 import type { BacktestRow } from '@/app/lib/backtest';
 import { findMatrixCell, type MatrixCell as SensMatrixCell } from '@/app/lib/sensitivityMatrix';
-import { partitionExplainer } from '@/app/lib/mwPartitionCopy';
+import { partitionExplainer, costStackExplainer } from '@/app/lib/mwPartitionCopy';
 import { DISPATCH_LABELS, vsCanonicalDispatchFootnote } from '@/app/lib/dispatchDefinitions';
 import { IRR_LABELS, irrStatusDisclosure, type IrrStatus } from '@/app/lib/irrLabels';
 import {
@@ -1510,8 +1510,7 @@ function DSCRChart({ monthly, CC }: {
  * Phase 38.6a. Prose lives in `app/lib/mwPartitionCopy.ts` so it is assertable
  * as rendered strings rather than as JSX internals (B13).
  */
-function PartitionExplainer({ daShareOfGrossPct }: { daShareOfGrossPct: number | null }) {
-  const block = partitionExplainer(daShareOfGrossPct);
+function CopyBlock({ block }: { block: { heading: string; paragraphs: string[] } }) {
   return (
     <div>
       <div style={{
@@ -1527,6 +1526,10 @@ function PartitionExplainer({ daShareOfGrossPct }: { daShareOfGrossPct: number |
       ))}
     </div>
   );
+}
+
+function PartitionExplainer({ daShareOfGrossPct }: { daShareOfGrossPct: number | null }) {
+  return <CopyBlock block={partitionExplainer(daShareOfGrossPct)} />;
 }
 
 function DrawerContent({ data }: { data: RevenueData }) {
@@ -1571,6 +1574,11 @@ function DrawerContent({ data }: { data: RevenueData }) {
           the prose and the number in the table cannot disagree (rule #2). */}
       <PartitionExplainer
         daShareOfGrossPct={y1.rev_gross > 0 ? (y1.rev_trd / y1.rev_gross) * 100 : null} />
+
+      {/* Phase 38.8a — the cost stack below gross, with both open gaps stated
+          rather than buried, and the DSCR position the reader should not have
+          to derive. */}
+      <CopyBlock block={costStackExplainer()} />
 
       <div style={head}>Scenario comparison</div>
       <table style={{ width: '100%', borderCollapse: 'collapse',

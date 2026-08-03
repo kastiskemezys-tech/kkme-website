@@ -22,30 +22,60 @@ const REF = MATRIX.find((m: Any) => m.id === 'dur=4h capex=mid cod=2027 scenario
 const run = (p: Any, extra: Any = {}) => computeRevenueV7({ ...p, ...extra }, kv) as Any;
 const y1 = (r: Any) => r.years[0];
 
-describe('38.8 — the flag defaults to OFF', () => {
-  it('is a no-op unless a layer is named, including for junk values', () => {
-    const strip = (o: Any) => JSON.stringify(o, (k, v) => (k === 'timestamp' ? undefined : v));
-    const base = strip(run(REF.params));
-    for (const junk of [undefined, null, '', 'all_of_them', 'fee', 0, {}, ['nope']]) {
-      expect(strip(run(REF.params, { cost_stack: junk })), String(junk)).toBe(base);
+describe('38.8a — the flag defaults to the FULL STACK (operator-signed)', () => {
+  it('applies every layer by default, with no cost_stack supplied', () => {
+    const y = y1(run(REF.params));
+    expect(y.cost_stack_layers).toEqual(['aux', 'brp', 'fee_base', 'fee_rate', 'pmc']);
+  });
+
+  it('a typo NEVER silently restores the pre-38.8a numbers', () => {
+    // The failure that matters: the old basis must be reachable only by asking
+    // for it, never by accident. An array of unknown names, an empty array and
+    // an unknown string all fall through to the default.
+    const def = y1(run(REF.params)).rev_net;
+    for (const junk of [undefined, null, '', 'all_of_them', 0, {}, ['nope'], [], ['fee_ratee']]) {
+      expect(y1(run(REF.params, { cost_stack: junk })).rev_net, String(junk)).toBe(def);
     }
   });
 
-  it('leaves rev_net on the pre-38.8 arithmetic while off', () => {
-    for (const { params, id } of MATRIX) {
-      const y = y1(run(params));
-      // gross − rtm_fee − brp_fee, the identity the payload has always carried.
-      // Each field is independently rounded to whole euros, so allow the sum of
-      // three roundings rather than asserting exactness on rounded inputs.
-      expect(Math.abs(y.rev_net - (y.rev_gross - y.rtm_fee - y.brp_fee)), id)
-        .toBeLessThanOrEqual(2);
-    }
+  it("'current' still reproduces the pre-38.8a basis, for comparison", () => {
+    const y = y1(run(REF.params, { cost_stack: 'current' }));
+    expect(y.cost_stack_layers).toBeUndefined();
+    // The identity the payload carried before 38.8a.
+    expect(Math.abs(y.rev_net - (y.rev_gross - y.rtm_fee - y.brp_fee)))
+      .toBeLessThanOrEqual(2);
+  });
+
+  it('a partial array still selects exactly those layers', () => {
+    expect(y1(run(REF.params, { cost_stack: ['aux'] })).cost_stack_layers).toEqual(['aux']);
+    expect(y1(run(REF.params, { cost_stack: ['aux', 'nope'] })).cost_stack_layers).toEqual(['aux']);
+  });
+
+  it('the shipped figures are reproducible from the payload', () => {
+    // Pins what the operator signed. Anything that moves these has to explain
+    // itself against a signed number.
+    const before = run(REF.params, { cost_stack: 'current' });
+    const after = run(REF.params);
+    expect(before.project_irr).toBeCloseTo(0.0383, 4);
+    expect(after.project_irr).toBeCloseTo(0.0482, 4);
+    expect(before.min_dscr).toBeCloseTo(0.89, 2);
+    expect(after.min_dscr).toBeCloseTo(0.95, 2);
+    // And the DSCR does NOT cross 1.00 — the claim the drawer makes.
+    expect(after.min_dscr).toBeLessThan(1.0);
+  });
+
+  it('the power-exchange line is immaterial, which is a published claim', () => {
+    // The drawer tells a reader this line moves returns by about a hundredth of
+    // a point. If that stops being true the copy is wrong, so assert it.
+    const withPmc = run(REF.params);
+    const withoutPmc = run(REF.params, { cost_stack: ['fee_rate', 'fee_base', 'brp', 'aux'] });
+    expect(Math.abs(withPmc.project_irr - withoutPmc.project_irr) * 100).toBeLessThan(0.05);
   });
 });
 
 describe('38.8 — each layer is separable', () => {
   it('every layer moves rev_net on its own, and in the direction claimed', () => {
-    const base = y1(run(REF.params)).rev_net;
+    const base = y1(run(REF.params, { cost_stack: 'current' })).rev_net;
     const dir: Record<string, number> = {
       fee_rate: +1, // 8 % beats 10-13 %
       fee_base: +1, // a smaller base than gross
@@ -63,7 +93,7 @@ describe('38.8 — each layer is separable', () => {
   it("'all' is not the sum of the parts, because the fee base depends on the lines above it", () => {
     // Stated rather than hidden: the marginal and cumulative decompositions
     // differ, and that is a property of the waterfall, not an error.
-    const base = y1(run(REF.params)).rev_net;
+    const base = y1(run(REF.params, { cost_stack: 'current' })).rev_net;
     const marginalSum = ['fee_rate', 'fee_base', 'brp', 'pmc', 'aux']
       .reduce((a, l) => a + (y1(run(REF.params, { cost_stack: l })).rev_net - base), 0);
     const together = y1(run(REF.params, { cost_stack: 'all' })).rev_net - base;
@@ -73,7 +103,7 @@ describe('38.8 — each layer is separable', () => {
 
 describe('38.8 — the lines are what they claim to be', () => {
   it('the power-exchange fee is charged on BOTH legs, at the published rate', () => {
-    const off = y1(run(REF.params));
+    const off = y1(run(REF.params, { cost_stack: 'current' }));
     const on = y1(run(REF.params, { cost_stack: 'pmc' }));
     const delta = off.rev_net - on.rev_net;
     // Both legs: charged MWh plus discharged MWh, at the day-ahead combined rate.
@@ -91,7 +121,7 @@ describe('38.8 — the lines are what they claim to be', () => {
   });
 
   it('the balancing-capacity fee replaces the flat fee rather than adding to it', () => {
-    const off = y1(run(REF.params));
+    const off = y1(run(REF.params, { cost_stack: 'current' }));
     const on = y1(run(REF.params, { cost_stack: 'brp' }));
     expect(off.brp_fee).toBeGreaterThan(150_000);   // the invented flat fee
     expect(on.brp_fee).not.toBeCloseTo(off.brp_fee, -3);
@@ -112,7 +142,7 @@ describe('38.8 — the lines are what they claim to be', () => {
     // asset with very different throughput must not show an aux cost in
     // proportion to it.
     const p2 = { ...REF.params, dur_h: 2 }, p4 = { ...REF.params, dur_h: 4 };
-    const aux = (p: Any) => y1(run(p)).rev_net - y1(run(p, { cost_stack: 'aux' })).rev_net;
+    const aux = (p: Any) => y1(run(p, { cost_stack: 'current' })).rev_net - y1(run(p, { cost_stack: 'aux' })).rev_net;
     const thr = (p: Any) => y1(run(p, { cost_stack: 'aux' })).da_mwh_discharged ?? 1;
     const auxRatio = aux(p4) / aux(p2);
     const thrRatio = thr(p4) / thr(p2);

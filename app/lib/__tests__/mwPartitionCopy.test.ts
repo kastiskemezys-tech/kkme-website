@@ -6,7 +6,7 @@
  * to drift from the payload it describes.
  */
 import { describe, it, expect } from 'vitest';
-import { partitionExplainer, PARTITION_REFERENCE, PARTITION_MEDIAN } from '../mwPartitionCopy';
+import { partitionExplainer, PARTITION_REFERENCE, PARTITION_MEDIAN, costStackExplainer } from '../mwPartitionCopy';
 
 const all = (share: number | null) => partitionExplainer(share).paragraphs.join(' ');
 
@@ -83,6 +83,80 @@ describe('38.6a — the partition explainer says what happened', () => {
       expect(t).not.toContain('NaN');
       expect(t).not.toContain('Infinity');
       expect(t).not.toContain('of gross above');
+    }
+  });
+});
+
+/**
+ * Phase 38.8a — the cost-stack drawer copy.
+ *
+ * Four things the operator required to be visible rather than derivable:
+ * the two open gaps on the balancing charge, the DSCR position, and the fact
+ * that the one firmly-sourced line turned out immaterial.
+ */
+describe('38.8a — the cost-stack explainer states what it does not know', () => {
+  const all = () => costStackExplainer().paragraphs.join(' ');
+
+  it('names what was wrong before, in the reader\'s terms', () => {
+    const t = all();
+    expect(t).toContain('market hearsay');
+    expect(t).toContain('10–13%');
+    expect(t).toContain('flat annual platform fee');
+    for (const jargon of ['rtm_fee_pct', 'brp_fee_yr', 'COST_STACK', 'cost_stack',
+      'fee_base', 'fee_rate', 'pmc', 'da_mwh_charged']) {
+      expect(t.toLowerCase(), jargon).not.toContain(jargon.toLowerCase());
+    }
+  });
+
+  it('GAP 1 — says the balancing tariff is Estonian applied to Lithuanian assets', () => {
+    const t = all();
+    expect(t).toContain('Estonian');
+    expect(t).toContain('Lithuanian');
+    expect(t).toContain('no equivalent Lithuanian figure has been located');
+  });
+
+  it('GAP 2 — says the both-legs treatment is unestablished', () => {
+    const t = all();
+    expect(t).toMatch(/both legs of its own round trip/);
+    expect(t).toContain('We assume it does');
+  });
+
+  it('states both gaps are carried conservatively, and which way that cuts', () => {
+    const t = all();
+    expect(t).toContain('carried in the direction that lowers returns');
+    // The reader is told the error direction, not just that error exists.
+    expect(t).toContain('returns improve from here');
+  });
+
+  it('DSCR — says it does not cross 1.00, without making the reader derive it', () => {
+    const t = all();
+    expect(t).toContain('0.89');
+    expect(t).toContain('0.95');
+    expect(t).toContain('It does not cross 1.00');
+    expect(t).toContain('does not rescue the debt-service position');
+    expect(t).toContain('capital structure, not about the model');
+  });
+
+  it('PMC — reports the immaterial line as evidence, not as filler', () => {
+    const t = all();
+    expect(t).toContain('changed nothing');
+    expect(t).toContain('firm published source');
+    expect(t).toContain('immaterial');
+  });
+
+  it('does not soften the favourable direction into good news', () => {
+    const t = all();
+    // The offsetting cost is named in the same breath as the gain.
+    expect(t).toContain('the only line here that reduces returns');
+    expect(t).not.toMatch(/significant(ly)? (improve|better)/i);
+  });
+
+  it('renders no markdown that a plain paragraph cannot show', () => {
+    for (const p of costStackExplainer().paragraphs) {
+      expect(p).not.toContain('**');
+      expect(p).not.toMatch(/\[[^\]]*\]\(/);
+      expect(p).not.toContain('undefined');
+      expect(p).not.toContain('NaN');
     }
   });
 });
