@@ -176,3 +176,18 @@ describe('38.8 — the bands are declared and the base sits at the conservative 
     expect(a.gross_capex).toBe(b.gross_capex);
   });
 });
+
+/**
+ * Phase 38.8a-1 — the drawer's PMC claim asserted against the ENGINE, in the
+ * engine's own suite, so a change to the fee or to throughput fails here rather
+ * than leaving a public sentence quietly wrong.
+ */
+describe('38.8a-1 — the published PMC claim holds across the matrix', () => {
+  it('power-exchange fees stay under EUR 1,000/yr on every public 50 MW config', () => {
+    for (const { params, id } of MATRIX) {
+      const pmc = y1(run(params)).pmc_fee;
+      expect(pmc, id).toBeGreaterThan(0);
+      expect(pmc, id).toBeLessThanOrEqual(1030);
+    }
+  });
+});

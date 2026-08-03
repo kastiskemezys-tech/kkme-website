@@ -118,6 +118,15 @@ export const COST_STACK_REFERENCE = Object.freeze({
 });
 
 /** Median move across all 54 public configurations. */
+/**
+ * The bound the PMC paragraph claims, in euros per year for a 50 MW asset.
+ * Asserted against the live payload by test, so the copy cannot drift away from
+ * the number it describes. An earlier draft said "roughly two thousand", carried
+ * over from a pre-partition throughput estimate; the shipped engine computes
+ * EUR 669-1,030 across the 54 public configurations.
+ */
+export const PMC_CLAIM_UPPER_BOUND_EUR_YR = 1000;
+
 export const COST_STACK_MEDIAN = Object.freeze({
   project_irr_pp: 1.51,
   rev_net_pct: 4.35,
@@ -157,9 +166,10 @@ export function costStackExplainer(): PartitionCopyBlock {
       // 4. PMC — evidence the sweep was not fishing for direction.
       'One line is worth reporting precisely because it changed nothing. Power '
         + 'exchange fees, the only cost here with a firm published source — the '
-        + 'operator\u2019s own fee schedule — work out at roughly two thousand euros a '
-        + 'year and move returns by about a hundredth of a percentage point. It was '
-        + 'named as one of five defects, it is now measured, and it is immaterial.',
+        + 'exchange\u2019s own published fee schedule — come to under a thousand euros a '
+        + 'year on a 50 MW asset, and move returns by about a hundredth of a '
+        + 'percentage point. It was named as one of five defects, it is now '
+        + 'measured, and it is immaterial.',
 
       // 5. THE TWO GAPS. Stated, not buried.
       'Two things about the balancing-capacity charge are not settled, and both '
