@@ -1,0 +1,20 @@
+{
+ "_captured_at": "2026-08-03T05:30Z",
+ "_how": "curl https://kkme-fetch-s1.kastis-kemezys.workers.dev/{s_wind,s_solar,s_load}",
+ "_why": "Phase 38.2 stage 2 \u2014 RenewableMixCard and ResidualLoadCard cited \"ENTSO-E\" while these payloads name energy-charts.info. The citation must equal what the payload says it is (discipline rule #3).",
+ "s_wind": {
+  "source": "energy-charts.info",
+  "data_class": "observed",
+  "timestamp": "2026-08-03T05:00:33.678Z"
+ },
+ "s_solar": {
+  "source": "energy-charts.info",
+  "data_class": "observed",
+  "timestamp": "2026-08-03T05:00:33.678Z"
+ },
+ "s_load": {
+  "source": "energy-charts.info",
+  "data_class": "observed",
+  "timestamp": "2026-08-03T05:00:33.678Z"
+ }
+}

@@ -4849,6 +4849,53 @@ async function readHistory(env) {
   }
 }
 
+/**
+ * One row per market day, last write wins.
+ *
+ * Phase 38.2 (B-056) — `updateHistory` appended unconditionally, so a 4-hourly
+ * cron described the same day six times and `rollingStats` reported the row
+ * count as `days_of_data`. Measured 2026-08-03: 90 rows over NINE distinct
+ * dates, published as `n: 90, days_of_data: 90`.
+ *
+ * Keep-LAST rather than keep-first: the last write of a day has seen the most
+ * of it. Sorted by date so the array is chronological regardless of the order
+ * rows arrived in — `slice(-14)` means "the last fourteen days" only if the
+ * array is in date order, and SpreadCaptureCard's sparkline depends on it.
+ */
+function dedupeByDateKeepLast(rows) {
+  const byDate = new Map();
+  for (const r of rows || []) {
+    if (r && r.date) byDate.set(r.date, r);
+  }
+  return [...byDate.keys()].sort().map(d => byDate.get(d));
+}
+
+/**
+ * The canonical daily swing series (Phase 38.2, option 3 / rule #4).
+ *
+ * `lt_swing` used to be read off `s1_history`, whose rows are stamped with the
+ * WRITE date rather than the market day of the prices in them. Cross-checked
+ * against `s1_capture_history` — which dedupes by market date on write, and is
+ * what the S1 card's honest "DAYS 30" already sits on — keep-last disagreed on
+ * SEVEN of nine shared dates (B-060). Not an off-by-one, and the cause is not
+ * established, so the series moves to the writer that is known to be right
+ * rather than being deduped in place and published anyway.
+ *
+ * `spread_eur` has no such companion archive and stays on `s1_history`, which
+ * is why the two statistics on this card legitimately carry different `n`.
+ */
+async function readSwingSeries(env) {
+  try {
+    const raw = await env.KKME_SIGNALS.get('s1_capture_history');
+    const rows = raw ? JSON.parse(raw) : [];
+    return dedupeByDateKeepLast(rows)
+      .filter(r => r && r.swing != null)
+      .map(r => ({ date: r.date, lt_swing: r.swing }));
+  } catch {
+    return [];
+  }
+}
+
 async function updateHistory(env, todayEntry) {
   let history = [];
   try {
@@ -4865,6 +4912,11 @@ async function updateHistory(env, todayEntry) {
     gross_2h:   todayEntry.capture?.gross_2h ?? todayEntry.capture?.capture_2h?.gross_eur_mwh ?? null,
     gross_4h:   todayEntry.capture?.gross_4h ?? todayEntry.capture?.capture_4h?.gross_eur_mwh ?? null,
   });
+
+  // Phase 38.2 — collapse to one row per market day BEFORE the cap. Without
+  // this the 90-row window held nine days of repeats and `slice(-14)` on the
+  // consumer side resolved to two dates, rendered under a "14D" label.
+  history = dedupeByDateKeepLast(history);
 
   if (history.length > MAX_HISTORY) history = history.slice(-MAX_HISTORY);
 
@@ -5074,12 +5126,21 @@ export function s2DataWindowEnd(dataset) {
   return null;
 }
 
+/**
+ * Phase 38.2 (B-056) — `days_of_data` counted ROWS. `s1_history` held 90 rows
+ * over nine distinct dates, so the published provenance claim was wrong by a
+ * factor of ten and every consumer that trusted it inherited the error.
+ *
+ * It now counts DISTINCT DATES among the rows that actually contributed a
+ * value. Callers dedupe upstream, so `n` and `days_of_data` should agree — and
+ * when they do not, the payload says so instead of hiding it behind one number
+ * that means whichever of the two flatters it.
+ */
 function rollingStats(history, field) {
-  const vals = history
-    .map(h => h[field])
-    .filter(v => v != null)
-    .sort((a, b) => a - b);
+  const rows = (history || []).filter(h => h && h[field] != null);
+  const vals = rows.map(h => h[field]).sort((a, b) => a - b);
   if (!vals.length) return null;
+  const days = new Set(rows.map(h => h.date).filter(Boolean)).size;
   const p = (pct) => vals[Math.floor(vals.length * pct)] ?? vals[vals.length - 1];
   return {
     p25: Math.round(p(0.25) * 100) / 100,
@@ -5087,7 +5148,7 @@ function rollingStats(history, field) {
     p75: Math.round(p(0.75) * 100) / 100,
     p90: Math.round(p(0.90) * 100) / 100,
     n:   vals.length,
-    days_of_data: vals.length,
+    days_of_data: days || vals.length,
   };
 }
 
@@ -8152,9 +8213,12 @@ export default {
       // Update rolling history and embed stats in S1 payload
       try {
         const history = await updateHistory(env, d);
+        // Phase 38.2 — two series, two sources, deliberately. `spread_eur`
+        // lives only here; `lt_swing` comes from the capture history, the one
+        // writer that dedupes by MARKET date (rule #4, B-060).
         d.spread_stats_90d = rollingStats(history, 'spread_eur');
-        d.swing_stats_90d  = rollingStats(history, 'lt_swing');
-        console.log(`[S1/history] n=${history.length} spread_p50=${d.spread_stats_90d?.p50} swing_p50=${d.swing_stats_90d?.p50}`);
+        d.swing_stats_90d  = rollingStats(await readSwingSeries(env), 'lt_swing');
+        console.log(`[S1/history] rows=${history.length} spread_n=${d.spread_stats_90d?.n} spread_days=${d.spread_stats_90d?.days_of_data} swing_n=${d.swing_stats_90d?.n} swing_days=${d.swing_stats_90d?.days_of_data} spread_p50=${d.spread_stats_90d?.p50} swing_p50=${d.swing_stats_90d?.p50}`);
       } catch (he) {
         console.error('[S1/history] failed:', String(he));
       }
@@ -10209,8 +10273,23 @@ export default {
     }
 
     // ── POST /s4/buildability ────────────────────────────────────────────────
-    // Assertion-backed buildability data pushed by daily_intel.py.
+    // Assertion-backed buildability data pushed by the daily VPS intel job.
     // Stores in KV so GET /s4 returns live values instead of static.
+    //
+    // Phase 38.2 (B-059) — this used to `put` the request body WHOLESALE. Every
+    // poster therefore owned the entire key, so a poster that built its body
+    // from scratch deleted every assertion it did not itself carry. That was
+    // not hypothetical: `scripts/vps/fetch_entsoe_installed_capacity.py` posts
+    // only `installed_storage_<c>_mw_live` keys, and its FIRST SUCCESS would
+    // have deleted all sixteen assertions in production — every installed
+    // figure on the S4 card, the LT reservations, the APVA estimate, the grid
+    // caveat. Both halves were live; only the script's continued failure was
+    // preventing it (playbook B12, armed rather than fired).
+    //
+    // The guard is on the ENDPOINT, not on that one script, for the same
+    // reason the `/s4` whitelist was inverted rather than widened: a rule that
+    // protects against the poster you know about protects against exactly one
+    // poster. Merge is the default; destruction requires saying so.
     if (request.method === 'POST' && url.pathname === '/s4/buildability') {
       const secret = request.headers.get('X-Update-Secret');
       if (!secret || secret !== env.UPDATE_SECRET) {
@@ -10220,10 +10299,54 @@ export default {
       try { body = await request.json(); } catch {
         return new Response(JSON.stringify({ error: 'Invalid JSON body' }), { status: 400, headers: { 'Content-Type': 'application/json', ...CORS } });
       }
-      body.received_at = new Date().toISOString();
-      await env.KKME_SIGNALS.put('s4_buildability', JSON.stringify(body));
-      console.log(`[S4/buildability] ${Object.keys(body.assertions || {}).length} assertions pushed`);
-      return jsonResp({ ok: true, assertions: Object.keys(body.assertions || {}).length });
+
+      let prior = null;
+      try { prior = JSON.parse((await env.KKME_SIGNALS.get('s4_buildability')) || 'null'); } catch { prior = null; }
+      const priorAssertions = (prior && typeof prior.assertions === 'object' && prior.assertions) || {};
+      const incoming        = (typeof body.assertions === 'object' && body.assertions) || {};
+      const replace         = body.mode === 'replace';
+
+      // Merge by default: incoming keys win per-key, absent keys are carried
+      // forward. A poster that knows about four assertions cannot un-know the
+      // other twelve.
+      const merged = replace ? { ...incoming } : { ...priorAssertions, ...incoming };
+
+      const dropped = Object.keys(priorAssertions).filter(k => !(k in merged));
+      if (dropped.length && !replace) {
+        // Unreachable under merge — kept as a belt-and-braces assertion so a
+        // future edit to the merge cannot quietly reintroduce deletion.
+        return jsonResp({
+          error: 'refusing to drop assertions',
+          dropped,
+          hint: 'send mode:"replace" to intentionally replace the whole set',
+        }, 409);
+      }
+      if (replace && dropped.length) {
+        console.log(`[S4/buildability] mode=replace DROPPING ${dropped.length}: ${dropped.join(', ')}`);
+      }
+
+      const out = { ...body, assertions: merged };
+      delete out.mode;
+      // Carry forward any sibling top-level block the poster did not send
+      // (e.g. `connected_assets`) for the same reason: absence is not intent.
+      if (prior && !replace) {
+        for (const k of Object.keys(prior)) {
+          if (k !== 'assertions' && k !== 'received_at' && !(k in out)) out[k] = prior[k];
+        }
+      }
+      out.received_at = new Date().toISOString();
+
+      await env.KKME_SIGNALS.put('s4_buildability', JSON.stringify(out));
+      const added = Object.keys(incoming).filter(k => !(k in priorAssertions));
+      console.log(`[S4/buildability] ${Object.keys(incoming).length} pushed · ${added.length} new · ${Object.keys(merged).length} stored${replace ? ' (mode=replace)' : ''}`);
+      return jsonResp({
+        ok: true,
+        mode: replace ? 'replace' : 'merge',
+        assertions_pushed: Object.keys(incoming).length,
+        assertions_stored: Object.keys(merged).length,
+        assertions_preserved: Object.keys(merged).length - Object.keys(incoming).length,
+        dropped: replace ? dropped : [],
+      });
     }
 
     // ── POST /s4/sync-layer3 ──────────────────────────────────────────────────
@@ -10405,8 +10528,22 @@ export default {
               ],
             },
           };
+          // Phase 38.2 (B-058) — this read
+          // `getVal('installed_storage_baltic_mw', ltMw + lvMw + eeMw)`, so a
+          // STORED ASSERTION won over the sum of the three country figures
+          // printed beside it. On 2026-08-03 the assertion held 651 and
+          // 484 + 40 + 127 = 651, so the second writer was invisible — the
+          // B12 shape exactly: a duplicate that agrees today. The moment any
+          // country moved, the Baltic headline would have kept publishing the
+          // old total while silently ceasing to be the sum, and nothing would
+          // have detected it because both writers were "working".
+          //
+          // A total defined as the sum is now computed as the sum. There is no
+          // override, deliberately: an override on a derived quantity is the
+          // defect, not a feature of it (discipline rule #4). Asserted by
+          // workers/__tests__/balticTotalIsTheSum.test.ts.
           d.baltic_total = {
-            installed_mw: getVal('installed_storage_baltic_mw', ltMw + lvMw + eeMw),
+            installed_mw: ltMw + lvMw + eeMw,
             under_construction_mw: eeUcMw + 361, // EE UC + LT UC (Ignitis 291 + Olana 70)
           };
 
@@ -10414,17 +10551,27 @@ export default {
           if (fleetRaw) {
             try {
               const fl = JSON.parse(fleetRaw);
+              // Phase 38.2 — this was a hand-maintained 10-field whitelist. It
+              // copied `baltic_weighted_mw`'s NEIGHBOURS and not the field
+              // itself, so 36.D's canonical S/D caption — guarded on that field
+              // at every call site — never rendered on /s4-fed surfaces after
+              // it shipped, and the composition tooltip lost its strict count.
+              // A shipped, signed-off fix was dark for two months and no gate
+              // could see it: the whitelist fails by OMISSION, which produces
+              // no error, no null, no log (playbook B8).
+              //
+              // Inverted: everything processFleet computes now reaches /s4
+              // unless it is explicitly excluded here, so a new aggregate is
+              // published by default rather than silently dropped by default.
+              // Exclusions are the two heavy/internal keys only:
+              //   raw_entries — republished separately as d.projects below
+              //   demand      — the operator override, never a display field
+              const fleetAggregates = { ...fl };
+              delete fleetAggregates.raw_entries;
+              delete fleetAggregates.demand;
               d.fleet = {
-                countries:            fl.countries             ?? null,
-                sd_ratio:             fl.sd_ratio              ?? null,
-                phase:                fl.phase                 ?? null,
-                cpi:                  fl.cpi                   ?? null,
-                trajectory:           fl.trajectory            ?? null,
-                baltic_operational_mw: fl.baltic_operational_mw ?? null,
-                baltic_pipeline_mw:   fl.baltic_pipeline_mw    ?? null,
-                eff_demand_mw:        fl.eff_demand_mw         ?? null,
-                product_sd:           fl.product_sd            ?? null,
-                updated:              fl.updated_at            ?? null,
+                ...fleetAggregates,
+                updated: fl.updated_at ?? null,   // legacy alias, retained
               };
 
               // Expose individual projects from fleet tracker
@@ -10974,7 +11121,12 @@ export default {
       const sig = url.pathname.slice(1, 3); // 's1', 's2', 's3', 's4'
       const histKey = sig === 's1' ? 's1_history' : `${sig}_history`;
       const raw = await env.KKME_SIGNALS.get(histKey).catch(() => null);
-      const arr = raw ? JSON.parse(raw) : [];
+      let arr = raw ? JSON.parse(raw) : [];
+      // Phase 38.2 (B-056) — `s1_history` accumulated ~6 rows per market day,
+      // so a consumer taking `slice(-N)` got N rows spanning far fewer days.
+      // Deduping at the read as well as the write means the stored array does
+      // not have to have been rewritten for consumers to be correct today.
+      if (sig === 's1') arr = dedupeByDateKeepLast(arr);
       return Response.json(arr, { headers: CORS });
     }
 
@@ -11800,9 +11952,9 @@ export default {
       try {
         const data = await computeS1(env);
         try {
-          const history = await readHistory(env);
+          const history = dedupeByDateKeepLast(await readHistory(env));
           data.spread_stats_90d = rollingStats(history, 'spread_eur');
-          data.swing_stats_90d  = rollingStats(history, 'lt_swing');
+          data.swing_stats_90d  = rollingStats(await readSwingSeries(env), 'lt_swing');
         } catch { /* non-fatal */ }
         return new Response(JSON.stringify(data, null, 2), { headers: { 'Content-Type': 'application/json', ...CORS } });
       } catch (err) {
@@ -11843,6 +11995,11 @@ export { accumulateCapacityWatch, CAPACITY_WATCH_FIELDS };
 // rather than assumed: it is the difference between one bad response costing a
 // retry and one bad response costing a 4-hourly tick.
 export { fetchBznGuarded };
+// Phase 38.2 — the S1 history semantics (B-056). Exported so the day-counting
+// can be asserted directly rather than inferred from a route that happens to
+// expose it: `days_of_data` counting rows instead of dates was invisible to
+// every test that existed, because none of them ever looked at it.
+export { dedupeByDateKeepLast, rollingStats };
 // Phase 36.B1 — the chronological hourly dispatch engine
 // (tools/consultancy/lib/dispatch.mjs) reuses these rather than restating them.
 // Discipline rule #4: one canonical implementation per quantity. Export

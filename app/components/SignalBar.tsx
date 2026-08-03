@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { flexibilityFleetMw } from '@/app/lib/fleet';
-import { sdFormulaCaption } from '@/app/lib/sdRatio';
+import { fleetSdCaption, type SdCaptionFleet } from '@/app/lib/sdRatio';
 
 interface S4FleetExtras {
   baltic_operational_mw?: number | null;
@@ -52,17 +52,9 @@ export default function SignalBar() {
       // came to 8.99× against a headline of 2.55×. One canonical caption now,
       // shared with S4Card and the hero map (discipline rule #4).
       tooltip: (() => {
-        const f = data.s4?.fleet as {
-          baltic_weighted_mw?: number; absorption_mw?: number;
-          eff_demand_mw?: number; sd_ratio?: number;
-        } | undefined;
-        if (f?.baltic_weighted_mw != null && f?.eff_demand_mw != null) {
-          return `${sdFormulaCaption({
-            weightedMw: f.baltic_weighted_mw,
-            effDemandMw: f.eff_demand_mw,
-            absorptionMw: f.absorption_mw,
-            publishedSdRatio: f.sd_ratio,
-          })}. Supply is credibility-weighted by project status; contracted-away MW serve Lithuanian reserve products outside this model.`;
+        const caption = fleetSdCaption(data.s4?.fleet as SdCaptionFleet | undefined);
+        if (caption) {
+          return `${caption}. Supply is credibility-weighted by project status; contracted-away MW serve Lithuanian reserve products outside this model.`;
         }
         return 'S/D = credibility-weighted supply / effective Baltic reserve demand.';
       })(),
@@ -81,12 +73,14 @@ export default function SignalBar() {
         ? `${(data.s4.free_mw / 1000).toFixed(1)} GW` : '—',
     },
     {
-      // Flex fleet = BESS + pumped hydro (Kruonis), live from /s4.fleet.
+      // Flex fleet = project-level battery tracker, live from /s4.fleet.
       // Was reading /s2.baltic_operational_mw which is always null on /s2.
       label: 'FLEX FLEET',
-      // Phase 12.11 — inline scope so a same-page reader sees the 822-vs-651
-      // composition without needing to hover the tooltip. Mirrors hero block 2.
-      scope: 'BESS + pumped hydro',
+      // Phase 12.11 — inline scope so a same-page reader sees the fleet-vs-
+      // registry composition without hovering. Mirrors hero block 2.
+      // Phase 38.2 — the scope read "BESS + pumped hydro" against a population
+      // holding zero pumped-hydro entries; 782 is the exact sum of batteries.
+      scope: 'BESS',
       value: (() => {
         const v = flexibilityFleetMw(data.s4);
         return v != null ? `${Math.round(v)} MW` : '—';
@@ -101,11 +95,11 @@ export default function SignalBar() {
         const quar = s4?.fleet?.baltic_quarantined_mw;
         const bess = s4?.baltic_total?.installed_mw;
         const parts = [
-          'Baltic flexibility fleet · BESS + pumped hydro (Kruonis 205 MW).',
+          'Baltic flexibility fleet — grid-connected batteries tracked at project level (commercial, TSO-owned and Kaupikliai).',
           flex != null ? `Inclusive total: ${Math.round(flex)} MW.` : null,
           strict != null ? `Strict verified (excludes _quarantine): ${Math.round(strict)} MW.` : null,
           quar != null && quar > 0 ? `${Math.round(quar)} MW awaiting TSO confirmation.` : null,
-          bess != null ? `BESS-only registry: ${Math.round(bess)} MW (separate from flex fleet).` : null,
+          bess != null ? `TSO-published national registries: ${Math.round(bess)} MW — a different population, not a subset.` : null,
         ].filter(Boolean);
         return parts.join(' ');
       })(),
