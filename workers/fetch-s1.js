@@ -10414,17 +10414,27 @@ export default {
           if (fleetRaw) {
             try {
               const fl = JSON.parse(fleetRaw);
+              // Phase 38.2 — this was a hand-maintained 10-field whitelist. It
+              // copied `baltic_weighted_mw`'s NEIGHBOURS and not the field
+              // itself, so 36.D's canonical S/D caption — guarded on that field
+              // at every call site — never rendered on /s4-fed surfaces after
+              // it shipped, and the composition tooltip lost its strict count.
+              // A shipped, signed-off fix was dark for two months and no gate
+              // could see it: the whitelist fails by OMISSION, which produces
+              // no error, no null, no log (playbook B8).
+              //
+              // Inverted: everything processFleet computes now reaches /s4
+              // unless it is explicitly excluded here, so a new aggregate is
+              // published by default rather than silently dropped by default.
+              // Exclusions are the two heavy/internal keys only:
+              //   raw_entries — republished separately as d.projects below
+              //   demand      — the operator override, never a display field
+              const fleetAggregates = { ...fl };
+              delete fleetAggregates.raw_entries;
+              delete fleetAggregates.demand;
               d.fleet = {
-                countries:            fl.countries             ?? null,
-                sd_ratio:             fl.sd_ratio              ?? null,
-                phase:                fl.phase                 ?? null,
-                cpi:                  fl.cpi                   ?? null,
-                trajectory:           fl.trajectory            ?? null,
-                baltic_operational_mw: fl.baltic_operational_mw ?? null,
-                baltic_pipeline_mw:   fl.baltic_pipeline_mw    ?? null,
-                eff_demand_mw:        fl.eff_demand_mw         ?? null,
-                product_sd:           fl.product_sd            ?? null,
-                updated:              fl.updated_at            ?? null,
+                ...fleetAggregates,
+                updated: fl.updated_at ?? null,   // legacy alias, retained
               };
 
               // Expose individual projects from fleet tracker

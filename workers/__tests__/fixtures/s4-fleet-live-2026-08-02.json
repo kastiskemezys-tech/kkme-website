@@ -1,0 +1,286 @@
+{
+ "countries": {
+  "EE": {
+   "operational_mw": 135.5,
+   "pipeline_mw": 2393.7999999999997,
+   "weighted_mw": 534.8800000000001,
+   "entries": [
+    {
+     "id": "hertz-1-jaago-akupark-ee",
+     "name": "Hertz 1 Jaago akupark",
+     "mw": 100,
+     "mwh": 200,
+     "status": "operational",
+     "cod": "2026-02-03",
+     "country": "EE",
+     "tso": "Elering",
+     "source": "elering · Evecon Solar 461 OÜ · operator-confirmed operational",
+     "updated": "2026-03-07T11:25:02Z",
+     "notes": "",
+     "confidence": "confirmed",
+     "_mw_disagreement": {
+      "feed_mw": 114.9,
+      "operator_mw": 100,
+      "source_url": "https://en.evecon.ee/estonia-strengthens-energy-resilience-hertz-1-one-of-continental-europes-largest-battery-storage-parks-opens-in-kiisa/"
+     },
+     "source_url": "https://en.evecon.ee/estonia-strengthens-energy-resilience-hertz-1-one-of-continental-europes-largest-battery-storage-parks-opens-in-kiisa/",
+     "_contradiction_flags": [],
+     "_freshness": 0.6
+    },
+    {
+     "id": "hertz-2-ee",
+     "name": "Hertz 2",
+     "mw": 100,
+     "mwh": 200,
+     "status": "under_construction",
+     "cod": "2026-12-31",
+     "country": "EE",
+     "tso": "Elering",
+     "source": "elering · Evecon Solar 435 OÜ",
+     "updated": "2026-03-07T11:25:02Z",
+     "notes": "",
+     "confidence": "confirmed",
+     "_mw_disagreement": {
+      "feed_mw": 113.5,
+      "operator_mw": 100,
+      "source_url": "https://corsicasole.com/en/realisations/hertz-2-energy-storage-facility/"
+     },
+     "source_url": "https://corsicasole.com/en/realisations/hertz-2-energy-storage-facility/",
+     "_contradiction_flags": [],
+     "_freshness": 0.6
+    }
+   ],
+   "quarantined_mw": 0,
+   "operational_mw_strict": 135.5,
+   "operational_mw_inclusive": 136
+  },
+  "LT": {
+   "operational_mw": 547,
+   "pipeline_mw": 12826.1,
+   "weighted_mw": 1829.6100000000001,
+   "entries": [
+    {
+     "id": "uab-vilnius-bess-72-0-lt",
+     "name": "UAB „Vilnius BESS“ 72.0",
+     "mw": 65,
+     "mwh": 130,
+     "status": "operational",
+     "cod": "2025-12-01",
+     "country": "LT",
+     "tso": "Litgrid",
+     "source": "vert · UAB „Vilnius BESS“ · operator-confirmed operational",
+     "updated": "2026-04-08T15:56:13Z",
+     "notes": "",
+     "confidence": "confirmed",
+     "_mw_disagreement": {
+      "feed_mw": 72,
+      "operator_mw": 65,
+      "source_url": "https://www.tv3.lt/naujiena/verslas/traku-rajone-pradejo-veikti-galingiausias-65-mw-komercinis-bateriju-parkas-n1497898"
+     },
+     "source_url": "https://www.tv3.lt/naujiena/verslas/traku-rajone-pradejo-veikti-galingiausias-65-mw-komercinis-bateriju-parkas-n1497898",
+     "_contradiction_flags": [],
+     "_freshness": 0.6
+    },
+    {
+     "id": "uab-vejo-galia-lt",
+     "name": "UAB \"Vėjo galia\"",
+     "mw": 41,
+     "mwh": 107.3,
+     "status": "operational",
+     "cod": "2025-12-10",
+     "country": "LT",
+     "tso": "Litgrid",
+     "source": "litgrid · UAB \"Vėjo galia\" · operator-confirmed operational",
+     "updated": "2026-04-30T06:00:51Z",
+     "notes": "",
+     "confidence": "confirmed",
+     "_mw_disagreement": {
+      "feed_mw": 50,
+      "operator_mw": 41,
+      "source_url": "https://www.lrt.lt/naujienos/verslas/4/2781056/prie-elektros-perdavimo-tinklo-prisijunge-komercine-bateriju-kaupimo-sistema-lietuvoje"
+     },
+     "source_url": "https://www.lrt.lt/naujienos/verslas/4/2781056/prie-elektros-perdavimo-tinklo-prisijunge-komercine-bateriju-kaupimo-sistema-lietuvoje",
+     "_contradiction_flags": [],
+     "_freshness": 0.6
+    }
+   ],
+   "quarantined_mw": 0,
+   "operational_mw_strict": 547,
+   "operational_mw_inclusive": 547
+  },
+  "LV": {
+   "operational_mw": 99,
+   "pipeline_mw": 19,
+   "weighted_mw": 20.9,
+   "entries": [
+    {
+     "id": "utilitas-targale-lv",
+     "name": "Utilitas Targale BESS",
+     "country": "LV",
+     "mw": 10,
+     "mwh": 20,
+     "status": "operational",
+     "cod": "2024-11-01",
+     "tso": "AST",
+     "confidence": "confirmed",
+     "source": "Utilitas · operator-confirmed operational",
+     "source_url": "https://utilitas.ee/en/latvias-largest-battery-energy-storage-system-unveiled/",
+     "_curated": true,
+     "_contradiction_flags": [],
+     "_freshness": 0.5
+    },
+    {
+     "id": "aj-power-bess-lv",
+     "name": "AJ Power BESS (3 sites)",
+     "country": "LV",
+     "mw": 9,
+     "mwh": 18,
+     "status": "operational",
+     "cod": "2025-02-03",
+     "tso": "AST",
+     "confidence": "confirmed",
+     "source": "AJ Power · operator-confirmed operational",
+     "source_url": "https://ajpower.lv/en/investing-over-e6-million-in-bess-deployment/",
+     "_curated": true,
+     "_contradiction_flags": [],
+     "_freshness": 0.5
+    }
+   ],
+   "quarantined_mw": 0,
+   "operational_mw_strict": 99,
+   "operational_mw_inclusive": 99
+  }
+ },
+ "baltic_operational_mw": 782,
+ "baltic_operational_mw_strict": 782,
+ "baltic_quarantined_mw": 0,
+ "baltic_pipeline_mw": 15239,
+ "baltic_weighted_mw": 2385,
+ "baltic_weighted_net_mw": 2185,
+ "absorption_mw": 200,
+ "non_commercial_mw": 80,
+ "eff_demand_mw": 752,
+ "demand_basis": {
+  "source": "demand-forecast-module",
+  "module_version": "1.0.0",
+  "scope": "baltic-auction-derived",
+  "year": 2026
+ },
+ "sd_ratio": 2.91,
+ "phase": "MATURE",
+ "cpi": 0.3,
+ "product_sd": {
+  "fcr": {
+   "demand_mw": 28,
+   "supply_mw": 2185,
+   "ratio": 78.05,
+   "sd_ratio": 78.05,
+   "phase": "MATURE"
+  },
+  "afrr": {
+   "demand_mw": 120,
+   "supply_mw": 2185,
+   "ratio": 18.21,
+   "sd_ratio": 18.21,
+   "phase": "MATURE"
+  },
+  "mfrr": {
+   "demand_mw": 604,
+   "supply_mw": 2185,
+   "ratio": 3.62,
+   "sd_ratio": 3.62,
+   "phase": "MATURE"
+  }
+ },
+ "trajectory": [
+  {
+   "year": 2026,
+   "sd_ratio": 2.91,
+   "phase": "MATURE",
+   "cpi": 0.3
+  },
+  {
+   "year": 2027,
+   "sd_ratio": 2.97,
+   "phase": "MATURE",
+   "cpi": 0.3
+  },
+  {
+   "year": 2028,
+   "sd_ratio": 2.66,
+   "phase": "MATURE",
+   "cpi": 0.3
+  },
+  {
+   "year": 2029,
+   "sd_ratio": 2.72,
+   "phase": "MATURE",
+   "cpi": 0.3
+  },
+  {
+   "year": 2030,
+   "sd_ratio": 2.78,
+   "phase": "MATURE",
+   "cpi": 0.3
+  },
+  {
+   "year": 2031,
+   "sd_ratio": 2.81,
+   "phase": "MATURE",
+   "cpi": 0.3
+  }
+ ],
+ "quarantined": [],
+ "updated_at": "2026-08-03T04:01:08.782Z",
+ "raw_entries": [
+  {
+   "id": "soovere-salvestusjaam-ee",
+   "name": "Soovere salvestusjaam",
+   "mw": 500,
+   "mwh": 1000,
+   "status": "announced",
+   "cod": "",
+   "country": "EE",
+   "tso": "Elering",
+   "source": "elering · A-Consult OÜ",
+   "updated": "2026-03-07T11:25:02Z",
+   "notes": "",
+   "confidence": "probable",
+   "_contradiction_flags": [],
+   "_freshness": 0.6
+  },
+  {
+   "id": "uab-sauletas-pasaulis-lt",
+   "name": "UAB \"Saulėtas Pasaulis\"",
+   "mw": 500,
+   "mwh": 1000,
+   "status": "announced",
+   "cod": "",
+   "country": "LT",
+   "tso": "Litgrid",
+   "source": "litgrid · UAB \"Saulėtas Pasaulis\"",
+   "updated": "2026-03-07T11:25:02Z",
+   "notes": "",
+   "confidence": "probable",
+   "_contradiction_flags": [],
+   "_freshness": 0.6
+  },
+  {
+   "id": "uab-ambertrade-lt",
+   "name": "UAB \"Ambertrade\"",
+   "mw": 400,
+   "mwh": 800,
+   "status": "announced",
+   "cod": "",
+   "country": "LT",
+   "tso": "Litgrid",
+   "source": "litgrid · UAB \"Ambertrade\"",
+   "updated": "2026-03-07T11:25:02Z",
+   "notes": "",
+   "confidence": "probable",
+   "_contradiction_flags": [],
+   "_freshness": 0.6
+  }
+ ],
+ "demand": null
+}

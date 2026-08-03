@@ -4,12 +4,16 @@
 // past UI surfaces:
 //
 //   FLEX FLEET (`flexibility_fleet_mw`): all commissioned, grid-connected
-//   flexibility assets — BESS + pumped hydro (e.g. Kruonis 205 MW). Live
-//   number, sourced from `_fleet/entries` KV. Currently 822 MW Baltic-wide.
+//   flexibility assets tracked in `_fleet/entries` KV. Live number.
+//   (Phase 38.2 removed a "Currently 822 MW Baltic-wide" from this comment:
+//   it was a Phase-12.10 figure still asserted as present tense two arcs
+//   later, against a live 782. A comment that pins a moving number is the
+//   same defect as a card that does — see discipline rule #2. The scope
+//   wording is corrected on the rendered surfaces in the same phase.)
 //
 //   BESS REGISTRY (`bess_installed_mw`): curated BESS-only national
-//   registry, excludes pumped hydro by definition. Currently 651 MW
-//   (LT 484 + LV 40 + EE 127). Used by the LT pipeline visualisation
+//   registry, excludes pumped hydro by definition. Sum of the per-country
+//   `storage_by_country[*].installed_mw`. Used by the LT pipeline visualisation
 //   because BESS pipeline analysis must not mix in Kruonis (DRR-suppressed
 //   for FCR/aFRR until 2028-02).
 //

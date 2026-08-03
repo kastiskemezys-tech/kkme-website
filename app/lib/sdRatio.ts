@@ -114,6 +114,40 @@ export function sdFormulaCaption(input: SdCaptionInputs | number, legacyDemand?:
     + `(${gross} − ${absorbed}${clamp}) MW / ${d} MW = ${ratio}`;
 }
 
+/** The subset of the `/s4` (or `/s4/fleet`) fleet object the caption needs. */
+export interface SdCaptionFleet {
+  baltic_weighted_mw?: number | null;
+  eff_demand_mw?: number | null;
+  absorption_mw?: number | null;
+  sd_ratio?: number | null;
+}
+
+/**
+ * Phase 38.2 — the one place the caption's PRECONDITION lives.
+ *
+ * Before this, three surfaces each carried their own `if (weighted != null &&
+ * demand != null)` guard around an identical `sdFormulaCaption(...)` call. When
+ * the `/s4` assembler dropped `baltic_weighted_mw`, all three guards went false
+ * at once and every surface silently fell back to the generic sentence — which
+ * is a plausible-looking string, so nothing looked broken. Two of the three
+ * stayed dark from 36.D until this phase.
+ *
+ * Returning `null` (rather than a fallback string) keeps the caller's choice of
+ * degradation explicit, and gives a test something to assert that is the actual
+ * rendered line rather than the presence of a field.
+ */
+export function fleetSdCaption(fleet: SdCaptionFleet | null | undefined): string | null {
+  const w = fleet?.baltic_weighted_mw;
+  const d = fleet?.eff_demand_mw;
+  if (w == null || d == null) return null;
+  return sdFormulaCaption({
+    weightedMw: w,
+    effDemandMw: d,
+    absorptionMw: fleet?.absorption_mw,
+    publishedSdRatio: fleet?.sd_ratio,
+  });
+}
+
 /**
  * True when a caption's inputs reproduce the ratio the worker published.
  *

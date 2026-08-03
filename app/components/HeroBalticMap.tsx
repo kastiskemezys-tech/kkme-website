@@ -7,7 +7,7 @@ import { MotionPathPlugin } from 'gsap/MotionPathPlugin';
 import { AnimatePresence, motion } from 'motion/react';
 import { geoToPixel, MAP_WIDTH, MAP_HEIGHT, CABLE_PATHS, COUNTRY_LABEL_PIXELS, CITY_LABEL_PIXELS, WAYPOINT_START } from '@/lib/map-projection';
 import { INTERCONNECTORS, resolveFlow } from '@/lib/baltic-places';
-import { sdFormulaCaption } from '@/app/lib/sdRatio';
+import { fleetSdCaption } from '@/app/lib/sdRatio';
 import type { ResolvedFlow } from '@/lib/baltic-places';
 import { resolveCollisions } from '@/lib/label-layout';
 import type { LabelBox } from '@/lib/label-layout';
@@ -870,16 +870,8 @@ export function HeroBalticMap() {
             // formula the engine does not use and which did not reproduce the
             // ratio rendered directly beneath it. Canonical caption now.
             title={(() => {
-              const w = fleet?.baltic_weighted_mw;
-              const dem = fleet?.eff_demand_mw;
-              if (w != null && dem != null) {
-                return `${sdFormulaCaption({
-                  weightedMw: w,
-                  effDemandMw: dem,
-                  absorptionMw: fleet?.absorption_mw,
-                  publishedSdRatio: fleet?.sd_ratio,
-                })}. Supply is credibility-weighted by project status.`;
-              }
+              const caption = fleetSdCaption(fleet);
+              if (caption) return `${caption}. Supply is credibility-weighted by project status.`;
               return 'S/D ratio = credibility-weighted supply / effective Baltic reserve demand.';
             })()}
           >
