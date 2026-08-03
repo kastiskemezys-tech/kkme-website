@@ -56,21 +56,72 @@ both right.** Only 40 is wrong.
 
 The published 40 does **not** come from `fetch-s1.js`. `GET /s4` resolves it as
 `getVal('installed_storage_lv_mw', 80)` against the `s4_buildability` KV
-assertions — and the payload's `installed_mw_as_of: 2025-10-01` proves an
-assertion exists, because the code's own as-of fallback for that key is `null`.
-So **an assertion writer is overriding the worker's correct 80 with 40**, and a
-change to `fetch-s1.js` alone would be overwritten at the next push.
+assertions.
 
-I could not identify the writer: `wrangler kv key get --remote` returned **401
-Unauthorized** in this session. `scripts/vps/fetch_entsoe_installed_capacity.py`
-posts only `*_live` keys (all null in production today), so it is not the
-source — but it builds the assertion body **from scratch** and the worker `put`s
-it wholesale, which means a successful A68 run would delete every non-`_live`
-assertion in the key. That is the B12 shape on a second artifact, and it is a
-live corruption path independent of this delta.
+**KV read succeeded on the second attempt** and turns the inference below into
+evidence. The first attempt used `--namespace-id` and returned 401; `--binding
+KKME_SIGNALS` against the same account works. Recording the flag difference
+because the audit hit the same wall:
 
-**The decision you are signing is therefore two decisions:** the value, and
-where it is written.
+```
+$ npx wrangler kv key get --remote --binding KKME_SIGNALS s4_buildability
+16 assertions · pushed_at 2026-08-02T07:30:03Z · received_at 2026-08-02T07:30:03Z
+
+  installed_storage_lv_mw       = 40    as_of 2025-10-01   confidence "official"
+  installed_storage_lt_mw       = 484   as_of 2026-03-23   confidence "official"
+  installed_storage_ee_mw       = 127   as_of 2026-02-05   confidence "official"
+  installed_storage_baltic_mw   = 651   as_of 2026-03-28   confidence "derived"
+  … 12 more
+```
+
+Three things this settles, none of them good:
+
+1. **The 40 is stamped `confidence: "official"`** while AST's own publication
+   says 80. It is not merely stale — it carries a grade it does not have.
+2. **The writer pushed yesterday** (2026-08-02T07:30Z), so it is live and daily.
+   A correction to `fetch-s1.js` alone is overwritten within 24 hours.
+3. **The writer is not in this repo.** `grep -rn
+   "installed_storage_baltic_mw|installed_storage_lv_mw|connected_assets"` over
+   `.` and `~/kkme-control-center` (excluding `workers/fetch-s1.js`) returns
+   **zero hits**. It runs on the VPS and its source is not under version
+   control here — which is its own problem, and not one I can fix from here.
+
+### The finding that is bigger than this delta — `baltic_total` has two writers
+
+```
+workers/fetch-s1.js:10409
+  installed_mw: getVal('installed_storage_baltic_mw', ltMw + lvMw + eeMw)
+```
+
+`installed_storage_baltic_mw = 651` is **a stored assertion that wins over the
+sum**. Today 484 + 40 + 127 = 651, so the duplication is invisible. The moment
+LV moves to 80 the sum becomes 691 and **`baltic_total` keeps publishing 651** —
+the headline stops being the sum of the three numbers printed beside it, and
+nothing detects it, because both writers are "working".
+
+Discipline rule #4 with a live trigger attached, and it is squarely the B12
+shape: a second writer of the same quantity that agrees today. **The LV movement
+cannot ship without resolving it** — either both assertions are corrected, or
+`installed_storage_baltic_mw` is deleted so the total is always derived. I
+recommend deleting it: a total that is defined as the sum should be computed as
+the sum, and one canonical writer per artifact is the rule this violates.
+
+### A confirmed corruption path, previously a hypothesis
+
+The 16 assertions include **no `*_live` keys at all**, which confirms
+`scripts/vps/fetch_entsoe_installed_capacity.py` has never successfully posted
+(consistent with `installed_mw_live: null` for all three countries). That script
+builds `{assertions: {...}}` **from scratch** with only `*_live` keys
+(`:207-228`) and the worker `put`s the body wholesale (`:10224`).
+
+So the first successful A68 run **deletes all 16 assertions above** — every
+installed figure on the S4 card, the LT reservation and intention protocols, the
+APVA estimate, the grid caveat. Not a hypothesis about a shape: the two halves
+are both in production now, and only the script's continued failure is
+preventing it. B12, on a second artifact, armed.
+
+**The decision you are signing is therefore three decisions:** the value, where
+it is written, and whether `installed_storage_baltic_mw` survives.
 
 ### Delta
 
@@ -78,7 +129,7 @@ where it is written.
 |---|---|---|---|---|---|
 | `storage_by_country.LV.installed_mw` | 40 | **80** | +40 | +100.0 % | stale pre-commissioning estimate replaced by AST's published figure |
 | `storage_by_country.LV.installed_mw_as_of` | 2025-10-01 | **2025-10-30** | — | — | the date the assets entered service, per AST |
-| `baltic_total.installed_mw` | 651 | **691** | +40 | +6.1 % | arithmetic (484 + 80 + 127) |
+| `baltic_total.installed_mw` | 651 | **691** | +40 | +6.1 % | arithmetic (484 + 80 + 127) — **only if the duplicate `installed_storage_baltic_mw` assertion is corrected or deleted; otherwise it stays 651 and silently stops being the sum** |
 | hero coverage line — registry | 651 | **691** | +40 | +6.1 % | inherits |
 | hero coverage line — gap | 131 | **91** | −40 | −30.5 % | inherits |
 | hero coverage tooltip, LV row | LV +59 | **LV +19** | −40 | — | inherits |
@@ -214,11 +265,16 @@ times, and the fix is the disclosure, not the loss.
 ## What I need from you
 
 1. **3a value** — 80 MW on AST's published figure, as-of 2025-10-30? (recommended)
-2. **3a write path** — where does the corrected value go? The worker fallback is
-   already 80, so the answer is really: kill the stale `installed_storage_lv_mw`
-   assertion, or overwrite it. I cannot read or write that KV key from here.
-3. **3b option** — 1, 2 or 3 above. I recommend **3**.
-4. **3b `updateHistory` write-date discrepancy** — file as its own bug with the
+2. **3a write path** — the daily VPS pusher owns `installed_storage_lv_mw` and
+   its source is not in this repo. The correction has to land there, or the key
+   has to be removed from what it pushes. Which, and who edits it?
+3. **`installed_storage_baltic_mw`** — delete it so `baltic_total` is always the
+   sum (recommended), or correct it to 691 and keep two writers of one number?
+4. **The A68 wipe** — `fetch_entsoe_installed_capacity.py` will delete all 16
+   assertions on its first success. Fix it to merge rather than replace, in this
+   phase or as its own item? It is armed either way, so it should not wait long.
+5. **3b option** — 1, 2 or 3 above. I recommend **3**.
+6. **3b `updateHistory` write-date discrepancy** — file as its own bug with the
    table above, or hold 3b entirely until it is diagnosed? I recommend filing it
    and shipping the dedupe + backfill, because the sparkline rendering two days
    as fourteen is live now.
