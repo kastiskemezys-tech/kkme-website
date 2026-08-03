@@ -4318,3 +4318,83 @@ any of the backup design in `docs/disaster-recovery.md`.
 caret-ranged**. No runtime CDN loads in shipped app code — everything is bundled. Not fixed:
 `npm audit fix` on a caret-ranged tree moves 31 dependencies at once, which is a deploy-risk
 decision, not a maintenance one.
+
+## 45 (item 8) · Pause A — four questions
+
+**(a) HYPOTHESIS vs verified.** The **STOP condition is NEGATIVE — no gated content is
+discoverable.** `/fleet` carries `noindex, nofollow, nocache` and serves a login shell only
+("Fleet console · Password · Sign in"). `/calculator` serves a form shell with **no computed
+output at all**: zero IRR/DSCR/NPV values, and **no 4-digit number anywhere in its
+crawler-visible text**. Both verified by fetching as a plain HTTP client and stripping scripts.
+
+*Prompt premise not supported.* "`/calculator` and `/fleet` must be `noindex, nofollow`" rests on
+`/calculator` being gated. It is not — its gating is on the **compute** (`CALC_SECRET` tiers), not
+on the page. See decision 11.
+
+*Prompt premise verified and then some.* "Its discoverability has never had a deliberate pass" —
+`sitemap.xml` returned **HTTP 404** while `robots.txt` has been pointing crawlers at it.
+
+**(b) What consumes what this changes.** `app/sitemap.ts` (new route), `app/dev/layout.tsx`
+(new), `public/robots.txt`, `public/llms.txt`. No rendered copy a human wrote was changed. No
+engine path touched; `/revenue` 54/54 byte-identical.
+
+**(c) What fails silently here.** Two things, and both did.
+
+1. **The build refused rather than emitting nothing.** `output: 'export'` requires
+   `export const dynamic = 'force-static'` on a sitemap route; without it `npm run build` fails
+   outright. Worth recording because the failure is the useful part — the alternative shape of
+   this bug is a sitemap silently absent from the export while robots.txt declares it, which is
+   the exact state being fixed.
+2. **The deployed `robots.txt` is not this repo's file** — see below.
+
+**(d) At which layer and time.** Rendered-output assertions, not field presence, per the gate:
+the sitemap test runs the real generator and asserts the emitted URL list; the `/dev` test reads
+the metadata the layout actually exports; the leak test parses `out/fleet.html` and asserts the
+login shell is there and no `NNN MW` figure is. Build verified: `out/sitemap.xml` emitted with
+four URLs, `out/dev/hero-preview.html` carries `noindex, nofollow, nocache`.
+
+### 45 · FINDING — the served robots.txt is managed outside this repository
+
+| | bytes |
+|---|---|
+| `public/robots.txt` at HEAD | **61** |
+| `out/robots.txt` (build output) | **61** |
+| `https://kkme.eu/robots.txt` (live) | **1897** |
+
+The live file carries a Content-Signal preamble and ten named AI-crawler denials that exist
+nowhere in this repo — including `CloudflareBrowserRenderingCrawler`, a Cloudflare-specific bot
+name and the tell. **Cloudflare is intercepting `/robots.txt` and serving its own managed
+version.**
+
+Consequences, stated plainly: (1) **my `Disallow: /dev/` and `Disallow: /fleet` additions are
+probably inert in production** — the file they are in is not the file being served; (2) there
+are two robots policies and the one under version control is the one nobody reads.
+
+The `/dev` noindex still works regardless, because it is a meta tag in the page rather than a
+robots.txt directive — which is why both were done, and is the reason to do both in general:
+robots.txt governs crawling, the meta governs indexing, and a page linked from elsewhere can be
+indexed without ever being crawled.
+
+A test now pins the divergence: it asserts the repo file does **not** contain the AI-crawler
+denials, so the day the repo file starts being served, it goes red and somebody re-reads this
+entry instead of assuming the edit took effect.
+
+### 45 · Decision 11 (NEEDS SIGNATURE) — is `/calculator` a public product page or not?
+
+The brief says make it `noindex`. I have **excluded it from the sitemap** (safe, reversible,
+and the half of the instruction that costs nothing) and **not applied the noindex**, because the
+premise behind the instruction does not hold: nothing gated is on that page, and making a public
+product page unindexable has a real and asymmetric traffic cost — losing an indexed product page
+is slow to undo.
+
+**Recommendation: leave it indexable.** It is the strongest commercial page on the site and it
+leaks nothing. If you disagree, it is one line in `app/calculator/page.tsx` and I have left the
+sitemap already excluding it so only that line is needed.
+
+### 45 · Decision 12 — add `Disallow: /dev/` in Cloudflare, not (only) in the repo
+
+Because of the finding above. Either add the directive in the Cloudflare dashboard's managed
+robots configuration, or turn the override off so the repo's file is served again. **The second
+is the better answer** — it puts the policy back under version control, where the AI-crawler
+denials would then also be reviewable in a diff. Both are dashboard actions I cannot and should
+not take.
