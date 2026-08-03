@@ -2072,6 +2072,19 @@ async function persistCapacityWatch(env, s2) {
   }
 }
 
+/**
+ * Cash tax for one operating year, with the depreciation shield and an interest
+ * deduction. Extracted in Phase 39 so the debt-sizing solver can evaluate CFADS
+ * at ITS OWN interest path — which is the whole point of sizing debt from cash
+ * flows — without a second copy of the tax rule living outside the engine
+ * (discipline rule #4). The engine loop calls this too, so there is exactly one
+ * implementation and it is this one. Passing interest = 0 gives the unlevered
+ * charge the project-IRR stream uses.
+ */
+function cashTaxFor(ebitda, depr, interest, tax_rate) {
+  return Math.max(0, ebitda - depr - interest) * tax_rate;
+}
+
 function calcIRR(cf) {
   // Robust IRR for mixed-sign cash flows. Many BESS PF streams turn slightly
   // negative in mothball years (Y17-20) when compression × degradation pulls
@@ -2498,7 +2511,31 @@ function computeRevenueV7(params, kv) {
     // Revenue floor: even in saturated markets, BESS earns from trading + minimum FCR
     // UK FFR at peak saturation: £40-60k/MW/yr. €50k = realistic floor.
     const REVENUE_FLOOR_PER_MW = 50000; // €50k/MW/yr minimum
-    const rev_gross = Math.max(REVENUE_FLOOR_PER_MW * mw * yr_op_frac, rev_bal + rev_trd);
+    let rev_gross = Math.max(REVENUE_FLOOR_PER_MW * mw * yr_op_frac, rev_bal + rev_trd);
+
+    // ── Phase 39: contracted-floor hook ───────────────────────────────────
+    //
+    // Debt sizing at a contracted share (39 §4) needs the floor applied BEFORE
+    // fees, opex, tax and CFADS, so the whole downstream stack is computed by
+    // the engine's own arithmetic rather than restated outside it (rule #4).
+    //
+    // The contract MATHS is not duplicated here. `contract_fn` is a closure the
+    // consultancy path builds from `tools/consultancy/lib/contracted.mjs`, which
+    // stays the single implementation of `contractYear` — the alternative, a
+    // second copy of the floor formula living in the worker, is exactly the
+    // one-canonical-writer violation rule #4 exists to prevent.
+    //
+    // Absent on every public path, so no public configuration reaches this
+    // branch and the 54-config payload is unchanged.
+    if (typeof params.contract_fn === 'function') {
+      const adj = params.contract_fn({
+        yr, mw, rev_gross, operational_months: op_frac_y1 * 12,
+      });
+      if (!(typeof adj === 'number' && Number.isFinite(adj) && adj >= 0)) {
+        throw new Error(`contract_fn returned a non-finite revenue for year ${yr}: ${adj}`);
+      }
+      rev_gross = adj;
+    }
     // ── Phase 38.8: route-to-market and BRP cost stack ────────────────────
     //
     // Layered so each defect's contribution is separable. With every layer off
@@ -2563,10 +2600,8 @@ function computeRevenueV7(params, kv) {
     const depr_aug = (yr >= 10 && yr < 10 + depr_years) ? aug_capex / depr_years : 0;
     const depr = depr_base + depr_aug;
     const interest_yr = debt_bal > 0 ? debt_bal * rate_allin : 0;
-    const taxable = Math.max(0, ebitda - depr - interest_yr);
-    const cash_tax = taxable * tax_rate;
-    const taxable_unlev = Math.max(0, ebitda - depr);
-    const cash_tax_unlev = taxable_unlev * tax_rate;
+    const cash_tax = cashTaxFor(ebitda, depr, interest_yr, tax_rate);
+    const cash_tax_unlev = cashTaxFor(ebitda, depr, 0, tax_rate);
 
     // C11. CFADS
     const maint_capex = aug_capex;
@@ -12273,6 +12308,11 @@ export default {
 // ── Phase 33: named exports for unit/regression tests (Node import only). The
 // Workers runtime consumes the `export default` above and ignores these. ──
 export { computeRevenueV7, computeRevenueV6, computeBaseYear, computeTradingMix, computeLiveRate, capPrice };
+// Phase 39 — the debt-sizing solver reports equity IRR at the solved structure.
+// Exported rather than reimplemented so there is one IRR in the estate: this one
+// picks the meaningful root on the mixed-sign streams BESS mothball years
+// produce, and a naive bisection would not (rule #4).
+export { calcIRR, cashTaxFor };
 // Phase 35.1 test hooks — the client scenario port's assertions need to read
 // the scenario table and both cannibalisation curves directly.
 export {

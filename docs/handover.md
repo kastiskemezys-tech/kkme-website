@@ -214,6 +214,38 @@ See [docs/map.md](map.md) for the full concept-to-file lookup table.
 
 ## Session log
 
+### Session 109 — 2026-08-03 — Phase 39: debt sized from cash flows — **AT CP, NOT MERGED** (Claude Code, semi-autonomous) — branch `phase-39-debt-sizing`
+
+**No public number moved. 54/54 byte-identical vs clean `origin/main` worktree (b7e9618).** CP: `docs/phases/phase-39-debt-sizing-CP.md`. Run artifacts: `docs/audits/phase-39/`.
+
+**Pause A, four questions.** *(a) HYPOTHESIS vs verified.* The prompt's central premise verified empirically, not assumed: reference config `min_dscr` = **0.95**, and **24/54** configs sit below 1.00. Gearing/tenor/rate hardcoded at `fetch-s1.js:2352-2359`, duplicated in V6 (`:3121`) and legacy (`:4310`); V7 live at `:11197`. Mechanism measured: CFADS decays 3.96M→2.68M while the annuity is flat at 2.80M. Every externally-sourced parameter is a **transfer** and labelled as one. *(b) Consumes.* `min_dscr` has **68 references** across 15 files including `bankability` (`:2707`), RevenueCard, HeroBalticMap, `mwPartitionCopy`, sensitivity matrix, KV snapshot allow-list. **Nothing repointed** — the fixed-gearing diagnostic is untouched and the solved structure is additive. *(c) Silent failure.* Three: a sculpt that cannot cover its own interest (floors principal to zero and silently capitalises); the tax circularity (inert at the reference config, binds in **42/54** — a solver ignoring it agrees exactly here and diverges elsewhere); and the stale regression baseline below. *(d) Layer/time.* Engine public output vs a clean `origin/main` worktree (not a stash, C6). No deploy, no live data, no timing window.
+
+#### Debt is now sized from cash flows; gearing is the output
+
+Sculpted amortisation, principal_t = `CFADS_t / DSCR_target − interest_t`. Solved by outer bisection on quantum with an inner fixed point on the interest path — **not** the closed-form PV, which cannot carry the tax circularity and over-sizes by **43 %** on an uneven profile (golden case 4). Reference config: **€18.04M @ 55 % gearing breaching at 0.95 → €7.85M @ 23.9 % gearing at 2.00× cover throughout**, average life 4.49 yr, equity IRR 4.70 %. All 54 configs DSCR-bound, none gearing-capped; median solved gearing 27.7 %. **The structure moved, not the asset.**
+
+#### Parameters sourced; the DSCR is a US-panel transfer and says so
+
+Merchant storage DSCR **2.00×** (Beth Waters, MUFG — Norton Rose Fulbright *Cost of Capital 2025 Outlook*, 2025-01-24; independently corroborated by NREL ATB citing NRF at P50 DSCR 2.0). Contracted 1.15–1.20×. Tenor **7 yr** of 7–10 (Société Générale CIB, 2025-06-24 — warranty-constrained mini-perm). Margin **350 bp** of 275–350 (Ralph Cho, Apterra). Gearing cap 40–60 % (Pexapark). Base case takes the conservative end of every band, asserted mechanically in `debtParams.test.ts`. **No European source consulted publishes a storage DSCR number** — DNV, Modo, ess-news and energy-storage.news are all qualitative; that absence is reported. The engine's existing diagnostic prices merchant debt at 250 bp (`:1636`), *below* the sourced range; left untouched.
+
+**DSCR sensitivity (operator-requested).** At 1.50× / 1.75× / 2.00×: gearing 31.9 % / 27.4 % / 23.9 %, median across 54 configs 37.1 % → 27.7 %. Conclusion stable — even at 1.50×, well below anything published for merchant cover, gearing stays far below the assumed 55 %. **The transferred parameter moves the magnitude, not the finding.**
+
+#### The §4 correction — the finding of the phase
+
+The contracted-share table, built naively, showed sustainable debt **+25.5 % at 50 % contracted**, reading as "the floor converts into debt". Decomposition showed **98 % of that was the unsourced DSCR blend**, not the floor. Now reported as two channels: **(A) cash-flow effect, MEASURED** (floor lifts CFADS, DSCR held at merchant 2.00×) and **(B) lender-treatment effect, ASSUMED** (unsourced blend). The measured channel at 50 % contracted, floor alone: base **1.28×**, conservative **2.26×**, stress **2.61×** — **a floor converts into debt 2.04× more efficiently in the downside than in the central case.** Sculpting is set by the low years. That is 36.B4's tail-vs-median asymmetry in financing form, **measured on the deterministic scenario ladder, NOT inherited from B4's P90** (unresolvable at N=5). Separately: the same panels cap merchant revenue at **25–40 %** before lending at all — reported, not applied.
+
+#### The committed regression baseline is RED on untouched main
+
+All 54 configs drift against `tools/consultancy/regression-baseline.json` (captured 2026-07-29, predates 38.6/38.6a/38.8/38.8a — phases that deliberately moved numbers). **Not recaptured in this phase**: doing so would erase 38.x's record and mask this phase's own diff (B7). Byte-identity gate built against a clean worktree instead — `scripts/_phase-39-byte-identity.mjs <ref-worktree>`. **Operator decision: the recapture is its own deliberate commit at the next boundary, stating which SHA and date the new baseline represents.**
+
+#### Gates, and a gate that was not a gate
+
+2257 tests pass (122 files). 26 solver tests (4 hand-computed golden cases), 16 parameter-provenance, 11 engine-hook. eslint delta zero. All three new gates proven by **inject-then-revert**. Three of four golden cases initially failed — **all three were arithmetic slips in the hand-worked test comments; the solver was correct in each**, values re-derived at 30-digit precision. Golden case 4 exists because injection showed the non-negative-principal invariant **could be disabled with the whole suite staying green** (B13 corollary): no case reached a year where the sculpt cannot cover interest. The invariant now asserts on the *sculpt*, not the floored principal.
+
+**Awaiting operator signature on:** the parameter set; publishing gearing as an output alongside the retained 0.95 diagnostic; whether §4 goes public as two channels or measured-only.
+
+---
+
 ### Session 108 — 2026-08-03 — Phase 38.4: the reconciliation that found a unit error — DIAGNOSIS ONLY (Claude Code, semi-autonomous, one checkpoint) — branch `phase-38-4-dispatch-reconciliation`
 
 **Nothing deployed. No code changed. No published number moved.** Documentation only, by operator decision at the checkpoint. Artifact: `docs/investigations/2026-08-03-phase-38-4-dispatch-diagnosis.md`.

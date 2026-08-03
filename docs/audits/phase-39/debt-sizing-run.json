@@ -1,0 +1,909 @@
+{
+  "_note": "Phase 39 debt sizing. Frozen KV fixture; no live data.",
+  "parameters": {
+    "dscr_merchant": {
+      "base": 2,
+      "range": [
+        1.2,
+        2
+      ],
+      "basis": "Minimum DSCR a lender sizes MERCHANT storage debt to. Base case takes the merchant end (2.00x), which is the conservative end of the published spread between merchant and contracted storage.",
+      "source": "Norton Rose Fulbright / projectfinance.law, \"Cost of Capital: 2025 Outlook\"",
+      "url": "https://www.projectfinance.law/publications/2025/january/cost-of-capital-2025-outlook/",
+      "date": "2025-01-24",
+      "attributed": "Beth Waters, Managing Director, MUFG: \"Merchant storage 2.0 times debt service.\"",
+      "transfer": "US bank panel, spreads quoted over SOFR. Carried to a EUR Baltic asset as a COVERAGE LEVEL only. Corroborated independently by NREL ATB, which cites Norton Rose Fulbright at a P50 DSCR of 2.0 for battery storage."
+    },
+    "dscr_contracted": {
+      "base": 1.2,
+      "range": [
+        1.15,
+        1.2
+      ],
+      "basis": "Minimum DSCR for CONTRACTED storage — no P-factor applies to storage. Base case takes 1.20x, the conservative (higher) end of the published 1.15-1.20 band.",
+      "source": "Norton Rose Fulbright / projectfinance.law, \"Cost of Capital\" 2025 and 2026 Outlooks (the same figure in both years)",
+      "url": "https://www.projectfinance.law/publications/cost-of-capital-2026-outlook",
+      "date": "2026-01-29",
+      "attributed": "Beth Waters, MUFG: \"Storage -- where there is no P factor -- is 1.15 to 1.20 times debt service.\" (2026); \"Storage coverage is 1.15 to 1.20.\" (2025)",
+      "transfer": "Same US-panel transfer as dscr_merchant."
+    },
+    "tenor_years": {
+      "base": 7,
+      "range": [
+        7,
+        10
+      ],
+      "basis": "TOTAL legal tenor of the facility, grace period included. Base case takes 7 years, the short (conservative) end. The constraint is physical, not financial: tenor is bounded by the battery supplier warranty.",
+      "source": "Société Générale Corporate & Investment Banking, \"BESS - Emerging Asset to Essential Infrastructure\"",
+      "url": "https://wholesale.banking.societegenerale.com/en/news-insights/all-news-insights/news-details/news/bess-emerging-asset-to-essential-infrastructure/",
+      "date": "2025-06-24",
+      "attributed": "Nathalie Lemarcis and Michael De Witte, Energy Finance & Advisory, SG CIB: \"7-year to 10-year legal tenor hard mini-perms with an underlying notional tenor being constrained by the underlying warranty duration\".",
+      "transfer": "None material — European bank, European market. The same source notes longer tenors are reachable with \"a higher proportion and longer dated offtake/floor or tolling agreements\", which is the mechanism this phase quantifies in the contracted-share table."
+    },
+    "margin_bp": {
+      "base": 350,
+      "range": [
+        275,
+        350
+      ],
+      "basis": "All-in credit margin over the base rate for a MERCHANT battery asset. Base case takes 350bp, the wide (conservative) end.",
+      "source": "Norton Rose Fulbright / projectfinance.law, \"Cost of Capital: 2025 Outlook\"",
+      "url": "https://www.projectfinance.law/publications/2025/january/cost-of-capital-2025-outlook/",
+      "date": "2025-01-24",
+      "attributed": "Ralph Cho, Co-CEO, Apterra Infrastructure Capital: \"For merchant battery assets, you are looking at 275 to 350\" bp. Beth Waters (MUFG) separately: batteries carry \"about a 25 basis-point premium on margins during operations over other renewables financings\".",
+      "transfer": "US bank panel. Quoted over SOFR; applied here over 3M EURIBOR. A credit margin is not a risk-free-rate quote, so the level transfers more cleanly than the base rate does, but this is still a transfer and is NOT a Baltic quote. Note the engine's existing fixed-gearing diagnostic uses 250bp (fetch-s1.js:1636), i.e. BELOW the sourced merchant range — the diagnostic is left untouched, and the solver uses the sourced number."
+    },
+    "gearing_cap": {
+      "base": 0.6,
+      "range": [
+        0.4,
+        0.6
+      ],
+      "basis": "Maximum gearing a lender applies INDEPENDENTLY of DSCR. Base case takes 60%, the top of the published European BESS range, deliberately: a tighter cap would bind first at most configurations and hide the DSCR result, which is the thing being measured. The 40% end is reported as a sensitivity.",
+      "source": "Pexapark, \"The BESS Brief - Part 2: BESS Financing\"",
+      "url": "https://pexapark.com/blog/prmc-the-bess-brief-part-2-bess-financing/",
+      "date": "2025-07-15",
+      "attributed": "Pexapark: \"most deals today fall within the 40-60% range, rarely matching the 80-85% leverage seen in mature solar and wind.\"",
+      "transfer": "None — European market commentary on European BESS deals."
+    },
+    "merchant_share_cap": {
+      "base": [
+        0.25,
+        0.4
+      ],
+      "range": [
+        0.25,
+        0.4
+      ],
+      "basis": "The maximum MERCHANT revenue share lenders will underwrite at all. Not a model input — it is the constraint that makes the contracted-share table a financing question rather than a pricing preference. Reported, not applied, because applying it would simply declare the 0%-contracted column unfinanceable by assumption instead of showing what its cash flows support.",
+      "source": "Norton Rose Fulbright / projectfinance.law, \"Cost of Capital: 2026 Outlook\"",
+      "url": "https://www.projectfinance.law/publications/cost-of-capital-2026-outlook",
+      "date": "2026-01-29",
+      "attributed": "Ralph Cho, Apterra/Apollo: \"For solar, wind and batteries, I would limit the merchant revenue to a maximum of 25% to 30%.\" Beth Waters, MUFG: \"I am definitely not going over 40% merchant.\"",
+      "transfer": "US panel; European lenders in the same period are described as more merchant-tolerant in mature markets (Germany), so this is likely a TIGHT bound for the Baltics rather than a loose one. Direction stated, not quantified."
+    },
+    "base_rate": {
+      "base": 0.026,
+      "range": null,
+      "basis": "3-month EURIBOR, nominal. The engine's own live value, not a new assumption.",
+      "source": "ECB via the engine KV snapshot (`kv.euribor.euribor_nominal_3m`)",
+      "url": "https://www.ecb.europa.eu/stats/financial_markets_and_interest_rates/euro_short-term_rate/html/index.en.html",
+      "date": "2026-07-28",
+      "attributed": "Frozen regression fixture `tools/consultancy/fixtures/regression-kv.json`.",
+      "transfer": null
+    }
+  },
+  "base_case": {
+    "targetDscr": 2,
+    "tenorYears": 7,
+    "graceYears": 1,
+    "rate": 0.061,
+    "maxGearing": 0.6
+  },
+  "reference": {
+    "id": "dur=4h capex=mid cod=2027 scenario=base",
+    "engine_min_dscr": 0.95,
+    "engine_debt_initial": 18040000,
+    "engine_equity_irr": 0.0478,
+    "solved": {
+      "debt": 7850942.432384205,
+      "debt_dscr_implied": 7850942.432384205,
+      "debt_gearing_cap": 19680000,
+      "binding_constraint": "dscr",
+      "gearing": 0.23935800098732332,
+      "equity": 24949057.567615796,
+      "capex_net": 32800000,
+      "target_dscr": 2,
+      "rate": 0.061,
+      "grace_years": 1,
+      "tenor_years": 7,
+      "avg_life": 4.490868504242696,
+      "schedule": [
+        {
+          "yr": 1,
+          "opening_balance": 7850942.432384205,
+          "interest": 478907.4883754365,
+          "principal": 0,
+          "debt_service": 478907.4883754365,
+          "closing_balance": 7850942.432384205,
+          "cfads": 3928785.673023824,
+          "dscr": 8.20364218223265,
+          "interest_only": true,
+          "sculpt_binds": false
+        },
+        {
+          "yr": 2,
+          "opening_balance": 7850942.432384205,
+          "interest": 478907.4883754365,
+          "principal": 1357828.0116245635,
+          "debt_service": 1836735.5,
+          "closing_balance": 6493114.420759642,
+          "cfads": 3673471,
+          "dscr": 2,
+          "interest_only": false,
+          "sculpt_binds": true
+        },
+        {
+          "yr": 3,
+          "opening_balance": 6493114.420759642,
+          "interest": 396079.9796663381,
+          "principal": 1296301.520333662,
+          "debt_service": 1692381.5,
+          "closing_balance": 5196812.90042598,
+          "cfads": 3384763,
+          "dscr": 2,
+          "interest_only": false,
+          "sculpt_binds": true
+        },
+        {
+          "yr": 4,
+          "opening_balance": 5196812.90042598,
+          "interest": 317005.58692598477,
+          "principal": 1285164.4130740152,
+          "debt_service": 1602170,
+          "closing_balance": 3911648.4873519647,
+          "cfads": 3204340,
+          "dscr": 2,
+          "interest_only": false,
+          "sculpt_binds": true
+        },
+        {
+          "yr": 5,
+          "opening_balance": 3911648.4873519647,
+          "interest": 238610.55772846984,
+          "principal": 1274536.4422715302,
+          "debt_service": 1513147,
+          "closing_balance": 2637112.0450804345,
+          "cfads": 3026294,
+          "dscr": 2,
+          "interest_only": false,
+          "sculpt_binds": true
+        },
+        {
+          "yr": 6,
+          "opening_balance": 2637112.0450804345,
+          "interest": 160863.8347499065,
+          "principal": 1320134.6652500934,
+          "debt_service": 1480998.5,
+          "closing_balance": 1316977.379830341,
+          "cfads": 2961997,
+          "dscr": 2,
+          "interest_only": false,
+          "sculpt_binds": true
+        },
+        {
+          "yr": 7,
+          "opening_balance": 1316977.379830341,
+          "interest": 80335.6201696508,
+          "principal": 1316977.379830341,
+          "debt_service": 1397312.9999999919,
+          "closing_balance": 0,
+          "cfads": 2794626,
+          "dscr": 2.0000000000000115,
+          "interest_only": false,
+          "sculpt_binds": true
+        }
+      ],
+      "residual": 0,
+      "principal_repaid": 7850942.432384205,
+      "tax_circularity_binds": true,
+      "min_dscr_scheduled": 2,
+      "equity_irr": 0.047
+    }
+  },
+  "per_config": [
+    {
+      "id": "dur=2h capex=low cod=2027 scenario=base",
+      "engine_min_dscr": 2.32,
+      "solved_debt": 6985219.433960537,
+      "gearing": 0.5821016194967115,
+      "binding_constraint": "dscr",
+      "equity_irr": 0.3986,
+      "avg_life": 4.491666542517033,
+      "tax_circularity_binds": true
+    },
+    {
+      "id": "dur=2h capex=low cod=2027 scenario=conservative",
+      "engine_min_dscr": 2.11,
+      "solved_debt": 6508181.192611573,
+      "gearing": 0.5423484327176311,
+      "binding_constraint": "dscr",
+      "equity_irr": 0.3332,
+      "avg_life": 4.477778644617074,
+      "tax_circularity_binds": true
+    },
+    {
+      "id": "dur=2h capex=low cod=2027 scenario=stress",
+      "engine_min_dscr": 1.57,
+      "solved_debt": 5707193.018044336,
+      "gearing": 0.47559941817036133,
+      "binding_constraint": "dscr",
+      "equity_irr": 0.2408,
+      "avg_life": 4.41445835594824,
+      "tax_circularity_binds": true
+    },
+    {
+      "id": "dur=2h capex=low cod=2028 scenario=base",
+      "engine_min_dscr": 2.33,
+      "solved_debt": 6777895.816165483,
+      "gearing": 0.5648246513471236,
+      "binding_constraint": "dscr",
+      "equity_irr": 0.3626,
+      "avg_life": 4.52523642063416,
+      "tax_circularity_binds": true
+    },
+    {
+      "id": "dur=2h capex=low cod=2028 scenario=conservative",
+      "engine_min_dscr": 2.11,
+      "solved_debt": 6302097.185215189,
+      "gearing": 0.5251747654345991,
+      "binding_constraint": "dscr",
+      "equity_irr": 0.3045,
+      "avg_life": 4.513040523088152,
+      "tax_circularity_binds": true
+    },
+    {
+      "id": "dur=2h capex=low cod=2028 scenario=stress",
+      "engine_min_dscr": 1.57,
+      "solved_debt": 5502130.700330781,
+      "gearing": 0.45851089169423176,
+      "binding_constraint": "dscr",
+      "equity_irr": 0.215,
+      "avg_life": 4.435403692476849,
+      "tax_circularity_binds": true
+    },
+    {
+      "id": "dur=2h capex=low cod=2029 scenario=base",
+      "engine_min_dscr": 2.25,
+      "solved_debt": 6653976.706228149,
+      "gearing": 0.5544980588523457,
+      "binding_constraint": "dscr",
+      "equity_irr": 0.3392,
+      "avg_life": 4.548990698050287,
+      "tax_circularity_binds": true
+    },
+    {
+      "id": "dur=2h capex=low cod=2029 scenario=conservative",
+      "engine_min_dscr": 2.12,
+      "solved_debt": 6178655.868708574,
+      "gearing": 0.5148879890590479,
+      "binding_constraint": "dscr",
+      "equity_irr": 0.2857,
+      "avg_life": 4.537816757895753,
+      "tax_circularity_binds": true
+    },
+    {
+      "id": "dur=2h capex=low cod=2029 scenario=stress",
+      "engine_min_dscr": 1.57,
+      "solved_debt": 5302767.5917394385,
+      "gearing": 0.44189729931161986,
+      "binding_constraint": "dscr",
+      "equity_irr": 0.1989,
+      "avg_life": 4.451107752235652,
+      "tax_circularity_binds": true
+    },
+    {
+      "id": "dur=2h capex=mid cod=2027 scenario=base",
+      "engine_min_dscr": 1.76,
+      "solved_debt": 7171570.579428408,
+      "gearing": 0.4372908889895371,
+      "binding_constraint": "dscr",
+      "equity_irr": 0.2036,
+      "avg_life": 4.495991927268104,
+      "tax_circularity_binds": true
+    },
+    {
+      "id": "dur=2h capex=mid cod=2027 scenario=conservative",
+      "engine_min_dscr": 1.6,
+      "solved_debt": 6694532.33807983,
+      "gearing": 0.4082031913463311,
+      "binding_constraint": "dscr",
+      "equity_irr": 0.1757,
+      "avg_life": 4.4827988351264905,
+      "tax_circularity_binds": true
+    },
+    {
+      "id": "dur=2h capex=mid cod=2027 scenario=stress",
+      "engine_min_dscr": 1.2,
+      "solved_debt": 5893544.1635124115,
+      "gearing": 0.35936244899465924,
+      "binding_constraint": "dscr",
+      "equity_irr": 0.121,
+      "avg_life": 4.4221629959361675,
+      "tax_circularity_binds": true
+    },
+    {
+      "id": "dur=2h capex=mid cod=2028 scenario=base",
+      "engine_min_dscr": 1.76,
+      "solved_debt": 6964246.961633308,
+      "gearing": 0.42464920497764075,
+      "binding_constraint": "dscr",
+      "equity_irr": 0.1912,
+      "avg_life": 4.528792299241196,
+      "tax_circularity_binds": true
+    },
+    {
+      "id": "dur=2h capex=mid cod=2028 scenario=conservative",
+      "engine_min_dscr": 1.6,
+      "solved_debt": 6488448.330683468,
+      "gearing": 0.3956370933343578,
+      "binding_constraint": "dscr",
+      "equity_irr": 0.1648,
+      "avg_life": 4.517207426311591,
+      "tax_circularity_binds": true
+    },
+    {
+      "id": "dur=2h capex=mid cod=2028 scenario=stress",
+      "engine_min_dscr": 1.2,
+      "solved_debt": 5688481.845798402,
+      "gearing": 0.3468586491340489,
+      "binding_constraint": "dscr",
+      "equity_irr": 0.1091,
+      "avg_life": 4.442699918377185,
+      "tax_circularity_binds": true
+    },
+    {
+      "id": "dur=2h capex=mid cod=2029 scenario=base",
+      "engine_min_dscr": 1.7,
+      "solved_debt": 6840327.8516962705,
+      "gearing": 0.417093161688797,
+      "binding_constraint": "dscr",
+      "equity_irr": 0.1827,
+      "avg_life": 4.551963856708859,
+      "tax_circularity_binds": true
+    },
+    {
+      "id": "dur=2h capex=mid cod=2029 scenario=conservative",
+      "engine_min_dscr": 1.6,
+      "solved_debt": 6365007.014176354,
+      "gearing": 0.38811018379124107,
+      "binding_constraint": "dscr",
+      "equity_irr": 0.1573,
+      "avg_life": 4.541339088110919,
+      "tax_circularity_binds": true
+    },
+    {
+      "id": "dur=2h capex=mid cod=2029 scenario=stress",
+      "engine_min_dscr": 1.21,
+      "solved_debt": 5489118.737207877,
+      "gearing": 0.3347023620248706,
+      "binding_constraint": "dscr",
+      "equity_irr": 0.1014,
+      "avg_life": 4.458135834684239,
+      "tax_circularity_binds": true
+    },
+    {
+      "id": "dur=2h capex=high cod=2027 scenario=base",
+      "engine_min_dscr": 1.17,
+      "solved_debt": 7586625.403426234,
+      "gearing": 0.28956585509260435,
+      "binding_constraint": "dscr",
+      "equity_irr": 0.0821,
+      "avg_life": 4.504862048524379,
+      "tax_circularity_binds": true
+    },
+    {
+      "id": "dur=2h capex=high cod=2027 scenario=conservative",
+      "engine_min_dscr": 1.05,
+      "solved_debt": 7084157.6064364575,
+      "gearing": 0.27038769490215486,
+      "binding_constraint": "dscr",
+      "equity_irr": 0.0663,
+      "avg_life": 4.4845309410121015,
+      "tax_circularity_binds": true
+    },
+    {
+      "id": "dur=2h capex=high cod=2027 scenario=stress",
+      "engine_min_dscr": 0.75,
+      "solved_debt": 6169192.00278386,
+      "gearing": 0.23546534361770458,
+      "binding_constraint": "dscr",
+      "equity_irr": 0.0226,
+      "avg_life": 4.401447105676349,
+      "tax_circularity_binds": true
+    },
+    {
+      "id": "dur=2h capex=high cod=2028 scenario=base",
+      "engine_min_dscr": 1.17,
+      "solved_debt": 7379301.78563123,
+      "gearing": 0.28165273990958895,
+      "binding_constraint": "dscr",
+      "equity_irr": 0.0776,
+      "avg_life": 4.536066745550307,
+      "tax_circularity_binds": true
+    },
+    {
+      "id": "dur=2h capex=high cod=2028 scenario=conservative",
+      "engine_min_dscr": 1.05,
+      "solved_debt": 6863577.842028293,
+      "gearing": 0.261968619924744,
+      "binding_constraint": "dscr",
+      "equity_irr": 0.062,
+      "avg_life": 4.515482986837743,
+      "tax_circularity_binds": true
+    },
+    {
+      "id": "dur=2h capex=high cod=2028 scenario=stress",
+      "engine_min_dscr": 0.76,
+      "solved_debt": 5925338.735236335,
+      "gearing": 0.22615796699375323,
+      "binding_constraint": "dscr",
+      "equity_irr": 0.0166,
+      "avg_life": 4.423724205202478,
+      "tax_circularity_binds": true
+    },
+    {
+      "id": "dur=2h capex=high cod=2029 scenario=base",
+      "engine_min_dscr": 1.13,
+      "solved_debt": 7255382.67569383,
+      "gearing": 0.27692300288907745,
+      "binding_constraint": "dscr",
+      "equity_irr": 0.0745,
+      "avg_life": 4.558036984743605,
+      "tax_circularity_binds": true
+    },
+    {
+      "id": "dur=2h capex=high cod=2029 scenario=conservative",
+      "engine_min_dscr": 1.05,
+      "solved_debt": 6724826.61815455,
+      "gearing": 0.2566727716852882,
+      "binding_constraint": "dscr",
+      "equity_irr": 0.0589,
+      "avg_life": 4.539457166627404,
+      "tax_circularity_binds": true
+    },
+    {
+      "id": "dur=2h capex=high cod=2029 scenario=stress",
+      "engine_min_dscr": 0.76,
+      "solved_debt": 5688388.12144877,
+      "gearing": 0.21711405043697596,
+      "binding_constraint": "dscr",
+      "equity_irr": 0.0126,
+      "avg_life": 4.440391983887486,
+      "tax_circularity_binds": true
+    },
+    {
+      "id": "dur=4h capex=low cod=2027 scenario=base",
+      "engine_min_dscr": 1.29,
+      "solved_debt": 7635101.190419845,
+      "gearing": 0.3181292162674936,
+      "binding_constraint": "dscr",
+      "equity_irr": 0.1033,
+      "avg_life": 4.502913199251212,
+      "tax_circularity_binds": true
+    },
+    {
+      "id": "dur=4h capex=low cod=2027 scenario=conservative",
+      "engine_min_dscr": 1.17,
+      "solved_debt": 7144888.880325198,
+      "gearing": 0.29770370334688323,
+      "binding_constraint": "dscr",
+      "equity_irr": 0.0866,
+      "avg_life": 4.490838267239274,
+      "tax_circularity_binds": true
+    },
+    {
+      "id": "dur=4h capex=low cod=2027 scenario=stress",
+      "engine_min_dscr": 0.85,
+      "solved_debt": 6282075.241676467,
+      "gearing": 0.26175313506985276,
+      "binding_constraint": "dscr",
+      "equity_irr": 0.0427,
+      "avg_life": 4.413451026882697,
+      "tax_circularity_binds": true
+    },
+    {
+      "id": "dur=4h capex=low cod=2028 scenario=base",
+      "engine_min_dscr": 1.29,
+      "solved_debt": 7424866.006693719,
+      "gearing": 0.30936941694557163,
+      "binding_constraint": "dscr",
+      "equity_irr": 0.098,
+      "avg_life": 4.534523417479553,
+      "tax_circularity_binds": true
+    },
+    {
+      "id": "dur=4h capex=low cod=2028 scenario=conservative",
+      "engine_min_dscr": 1.18,
+      "solved_debt": 6935831.142955976,
+      "gearing": 0.28899296428983234,
+      "binding_constraint": "dscr",
+      "equity_irr": 0.0816,
+      "avg_life": 4.523957472387271,
+      "tax_circularity_binds": true
+    },
+    {
+      "id": "dur=4h capex=low cod=2028 scenario=stress",
+      "engine_min_dscr": 0.85,
+      "solved_debt": 6050646.677884743,
+      "gearing": 0.2521102782451976,
+      "binding_constraint": "dscr",
+      "equity_irr": 0.0361,
+      "avg_life": 4.431458657860151,
+      "tax_circularity_binds": true
+    },
+    {
+      "id": "dur=4h capex=low cod=2029 scenario=base",
+      "engine_min_dscr": 1.25,
+      "solved_debt": 7299388.0388526125,
+      "gearing": 0.3041411682855255,
+      "binding_constraint": "dscr",
+      "equity_irr": 0.0943,
+      "avg_life": 4.557091146659636,
+      "tax_circularity_binds": true
+    },
+    {
+      "id": "dur=4h capex=low cod=2029 scenario=conservative",
+      "engine_min_dscr": 1.18,
+      "solved_debt": 6810747.517194158,
+      "gearing": 0.2837811465497566,
+      "binding_constraint": "dscr",
+      "equity_irr": 0.0782,
+      "avg_life": 4.5474124257111725,
+      "tax_circularity_binds": true
+    },
+    {
+      "id": "dur=4h capex=low cod=2029 scenario=stress",
+      "engine_min_dscr": 0.85,
+      "solved_debt": 5821449.763935562,
+      "gearing": 0.24256040683064842,
+      "binding_constraint": "dscr",
+      "equity_irr": 0.0316,
+      "avg_life": 4.445045837963225,
+      "tax_circularity_binds": true
+    },
+    {
+      "id": "dur=4h capex=mid cod=2027 scenario=base",
+      "engine_min_dscr": 0.95,
+      "solved_debt": 7850942.432384205,
+      "gearing": 0.23935800098732332,
+      "binding_constraint": "dscr",
+      "equity_irr": 0.047,
+      "avg_life": 4.490868504242696,
+      "tax_circularity_binds": true
+    },
+    {
+      "id": "dur=4h capex=mid cod=2027 scenario=conservative",
+      "engine_min_dscr": 0.86,
+      "solved_debt": 7269944.986231689,
+      "gearing": 0.22164466421438078,
+      "binding_constraint": "dscr",
+      "equity_irr": 0.0329,
+      "avg_life": 4.474685264514824,
+      "tax_circularity_binds": true
+    },
+    {
+      "id": "dur=4h capex=mid cod=2027 scenario=stress",
+      "engine_min_dscr": 0.62,
+      "solved_debt": 6315200.323799285,
+      "gearing": 0.19253659523778308,
+      "binding_constraint": "dscr",
+      "equity_irr": -0.0076,
+      "avg_life": 4.402803875189241,
+      "tax_circularity_binds": true
+    },
+    {
+      "id": "dur=4h capex=mid cod=2028 scenario=base",
+      "engine_min_dscr": 0.96,
+      "solved_debt": 7600414.839507972,
+      "gearing": 0.23171996461914549,
+      "binding_constraint": "dscr",
+      "equity_irr": 0.0436,
+      "avg_life": 4.527191337735194,
+      "tax_circularity_binds": true
+    },
+    {
+      "id": "dur=4h capex=mid cod=2028 scenario=conservative",
+      "engine_min_dscr": 0.86,
+      "solved_debt": 7020825.99028829,
+      "gearing": 0.214049572874643,
+      "binding_constraint": "dscr",
+      "equity_irr": 0.0295,
+      "avg_life": 4.513015517707612,
+      "tax_circularity_binds": true
+    },
+    {
+      "id": "dur=4h capex=mid cod=2028 scenario=stress",
+      "engine_min_dscr": 0.62,
+      "solved_debt": 6066174.899080897,
+      "gearing": 0.18494435667929562,
+      "binding_constraint": "dscr",
+      "equity_irr": -0.0123,
+      "avg_life": 4.425659421481521,
+      "tax_circularity_binds": false
+    },
+    {
+      "id": "dur=4h capex=mid cod=2029 scenario=base",
+      "engine_min_dscr": 0.92,
+      "solved_debt": 7450795.801798153,
+      "gearing": 0.2271584085914071,
+      "binding_constraint": "dscr",
+      "equity_irr": 0.0411,
+      "avg_life": 4.553342953112775,
+      "tax_circularity_binds": true
+    },
+    {
+      "id": "dur=4h capex=mid cod=2029 scenario=conservative",
+      "engine_min_dscr": 0.86,
+      "solved_debt": 6871692.6698803045,
+      "gearing": 0.2095028253012288,
+      "binding_constraint": "dscr",
+      "equity_irr": 0.0273,
+      "avg_life": 4.540424681163057,
+      "tax_circularity_binds": false
+    },
+    {
+      "id": "dur=4h capex=mid cod=2029 scenario=stress",
+      "engine_min_dscr": 0.62,
+      "solved_debt": 5825993.023100909,
+      "gearing": 0.17762173850917404,
+      "binding_constraint": "dscr",
+      "equity_irr": -0.0153,
+      "avg_life": 4.4431391283488315,
+      "tax_circularity_binds": false
+    },
+    {
+      "id": "dur=4h capex=high cod=2027 scenario=base",
+      "engine_min_dscr": 0.6,
+      "solved_debt": 7850942.432383586,
+      "gearing": 0.1498271456561753,
+      "binding_constraint": "dscr",
+      "equity_irr": -0.0158,
+      "avg_life": 4.49086850424242,
+      "tax_circularity_binds": false
+    },
+    {
+      "id": "dur=4h capex=high cod=2027 scenario=conservative",
+      "engine_min_dscr": 0.54,
+      "solved_debt": 7269944.9862320535,
+      "gearing": 0.1387394081341995,
+      "binding_constraint": "dscr",
+      "equity_irr": -0.0268,
+      "avg_life": 4.474685264515001,
+      "tax_circularity_binds": false
+    },
+    {
+      "id": "dur=4h capex=high cod=2027 scenario=stress",
+      "engine_min_dscr": 0.39,
+      "solved_debt": 6315200.323799552,
+      "gearing": 0.12051909014884642,
+      "binding_constraint": "dscr",
+      "equity_irr": -0.0639,
+      "avg_life": 4.402803875189392,
+      "tax_circularity_binds": false
+    },
+    {
+      "id": "dur=4h capex=high cod=2028 scenario=base",
+      "engine_min_dscr": 0.6,
+      "solved_debt": 7600414.839507863,
+      "gearing": 0.1450460847234325,
+      "binding_constraint": "dscr",
+      "equity_irr": -0.0176,
+      "avg_life": 4.527191337735144,
+      "tax_circularity_binds": false
+    },
+    {
+      "id": "dur=4h capex=high cod=2028 scenario=conservative",
+      "engine_min_dscr": 0.54,
+      "solved_debt": 7020825.99028837,
+      "gearing": 0.13398522882229713,
+      "binding_constraint": "dscr",
+      "equity_irr": -0.0285,
+      "avg_life": 4.513015517707652,
+      "tax_circularity_binds": false
+    },
+    {
+      "id": "dur=4h capex=high cod=2028 scenario=stress",
+      "engine_min_dscr": 0.39,
+      "solved_debt": 6066174.899080597,
+      "gearing": 0.11576669654733963,
+      "binding_constraint": "dscr",
+      "equity_irr": -0.0665,
+      "avg_life": 4.425659421481346,
+      "tax_circularity_binds": false
+    },
+    {
+      "id": "dur=4h capex=high cod=2029 scenario=base",
+      "engine_min_dscr": 0.58,
+      "solved_debt": 7450795.801797835,
+      "gearing": 0.14219075957629457,
+      "binding_constraint": "dscr",
+      "equity_irr": -0.0186,
+      "avg_life": 4.553342953112628,
+      "tax_circularity_binds": false
+    },
+    {
+      "id": "dur=4h capex=high cod=2029 scenario=conservative",
+      "engine_min_dscr": 0.54,
+      "solved_debt": 6871692.6698805485,
+      "gearing": 0.13113917308932344,
+      "binding_constraint": "dscr",
+      "equity_irr": -0.0294,
+      "avg_life": 4.54042468116318,
+      "tax_circularity_binds": false
+    },
+    {
+      "id": "dur=4h capex=high cod=2029 scenario=stress",
+      "engine_min_dscr": 0.39,
+      "solved_debt": 5825993.023100432,
+      "gearing": 0.1111830729599319,
+      "binding_constraint": "dscr",
+      "equity_irr": -0.0683,
+      "avg_life": 4.44313912834854,
+      "tax_circularity_binds": false
+    }
+  ],
+  "dscr_sensitivity": [
+    {
+      "target": 1.5,
+      "debt": 10467923.243178938,
+      "gearing": 0.319144001316431,
+      "equity_irr": 0.0464,
+      "binding_constraint": "dscr",
+      "configs_below_30pct_gearing": 16,
+      "median_gearing": 0.37069012209696
+    },
+    {
+      "target": 1.75,
+      "debt": 8972505.637010384,
+      "gearing": 0.27355200112836536,
+      "equity_irr": 0.0468,
+      "binding_constraint": "dscr",
+      "configs_below_30pct_gearing": 26,
+      "median_gearing": 0.3171212212677403
+    },
+    {
+      "target": 2,
+      "debt": 7850942.432384205,
+      "gearing": 0.23935800098732332,
+      "equity_irr": 0.047,
+      "binding_constraint": "dscr",
+      "configs_below_30pct_gearing": 33,
+      "median_gearing": 0.27692300288907745
+    }
+  ],
+  "contracted": {
+    "floor_eur_mw_yr": 116000,
+    "term_years": 10,
+    "mode": "blended",
+    "rows": [
+      {
+        "scenario": "base",
+        "contracted_share": 0,
+        "dscr_target_blended": 2,
+        "debt_measured_at_2x": 7850942.432384205,
+        "debt_with_blend": 7850942.432384205,
+        "gearing": 0.23935800098732332,
+        "binding_constraint": "dscr",
+        "equity_irr": 0.047,
+        "net_revenue_20yr": 101806406,
+        "floor_binds_years": 0,
+        "floor_lever_vs_revenue": null
+      },
+      {
+        "scenario": "base",
+        "contracted_share": 0.25,
+        "dscr_target_blended": 1.8,
+        "debt_measured_at_2x": 7865624.616283912,
+        "debt_with_blend": 8739582.906982334,
+        "gearing": 0.26645069838360774,
+        "binding_constraint": "dscr",
+        "equity_irr": 0.0473,
+        "net_revenue_20yr": 101952518,
+        "floor_binds_years": 6,
+        "floor_lever_vs_revenue": 1.3030410189000823
+      },
+      {
+        "scenario": "base",
+        "contracted_share": 0.5,
+        "dscr_target_blended": 1.6,
+        "debt_measured_at_2x": 7880306.844248367,
+        "debt_with_blend": 9850383.555310693,
+        "gearing": 0.30031657180825283,
+        "binding_constraint": "dscr",
+        "equity_irr": 0.0476,
+        "net_revenue_20yr": 102098631,
+        "floor_binds_years": 6,
+        "floor_lever_vs_revenue": 1.3030385152289978
+      },
+      {
+        "scenario": "conservative",
+        "contracted_share": 0,
+        "dscr_target_blended": 2,
+        "debt_measured_at_2x": 7269944.986231689,
+        "debt_with_blend": 7269944.986231689,
+        "gearing": 0.22164466421438078,
+        "binding_constraint": "dscr",
+        "equity_irr": 0.0329,
+        "net_revenue_20yr": 98673928,
+        "floor_binds_years": 0,
+        "floor_lever_vs_revenue": null
+      },
+      {
+        "scenario": "conservative",
+        "contracted_share": 0.25,
+        "dscr_target_blended": 1.8,
+        "debt_measured_at_2x": 7340548.244788601,
+        "debt_with_blend": 8156164.71643209,
+        "gearing": 0.24866355842780763,
+        "binding_constraint": "dscr",
+        "equity_irr": 0.034,
+        "net_revenue_20yr": 99099118,
+        "floor_binds_years": 7,
+        "floor_lever_vs_revenue": 2.253787657108795
+      },
+      {
+        "scenario": "conservative",
+        "contracted_share": 0.5,
+        "dscr_target_blended": 1.6,
+        "debt_measured_at_2x": 7411151.943348795,
+        "debt_with_blend": 9263939.929186925,
+        "gearing": 0.282437192963016,
+        "binding_constraint": "dscr",
+        "equity_irr": 0.035,
+        "net_revenue_20yr": 99524307,
+        "floor_binds_years": 7,
+        "floor_lever_vs_revenue": 2.2537973303128007
+      },
+      {
+        "scenario": "stress",
+        "contracted_share": 0,
+        "dscr_target_blended": 2,
+        "debt_measured_at_2x": 6315200.323799285,
+        "debt_with_blend": 6315200.323799285,
+        "gearing": 0.19253659523778308,
+        "binding_constraint": "dscr",
+        "equity_irr": -0.0076,
+        "net_revenue_20yr": 93632061,
+        "floor_binds_years": 0,
+        "floor_lever_vs_revenue": null
+      },
+      {
+        "scenario": "stress",
+        "contracted_share": 0.25,
+        "dscr_target_blended": 1.8,
+        "debt_measured_at_2x": 6466674.738291476,
+        "debt_with_blend": 7185194.153657403,
+        "gearing": 0.21906079736760375,
+        "binding_constraint": "dscr",
+        "equity_irr": -0.0049,
+        "net_revenue_20yr": 94492281,
+        "floor_binds_years": 8,
+        "floor_lever_vs_revenue": 2.610761493248131
+      },
+      {
+        "scenario": "stress",
+        "contracted_share": 0.5,
+        "dscr_target_blended": 1.6,
+        "debt_measured_at_2x": 6618149.2464524815,
+        "debt_with_blend": 8272686.5580658335,
+        "gearing": 0.2522160535995681,
+        "binding_constraint": "dscr",
+        "equity_irr": -0.0025,
+        "net_revenue_20yr": 95352500,
+        "floor_binds_years": 8,
+        "floor_lever_vs_revenue": 2.6107638179677926
+      }
+    ]
+  }
+}
