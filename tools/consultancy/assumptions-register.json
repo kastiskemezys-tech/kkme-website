@@ -671,7 +671,7 @@
       "label": "Trading realisation — prior assumption (superseded)",
       "value": 0.85,
       "unit": "x of perfect foresight",
-      "source": "Perfect-foresight discount on sort-and-dispatch capture; industry range 0.70-0.90, Capalo AI claims 0.85-0.90. Carried 2026-03 → 2026-07-28, never measured.",
+      "source": "Perfect-foresight discount on sort-and-dispatch capture; industry range 0.70-0.90, with a named Baltic optimiser vendor claiming 0.85-0.90. Carried 2026-03 → 2026-07-28, never measured. (Vendor name redacted 2026-08-03: that vendor is now a counterparty under NDA, and naming it in a tracked file is a disclosure regardless of the claim's own public status. See scripts/nda-gate.sh.)",
       "sensitivity_range": [
         0.78,
         0.88
