@@ -4890,6 +4890,14 @@ async function readSwingSeries(env) {
     const rows = raw ? JSON.parse(raw) : [];
     return dedupeByDateKeepLast(rows)
       .filter(r => r && r.swing != null)
+      // Caught post-deploy, and it is the mirror image of the bug this phase
+      // fixed: `s1_capture_history` holds 400 market days (2025-05-02 →), so
+      // an unwindowed read published `swing_stats_90d` at n = 400. Where
+      // `days_of_data` used to overstate the window, this understated it —
+      // both are a label that does not describe its own data (rule #2). The
+      // field says 90 days, so it gets the last 90 MARKET DAYS, matching
+      // MAX_HISTORY and the spread series it sits beside.
+      .slice(-MAX_HISTORY)
       .map(r => ({ date: r.date, lt_swing: r.swing }));
   } catch {
     return [];

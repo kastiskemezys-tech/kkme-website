@@ -134,6 +134,26 @@ describe('rollingStats counts distinct dates, not rows', () => {
     expect(stats.n).toBe(30);
     expect(stats.days_of_data).toBe(30);
   });
+
+  it('a field named _90d is windowed to 90 market days, however deep the archive', async () => {
+    // Caught post-deploy on the live payload: s1_capture_history holds 400
+    // market days (2025-05-02 onward), so an unwindowed read published
+    // swing_stats_90d at n = 400. The mirror image of B-056 — a label that
+    // UNDERSTATES its window rather than overstating it, and equally a
+    // label that does not describe its own data (rule #2).
+    store.set('s1_capture_history', JSON.stringify(captureHistory(400)));
+    const res = await (worker as Any).fetch(new Request('https://x.kkme.eu/s1/history'), makeEnv(), ctx);
+    await res.json();
+
+    const series = dedupeByDateKeepLast(JSON.parse(store.get('s1_capture_history') as string))
+      .filter((r: Any) => r.swing != null)
+      .slice(-90)
+      .map((r: Any) => ({ date: r.date, lt_swing: r.swing }));
+    const stats = rollingStats(series, 'lt_swing');
+
+    expect(stats.n).toBe(90);
+    expect(stats.days_of_data).toBe(90);
+  });
 });
 
 describe('the two series have different sources, and say so in n', () => {
