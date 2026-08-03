@@ -18,6 +18,7 @@
  */
 
 import { createHash } from 'node:crypto';
+import { execSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadEngine, HERE } from './engine.mjs';
@@ -127,14 +128,33 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const matrix = await runMatrix();
 
   if (argv.includes('--capture')) {
+    // Phase 39.2 — `_note` used to be a hardcoded paragraph naming a date and a
+    // reason ("Recaptured 2026-07-28 for the batch-3 Part 0 cutover"). Every
+    // later recapture would have rewritten the numbers and kept the sentence,
+    // shipping a provenance claim about a capture that never happened — rule #2
+    // and B12's fourth property: a label asserting where or when a value came
+    // from must be COMPUTED, not pre-written prose that outlives its premise.
+    //
+    // The reason is now an argument the recapturing session must supply, and
+    // the SHA is read from git rather than typed.
+    const reasonIdx = argv.indexOf('--reason');
+    const reason = reasonIdx >= 0 ? argv[reasonIdx + 1] : null;
+    if (!reason) {
+      console.error('refusing to capture without --reason "<why this baseline is being moved>"');
+      console.error('a baseline whose movement has no recorded reason cannot be audited later');
+      process.exit(2);
+    }
+    let sha = 'unknown';
+    try {
+      sha = execSync('git rev-parse HEAD', { cwd: HERE, encoding: 'utf8' }).trim();
+    } catch { /* leave 'unknown' — never invent a SHA (B1) */ }
     const baseline = {
       _note:
         'Public /revenue regression baseline. Hash of computeRevenueV7 output ' +
         '(timestamp stripped) over every public parameter combination, against the ' +
-        'frozen KV fixture. Any change to this file means the public site moved. ' +
-        'Recaptured 2026-07-28 for the batch-3 Part 0 measured-value cutover — the ' +
-        'first deliberate movement of this baseline since it was created; see the ' +
-        'batch-3 handover for the quantified public delta on all 54 configurations.',
+        'frozen KV fixture. Any change to this file means the public site moved.',
+      represents_sha: sha,
+      captured_reason: reason,
       captured_at: new Date().toISOString(),
       fixture: 'fixtures/regression-kv.json',
       hashes: Object.fromEntries(Object.entries(matrix).map(([id, v]) => [id, v.hash])),

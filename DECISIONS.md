@@ -3595,3 +3595,97 @@ disclosure. Numeric needles are now matched at NUMBER boundaries; name needles s
 substring-matched, because a name inside longer text *is* the disclosure. **The needle was not
 weakened** — proven by control: the exact value still fires, the longer value does not. Both
 controls run, per B11.
+
+---
+
+# Overnight run 2026-08-03/04 — autonomous decision log
+
+Operator asleep and unreachable. Runner: `docs/phases/_overnight-2026-08-03-runner.md`.
+Standing rules in force: one branch and one PR per item, no merges and no deploys
+except item 1, no public number moves, a blocked item is a completed item,
+timeboxes are real, every gate proven by inject-then-revert.
+
+## 39.2 (item 1) · Pause A — four questions
+
+**(a) Which premises are HYPOTHESIS vs verified.**
+
+*Verified at execution time, with the command output in the session:*
+energy-charts.info is down NOW (`HTTP 503`, HTML body, 2026-08-03T16:36Z) — so the
+alert's premise is live, not stale. `s1_capture` last wrote 08:00Z against an `s1`
+that wrote 16:00Z, i.e. capture missed the 12:00Z and 16:00Z ticks: two consecutive
+failures, ongoing. S4 last wrote `2026-08-03T08:01:04.653Z`, same two ticks missed.
+The S4 ArcGIS source answers HTTP 200 in 1.07s from this machine with the
+`Kaupikliai` row present and `free_mw` matching the stale KV value — so the source
+publishes and the worker-side path is what fails.
+
+*Prompt premise CORRECTED (A1/A4).* "Capture is computed from day-ahead prices we
+already hold from a second source in the same request" is true of the DATA and false
+of the CODE. Two measured reasons, both primary-source: (1) A44 for LT is curveType
+`A03`, which omits positions whose price repeats — the 2026-08-03 document declares
+96 quarter-hours and carries 94 Points, and `extractPrices` ignores `<position>`, so
+92 of its 94 values land at the wrong time; (2) a UTC-bounded request returns whole
+CET/CEST market days, so the array is 190 entries spanning two days. Control: Elering's
+independent NPS series for the same window agrees with the forward-filled
+reconstruction 96/96 and with the flat scrape 2/94 (B11 — a known-good control, not a
+self-comparison).
+
+*Prompt premise PARTLY FALSE.* "Three are real failures; one is the fleet digest
+working correctly." There are more than three. S3's **scrape** is failing live
+(`AbortError` at 16:00:28Z) independently of the enrichment parse failure the alert
+named, and S8 last wrote 09:00:49Z against an hourly cron. Neither was alerted.
+
+*HYPOTHESIS, not established here:* that the shared-invocation connection budget is
+what starves S1-capture/S4/S8 on the same ticks. The pattern fits and 38.1 already
+filed it as B-057; this phase does not attempt it and does not claim it.
+
+**(b) What consumes what this changes.** `computeCapture` → `s1_capture`,
+`s1_capture_history`, the embedded `s1.capture` summary, `/read`, `/s1/capture`, and
+the S1 card's hero €/MWh. The fallback fires only when the primary throws, so the
+healthy path is untouched: proven by `/revenue` 54/54 byte-identical against a clean
+worktree of 3a1f588. `notifyTelegram`'s signature changed from void to a result
+object — every existing caller ignores the return value, so no caller changed
+behaviour. `/health` gains an `alerting` block and a `degraded` flag; `all_fresh` now
+also requires `degraded !== true`, which is a deliberate tightening, not a regression.
+
+**(c) What fails silently in what this touches.** Before: a capture failure (the S1
+card's hero number) was invisible for up to 12h; an S4 failure for up to 24h, which
+is longer than a same-day outage lasts, so the staleness surface structurally cannot
+see one — only the failing tick can, and it was reporting to `console.error`. S3
+wrote its FAILURE payload to KV, which reset its own staleness clock, so s3 could
+never age past its threshold however long the scrape stayed broken (B12: the damage
+disabling its own detector while the surface reassures). And `notifyTelegram`
+discarded its send result, so a revoked bot token would have silenced the channel
+with nothing to say so. All four now speak; the alerter's own liveness is on
+`/health` and in the daily digest.
+
+**(d) At which layer and time success is verified.** Unit layer: 2314/2314, with nine
+inject-then-revert proofs on the real mechanisms (`scripts/_phase-39-2-inject-revert.sh`)
+— every gate went red with its mechanism broken and green on revert. Public-payload
+layer: `/revenue` 54/54 byte-identical vs a clean worktree, never a stash (C6).
+Route layer, post-deploy: `/health` polled to two-consecutive-agreement, because the
+first read after a deploy can come from an edge that has not caught up (C8). The
+capture fallback's real-world proof is time-bound and stated as such: it can only
+assemble a complete UTC day after tomorrow's auction publishes (~11:00Z), so it is
+available on the 12/16/20Z ticks and declines on 00/04/08Z. That is an availability
+gap, not an equivalence gap, and it returns null rather than a short day.
+
+## 39.2 · Decision 1 (NEEDS SIGNATURE) — `extractPrices` left broken on purpose
+
+The A03 and two-TimeSeries defects above are not confined to the capture path. Every
+ENTSO-E consumer in the worker calls `extractPrices`, and `computeS1` treats its
+190-entry return as one day. Live consequence, measured 2026-08-03:
+
+| published field | now | with the day parsed correctly |
+|---|---|---|
+| `lt_avg_eur_mwh` | 75.43 | 65.32 (Elering, same day) |
+| `lt_hours` | 190 | 96 |
+| `lt_peak_hour_utc` | 9 | recomputed from a 96-slot day |
+| `lt_hourly_24` | 24 buckets of ~8 quarter-hours spanning two days | 24 buckets of 4 |
+| `intraday_capture`, `bess_net_capture`, `p_high_avg`, `p_low_avg` | top/bottom 4 of 190 ≈ one hour across two days | 4h within one day |
+
+Fixing it MOVES PUBLISHED NUMBERS, which standing rule #2 forbids tonight. So it is
+scoped, evidenced and stopped rather than done. **Recommendation: take it as its own
+phase with a captured pre-state (C3), not as a rider on anything.** The correct
+parser already exists, is exported and is under test (`parseA44Periods`,
+`pricesForUtcDay`) — the remaining work is the cutover and the delta measurement, not
+the algorithm.
