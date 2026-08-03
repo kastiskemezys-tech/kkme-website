@@ -2236,8 +2236,13 @@ function computeRevenueV7(params, kv) {
   const physical_arb_share = computeEffectiveArbPct(kv, sc);
   // ── Phase 38.8: the cost stack, behind a flag defaulting to CURRENT ────────
   //
-  // DEFAULT IS 'current'. Nothing changes for any caller until the operator
-  // signs. `/revenue` does not read it from the query string.
+  // DEFAULT IS EVERY LAYER ON (Phase 38.8a, operator-signed). The stack it
+  // replaces was authored from market hearsay; this one is contracted structure
+  // with a Nord Pool primary source, a corroborated TSO tariff and two declared
+  // bands. Leaving a better-evidenced stack switched off is its own wrong number.
+  //
+  // `'current'` remains reachable so the pre-38.8a basis stays reproducible for
+  // comparison. `/revenue` does not read this from the query string.
   //
   // The five defects are INDEPENDENT TOGGLES, not one switch, so each one's
   // contribution to the delta is measurable on its own rather than arriving
@@ -2251,12 +2256,22 @@ function computeRevenueV7(params, kv) {
   //   pmc       Nord Pool variable fees, on both legs
   //   aux       standby auxiliary load during idle hours
   const CS_LAYERS = ['fee_rate', 'fee_base', 'brp', 'pmc', 'aux'];
+  const COST_STACK_DEFAULT = CS_LAYERS;  // 38.8a — the flip
   const cs_raw = params.cost_stack;
   const cs_on = (() => {
     if (cs_raw === 'all') return new Set(CS_LAYERS);
-    if (Array.isArray(cs_raw)) return new Set(cs_raw.filter(x => CS_LAYERS.includes(x)));
+    if (cs_raw === 'current') return new Set();
+    // An array selects exactly those layers — but only if at least one name is
+    // real. An array of typos falls through to the default rather than silently
+    // restoring the pre-38.8a numbers, which is the failure mode that matters:
+    // the old basis must never be reachable by accident, only by asking for it.
+    if (Array.isArray(cs_raw)) {
+      const picked = cs_raw.filter(x => CS_LAYERS.includes(x));
+      if (picked.length) return new Set(picked);
+      return new Set(COST_STACK_DEFAULT);
+    }
     if (typeof cs_raw === 'string' && CS_LAYERS.includes(cs_raw)) return new Set([cs_raw]);
-    return new Set();
+    return new Set(COST_STACK_DEFAULT);
   })();
   const cs = (layer) => cs_on.has(layer);
 
@@ -3026,7 +3041,20 @@ function computeRevenueV7(params, kv) {
           months: pcfg.operational_months_y1,
           fraction: Math.round(op_frac_y1 * 10000) / 10000,
           pro_rated: ['rev_bal', 'rev_trd', 'revenue_floor', 'opex'],
-          not_pro_rated: ['brp_fee (fixed annual platform fee)', 'degradation (full-year ageing assumed)'],
+          // Phase 38.8a: `brp_fee` LEFT this list. It was a fixed annual
+          // platform fee, which genuinely does not pro-rate, and DECISIONS A4
+          // recorded not pro-rating it as the conservative choice. It is now a
+          // volume-based TSO charge on metered energy, and metered energy
+          // already carries `yr_op_frac` — so it pro-rates by construction, and
+          // charging a per-MWh fee on energy the asset never moved would be
+          // wrong rather than conservative. The conservatism A4 bought is gone
+          // because the thing it was protecting against no longer exists.
+          not_pro_rated: cs_on.has('brp')
+            ? ['degradation (full-year ageing assumed)']
+            : ['brp_fee (fixed annual platform fee)', 'degradation (full-year ageing assumed)'],
+          ...(cs_on.has('brp') ? {
+            newly_pro_rated: ['brp_fee (now a volume-based TSO charge, scales with metered energy)'],
+          } : {}),
           note: 'Both exclusions are the conservative reading — lower net revenue, faster ageing.',
         } : null,
         // DA arbitrage energy behind the trading line, for the client's

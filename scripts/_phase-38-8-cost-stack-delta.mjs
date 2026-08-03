@@ -35,7 +35,13 @@ const METRICS = [
   ['npv_project',      'NPV project', 0, v => v],
 ];
 
+// Every mode is EXPLICIT. Since 38.8a the default is the full stack, so an
+// implicit `{}` is no longer the "before" state — it is the after state, and a
+// baseline that silently moved with the default would report zero deltas.
 const run = (params, extra) => mod.computeRevenueV7({ ...params, ...extra }, kv);
+const OFF = { cost_stack: 'current' };
+const ON = { cost_stack: 'all' };
+const PRE_PARTITION = { mw_partition: 'current', cost_stack: 'current' };
 const num = v => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 const med = a => { const s = [...a].sort((x, y) => x - y); return s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2; };
 const f = (v, dp) => (v == null ? '—' : v.toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp }));
@@ -48,7 +54,7 @@ console.log(`\n=== Phase 38.8 — cost-stack delta, ${MATRIX.length} public conf
 console.log(`Baseline = the CURRENT engine (MW partition already shipped, cost stack off).\n`);
 
 // ── Reference config, marginal then cumulative ─────────────────────────────
-const base = run(REF.params, {});
+const base = run(REF.params, OFF);
 console.log(`REFERENCE — ${REF.id}\n`);
 console.log('MARGINAL (each layer alone)');
 console.log('  layer                                  gross Y1     rev_net Y1   IRR pp   DSCR');
@@ -68,7 +74,7 @@ for (let i = 0; i < LAYERS.length; i++) {
   prevIrr = irr;
 }
 
-const all = run(REF.params, { cost_stack: 'all' });
+const all = run(REF.params, ON);
 console.log('\nREFERENCE, all five layers, full metric set');
 console.log('  metric              baseline        with stack        delta');
 for (const [k, label, dp, xf] of METRICS) {
@@ -83,7 +89,7 @@ console.log(`\n\nALL ${MATRIX.length} CONFIGURATIONS — marginal IRR contributi
 console.log('  layer                                    min     median      max');
 for (const L of LAYERS) {
   const d = MATRIX.map(({ params }) => {
-    const a = num(run(params, {}).project_irr), b = num(run(params, { cost_stack: L }).project_irr);
+    const a = num(run(params, OFF).project_irr), b = num(run(params, { cost_stack: L }).project_irr);
     return (a == null || b == null) ? null : (b - a) * 100;
   }).filter(v => v != null);
   console.log(`  ${LABEL[L].padEnd(38)} ${sg(Math.min(...d), 2).padStart(7)} ${sg(med(d), 2).padStart(10)} ${sg(Math.max(...d), 2).padStart(8)}`);
@@ -91,7 +97,7 @@ for (const L of LAYERS) {
 console.log('\n  all five together');
 for (const [k, label, , xf] of METRICS) {
   const d = MATRIX.map(({ params }) => {
-    const a = num(run(params, {})[k]), b = num(run(params, { cost_stack: 'all' })[k]);
+    const a = num(run(params, OFF)[k]), b = num(run(params, ON)[k]);
     if (a == null || b == null || a === 0) return null;
     return k.endsWith('_irr') ? (xf(b) - xf(a)) : ((b - a) / Math.abs(a) * 100);
   }).filter(v => v != null);
@@ -102,19 +108,19 @@ for (const [k, label, , xf] of METRICS) {
 // ── Combined position with the partition ──────────────────────────────────
 console.log('\n\nCOMBINED POSITION — the two corrections together\n');
 console.log('  Pre-38.6a  = MW partition OFF, cost stack OFF   (the world before today)');
-console.log('  Shipped    = MW partition ON,  cost stack OFF   (live right now)');
-console.log('  Proposed   = MW partition ON,  cost stack ON    (this phase)\n');
-console.log('  metric                pre-38.6a       shipped      proposed   net vs pre');
+console.log('  Shipped    = MW partition ON,  cost stack OFF   (live before this deploy)');
+console.log('  Now        = MW partition ON,  cost stack ON    (38.8a, the engine default)\n');
+console.log('  metric                pre-38.6a    prev live           now   net vs pre');
 for (const [k, label, dp, xf] of METRICS) {
-  const pre = num(run(REF.params, { mw_partition: 'current' })[k]);
-  const shp = num(run(REF.params, {})[k]);
-  const prp = num(run(REF.params, { cost_stack: 'all' })[k]);
+  const pre = num(run(REF.params, PRE_PARTITION)[k]);
+  const shp = num(run(REF.params, OFF)[k]);
+  const prp = num(run(REF.params, ON)[k]);
   const d = (pre == null || prp == null) ? null
     : (k.endsWith('_irr') ? `${sg(xf(prp) - xf(pre), 2)} pp` : `${sg((prp - pre) / Math.abs(pre) * 100, 1)}%`);
   console.log(`  ${label.padEnd(18)} ${f(pre == null ? null : xf(pre), dp).padStart(13)} ${f(shp == null ? null : xf(shp), dp).padStart(13)} ${f(prp == null ? null : xf(prp), dp).padStart(13)}   ${d ?? '—'}`);
 }
-const irrPre = MATRIX.map(({ params }) => num(run(params, { mw_partition: 'current' }).project_irr) * 100);
-const irrPrp = MATRIX.map(({ params }) => num(run(params, { cost_stack: 'all' }).project_irr) * 100);
+const irrPre = MATRIX.map(({ params }) => num(run(params, PRE_PARTITION).project_irr) * 100);
+const irrPrp = MATRIX.map(({ params }) => num(run(params, ON).project_irr) * 100);
 const netd = irrPrp.map((v, i) => v - irrPre[i]).filter(v => Number.isFinite(v));
 console.log(`\n  Across all ${MATRIX.length}: net project-IRR move vs the pre-38.6a world`);
 console.log(`    median ${sg(med(netd), 2)} pp   ·   range ${sg(Math.min(...netd), 2)} .. ${sg(Math.max(...netd), 2)} pp`);

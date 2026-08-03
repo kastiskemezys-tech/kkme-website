@@ -97,3 +97,79 @@ export function partitionExplainer(
 function fmtEurM(v: number): string {
   return `€${(v / 1_000_000).toFixed(2)}M`;
 }
+
+
+// ── Phase 38.8a — the route-to-market and BRP cost stack ────────────────────
+//
+// Same treatment as the partition copy above: its own module, asserted as
+// rendered strings, no internal identifiers, and every number either computed
+// at render time or explicitly attributed to the reference configuration.
+
+/** Reference-configuration figures for the cost-stack correction. */
+export const COST_STACK_REFERENCE = Object.freeze({
+  label: '50 MW · 4h · mid capex · COD 2027 · base',
+  project_irr_pre_partition_pct: 10.68,
+  project_irr_shipped_pct: 3.83,
+  project_irr_with_stack_pct: 4.82,
+  min_dscr_before: 0.89,
+  min_dscr_after: 0.95,
+  rev_net_before: 5_754_512,
+  rev_net_after: 5_913_580,
+});
+
+/** Median move across all 54 public configurations. */
+export const COST_STACK_MEDIAN = Object.freeze({
+  project_irr_pp: 1.51,
+  rev_net_pct: 4.35,
+  net_vs_pre_partition_pp: -4.88,
+});
+
+export function costStackExplainer(): PartitionCopyBlock {
+  const R = COST_STACK_REFERENCE;
+  return {
+    heading: 'What comes out of gross, and on what evidence',
+    paragraphs: [
+      // 1. What changed and why it is better evidenced.
+      'The fees deducted below gross were previously assumed from market '
+        + 'hearsay: a 10–13% route-to-market charge on gross revenue, plus a flat '
+        + 'annual platform fee. Neither matches how these agreements are actually '
+        + 'structured. The charge is a smaller percentage applied to the owner\u2019s '
+        + 'share after exchange fees, the flat fee does not exist, and two real '
+        + 'costs were missing entirely — power-exchange fees and the transmission '
+        + 'operator\u2019s balancing-capacity charge.',
+
+      // 2. The net effect, both directions, with the offsetting cost named.
+      `Correcting all five moves project IRR at the reference asset (${R.label}) `
+        + `from ${R.project_irr_shipped_pct}% to ${R.project_irr_with_stack_pct}%, `
+        + `a median of +${COST_STACK_MEDIAN.project_irr_pp} pp across the 54 published `
+        + 'configurations. Most of that is the two overstated charges coming out. '
+        + 'A newly-modelled standby auxiliary load — the power the system draws when '
+        + 'it is idle — pushes back the other way, and it is the only line here that '
+        + 'reduces returns.',
+
+      // 3. DSCR — the thing a reader should NOT have to derive.
+      `Minimum debt-service cover moves ${R.min_dscr_before.toFixed(2)} to `
+        + `${R.min_dscr_after.toFixed(2)} at the reference asset. It does not cross `
+        + '1.00. This correction is favourable and it does not rescue the '
+        + 'debt-service position at current gearing — that remains a question about '
+        + 'capital structure, not about the model.',
+
+      // 4. PMC — evidence the sweep was not fishing for direction.
+      'One line is worth reporting precisely because it changed nothing. Power '
+        + 'exchange fees, the only cost here with a firm published source — the '
+        + 'operator\u2019s own fee schedule — work out at roughly two thousand euros a '
+        + 'year and move returns by about a hundredth of a percentage point. It was '
+        + 'named as one of five defects, it is now measured, and it is immaterial.',
+
+      // 5. THE TWO GAPS. Stated, not buried.
+      'Two things about the balancing-capacity charge are not settled, and both '
+        + 'are carried in the direction that lowers returns rather than raises them. '
+        + 'The published tariff we use is the Estonian transmission operator\u2019s; the '
+        + 'assets modelled here are Lithuanian, and no equivalent Lithuanian figure '
+        + 'has been located. And no source establishes whether a storage asset pays '
+        + 'the charge on both legs of its own round trip — on the energy it buys and '
+        + 'again on the energy it sells. We assume it does. If either turns out '
+        + 'otherwise, returns improve from here.',
+    ],
+  };
+}

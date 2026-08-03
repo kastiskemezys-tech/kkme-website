@@ -192,17 +192,37 @@ describe('partial operating year', () => {
     }
   });
 
-  it('does NOT pro-rate the fixed BRP fee (conservative — see DECISIONS.md A4)', () => {
+  it('DOES pro-rate the BRP charge now it is volume-based — 38.8a, INVERTED', () => {
+    // THIS ASSERTION USED TO BE ITS OPPOSITE. DECISIONS A4 recorded not
+    // pro-rating the BRP fee as the conservative choice, and it was: a FIXED
+    // annual platform fee is owed whether or not the asset ran.
+    //
+    // 38.8a replaced it with a volume-based TSO charge on metered energy, and
+    // metered energy already carries `yr_op_frac`. Charging a per-MWh fee on
+    // energy the asset never moved would be wrong, not conservative. So the
+    // conservatism A4 bought is gone because the thing it protected against no
+    // longer exists — recorded here rather than silently dropped.
     const partial = computeRevenueV7(paramsFor(cfg), KV);
     const full = computeRevenueV7(paramsFor({ ...cfg, operational_months_y1: 12 }), KV);
-    expect(partial.years[0].brp_fee).toBe(full.years[0].brp_fee);
+    const ratio = partial.years[0].brp_fee / full.years[0].brp_fee;
+    expect(ratio).toBeCloseTo(7 / 12, 2);
+
+    // The pre-38.8a behaviour stays reachable and stays asserted, so the old
+    // basis is reproducible rather than overwritten.
+    const partialOld = computeRevenueV7({ ...paramsFor(cfg), cost_stack: 'current' }, KV);
+    const fullOld = computeRevenueV7(
+      { ...paramsFor({ ...cfg, operational_months_y1: 12 }), cost_stack: 'current' }, KV);
+    expect(partialOld.years[0].brp_fee).toBe(fullOld.years[0].brp_fee);
   });
 
   it('documents what was and was not pro-rated', () => {
     const r = computeRevenueV7(paramsFor(cfg), KV);
     expect(r.project.partial_year_y1.months).toBe(7);
     expect(r.project.partial_year_y1.pro_rated).toContain('opex');
-    expect(r.project.partial_year_y1.not_pro_rated.join(' ')).toMatch(/brp_fee/);
+    // 38.8a: brp_fee moved from `not_pro_rated` to `newly_pro_rated`, because
+    // a volume charge scales with metered energy. The disclosure still names it.
+    expect(r.project.partial_year_y1.not_pro_rated.join(' ')).toMatch(/degradation/);
+    expect(r.project.partial_year_y1.newly_pro_rated.join(' ')).toMatch(/brp_fee/);
   });
 
   it('is null for a full first year', () => {

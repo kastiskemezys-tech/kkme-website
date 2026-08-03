@@ -411,18 +411,16 @@
       "id": "operating_calibration_eur_kw_yr",
       "category": "cost",
       "label": "Operating cost, reconciling adjustment",
-      "value": 5.83,
+      "value": 0.66,
       "unit": "EUR/kW/yr",
-      "source": "Derived, not sourced: closes the gap between the engine's cost taxonomy (RTM + BRP + OPEX) and the client's 4-line stack at the reference asset. That gap was 4.4% (EUR 128k) before Phase 38.6a and is 9-10% (EUR 291k) after it.",
-      "sensitivity_range": null,
-      "override": null,
-      "engine_binding": "bridge:COST_DEFAULTS.operating_calibration_eur_kw_yr",
-      "note": "Deliberately shown as a separate line rather than folded into EUR 29/kW/yr, so the sourced build-up and the reconciling constant stay distinguishable. It is not re-fitted per project — doing so would make every project agree with the engine by construction and destroy the reconciliation's value as a check. Re-derived 2026-07-28 from 2.08 to 2.56 when the measured trading realisation was adopted: the engine's flat lines (BRP fee, OPEX) do not fall with revenue while the client stack's 16% does, so a lower revenue level widens the taxonomy gap. Derived from the reference asset by bridgeCalibration(), asserted by test — it cannot go silently stale. Phase 38.6a: re-derived 2.57 to 5.83 when the MW partition became the engine default and Y1 gross fell 7,994,239 to 6,239,451 (-21.9%) at the reference asset. The mechanism is the same one described above and it is working — bridgeCalibration() re-derives, a vitest holds it — but the constant has now more than doubled and BREACHES the [0, 4] band originally declared for it, retained here as benchmark_band. A reconciling constant carrying EUR 291k is a candidate for replacing with a proper treatment of the engine's two flat lines, not a number to keep growing. Flagged for the operator; NOT resolved in 38.6a.",
-      "benchmark_band": [
+      "source": "Derived, not sourced: closes the gap between the engine's cost taxonomy and the client's 4-line stack at the reference asset. 4.4% (EUR 128k) pre-38.6a, 9-10% (EUR 291k) post-partition, and EUR 33k after the 38.8a cost stack.",
+      "sensitivity_range": [
         0,
         4
       ],
-      "benchmark_source": "The band declared for this row when it stood at 2.57, i.e. the size of reconciling adjustment considered acceptable. Retained as disclosure: the value now sits ABOVE it. The band is NOT re-fitted to the value — the breach is the finding.",
+      "override": null,
+      "engine_binding": "bridge:COST_DEFAULTS.operating_calibration_eur_kw_yr",
+      "note": "Deliberately shown as a separate line rather than folded into EUR 29/kW/yr, so the sourced build-up and the reconciling constant stay distinguishable. It is not re-fitted per project — doing so would make every project agree with the engine by construction and destroy the reconciliation's value as a check. Re-derived 2026-07-28 from 2.08 to 2.56 when the measured trading realisation was adopted: the engine's flat lines (BRP fee, OPEX) do not fall with revenue while the client stack's 16% does, so a lower revenue level widens the taxonomy gap. Derived from the reference asset by bridgeCalibration(), asserted by test — it cannot go silently stale. Phase 38.6a: re-derived 2.57 to 5.83 when the MW partition cut Y1 gross 21.9%, BREACHING the [0, 4] band declared for it — filed as a finding rather than re-fitted. Phase 38.8a RESOLVED that breach without touching the band: replacing the invented flat BRP fee with a volume charge and moving the service fee onto the owner's net share took the constant to 0.66 and the uncalibrated gap from EUR 291,368 to EUR 32,770. The band was never widened; the model moved back inside it. Independent corroboration that the corrected stack matches client cost accounting better than the hearsay stack did.",
       "review_cycle": "every phase that moves Y1 gross revenue"
     },
     {
@@ -1298,14 +1296,25 @@
       "decided_by": "derived",
       "phase": "38.6a",
       "register_version": "r3.d74c7e18"
+    },
+    {
+      "date": "2026-08-03",
+      "id": "operating_calibration_eur_kw_yr",
+      "old": 5.83,
+      "new": 0.66,
+      "reason": "Phase 38.8a: cost-stack flag flipped on by operator signature. The reconciling calibration constant re-derives from 5.83 to 0.66 because the corrected stack matches the client cost taxonomy far better — the uncalibrated gap falls from EUR 291,368 to EUR 32,770. The [0,4] band breached in 38.6a is resolved by the model moving back inside it, not by widening the band.",
+      "source": "bridgeCalibration() against the reference asset on the frozen KV fixture",
+      "decided_by": "derived",
+      "phase": "38.8a",
+      "register_version": "r5.8530095d"
     }
   ],
-  "synced_at": "2026-08-03T09:47:56.966Z",
+  "synced_at": "2026-08-03T11:15:06.501Z",
   "version": {
-    "id": "r4.218d1c16",
-    "seq": 4,
-    "hash": "218d1c1658b42bd0f2b06b83adc33550c385eead64477c50a9e2d9b96481e68f",
+    "id": "r5.8530095d",
+    "seq": 5,
+    "hash": "8530095d99f24a9bcfd773310b76f6d3145128facf2aa9ffd63569280fafd34a",
     "effective_from": "2026-08-03",
-    "changelog_entries": 14
+    "changelog_entries": 15
   }
 }

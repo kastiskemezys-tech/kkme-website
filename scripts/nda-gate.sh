@@ -60,14 +60,44 @@ if ! grep -qiF -- "$CONTROL" "$CORPUS"; then
 fi
 grep -vF -- "$CONTROL" "$CORPUS" > "$CORPUS.clean" && mv "$CORPUS.clean" "$CORPUS"
 
+# Numeric needles are matched at NUMBER boundaries, not as substrings.
+#
+# One of the numeric needles is a decimal fraction, and one of our own measured
+# outputs happens to extend it by a digit. A plain substring match flags that
+# output as a disclosure, which it is not. Name needles stay substring-matched,
+# because a name appearing inside longer text IS the disclosure.
+#
+# The needle is NOT weakened to achieve this: an exact occurrence still matches.
+# The boundary only stops a LONGER number from matching a SHORTER needle.
+#
+# (This comment deliberately describes the collision without reproducing either
+# figure. The gate caught an earlier draft of it that did — which is the rule
+# working: a contracted figure quoted in a comment is still a disclosure.)
+matches() {
+  local needle="$1"
+  case "$needle" in
+    *[0-9]*)
+      case "$needle" in
+        # Mixed alphanumeric needles (a figure carrying a unit or a percent
+        # sign) stay substring-matched: they cannot collide with a longer number.
+        *[A-Za-z%]*) grep -qiF -- "$needle" "$CORPUS"; return $?;;
+      esac
+      local esc
+      esc=$(printf '%s' "$needle" | sed 's/[.[\*^$()+?{|]/\\&/g')
+      grep -qiE -- "(^|[^0-9.])${esc}([^0-9]|$)" "$CORPUS"; return $?;;
+    *) grep -qiF -- "$needle" "$CORPUS"; return $?;;
+  esac
+}
+
 FOUND=0
 N=0
 while IFS= read -r needle; do
   case "$needle" in ''|'#'*) continue;; esac
   N=$((N+1))
-  if grep -qiF -- "$needle" "$CORPUS"; then
+  if matches "$needle"; then
     echo "NDA GATE FAIL — forbidden string present (needle #$N, redacted). Context:"
-    grep -inF -- "$needle" "$CORPUS" | head -3 | cut -c1-160 | sed 's/^/    /'
+    grep -inE -- "$(printf '%s' "$needle" | sed 's/[.[\*^$()+?{|]/\\&/g')" "$CORPUS" \
+      | head -3 | cut -c1-160 | sed 's/^/    /'
     FOUND=$((FOUND+1))
   fi
 done < "$NEEDLES"
