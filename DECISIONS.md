@@ -3768,3 +3768,192 @@ which take arbitrary capex and grant inputs. **Recommendation: return `null` at 
 edges and let the existing `irr_status` carry the reason.** Not done tonight: it changes a
 published field's type on a path I have not enumerated the consumers of, and enumerating them is
 the fix, not a rider on an audit.
+
+## 48 · Pause A — four questions
+
+**(a) HYPOTHESIS vs verified.** The prompt's core premises are **verified**, by reading the
+route and by the caller audit below — `/feed/clean` took a caller-supplied `before`, parsed
+its body under `catch { /* empty body ok */ }`, and wrote `feed_index` unconditionally
+(`fetch-s1.js:9670-9685` at `0eed61b`). The A7 enumeration found the prompt's list of
+unauthenticated writers **incomplete**: it names four, there were **sixteen**.
+
+**(b) What consumes what this changes.** Answered by grep across this repo,
+`~/kkme-control-center`, and the live VPS — the caller audit is the load-bearing part of
+this phase and is tabulated below.
+
+**(c) What fails silently here.** Before: an unauthenticated caller emptying the published
+feed, with nothing to notice it — `/feed/clean` emitted no log at all. After: every
+invocation logs its parameters and counts. Still silent and NOT fixed: `/curate`,
+`/telegram/webhook`, and the nine GET routes that recompute-and-write on a public read.
+
+**(d) At which layer and time.** Three layers. Route-level tests drive the real `fetch`
+handler against an in-memory KV so each case asserts the status code **and** whether
+`feed_index` moved. Each gate then proven failable by inject-then-revert. Then live curl
+against production after deploy, per C8 (poll to two agreeing reads).
+
+### 48 · The caller audit — done BEFORE the auth change, because that is the failure mode
+
+A working ingestion path broken by a security fix is a self-inflicted outage. Every caller
+of the four routes, from all three places they could live:
+
+| Route | Live caller | Sends `X-Update-Secret`? | Effect of gating |
+|---|---|---|---|
+| `/feed/events` | `daily_intel.py` (VPS cron, 07:30 UTC) | **YES — already did** | none |
+| `/feed/events` | `kkme_sync.py` — **not a caller**; only `kkme_sync.py.local` (unused) references it | n/a | none |
+| `/feed/clean` | **none** — no automated caller in repo, control-center or VPS | n/a | none |
+| `/feed/backfill-curations` | **none** — one-time migration endpoint, manual curl | n/a | none |
+| `/contact` | `app/components/ContactForm.tsx` (public browser form) | no, by design | **not gated** |
+
+The decisive one: `daily_intel.py:525` was **already sending the header** before any gate
+existed — the worker simply ignored it. Verified the VPS secret is the live one via a
+read-only control with a negative case (B11): `GET /contact` with the VPS `UPDATE_SECRET`
+→ **HTTP 200**; with a nonsense value → **HTTP 401**. The two responses differ, so the 200
+means authentication, not "the page always renders".
+
+**The path that would have broken, and was therefore left alone:** `POST /curate` is also
+an unauthenticated `feed_index` writer (via `appendCurationToFeedIndex`). Its live caller,
+`sync_to_website.py` (VPS `cron_daily.sh`, 06:00 UTC), sends **no secret**. Gating it in
+this phase would have killed the ~30-items/day intel path. Reported below, not fixed.
+
+### 48 · What changed
+
+`/feed/clean` — four changes, in order:
+1. `UPDATE_SECRET`, the identical `x-update-secret` gate `/feed/purge-irrelevant` already
+   uses eleven lines earlier. **No second auth mechanism introduced** (rule #4).
+2. Explicit body validation. `before` is now **required** — the 60-day default is gone,
+   because the default was the destructive part. Malformed, absent, non-object and
+   non-ISO bodies are all 400, none of them reaching the KV write.
+3. A `before` in the future is refused — it can only mean "remove everything".
+4. Blast radius: removing more than **50 %** of `feed_index` returns 409 unless the caller
+   passes `"confirm": true`. Every invocation — accepted or refused — logs
+   `before`, `confirm`, totals and counts. No secret in any log line.
+
+`/feed/events`, `/feed/backfill-curations` — same gate, same body validation. `/feed/events`
+still accepts a bare array (a legitimate shape there), which `/feed/clean` does not.
+
+`/contact` — **stays public by design**, bounded rather than gated: 16 KB body cap (413),
+`type` restricted to the four known values, per-field length limits, and an email-shape
+check. **It is NOT rate-limited — see the gap below.**
+
+### 48 · The four proofs, and each one proven failable
+
+Route-level, against an in-memory KV, asserting KV state before and after — a status-code
+assertion alone cannot distinguish "refused" from "refused after writing" (B2).
+`app/lib/__tests__/endpointAuth.test.ts`, 40 tests.
+
+| Proof | Result | KV state |
+|---|---|---|
+| Unauthed `{"before":"2099-01-01"}` | **401** `unauthorized` | `feed_index` byte-identical, `puts` = 0, still 4 items |
+| Authed + malformed body `{not json` | **400** `Malformed JSON body` | unchanged, `puts` = 0 |
+| Authed + future `before` (also with `confirm:true`) | **400** `must not be in the future` | unchanged, `puts` = 0 |
+| Authed + legitimate `before` | **200** `{cleaned:1, remaining:3}` | one write; log line asserted, and asserted NOT to contain the secret |
+
+Inject-then-revert (B13) — every gate broken in turn, suite must go red, then restore:
+
+| Injection | Suite |
+|---|---|
+| baseline | 40 passed |
+| `/feed/clean` auth check removed | **2 failed** |
+| the swallowing `catch` + 60-day default restored | **7 failed** |
+| future-`before` refusal removed | **3 failed** |
+| blast-radius bound removed | **2 failed** |
+| restored | 40 passed |
+
+Worker file confirmed byte-identical to its pre-injection state afterwards.
+
+### 48 · A7 — every KV-writing route, with auth status
+
+The prompt named four unauthenticated writers. Enumerated mechanically
+(`node route-audit.mjs`, brace-matched over `workers/fetch-s1.js`): **84 route guards,
+46 of them KV writers.** Before: **30 authed, 16 unauthed.** After: **33 authed, 13
+unauthed.**
+
+The enumeration script's first version reported `/feed/backfill-curations` as *authed* —
+it had matched the string `x-update-secret` inside an **explanatory comment** above the
+next route. That is B13 exactly, in the audit tool rather than in a test. Comments are
+stripped before the auth test now; the corrected count is the one above.
+
+**Remaining 13 unauthenticated KV writers, all reported, none silently accepted:**
+
+| Route | Writes | Why not fixed here |
+|---|---|---|
+| `POST /curate` | `feed_index` + curation KV | **Live caller sends no secret** (`sync_to_website.py`). Fixing needs a two-step across repos — see below. **Highest-priority follow-up.** |
+| `POST /telegram/webhook` | session KV | Needs Telegram's `X-Telegram-Bot-Api-Secret-Token`, a different mechanism from `UPDATE_SECRET`; out of scope for a phase forbidden to invent a second scheme |
+| `POST /contact` | `contact_submissions` | Public by design; now bounded, not gated |
+| `GET /digest`, `/s3`, `/s5`, `/s4`, `/genload`, `/euribor`, `/da_tomorrow`, `/revenue`, and the `/${sig}` + `/${genSig}` catch-alls | their own computed cache keys | **Lazy recompute-on-read.** Same *shape* as the pre-B-047 catch-all: a public GET causes a KV write. They write derived values, not caller-supplied content, so they are amplification/cost exposure rather than an injection path. Reported per the prompt's "even if it looks harmless" |
+
+`/curate` is the one that matters, and it is the same class as `/feed/events`: an
+unauthenticated writer into published content, which collides with discipline rule #3.
+The fix is ordered, not hard: **(1)** add the header to `sync_to_website.py` and deploy
+that to the VPS, **(2)** verify a live curate round-trip, **(3)** only then gate the route.
+Doing it in the other order is the outage.
+
+### 48 · `/contact` rate limiting — the gap, stated rather than left silent
+
+Payload bounds shipped. **Rate limiting did not, because it needs infrastructure that is
+not configured.** The options and why each was rejected tonight:
+
+- **KV-backed counter** — rejected. It answers an unauthenticated-write problem by adding
+  an unauthenticated KV write per request; it makes the amplification worse.
+- **Cloudflare rate-limit binding** (`[[unsafe.bindings]] type = "ratelimit"`) — the right
+  answer: edge-side, no KV, no per-request cost. It needs a `wrangler.toml` change, so it
+  changes the deploy surface. **Proposed, not shipped in a security-fix deploy.**
+
+Recommendation: `{ limit: 5, period: 60 }` keyed on client IP for `/contact`, in its own
+change with its own deploy, so a binding-provisioning failure cannot be confused with this
+phase. Until then `/contact` is bounded per-request but unbounded in request *rate*, and
+each accepted submission costs one KV read, one KV write, a Telegram call and a Resend call.
+
+### 48 · Findings adjacent to the fix, reported not fixed
+
+1. **`/contact` interpolates submitted fields into an HTML email unescaped**
+   (`fetch-s1.js` `htmlBody`). Reaches the operator's own inbox, so it is
+   HTML-injection into a mail client rather than site XSS. Different risk class from this
+   phase's remit; needs escaping.
+2. **`s2_daily_clearing` ingest is 7 days behind** — see Decision 10.
+
+### 48 · Decision 10 — the BTD retention question, answered
+
+The question was whether the irreplaceable list has five entries or four. **One query
+settles it**; it needed controls, because an old window returns HTTP 200 with a full 192
+intervals and **every value null** — counting intervals would have reported data where
+there is none (B11).
+
+Controls discriminate: a recent window returns **2880/2880 non-null**; a nonsense dataset
+id returns **HTTP 400**. Different responses, so the ladder below is interpretable.
+
+| Age | Window | Non-null |
+|---|---|---|
+| 299 d | 2025-10-07 | 1440/1440 |
+| 305 d | **2025-10-01** | **1440/1440 — deepest fully-populated day** |
+| 306 d | 2025-09-30 | 360/1440 (25 %) |
+| 307 d | 2025-09-29 | 120/1440 (8 %) |
+| ≥ 308 d | 2025-09-27 and older | 0/1440 |
+
+Live `GET /s2/daily-clearing` at execution time: **299 days, first `2025-10-01`, last
+`2026-07-26`.**
+
+**The series begins on exactly the deepest day BTD still fully serves.** Not a
+coincidence — it was seeded by a backfill against BTD's window, so it starts where that
+window started.
+
+**Verdict: four entries today, five tomorrow.** `s2_daily_clearing` is re-derivable from
+BTD *today*, with **zero days of margin**. The KV series is append-only — the import at
+`:10674` merges and never trims — so its oldest entry stays pinned at `2025-10-01` while
+BTD's retention window slides forward one day per day. From tomorrow, one more day of the
+series becomes permanently unrecoverable per day elapsed.
+
+**This inverts the urgency the backup design was going to be built around.** The 299-day
+clearing history is not "the one we should test first"; it is the one that is expiring
+now. Recommendation: export it this week, before any further backup design work.
+
+Two stale premises corrected on the way (A3):
+
+- **"BTD has been down since 2026-07-17"** (`docs/methodology-lender.md` §8.4 and :1081) is
+  **FALSE as of 2026-08-03.** Every day in the claimed outage window returns 1440/1440:
+  07-16, 07-18, 07-22, 07-26, 07-28, 07-31 all full. BTD serves through **2026-08-02**, a
+  ~1-day publication lag, not 2. The doc needs updating; not edited here (this branch is
+  the auth fix alone).
+- **The `s2_daily_clearing` importer is 7 days behind** — last stored day `2026-07-26`
+  while BTD serves through `2026-08-02`. Those days are still inside retention so nothing
+  is lost yet. B8: nothing alerted on this. Belongs with Phase 49 item 4's staleness sweep.
