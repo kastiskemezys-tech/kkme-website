@@ -365,7 +365,13 @@ export function HeroBalticMap() {
       <div className="masthead__rule" />
       <div className="masthead__source-row">
         <span className="src-bracket">[ live ]</span>
+        {/* Phase 38.2 — energy-charts.info was absent from the masthead while
+            feeding S1 capture, S7, S9 and the three generation signals. The
+            citation sweep that corrected two cards from "ENTSO-E" to what they
+            actually read has the same omission to fix here. */}
         <span>ENTSO-E</span>
+        <span>·</span>
+        <span>ENERGY-CHARTS</span>
         <span>·</span>
         <span>LITGRID</span>
         <span>·</span>
