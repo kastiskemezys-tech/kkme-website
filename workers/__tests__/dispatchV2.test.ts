@@ -376,3 +376,90 @@ describe('computeDispatchV2 — realised capture is realised (38.5 #1.1)', () =>
       r.arbitrage_detail.capture_eur_mwh * (1 + r.arbitrage_detail.uplift_factor_decimal), 1);
   });
 });
+
+/**
+ * Phase 38.5 defect 1.2 — the daily SoC reset, PINNED AS A KNOWN DEFECT.
+ *
+ * `computeDispatchV2` opens every day at `soc = 0.50` (`fetch-s1.js:1159`)
+ * regardless of how the previous day ended, and the discharge branch will sell
+ * down to `soc = 0.10`. The physical claim that makes is: **the asset is handed
+ * 40 % of its usable energy, free, at midnight, every night, forever.** No
+ * counterparty supplies it and no cost is booked against it.
+ *
+ * These specs assert the CURRENT behaviour, deliberately. They are not a
+ * statement that it is right — they make the defect machine-visible so its
+ * magnitude is reproducible from the suite rather than quoted from a handover
+ * (C4), and so that fixing it produces a loud, reviewed diff rather than a
+ * quiet drift. When 1.2 is fixed these specs are the ones to invert (B-036
+ * precedent: a test asserting the wrong claim is inverted to assert its
+ * absence, never quietly deleted).
+ *
+ * Measured cost, this branch, steady-state chaining vs the reset:
+ *   live LT day 2026-08-03, 4h : arbitrage €487 → €448 /MW/day  (−8.0 %)
+ *   live LT day 2026-08-03, 2h : arbitrage €249 → €229 /MW/day  (−8.0 %)
+ *   flat €70 day,          4h  : arbitrage €105 → €0   /MW/day  (−100 %)
+ * Direction is always overstatement. See DECISIONS.md 38.5 #1.2.
+ */
+describe('computeDispatchV2 — daily SoC reset is a known defect (38.5 #1.2)', () => {
+  /** Energy sold that no charge leg paid for, derived from the published trace. */
+  function freeEnergyMwh(r: Any, dur_h: number) {
+    const isps = r.isp_dispatch as Any[];
+    const socEnd = isps[isps.length - 1].soc;
+    return (0.50 - socEnd) * MW * dur_h;
+  }
+
+  it('opens every day at 50 % SoC, whatever the day before did', () => {
+    for (const dur_h of [2, 4]) {
+      const mwh = MW * dur_h;
+      const rte = RTE_BOL[dur_h === 2 ? 'h2' : 'h4'] as number;
+      expect(rte).toBeGreaterThan(0); // guard: a wrong key here would make
+                                      // every reconstruction below NaN
+      for (const shape of [SHAPE_SPREAD, SHAPE_FLAT, SHAPE_SHALLOW]) {
+        const isps = run(shape, dur_h).isp_dispatch as Any[];
+        // Walk to the FIRST ISP that actually traded. SoC is unchanged across
+        // the untraded prefix, so reconstructing from ISP 0 would assert 0.50
+        // against 0.50 and prove nothing — the vacuous-test trap in B13.
+        const i = isps.findIndex(p => p.revenue.arbitrage !== 0);
+        expect(i).toBeGreaterThanOrEqual(0);
+        const isp = isps[i];
+        const mwhTraded = isp.revenue.arbitrage / isp.da_price; // + sold, - bought
+        const dSoc = mwhTraded >= 0 ? -mwhTraded / mwh : -mwhTraded * rte / mwh;
+        expect(isp.soc - dSoc).toBeCloseTo(0.50, 2);
+      }
+    }
+  });
+
+  it('sells energy no charge leg paid for — on a FLAT day, all of it', () => {
+    // The cleanest demonstration: p25 === p75, so the round-trip test forbids
+    // every charge, and yet the day books positive arbitrage revenue.
+    for (const dur_h of [2, 4]) {
+      const r = run(SHAPE_FLAT, dur_h);
+      expect(r.arbitrage_detail.charge_isp_count).toBe(0);
+      expect(r.arbitrage_detail.discharge_isp_count).toBeGreaterThan(0);
+      expect(r.revenue_per_mw.arbitrage_eur_day).toBeGreaterThan(0);
+      // 37.5 % of usable energy, sold, bought from nobody.
+      expect(freeEnergyMwh(r, dur_h)).toBeCloseTo(0.375 * MW * dur_h, 0);
+    }
+  });
+
+  it('injects 37-40 % of usable energy on a real trading day too', () => {
+    for (const dur_h of [2, 4]) {
+      const free = freeEnergyMwh(run(SHAPE_SPREAD, dur_h), dur_h);
+      const usable = MW * dur_h;
+      expect(free / usable).toBeGreaterThan(0.35);
+      expect(free / usable).toBeLessThan(0.41);
+    }
+  });
+
+  it('leaves the day energy-UNBALANCED: more leaves the cells than enters', () => {
+    // The invariant a chained or neutrality-constrained model would satisfy is
+    // `charged × rte === delivered` over a full day. It does not hold here, and
+    // the residual IS the injected energy.
+    for (const dur_h of [2, 4]) {
+      const r = run(SHAPE_SPREAD, dur_h);
+      const { charged, delivered } = energyFromTrace(r, dur_h);
+      expect(delivered).toBeGreaterThan(charged * r.meta.rte_decimal);
+      expect(delivered - charged * r.meta.rte_decimal).toBeGreaterThan(1);
+    }
+  });
+});
