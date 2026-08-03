@@ -32,7 +32,7 @@ import * as CALC from './lib/calculator.js';
 import { sizeDebt, assertDebtInvariants } from './lib/debtSizing.js';
 import {
   baseCase as debtBaseCase, provenanceNote as debtProvenanceNote,
-  DSCR_SENSITIVITY_LADDER,
+  DSCR_SENSITIVITY_LADDER, DEBT_COVENANT_DSCR,
 } from './lib/debtParams.js';
 import {
   addressableDemandMw,
@@ -2796,12 +2796,25 @@ function computeRevenueV7(params, kv) {
       // can outlive its premise.
       provenance: debtProvenanceNote(),
       // The comparison, in one sentence, so nobody has to reconcile two numbers
-      // that look contradictory. Computed from both, never hardcoded.
+      // that look contradictory.
+      //
+      // Rule #2, the hard way. The first draft of this line ended "...minimum
+      // cover is X× and the structure fails" for EVERY configuration, because
+      // the reference config it was written against has cover of 0.95. It
+      // shipped, and the live 2h/mid/2028 default rendered "minimum cover is
+      // 1.76× and the structure fails" — an assertion about a state, hardcoded
+      // rather than derived, contradicted by the number sitting next to it. The
+      // verdict is now COMPUTED from the cover ratio it describes.
       comparison: `At the assumed ${Math.round(debt_pct * 100)} % gearing, minimum cover is `
-        + `${min_dscr != null ? min_dscr.toFixed(2) : '—'}× and the structure fails. Sized to a `
-        + `lender's ${solved.target_dscr.toFixed(2)}× target cover, the same asset supports `
-        + `€${(solved.debt / 1e6).toFixed(1)}M of debt — ${(solved.gearing * 100).toFixed(1)} % `
-        + `gearing. Same asset, different structure.`,
+        + `${min_dscr != null ? min_dscr.toFixed(2) : '—'}×`
+        + (min_dscr == null ? '.'
+          : min_dscr < 1.0 ? ' — the asset does not service its debt.'
+          : min_dscr < DEBT_COVENANT_DSCR
+            ? ` — above 1.00 but under the ${DEBT_COVENANT_DSCR.toFixed(2)}× covenant.`
+            : `, clearing the ${DEBT_COVENANT_DSCR.toFixed(2)}× covenant.`)
+        + ` Sized to a lender's ${solved.target_dscr.toFixed(2)}× target cover, the same asset `
+        + `supports €${(solved.debt / 1e6).toFixed(1)}M of debt — `
+        + `${(solved.gearing * 100).toFixed(1)} % gearing. Same asset, different structure.`,
     };
   } catch (err) {
     // A solver failure must not take the revenue payload down with it, and must

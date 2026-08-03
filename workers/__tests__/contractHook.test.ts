@@ -118,3 +118,60 @@ describe('the hook refuses a malformed contract rather than absorbing it', () =>
     expect(strip(out)).toEqual(strip(computeRevenueV7(REF.params, kv)));
   });
 });
+
+describe('Phase 39 — the comparison sentence states a COMPUTED verdict (rule #2)', () => {
+  // The defect this exists for: the first version ended "...minimum cover is X×
+  // and the structure fails" for EVERY configuration, because it was written
+  // against the reference config's 0.95. It shipped, and the live 2h/mid/2028
+  // default rendered "minimum cover is 1.76× and the structure fails" — a claim
+  // contradicted by the number immediately beside it.
+  const covenant = 1.20;
+  const rows = MATRIX.map(({ id, params }: Any) => {
+    const r = computeRevenueV7(params, kv) as Any;
+    return { id, min_dscr: r.min_dscr, sentence: r.debt_sizing?.comparison ?? '' };
+  });
+
+  it('never claims failure where cover is at or above 1.00', () => {
+    for (const r of rows) {
+      if (r.min_dscr != null && r.min_dscr >= 1.0) {
+        expect(r.sentence, `${r.id} (min_dscr ${r.min_dscr})`)
+          .not.toMatch(/does not service its debt/);
+      }
+    }
+  });
+
+  it('claims failure exactly where cover is below 1.00', () => {
+    const failing = rows.filter((r) => r.min_dscr != null && r.min_dscr < 1.0);
+    expect(failing.length).toBeGreaterThan(0);        // the case must be exercised
+    for (const r of failing) {
+      expect(r.sentence, `${r.id} (min_dscr ${r.min_dscr})`)
+        .toMatch(/does not service its debt/);
+    }
+  });
+
+  it('flags the sub-covenant band without calling it a failure', () => {
+    const band = rows.filter((r) => r.min_dscr != null
+      && r.min_dscr >= 1.0 && r.min_dscr < covenant);
+    for (const r of band) {
+      expect(r.sentence, r.id).toMatch(/under the 1\.20× covenant/);
+      expect(r.sentence, r.id).not.toMatch(/does not service its debt/);
+    }
+  });
+
+  it('says the covenant is cleared where it is', () => {
+    const clear = rows.filter((r) => r.min_dscr != null && r.min_dscr >= covenant);
+    expect(clear.length).toBeGreaterThan(0);
+    for (const r of clear) {
+      expect(r.sentence, `${r.id} (min_dscr ${r.min_dscr})`)
+        .toMatch(/clearing the 1\.20× covenant/);
+    }
+  });
+
+  it('always carries both numbers and the closing framing', () => {
+    for (const r of rows) {
+      expect(r.sentence, r.id).toMatch(/At the assumed 55 % gearing/);
+      expect(r.sentence, r.id).toMatch(/Same asset, different structure\./);
+      expect(r.sentence, r.id).toMatch(/% gearing\./);
+    }
+  });
+});

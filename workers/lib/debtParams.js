@@ -209,6 +209,20 @@ export function blendedDscrTarget(contractedShare, {
 export const DSCR_SENSITIVITY_LADDER = Object.freeze([1.50, 1.75, 2.00]);
 
 /**
+ * Covenant threshold the fixed-gearing DIAGNOSTIC is read against.
+ *
+ * Mirrors `app/lib/financialDefinitions.ts:DEFAULT_DSCR_COVENANT`, which the
+ * DSCR panel already renders. Declared here so the engine's comparison sentence
+ * and the card's covenant marker cannot drift apart, and so the sentence's
+ * verdict is computed from a named threshold rather than an inline literal.
+ *
+ * NOTE this is NOT `dscr_merchant.base` — the covenant is the floor a facility
+ * must not breach, the target is what debt is SIZED to. Conflating them would
+ * make every configuration read as a breach.
+ */
+export const DEBT_COVENANT_DSCR = 1.20;
+
+/**
  * REVIEW TRIGGER — operator condition on the Phase 39 sign-off, 2026-08-03.
  *
  * Every cover ratio here is a US bank panel carried onto a EUR Baltic asset. No
