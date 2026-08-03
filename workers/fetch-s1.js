@@ -10209,8 +10209,23 @@ export default {
     }
 
     // ── POST /s4/buildability ────────────────────────────────────────────────
-    // Assertion-backed buildability data pushed by daily_intel.py.
+    // Assertion-backed buildability data pushed by the daily VPS intel job.
     // Stores in KV so GET /s4 returns live values instead of static.
+    //
+    // Phase 38.2 (B-059) — this used to `put` the request body WHOLESALE. Every
+    // poster therefore owned the entire key, so a poster that built its body
+    // from scratch deleted every assertion it did not itself carry. That was
+    // not hypothetical: `scripts/vps/fetch_entsoe_installed_capacity.py` posts
+    // only `installed_storage_<c>_mw_live` keys, and its FIRST SUCCESS would
+    // have deleted all sixteen assertions in production — every installed
+    // figure on the S4 card, the LT reservations, the APVA estimate, the grid
+    // caveat. Both halves were live; only the script's continued failure was
+    // preventing it (playbook B12, armed rather than fired).
+    //
+    // The guard is on the ENDPOINT, not on that one script, for the same
+    // reason the `/s4` whitelist was inverted rather than widened: a rule that
+    // protects against the poster you know about protects against exactly one
+    // poster. Merge is the default; destruction requires saying so.
     if (request.method === 'POST' && url.pathname === '/s4/buildability') {
       const secret = request.headers.get('X-Update-Secret');
       if (!secret || secret !== env.UPDATE_SECRET) {
@@ -10220,10 +10235,54 @@ export default {
       try { body = await request.json(); } catch {
         return new Response(JSON.stringify({ error: 'Invalid JSON body' }), { status: 400, headers: { 'Content-Type': 'application/json', ...CORS } });
       }
-      body.received_at = new Date().toISOString();
-      await env.KKME_SIGNALS.put('s4_buildability', JSON.stringify(body));
-      console.log(`[S4/buildability] ${Object.keys(body.assertions || {}).length} assertions pushed`);
-      return jsonResp({ ok: true, assertions: Object.keys(body.assertions || {}).length });
+
+      let prior = null;
+      try { prior = JSON.parse((await env.KKME_SIGNALS.get('s4_buildability')) || 'null'); } catch { prior = null; }
+      const priorAssertions = (prior && typeof prior.assertions === 'object' && prior.assertions) || {};
+      const incoming        = (typeof body.assertions === 'object' && body.assertions) || {};
+      const replace         = body.mode === 'replace';
+
+      // Merge by default: incoming keys win per-key, absent keys are carried
+      // forward. A poster that knows about four assertions cannot un-know the
+      // other twelve.
+      const merged = replace ? { ...incoming } : { ...priorAssertions, ...incoming };
+
+      const dropped = Object.keys(priorAssertions).filter(k => !(k in merged));
+      if (dropped.length && !replace) {
+        // Unreachable under merge — kept as a belt-and-braces assertion so a
+        // future edit to the merge cannot quietly reintroduce deletion.
+        return jsonResp({
+          error: 'refusing to drop assertions',
+          dropped,
+          hint: 'send mode:"replace" to intentionally replace the whole set',
+        }, 409);
+      }
+      if (replace && dropped.length) {
+        console.log(`[S4/buildability] mode=replace DROPPING ${dropped.length}: ${dropped.join(', ')}`);
+      }
+
+      const out = { ...body, assertions: merged };
+      delete out.mode;
+      // Carry forward any sibling top-level block the poster did not send
+      // (e.g. `connected_assets`) for the same reason: absence is not intent.
+      if (prior && !replace) {
+        for (const k of Object.keys(prior)) {
+          if (k !== 'assertions' && k !== 'received_at' && !(k in out)) out[k] = prior[k];
+        }
+      }
+      out.received_at = new Date().toISOString();
+
+      await env.KKME_SIGNALS.put('s4_buildability', JSON.stringify(out));
+      const added = Object.keys(incoming).filter(k => !(k in priorAssertions));
+      console.log(`[S4/buildability] ${Object.keys(incoming).length} pushed · ${added.length} new · ${Object.keys(merged).length} stored${replace ? ' (mode=replace)' : ''}`);
+      return jsonResp({
+        ok: true,
+        mode: replace ? 'replace' : 'merge',
+        assertions_pushed: Object.keys(incoming).length,
+        assertions_stored: Object.keys(merged).length,
+        assertions_preserved: Object.keys(merged).length - Object.keys(incoming).length,
+        dropped: replace ? dropped : [],
+      });
     }
 
     // ── POST /s4/sync-layer3 ──────────────────────────────────────────────────

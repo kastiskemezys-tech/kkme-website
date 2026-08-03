@@ -1,0 +1,208 @@
+{
+ "assertions": {
+  "apva_applied_storage_lt_mw": {
+   "value": 1545,
+   "unit": "MW",
+   "confidence": "official",
+   "source_url": "https://apva.lrv.lt/lt/naujienos-24316/uzbaigtas-45-mln-euru-kvietimas-elektros-kaupimo-irenginiams-rinkos-poreikis-virsijo-skirta-suma-k2R",
+   "source_type": "apva",
+   "as_of_date": "2026-03-01",
+   "affects_signals": [
+    "S4",
+    "S2",
+    "revenue"
+   ]
+  },
+  "grid_capacity_caveat": {
+   "value": "Zonal map capacities are non-additive. Reserving capacity in one zone reduces neighbouring zones. Real connection potential cannot be computed by summing zonal values. Connected/Reserved/Available from VERT.lt ArcGIS covers ALL technologies, not just storage.",
+   "unit": "text",
+   "confidence": "official",
+   "source_url": "https://www.litgrid.eu/index.php/aei-centras/aei-elektriniu-prijungimo-zemelapis/32331",
+   "source_type": "litgrid",
+   "as_of_date": "2026-03-23",
+   "affects_signals": [
+    "S4"
+   ]
+  },
+  "installed_storage_baltic_mw": {
+   "value": 651,
+   "unit": "MW",
+   "confidence": "derived",
+   "source_url": "",
+   "source_type": "derived",
+   "as_of_date": "2026-03-28",
+   "affects_signals": [
+    "S4",
+    "S2"
+   ]
+  },
+  "installed_storage_ee_mw": {
+   "value": 127,
+   "unit": "MW",
+   "confidence": "official",
+   "source_url": "https://en.evecon.ee/estonia-strengthens-energy-resilience-hertz-1-one-of-continental-europes-largest-battery-storage-parks-opens-in-kiisa/",
+   "source_type": "evecon",
+   "as_of_date": "2026-02-05",
+   "affects_signals": [
+    "S4",
+    "S2"
+   ]
+  },
+  "installed_storage_lt_gen_mw": {
+   "value": 420,
+   "unit": "MW",
+   "confidence": "official",
+   "source_url": "https://www.litgrid.eu/index.php/naujienos/naujienos/prie-elektros-perdavimo-tinklo-prijungta-trecioji-komercine-30-mw-galios-bateriju-kaupimo-sistema-/36502",
+   "source_type": "litgrid",
+   "as_of_date": "2026-03-23",
+   "affects_signals": [
+    "S4"
+   ]
+  },
+  "installed_storage_lt_mw": {
+   "value": 484,
+   "unit": "MW",
+   "confidence": "official",
+   "source_url": "https://www.litgrid.eu/index.php/naujienos/naujienos/prie-elektros-perdavimo-tinklo-prijungta-trecioji-komercine-30-mw-galios-bateriju-kaupimo-sistema-/36502",
+   "source_type": "litgrid",
+   "as_of_date": "2026-03-23",
+   "affects_signals": [
+    "S4",
+    "S2",
+    "fleet"
+   ]
+  },
+  "installed_storage_lt_mwh": {
+   "value": 719,
+   "unit": "MWh",
+   "confidence": "official",
+   "source_url": "https://www.litgrid.eu/index.php/naujienos/naujienos/prie-elektros-perdavimo-tinklo-prijungta-trecioji-komercine-30-mw-galios-bateriju-kaupimo-sistema-/36502",
+   "source_type": "litgrid",
+   "as_of_date": "2026-03-23",
+   "affects_signals": [
+    "S4",
+    "S2"
+   ]
+  },
+  "installed_storage_lv_mw": {
+   "value": 40,
+   "unit": "MW",
+   "confidence": "official",
+   "source_url": "https://www.ast.lv/",
+   "source_type": "ast",
+   "as_of_date": "2025-10-01",
+   "affects_signals": [
+    "S4",
+    "S2"
+   ]
+  },
+  "intention_storage_lt_mw": {
+   "value": 3700,
+   "unit": "MW",
+   "confidence": "official",
+   "source_url": "https://www.litgrid.eu/index.php/naujienos/naujienos/litgrid-per-3-menesius-preliminariai-rezervavo-17-gw-galios-saules-ir-vejo-elektrinems-bei-kaupimo-irenginiams/36506",
+   "source_type": "litgrid",
+   "as_of_date": "2026-03-20",
+   "affects_signals": [
+    "S4",
+    "S2"
+   ]
+  },
+  "litgrid_connection_14": {
+   "value": 80,
+   "unit": "MW",
+   "confidence": "official",
+   "source_url": "https://www.litgrid.eu/index.php/naujienos/naujienos/prie-elektros-perdavimo-tinklo-prijungta-penktoji-komercine-80-mw-galios-bateriju-kaupimo-sistema-/36582",
+   "source_type": "litgrid",
+   "as_of_date": "2026-06-19",
+   "affects_signals": [
+    "S4",
+    "S2",
+    "fleet"
+   ]
+  },
+  "litgrid_connection_16": {
+   "value": 752,
+   "unit": "MW",
+   "confidence": "official",
+   "source_url": "https://www.litgrid.eu/index.php/naujienos/naujienos/litgrid-aei-apzvalga-siemet-prie-tinklo-prijungta-752-mw-elektriniu-ir-kaupikliu/36609",
+   "source_type": "litgrid",
+   "as_of_date": "2026-07-09",
+   "affects_signals": [
+    "S4",
+    "S2",
+    "fleet"
+   ]
+  },
+  "litgrid_connection_17": {
+   "value": 20,
+   "unit": "MW",
+   "confidence": "official",
+   "source_url": "https://www.litgrid.eu/index.php/naujienos/naujienos/prie-elektros-perdavimo-tinklo-prijungta-sestoji-komercine-20-mw-galios-bateriju-kaupimo-sistema-/36614",
+   "source_type": "litgrid",
+   "as_of_date": "2026-07-23",
+   "affects_signals": [
+    "S4",
+    "S2",
+    "fleet"
+   ]
+  },
+  "litgrid_connection_2": {
+   "value": 30,
+   "unit": "MW",
+   "confidence": "official",
+   "source_url": "https://www.litgrid.eu/index.php/naujienos/naujienos/prie-elektros-perdavimo-tinklo-prijungta-trecioji-komercine-30-mw-galios-bateriju-kaupimo-sistema-/36502",
+   "source_type": "litgrid",
+   "as_of_date": "2026-03-28",
+   "affects_signals": [
+    "S4",
+    "S2",
+    "fleet"
+   ]
+  },
+  "reserved_storage_lt_mw": {
+   "value": 1395,
+   "unit": "MW",
+   "confidence": "official",
+   "source_url": "https://www.litgrid.eu/index.php/naujienos/naujienos/litgrid-per-3-menesius-preliminariai-rezervavo-17-gw-galios-saules-ir-vejo-elektrinems-bei-kaupimo-irenginiams/36506",
+   "source_type": "litgrid",
+   "as_of_date": "2026-03-20",
+   "affects_signals": [
+    "S4",
+    "S2"
+   ]
+  },
+  "reserved_storage_lt_mwh": {
+   "value": 3204,
+   "unit": "MWh",
+   "confidence": "official",
+   "source_url": "https://www.litgrid.eu/index.php/naujienos/naujienos/litgrid-per-3-menesius-preliminariai-rezervavo-17-gw-galios-saules-ir-vejo-elektrinems-bei-kaupimo-irenginiams/36506",
+   "source_type": "litgrid",
+   "as_of_date": "2026-03-20",
+   "affects_signals": [
+    "S4"
+   ]
+  },
+  "under_construction_storage_ee_mw": {
+   "value": 255,
+   "unit": "MW",
+   "confidence": "official",
+   "source_url": "",
+   "source_type": "derived",
+   "as_of_date": "2026-02-20",
+   "affects_signals": [
+    "S4",
+    "S2"
+   ]
+  }
+ },
+ "connected_assets": {
+  "total_mw": 681.5,
+  "total_gen_mw": 205,
+  "total_mwh": 1033.1,
+  "count": 8
+ },
+ "pushed_at": "2026-08-02T07:30:03.364954+00:00",
+ "received_at": "2026-08-02T07:30:03.419Z",
+ "_captured": "Phase 38.2 (B-059) — production s4_buildability read 2026-08-03 via `npx wrangler kv key get --remote --binding KKME_SIGNALS s4_buildability`. All values are already public on GET /s4. This is the set the A68 script would have deleted on its first success."
+}
