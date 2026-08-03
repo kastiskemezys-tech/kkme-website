@@ -1800,6 +1800,67 @@ function warrantyStatusFor(total_efcs_yr) {
   return 'exceeds-base-warranty';
 }
 
+// ── Phase 38.8: route-to-market and BRP cost stack ─────────────────────────
+//
+// The engine's fee assumptions were authored from market hearsay. These replace
+// them with either a publicly-cited figure or a stated band. Sources and the
+// full source position: docs/research/route-to-market-cost-stack-sources.md.
+//
+// NOTHING HERE COMES FROM ANY COMMERCIAL AGREEMENT. Where a line has no public
+// source it is a band, and the base case sits at the band's CONSERVATIVE end —
+// this correction moves IRR up, and a flattering correction does not also get
+// the benefit of the doubt.
+const COST_STACK = {
+  // Optimiser / route-to-market service fee, applied to the OWNER'S NET SHARE
+  // AFTER exchange fees — not to gross. Banded 0.04-0.08; base at the top.
+  // No public source exists: bilaterally negotiated. Source line for the
+  // register: "commercial terms observed in Baltic optimiser agreements".
+  service_fee_pct: 0.08,
+  service_fee_band: [0.04, 0.08],
+
+  // Nord Pool variable fees, day-ahead: 0.040 trading + 0.015 clearing.
+  // Source: Nord Pool AS Fee Schedule, Nordic/Baltic, effective 2026-01-01,
+  // section 1.4. Charged per MWh TRADED, so a storage asset pays on BOTH legs.
+  power_market_charge_eur_mwh: 0.055,
+
+  // TSO balancing-capacity fee, per MWh, charged on consumed AND produced
+  // energy — so a storage asset pays it twice per round trip.
+  //
+  // JURISDICTION GAP, DECLARED: 3.73 EUR/MWh excl. VAT is ELERING'S (Estonia)
+  // published tariff effective 2026-01-01, corroborated by a licensed supplier's
+  // customer notice and a second independent report; the primary page sits behind
+  // bot protection and could not be read directly. NO EQUIVALENT LITGRID FIGURE
+  // HAS BEEN LOCATED, and every asset the engine prices is Lithuanian. Carried at
+  // the Estonian rate because that is the conservative choice (it is a cost), and
+  // flagged for confirmation with the Lithuanian TSO. Whether a storage asset is
+  // charged on both legs of its own round trip is ALSO unconfirmed — no source
+  // mentions storage. Both legs assumed, again because it is conservative.
+  balancing_capacity_fee_eur_mwh: 3.73,
+  balancing_capacity_fee_band: [0, 3.73],
+
+  // Standby auxiliary load, as a fraction of nameplate MW, drawn during IDLE
+  // hours only.
+  //
+  // RTE_BOL is measured at the point of interconnection INCLUDING auxiliaries,
+  // so cycle-driven auxiliary consumption is ALREADY inside the round-trip
+  // efficiency. Modelling published operating aux figures (8-13 kW per 5 MWh
+  // container) as a share of throughput would charge the same electrons twice —
+  // which is exactly why that construction collided with the literature's ~10%
+  // RTE-error figure at 12-20% of throughput. Only the INCREMENTAL standby load
+  // RTE cannot see belongs here.
+  //
+  // The standby/active split is NOT sourced to a datasheet. The band is bounded
+  // above by the published operating band (standby cannot exceed average
+  // operating load) and is a stated assumption pending one.
+  standby_load_pct_of_nameplate_mw: 0.003,
+  standby_load_band: [0.001, 0.003],
+
+  // One-off integration / API onboarding charge, CAPEX-class. Banded, low tens
+  // of thousands; base at the conservative end. No public source.
+  integration_fee_eur: 40000,
+  integration_fee_band: [20000, 50000],
+};
+
 const RESERVE_PRODUCTS = {
   fcr:  { share: 0.16, dur_req_h: 0.5, cap_fallback: 45 },
   afrr: { share: 0.34, dur_req_h: 1.0, cap_fallback: 40 },
@@ -2173,6 +2234,32 @@ function computeRevenueV7(params, kv) {
   // the file — it has never been called — so using it would mean inventing the
   // parameter, not reading one. Recorded as a gap, not filled by guess.
   const physical_arb_share = computeEffectiveArbPct(kv, sc);
+  // ── Phase 38.8: the cost stack, behind a flag defaulting to CURRENT ────────
+  //
+  // DEFAULT IS 'current'. Nothing changes for any caller until the operator
+  // signs. `/revenue` does not read it from the query string.
+  //
+  // The five defects are INDEPENDENT TOGGLES, not one switch, so each one's
+  // contribution to the delta is measurable on its own rather than arriving
+  // blended. `cost_stack: 'all'` turns on every layer.
+  //
+  //   fee_rate  the service-fee percentage replaces rtm_fee_pct's 0.10-0.13
+  //   fee_base  that percentage applies to the owner's net share after exchange
+  //             fees, instead of to gross
+  //   brp       the invented flat annual platform fee goes; a volume-based
+  //             TSO balancing-capacity fee takes its place, inside the pool
+  //   pmc       Nord Pool variable fees, on both legs
+  //   aux       standby auxiliary load during idle hours
+  const CS_LAYERS = ['fee_rate', 'fee_base', 'brp', 'pmc', 'aux'];
+  const cs_raw = params.cost_stack;
+  const cs_on = (() => {
+    if (cs_raw === 'all') return new Set(CS_LAYERS);
+    if (Array.isArray(cs_raw)) return new Set(cs_raw.filter(x => CS_LAYERS.includes(x)));
+    if (typeof cs_raw === 'string' && CS_LAYERS.includes(cs_raw)) return new Set([cs_raw]);
+    return new Set();
+  })();
+  const cs = (layer) => cs_on.has(layer);
+
 
   // Partial operating year 1 (e.g. Stoniškiai COD 2028-06 → 7 months). Scales
   // Y1 revenue and OPEX linearly. Fixed annual fees (BRP) and the degradation
@@ -2397,9 +2484,51 @@ function computeRevenueV7(params, kv) {
     // UK FFR at peak saturation: £40-60k/MW/yr. €50k = realistic floor.
     const REVENUE_FLOOR_PER_MW = 50000; // €50k/MW/yr minimum
     const rev_gross = Math.max(REVENUE_FLOOR_PER_MW * mw * yr_op_frac, rev_bal + rev_trd);
-    const rtm_fee = rev_gross * sc.rtm_fee_pct;
-    const brp_fee = sc.brp_fee_yr * Math.pow(1 + sc.opex_esc, yr - 1);
-    const rev_net = rev_gross - rtm_fee - brp_fee;
+    // ── Phase 38.8: route-to-market and BRP cost stack ────────────────────
+    //
+    // Layered so each defect's contribution is separable. With every layer off
+    // this is byte-identical to the pre-38.8 arithmetic.
+    //
+    // Energy through the meter, both directions. `arb_energy` carries the
+    // day-ahead legs; reserve activation moves energy too but is not exchange-
+    // traded, so it attracts no Nord Pool fee. The TSO balancing-capacity fee
+    // is levied on metered consumption AND production, so it sees both.
+    const da_mwh_charged = da_mwh_per_mw_yr * arb_share_yr * sc.avail
+                         * deg_ratio_vs_y1 * mw * yr_op_frac;
+    const da_mwh_discharged = da_mwh_charged * rte_yr;
+    const metered_mwh = da_mwh_charged + da_mwh_discharged;
+
+    // Nord Pool variable fees — day-ahead trading + clearing, per MWh traded.
+    const pmc_fee = cs('pmc') ? metered_mwh * COST_STACK.power_market_charge_eur_mwh : 0;
+
+    // TSO balancing-capacity fee, replacing the invented flat annual fee. It is
+    // a POOL-LEVEL deduction under the contracted waterfall, i.e. it comes off
+    // before the owner's share and therefore before the service fee.
+    const brp_fee_legacy = sc.brp_fee_yr * Math.pow(1 + sc.opex_esc, yr - 1);
+    const brp_fee = cs('brp')
+      ? metered_mwh * COST_STACK.balancing_capacity_fee_eur_mwh
+      : brp_fee_legacy;
+
+    // Standby auxiliary load, idle hours only. Cycle-driven auxiliary
+    // consumption is already inside RTE (measured at the POI including
+    // auxiliaries), so charging a throughput-proportional aux line as well
+    // would bill the same electrons twice.
+    const active_hours = dur_h > 0 ? (da_mwh_discharged / (mw || 1)) * 2 : 0;
+    const idle_hours = Math.max(0, 8760 * yr_op_frac - active_hours);
+    const standby_mwh = cs('aux')
+      ? mw * COST_STACK.standby_load_pct_of_nameplate_mw * idle_hours : 0;
+    // Aux energy is bought at the day-ahead price, floored at zero: a negative
+    // price does not pay the asset to run its own HVAC in this model.
+    const aux_price = Math.max(0, yr_capture > 0 ? (kv.s1?.da_avg_eur_mwh ?? 70) : 70);
+    const aux_charge = standby_mwh * aux_price;
+
+    // The service fee. Base is the owner's share AFTER exchange fees when
+    // `fee_base` is on; gross when it is not.
+    const fee_pct = cs('fee_rate') ? COST_STACK.service_fee_pct : sc.rtm_fee_pct;
+    const fee_base = cs('fee_base') ? (rev_gross - brp_fee - pmc_fee) : rev_gross;
+    const rtm_fee = fee_base * fee_pct;
+
+    const rev_net = rev_gross - rtm_fee - brp_fee - pmc_fee - aux_charge;
     const rev_cap = rev_bal * 0.65;  // approximate split for reporting
     const rev_act = rev_bal * 0.35;
 
@@ -2500,6 +2629,18 @@ function computeRevenueV7(params, kv) {
       spread_mult: mix.spread_mult, renewable_share: mix.renewable_share,
       market_depth: Math.round(depth * 1000) / 1000,
       rtm_fee: Math.round(rtm_fee), brp_fee: Math.round(brp_fee),
+      // Phase 38.8 — the cost stack's own lines, so the identity tests assert on
+      // the payload rather than on internals. Emitted ONLY when a layer is on:
+      // adding fields unconditionally changes the public payload for every
+      // caller while the flag still defaults off, which is exactly what the flag
+      // exists to prevent. Caught by the byte-identity gate, for the second time
+      // in two phases — the reflex to publish a diagnostic is the trap.
+      ...(cs_on.size ? {
+        pmc_fee: Math.round(pmc_fee), aux_charge: Math.round(aux_charge),
+        da_mwh_charged: Math.round(da_mwh_charged),
+        da_mwh_discharged: Math.round(da_mwh_discharged),
+        cost_stack_layers: [...cs_on].sort(),
+      } : {}),
       rev_net: Math.round(rev_net),
       opex: Math.round(opex), ebitda: Math.round(ebitda),
       depr: Math.round(depr),
@@ -12134,6 +12275,7 @@ export { dedupeByDateKeepLast, rollingStats };
 // /revenue is unaffected — asserted by the 54/54 gate and a route-level probe.
 export {
   RESERVE_PRODUCTS,
+  COST_STACK,
   RESERVE_MW_CAP_FRACTION,
   RTE_BOL,
   RTE_DECAY_PP_PER_YEAR,
