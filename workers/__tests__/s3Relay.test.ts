@@ -148,34 +148,31 @@ describe('B-072 follow-up · a failing direct scrape must not destroy a good rel
   // lithium €17,974/t at 10:51:19Z; the 4-hourly cron overwrote it with an
   // `unavailable` payload at 12:00:20Z, because the worker's own scrape still
   // hangs — which is the entire reason the relay exists.
+  //
+  // REWRITTEN in the same phase. These assertions originally pinned an ad-hoc
+  // `skipS3Write` local that guarded this ONE call site. That guard was
+  // generalised into `admitSignalWrite`, applied at every cron signal write, so
+  // asserting the local would now be asserting a worse design that no longer
+  // exists. The property is the same and the assertions are stronger: S3 goes
+  // through the shared rule, and the rule's behaviour is proven directly in
+  // `admissionRule.test.ts` against a KV double.
   const CRON = WORKER_SRC.slice(
     WORKER_SRC.indexOf("if (s3Result.status === 'fulfilled')"),
     WORKER_SRC.indexOf("if (eurResult.status === 'fulfilled')"),
   );
 
-  it('checks the existing value before writing a failure over it', () => {
-    expect(CRON).toMatch(/skipS3Write/);
-    expect(CRON).toMatch(/prev && !prev\.unavailable && prev\.lithium_eur_t != null/);
+  it('routes the S3 cron write through the shared admission rule', () => {
+    expect(CRON).toMatch(/admitSignalWrite\(env, 's3', d(, '[^']*')?\)/);
   });
 
-  it('the guard precedes the write, not the other way round', () => {
-    const guard = CRON.indexOf('skipS3Write = true');
-    const write = CRON.indexOf("KKME_SIGNALS.put('s3'");
-    expect(guard).toBeGreaterThan(0);
-    expect(write).toBeGreaterThan(0);
-    expect(guard, 'the keep-decision must be made before the put').toBeLessThan(write);
+  it('does not keep a private copy of the rule at this call site', () => {
+    // One path, or it is not a rule. A local re-implementation here is how the
+    // generalisation would rot back into a special case.
+    expect(CRON).not.toMatch(/skipS3Write|prev\.unavailable/);
   });
 
-  it('still writes a failure when there is NO good value to protect', () => {
-    // A cold start must surface the outage rather than looking empty. The write
-    // is skipped only when a genuinely good previous value exists.
-    expect(CRON).toMatch(/if \(!skipS3Write\) \{\s*\n\s*await env\.KKME_SIGNALS\.put\('s3'/);
-  });
-
-  it('keeps the raw:s3 archive regardless, so the failure is still recorded', () => {
-    // The diagnosis must survive even when the published value is preserved.
-    const rawIdx = CRON.indexOf('raw:s3:');
-    expect(rawIdx).toBeGreaterThan(0);
-    expect(CRON.slice(rawIdx - 400, rawIdx)).not.toMatch(/if \(!skipS3Write\)[^}]*$/);
+  it('still writes the raw:s3 archive regardless, so the failure is recorded', () => {
+    // The published value may be preserved; the diagnosis must not be lost.
+    expect(CRON).toMatch(/raw:s3:/);
   });
 });

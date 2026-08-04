@@ -653,8 +653,8 @@
       "kind": "dataset",
       "chain": "observation",
       "label": "KV `s1`",
-      "writers": 1,
-      "freshness": "cron-refreshed"
+      "writers": 0,
+      "freshness": "UNKNOWN — no KKME_SIGNALS.put found for this key"
     },
     {
       "id": "kv:s2",
@@ -669,7 +669,7 @@
       "kind": "dataset",
       "chain": "observation",
       "label": "KV `s4`",
-      "writers": 2,
+      "writers": 1,
       "freshness": "cron-refreshed"
     },
     {
