@@ -22,7 +22,7 @@ fetcher asked for bytes, got bytes, and whatever those bytes were became the tru
 | declared contracts in total (incl. one not yet ingested) | **5** |
 | VPS scripts | 7 |
 | mature-market fetchers | 8 |
-| GitHub Actions workflows | 2 |
+| GitHub Actions workflows | 3 |
 
 Contract coverage is **4/35** of worker hosts. That is the honest number and it is low:
 this phase built the mechanism and declared contracts for the sources whose failures are
@@ -129,7 +129,7 @@ undeclared source is visibly undeclared rather than invisibly unchecked.
 
 **Mature markets** (`tools/consultancy/mature-markets/`): `fetch-activation-prices.mjs` · `fetch-au-aemo.mjs` · `fetch-calendar.mjs` · `fetch-de-regelleistung.mjs` · `fetch-entsoe-da.mjs` · `fetch-fx.mjs` · `fetch-gb-neso.mjs` · `fetch-se-svk.mjs`
 
-**Workflows** (`.github/workflows/`): `fetch-btd.yml` · `refresh-mature-markets.yml`
+**Workflows** (`.github/workflows/`): `fetch-btd.yml` · `gates.yml` · `refresh-mature-markets.yml`
 
 ## Fixture discipline (B-043)
 
