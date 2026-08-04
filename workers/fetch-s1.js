@@ -8946,6 +8946,70 @@ function validateContactBody(body) {
   return { ok: true };
 }
 
+// ─── Phase 50: `s2_daily_clearing` recency ────────────────────────────────────
+//
+// This series is the platform's only irreplaceable archive. It begins on
+// 2025-10-01, which is the oldest delivery day BTD still serves in full, so a
+// day the importer fails to collect is a day that eventually falls out of BTD's
+// window and cannot be re-fetched by anyone, ever. The importer stopping is the
+// mechanism by which the archive is lost — and it had stopped, for nine days,
+// with nothing watching, because `backfill_btd_daily.py` was written as a
+// one-off in 36.C and was never put in a crontab.
+//
+// **Why this measures the DATA and not the WRITE.** The obvious monitor is the
+// age of the KV write. It is also useless here, and worse than useless: the
+// daily cron will write on every run, so a run that fetches nothing new still
+// stamps a fresh write and the staleness clock resets forever. That is B12
+// exactly — the damage disabling its own detector — and it is the same shape as
+// S3's failure payload satisfying its own freshness check. The only measure that
+// cannot be gamed by a write is the newest DELIVERY DAY present in the series.
+
+/**
+ * Days BTD lags real time before a delivery day is publishable. Measured, not
+ * assumed: on 2026-08-04 BTD served complete PT15M days through 2026-08-02.
+ */
+const BTD_PUBLICATION_LAG_DAYS = 2;
+
+/**
+ * How far behind the newest publishable delivery day the series may fall before
+ * it is stale: publication lag + one missed daily run + one day of buffer.
+ */
+const S2_DAILY_CLEARING_MAX_LAG_DAYS = BTD_PUBLICATION_LAG_DAYS + 2;
+
+/**
+ * Recency of the daily clearing archive, computed from the series itself.
+ * @param {Array<{date: string}>|null} days  parsed `s2_daily_clearing`
+ * @param {string} nowIso                    current time, injected for testability
+ * @returns {{status: string, last_date: string|null, total_days: number,
+ *            days_behind: number|null, threshold_days: number, stale: boolean|null}}
+ */
+function s2DailyClearingRecency(days, nowIso) {
+  const threshold_days = S2_DAILY_CLEARING_MAX_LAG_DAYS;
+  if (!Array.isArray(days) || days.length === 0) {
+    // Absence is an ERROR state, never an innocent one (B12). An empty archive
+    // is the worst case this check exists to catch, so it must not read as null.
+    return { status: 'missing', last_date: null, total_days: 0, days_behind: null, threshold_days, stale: true };
+  }
+  const dates = days.map(d => d && d.date).filter(d => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d));
+  if (!dates.length) {
+    return { status: 'error', last_date: null, total_days: days.length, days_behind: null, threshold_days, stale: true };
+  }
+  const last_date = dates.reduce((a, b) => (a > b ? a : b));
+  const today = new Date(nowIso);
+  const dayMs = 86400000;
+  const todayUtc = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+  const lastUtc = Date.parse(`${last_date}T00:00:00Z`);
+  const days_behind = Math.round((todayUtc - lastUtc) / dayMs);
+  return {
+    status: 'present',
+    last_date,
+    total_days: dates.length,
+    days_behind,
+    threshold_days,
+    stale: days_behind > threshold_days,
+  };
+}
+
 // ─── Main export ───────────────────────────────────────────────────────────────
 
 export default {
@@ -9005,6 +9069,29 @@ export default {
         }
       } catch (e) {
         console.error('[S2/activation]', String(e));
+      }
+
+      // Phase 50 — the archive's own recency, on the tick. The VPS importer runs
+      // at 08:20 UTC, so 09:30 is an hour after it should have landed. Routed
+      // through the transition machine so a continuing lag stops re-sending and
+      // a recovery produces a message.
+      try {
+        const rawDc = await env.KKME_SIGNALS.get('s2_daily_clearing').catch(() => null);
+        let parsed = null;
+        try { parsed = rawDc ? JSON.parse(rawDc) : null; } catch { parsed = null; }
+        const rec = s2DailyClearingRecency(parsed, new Date().toISOString());
+        const msg = rec.status === 'present'
+          ? `s2_daily_clearing: newest delivery day ${rec.last_date}, ${rec.days_behind}d behind `
+            + `(threshold ${rec.threshold_days}d), ${rec.total_days} days held`
+          : `s2_daily_clearing: ${rec.status} — the irreplaceable archive is not readable`;
+        await alertTransition(
+          env, 's2_daily_clearing', rec.stale ? 'degraded' : 'ok',
+          rec.stale
+            ? `${msg}\n• every day not imported eventually falls out of BTD's window and cannot be re-fetched`
+            : msg,
+        ).catch(() => {});
+      } catch (e) {
+        console.error('[S2/daily-clearing-recency]', String(e));
       }
       return;
     }
@@ -12539,6 +12626,21 @@ export default {
         }
       }));
 
+      // Phase 50 — `s2_daily_clearing` cannot ride the generic loop above: it is
+      // a bare ARRAY, so `data.timestamp` is undefined and the loop would report
+      // `age_hours: null, stale: null` — present-looking and unmeasured, which is
+      // how it sat nine days behind unnoticed. It is measured on the newest
+      // DELIVERY DAY it holds, not on when it was last written; see
+      // s2DailyClearingRecency for why a write-age monitor here is gameable.
+      try {
+        const rawDc = await env.KKME_SIGNALS.get('s2_daily_clearing').catch(() => null);
+        let parsed = null;
+        try { parsed = rawDc ? JSON.parse(rawDc) : null; } catch { parsed = null; }
+        signals.s2_daily_clearing = s2DailyClearingRecency(parsed, new Date().toISOString());
+      } catch (e) {
+        signals.s2_daily_clearing = { status: 'error', error: String(e).slice(0, 200), stale: true };
+      }
+
       const allFresh = Object.values(signals).every(
         r => r.status === 'present' && r.stale === false && r.degraded !== true,
       );
@@ -13065,6 +13167,8 @@ export { fetchBznGuarded };
 // expose it: `days_of_data` counting rows instead of dates was invisible to
 // every test that existed, because none of them ever looked at it.
 export { dedupeByDateKeepLast, rollingStats };
+// Phase 50 — irreplaceable-archive recency.
+export { s2DailyClearingRecency, S2_DAILY_CLEARING_MAX_LAG_DAYS, BTD_PUBLICATION_LAG_DAYS };
 // Phase 48 — endpoint-auth body validation and blast-radius bounds.
 export {
   parseJsonBody,

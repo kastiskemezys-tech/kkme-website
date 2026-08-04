@@ -1,0 +1,107 @@
+# Phase 50 — weekly offsite copy of the KV backup.
+#
+# ── Why this does NOT commit the backup to the repo ─────────────────────────
+#
+# The first draft ran the export and opened a PR with the files. That was wrong
+# twice over, and the NDA gate caught the first one by refusing the commit:
+#
+#  1. The export contains BTD clearing prices — thousands of numbers. Six of them
+#     collided with numeric NDA needles: a contracted figure equal to the cent to
+#     a public market price. Coincidences, but unavoidable ones, and the gate
+#     cannot tell a coincidence from a disclosure. Committing the corpus would
+#     leave the gate permanently red or force it to be weakened.
+#  2. Worse, and invisible to the gate: `contact_submissions` holds inbound
+#     enquiries — names, email addresses, free-text messages from real people —
+#     and **this repository is public**. A PR would have published third-party
+#     personal data. No needle covers that.
+#
+# So the backup is gitignored and the offsite copy goes to an object store.
+#
+# ── STATUS: INERT UNTIL PROVISIONED ────────────────────────────────────────
+#
+# This workflow does nothing until an R2 bucket and its credentials exist. It
+# fails loudly rather than skipping quietly, because "backup job green, backing
+# nothing up" is the silent-success shape this project keeps paying for.
+#
+# To provision:
+#   npx wrangler r2 bucket create kkme-kv-backup
+#   gh secret set CLOUDFLARE_API_TOKEN     # needs R2 write + KV read
+#   gh secret set CLOUDFLARE_ACCOUNT_ID
+# The bucket must NOT be public. Verify with `wrangler r2 bucket list`.
+name: kv-backup
+
+on:
+  schedule:
+    - cron: '17 3 * * 1'   # Mondays 03:17 UTC — clear of the daily cron block
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offsite:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - run: npm ci
+
+      # Refuse to run half-configured. A backup workflow that "succeeds" without
+      # credentials teaches everyone that backups are happening when they are not.
+      - name: Require credentials
+        env:
+          TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          BUCKET: ${{ vars.KV_BACKUP_BUCKET }}
+        run: |
+          missing=""
+          [ -n "$TOKEN" ]   || missing="$missing CLOUDFLARE_API_TOKEN"
+          [ -n "$ACCOUNT" ] || missing="$missing CLOUDFLARE_ACCOUNT_ID"
+          [ -n "$BUCKET" ]  || missing="$missing KV_BACKUP_BUCKET(var)"
+          if [ -n "$missing" ]; then
+            echo "kv-backup is NOT provisioned — missing:$missing"
+            echo "Nothing has been backed up. See docs/playbooks/kv-restore.md."
+            exit 1
+          fi
+
+      - name: Export KV
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: node scripts/kv-backup.mjs
+
+      # Verify BEFORE shipping. An export that fails its own checksum must never
+      # overwrite a good offsite copy with a bad one.
+      - name: Verify the export against its own manifest
+        run: node scripts/kv-backup.mjs --verify docs/_private/kv-backup/general
+
+      - name: Leak test — tiering and paths
+        run: npx vitest run scripts/__tests__/kvBackup.test.ts
+
+      # Belt and braces: prove nothing from the export is stageable before any
+      # upload step runs. If the tree is dirty with backup files, stop.
+      - name: Assert the backup is not committable
+        run: |
+          if [ -n "$(git status --porcelain -- docs/_private data | grep -v '^??  *$' || true)" ]; then
+            echo "backup files are visible to git — refusing to continue"
+            git status --porcelain -- docs/_private data
+            exit 1
+          fi
+          echo "git sees no backup content"
+
+      - name: Upload to R2
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          BUCKET: ${{ vars.KV_BACKUP_BUCKET }}
+        run: |
+          STAMP=$(date -u +%Y-%m-%d)
+          tar -czf "kv-backup-$STAMP.tar.gz" -C docs/_private/kv-backup .
+          npx wrangler r2 object put "$BUCKET/kv-backup-$STAMP.tar.gz" \
+            --file "kv-backup-$STAMP.tar.gz" --remote
+          echo "uploaded kv-backup-$STAMP.tar.gz"
