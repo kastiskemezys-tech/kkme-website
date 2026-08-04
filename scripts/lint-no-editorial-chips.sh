@@ -19,7 +19,27 @@ cd "$(dirname "$0")/.."
 . "$(dirname "$0")/lib/scan.sh"
 
 SCOPE="app/components"
-PATTERN="phase: '(TIGHTENING|WIDENING|STABLE|RISING|FALLING|STEADY|ELEVATED|HIGH|LOW|COMPRESSED|OPEN)'"
+STATES="TIGHTENING|WIDENING|STABLE|RISING|FALLING|STEADY|ELEVATED|HIGH|LOW|COMPRESSED|OPEN|CONSTRAINED"
+
+# ── Phase 52: the pattern enforced the LETTER of rule #6, not its intent ──────
+#
+# It matched only a property literally named `phase`, because that was the shape
+# of the chips Phase 12.9.1 removed. Rule #6 is about engine-emitted state
+# strings reaching the surface AT ALL, and the tree contains a case the old
+# pattern cannot see:
+#
+#     app/components/S5Card.tsx:153   {data.signal ?? 'OPEN'}
+#
+# rendered as the card's HERO at --type-display-lg with a glow — not a chip, a
+# headline. `data.signal` is worker-emitted (OPEN / TIGHTENING / CONSTRAINED),
+# which is exactly what the rule forbids. That file is orphaned dead code today
+# (imported nowhere, absent from the build), so nothing is live — but a gate that
+# would pass it if it were re-mounted is not enforcing the rule.
+#
+# Two patterns now: the original property form, and a rendered JSX form
+# `{… 'STATE'}` which is how a state string reaches a user without ever being
+# assigned to a property called `phase`.
+PATTERN="(phase|signal|state|status|regime)[[:space:]]*:[[:space:]]*'($STATES)'|\{[^}]*\?\?[[:space:]]*'($STATES)'[[:space:]]*\}"
 
 [ -d "$SCOPE" ] || { echo "GATE UNRUNNABLE — $SCOPE does not exist."; exit 2; }
 
