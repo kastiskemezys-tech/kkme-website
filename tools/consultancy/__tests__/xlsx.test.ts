@@ -16,6 +16,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import ExcelJS from 'exceljs';
+import { FIXTURE_DIR } from '../regen-fixtures.mjs';
 import { loadInputs, buildWorkbook, operationalMwYears } from '../generate-xlsx.mjs';
 
 type Any = Record<string, any>;
@@ -63,7 +64,11 @@ const nums = (ws: any) =>
   cells(ws).flat().filter((v) => typeof v === 'number') as number[];
 
 beforeAll(async () => {
-  inp = loadInputs() as Any;
+  // B-034: the FROZEN fixture, never `output/`. Reading the untracked output
+  // directory meant this suite graded whatever the last local build left on
+  // disk — green over a ~24 % stale artifact during 36.D. Regenerate the
+  // fixture deliberately with `npm run fixtures:regen`.
+  inp = loadInputs({ outputDir: FIXTURE_DIR }) as Any;
   const built = await buildWorkbook(inp, { generatedAt: '2026-07-31' });
   // Serialise and re-parse: everything below reads the file, not the in-memory
   // object, so a value that fails to survive xlsx encoding fails the test.

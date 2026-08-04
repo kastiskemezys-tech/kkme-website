@@ -1,0 +1,2349 @@
+{
+  "generated_at": "2026-08-03T20:11:18.216Z",
+  "engine_version": "v7.3",
+  "kv_source": "live-public-routes",
+  "kv_verified": true,
+  "internal": [
+    {
+      "id": "internal_1_gross_is_sum_of_revenue_lines",
+      "label": "Gross market revenues = capacity + activation + arbitrage + charging cost",
+      "actual": 6284734,
+      "expected": 6284734,
+      "delta": 0,
+      "tolerance": 3,
+      "unit": "EUR",
+      "status": "pass",
+      "note": "Gross is the sum of the three engine revenue lines plus the rebuilt charging cost.",
+      "subject": "reference/central"
+    },
+    {
+      "id": "internal_2_net_is_gross_less_charging",
+      "label": "Net market revenue = gross − charging costs",
+      "actual": 6227470,
+      "expected": 6227470,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "EUR",
+      "status": "pass",
+      "subject": "reference/central"
+    },
+    {
+      "id": "internal_3_ebitda_is_net_less_opex",
+      "label": "Project EBITDA = net − optimiser − grid − market − operating",
+      "actual": 3738913,
+      "expected": 3738913,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "EUR",
+      "status": "pass",
+      "subject": "reference/central"
+    },
+    {
+      "id": "internal_4_prefin_cf_is_ebitda_less_capex",
+      "label": "Pre-financing CF = EBITDA − maintenance − augmentation − replacement CAPEX",
+      "actual": 3538913,
+      "expected": 3538913,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "EUR",
+      "status": "pass",
+      "subject": "reference/central"
+    },
+    {
+      "id": "internal_5_monthly_sums_to_annual",
+      "label": "Σ monthly CFADS = annual CFADS (year 1)",
+      "actual": 3381670,
+      "expected": 3381669,
+      "delta": 1,
+      "tolerance": 12,
+      "unit": "EUR",
+      "status": "pass",
+      "note": "12 monthly rows, seasonally weighted.",
+      "subject": "reference/central"
+    },
+    {
+      "id": "internal_6_energy_balance",
+      "label": "Discharged MWh = charged MWh × RTE, all 20 years",
+      "actual": 1,
+      "expected": 0,
+      "delta": 1,
+      "tolerance": 1,
+      "unit": "MWh",
+      "status": "pass",
+      "note": "Worst year is 19; both series are integer-rounded, so 1 MWh is the resolution.",
+      "subject": "reference/central"
+    },
+    {
+      "id": "internal_8_all_years_tie",
+      "label": "The three bridge identities hold in all 20 years, not only year 1",
+      "actual": 0,
+      "expected": 0,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "EUR",
+      "status": "pass",
+      "note": "All years exact.",
+      "subject": "reference/central"
+    },
+    {
+      "id": "internal_9_demand_ties_to_module",
+      "label": "Projected reserve demand = the canonical module's series, every year",
+      "actual": 1,
+      "expected": 0,
+      "delta": 1,
+      "tolerance": 1,
+      "unit": "MW",
+      "status": "pass",
+      "note": "20 years compared; largest divergence at 2047. Module v1.0.0, baltic-auction-derived.",
+      "subject": "reference/central"
+    },
+    {
+      "id": "internal_10_demand_base_year_ties_to_752",
+      "label": "Module 2026 addressable demand = 752 MW (mFRR 604 + aFRR 120 + FCR 28)",
+      "actual": 752,
+      "expected": 752,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "MW",
+      "status": "pass",
+      "note": "The engine's pre-36.D constant, now with the tri-TSO documents behind it.",
+      "subject": "reference/central"
+    },
+    {
+      "id": "internal_11_fast_response_identity",
+      "label": "IZDR + GAGAP = 354 MW in every year (Litgrid table 20, p.127)",
+      "actual": 0,
+      "expected": 0,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "MW",
+      "status": "pass",
+      "note": "The 2033 lapse of the Energy Cells reservation nets to zero: supply +200, absorption +200.",
+      "subject": "reference/central"
+    },
+    {
+      "id": "internal_12_absorption_applied",
+      "label": "Supply is net of the module's absorption series",
+      "actual": 500,
+      "expected": 500,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "MW",
+      "status": "pass",
+      "note": "MW contracted away to LT services with no KKME revenue line, at 2029.",
+      "subject": "reference/central"
+    },
+    {
+      "id": "internal_1_gross_is_sum_of_revenue_lines",
+      "label": "Gross market revenues = capacity + activation + arbitrage + charging cost",
+      "actual": 4734033,
+      "expected": 4734033,
+      "delta": 0,
+      "tolerance": 3,
+      "unit": "EUR",
+      "status": "pass",
+      "note": "Gross is the sum of the three engine revenue lines plus the rebuilt charging cost.",
+      "subject": "bitenai/downside"
+    },
+    {
+      "id": "internal_2_net_is_gross_less_charging",
+      "label": "Net market revenue = gross − charging costs",
+      "actual": 4681298,
+      "expected": 4681298,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "EUR",
+      "status": "pass",
+      "subject": "bitenai/downside"
+    },
+    {
+      "id": "internal_3_ebitda_is_net_less_opex",
+      "label": "Project EBITDA = net − optimiser − grid − market − operating",
+      "actual": 2500173,
+      "expected": 2500173,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "EUR",
+      "status": "pass",
+      "subject": "bitenai/downside"
+    },
+    {
+      "id": "internal_4_prefin_cf_is_ebitda_less_capex",
+      "label": "Pre-financing CF = EBITDA − maintenance − augmentation − replacement CAPEX",
+      "actual": 2308173,
+      "expected": 2308173,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "EUR",
+      "status": "pass",
+      "subject": "bitenai/downside"
+    },
+    {
+      "id": "internal_5_monthly_sums_to_annual",
+      "label": "Σ monthly CFADS = annual CFADS (year 1)",
+      "actual": 2257360,
+      "expected": 2257360,
+      "delta": 0,
+      "tolerance": 12,
+      "unit": "EUR",
+      "status": "pass",
+      "note": "12 monthly rows, seasonally weighted.",
+      "subject": "bitenai/downside"
+    },
+    {
+      "id": "internal_6_energy_balance",
+      "label": "Discharged MWh = charged MWh × RTE, all 20 years",
+      "actual": 1,
+      "expected": 0,
+      "delta": 1,
+      "tolerance": 1,
+      "unit": "MWh",
+      "status": "pass",
+      "note": "Worst year is 4; both series are integer-rounded, so 1 MWh is the resolution.",
+      "subject": "bitenai/downside"
+    },
+    {
+      "id": "internal_8_all_years_tie",
+      "label": "The three bridge identities hold in all 20 years, not only year 1",
+      "actual": 0,
+      "expected": 0,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "EUR",
+      "status": "pass",
+      "note": "All years exact.",
+      "subject": "bitenai/downside"
+    },
+    {
+      "id": "internal_9_demand_ties_to_module",
+      "label": "Projected reserve demand = the canonical module's series, every year",
+      "actual": 1,
+      "expected": 0,
+      "delta": 1,
+      "tolerance": 1,
+      "unit": "MW",
+      "status": "pass",
+      "note": "20 years compared; largest divergence at 2047. Module v1.0.0, baltic-auction-derived.",
+      "subject": "bitenai/downside"
+    },
+    {
+      "id": "internal_10_demand_base_year_ties_to_752",
+      "label": "Module 2026 addressable demand = 752 MW (mFRR 604 + aFRR 120 + FCR 28)",
+      "actual": 752,
+      "expected": 752,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "MW",
+      "status": "pass",
+      "note": "The engine's pre-36.D constant, now with the tri-TSO documents behind it.",
+      "subject": "bitenai/downside"
+    },
+    {
+      "id": "internal_11_fast_response_identity",
+      "label": "IZDR + GAGAP = 354 MW in every year (Litgrid table 20, p.127)",
+      "actual": 0,
+      "expected": 0,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "MW",
+      "status": "pass",
+      "note": "The 2033 lapse of the Energy Cells reservation nets to zero: supply +200, absorption +200.",
+      "subject": "bitenai/downside"
+    },
+    {
+      "id": "internal_12_absorption_applied",
+      "label": "Supply is net of the module's absorption series",
+      "actual": 500,
+      "expected": 500,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "MW",
+      "status": "pass",
+      "note": "MW contracted away to LT services with no KKME revenue line, at 2028.",
+      "subject": "bitenai/downside"
+    },
+    {
+      "id": "internal_1_gross_is_sum_of_revenue_lines",
+      "label": "Gross market revenues = capacity + activation + arbitrage + charging cost",
+      "actual": 2588924,
+      "expected": 2588923,
+      "delta": 1,
+      "tolerance": 3,
+      "unit": "EUR",
+      "status": "pass",
+      "note": "Gross is the sum of the three engine revenue lines plus the rebuilt charging cost.",
+      "subject": "stoniskiai/downside"
+    },
+    {
+      "id": "internal_2_net_is_gross_less_charging",
+      "label": "Net market revenue = gross − charging costs",
+      "actual": 2560085,
+      "expected": 2560085,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "EUR",
+      "status": "pass",
+      "subject": "stoniskiai/downside"
+    },
+    {
+      "id": "internal_3_ebitda_is_net_less_opex",
+      "label": "Project EBITDA = net − optimiser − grid − market − operating",
+      "actual": 1367282,
+      "expected": 1367282,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "EUR",
+      "status": "pass",
+      "subject": "stoniskiai/downside"
+    },
+    {
+      "id": "internal_4_prefin_cf_is_ebitda_less_capex",
+      "label": "Pre-financing CF = EBITDA − maintenance − augmentation − replacement CAPEX",
+      "actual": 1262282,
+      "expected": 1262282,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "EUR",
+      "status": "pass",
+      "subject": "stoniskiai/downside"
+    },
+    {
+      "id": "internal_5_monthly_sums_to_annual",
+      "label": "Σ monthly CFADS = annual CFADS (year 1)",
+      "actual": 1261526,
+      "expected": 1261526,
+      "delta": 0,
+      "tolerance": 12,
+      "unit": "EUR",
+      "status": "pass",
+      "note": "12 monthly rows, seasonally weighted.",
+      "subject": "stoniskiai/downside"
+    },
+    {
+      "id": "internal_6_energy_balance",
+      "label": "Discharged MWh = charged MWh × RTE, all 20 years",
+      "actual": 1,
+      "expected": 0,
+      "delta": 1,
+      "tolerance": 1,
+      "unit": "MWh",
+      "status": "pass",
+      "note": "Worst year is 12; both series are integer-rounded, so 1 MWh is the resolution.",
+      "subject": "stoniskiai/downside"
+    },
+    {
+      "id": "internal_8_all_years_tie",
+      "label": "The three bridge identities hold in all 20 years, not only year 1",
+      "actual": 0,
+      "expected": 0,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "EUR",
+      "status": "pass",
+      "note": "All years exact.",
+      "subject": "stoniskiai/downside"
+    },
+    {
+      "id": "internal_9_demand_ties_to_module",
+      "label": "Projected reserve demand = the canonical module's series, every year",
+      "actual": 1,
+      "expected": 0,
+      "delta": 1,
+      "tolerance": 1,
+      "unit": "MW",
+      "status": "pass",
+      "note": "20 years compared; largest divergence at 2047. Module v1.0.0, baltic-auction-derived.",
+      "subject": "stoniskiai/downside"
+    },
+    {
+      "id": "internal_10_demand_base_year_ties_to_752",
+      "label": "Module 2026 addressable demand = 752 MW (mFRR 604 + aFRR 120 + FCR 28)",
+      "actual": 752,
+      "expected": 752,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "MW",
+      "status": "pass",
+      "note": "The engine's pre-36.D constant, now with the tri-TSO documents behind it.",
+      "subject": "stoniskiai/downside"
+    },
+    {
+      "id": "internal_11_fast_response_identity",
+      "label": "IZDR + GAGAP = 354 MW in every year (Litgrid table 20, p.127)",
+      "actual": 0,
+      "expected": 0,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "MW",
+      "status": "pass",
+      "note": "The 2033 lapse of the Energy Cells reservation nets to zero: supply +200, absorption +200.",
+      "subject": "stoniskiai/downside"
+    },
+    {
+      "id": "internal_12_absorption_applied",
+      "label": "Supply is net of the module's absorption series",
+      "actual": 500,
+      "expected": 500,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "MW",
+      "status": "pass",
+      "note": "MW contracted away to LT services with no KKME revenue line, at 2028.",
+      "subject": "stoniskiai/downside"
+    },
+    {
+      "id": "internal_1_gross_is_sum_of_revenue_lines",
+      "label": "Gross market revenues = capacity + activation + arbitrage + charging cost",
+      "actual": 2340437,
+      "expected": 2340437,
+      "delta": 0,
+      "tolerance": 3,
+      "unit": "EUR",
+      "status": "pass",
+      "note": "Gross is the sum of the three engine revenue lines plus the rebuilt charging cost.",
+      "subject": "eigirdziai/downside"
+    },
+    {
+      "id": "internal_2_net_is_gross_less_charging",
+      "label": "Net market revenue = gross − charging costs",
+      "actual": 2312975,
+      "expected": 2312975,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "EUR",
+      "status": "pass",
+      "subject": "eigirdziai/downside"
+    },
+    {
+      "id": "internal_3_ebitda_is_net_less_opex",
+      "label": "Project EBITDA = net − optimiser − grid − market − operating",
+      "actual": 1197006,
+      "expected": 1197006,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "EUR",
+      "status": "pass",
+      "subject": "eigirdziai/downside"
+    },
+    {
+      "id": "internal_4_prefin_cf_is_ebitda_less_capex",
+      "label": "Pre-financing CF = EBITDA − maintenance − augmentation − replacement CAPEX",
+      "actual": 1097006,
+      "expected": 1097006,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "EUR",
+      "status": "pass",
+      "subject": "eigirdziai/downside"
+    },
+    {
+      "id": "internal_5_monthly_sums_to_annual",
+      "label": "Σ monthly CFADS = annual CFADS (year 1)",
+      "actual": 1086270,
+      "expected": 1086269,
+      "delta": 1,
+      "tolerance": 12,
+      "unit": "EUR",
+      "status": "pass",
+      "note": "12 monthly rows, seasonally weighted.",
+      "subject": "eigirdziai/downside"
+    },
+    {
+      "id": "internal_6_energy_balance",
+      "label": "Discharged MWh = charged MWh × RTE, all 20 years",
+      "actual": 1,
+      "expected": 0,
+      "delta": 1,
+      "tolerance": 1,
+      "unit": "MWh",
+      "status": "pass",
+      "note": "Worst year is 19; both series are integer-rounded, so 1 MWh is the resolution.",
+      "subject": "eigirdziai/downside"
+    },
+    {
+      "id": "internal_8_all_years_tie",
+      "label": "The three bridge identities hold in all 20 years, not only year 1",
+      "actual": 0,
+      "expected": 0,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "EUR",
+      "status": "pass",
+      "note": "All years exact.",
+      "subject": "eigirdziai/downside"
+    },
+    {
+      "id": "internal_9_demand_ties_to_module",
+      "label": "Projected reserve demand = the canonical module's series, every year",
+      "actual": 1,
+      "expected": 0,
+      "delta": 1,
+      "tolerance": 1,
+      "unit": "MW",
+      "status": "pass",
+      "note": "20 years compared; largest divergence at 2047. Module v1.0.0, baltic-auction-derived.",
+      "subject": "eigirdziai/downside"
+    },
+    {
+      "id": "internal_10_demand_base_year_ties_to_752",
+      "label": "Module 2026 addressable demand = 752 MW (mFRR 604 + aFRR 120 + FCR 28)",
+      "actual": 752,
+      "expected": 752,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "MW",
+      "status": "pass",
+      "note": "The engine's pre-36.D constant, now with the tri-TSO documents behind it.",
+      "subject": "eigirdziai/downside"
+    },
+    {
+      "id": "internal_11_fast_response_identity",
+      "label": "IZDR + GAGAP = 354 MW in every year (Litgrid table 20, p.127)",
+      "actual": 0,
+      "expected": 0,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "MW",
+      "status": "pass",
+      "note": "The 2033 lapse of the Energy Cells reservation nets to zero: supply +200, absorption +200.",
+      "subject": "eigirdziai/downside"
+    },
+    {
+      "id": "internal_12_absorption_applied",
+      "label": "Supply is net of the module's absorption series",
+      "actual": 500,
+      "expected": 500,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "MW",
+      "status": "pass",
+      "note": "MW contracted away to LT services with no KKME revenue line, at 2029.",
+      "subject": "eigirdziai/downside"
+    },
+    {
+      "id": "internal_7_portfolio_is_sum_of_projects",
+      "label": "Consolidated portfolio = Σ projects, every bridge line, every calendar year",
+      "actual": 0,
+      "expected": 0,
+      "delta": 0,
+      "tolerance": 3,
+      "unit": "EUR",
+      "status": "pass",
+      "note": "Exact everywhere.",
+      "subject": "portfolio/downside"
+    },
+    {
+      "id": "internal_1_gross_is_sum_of_revenue_lines",
+      "label": "Gross market revenues = capacity + activation + arbitrage + charging cost",
+      "actual": 6269889,
+      "expected": 6269889,
+      "delta": 0,
+      "tolerance": 3,
+      "unit": "EUR",
+      "status": "pass",
+      "note": "Gross is the sum of the three engine revenue lines plus the rebuilt charging cost.",
+      "subject": "bitenai/central"
+    },
+    {
+      "id": "internal_2_net_is_gross_less_charging",
+      "label": "Net market revenue = gross − charging costs",
+      "actual": 6214917,
+      "expected": 6214917,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "EUR",
+      "status": "pass",
+      "subject": "bitenai/central"
+    },
+    {
+      "id": "internal_3_ebitda_is_net_less_opex",
+      "label": "Project EBITDA = net − optimiser − grid − market − operating",
+      "actual": 3788054,
+      "expected": 3788054,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "EUR",
+      "status": "pass",
+      "subject": "bitenai/central"
+    },
+    {
+      "id": "internal_4_prefin_cf_is_ebitda_less_capex",
+      "label": "Pre-financing CF = EBITDA − maintenance − augmentation − replacement CAPEX",
+      "actual": 3596054,
+      "expected": 3596054,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "EUR",
+      "status": "pass",
+      "subject": "bitenai/central"
+    },
+    {
+      "id": "internal_5_monthly_sums_to_annual",
+      "label": "Σ monthly CFADS = annual CFADS (year 1)",
+      "actual": 3427029,
+      "expected": 3427029,
+      "delta": 0,
+      "tolerance": 12,
+      "unit": "EUR",
+      "status": "pass",
+      "note": "12 monthly rows, seasonally weighted.",
+      "subject": "bitenai/central"
+    },
+    {
+      "id": "internal_6_energy_balance",
+      "label": "Discharged MWh = charged MWh × RTE, all 20 years",
+      "actual": 1,
+      "expected": 0,
+      "delta": 1,
+      "tolerance": 1,
+      "unit": "MWh",
+      "status": "pass",
+      "note": "Worst year is 20; both series are integer-rounded, so 1 MWh is the resolution.",
+      "subject": "bitenai/central"
+    },
+    {
+      "id": "internal_8_all_years_tie",
+      "label": "The three bridge identities hold in all 20 years, not only year 1",
+      "actual": 0,
+      "expected": 0,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "EUR",
+      "status": "pass",
+      "note": "All years exact.",
+      "subject": "bitenai/central"
+    },
+    {
+      "id": "internal_9_demand_ties_to_module",
+      "label": "Projected reserve demand = the canonical module's series, every year",
+      "actual": 1,
+      "expected": 0,
+      "delta": 1,
+      "tolerance": 1,
+      "unit": "MW",
+      "status": "pass",
+      "note": "20 years compared; largest divergence at 2047. Module v1.0.0, baltic-auction-derived.",
+      "subject": "bitenai/central"
+    },
+    {
+      "id": "internal_10_demand_base_year_ties_to_752",
+      "label": "Module 2026 addressable demand = 752 MW (mFRR 604 + aFRR 120 + FCR 28)",
+      "actual": 752,
+      "expected": 752,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "MW",
+      "status": "pass",
+      "note": "The engine's pre-36.D constant, now with the tri-TSO documents behind it.",
+      "subject": "bitenai/central"
+    },
+    {
+      "id": "internal_11_fast_response_identity",
+      "label": "IZDR + GAGAP = 354 MW in every year (Litgrid table 20, p.127)",
+      "actual": 0,
+      "expected": 0,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "MW",
+      "status": "pass",
+      "note": "The 2033 lapse of the Energy Cells reservation nets to zero: supply +200, absorption +200.",
+      "subject": "bitenai/central"
+    },
+    {
+      "id": "internal_12_absorption_applied",
+      "label": "Supply is net of the module's absorption series",
+      "actual": 500,
+      "expected": 500,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "MW",
+      "status": "pass",
+      "note": "MW contracted away to LT services with no KKME revenue line, at 2028.",
+      "subject": "bitenai/central"
+    },
+    {
+      "id": "internal_1_gross_is_sum_of_revenue_lines",
+      "label": "Gross market revenues = capacity + activation + arbitrage + charging cost",
+      "actual": 3428848,
+      "expected": 3428847,
+      "delta": 1,
+      "tolerance": 3,
+      "unit": "EUR",
+      "status": "pass",
+      "note": "Gross is the sum of the three engine revenue lines plus the rebuilt charging cost.",
+      "subject": "stoniskiai/central"
+    },
+    {
+      "id": "internal_2_net_is_gross_less_charging",
+      "label": "Net market revenue = gross − charging costs",
+      "actual": 3398783,
+      "expected": 3398783,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "EUR",
+      "status": "pass",
+      "subject": "stoniskiai/central"
+    },
+    {
+      "id": "internal_3_ebitda_is_net_less_opex",
+      "label": "Project EBITDA = net − optimiser − grid − market − operating",
+      "actual": 2071593,
+      "expected": 2071593,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "EUR",
+      "status": "pass",
+      "subject": "stoniskiai/central"
+    },
+    {
+      "id": "internal_4_prefin_cf_is_ebitda_less_capex",
+      "label": "Pre-financing CF = EBITDA − maintenance − augmentation − replacement CAPEX",
+      "actual": 1966593,
+      "expected": 1966593,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "EUR",
+      "status": "pass",
+      "subject": "stoniskiai/central"
+    },
+    {
+      "id": "internal_5_monthly_sums_to_annual",
+      "label": "Σ monthly CFADS = annual CFADS (year 1)",
+      "actual": 2008033,
+      "expected": 2008033,
+      "delta": 0,
+      "tolerance": 12,
+      "unit": "EUR",
+      "status": "pass",
+      "note": "12 monthly rows, seasonally weighted.",
+      "subject": "stoniskiai/central"
+    },
+    {
+      "id": "internal_6_energy_balance",
+      "label": "Discharged MWh = charged MWh × RTE, all 20 years",
+      "actual": 1,
+      "expected": 0,
+      "delta": 1,
+      "tolerance": 1,
+      "unit": "MWh",
+      "status": "pass",
+      "note": "Worst year is 5; both series are integer-rounded, so 1 MWh is the resolution.",
+      "subject": "stoniskiai/central"
+    },
+    {
+      "id": "internal_8_all_years_tie",
+      "label": "The three bridge identities hold in all 20 years, not only year 1",
+      "actual": 0,
+      "expected": 0,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "EUR",
+      "status": "pass",
+      "note": "All years exact.",
+      "subject": "stoniskiai/central"
+    },
+    {
+      "id": "internal_9_demand_ties_to_module",
+      "label": "Projected reserve demand = the canonical module's series, every year",
+      "actual": 1,
+      "expected": 0,
+      "delta": 1,
+      "tolerance": 1,
+      "unit": "MW",
+      "status": "pass",
+      "note": "20 years compared; largest divergence at 2047. Module v1.0.0, baltic-auction-derived.",
+      "subject": "stoniskiai/central"
+    },
+    {
+      "id": "internal_10_demand_base_year_ties_to_752",
+      "label": "Module 2026 addressable demand = 752 MW (mFRR 604 + aFRR 120 + FCR 28)",
+      "actual": 752,
+      "expected": 752,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "MW",
+      "status": "pass",
+      "note": "The engine's pre-36.D constant, now with the tri-TSO documents behind it.",
+      "subject": "stoniskiai/central"
+    },
+    {
+      "id": "internal_11_fast_response_identity",
+      "label": "IZDR + GAGAP = 354 MW in every year (Litgrid table 20, p.127)",
+      "actual": 0,
+      "expected": 0,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "MW",
+      "status": "pass",
+      "note": "The 2033 lapse of the Energy Cells reservation nets to zero: supply +200, absorption +200.",
+      "subject": "stoniskiai/central"
+    },
+    {
+      "id": "internal_12_absorption_applied",
+      "label": "Supply is net of the module's absorption series",
+      "actual": 500,
+      "expected": 500,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "MW",
+      "status": "pass",
+      "note": "MW contracted away to LT services with no KKME revenue line, at 2028.",
+      "subject": "stoniskiai/central"
+    },
+    {
+      "id": "internal_1_gross_is_sum_of_revenue_lines",
+      "label": "Gross market revenues = capacity + activation + arbitrage + charging cost",
+      "actual": 3142367,
+      "expected": 3142367,
+      "delta": 0,
+      "tolerance": 3,
+      "unit": "EUR",
+      "status": "pass",
+      "note": "Gross is the sum of the three engine revenue lines plus the rebuilt charging cost.",
+      "subject": "eigirdziai/central"
+    },
+    {
+      "id": "internal_2_net_is_gross_less_charging",
+      "label": "Net market revenue = gross − charging costs",
+      "actual": 3113735,
+      "expected": 3113735,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "EUR",
+      "status": "pass",
+      "subject": "eigirdziai/central"
+    },
+    {
+      "id": "internal_3_ebitda_is_net_less_opex",
+      "label": "Project EBITDA = net − optimiser − grid − market − operating",
+      "actual": 1869456,
+      "expected": 1869456,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "EUR",
+      "status": "pass",
+      "subject": "eigirdziai/central"
+    },
+    {
+      "id": "internal_4_prefin_cf_is_ebitda_less_capex",
+      "label": "Pre-financing CF = EBITDA − maintenance − augmentation − replacement CAPEX",
+      "actual": 1769456,
+      "expected": 1769456,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "EUR",
+      "status": "pass",
+      "subject": "eigirdziai/central"
+    },
+    {
+      "id": "internal_5_monthly_sums_to_annual",
+      "label": "Σ monthly CFADS = annual CFADS (year 1)",
+      "actual": 1726536,
+      "expected": 1726535,
+      "delta": 1,
+      "tolerance": 12,
+      "unit": "EUR",
+      "status": "pass",
+      "note": "12 monthly rows, seasonally weighted.",
+      "subject": "eigirdziai/central"
+    },
+    {
+      "id": "internal_6_energy_balance",
+      "label": "Discharged MWh = charged MWh × RTE, all 20 years",
+      "actual": 1,
+      "expected": 0,
+      "delta": 1,
+      "tolerance": 1,
+      "unit": "MWh",
+      "status": "pass",
+      "note": "Worst year is 12; both series are integer-rounded, so 1 MWh is the resolution.",
+      "subject": "eigirdziai/central"
+    },
+    {
+      "id": "internal_8_all_years_tie",
+      "label": "The three bridge identities hold in all 20 years, not only year 1",
+      "actual": 0,
+      "expected": 0,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "EUR",
+      "status": "pass",
+      "note": "All years exact.",
+      "subject": "eigirdziai/central"
+    },
+    {
+      "id": "internal_9_demand_ties_to_module",
+      "label": "Projected reserve demand = the canonical module's series, every year",
+      "actual": 1,
+      "expected": 0,
+      "delta": 1,
+      "tolerance": 1,
+      "unit": "MW",
+      "status": "pass",
+      "note": "20 years compared; largest divergence at 2047. Module v1.0.0, baltic-auction-derived.",
+      "subject": "eigirdziai/central"
+    },
+    {
+      "id": "internal_10_demand_base_year_ties_to_752",
+      "label": "Module 2026 addressable demand = 752 MW (mFRR 604 + aFRR 120 + FCR 28)",
+      "actual": 752,
+      "expected": 752,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "MW",
+      "status": "pass",
+      "note": "The engine's pre-36.D constant, now with the tri-TSO documents behind it.",
+      "subject": "eigirdziai/central"
+    },
+    {
+      "id": "internal_11_fast_response_identity",
+      "label": "IZDR + GAGAP = 354 MW in every year (Litgrid table 20, p.127)",
+      "actual": 0,
+      "expected": 0,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "MW",
+      "status": "pass",
+      "note": "The 2033 lapse of the Energy Cells reservation nets to zero: supply +200, absorption +200.",
+      "subject": "eigirdziai/central"
+    },
+    {
+      "id": "internal_12_absorption_applied",
+      "label": "Supply is net of the module's absorption series",
+      "actual": 500,
+      "expected": 500,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "MW",
+      "status": "pass",
+      "note": "MW contracted away to LT services with no KKME revenue line, at 2029.",
+      "subject": "eigirdziai/central"
+    },
+    {
+      "id": "internal_7_portfolio_is_sum_of_projects",
+      "label": "Consolidated portfolio = Σ projects, every bridge line, every calendar year",
+      "actual": 0,
+      "expected": 0,
+      "delta": 0,
+      "tolerance": 3,
+      "unit": "EUR",
+      "status": "pass",
+      "note": "Exact everywhere.",
+      "subject": "portfolio/central"
+    },
+    {
+      "id": "internal_1_gross_is_sum_of_revenue_lines",
+      "label": "Gross market revenues = capacity + activation + arbitrage + charging cost",
+      "actual": 7510691,
+      "expected": 7510690,
+      "delta": 1,
+      "tolerance": 3,
+      "unit": "EUR",
+      "status": "pass",
+      "note": "Gross is the sum of the three engine revenue lines plus the rebuilt charging cost.",
+      "subject": "bitenai/upside"
+    },
+    {
+      "id": "internal_2_net_is_gross_less_charging",
+      "label": "Net market revenue = gross − charging costs",
+      "actual": 7454573,
+      "expected": 7454573,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "EUR",
+      "status": "pass",
+      "subject": "bitenai/upside"
+    },
+    {
+      "id": "internal_3_ebitda_is_net_less_opex",
+      "label": "Project EBITDA = net − optimiser − grid − market − operating",
+      "actual": 4829182,
+      "expected": 4829182,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "EUR",
+      "status": "pass",
+      "subject": "bitenai/upside"
+    },
+    {
+      "id": "internal_4_prefin_cf_is_ebitda_less_capex",
+      "label": "Pre-financing CF = EBITDA − maintenance − augmentation − replacement CAPEX",
+      "actual": 4637182,
+      "expected": 4637182,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "EUR",
+      "status": "pass",
+      "subject": "bitenai/upside"
+    },
+    {
+      "id": "internal_5_monthly_sums_to_annual",
+      "label": "Σ monthly CFADS = annual CFADS (year 1)",
+      "actual": 4372918,
+      "expected": 4372918,
+      "delta": 0,
+      "tolerance": 12,
+      "unit": "EUR",
+      "status": "pass",
+      "note": "12 monthly rows, seasonally weighted.",
+      "subject": "bitenai/upside"
+    },
+    {
+      "id": "internal_6_energy_balance",
+      "label": "Discharged MWh = charged MWh × RTE, all 20 years",
+      "actual": 1,
+      "expected": 0,
+      "delta": 1,
+      "tolerance": 1,
+      "unit": "MWh",
+      "status": "pass",
+      "note": "Worst year is 8; both series are integer-rounded, so 1 MWh is the resolution.",
+      "subject": "bitenai/upside"
+    },
+    {
+      "id": "internal_8_all_years_tie",
+      "label": "The three bridge identities hold in all 20 years, not only year 1",
+      "actual": 0,
+      "expected": 0,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "EUR",
+      "status": "pass",
+      "note": "All years exact.",
+      "subject": "bitenai/upside"
+    },
+    {
+      "id": "internal_9_demand_ties_to_module",
+      "label": "Projected reserve demand = the canonical module's series, every year",
+      "actual": 1,
+      "expected": 0,
+      "delta": 1,
+      "tolerance": 1,
+      "unit": "MW",
+      "status": "pass",
+      "note": "20 years compared; largest divergence at 2047. Module v1.0.0, baltic-auction-derived.",
+      "subject": "bitenai/upside"
+    },
+    {
+      "id": "internal_10_demand_base_year_ties_to_752",
+      "label": "Module 2026 addressable demand = 752 MW (mFRR 604 + aFRR 120 + FCR 28)",
+      "actual": 752,
+      "expected": 752,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "MW",
+      "status": "pass",
+      "note": "The engine's pre-36.D constant, now with the tri-TSO documents behind it.",
+      "subject": "bitenai/upside"
+    },
+    {
+      "id": "internal_11_fast_response_identity",
+      "label": "IZDR + GAGAP = 354 MW in every year (Litgrid table 20, p.127)",
+      "actual": 0,
+      "expected": 0,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "MW",
+      "status": "pass",
+      "note": "The 2033 lapse of the Energy Cells reservation nets to zero: supply +200, absorption +200.",
+      "subject": "bitenai/upside"
+    },
+    {
+      "id": "internal_12_absorption_applied",
+      "label": "Supply is net of the module's absorption series",
+      "actual": 500,
+      "expected": 500,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "MW",
+      "status": "pass",
+      "note": "MW contracted away to LT services with no KKME revenue line, at 2028.",
+      "subject": "bitenai/upside"
+    },
+    {
+      "id": "internal_1_gross_is_sum_of_revenue_lines",
+      "label": "Gross market revenues = capacity + activation + arbitrage + charging cost",
+      "actual": 4107406,
+      "expected": 4107405,
+      "delta": 1,
+      "tolerance": 3,
+      "unit": "EUR",
+      "status": "pass",
+      "note": "Gross is the sum of the three engine revenue lines plus the rebuilt charging cost.",
+      "subject": "stoniskiai/upside"
+    },
+    {
+      "id": "internal_2_net_is_gross_less_charging",
+      "label": "Net market revenue = gross − charging costs",
+      "actual": 4076720,
+      "expected": 4076720,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "EUR",
+      "status": "pass",
+      "subject": "stoniskiai/upside"
+    },
+    {
+      "id": "internal_3_ebitda_is_net_less_opex",
+      "label": "Project EBITDA = net − optimiser − grid − market − operating",
+      "actual": 2640960,
+      "expected": 2640960,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "EUR",
+      "status": "pass",
+      "subject": "stoniskiai/upside"
+    },
+    {
+      "id": "internal_4_prefin_cf_is_ebitda_less_capex",
+      "label": "Pre-financing CF = EBITDA − maintenance − augmentation − replacement CAPEX",
+      "actual": 2535960,
+      "expected": 2535960,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "EUR",
+      "status": "pass",
+      "subject": "stoniskiai/upside"
+    },
+    {
+      "id": "internal_5_monthly_sums_to_annual",
+      "label": "Σ monthly CFADS = annual CFADS (year 1)",
+      "actual": 2525317,
+      "expected": 2525316,
+      "delta": 1,
+      "tolerance": 12,
+      "unit": "EUR",
+      "status": "pass",
+      "note": "12 monthly rows, seasonally weighted.",
+      "subject": "stoniskiai/upside"
+    },
+    {
+      "id": "internal_6_energy_balance",
+      "label": "Discharged MWh = charged MWh × RTE, all 20 years",
+      "actual": 1,
+      "expected": 0,
+      "delta": 1,
+      "tolerance": 1,
+      "unit": "MWh",
+      "status": "pass",
+      "note": "Worst year is 6; both series are integer-rounded, so 1 MWh is the resolution.",
+      "subject": "stoniskiai/upside"
+    },
+    {
+      "id": "internal_8_all_years_tie",
+      "label": "The three bridge identities hold in all 20 years, not only year 1",
+      "actual": 0,
+      "expected": 0,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "EUR",
+      "status": "pass",
+      "note": "All years exact.",
+      "subject": "stoniskiai/upside"
+    },
+    {
+      "id": "internal_9_demand_ties_to_module",
+      "label": "Projected reserve demand = the canonical module's series, every year",
+      "actual": 1,
+      "expected": 0,
+      "delta": 1,
+      "tolerance": 1,
+      "unit": "MW",
+      "status": "pass",
+      "note": "20 years compared; largest divergence at 2047. Module v1.0.0, baltic-auction-derived.",
+      "subject": "stoniskiai/upside"
+    },
+    {
+      "id": "internal_10_demand_base_year_ties_to_752",
+      "label": "Module 2026 addressable demand = 752 MW (mFRR 604 + aFRR 120 + FCR 28)",
+      "actual": 752,
+      "expected": 752,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "MW",
+      "status": "pass",
+      "note": "The engine's pre-36.D constant, now with the tri-TSO documents behind it.",
+      "subject": "stoniskiai/upside"
+    },
+    {
+      "id": "internal_11_fast_response_identity",
+      "label": "IZDR + GAGAP = 354 MW in every year (Litgrid table 20, p.127)",
+      "actual": 0,
+      "expected": 0,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "MW",
+      "status": "pass",
+      "note": "The 2033 lapse of the Energy Cells reservation nets to zero: supply +200, absorption +200.",
+      "subject": "stoniskiai/upside"
+    },
+    {
+      "id": "internal_12_absorption_applied",
+      "label": "Supply is net of the module's absorption series",
+      "actual": 500,
+      "expected": 500,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "MW",
+      "status": "pass",
+      "note": "MW contracted away to LT services with no KKME revenue line, at 2028.",
+      "subject": "stoniskiai/upside"
+    },
+    {
+      "id": "internal_1_gross_is_sum_of_revenue_lines",
+      "label": "Gross market revenues = capacity + activation + arbitrage + charging cost",
+      "actual": 3852154,
+      "expected": 3852154,
+      "delta": 0,
+      "tolerance": 3,
+      "unit": "EUR",
+      "status": "pass",
+      "note": "Gross is the sum of the three engine revenue lines plus the rebuilt charging cost.",
+      "subject": "eigirdziai/upside"
+    },
+    {
+      "id": "internal_2_net_is_gross_less_charging",
+      "label": "Net market revenue = gross − charging costs",
+      "actual": 3822925,
+      "expected": 3822925,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "EUR",
+      "status": "pass",
+      "subject": "eigirdziai/upside"
+    },
+    {
+      "id": "internal_3_ebitda_is_net_less_opex",
+      "label": "Project EBITDA = net − optimiser − grid − market − operating",
+      "actual": 2465080,
+      "expected": 2465080,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "EUR",
+      "status": "pass",
+      "subject": "eigirdziai/upside"
+    },
+    {
+      "id": "internal_4_prefin_cf_is_ebitda_less_capex",
+      "label": "Pre-financing CF = EBITDA − maintenance − augmentation − replacement CAPEX",
+      "actual": 2365080,
+      "expected": 2365080,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "EUR",
+      "status": "pass",
+      "subject": "eigirdziai/upside"
+    },
+    {
+      "id": "internal_5_monthly_sums_to_annual",
+      "label": "Σ monthly CFADS = annual CFADS (year 1)",
+      "actual": 2267703,
+      "expected": 2267702,
+      "delta": 1,
+      "tolerance": 12,
+      "unit": "EUR",
+      "status": "pass",
+      "note": "12 monthly rows, seasonally weighted.",
+      "subject": "eigirdziai/upside"
+    },
+    {
+      "id": "internal_6_energy_balance",
+      "label": "Discharged MWh = charged MWh × RTE, all 20 years",
+      "actual": 1,
+      "expected": 0,
+      "delta": 1,
+      "tolerance": 1,
+      "unit": "MWh",
+      "status": "pass",
+      "note": "Worst year is 18; both series are integer-rounded, so 1 MWh is the resolution.",
+      "subject": "eigirdziai/upside"
+    },
+    {
+      "id": "internal_8_all_years_tie",
+      "label": "The three bridge identities hold in all 20 years, not only year 1",
+      "actual": 0,
+      "expected": 0,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "EUR",
+      "status": "pass",
+      "note": "All years exact.",
+      "subject": "eigirdziai/upside"
+    },
+    {
+      "id": "internal_9_demand_ties_to_module",
+      "label": "Projected reserve demand = the canonical module's series, every year",
+      "actual": 1,
+      "expected": 0,
+      "delta": 1,
+      "tolerance": 1,
+      "unit": "MW",
+      "status": "pass",
+      "note": "20 years compared; largest divergence at 2047. Module v1.0.0, baltic-auction-derived.",
+      "subject": "eigirdziai/upside"
+    },
+    {
+      "id": "internal_10_demand_base_year_ties_to_752",
+      "label": "Module 2026 addressable demand = 752 MW (mFRR 604 + aFRR 120 + FCR 28)",
+      "actual": 752,
+      "expected": 752,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "MW",
+      "status": "pass",
+      "note": "The engine's pre-36.D constant, now with the tri-TSO documents behind it.",
+      "subject": "eigirdziai/upside"
+    },
+    {
+      "id": "internal_11_fast_response_identity",
+      "label": "IZDR + GAGAP = 354 MW in every year (Litgrid table 20, p.127)",
+      "actual": 0,
+      "expected": 0,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "MW",
+      "status": "pass",
+      "note": "The 2033 lapse of the Energy Cells reservation nets to zero: supply +200, absorption +200.",
+      "subject": "eigirdziai/upside"
+    },
+    {
+      "id": "internal_12_absorption_applied",
+      "label": "Supply is net of the module's absorption series",
+      "actual": 500,
+      "expected": 500,
+      "delta": 0,
+      "tolerance": 0,
+      "unit": "MW",
+      "status": "pass",
+      "note": "MW contracted away to LT services with no KKME revenue line, at 2029.",
+      "subject": "eigirdziai/upside"
+    },
+    {
+      "id": "internal_7_portfolio_is_sum_of_projects",
+      "label": "Consolidated portfolio = Σ projects, every bridge line, every calendar year",
+      "actual": 0,
+      "expected": 0,
+      "delta": 0,
+      "tolerance": 3,
+      "unit": "EUR",
+      "status": "pass",
+      "note": "Exact everywhere.",
+      "subject": "portfolio/upside"
+    }
+  ],
+  "external": [
+    {
+      "id": "external_1_project_irr",
+      "label": "Project IRR within the Clean Horizon Baltic band",
+      "actual": 0.1496,
+      "band": [
+        0.06,
+        0.31
+      ],
+      "unit": "fraction",
+      "source": "Clean Horizon S1 2025 — Baltic BESS project IRR range 6-31% (ch_benchmark, already carried in the engine)",
+      "status": "pass",
+      "severity_basis": "Central / reference — the base view being sold, so a breach fails",
+      "subject": "reference/central"
+    },
+    {
+      "id": "external_2_backtest_balancing",
+      "label": "Year-1 balancing revenue per MW vs the BTD-realised base year",
+      "actual": -0.0741,
+      "band": [
+        -0.15,
+        0.15
+      ],
+      "unit": "fraction deviation",
+      "source": "KKME base_year realised months — observed Baltic balancing revenue per MW",
+      "status": "pass",
+      "severity_basis": "Central / reference — the base view being sold, so a breach fails",
+      "note": "Modelled 116108 vs observed 125397 EUR/MW/yr, both full-year equivalent. A gap is expected and is the saturation compression between the observed base year and the project's COD year.",
+      "subject": "reference/central"
+    },
+    {
+      "id": "external_3_cycles_yr",
+      "label": "Throughput-derived cycles per year",
+      "actual": 196,
+      "band": [
+        550,
+        720
+      ],
+      "unit": "EFC/yr",
+      "source": "Modo Energy / GEM Baltic merchant-battery cycling research 2025",
+      "status": "fail",
+      "expected_deviation": "KNOWN, 36.B5: the metric moved from a nameplate anchor to DELIVERED throughput when cycle accounting and revenue were put on one day-ahead figure (36.B1-O). The band is unchanged and calibrated on observed merchant cycling; the model now sits below it, and so does B1's hourly physical simulation (221 EFC/yr). Under-cycling is conservative on revenue and optimistic on wear; net effect measured at +0.9 % project IRR. Carried to B6 as a calibration question about the benchmark fleet's reserve/DA mix.",
+      "severity_basis": "Central / reference — the base view being sold, so a breach fails",
+      "note": "Delivered basis (36.B5): day-ahead anchor 1100 MWh/MW/yr × utilisation 0.135, availability included.",
+      "subject": "reference/central"
+    },
+    {
+      "id": "external_4_capex_eur_kwh",
+      "label": "Installed CAPEX per kWh",
+      "actual": 164,
+      "band": [
+        150,
+        190
+      ],
+      "unit": "EUR/kWh",
+      "source": "BNEF Q1-2026 Baltic turnkey installed cost",
+      "status": "pass",
+      "severity_basis": "Central / reference — the base view being sold, so a breach fails",
+      "subject": "reference/central"
+    },
+    {
+      "id": "external_5_ebitda_margin",
+      "label": "Year-1 EBITDA margin on gross market revenues",
+      "actual": 0.5949,
+      "band": [
+        0.45,
+        0.7
+      ],
+      "unit": "fraction of gross",
+      "source": "Clean Horizon EBITDA margin band, widened to accommodate scenario runs",
+      "status": "pass",
+      "severity_basis": "Central / reference — the base view being sold, so a breach fails",
+      "subject": "reference/central"
+    },
+    {
+      "id": "external_6_net_rev_k_mw_yr",
+      "label": "Year-1 net market revenue per MW",
+      "actual": 124.5,
+      "band": [
+        120,
+        220
+      ],
+      "unit": "EUR k/MW/yr",
+      "source": "Clean Horizon central case ↔ NGEN reference asset",
+      "status": "pass",
+      "severity_basis": "Central / reference — the base view being sold, so a breach fails",
+      "note": "Full-year equivalent, so a partial first year is not scored as underperformance.",
+      "subject": "reference/central"
+    },
+    {
+      "id": "external_1_project_irr",
+      "label": "Project IRR within the Clean Horizon Baltic band",
+      "actual": 0.0409,
+      "band": [
+        0.06,
+        0.31
+      ],
+      "unit": "fraction",
+      "source": "Clean Horizon S1 2025 — Baltic BESS project IRR range 6-31% (ch_benchmark, already carried in the engine)",
+      "status": "warn",
+      "severity_basis": "non-Central scenario — a deliberately extreme case may leave a band calibrated on central-case observations",
+      "subject": "bitenai/downside"
+    },
+    {
+      "id": "external_2_backtest_balancing",
+      "label": "Year-1 balancing revenue per MW vs the BTD-realised base year",
+      "actual": -0.0488,
+      "band": [
+        -0.15,
+        0.15
+      ],
+      "unit": "fraction deviation",
+      "source": "KKME base_year realised months — observed Baltic balancing revenue per MW",
+      "status": "pass",
+      "severity_basis": "non-Central scenario — a deliberately extreme case may leave a band calibrated on central-case observations",
+      "note": "Modelled 90486 vs observed 95126 EUR/MW/yr, both full-year equivalent. A gap is expected and is the saturation compression between the observed base year and the project's COD year.",
+      "subject": "bitenai/downside"
+    },
+    {
+      "id": "external_3_cycles_yr",
+      "label": "Throughput-derived cycles per year",
+      "actual": 191,
+      "band": [
+        550,
+        720
+      ],
+      "unit": "EFC/yr",
+      "source": "Modo Energy / GEM Baltic merchant-battery cycling research 2025",
+      "status": "warn",
+      "expected_deviation": "KNOWN, 36.B5: the metric moved from a nameplate anchor to DELIVERED throughput when cycle accounting and revenue were put on one day-ahead figure (36.B1-O). The band is unchanged and calibrated on observed merchant cycling; the model now sits below it, and so does B1's hourly physical simulation (221 EFC/yr). Under-cycling is conservative on revenue and optimistic on wear; net effect measured at +0.9 % project IRR. Carried to B6 as a calibration question about the benchmark fleet's reserve/DA mix.",
+      "severity_basis": "non-Central scenario — a deliberately extreme case may leave a band calibrated on central-case observations",
+      "note": "Delivered basis (36.B5): day-ahead anchor 1100 MWh/MW/yr × utilisation 0.132, availability included.",
+      "subject": "bitenai/downside"
+    },
+    {
+      "id": "external_4_capex_eur_kwh",
+      "label": "Installed CAPEX per kWh",
+      "actual": 164,
+      "band": [
+        150,
+        190
+      ],
+      "unit": "EUR/kWh",
+      "source": "BNEF Q1-2026 Baltic turnkey installed cost",
+      "status": "pass",
+      "severity_basis": "non-Central scenario — a deliberately extreme case may leave a band calibrated on central-case observations",
+      "subject": "bitenai/downside"
+    },
+    {
+      "id": "external_5_ebitda_margin",
+      "label": "Year-1 EBITDA margin on gross market revenues",
+      "actual": 0.5281,
+      "band": [
+        0.45,
+        0.7
+      ],
+      "unit": "fraction of gross",
+      "source": "Clean Horizon EBITDA margin band, widened to accommodate scenario runs",
+      "status": "pass",
+      "severity_basis": "non-Central scenario — a deliberately extreme case may leave a band calibrated on central-case observations",
+      "subject": "bitenai/downside"
+    },
+    {
+      "id": "external_6_net_rev_k_mw_yr",
+      "label": "Year-1 net market revenue per MW",
+      "actual": 97.5,
+      "band": [
+        120,
+        220
+      ],
+      "unit": "EUR k/MW/yr",
+      "source": "Clean Horizon central case ↔ NGEN reference asset",
+      "status": "warn",
+      "severity_basis": "non-Central scenario — a deliberately extreme case may leave a band calibrated on central-case observations",
+      "note": "Full-year equivalent, so a partial first year is not scored as underperformance.",
+      "subject": "bitenai/downside"
+    },
+    {
+      "id": "external_1_project_irr",
+      "label": "Project IRR within the Clean Horizon Baltic band",
+      "actual": 0.0329,
+      "band": [
+        0.06,
+        0.31
+      ],
+      "unit": "fraction",
+      "source": "Clean Horizon S1 2025 — Baltic BESS project IRR range 6-31% (ch_benchmark, already carried in the engine)",
+      "status": "warn",
+      "severity_basis": "non-Central scenario — a deliberately extreme case may leave a band calibrated on central-case observations",
+      "subject": "stoniskiai/downside"
+    },
+    {
+      "id": "external_2_backtest_balancing",
+      "label": "Year-1 balancing revenue per MW vs the BTD-realised base year",
+      "actual": -0.0488,
+      "band": [
+        -0.15,
+        0.15
+      ],
+      "unit": "fraction deviation",
+      "source": "KKME base_year realised months — observed Baltic balancing revenue per MW",
+      "status": "pass",
+      "severity_basis": "non-Central scenario — a deliberately extreme case may leave a band calibrated on central-case observations",
+      "note": "Modelled 90486 vs observed 95126 EUR/MW/yr, both full-year equivalent. A gap is expected and is the saturation compression between the observed base year and the project's COD year.",
+      "subject": "stoniskiai/downside"
+    },
+    {
+      "id": "external_3_cycles_yr",
+      "label": "Throughput-derived cycles per year",
+      "actual": 191,
+      "band": [
+        550,
+        720
+      ],
+      "unit": "EFC/yr",
+      "source": "Modo Energy / GEM Baltic merchant-battery cycling research 2025",
+      "status": "warn",
+      "expected_deviation": "KNOWN, 36.B5: the metric moved from a nameplate anchor to DELIVERED throughput when cycle accounting and revenue were put on one day-ahead figure (36.B1-O). The band is unchanged and calibrated on observed merchant cycling; the model now sits below it, and so does B1's hourly physical simulation (221 EFC/yr). Under-cycling is conservative on revenue and optimistic on wear; net effect measured at +0.9 % project IRR. Carried to B6 as a calibration question about the benchmark fleet's reserve/DA mix.",
+      "severity_basis": "non-Central scenario — a deliberately extreme case may leave a band calibrated on central-case observations",
+      "note": "Delivered basis (36.B5): day-ahead anchor 1100 MWh/MW/yr × utilisation 0.132, availability included.",
+      "subject": "stoniskiai/downside"
+    },
+    {
+      "id": "external_4_capex_eur_kwh",
+      "label": "Installed CAPEX per kWh",
+      "actual": 164,
+      "band": [
+        150,
+        190
+      ],
+      "unit": "EUR/kWh",
+      "source": "BNEF Q1-2026 Baltic turnkey installed cost",
+      "status": "pass",
+      "severity_basis": "non-Central scenario — a deliberately extreme case may leave a band calibrated on central-case observations",
+      "subject": "stoniskiai/downside"
+    },
+    {
+      "id": "external_5_ebitda_margin",
+      "label": "Year-1 EBITDA margin on gross market revenues",
+      "actual": 0.5281,
+      "band": [
+        0.45,
+        0.7
+      ],
+      "unit": "fraction of gross",
+      "source": "Clean Horizon EBITDA margin band, widened to accommodate scenario runs",
+      "status": "pass",
+      "severity_basis": "non-Central scenario — a deliberately extreme case may leave a band calibrated on central-case observations",
+      "subject": "stoniskiai/downside"
+    },
+    {
+      "id": "external_6_net_rev_k_mw_yr",
+      "label": "Year-1 net market revenue per MW",
+      "actual": 97.5,
+      "band": [
+        120,
+        220
+      ],
+      "unit": "EUR k/MW/yr",
+      "source": "Clean Horizon central case ↔ NGEN reference asset",
+      "status": "warn",
+      "severity_basis": "non-Central scenario — a deliberately extreme case may leave a band calibrated on central-case observations",
+      "note": "Full-year equivalent, so a partial first year is not scored as underperformance.",
+      "subject": "stoniskiai/downside"
+    },
+    {
+      "id": "external_1_project_irr",
+      "label": "Project IRR within the Clean Horizon Baltic band",
+      "actual": 0.0324,
+      "band": [
+        0.06,
+        0.31
+      ],
+      "unit": "fraction",
+      "source": "Clean Horizon S1 2025 — Baltic BESS project IRR range 6-31% (ch_benchmark, already carried in the engine)",
+      "status": "warn",
+      "severity_basis": "non-Central scenario — a deliberately extreme case may leave a band calibrated on central-case observations",
+      "subject": "eigirdziai/downside"
+    },
+    {
+      "id": "external_2_backtest_balancing",
+      "label": "Year-1 balancing revenue per MW vs the BTD-realised base year",
+      "actual": -0.0976,
+      "band": [
+        -0.15,
+        0.15
+      ],
+      "unit": "fraction deviation",
+      "source": "KKME base_year realised months — observed Baltic balancing revenue per MW",
+      "status": "pass",
+      "severity_basis": "non-Central scenario — a deliberately extreme case may leave a band calibrated on central-case observations",
+      "note": "Modelled 85845 vs observed 95126 EUR/MW/yr, both full-year equivalent. A gap is expected and is the saturation compression between the observed base year and the project's COD year.",
+      "subject": "eigirdziai/downside"
+    },
+    {
+      "id": "external_3_cycles_yr",
+      "label": "Throughput-derived cycles per year",
+      "actual": 191,
+      "band": [
+        550,
+        720
+      ],
+      "unit": "EFC/yr",
+      "source": "Modo Energy / GEM Baltic merchant-battery cycling research 2025",
+      "status": "warn",
+      "expected_deviation": "KNOWN, 36.B5: the metric moved from a nameplate anchor to DELIVERED throughput when cycle accounting and revenue were put on one day-ahead figure (36.B1-O). The band is unchanged and calibrated on observed merchant cycling; the model now sits below it, and so does B1's hourly physical simulation (221 EFC/yr). Under-cycling is conservative on revenue and optimistic on wear; net effect measured at +0.9 % project IRR. Carried to B6 as a calibration question about the benchmark fleet's reserve/DA mix.",
+      "severity_basis": "non-Central scenario — a deliberately extreme case may leave a band calibrated on central-case observations",
+      "note": "Delivered basis (36.B5): day-ahead anchor 1100 MWh/MW/yr × utilisation 0.132, availability included.",
+      "subject": "eigirdziai/downside"
+    },
+    {
+      "id": "external_4_capex_eur_kwh",
+      "label": "Installed CAPEX per kWh",
+      "actual": 164,
+      "band": [
+        150,
+        190
+      ],
+      "unit": "EUR/kWh",
+      "source": "BNEF Q1-2026 Baltic turnkey installed cost",
+      "status": "pass",
+      "severity_basis": "non-Central scenario — a deliberately extreme case may leave a band calibrated on central-case observations",
+      "subject": "eigirdziai/downside"
+    },
+    {
+      "id": "external_5_ebitda_margin",
+      "label": "Year-1 EBITDA margin on gross market revenues",
+      "actual": 0.5114,
+      "band": [
+        0.45,
+        0.7
+      ],
+      "unit": "fraction of gross",
+      "source": "Clean Horizon EBITDA margin band, widened to accommodate scenario runs",
+      "status": "pass",
+      "severity_basis": "non-Central scenario — a deliberately extreme case may leave a band calibrated on central-case observations",
+      "subject": "eigirdziai/downside"
+    },
+    {
+      "id": "external_6_net_rev_k_mw_yr",
+      "label": "Year-1 net market revenue per MW",
+      "actual": 92.5,
+      "band": [
+        120,
+        220
+      ],
+      "unit": "EUR k/MW/yr",
+      "source": "Clean Horizon central case ↔ NGEN reference asset",
+      "status": "warn",
+      "severity_basis": "non-Central scenario — a deliberately extreme case may leave a band calibrated on central-case observations",
+      "note": "Full-year equivalent, so a partial first year is not scored as underperformance.",
+      "subject": "eigirdziai/downside"
+    },
+    {
+      "id": "external_1_project_irr",
+      "label": "Project IRR within the Clean Horizon Baltic band",
+      "actual": 0.1558,
+      "band": [
+        0.06,
+        0.31
+      ],
+      "unit": "fraction",
+      "source": "Clean Horizon S1 2025 — Baltic BESS project IRR range 6-31% (ch_benchmark, already carried in the engine)",
+      "status": "pass",
+      "severity_basis": "Central / reference — the base view being sold, so a breach fails",
+      "subject": "bitenai/central"
+    },
+    {
+      "id": "external_2_backtest_balancing",
+      "label": "Year-1 balancing revenue per MW vs the BTD-realised base year",
+      "actual": -0.037,
+      "band": [
+        -0.15,
+        0.15
+      ],
+      "unit": "fraction deviation",
+      "source": "KKME base_year realised months — observed Baltic balancing revenue per MW",
+      "status": "pass",
+      "severity_basis": "Central / reference — the base view being sold, so a breach fails",
+      "note": "Modelled 120753 vs observed 125397 EUR/MW/yr, both full-year equivalent. A gap is expected and is the saturation compression between the observed base year and the project's COD year.",
+      "subject": "bitenai/central"
+    },
+    {
+      "id": "external_3_cycles_yr",
+      "label": "Throughput-derived cycles per year",
+      "actual": 196,
+      "band": [
+        550,
+        720
+      ],
+      "unit": "EFC/yr",
+      "source": "Modo Energy / GEM Baltic merchant-battery cycling research 2025",
+      "status": "fail",
+      "expected_deviation": "KNOWN, 36.B5: the metric moved from a nameplate anchor to DELIVERED throughput when cycle accounting and revenue were put on one day-ahead figure (36.B1-O). The band is unchanged and calibrated on observed merchant cycling; the model now sits below it, and so does B1's hourly physical simulation (221 EFC/yr). Under-cycling is conservative on revenue and optimistic on wear; net effect measured at +0.9 % project IRR. Carried to B6 as a calibration question about the benchmark fleet's reserve/DA mix.",
+      "severity_basis": "Central / reference — the base view being sold, so a breach fails",
+      "note": "Delivered basis (36.B5): day-ahead anchor 1100 MWh/MW/yr × utilisation 0.135, availability included.",
+      "subject": "bitenai/central"
+    },
+    {
+      "id": "external_4_capex_eur_kwh",
+      "label": "Installed CAPEX per kWh",
+      "actual": 164,
+      "band": [
+        150,
+        190
+      ],
+      "unit": "EUR/kWh",
+      "source": "BNEF Q1-2026 Baltic turnkey installed cost",
+      "status": "pass",
+      "severity_basis": "Central / reference — the base view being sold, so a breach fails",
+      "subject": "bitenai/central"
+    },
+    {
+      "id": "external_5_ebitda_margin",
+      "label": "Year-1 EBITDA margin on gross market revenues",
+      "actual": 0.6042,
+      "band": [
+        0.45,
+        0.7
+      ],
+      "unit": "fraction of gross",
+      "source": "Clean Horizon EBITDA margin band, widened to accommodate scenario runs",
+      "status": "pass",
+      "severity_basis": "Central / reference — the base view being sold, so a breach fails",
+      "subject": "bitenai/central"
+    },
+    {
+      "id": "external_6_net_rev_k_mw_yr",
+      "label": "Year-1 net market revenue per MW",
+      "actual": 129.5,
+      "band": [
+        120,
+        220
+      ],
+      "unit": "EUR k/MW/yr",
+      "source": "Clean Horizon central case ↔ NGEN reference asset",
+      "status": "pass",
+      "severity_basis": "Central / reference — the base view being sold, so a breach fails",
+      "note": "Full-year equivalent, so a partial first year is not scored as underperformance.",
+      "subject": "bitenai/central"
+    },
+    {
+      "id": "external_1_project_irr",
+      "label": "Project IRR within the Clean Horizon Baltic band",
+      "actual": 0.1411,
+      "band": [
+        0.06,
+        0.31
+      ],
+      "unit": "fraction",
+      "source": "Clean Horizon S1 2025 — Baltic BESS project IRR range 6-31% (ch_benchmark, already carried in the engine)",
+      "status": "pass",
+      "severity_basis": "Central / reference — the base view being sold, so a breach fails",
+      "subject": "stoniskiai/central"
+    },
+    {
+      "id": "external_2_backtest_balancing",
+      "label": "Year-1 balancing revenue per MW vs the BTD-realised base year",
+      "actual": -0.037,
+      "band": [
+        -0.15,
+        0.15
+      ],
+      "unit": "fraction deviation",
+      "source": "KKME base_year realised months — observed Baltic balancing revenue per MW",
+      "status": "pass",
+      "severity_basis": "Central / reference — the base view being sold, so a breach fails",
+      "note": "Modelled 120753 vs observed 125397 EUR/MW/yr, both full-year equivalent. A gap is expected and is the saturation compression between the observed base year and the project's COD year.",
+      "subject": "stoniskiai/central"
+    },
+    {
+      "id": "external_3_cycles_yr",
+      "label": "Throughput-derived cycles per year",
+      "actual": 196,
+      "band": [
+        550,
+        720
+      ],
+      "unit": "EFC/yr",
+      "source": "Modo Energy / GEM Baltic merchant-battery cycling research 2025",
+      "status": "fail",
+      "expected_deviation": "KNOWN, 36.B5: the metric moved from a nameplate anchor to DELIVERED throughput when cycle accounting and revenue were put on one day-ahead figure (36.B1-O). The band is unchanged and calibrated on observed merchant cycling; the model now sits below it, and so does B1's hourly physical simulation (221 EFC/yr). Under-cycling is conservative on revenue and optimistic on wear; net effect measured at +0.9 % project IRR. Carried to B6 as a calibration question about the benchmark fleet's reserve/DA mix.",
+      "severity_basis": "Central / reference — the base view being sold, so a breach fails",
+      "note": "Delivered basis (36.B5): day-ahead anchor 1100 MWh/MW/yr × utilisation 0.135, availability included.",
+      "subject": "stoniskiai/central"
+    },
+    {
+      "id": "external_4_capex_eur_kwh",
+      "label": "Installed CAPEX per kWh",
+      "actual": 164,
+      "band": [
+        150,
+        190
+      ],
+      "unit": "EUR/kWh",
+      "source": "BNEF Q1-2026 Baltic turnkey installed cost",
+      "status": "pass",
+      "severity_basis": "Central / reference — the base view being sold, so a breach fails",
+      "subject": "stoniskiai/central"
+    },
+    {
+      "id": "external_5_ebitda_margin",
+      "label": "Year-1 EBITDA margin on gross market revenues",
+      "actual": 0.6042,
+      "band": [
+        0.45,
+        0.7
+      ],
+      "unit": "fraction of gross",
+      "source": "Clean Horizon EBITDA margin band, widened to accommodate scenario runs",
+      "status": "pass",
+      "severity_basis": "Central / reference — the base view being sold, so a breach fails",
+      "subject": "stoniskiai/central"
+    },
+    {
+      "id": "external_6_net_rev_k_mw_yr",
+      "label": "Year-1 net market revenue per MW",
+      "actual": 129.5,
+      "band": [
+        120,
+        220
+      ],
+      "unit": "EUR k/MW/yr",
+      "source": "Clean Horizon central case ↔ NGEN reference asset",
+      "status": "pass",
+      "severity_basis": "Central / reference — the base view being sold, so a breach fails",
+      "note": "Full-year equivalent, so a partial first year is not scored as underperformance.",
+      "subject": "stoniskiai/central"
+    },
+    {
+      "id": "external_1_project_irr",
+      "label": "Project IRR within the Clean Horizon Baltic band",
+      "actual": 0.144,
+      "band": [
+        0.06,
+        0.31
+      ],
+      "unit": "fraction",
+      "source": "Clean Horizon S1 2025 — Baltic BESS project IRR range 6-31% (ch_benchmark, already carried in the engine)",
+      "status": "pass",
+      "severity_basis": "Central / reference — the base view being sold, so a breach fails",
+      "subject": "eigirdziai/central"
+    },
+    {
+      "id": "external_2_backtest_balancing",
+      "label": "Year-1 balancing revenue per MW vs the BTD-realised base year",
+      "actual": -0.0741,
+      "band": [
+        -0.15,
+        0.15
+      ],
+      "unit": "fraction deviation",
+      "source": "KKME base_year realised months — observed Baltic balancing revenue per MW",
+      "status": "pass",
+      "severity_basis": "Central / reference — the base view being sold, so a breach fails",
+      "note": "Modelled 116108 vs observed 125397 EUR/MW/yr, both full-year equivalent. A gap is expected and is the saturation compression between the observed base year and the project's COD year.",
+      "subject": "eigirdziai/central"
+    },
+    {
+      "id": "external_3_cycles_yr",
+      "label": "Throughput-derived cycles per year",
+      "actual": 196,
+      "band": [
+        550,
+        720
+      ],
+      "unit": "EFC/yr",
+      "source": "Modo Energy / GEM Baltic merchant-battery cycling research 2025",
+      "status": "fail",
+      "expected_deviation": "KNOWN, 36.B5: the metric moved from a nameplate anchor to DELIVERED throughput when cycle accounting and revenue were put on one day-ahead figure (36.B1-O). The band is unchanged and calibrated on observed merchant cycling; the model now sits below it, and so does B1's hourly physical simulation (221 EFC/yr). Under-cycling is conservative on revenue and optimistic on wear; net effect measured at +0.9 % project IRR. Carried to B6 as a calibration question about the benchmark fleet's reserve/DA mix.",
+      "severity_basis": "Central / reference — the base view being sold, so a breach fails",
+      "note": "Delivered basis (36.B5): day-ahead anchor 1100 MWh/MW/yr × utilisation 0.135, availability included.",
+      "subject": "eigirdziai/central"
+    },
+    {
+      "id": "external_4_capex_eur_kwh",
+      "label": "Installed CAPEX per kWh",
+      "actual": 164,
+      "band": [
+        150,
+        190
+      ],
+      "unit": "EUR/kWh",
+      "source": "BNEF Q1-2026 Baltic turnkey installed cost",
+      "status": "pass",
+      "severity_basis": "Central / reference — the base view being sold, so a breach fails",
+      "subject": "eigirdziai/central"
+    },
+    {
+      "id": "external_5_ebitda_margin",
+      "label": "Year-1 EBITDA margin on gross market revenues",
+      "actual": 0.5949,
+      "band": [
+        0.45,
+        0.7
+      ],
+      "unit": "fraction of gross",
+      "source": "Clean Horizon EBITDA margin band, widened to accommodate scenario runs",
+      "status": "pass",
+      "severity_basis": "Central / reference — the base view being sold, so a breach fails",
+      "subject": "eigirdziai/central"
+    },
+    {
+      "id": "external_6_net_rev_k_mw_yr",
+      "label": "Year-1 net market revenue per MW",
+      "actual": 124.5,
+      "band": [
+        120,
+        220
+      ],
+      "unit": "EUR k/MW/yr",
+      "source": "Clean Horizon central case ↔ NGEN reference asset",
+      "status": "pass",
+      "severity_basis": "Central / reference — the base view being sold, so a breach fails",
+      "note": "Full-year equivalent, so a partial first year is not scored as underperformance.",
+      "subject": "eigirdziai/central"
+    },
+    {
+      "id": "external_1_project_irr",
+      "label": "Project IRR within the Clean Horizon Baltic band",
+      "actual": 0.2332,
+      "band": [
+        0.06,
+        0.31
+      ],
+      "unit": "fraction",
+      "source": "Clean Horizon S1 2025 — Baltic BESS project IRR range 6-31% (ch_benchmark, already carried in the engine)",
+      "status": "pass",
+      "severity_basis": "non-Central scenario — a deliberately extreme case may leave a band calibrated on central-case observations",
+      "subject": "bitenai/upside"
+    },
+    {
+      "id": "external_2_backtest_balancing",
+      "label": "Year-1 balancing revenue per MW vs the BTD-realised base year",
+      "actual": -0.0308,
+      "band": [
+        -0.15,
+        0.15
+      ],
+      "unit": "fraction deviation",
+      "source": "KKME base_year realised months — observed Baltic balancing revenue per MW",
+      "status": "pass",
+      "severity_basis": "non-Central scenario — a deliberately extreme case may leave a band calibrated on central-case observations",
+      "note": "Modelled 144466 vs observed 149052 EUR/MW/yr, both full-year equivalent. A gap is expected and is the saturation compression between the observed base year and the project's COD year.",
+      "subject": "bitenai/upside"
+    },
+    {
+      "id": "external_3_cycles_yr",
+      "label": "Throughput-derived cycles per year",
+      "actual": 199,
+      "band": [
+        550,
+        720
+      ],
+      "unit": "EFC/yr",
+      "source": "Modo Energy / GEM Baltic merchant-battery cycling research 2025",
+      "status": "warn",
+      "expected_deviation": "KNOWN, 36.B5: the metric moved from a nameplate anchor to DELIVERED throughput when cycle accounting and revenue were put on one day-ahead figure (36.B1-O). The band is unchanged and calibrated on observed merchant cycling; the model now sits below it, and so does B1's hourly physical simulation (221 EFC/yr). Under-cycling is conservative on revenue and optimistic on wear; net effect measured at +0.9 % project IRR. Carried to B6 as a calibration question about the benchmark fleet's reserve/DA mix.",
+      "severity_basis": "non-Central scenario — a deliberately extreme case may leave a band calibrated on central-case observations",
+      "note": "Delivered basis (36.B5): day-ahead anchor 1100 MWh/MW/yr × utilisation 0.136, availability included.",
+      "subject": "bitenai/upside"
+    },
+    {
+      "id": "external_4_capex_eur_kwh",
+      "label": "Installed CAPEX per kWh",
+      "actual": 164,
+      "band": [
+        150,
+        190
+      ],
+      "unit": "EUR/kWh",
+      "source": "BNEF Q1-2026 Baltic turnkey installed cost",
+      "status": "pass",
+      "severity_basis": "non-Central scenario — a deliberately extreme case may leave a band calibrated on central-case observations",
+      "subject": "bitenai/upside"
+    },
+    {
+      "id": "external_5_ebitda_margin",
+      "label": "Year-1 EBITDA margin on gross market revenues",
+      "actual": 0.643,
+      "band": [
+        0.45,
+        0.7
+      ],
+      "unit": "fraction of gross",
+      "source": "Clean Horizon EBITDA margin band, widened to accommodate scenario runs",
+      "status": "pass",
+      "severity_basis": "non-Central scenario — a deliberately extreme case may leave a band calibrated on central-case observations",
+      "subject": "bitenai/upside"
+    },
+    {
+      "id": "external_6_net_rev_k_mw_yr",
+      "label": "Year-1 net market revenue per MW",
+      "actual": 155.3,
+      "band": [
+        120,
+        220
+      ],
+      "unit": "EUR k/MW/yr",
+      "source": "Clean Horizon central case ↔ NGEN reference asset",
+      "status": "pass",
+      "severity_basis": "non-Central scenario — a deliberately extreme case may leave a band calibrated on central-case observations",
+      "note": "Full-year equivalent, so a partial first year is not scored as underperformance.",
+      "subject": "bitenai/upside"
+    },
+    {
+      "id": "external_1_project_irr",
+      "label": "Project IRR within the Clean Horizon Baltic band",
+      "actual": 0.2106,
+      "band": [
+        0.06,
+        0.31
+      ],
+      "unit": "fraction",
+      "source": "Clean Horizon S1 2025 — Baltic BESS project IRR range 6-31% (ch_benchmark, already carried in the engine)",
+      "status": "pass",
+      "severity_basis": "non-Central scenario — a deliberately extreme case may leave a band calibrated on central-case observations",
+      "subject": "stoniskiai/upside"
+    },
+    {
+      "id": "external_2_backtest_balancing",
+      "label": "Year-1 balancing revenue per MW vs the BTD-realised base year",
+      "actual": -0.0308,
+      "band": [
+        -0.15,
+        0.15
+      ],
+      "unit": "fraction deviation",
+      "source": "KKME base_year realised months — observed Baltic balancing revenue per MW",
+      "status": "pass",
+      "severity_basis": "non-Central scenario — a deliberately extreme case may leave a band calibrated on central-case observations",
+      "note": "Modelled 144466 vs observed 149052 EUR/MW/yr, both full-year equivalent. A gap is expected and is the saturation compression between the observed base year and the project's COD year.",
+      "subject": "stoniskiai/upside"
+    },
+    {
+      "id": "external_3_cycles_yr",
+      "label": "Throughput-derived cycles per year",
+      "actual": 199,
+      "band": [
+        550,
+        720
+      ],
+      "unit": "EFC/yr",
+      "source": "Modo Energy / GEM Baltic merchant-battery cycling research 2025",
+      "status": "warn",
+      "expected_deviation": "KNOWN, 36.B5: the metric moved from a nameplate anchor to DELIVERED throughput when cycle accounting and revenue were put on one day-ahead figure (36.B1-O). The band is unchanged and calibrated on observed merchant cycling; the model now sits below it, and so does B1's hourly physical simulation (221 EFC/yr). Under-cycling is conservative on revenue and optimistic on wear; net effect measured at +0.9 % project IRR. Carried to B6 as a calibration question about the benchmark fleet's reserve/DA mix.",
+      "severity_basis": "non-Central scenario — a deliberately extreme case may leave a band calibrated on central-case observations",
+      "note": "Delivered basis (36.B5): day-ahead anchor 1100 MWh/MW/yr × utilisation 0.136, availability included.",
+      "subject": "stoniskiai/upside"
+    },
+    {
+      "id": "external_4_capex_eur_kwh",
+      "label": "Installed CAPEX per kWh",
+      "actual": 164,
+      "band": [
+        150,
+        190
+      ],
+      "unit": "EUR/kWh",
+      "source": "BNEF Q1-2026 Baltic turnkey installed cost",
+      "status": "pass",
+      "severity_basis": "non-Central scenario — a deliberately extreme case may leave a band calibrated on central-case observations",
+      "subject": "stoniskiai/upside"
+    },
+    {
+      "id": "external_5_ebitda_margin",
+      "label": "Year-1 EBITDA margin on gross market revenues",
+      "actual": 0.643,
+      "band": [
+        0.45,
+        0.7
+      ],
+      "unit": "fraction of gross",
+      "source": "Clean Horizon EBITDA margin band, widened to accommodate scenario runs",
+      "status": "pass",
+      "severity_basis": "non-Central scenario — a deliberately extreme case may leave a band calibrated on central-case observations",
+      "subject": "stoniskiai/upside"
+    },
+    {
+      "id": "external_6_net_rev_k_mw_yr",
+      "label": "Year-1 net market revenue per MW",
+      "actual": 155.3,
+      "band": [
+        120,
+        220
+      ],
+      "unit": "EUR k/MW/yr",
+      "source": "Clean Horizon central case ↔ NGEN reference asset",
+      "status": "pass",
+      "severity_basis": "non-Central scenario — a deliberately extreme case may leave a band calibrated on central-case observations",
+      "note": "Full-year equivalent, so a partial first year is not scored as underperformance.",
+      "subject": "stoniskiai/upside"
+    },
+    {
+      "id": "external_1_project_irr",
+      "label": "Project IRR within the Clean Horizon Baltic band",
+      "actual": 0.2183,
+      "band": [
+        0.06,
+        0.31
+      ],
+      "unit": "fraction",
+      "source": "Clean Horizon S1 2025 — Baltic BESS project IRR range 6-31% (ch_benchmark, already carried in the engine)",
+      "status": "pass",
+      "severity_basis": "non-Central scenario — a deliberately extreme case may leave a band calibrated on central-case observations",
+      "subject": "eigirdziai/upside"
+    },
+    {
+      "id": "external_2_backtest_balancing",
+      "label": "Year-1 balancing revenue per MW vs the BTD-realised base year",
+      "actual": -0.0462,
+      "band": [
+        -0.15,
+        0.15
+      ],
+      "unit": "fraction deviation",
+      "source": "KKME base_year realised months — observed Baltic balancing revenue per MW",
+      "status": "pass",
+      "severity_basis": "non-Central scenario — a deliberately extreme case may leave a band calibrated on central-case observations",
+      "note": "Modelled 142173 vs observed 149052 EUR/MW/yr, both full-year equivalent. A gap is expected and is the saturation compression between the observed base year and the project's COD year.",
+      "subject": "eigirdziai/upside"
+    },
+    {
+      "id": "external_3_cycles_yr",
+      "label": "Throughput-derived cycles per year",
+      "actual": 199,
+      "band": [
+        550,
+        720
+      ],
+      "unit": "EFC/yr",
+      "source": "Modo Energy / GEM Baltic merchant-battery cycling research 2025",
+      "status": "warn",
+      "expected_deviation": "KNOWN, 36.B5: the metric moved from a nameplate anchor to DELIVERED throughput when cycle accounting and revenue were put on one day-ahead figure (36.B1-O). The band is unchanged and calibrated on observed merchant cycling; the model now sits below it, and so does B1's hourly physical simulation (221 EFC/yr). Under-cycling is conservative on revenue and optimistic on wear; net effect measured at +0.9 % project IRR. Carried to B6 as a calibration question about the benchmark fleet's reserve/DA mix.",
+      "severity_basis": "non-Central scenario — a deliberately extreme case may leave a band calibrated on central-case observations",
+      "note": "Delivered basis (36.B5): day-ahead anchor 1100 MWh/MW/yr × utilisation 0.136, availability included.",
+      "subject": "eigirdziai/upside"
+    },
+    {
+      "id": "external_4_capex_eur_kwh",
+      "label": "Installed CAPEX per kWh",
+      "actual": 164,
+      "band": [
+        150,
+        190
+      ],
+      "unit": "EUR/kWh",
+      "source": "BNEF Q1-2026 Baltic turnkey installed cost",
+      "status": "pass",
+      "severity_basis": "non-Central scenario — a deliberately extreme case may leave a band calibrated on central-case observations",
+      "subject": "eigirdziai/upside"
+    },
+    {
+      "id": "external_5_ebitda_margin",
+      "label": "Year-1 EBITDA margin on gross market revenues",
+      "actual": 0.6399,
+      "band": [
+        0.45,
+        0.7
+      ],
+      "unit": "fraction of gross",
+      "source": "Clean Horizon EBITDA margin band, widened to accommodate scenario runs",
+      "status": "pass",
+      "severity_basis": "non-Central scenario — a deliberately extreme case may leave a band calibrated on central-case observations",
+      "subject": "eigirdziai/upside"
+    },
+    {
+      "id": "external_6_net_rev_k_mw_yr",
+      "label": "Year-1 net market revenue per MW",
+      "actual": 152.9,
+      "band": [
+        120,
+        220
+      ],
+      "unit": "EUR k/MW/yr",
+      "source": "Clean Horizon central case ↔ NGEN reference asset",
+      "status": "pass",
+      "severity_basis": "non-Central scenario — a deliberately extreme case may leave a band calibrated on central-case observations",
+      "note": "Full-year equivalent, so a partial first year is not scored as underperformance.",
+      "subject": "eigirdziai/upside"
+    }
+  ],
+  "summary": {
+    "internal": {
+      "total": 113,
+      "pass": 113,
+      "warn": 0,
+      "fail": 0
+    },
+    "external": {
+      "total": 60,
+      "pass": 44,
+      "warn": 12,
+      "fail": 4
+    },
+    "severity_split": "Internal checks are arithmetic identities and fail everywhere. External bands fail for Central and the reference asset and warn for Downside / Upside, which are deliberately extreme cases whose breaching a central-calibrated band is information rather than error. A breach carrying `expected_deviation` is a known, explained finding: the band is not moved and the breach is reported at full size, but it does not fail the build.",
+    "expected_deviations": [
+      {
+        "subject": "reference/central",
+        "id": "external_3_cycles_yr",
+        "actual": 196,
+        "band": [
+          550,
+          720
+        ],
+        "reason": "KNOWN, 36.B5: the metric moved from a nameplate anchor to DELIVERED throughput when cycle accounting and revenue were put on one day-ahead figure (36.B1-O). The band is unchanged and calibrated on observed merchant cycling; the model now sits below it, and so does B1's hourly physical simulation (221 EFC/yr). Under-cycling is conservative on revenue and optimistic on wear; net effect measured at +0.9 % project IRR. Carried to B6 as a calibration question about the benchmark fleet's reserve/DA mix."
+      },
+      {
+        "subject": "bitenai/downside",
+        "id": "external_3_cycles_yr",
+        "actual": 191,
+        "band": [
+          550,
+          720
+        ],
+        "reason": "KNOWN, 36.B5: the metric moved from a nameplate anchor to DELIVERED throughput when cycle accounting and revenue were put on one day-ahead figure (36.B1-O). The band is unchanged and calibrated on observed merchant cycling; the model now sits below it, and so does B1's hourly physical simulation (221 EFC/yr). Under-cycling is conservative on revenue and optimistic on wear; net effect measured at +0.9 % project IRR. Carried to B6 as a calibration question about the benchmark fleet's reserve/DA mix."
+      },
+      {
+        "subject": "stoniskiai/downside",
+        "id": "external_3_cycles_yr",
+        "actual": 191,
+        "band": [
+          550,
+          720
+        ],
+        "reason": "KNOWN, 36.B5: the metric moved from a nameplate anchor to DELIVERED throughput when cycle accounting and revenue were put on one day-ahead figure (36.B1-O). The band is unchanged and calibrated on observed merchant cycling; the model now sits below it, and so does B1's hourly physical simulation (221 EFC/yr). Under-cycling is conservative on revenue and optimistic on wear; net effect measured at +0.9 % project IRR. Carried to B6 as a calibration question about the benchmark fleet's reserve/DA mix."
+      },
+      {
+        "subject": "eigirdziai/downside",
+        "id": "external_3_cycles_yr",
+        "actual": 191,
+        "band": [
+          550,
+          720
+        ],
+        "reason": "KNOWN, 36.B5: the metric moved from a nameplate anchor to DELIVERED throughput when cycle accounting and revenue were put on one day-ahead figure (36.B1-O). The band is unchanged and calibrated on observed merchant cycling; the model now sits below it, and so does B1's hourly physical simulation (221 EFC/yr). Under-cycling is conservative on revenue and optimistic on wear; net effect measured at +0.9 % project IRR. Carried to B6 as a calibration question about the benchmark fleet's reserve/DA mix."
+      },
+      {
+        "subject": "bitenai/central",
+        "id": "external_3_cycles_yr",
+        "actual": 196,
+        "band": [
+          550,
+          720
+        ],
+        "reason": "KNOWN, 36.B5: the metric moved from a nameplate anchor to DELIVERED throughput when cycle accounting and revenue were put on one day-ahead figure (36.B1-O). The band is unchanged and calibrated on observed merchant cycling; the model now sits below it, and so does B1's hourly physical simulation (221 EFC/yr). Under-cycling is conservative on revenue and optimistic on wear; net effect measured at +0.9 % project IRR. Carried to B6 as a calibration question about the benchmark fleet's reserve/DA mix."
+      },
+      {
+        "subject": "stoniskiai/central",
+        "id": "external_3_cycles_yr",
+        "actual": 196,
+        "band": [
+          550,
+          720
+        ],
+        "reason": "KNOWN, 36.B5: the metric moved from a nameplate anchor to DELIVERED throughput when cycle accounting and revenue were put on one day-ahead figure (36.B1-O). The band is unchanged and calibrated on observed merchant cycling; the model now sits below it, and so does B1's hourly physical simulation (221 EFC/yr). Under-cycling is conservative on revenue and optimistic on wear; net effect measured at +0.9 % project IRR. Carried to B6 as a calibration question about the benchmark fleet's reserve/DA mix."
+      },
+      {
+        "subject": "eigirdziai/central",
+        "id": "external_3_cycles_yr",
+        "actual": 196,
+        "band": [
+          550,
+          720
+        ],
+        "reason": "KNOWN, 36.B5: the metric moved from a nameplate anchor to DELIVERED throughput when cycle accounting and revenue were put on one day-ahead figure (36.B1-O). The band is unchanged and calibrated on observed merchant cycling; the model now sits below it, and so does B1's hourly physical simulation (221 EFC/yr). Under-cycling is conservative on revenue and optimistic on wear; net effect measured at +0.9 % project IRR. Carried to B6 as a calibration question about the benchmark fleet's reserve/DA mix."
+      },
+      {
+        "subject": "bitenai/upside",
+        "id": "external_3_cycles_yr",
+        "actual": 199,
+        "band": [
+          550,
+          720
+        ],
+        "reason": "KNOWN, 36.B5: the metric moved from a nameplate anchor to DELIVERED throughput when cycle accounting and revenue were put on one day-ahead figure (36.B1-O). The band is unchanged and calibrated on observed merchant cycling; the model now sits below it, and so does B1's hourly physical simulation (221 EFC/yr). Under-cycling is conservative on revenue and optimistic on wear; net effect measured at +0.9 % project IRR. Carried to B6 as a calibration question about the benchmark fleet's reserve/DA mix."
+      },
+      {
+        "subject": "stoniskiai/upside",
+        "id": "external_3_cycles_yr",
+        "actual": 199,
+        "band": [
+          550,
+          720
+        ],
+        "reason": "KNOWN, 36.B5: the metric moved from a nameplate anchor to DELIVERED throughput when cycle accounting and revenue were put on one day-ahead figure (36.B1-O). The band is unchanged and calibrated on observed merchant cycling; the model now sits below it, and so does B1's hourly physical simulation (221 EFC/yr). Under-cycling is conservative on revenue and optimistic on wear; net effect measured at +0.9 % project IRR. Carried to B6 as a calibration question about the benchmark fleet's reserve/DA mix."
+      },
+      {
+        "subject": "eigirdziai/upside",
+        "id": "external_3_cycles_yr",
+        "actual": 199,
+        "band": [
+          550,
+          720
+        ],
+        "reason": "KNOWN, 36.B5: the metric moved from a nameplate anchor to DELIVERED throughput when cycle accounting and revenue were put on one day-ahead figure (36.B1-O). The band is unchanged and calibrated on observed merchant cycling; the model now sits below it, and so does B1's hourly physical simulation (221 EFC/yr). Under-cycling is conservative on revenue and optimistic on wear; net effect measured at +0.9 % project IRR. Carried to B6 as a calibration question about the benchmark fleet's reserve/DA mix."
+      }
+    ],
+    "distinct_internal_checks": 12,
+    "distinct_external_checks": 6
+  },
+  "run": {
+    "run_id": "reconcile-ff4428179bd9",
+    "engine_git_sha": "784eb659b98a96d847def8b08eaf27a66dd372c1-dirty",
+    "input_hash": "3532dca494a3ae013a96b6f6381b34a8c50296123df24562780574da7f8ad3c4",
+    "output_hash": "359f7948019b1ebd8e023c19364e13fbcd0bce4b28f9952b4dc6244d8bcc8082",
+    "register_version": "r5.8530095d",
+    "data_vintage": {
+      "kind": "kv-snapshot",
+      "kv_source": "live-public-routes",
+      "captured_at": "2026-08-01T10:41:05.879Z",
+      "verified": true
+    },
+    "recorded_at": "2026-08-03T20:11:18.217Z"
+  }
+}

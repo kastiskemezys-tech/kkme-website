@@ -1,0 +1,98 @@
+{
+  "generated_at": "2026-08-03T20:11:17.535Z",
+  "engine_version": "v7.3",
+  "kv_source": "live-public-routes",
+  "kv_verified": true,
+  "source_dir": "/Users/Kastis/kkme/tools/consultancy/projects/prosperus",
+  "wacc": 0.08,
+  "order": [
+    "downside",
+    "central",
+    "upside"
+  ],
+  "drivers": {
+    "downside": {
+      "fleet_realisation_pct": 65,
+      "spread_growth_pct_yr": -1,
+      "availability_pct": 95,
+      "trading_realisation": 0.6535,
+      "cap_price_delta_pct": -25,
+      "litgrid_lt_supply_basis": 0,
+      "cpi_floor": 0.28,
+      "rte_decay_pp_yr": 0.2,
+      "optimiser_pct_gross": 12
+    },
+    "central": {
+      "fleet_realisation_pct": 50,
+      "spread_growth_pct_yr": 2,
+      "availability_pct": 97,
+      "trading_realisation": 0.7234,
+      "cap_price_delta_pct": 0,
+      "litgrid_lt_supply_basis": 0,
+      "cpi_floor": 0.3,
+      "rte_decay_pp_yr": 0.2,
+      "optimiser_pct_gross": 12
+    },
+    "upside": {
+      "fleet_realisation_pct": 35,
+      "spread_growth_pct_yr": 3.5,
+      "availability_pct": 98,
+      "trading_realisation": 0.8155,
+      "cap_price_delta_pct": 20,
+      "litgrid_lt_supply_basis": 0,
+      "cpi_floor": 0.35,
+      "rte_decay_pp_yr": 0.2,
+      "optimiser_pct_gross": 12
+    }
+  },
+  "headlines": {
+    "downside": {
+      "gross_y1": 7322957,
+      "ebitda_y1": 3867455,
+      "prefin_cf_y1": 3570455,
+      "sum_20yr_net": 199242046,
+      "npv": -16042163,
+      "moic": 0.789
+    },
+    "central": {
+      "gross_y1": 9698737,
+      "ebitda_y1": 5859647,
+      "prefin_cf_y1": 5562647,
+      "sum_20yr_net": 271765317,
+      "npv": 13280474,
+      "moic": 2.299
+    },
+    "upside": {
+      "gross_y1": 11618097,
+      "ebitda_y1": 7470142,
+      "prefin_cf_y1": 7173142,
+      "sum_20yr_net": 336433857,
+      "npv": 39412460,
+      "moic": 3.645
+    }
+  },
+  "central_invariant": {
+    "status": "exact",
+    "compared_fields": "every bridge line in every calendar year, per-project totals, portfolio NPV/MOIC/payback/CAPEX",
+    "basis": "live runPortfolio() in the same process against the same KV — measures code, not data drift"
+  },
+  "monotonicity": {
+    "status": "ok",
+    "rule": "Downside < Central < Upside on every headline",
+    "breaches": []
+  },
+  "run": {
+    "run_id": "scenario-summary-62a385e44ff3",
+    "engine_git_sha": "784eb659b98a96d847def8b08eaf27a66dd372c1-dirty",
+    "input_hash": "56047a59af2fb25df1307b41d534b6d2d93a74a8102b7180f783db117f405a57",
+    "output_hash": "d965ce2cb84c134743d5a1ae4ecce36320f040385643ac5453b582199b51dc39",
+    "register_version": "r5.8530095d",
+    "data_vintage": {
+      "kind": "kv-snapshot",
+      "kv_source": "live-public-routes",
+      "captured_at": "2026-08-01T10:41:05.879Z",
+      "verified": true
+    },
+    "recorded_at": "2026-08-03T20:11:17.535Z"
+  }
+}

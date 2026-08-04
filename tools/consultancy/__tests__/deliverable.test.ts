@@ -11,6 +11,7 @@ import ExcelJS from 'exceljs';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { FIXTURE_DIR } from '../regen-fixtures.mjs';
 import { loadInputs, buildWorkbook, resolveNotes } from '../generate-xlsx.mjs';
 import {
   buildDeliverableHtml, verifyDeliverable, splitTemplate, TEMPLATE_PATH,
@@ -23,7 +24,11 @@ let inp: Any;
 let html: string;
 
 beforeAll(async () => {
-  inp = loadInputs() as Any;
+  // B-034: the FROZEN fixture, never `output/`. Reading the untracked output
+  // directory meant this suite graded whatever the last local build left on
+  // disk — green over a ~24 % stale artifact during 36.D. Regenerate the
+  // fixture deliberately with `npm run fixtures:regen`.
+  inp = loadInputs({ outputDir: FIXTURE_DIR }) as Any;
   html = buildDeliverableHtml(inp, { generatedAt: '2026-07-31' }) as string;
 }, 60_000);
 
