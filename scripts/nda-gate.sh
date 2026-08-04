@@ -21,6 +21,29 @@
 #
 # Usage:  bash scripts/nda-gate.sh [<base-ref>]
 set -uo pipefail
+
+# ── Phase 51: the gate scans BYTES, so it must not be read as characters ──────
+#
+# Found 2026-08-04 when the gate reported INVALID: its own positive control
+# stopped matching a 12.4 MB corpus that demonstrably contained the sentinel
+# (`LC_ALL=C grep -c` found it; plain `grep -qiF` did not). The corpus
+# concatenates every untracked file, and one of them carries a byte sequence that
+# is not valid UTF-8. BSD grep under a UTF-8 locale aborts on such input with
+# "Illegal byte sequence" and returns non-zero — indistinguishable, to an `if !
+# grep`, from "no match".
+#
+# So a single stray byte anywhere in the tree could have made every needle scan
+# return "clean". The 38.8 note above describes the previous version losing a
+# match in a 12 MB shell variable; this is the same class one layer down, and it
+# was caught only because the positive control is checked FIRST and refuses to
+# report a pass it cannot earn.
+#
+# C forces byte semantics: no multibyte decoding, so no input can abort the scan.
+# Documented consequence: `-i` then case-folds ASCII only. Every needle is a name
+# or a figure, and a non-ASCII needle would need exact-case matching anyway.
+export LC_ALL=C
+export LANG=C
+
 BASE="${1:-main}"
 NEEDLES="docs/_private/commercial/_nda-gate-needles.txt"
 

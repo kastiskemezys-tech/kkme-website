@@ -26,7 +26,10 @@ export function render() {
       ? g.injections.map((i) => i.label).join('; ')
       : '**NONE — fails gates:selftest**';
     const where = g.ciBlocked ? `${g.where} · **CI-BLOCKED:** ${g.ciBlocked}` : g.where;
-    const covers = g.notSeen ? `${g.covers} · **NOT seen:** ${g.notSeen}` : g.covers;
+    let covers = g.notSeen ? `${g.covers} · **NOT seen:** ${g.notSeen}` : g.covers;
+    if (g.preconditions?.length) {
+      covers += ` · **needs:** ${g.preconditions.map((p) => p.path ?? p.cmd ?? p.name).join(', ')}`;
+    }
     return `| \`${g.id}\` | \`${g.command}\` | ${covers} | ${where} | ${inj} |`;
   });
 
@@ -115,6 +118,18 @@ Recorded rather than fixed, so they stay visible:
    bundle are exercised **only by a local \`build-all\` without the flag**. Installing a
    browser in CI so those checks could walk past a stage they do not test would buy
    nobody any coverage.
+
+## Preconditions, and UNRUNNABLE (B14)
+
+A gate declares what it needs to run — a tracked file, a binary, an env var — and
+\`npm run gates\` checks that BEFORE the command. **A gate whose precondition is
+missing reports UNRUNNABLE: not a pass, and not a red.**
+
+Both alternatives lie about a different thing. A pass claims the check ran. A red
+claims the SUBJECT is broken, and sends the reader after a bug that is not there —
+PR #152 spent four rounds on exactly that, because each missing precondition
+surfaced as an ordinary failure of whatever the gate happened to point at. The
+run exits non-zero either way; the difference is what it tells you to go and fix.
 
 ## Positive control
 

@@ -40,7 +40,7 @@
  * behind, the harness fails loudly rather than handing back a dirty worktree.
  */
 import { GATES } from './registry.mjs';
-import { runGate, applyInjection, treeFingerprint, sha256, classifyInjectionResult } from './lib.mjs';
+import { runGate, applyInjection, treeFingerprint, sha256, classifyInjectionResult, checkPreconditions } from './lib.mjs';
 import { join } from 'node:path';
 import { ROOT } from './lib.mjs';
 
@@ -58,6 +58,17 @@ for (const g of GATES) {
     // locally; what CI cannot do is run it, and that is a fact about CI.
     console.log(`◦ ${g.id} — CI-BLOCKED, injection not exercised here (${g.ciBlocked})`);
     results.push({ id: g.id, verdict: 'ci-blocked' });
+    continue;
+  }
+  // B14 — a gate that cannot run cannot be self-tested either. Reported before
+  // the injection loop so the message names the missing input rather than
+  // blaming an injection that never got the chance to do anything.
+  const pre = checkPreconditions(g);
+  if (!pre.ok) {
+    console.log(`✗ ${g.id} — UNRUNNABLE, preconditions missing: `
+      + pre.missing.map((m) => m.what).join(', '));
+    results.push({ id: g.id, verdict: 'unrunnable' });
+    hardFailures++;
     continue;
   }
   if (!g.injections?.length) {
@@ -146,8 +157,10 @@ if (fingerprintBefore !== fingerprintAfter) {
 const proven = results.filter((r) => r.verdict === 'proven').length;
 const noInj = results.filter((r) => r.verdict === 'no-injection').length;
 const untestable = results.filter((r) => r.verdict === 'cannot-self-test').length;
+const unrunnable = results.filter((r) => r.verdict === 'unrunnable').length;
 console.log(`${proven} gate(s) proven failable · ${noInj} without a declared injection · `
-  + `${untestable} untestable (already red) · ${hardFailures} failure(s)`);
+  + `${untestable} untestable (already red) · ${unrunnable} unrunnable (preconditions) · `
+  + `${hardFailures} failure(s)`);
 if (!results.some((r) => r.verdict === 'control-ok')) {
   console.log('✗ the positive control did not run — a self-test with no control is not evidence');
   hardFailures++;

@@ -141,3 +141,46 @@ export function classifyInjectionResult({ preGreen, wentRed, backToGreen, isPosi
   }
   return { verdict: 'proven', ok: true, message: '✓ red under injection, green on revert' };
 }
+
+/**
+ * B14 — check a gate's declared preconditions before running it.
+ *
+ * The rule this implements: **a gate whose precondition is missing must fail as
+ * UNRUNNABLE, never as a pass and never as a generic red.** Both alternatives lie
+ * about a different thing. A pass claims the check ran; a generic red claims the
+ * subject is broken, which sends the reader after the wrong bug — PR #152 spent
+ * four rounds on that, because each missing precondition surfaced as an ordinary
+ * failure of whatever the gate happened to be pointing at.
+ *
+ * Preconditions are declared as data on the gate so they are visible in the
+ * manifest rather than buried in a shell script's exit codes.
+ *
+ *   { kind: 'file',   path: 'x/y.json', why: '...' }   a tracked input must exist
+ *   { kind: 'binary', cmd: 'chromium',  why: '...' }   an executable must resolve
+ *   { kind: 'env',    name: 'FOO',      why: '...' }   an env var must be set
+ *
+ * @returns {{ok: true} | {ok: false, missing: Array<{what: string, why: string}>}}
+ */
+export function checkPreconditions(gate, { root = ROOT } = {}) {
+  const missing = [];
+  for (const p of gate.preconditions ?? []) {
+    let present = false;
+    try {
+      if (p.kind === 'file') present = existsSync(resolve(root, p.path));
+      else if (p.kind === 'env') present = Boolean(process.env[p.name]);
+      else if (p.kind === 'binary') {
+        const r = spawnSync(process.platform === 'win32' ? 'where' : 'command',
+          process.platform === 'win32' ? [p.cmd] : ['-v', p.cmd],
+          { cwd: root, encoding: 'utf8', shell: true });
+        present = r.status === 0 && Boolean((r.stdout || '').trim());
+      } else present = true; // unknown kind: do not invent a failure
+    } catch { present = false; }
+    if (!present) {
+      missing.push({
+        what: p.kind === 'file' ? `file ${p.path}` : p.kind === 'env' ? `env ${p.name}` : `binary ${p.cmd}`,
+        why: p.why ?? '',
+      });
+    }
+  }
+  return missing.length ? { ok: false, missing } : { ok: true };
+}
