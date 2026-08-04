@@ -5155,6 +5155,44 @@ function slotHourUtc(day, idx) {
   return new Date(day.startMs + idx * day.resolutionMin * 60000).getUTCHours();
 }
 
+/**
+ * ─── B-075: two bidding zones need a common clock, not a common index ────────
+ *
+ * `computeHistorical` paired LT against SE4 with `lt30[i] - se430[i]` over flat
+ * 30-day scrapes. Under curveType A03 each zone omits repeated positions
+ * INDEPENDENTLY, so the two arrays are not the same length and every pair after
+ * the first divergent omission compares two different instants. Measured on live
+ * documents 2026-08-04: LT 2916 values against SE4 2932, LT forward-filling 60
+ * positions to SE4's 44 — a 16-slot relative shift — and the code silently
+ * truncated to the shorter.
+ *
+ * Every slot carries its own instant, so the join is an intersection on that
+ * instant. A slot present in one zone and absent in the other is DROPPED rather
+ * than held or interpolated: holding invents a price the market never cleared,
+ * and interpolating invents two.
+ *
+ * @returns {Array<[number, number, number]>} [epochMs, a, b], ascending
+ */
+function pairOnTimestamp(xmlA, xmlB) {
+  const series = (xml) => {
+    const out = [];
+    for (const p of parseA44Periods(xml)) {
+      for (let i = 0; i < p.prices.length; i++) {
+        out.push([p.startMs + i * p.resolutionMin * 60000, p.prices[i]]);
+      }
+    }
+    return out;
+  };
+  const b = new Map(series(xmlB));
+  const paired = [];
+  for (const [t, va] of series(xmlA)) {
+    const vb = b.get(t);
+    if (vb !== undefined) paired.push([t, va, vb]);
+  }
+  paired.sort((x, y) => x[0] - y[0]);
+  return paired;
+}
+
 function avg(arr) {
   return arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
 }
@@ -5218,7 +5256,9 @@ async function fetchBznGuarded(bzn, apiKey, label, delayMs = 400) {
   return null;
 }
 
-async function fetchBznRange(bzn, apiKey, startOffset, endOffset) {
+/** The raw A44 document for a multi-day range, or null. B-075: the DOCUMENT, so
+ *  the caller can pair on the timestamps only the document carries. */
+async function fetchBznRangeXml(bzn, apiKey, startOffset, endOffset) {
   const url = new URL(ENTSOE_API);
   url.searchParams.set('documentType', 'A44');
   url.searchParams.set('in_Domain', bzn);
@@ -5229,47 +5269,90 @@ async function fetchBznRange(bzn, apiKey, startOffset, endOffset) {
 
   try {
     const res = await fetch(url.toString());
-    if (!res.ok) return [];
-    return extractPrices(await res.text());
+    if (!res.ok) return null;
+    return await res.text();
   } catch {
-    return [];
+    return null;
   }
 }
 
+async function fetchBznRange(bzn, apiKey, startOffset, endOffset) {
+  const xml = await fetchBznRangeXml(bzn, apiKey, startOffset, endOffset);
+  return xml === null ? [] : extractPrices(xml);
+}
+
+/**
+ * ─── B-075 (Phase 52), operator-signed 2026-08-04 ────────────────────────────
+ *
+ * These three fields paired LT against SE4 BY ARRAY INDEX across 30-day ranges.
+ * Under curveType A03 each zone omits repeated positions independently, so the
+ * two flat arrays are not even the same length and the code silently truncated
+ * to the shorter. Measured on live documents the day this shipped:
+ *
+ *                        index-paired   timestamp-paired
+ *   array lengths        LT 2916 / SE4 2932     both 2976
+ *   A03 forward-filled   LT 60 / SE4 44 -> a 16-slot relative shift
+ *   rsi_30d                     -0.68              -1.08   (-58.8 %)
+ *   pct_hours_above_20           21.8                6.9   (-68.4 %)
+ *   trend_vs_90d                 0.92               2.05   (+123 %)
+ *
+ * The index-paired figures reproduced live `/s1` exactly, so those were the
+ * published values. **`pct_hours_above_20` is the share of hours Lithuania
+ * clears more than 20 % above SE4: it read 21.8 % and the true figure is 6.9 %.
+ * The site was overstating Baltic price separation by roughly 3.2x.** The
+ * correction is unflattering and is stated as such on the card.
+ *
+ * `trend_vs_90d` is a DIFFERENCE of two mean spreads, not a ratio — checked
+ * against the source rather than assumed, which is why its +123 % is a real
+ * figure and not the -18 % a ratio would have produced.
+ */
 async function computeHistorical(apiKey) {
   try {
-    const [lt30, se430, ltRef, se4Ref] = await Promise.all([
-      fetchBznRange(LT_BZN,  apiKey, -30,  1),
-      fetchBznRange(SE4_BZN, apiKey, -30,  1),
-      fetchBznRange(LT_BZN,  apiKey, -120, -90),
-      fetchBznRange(SE4_BZN, apiKey, -120, -90),
+    const [lt30Xml, se430Xml, ltRefXml, se4RefXml] = await Promise.all([
+      fetchBznRangeXml(LT_BZN,  apiKey, -30,  1),
+      fetchBznRangeXml(SE4_BZN, apiKey, -30,  1),
+      fetchBznRangeXml(LT_BZN,  apiKey, -120, -90),
+      fetchBznRangeXml(SE4_BZN, apiKey, -120, -90),
     ]);
+    const empty = { rsi_30d: null, trend_vs_90d: null, pct_hours_above_20: null, spread_pairing: null };
+    if (lt30Xml === null || se430Xml === null) return empty;
 
-    const len = Math.min(lt30.length, se430.length);
-    if (len === 0) return { rsi_30d: null, trend_vs_90d: null, pct_hours_above_20: null };
+    const cur = pairOnTimestamp(lt30Xml, se430Xml);
+    if (cur.length === 0) return empty;
 
     let spreadSum = 0;
     let hoursAbove20 = 0;
-    for (let i = 0; i < len; i++) {
-      const spread = lt30[i] - se430[i];
-      const pct    = se430[i] !== 0 ? (spread / se430[i]) * 100 : 0;
+    for (const [, lt, se4] of cur) {
+      const spread = lt - se4;
+      const pct    = se4 !== 0 ? (spread / se4) * 100 : 0;
       spreadSum += spread;
       if (pct > 20) hoursAbove20++;
     }
-    const rsi_30d            = Math.round((spreadSum / len) * 100) / 100;
-    const pct_hours_above_20 = Math.round((hoursAbove20 / len) * 1000) / 10;
+    const rsi_30d            = Math.round((spreadSum / cur.length) * 100) / 100;
+    const pct_hours_above_20 = Math.round((hoursAbove20 / cur.length) * 1000) / 10;
 
-    const lenRef = Math.min(ltRef.length, se4Ref.length);
     let trend_vs_90d = null;
-    if (lenRef > 0) {
-      let refSum = 0;
-      for (let i = 0; i < lenRef; i++) refSum += ltRef[i] - se4Ref[i];
-      trend_vs_90d = Math.round((rsi_30d - refSum / lenRef) * 100) / 100;
+    let refN = 0;
+    if (ltRefXml !== null && se4RefXml !== null) {
+      const ref = pairOnTimestamp(ltRefXml, se4RefXml);
+      refN = ref.length;
+      if (refN > 0) {
+        let refSum = 0;
+        for (const [, lt, se4] of ref) refSum += lt - se4;
+        trend_vs_90d = Math.round((rsi_30d - refSum / refN) * 100) / 100;
+      }
     }
 
-    return { rsi_30d, trend_vs_90d, pct_hours_above_20 };
+    return {
+      rsi_30d,
+      trend_vs_90d,
+      pct_hours_above_20,
+      // Provenance for the correction: how many slots actually paired, so a
+      // reader can see the statistic's own sample rather than trust its label.
+      spread_pairing: { basis: 'timestamp', slots_30d: cur.length, slots_ref: refN },
+    };
   } catch {
-    return { rsi_30d: null, trend_vs_90d: null, pct_hours_above_20: null };
+    return { rsi_30d: null, trend_vs_90d: null, pct_hours_above_20: null, spread_pairing: null };
   }
 }
 
@@ -14071,6 +14154,9 @@ export {
   // (playbook B13: a test whose subject is a string in a file has verified the
   // file, not the behaviour).
   parseA44Periods,
+  // B-075 — the two-zone join, exported so the pairing is tested against real
+  // documents rather than a restatement of its Map lookup.
+  pairOnTimestamp,
   pricesForUtcDay,
   // Phase 49 item 1 — market-day admission and its wall-clock hour labels.
   marketDayAt,

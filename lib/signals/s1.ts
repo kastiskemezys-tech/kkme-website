@@ -22,10 +22,27 @@ export interface S1Signal {
   // Intraday arbitrage metrics — new from Worker (absent in old KV entries)
   lt_daily_swing_eur_mwh?: number | null;  // max-min of LT hourly prices (trading input)
   lt_evening_premium?: number | null;      // mean(LT h17-21) - mean(LT h10-14)
-  // Regime view fields — optional; absent in old KV entries
-  rsi_30d?: number | null;          // 30-day rolling avg spread €/MWh
-  trend_vs_90d?: number | null;     // rsi_30d delta vs reference window 90d ago; >0 = widening
-  pct_hours_above_20?: number | null; // % of hours in last 30d where separation > 20%
+  // Regime view fields — optional; absent in old KV entries.
+  //
+  // ── CORRECTED 2026-08-04 (B-075). Values before that date are not comparable ──
+  // These three paired LT against SE4 by ARRAY INDEX over flat 30-day scrapes.
+  // Under ENTSO-E curveType A03 each zone omits repeated positions
+  // independently, so the arrays were not the same length and the code silently
+  // truncated to the shorter — every pair after the first divergent omission
+  // compared two different instants. Measured on the day of the fix:
+  //   rsi_30d            -0.68 ->  -1.08   (-58.8 %)
+  //   pct_hours_above_20  21.8 ->    6.9   (-68.4 %)  the site had been
+  //                                                   overstating Baltic price
+  //                                                   separation by ~3.2x
+  //   trend_vs_90d        0.92 ->   2.05   (+123 %)
+  // Now joined on each slot's own timestamp; `spread_pairing` on the payload
+  // reports the basis and the slot counts the statistics were actually computed
+  // over. See docs/investigations/2026-08-04-b075-index-pairing.md.
+  rsi_30d?: number | null;          // 30-day mean spread €/MWh, timestamp-paired
+  trend_vs_90d?: number | null;     // rsi_30d MINUS the 90d-ago reference mean spread (a difference, not a ratio); >0 = widening
+  pct_hours_above_20?: number | null; // % of paired slots in last 30d where LT clears >20% above SE4
+  /** B-075 — which basis the three fields above were computed on, and over how many slots. */
+  spread_pairing?: { basis: 'timestamp'; slots_30d: number; slots_ref: number } | null;
   // Rolling history stats (added Task 3) — absent until first history entry written
   spread_stats_90d?: { p25: number; p50: number; p75: number; p90: number; n: number; days_of_data: number } | null;
   swing_stats_90d?:  { p25: number; p50: number; p75: number; p90: number; n: number; days_of_data: number } | null;

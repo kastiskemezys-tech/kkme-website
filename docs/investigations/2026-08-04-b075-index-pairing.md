@@ -1,8 +1,7 @@
 # B-075 — LT paired against SE4 by array index, quantified
 
-**Status: MEASURED, NOT FIXED. Group B — it moves published numbers.**
-No code changed. This is the quantification the operator asked for before any fix
-is proposed.
+**Status: FIXED 2026-08-04, operator-signed. Group B — it moved published numbers.**
+The measurement below is what the signature was given against.
 
 ## The mechanism
 
@@ -59,10 +58,25 @@ reads **6.9 %**. The site has been overstating Baltic price separation by roughl
 is corrected, and it is more negative — LT is cheaper relative to SE4 than the
 published figure says.
 
-`trend_vs_90d` (live 0.92) is built from the same pairing over a second window and
-is affected by the same mechanism; it is **not quantified here** because the
-90-day reference window needs its own fetch and the session ended first. Do not
-assume it moves in the same direction or by a similar amount.
+### `trend_vs_90d` — quantified 2026-08-04, and the assumption was wrong
+
+Measured on the second window (−120 to −90 days). **It is a DIFFERENCE of two
+mean spreads, not a ratio** — read off the source rather than assumed, which
+matters: a ratio would have produced −18 % and the real figure is the opposite
+sign and six times the size.
+
+```
+reference window lengths  LT 2912  SE4 2958   (timestamped both 2976)
+reference A03 filled      LT   64  SE4   18   -> a 46-slot relative shift
+mean spread, reference    index -1.5962   timestamp -3.1355
+mean spread, current      index -0.6758   timestamp -1.0811
+trend_vs_90d              index  0.92     timestamp  2.05      +123 %
+```
+
+The index figure reproduces live `/s1` (0.92) exactly, confirming the
+reconstruction. The reference window's shift is **46 slots**, nearly three times
+the current window's 16 — so the older the comparison window, the worse the
+misalignment, and `trend_vs_90d` was the most distorted of the three.
 
 ## The fix, not applied
 
