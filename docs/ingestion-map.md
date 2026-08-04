@@ -20,7 +20,7 @@ fetcher asked for bytes, got bytes, and whatever those bytes were became the tru
 | distinct external hosts named in the worker | **35** |
 | of those, carrying a declared contract | **4** |
 | declared contracts in total (incl. one not yet ingested) | **5** |
-| VPS scripts | 8 |
+| VPS scripts | 9 |
 | mature-market fetchers | 8 |
 | GitHub Actions workflows | 4 |
 
@@ -125,7 +125,7 @@ undeclared source is visibly undeclared rather than invisibly unchecked.
 
 ## Other ingestion paths
 
-**VPS** (`scripts/vps/`): `backfill_btd_daily.py` · `baltic_storage_index.py` · `btd_daily_clearing_wrapper.sh` · `cert_watch.py` · `daily_intel.py` · `fetch_btd.py` · `fetch_entsoe_installed_capacity.py` · `fleet_lifecycle_runner.sh`
+**VPS** (`scripts/vps/`): `backfill_btd_daily.py` · `baltic_storage_index.py` · `btd_daily_clearing_wrapper.sh` · `cert_watch.py` · `daily_intel.py` · `fetch_btd.py` · `fetch_entsoe_installed_capacity.py` · `fleet_lifecycle_runner.sh` · `s3_lithium_relay.py`
 
 **Mature markets** (`tools/consultancy/mature-markets/`): `fetch-activation-prices.mjs` · `fetch-au-aemo.mjs` · `fetch-calendar.mjs` · `fetch-de-regelleistung.mjs` · `fetch-entsoe-da.mjs` · `fetch-fx.mjs` · `fetch-gb-neso.mjs` · `fetch-se-svk.mjs`
 

@@ -6779,7 +6779,29 @@ Return ONLY valid JSON:
   }
 }
 
-async function computeS3() {
+/**
+ * ─── S3, with the scrape leg injectable (Phase 51, B-072) ────────────────────
+ *
+ * `tradingeconomics.com` answers a Cloudflare Worker with a 20-second hang and
+ * nothing else — no status, no headers. Measured 2026-08-04 with a controlled
+ * three-network probe, same URL and the same three headers: laptop HTTP 200 in
+ * 0.14 s, Hetzner VPS HTTP 200 in 0.10 s, Worker times out. Not the upstream,
+ * not the headers, not datacenter IPs. **Whether it is a CloudFront WAF rule is
+ * still not established, and it does not need to be to route around it.** Same
+ * shape as 36.C: when one path is dead and another is proven, use the proven one.
+ *
+ * So the VPS — which already runs eleven authenticated crons — fetches the page
+ * and POSTs the HTML to `/s3/scrape`. **The worker keeps the parse.** Moving
+ * `parseLithiumPrice` into Python would give one quantity two implementations in
+ * two languages with one of them outside this repo's tests, which is precisely
+ * what discipline rule #4 exists to stop.
+ *
+ * @param {object} [opts]
+ * @param {string} [opts.html]      pre-fetched TE page; skips the worker's own fetch
+ * @param {string} [opts.fetchedAt] when the VPS fetched it, for provenance
+ */
+async function computeS3(opts = {}) {
+  const injected = typeof opts.html === 'string' ? opts.html : null;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 20000);
 
@@ -6809,7 +6831,13 @@ async function computeS3() {
   }
 
   try {
-    const teRes = await fetch(TE_URL, { signal: controller.signal, headers: TE_HEADERS, redirect: 'follow' });
+    // A synthetic 200 for the injected path, so everything below — the ok check,
+    // the parse, the failure envelopes — runs identically whether the bytes came
+    // from the worker's own fetch or from the VPS. One code path, one payload
+    // shape; the source is recorded, not branched around.
+    const teRes = injected !== null
+      ? { ok: true, status: 200, headers: { get: () => 'text/html' }, text: async () => injected }
+      : await fetch(TE_URL, { signal: controller.signal, headers: TE_HEADERS, redirect: 'follow' });
     clearTimeout(timer);
     if (!fx) throw new Error('FX unavailable and TE scrape cannot be published without it');
     teStatus = teRes.status;
@@ -6903,6 +6931,11 @@ async function computeS3() {
       signal,
       interpretation: S3_INTERPRETATION[signal],
       source: 'tradingeconomics.com + infolink-group.com',
+      // Which path delivered the bytes, recorded on the payload rather than
+      // inferred — the same reason `resolveCaptureDay` stamps `capture_source`.
+      // A VPS-routed day must be legible in the data, not a silent substitution.
+      scrape_transport: injected !== null ? 'vps_relay' : 'worker_direct',
+      ...(injected !== null && opts.fetchedAt ? { scrape_fetched_at: opts.fetchedAt } : {}),
     };
   } catch (err) {
     clearTimeout(timer);
@@ -9623,6 +9656,15 @@ async function writeRevenueSnapshot(env, { nowIso = new Date().toISOString() } =
 
 /** Largest `/curate` body. It is a single curated item, not a bulk import. */
 const CURATE_MAX_BODY_BYTES = 64 * 1024;
+
+// B-072 — the VPS relays the whole TradingEconomics page so the parse stays in
+// the worker. The live page measured 408,928 B on 2026-08-04; 2 MB leaves room
+// for the page to grow several times over without the relay silently failing,
+// and still bounds a hostile body. The FLOOR matters more than the ceiling: a
+// truncated relay that parses to nothing would overwrite good data with a
+// failure payload, so anything under 10 KB is refused as "not the page".
+const S3_RELAY_MAX_BODY_BYTES = 2 * 1024 * 1024;
+const S3_RELAY_MIN_HTML_BYTES = 10 * 1024;
 
 /**
  * Which secret slot a presented value matches. Pure, and deliberately returns a
@@ -13301,6 +13343,58 @@ export default {
     }
 
     // ── POST /extreme/seed — seed an extreme event (requires update secret) ──
+    // ── POST /s3/scrape — the VPS relay for the lithium scrape (B-072) ───────
+    //
+    // The worker cannot reach tradingeconomics.com; the VPS can. This is the
+    // seam. The VPS sends bytes and nothing else — no parsing, no interpretation
+    // — so `parseLithiumPrice` stays the single implementation (rule #4) and the
+    // relay cannot invent a price.
+    //
+    // Everything after the parse is identical to the cron path, including the
+    // transition alert, because the payload is built by the same `computeS3`.
+    if (request.method === 'POST' && url.pathname === '/s3/scrape') {
+      if (!acceptsUpdateSecret(request, env, { route: '/s3/scrape' })) {
+        return jsonResp({ error: 'unauthorized' }, 401);
+      }
+      const raw = await request.text().catch(() => null);
+      if (typeof raw !== 'string' || raw.length > S3_RELAY_MAX_BODY_BYTES) {
+        return jsonResp({ error: `body missing or exceeds ${S3_RELAY_MAX_BODY_BYTES} bytes` }, 413);
+      }
+      const parsedBody = parseJsonBody(raw);
+      if (!parsedBody.ok) return jsonResp({ error: parsedBody.error }, 400);
+      const { html, fetched_at } = parsedBody.body ?? {};
+      if (typeof html !== 'string' || html.length < S3_RELAY_MIN_HTML_BYTES) {
+        // A truncated or empty relay must not overwrite a good payload with a
+        // parse failure. The live page is ~409 KB; anything under 10 KB is not
+        // the page, whatever the relay believes it sent.
+        return jsonResp({
+          error: `html must be a string of at least ${S3_RELAY_MIN_HTML_BYTES} bytes`,
+          received_bytes: typeof html === 'string' ? html.length : null,
+        }, 400);
+      }
+
+      const d = await computeS3({ html, fetchedAt: typeof fetched_at === 'string' ? fetched_at : null });
+
+      // A relay that delivered bytes we could not parse is a FAILED relay, and
+      // it must not overwrite the last good payload — writing "I failed" over
+      // real data is worse than not writing (playbook §5). The cron path has no
+      // such choice; this one does, so it takes it.
+      if (d.unavailable) {
+        console.error(`[S3/relay] parse failed on ${html.length}B — KV left untouched`);
+        return jsonResp({ ok: false, wrote: false, reason: d._scrape_error ?? 'parse failed', bytes: html.length }, 422);
+      }
+
+      await env.KKME_SIGNALS.put('s3', JSON.stringify(d));
+      await env.KKME_SIGNALS.put(`raw:s3:${new Date().toISOString().slice(0, 10)}`,
+        JSON.stringify({ fetched: new Date().toISOString(), data: d }), { expirationTtl: 604800 });
+      await alertTransition(env, 's3_scrape', 'ok',
+        `S3 scrape live via VPS relay — lithium €${d.lithium_eur_t}/t`).catch(() => {});
+      await updateS3Freshness(env.KKME_SIGNALS, 'lithium_proxy', { confidence: 'proxy' }).catch(() => {});
+      await updateS3Freshness(env.KKME_SIGNALS, 'fx').catch(() => {});
+      console.log(`[S3/relay] ${d.signal} lithium=€${d.lithium_eur_t}/t from ${html.length}B relayed`);
+      return jsonResp({ ok: true, wrote: true, lithium_eur_t: d.lithium_eur_t, signal: d.signal, transport: d.scrape_transport });
+    }
+
     if (request.method === 'POST' && url.pathname === '/extreme/seed') {
       if (!acceptsUpdateSecret(request, env)) return jsonResp({ error: 'unauthorized' }, 401);
       const body = await request.json();
@@ -13982,6 +14076,10 @@ export {
   marketDayAt,
   slotHourUtc,
   s1DayParseMode,
+  // B-072 — exported so the relay path is tested by running the REAL payload
+  // builder with injected bytes, rather than a test restating its branches.
+  computeS3,
+  parseLithiumPrice,
   // Exported so the flag delta is measured by running the REAL computeS1 twice
   // over ONE recorded set of documents, rather than by a script restating its
   // field arithmetic — which would measure the restatement (B13).
