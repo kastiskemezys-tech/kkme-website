@@ -196,6 +196,17 @@ export function PeakForecastCard() {
             daily_swing = lt_peak_price − lt_trough_price across the 24h DA schedule. Peak/trough hours are reported in EET (Europe/Vilnius). The 90D distribution (P25/P50/P75/P90) is computed by the worker on a rolling window and used as the marker-bar reference; today&apos;s cursor shows where the current swing falls in that distribution.
           </p>
 
+          {/* Phase 49 — a correction notice, not a footnote.
+              The peak and trough HOURS shifted two hours on 2026-08-04 because we
+              fixed a labelling error, not because the market moved. A reader who
+              had noticed the old peak sitting at a particular hour is entitled to
+              know which of those two it was; leaving them to infer a regime change
+              from our own bug would be the worse silence. */}
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 'var(--space-xs)', marginTop: 'var(--space-sm)' }}>Correction — 4 August 2026</p>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+            Peak and trough hours on this card moved two hours earlier on 4 August 2026. <strong style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>This was a labelling fix, not a market change.</strong> The prices and the swing are unchanged. We had been deriving the clock hour from a value&apos;s position in the day&apos;s price array, which assumes the array starts at 00:00 UTC. A Nord Pool market day starts at 22:00 UTC the previous day in summer and 23:00 in winter, so every hour label was one CET offset out. Hours are now read from each interval&apos;s own timestamp. Verified slot-for-slot against Elering&apos;s independently published series for the same window.
+          </p>
+
           <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 'var(--space-xs)', marginTop: 'var(--space-sm)' }}>Limitations</p>
           <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', lineHeight: 1.6 }}>
             Day-ahead only — no intraday or imbalance pricing. Cross-zone separation (LT vs SE4) is a structural reference, not a tradable arbitrage signal. The 90D window can lag genuine regime shifts by 1–2 weeks at its tail.

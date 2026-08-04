@@ -1,0 +1,175 @@
+{
+  "_note": "Phase 49 item 1 — S1_DAY_PARSE flag delta. Both runs replay ONE set of recorded ENTSO-E documents.",
+  "measured_at": "2026-08-04T09:30:39.499Z",
+  "documents": [
+    "10YPL-AREA-----S|202608040000|202608050000",
+    "10Y1001A1001A47J|202604060000|202605060000",
+    "10Y1001A1001A47J|202608050000|202608060000",
+    "10YLT-1001A0008Q|202607050000|202608050000",
+    "10YLT-1001A0008Q|202608040000|202608050000",
+    "10YLT-1001A0008Q|202608050000|202608060000",
+    "10Y1001A1001A47J|202608040000|202608050000",
+    "10YLT-1001A0008Q|202604060000|202605060000",
+    "10Y1001A1001A47J|202607050000|202608050000"
+  ],
+  "rows": [
+    {
+      "field": "lt_avg_eur_mwh",
+      "flat": 80.95,
+      "market_day": 80.95,
+      "moved": false,
+      "pct": 0
+    },
+    {
+      "field": "se4_avg_eur_mwh",
+      "flat": 76.23,
+      "market_day": 76.23,
+      "moved": false,
+      "pct": 0
+    },
+    {
+      "field": "spread_eur_mwh",
+      "flat": 4.72,
+      "market_day": 4.72,
+      "moved": false,
+      "pct": 0
+    },
+    {
+      "field": "separation_pct",
+      "flat": 6.2,
+      "market_day": 6.2,
+      "moved": false,
+      "pct": 0
+    },
+    {
+      "field": "pl_avg_eur_mwh",
+      "flat": 151.06,
+      "market_day": 150.21,
+      "moved": true,
+      "pct": -0.56
+    },
+    {
+      "field": "lt_pl_spread_eur_mwh",
+      "flat": -70.11,
+      "market_day": -69.26,
+      "moved": true,
+      "pct": 1.21
+    },
+    {
+      "field": "lt_pl_spread_pct",
+      "flat": -46.4,
+      "market_day": -46.1,
+      "moved": true,
+      "pct": 0.65
+    },
+    {
+      "field": "lt_daily_swing_eur_mwh",
+      "flat": 154.27,
+      "market_day": 154.27,
+      "moved": false,
+      "pct": 0
+    },
+    {
+      "field": "lt_peak_hour_utc",
+      "flat": 22,
+      "market_day": 20,
+      "moved": true,
+      "pct": -9.09
+    },
+    {
+      "field": "lt_peak_price",
+      "flat": 176.35,
+      "market_day": 176.35,
+      "moved": false,
+      "pct": 0
+    },
+    {
+      "field": "lt_trough_hour_utc",
+      "flat": 16,
+      "market_day": 14,
+      "moved": true,
+      "pct": -12.5
+    },
+    {
+      "field": "lt_trough_price",
+      "flat": 22.08,
+      "market_day": 22.08,
+      "moved": false,
+      "pct": 0
+    },
+    {
+      "field": "lt_evening_premium",
+      "flat": 96.1,
+      "market_day": 105.81,
+      "moved": true,
+      "pct": 10.1
+    },
+    {
+      "field": "p_high_avg",
+      "flat": 166.9,
+      "market_day": 166.9,
+      "moved": false,
+      "pct": 0
+    },
+    {
+      "field": "p_low_avg",
+      "flat": 23.1,
+      "market_day": 23.1,
+      "moved": false,
+      "pct": 0
+    },
+    {
+      "field": "intraday_capture",
+      "flat": 143.8,
+      "market_day": 143.8,
+      "moved": false,
+      "pct": 0
+    },
+    {
+      "field": "bess_net_capture",
+      "flat": 138.7,
+      "market_day": 138.7,
+      "moved": false,
+      "pct": 0
+    },
+    {
+      "field": "state",
+      "flat": "WATCH",
+      "market_day": "WATCH",
+      "moved": false,
+      "pct": null
+    },
+    {
+      "field": "lt_hours",
+      "flat": 96,
+      "market_day": 96,
+      "moved": false,
+      "pct": 0
+    },
+    {
+      "field": "se4_hours",
+      "flat": 96,
+      "market_day": 96,
+      "moved": false,
+      "pct": 0
+    }
+  ],
+  "lt_hourly_24_moved": false,
+  "market_day_provenance": {
+    "basis": "cet_market_day",
+    "start_utc": "2026-08-03T22:00:00.000Z",
+    "end_utc": "2026-08-04T22:00:00.000Z",
+    "hours": 24,
+    "resolution_min": 15,
+    "forward_filled": 0,
+    "hourly_start_utc": 22,
+    "refusal": null
+  },
+  "elering_control": {
+    "source": "elering dashboard NPS",
+    "n": 96,
+    "elering_mean": 80.9489,
+    "market_day_agreement": "96/96",
+    "flat_agreement": "96/96"
+  }
+}
