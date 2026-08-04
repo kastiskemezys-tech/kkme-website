@@ -10841,7 +10841,24 @@ export default {
     }
 
     // ── POST /curate ─────────────────────────────────────────────────────────
+    // Phase 50, step 1 of 2 — OBSERVE ONLY, enforce nothing.
+    //
+    // /curate is an unauthenticated `feed_index` writer (via
+    // appendCurationToFeedIndex), which collides with discipline rule #3: a named
+    // entity can reach published content with no source check. It was left open
+    // in Phase 48 on purpose, because its live caller — sync_to_website.py, VPS
+    // cron_daily.sh at 06:00 UTC — sent no secret, and gating first would have
+    // killed ~30 items/day.
+    //
+    // The caller now sends the header. This logs whether it ARRIVES, so step 2
+    // enforces against an observation rather than an assumption. It deliberately
+    // changes no response: same statuses, same bodies, no rejection path. The
+    // secret's VALUE is never logged — only whether it matched.
     if (request.method === 'POST' && url.pathname === '/curate') {
+      const curateSecret = request.headers.get('x-update-secret');
+      console.log(`[curate/auth-observe] header_present=${curateSecret !== null} `
+        + `matches=${curateSecret !== null && curateSecret === env.UPDATE_SECRET} `
+        + `ua=${String(request.headers.get('user-agent') ?? '').slice(0, 40)}`);
       let body;
       try { body = await request.json(); } catch {
         return new Response(JSON.stringify({ error: 'Invalid JSON body' }), { status: 400, headers: { 'Content-Type': 'application/json', ...CORS } });
