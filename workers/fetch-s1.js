@@ -9023,6 +9023,61 @@ function validateContactBody(body) {
   return { ok: true };
 }
 
+// ─── Phase 51: one auth check, and dual-accept for rotation ───────────────────
+//
+// `UPDATE_SECRET` gates every admin write. It needs rotating: it sat as an inline
+// default in a VPS script and is in four commits of the control-center repo's
+// history. A big-bang rotation would break whichever caller nobody remembered —
+// and the enumeration is exactly the thing that is never complete, which is the
+// whole reason for dual-accept.
+//
+// So the worker accepts EITHER slot while a rotation is in flight:
+//   UPDATE_SECRET       the current value
+//   UPDATE_SECRET_NEXT  the incoming value, set only during a rotation
+//
+// The verdict names WHICH slot matched, never the value. That is what makes
+// "observe every caller on the new secret before dropping the old" a measurement
+// rather than an assumption — the logs say `slot=next` per caller, and the old
+// value is dropped only when nothing is still arriving on `slot=current`.
+
+/** Largest `/curate` body. It is a single curated item, not a bulk import. */
+const CURATE_MAX_BODY_BYTES = 64 * 1024;
+
+/**
+ * Which secret slot a presented value matches. Pure, and deliberately returns a
+ * SLOT NAME rather than a boolean pair, so callers cannot accidentally log the
+ * value while trying to log the outcome.
+ *
+ * Comparison is plain `===`. This is not a timing-attack surface worth arming
+ * against here — the secret is a shared bearer token over TLS to a public
+ * endpoint, and an attacker with the request volume to time it has cheaper
+ * options — but if that changes, this is the one place to harden.
+ *
+ * @returns {{ok: boolean, slot: 'current'|'next'|null}}
+ */
+function updateSecretVerdict(presented, current, next) {
+  if (typeof presented !== 'string' || presented === '') return { ok: false, slot: null };
+  if (typeof current === 'string' && current !== '' && presented === current) return { ok: true, slot: 'current' };
+  if (typeof next === 'string' && next !== '' && presented === next) return { ok: true, slot: 'next' };
+  return { ok: false, slot: null };
+}
+
+/**
+ * The single admin-auth check for the whole worker. One function so a rotation
+ * is one edit, and so no route can quietly grow a second scheme (rule #4).
+ */
+function acceptsUpdateSecret(request, env, { route = '' } = {}) {
+  const v = updateSecretVerdict(
+    request.headers.get('x-update-secret'), env.UPDATE_SECRET, env.UPDATE_SECRET_NEXT,
+  );
+  if (v.ok && v.slot === 'next') {
+    // The rotation's evidence line: which caller has moved, without the value.
+    console.log(`[auth] slot=next route=${route || new URL(request.url).pathname} `
+      + `ua=${String(request.headers.get('user-agent') ?? '').slice(0, 40)}`);
+  }
+  return v.ok;
+}
+
 // ─── Phase 50: `s2_daily_clearing` recency ────────────────────────────────────
 //
 // This series is the platform's only irreplaceable archive. It begins on
@@ -9724,7 +9779,7 @@ export default {
     // 07:30 UTC) already sent X-Update-Secret before this gate existed — the
     // worker simply ignored it — so gating breaks no ingestion path.
     if (request.method === 'POST' && url.pathname === '/feed/events') {
-      if (request.headers.get('x-update-secret') !== env.UPDATE_SECRET) {
+      if (!acceptsUpdateSecret(request, env)) {
         return jsonResp({ error: 'unauthorized' }, 401);
       }
       const rawBody = await request.text().catch(() => null);
@@ -9803,7 +9858,7 @@ export default {
     // here means an absent body is fine but a malformed one is a 400 — never a
     // silent fall-through into the KV write below.
     if (request.method === 'POST' && url.pathname === '/feed/backfill-curations') {
-      if (request.headers.get('x-update-secret') !== env.UPDATE_SECRET) {
+      if (!acceptsUpdateSecret(request, env)) {
         return jsonResp({ error: 'unauthorized' }, 401);
       }
       const rawBody = await request.text().catch(() => null);
@@ -9842,7 +9897,7 @@ export default {
     // so this purge produces the cleaning effect on /feed without losing the
     // audit trail. Operator-triggered post-deploy with x-update-secret.
     if (request.method === 'POST' && url.pathname === '/feed/purge-irrelevant') {
-      if (request.headers.get('x-update-secret') !== env.UPDATE_SECRET) {
+      if (!acceptsUpdateSecret(request, env)) {
         return jsonResp({ error: 'unauthorized' }, 401);
       }
       const rawIdx = await env.KKME_SIGNALS.get('feed_index').catch(() => null);
@@ -9904,7 +9959,7 @@ export default {
     // human verifier identifies). UPDATE_SECRET-gated. Removed titles are
     // returned in the response so the caller can preserve an audit trail.
     if (request.method === 'POST' && url.pathname === '/feed/delete-by-id') {
-      if (request.headers.get('x-update-secret') !== env.UPDATE_SECRET) {
+      if (!acceptsUpdateSecret(request, env)) {
         return jsonResp({ error: 'unauthorized' }, 401);
       }
       let body;
@@ -9949,7 +10004,7 @@ export default {
     // reason, source, title, logged_at. Operator curls weekly to tune the
     // keyword set and denylist.
     if (request.method === 'GET' && url.pathname === '/feed/rejections') {
-      if (request.headers.get('x-update-secret') !== env.UPDATE_SECRET) {
+      if (!acceptsUpdateSecret(request, env)) {
         return jsonResp({ error: 'unauthorized' }, 401);
       }
       const limit = Math.min(200, Math.max(1, parseInt(url.searchParams.get('limit') || '50', 10) || 50));
@@ -9989,7 +10044,7 @@ export default {
     //   4. Removing more than FEED_CLEAN_MAX_REMOVED_FRACTION needs `confirm`.
     // Every invocation is logged with its parameters and resulting counts.
     if (request.method === 'POST' && url.pathname === '/feed/clean') {
-      if (request.headers.get('x-update-secret') !== env.UPDATE_SECRET) {
+      if (!acceptsUpdateSecret(request, env)) {
         return jsonResp({ error: 'unauthorized' }, 401);
       }
       const rawBody = await request.text().catch(() => null);
@@ -10056,8 +10111,7 @@ export default {
     // ── POST /s2/fleet OR /s4/fleet — fleet data (migrating from S2 to S4) ──
     // Replace the full fleet dataset. Body: { entries: [...], demand: { eff_demand_mw } }
     if (request.method === 'POST' && (url.pathname === '/s2/fleet' || url.pathname === '/s4/fleet')) {
-      const secret = request.headers.get('X-Update-Secret');
-      if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
+      if (!acceptsUpdateSecret(request, env)) return jsonResp({ error: 'Unauthorized' }, 401);
       let body;
       try { body = await request.json(); } catch { return jsonResp({ error: 'Invalid JSON' }, 400); }
       const { entries: rawEntries, demand } = body;
@@ -10119,8 +10173,7 @@ export default {
 
     // ── POST /s2/fleet/entry OR /s4/fleet/entry — single entry upsert ──
     if (request.method === 'POST' && (url.pathname === '/s2/fleet/entry' || url.pathname === '/s4/fleet/entry')) {
-      const secret = request.headers.get('X-Update-Secret');
-      if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
+      if (!acceptsUpdateSecret(request, env)) return jsonResp({ error: 'Unauthorized' }, 401);
       let body;
       try { body = await request.json(); } catch { return jsonResp({ error: 'Invalid JSON' }, 400); }
       if (!body.name || !body.mw || !body.status) return jsonResp({ error: 'name, mw, status required' }, 400);
@@ -10148,8 +10201,7 @@ export default {
     // it shows immediately. UPDATE_SECRET-gated; BALTIC_COUNTRIES-enforced; an
     // operational entry must carry C-01 (TSO/operational) source evidence.
     if (request.method === 'POST' && url.pathname === '/admin/add-fleet-entry') {
-      const secret = request.headers.get('X-Update-Secret');
-      if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
+      if (!acceptsUpdateSecret(request, env)) return jsonResp({ error: 'Unauthorized' }, 401);
       let body;
       try { body = await request.json(); } catch { return jsonResp({ error: 'Invalid JSON' }, 400); }
       if (!body.name || !body.mw || !body.status || !body.country) return jsonResp({ error: 'name, mw, status, country required' }, 400);
@@ -10205,8 +10257,7 @@ export default {
     // the stored fleet, then recomputes aggregates from the survivors. Idempotent:
     // re-running after a clean purge returns { purged: 0 }.
     if (request.method === 'POST' && url.pathname === '/admin/purge-non-baltic-fleet') {
-      const secret = request.headers.get('X-Update-Secret');
-      if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
+      if (!acceptsUpdateSecret(request, env)) return jsonResp({ error: 'Unauthorized' }, 401);
       const raw = (await env.KKME_SIGNALS.get('s4_fleet').catch(() => null))
                || (await env.KKME_SIGNALS.get('s2_fleet').catch(() => null));
       if (!raw) return jsonResp({ error: 'No fleet data' }, 404);
@@ -10235,8 +10286,7 @@ export default {
     // Returns the last N daily capacity-watch summaries (oldest first) for the
     // 33.B.2 capacity-basis review. Auth via X-Update-Secret like other /admin/*.
     if (request.method === 'GET' && url.pathname === '/admin/capacity-watch') {
-      const secret = request.headers.get('X-Update-Secret');
-      if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
+      if (!acceptsUpdateSecret(request, env)) return jsonResp({ error: 'Unauthorized' }, 401);
       const days = Math.min(60, Math.max(1, parseInt(url.searchParams.get('days')) || 14));
       const todayMs = Date.now();
       const keys = [];
@@ -10251,8 +10301,7 @@ export default {
 
     // ── POST /s4/migrate-fleet — one-time migration from s2_fleet → s4_fleet ──
     if (request.method === 'POST' && url.pathname === '/s4/migrate-fleet') {
-      const secret = request.headers.get('X-Update-Secret');
-      if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
+      if (!acceptsUpdateSecret(request, env)) return jsonResp({ error: 'Unauthorized' }, 401);
       const s2f = await env.KKME_SIGNALS.get('s2_fleet').catch(() => null);
       if (s2f) {
         await env.KKME_SIGNALS.put('s4_fleet', s2f);
@@ -10264,8 +10313,7 @@ export default {
     // ── POST /s2/activation ─────────────────────────────────────────────────
     // Store Baltic activation clearing-price dataset (from BTD transparency dashboard).
     if (request.method === 'POST' && url.pathname === '/s2/activation') {
-      const secret = request.headers.get('X-Update-Secret');
-      if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
+      if (!acceptsUpdateSecret(request, env)) return jsonResp({ error: 'Unauthorized' }, 401);
       let body;
       try { body = await request.json(); } catch { return jsonResp({ error: 'Invalid JSON' }, 400); }
       if (!body.countries) return jsonResp({ error: 'countries object required' }, 400);
@@ -10278,8 +10326,7 @@ export default {
 
     // ── POST /admin/trigger-activation — manually trigger activation update ──
     if (request.method === 'POST' && url.pathname === '/admin/trigger-activation') {
-      const secret = request.headers.get('X-Update-Secret');
-      if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
+      if (!acceptsUpdateSecret(request, env)) return jsonResp({ error: 'Unauthorized' }, 401);
       const payload = await computeS2Activation();
       if (!payload) return jsonResp({ error: 'BTD unavailable' }, 502);
       await env.KKME_SIGNALS.put('s2_activation', JSON.stringify(payload));
@@ -10295,8 +10342,7 @@ export default {
     // A7: writers of fleet_private:* = this endpoint only. Readers = the GET below
     // and (from 37.C) the authed CRM route. Nothing else in the worker touches it.
     if (request.method === 'POST' && url.pathname === '/admin/fleet-private') {
-      const secret = request.headers.get('X-Update-Secret');
-      if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
+      if (!acceptsUpdateSecret(request, env)) return jsonResp({ error: 'Unauthorized' }, 401);
       let body;
       try { body = await request.json(); } catch { return jsonResp({ error: 'Invalid JSON' }, 400); }
       if (!Array.isArray(body.rows)) return jsonResp({ error: 'rows[] required' }, 400);
@@ -10331,8 +10377,7 @@ export default {
 
     // ── GET /admin/fleet-private — operator-only read of the private overlay ──
     if (request.method === 'GET' && url.pathname === '/admin/fleet-private') {
-      const secret = request.headers.get('X-Update-Secret');
-      if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
+      if (!acceptsUpdateSecret(request, env)) return jsonResp({ error: 'Unauthorized' }, 401);
       const raw = await env.KKME_SIGNALS.get('fleet_private:index').catch(() => null);
       if (!raw) return jsonResp({ rows: [], count: 0, reason: 'no private overlay stored yet' }, 200);
       return new Response(raw, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
@@ -10342,8 +10387,7 @@ export default {
     // ── POST /admin/fleet-lifecycle — append transitions + detector health ──
     // Append-only: the stored log is never rewritten or truncated by this endpoint.
     if (request.method === 'POST' && url.pathname === '/admin/fleet-lifecycle') {
-      const secret = request.headers.get('X-Update-Secret');
-      if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
+      if (!acceptsUpdateSecret(request, env)) return jsonResp({ error: 'Unauthorized' }, 401);
       let body;
       try { body = await request.json(); } catch { return jsonResp({ error: 'Invalid JSON' }, 400); }
 
@@ -10378,8 +10422,7 @@ export default {
 
     // ── GET /admin/fleet-lifecycle — operator-only transition log ──
     if (request.method === 'GET' && url.pathname === '/admin/fleet-lifecycle') {
-      const secret = request.headers.get('X-Update-Secret');
-      if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
+      if (!acceptsUpdateSecret(request, env)) return jsonResp({ error: 'Unauthorized' }, 401);
       const raw = await env.KKME_SIGNALS.get('fleet_lifecycle:transitions').catch(() => null);
       return jsonResp({ transitions: raw ? JSON.parse(raw) : [], count: raw ? JSON.parse(raw).length : 0 });
     }
@@ -10391,8 +10434,7 @@ export default {
     // successfully; see docs/handover.md for the arming step.
     // `dry_run` (default true) returns the rendered digest without sending it.
     if (request.method === 'POST' && url.pathname === '/admin/fleet-lifecycle-digest') {
-      const secret = request.headers.get('X-Update-Secret');
-      if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
+      if (!acceptsUpdateSecret(request, env)) return jsonResp({ error: 'Unauthorized' }, 401);
       let body = {};
       try { body = await request.json(); } catch { body = {}; }
       const dryRun = body.dry_run !== false;
@@ -10496,8 +10538,7 @@ export default {
 
     // ── POST /admin/trigger-s1-capture — force recompute S1 capture ──
     if (request.method === 'POST' && url.pathname === '/admin/trigger-s1-capture') {
-      const secret = request.headers.get('X-Update-Secret');
-      if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
+      if (!acceptsUpdateSecret(request, env)) return jsonResp({ error: 'Unauthorized' }, 401);
       const cap = await computeCapture(env);
       if (!cap) return jsonResp({ error: 'computeCapture returned null' }, 502);
       return jsonResp({ ok: true, gross_2h: cap.gross_2h, gross_4h: cap.gross_4h, net_2h: cap.net_2h, net_4h: cap.net_4h, date: cap.date });
@@ -10505,8 +10546,7 @@ export default {
 
     // ── POST /admin/backfill-s1-history — patch gross_2h/4h from capture history ──
     if (request.method === 'POST' && url.pathname === '/admin/backfill-s1-history') {
-      const secret = request.headers.get('X-Update-Secret');
-      if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
+      if (!acceptsUpdateSecret(request, env)) return jsonResp({ error: 'Unauthorized' }, 401);
 
       const capHistRaw = await env.KKME_SIGNALS.get('s1_capture_history').catch(() => null);
       const s1HistRaw = await env.KKME_SIGNALS.get('s1_history').catch(() => null);
@@ -10729,8 +10769,7 @@ export default {
     // unnamed caller ranks lowest and so can never displace a named leg holding
     // the same observation window.
     if (request.method === 'POST' && url.pathname === '/s2/update') {
-      const secret = request.headers.get('X-Update-Secret');
-      if (!secret || secret !== env.UPDATE_SECRET) {
+      if (!acceptsUpdateSecret(request, env)) {
         return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json', ...CORS } });
       }
       let body;
@@ -10767,8 +10806,7 @@ export default {
     // inside CERT_WARN_DAYS or failing inspection outright — a handshake that
     // returns no certificate at all is exactly the 07-17 signature.
     if (request.method === 'POST' && url.pathname === '/admin/cert-watch') {
-      const secret = request.headers.get('X-Update-Secret');
-      if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
+      if (!acceptsUpdateSecret(request, env)) return jsonResp({ error: 'Unauthorized' }, 401);
       let body;
       try { body = await request.json(); } catch { return jsonResp({ error: 'Invalid JSON' }, 400); }
       const checks = Array.isArray(body.checks) ? body.checks : null;
@@ -10808,8 +10846,7 @@ export default {
     // Body: { days: [{ date, fcr, afrr_up, afrr_down, mfrr_up, mfrr_down, isp_count }] }
     // Idempotent: re-importing a date replaces it.
     if (request.method === 'POST' && url.pathname === '/s2/daily-clearing/import') {
-      const secret = request.headers.get('X-Update-Secret');
-      if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
+      if (!acceptsUpdateSecret(request, env)) return jsonResp({ error: 'Unauthorized' }, 401);
       let body;
       try { body = await request.json(); } catch { return jsonResp({ error: 'Invalid JSON' }, 400); }
       const incoming = Array.isArray(body.days) ? body.days : null;
@@ -10863,8 +10900,7 @@ export default {
     // Both KVs share `{ date, fcr, afrr_up, mfrr_up }` shape; we copy entries
     // whose `date` is missing from `s2_btd_history` and re-trim to 365 days.
     if (request.method === 'POST' && url.pathname === '/s2/btd-history/backfill') {
-      const secret = request.headers.get('X-Update-Secret');
-      if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
+      if (!acceptsUpdateSecret(request, env)) return jsonResp({ error: 'Unauthorized' }, 401);
       const sourceRaw = await env.KKME_SIGNALS.get('s2_history').catch(() => null);
       if (!sourceRaw) return jsonResp({ error: 's2_history empty' }, 400);
       const source = JSON.parse(sourceRaw);
@@ -10932,14 +10968,18 @@ export default {
     // changes no response: same statuses, same bodies, no rejection path. The
     // secret's VALUE is never logged — only whether it matched.
     if (request.method === 'POST' && url.pathname === '/curate') {
-      const curateSecret = request.headers.get('x-update-secret');
-      console.log(`[curate/auth-observe] header_present=${curateSecret !== null} `
-        + `matches=${curateSecret !== null && curateSecret === env.UPDATE_SECRET} `
-        + `ua=${String(request.headers.get('user-agent') ?? '').slice(0, 40)}`);
-      let body;
-      try { body = await request.json(); } catch {
-        return new Response(JSON.stringify({ error: 'Invalid JSON body' }), { status: 400, headers: { 'Content-Type': 'application/json', ...CORS } });
+      if (!acceptsUpdateSecret(request, env)) {
+        return new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json', ...CORS } });
       }
+      const rawCurateBody = await request.text().catch(() => null);
+      if (typeof rawCurateBody === 'string' && rawCurateBody.length > CURATE_MAX_BODY_BYTES) {
+        return new Response(JSON.stringify({ error: `Request body exceeds ${CURATE_MAX_BODY_BYTES} bytes` }), { status: 413, headers: { 'Content-Type': 'application/json', ...CORS } });
+      }
+      const parsedCurate = parseJsonBody(rawCurateBody);
+      if (!parsedCurate.ok) {
+        return new Response(JSON.stringify({ error: parsedCurate.error }), { status: 400, headers: { 'Content-Type': 'application/json', ...CORS } });
+      }
+      const body = parsedCurate.body;
       const { url: entryUrl, title, raw_text, source, relevance, tags } = body;
       if (!entryUrl || !title || !raw_text || !source || !relevance) {
         return new Response(JSON.stringify({ error: 'Missing required fields' }), { status: 400, headers: { 'Content-Type': 'application/json', ...CORS } });
@@ -10970,6 +11010,8 @@ export default {
       };
       await storeCurationEntry(env.KKME_SIGNALS, entry);
       const projected = await appendCurationToFeedIndex(env.KKME_SIGNALS, entry);
+      console.log(`[curate] OK id=${entry.id} source=${String(source).slice(0, 40)} `
+        + `relevance=${entry.relevance} projected=${Boolean(projected)}`);
       return new Response(JSON.stringify({ ok: true, id: entry.id, projected }), { status: 201, headers: { 'Content-Type': 'application/json', ...CORS } });
     }
 
@@ -11034,8 +11076,7 @@ export default {
 
     // ── GET /contact ──────────────────────────────────────────────────────────
     if (request.method === 'GET' && url.pathname === '/contact') {
-      const secret = request.headers.get('X-Update-Secret');
-      if (secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
+      if (!acceptsUpdateSecret(request, env)) return jsonResp({ error: 'Unauthorized' }, 401);
       const raw = await env.KKME_SIGNALS.get('contact_submissions').catch(() => null);
       return jsonResp(raw ? JSON.parse(raw) : []);
     }
@@ -11066,8 +11107,7 @@ export default {
 
     // ── POST /s3/editorial — human-approved data overrides ──────────────────
     if (request.method === 'POST' && url.pathname === '/s3/editorial') {
-      const secret = request.headers.get('X-Update-Secret');
-      if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'unauthorized' }, 401);
+      if (!acceptsUpdateSecret(request, env)) return jsonResp({ error: 'unauthorized' }, 401);
       let body;
       try { body = await request.json(); } catch { return jsonResp({ error: 'invalid JSON' }, 400); }
       const existing = JSON.parse(await env.KKME_SIGNALS.get('s3_editorial').catch(() => '{}') || '{}');
@@ -11314,8 +11354,7 @@ export default {
     // ── POST /s5/manual ──────────────────────────────────────────────────────
     // Quarterly manual update: Baltic DC pipeline MW + notes.
     if (request.method === 'POST' && url.pathname === '/s5/manual') {
-      const secret = request.headers.get('X-Update-Secret');
-      if (!secret || secret !== env.UPDATE_SECRET) {
+      if (!acceptsUpdateSecret(request, env)) {
         return Response.json({ error: 'Unauthorized' }, { status: 401, headers: CORS });
       }
       let body;
@@ -11457,8 +11496,7 @@ export default {
     // protects against the poster you know about protects against exactly one
     // poster. Merge is the default; destruction requires saying so.
     if (request.method === 'POST' && url.pathname === '/s4/buildability') {
-      const secret = request.headers.get('X-Update-Secret');
-      if (!secret || secret !== env.UPDATE_SECRET) {
+      if (!acceptsUpdateSecret(request, env)) {
         return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json', ...CORS } });
       }
       let body;
@@ -11519,8 +11557,7 @@ export default {
     // Manual trigger for Litgrid Layer 3 Kaupikliai → fleet KV sync.
     // Also runs automatically in the 4-hourly cron.
     if (request.method === 'POST' && url.pathname === '/s4/sync-layer3') {
-      const secret = request.headers.get('X-Update-Secret');
-      if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
+      if (!acceptsUpdateSecret(request, env)) return jsonResp({ error: 'Unauthorized' }, 401);
       try {
         const result = await syncLitgridFleet(env);
         return jsonResp({ ok: true, ...result });
@@ -11532,8 +11569,7 @@ export default {
     // ── POST /s4/pipeline ────────────────────────────────────────────────────
     // VERT.lt permit pipeline metrics (monthly, pushed by local fetch-vert.js).
     if (request.method === 'POST' && url.pathname === '/s4/pipeline') {
-      const secret = request.headers.get('X-Update-Secret');
-      if (!secret || secret !== env.UPDATE_SECRET) {
+      if (!acceptsUpdateSecret(request, env)) {
         return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json', ...CORS } });
       }
       let body;
@@ -11806,8 +11842,7 @@ export default {
     // ── POST /da_tomorrow/update ─────────────────────────────────────────────
     // External push fallback: accepts raw { lt_prices, se4_prices } OR pre-computed metrics.
     if (request.method === 'POST' && url.pathname === '/da_tomorrow/update') {
-      const secret = request.headers.get('X-Update-Secret');
-      if (!secret || secret !== env.UPDATE_SECRET) {
+      if (!acceptsUpdateSecret(request, env)) {
         return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json', ...CORS } });
       }
       let body;
@@ -11863,8 +11898,7 @@ export default {
     // rolling 12-month deque in `baltic_storage_index_history` for sparkline
     // history beyond the per-snapshot trailing_6_months payload.
     if (request.method === 'POST' && url.pathname === '/index/update') {
-      const secret = request.headers.get('X-Update-Secret');
-      if (!secret || secret !== env.UPDATE_SECRET) {
+      if (!acceptsUpdateSecret(request, env)) {
         return new Response(JSON.stringify({ error: 'Unauthorized' }), {
           status: 401, headers: { 'Content-Type': 'application/json', ...CORS },
         });
@@ -12299,8 +12333,7 @@ export default {
     // ── POST /trading/update ─────────────────────────────────────────────────
     // Receives 15-min BTD balancing data from Mac cron. Computes dispatch analysis.
     if (request.method === 'POST' && url.pathname === '/trading/update') {
-      const secret = request.headers.get('X-Update-Secret');
-      if (!secret || secret !== env.UPDATE_SECRET) return jsonResp({ error: 'Unauthorized' }, 401);
+      if (!acceptsUpdateSecret(request, env)) return jsonResp({ error: 'Unauthorized' }, 401);
       let body;
       try { body = await request.json(); } catch { return jsonResp({ error: 'Invalid JSON' }, 400); }
       const { date } = body;
@@ -12661,8 +12694,7 @@ export default {
 
     // ── POST /extreme/seed — seed an extreme event (requires update secret) ──
     if (request.method === 'POST' && url.pathname === '/extreme/seed') {
-      const secret = request.headers.get('X-Update-Secret');
-      if (secret !== env.UPDATE_SECRET) return jsonResp({ error: 'unauthorized' }, 401);
+      if (!acceptsUpdateSecret(request, env)) return jsonResp({ error: 'unauthorized' }, 401);
       const body = await request.json();
       if (!body.type || !body.text) return jsonResp({ error: 'type and text required' }, 400);
       body.timestamp = body.timestamp || new Date().toISOString();
@@ -12998,8 +13030,7 @@ export default {
     // ── POST /heartbeat ──────────────────────────────────────────────────────
     // Legacy endpoint — kept for backward compatibility. No longer required for monitoring.
     if (request.method === 'POST' && url.pathname === '/heartbeat') {
-      const secret = request.headers.get('X-Update-Secret');
-      if (!secret || secret !== env.UPDATE_SECRET) {
+      if (!acceptsUpdateSecret(request, env)) {
         return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json', ...CORS } });
       }
       let body = {};
@@ -13018,8 +13049,7 @@ export default {
 
     // ── POST /kv/set — generic KV write from VPS ingestion pipeline ─────────
     if (request.method === 'POST' && url.pathname === '/kv/set') {
-      const secret = request.headers.get('X-Update-Secret');
-      if (!secret || secret !== env.UPDATE_SECRET) {
+      if (!acceptsUpdateSecret(request, env)) {
         return jsonResp({ error: 'unauthorized' }, 401);
       }
       const { key, value } = await request.json();
@@ -13053,8 +13083,7 @@ export default {
 
     // ── POST /s1/capture/backfill — backfill capture history ────────────────
     if (request.method === 'POST' && url.pathname === '/s1/capture/backfill') {
-      const secret = request.headers.get('X-Update-Secret');
-      if (!secret || secret !== env.UPDATE_SECRET) {
+      if (!acceptsUpdateSecret(request, env)) {
         return jsonResp({ error: 'Unauthorized' }, 401);
       }
 
@@ -13258,6 +13287,8 @@ export { fetchBznGuarded };
 // expose it: `days_of_data` counting rows instead of dates was invisible to
 // every test that existed, because none of them ever looked at it.
 export { dedupeByDateKeepLast, rollingStats };
+// Phase 51 — one admin-auth check, dual-accept during rotation.
+export { updateSecretVerdict, CURATE_MAX_BODY_BYTES };
 // Phase 50 — irreplaceable-archive recency + contact-email escaping.
 export { s2DailyClearingRecency, S2_DAILY_CLEARING_MAX_LAG_DAYS, BTD_PUBLICATION_LAG_DAYS };
 export { escapeHtml, safeMailtoHref, buildContactEmailHtml, CONTACT_EMAIL_FIELDS };
