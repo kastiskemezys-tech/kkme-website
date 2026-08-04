@@ -172,11 +172,25 @@ ssh root@89.167.124.42 '/opt/kkme/bin/btd_daily_clearing_wrapper.sh'
 ssh root@89.167.124.42 'set -a; . /opt/kkme/config/.env; set +a; cd /opt/kkme/app && /opt/kkme/venv/bin/python3 sync/fetch_btd.py'
 ssh root@89.167.124.42 'set -a; . /opt/kkme/config/.env; set +a; cd /opt/kkme/app && /opt/kkme/venv/bin/python3 python/output/sync_to_website.py --verbose'
 ssh root@89.167.124.42 '/opt/kkme/bin/fleet_lifecycle_runner.sh'   # the weekly one — run it by hand rather than waiting to Sunday
+
+# Caller #11 is NOT on the VPS and has NO schedule — `fetch-btd.yml`'s `schedule:`
+# block is commented out ("BTD blocks GitHub Actions IPs"), so it is
+# workflow_dispatch only. Waiting for it waits forever. Trigger and watch it:
+gh workflow run fetch-btd.yml --repo kastiskemezys-tech/kkme-website
+gh run watch --repo kastiskemezys-tech/kkme-website
 ```
 
 **Do not proceed until every row in the caller table has been seen on
 `slot=next`.** A caller you cannot make appear is a caller you have not proven —
 either find why, or leave the old secret in place.
+
+> **When B-072 lands, this list grows to twelve.**
+> `scripts/vps/s3_lithium_relay.py` (VPS, `30 */4 * * *`, `POST /s3/scrape`)
+> reads `UPDATE_SECRET` from the same `/opt/kkme/config/.env`, so step 4 moves it
+> with the other ten — but it needs its own row in the caller table and its own
+> `slot=next` observation, or the twelfth caller is the one the next rotation
+> loses. Force it with:
+> `ssh root@89.167.124.42 'set -a; . /opt/kkme/config/.env; set +a; cd /opt/kkme/app && /opt/kkme/venv/bin/python3 sync/s3_lithium_relay.py'`
 
 ### Step 6 — drop the old value
 
