@@ -56,11 +56,43 @@ because what matters is not how many files you edit but which callers you have
 | 7 | `sync/daily_intel.py` (via `daily_intel_wrapper.sh`) | `30 7 * * *` | VPS `.env` |
 | 8 | `data/ingest_daily.py` | `45 7 * * *` | VPS `.env` |
 | 9 | `sync/backfill_btd_daily.py` (via `btd_daily_clearing_wrapper.sh`) | `20 8 * * *` | VPS `.env` |
-| 10 | `fleet_lifecycle_runner.sh` | `0 22 * * 0` — **weekly, Sunday** | VPS `.env` |
-| 11 | `.github/workflows/fetch-btd.yml` | GitHub Actions schedule | **repo secret** |
+| 10 | `fleet_lifecycle_runner.sh` → `tools/fleet-intel/run-lifecycle.mjs` | `0 22 * * 0` — **weekly, Sunday** | VPS `.env` |
+| 11 | `.github/workflows/fetch-btd.yml` | **manual only — see below** | **repo secret** |
 
 Manual/local, not scheduled — rotate opportunistically, they cannot break a cron:
-`tools/fleet-intel/run-lifecycle.mjs`, `scripts/_phase-36-b1-route-probe.mjs`.
+`scripts/_phase-36-b1-route-probe.mjs`.
+
+**Re-verified independently 2026-08-04 (A7 — CC re-runs the count, it does not
+inherit it).** Three sweeps, because one would have missed two of them:
+
+```
+ssh root@89.167.124.42 "crontab -l | grep -vE '^\s*#|^\s*$'"          -> 10 entries
+ssh root@89.167.124.42 "cd /opt/kkme/app && grep -rlE 'UPDATE_SECRET|X-Update-Secret' --include='*.py' ."   -> 9 senders
+ssh root@89.167.124.42 "grep -rlE 'UPDATE_SECRET|X-Update-Secret' /opt/kkme/bin /opt/kkme/*.sh"             -> 3 wrappers
+```
+
+Count confirmed at **11**, and every schedule in the table matches the live
+crontab. Two things the sweep corrected, both of which would have cost a
+rotation:
+
+1. **Four of the ten crontab entries are WRAPPERS**, and `cron_daily.sh` exports
+   `UPDATE_SECRET` before running a dozen scripts — scrapers, loaders,
+   `entity_resolver`, `company_enricher`, `web_enricher` and
+   `sync_to_website.py`. Only the last of those is a sender, which is why the
+   table is right, but a count taken from the crontab alone cannot know that.
+   The Python sweep is what establishes it.
+2. **Caller #10's sender is a NODE script**, not Python, so a Python-only sweep
+   misses it entirely. `run-lifecycle.mjs` is listed above as "manual/local" in
+   an earlier draft of this file; it is not — it is caller #10's payload, sent
+   weekly from the VPS with the secret in its environment.
+
+> **⚠ CALLER #11 CANNOT BE OBSERVED BY WAITING.** `fetch-btd.yml`'s `schedule:`
+> block is commented out ("BTD blocks GitHub Actions IPs"); the workflow is
+> `workflow_dispatch` only. Waiting for it to authenticate on the new value will
+> wait forever. **It must be triggered by hand** (`gh workflow run fetch-btd.yml`)
+> and its run observed, or the rotation closes with one caller unverified — which
+> is the same as not rotating it. This is exactly the member an "observe every
+> caller" checklist loses silently.
 
 > **The weekly one sets the pace.** `fleet_lifecycle_runner.sh` runs Sundays at
 > 22:00 UTC, so a full sweep of observed callers takes **up to 7 days**. Do not
