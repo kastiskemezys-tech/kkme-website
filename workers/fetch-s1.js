@@ -9023,6 +9023,111 @@ function validateContactBody(body) {
   return { ok: true };
 }
 
+// ─── Phase 51: the revenue snapshot gets a writer, and a controlled comparison ─
+//
+// `revenue_snapshot_prev` backs the "what changed since yesterday" deltas on the
+// site's most important surface. It was the ONLY key with no cron writer: it was
+// written by whichever public GET of `/revenue` happened to be the first of the
+// calendar day, from THAT REQUEST'S query parameters.
+//
+// Two consequences, and the second is a correctness bug rather than a cost one:
+//
+//  1. A stranger's traffic decided when our published journal advanced.
+//  2. **The comparison was uncontrolled.** `project_irr` is config-dependent —
+//     measured live 2026-08-04, it runs from −0.0121 (4h/high) to +0.2081
+//     (2h/low/2030) across public configurations, a 22-point spread — and the
+//     snapshot recorded no configuration at all. So yesterday's first visitor's
+//     config was compared against today's requester's config, and the difference
+//     was published as a change over time. Today's `irr_pp` of +0.02 is correct
+//     only because both happened to be the default; a first visitor on 4h/high
+//     would have produced roughly +16pp of pure artefact.
+//
+// The fix is one canonical writer at one canonical configuration, and deltas that
+// refuse to compare across configurations.
+
+/**
+ * The configuration the daily snapshot is computed at: the route's own public
+ * defaults, so the journal describes the page the site shows by default.
+ */
+const REVENUE_SNAPSHOT_CONFIG = { dur: '2h', capex: 'mid', cod: 2028, scenario: 'base', mw: 50 };
+
+/** Stable identity for a configuration, for comparing a request to the snapshot. */
+function revenueConfigKey(c) {
+  return `${c.dur}|${c.capex}|${c.cod}|${c.scenario}|${c.mw}`;
+}
+
+/**
+ * Whether a stored snapshot may be differenced against a result computed at
+ * `config`. A snapshot from before this phase has no `config` field; it is NOT
+ * assumed to match, because assuming is exactly what produced the artefact.
+ *
+ * @returns {{ok: true} | {ok: false, reason: string}}
+ */
+function revenueDeltaAdmissible(prev, config) {
+  if (!prev || !prev.signal_inputs) return { ok: false, reason: 'no previous snapshot' };
+  if (!prev.config) {
+    return { ok: false, reason: 'previous snapshot predates configuration recording — cannot confirm it is comparable' };
+  }
+  if (revenueConfigKey(prev.config) !== revenueConfigKey(config)) {
+    return { ok: false, reason: 'previous snapshot was computed at a different configuration' };
+  }
+  return { ok: true };
+}
+
+/** The snapshot payload. One shape, written by one caller. */
+function buildRevenueSnapshot(result, signalInputs, config, nowIso) {
+  return {
+    project_irr: result.project_irr,
+    net_mw_yr: result.net_mw_yr,
+    signal_inputs: signalInputs,
+    config,                 // B10: the artifact records what it describes
+    computed_at: nowIso,
+  };
+}
+
+/**
+ * Compute today's revenue snapshot at the canonical configuration and store it.
+ *
+ * Runs from the 08:00 cron. Idempotent per calendar day: a second call on the
+ * same day is a no-op, so a manual trigger or a retried cron cannot advance the
+ * journal twice and turn one day's movement into two.
+ */
+async function writeRevenueSnapshot(env, { nowIso = new Date().toISOString() } = {}) {
+  const prevRaw = await env.KKME_SIGNALS.get('revenue_snapshot_prev').catch(() => null);
+  let prev = null;
+  try { prev = prevRaw ? JSON.parse(prevRaw) : null; } catch { prev = null; }
+  if (prev?.computed_at?.slice(0, 10) === nowIso.slice(0, 10)
+      && prev?.config && revenueConfigKey(prev.config) === revenueConfigKey(REVENUE_SNAPSHOT_CONFIG)) {
+    console.log(`[revenue-snapshot] already written for ${nowIso.slice(0, 10)} — no-op`);
+    return { written: false, reason: 'already written today' };
+  }
+
+  const c = REVENUE_SNAPSHOT_CONFIG;
+  // Same engine, same KV loader and the same parameter shape the route uses —
+  // loadEngineKV exists precisely so a second caller cannot drift from the
+  // public site's inputs (discipline rule #4).
+  const kv = await loadEngineKV(env);
+  const result = computeRevenueV7(
+    {
+      mw: c.mw,
+      dur_h: c.dur === '4h' ? 4 : 2,
+      capex_kwh: { low: 120, mid: 164, high: 262 }[c.capex],
+      cod_year: c.cod,
+      scenario: c.scenario,
+      grant_pct: 0,
+    },
+    kv,
+  );
+  if (!result || typeof result.project_irr === 'undefined') {
+    throw new Error('revenue computation produced no project_irr — refusing to write a partial journal entry');
+  }
+  const snap = buildRevenueSnapshot(result, result.signal_inputs || {}, c, nowIso);
+  await env.KKME_SIGNALS.put('revenue_snapshot_prev', JSON.stringify(snap));
+  console.log(`[revenue-snapshot] wrote ${nowIso.slice(0, 10)} config=${revenueConfigKey(c)} `
+    + `project_irr=${result.project_irr} net_mw_yr=${result.net_mw_yr}`);
+  return { written: true, snapshot: snap };
+}
+
 // ─── Phase 51: one auth check, and dual-accept for rotation ───────────────────
 //
 // `UPDATE_SECRET` gates every admin write. It needs rotating: it sat as an inline
@@ -9150,6 +9255,13 @@ export default {
     // 08:00 UTC: daily digest to Telegram
     if (event.cron === '0 8 * * *') {
       await sendDailyDigest(env).catch(e => console.error('[Digest]', e));
+
+      // Phase 51 — the daily revenue journal. THE canonical writer of
+      // `revenue_snapshot_prev`, and the reason /revenue no longer writes it.
+      // Computed at REVENUE_SNAPSHOT_CONFIG so consecutive entries are a
+      // controlled comparison; before this, whichever public GET happened to be
+      // first that day wrote the snapshot from its own query parameters.
+      await writeRevenueSnapshot(env).catch(e => console.error('[RevenueSnapshot]', String(e)));
       return;
     }
 
@@ -12280,8 +12392,19 @@ export default {
       const prevRaw = await env.KKME_SIGNALS.get('revenue_snapshot_prev').catch(() => null);
       const prev = prevRaw ? JSON.parse(prevRaw) : null;
 
+      // Phase 51 — a delta is only published when the snapshot was computed at
+      // the SAME configuration. Differencing a 4h/high snapshot against a 2h/mid
+      // request reports a configuration gap as a change over time; measured
+      // spread across public configs is ~22 IRR points, so the artefact dwarfs
+      // any real day-on-day movement it would be mistaken for.
+      const requestConfig = {
+        dur: durParam, capex: capexParam, cod: codParam, scenario: scenParam, mw: mwParam,
+      };
+      const admissible = revenueDeltaAdmissible(prev, requestConfig);
+
       let deltas = null;
-      if (prev && prev.signal_inputs) {
+      let deltas_unavailable_reason = admissible.ok ? null : admissible.reason;
+      if (admissible.ok) {
         const psi = prev.signal_inputs;
         deltas = {
           irr_pp: Math.round(((result.project_irr || 0) - (prev.project_irr || 0)) * 10000) / 100,
@@ -12300,18 +12423,14 @@ export default {
         deltas.prev_date = prev.computed_at;
       }
       result.deltas = deltas;
+      // Stated rather than silent: a null delta with no explanation reads as
+      // "nothing changed", which is a different claim from "not comparable".
+      result.deltas_unavailable_reason = deltas_unavailable_reason;
 
-      // Store current snapshot (once per day)
-      const today = new Date().toISOString().slice(0, 10);
-      const prevDate = prev?.computed_at?.slice(0, 10);
-      if (today !== prevDate) {
-        await env.KKME_SIGNALS.put('revenue_snapshot_prev', JSON.stringify({
-          project_irr: result.project_irr,
-          net_mw_yr: result.net_mw_yr,
-          signal_inputs: si,
-          computed_at: new Date().toISOString(),
-        }));
-      }
+      // NOTE: this route no longer writes `revenue_snapshot_prev`. The daily
+      // cron is the sole writer, at REVENUE_SNAPSHOT_CONFIG — see the block
+      // above for why a public GET must not decide when the journal advances,
+      // nor at which configuration.
 
       return jsonResp(result);
     }
@@ -13289,6 +13408,8 @@ export { fetchBznGuarded };
 export { dedupeByDateKeepLast, rollingStats };
 // Phase 51 — one admin-auth check, dual-accept during rotation.
 export { updateSecretVerdict, CURATE_MAX_BODY_BYTES };
+// Phase 51 — the revenue snapshot's canonical config and controlled comparison.
+export { REVENUE_SNAPSHOT_CONFIG, revenueConfigKey, revenueDeltaAdmissible, buildRevenueSnapshot };
 // Phase 50 — irreplaceable-archive recency + contact-email escaping.
 export { s2DailyClearingRecency, S2_DAILY_CLEARING_MAX_LAG_DAYS, BTD_PUBLICATION_LAG_DAYS };
 export { escapeHtml, safeMailtoHref, buildContactEmailHtml, CONTACT_EMAIL_FIELDS };

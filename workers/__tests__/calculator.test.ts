@@ -502,12 +502,26 @@ describe('loadEngineKV', () => {
     expect(built.s2_activation_parsed?.lt?.afrr_p50).toBe(kv.s2_activation_parsed?.lt?.afrr_p50);
   });
 
-  it('/calculate and /revenue therefore cannot drift apart on their inputs', async () => {
+  it('every engine consumer goes through the loader — none re-lists KV keys', async () => {
     // Both routes go through the loader; neither re-lists engine KV keys of
-    // its own. If a future edit inlines a key list back into either route,
-    // this count moves and the drift shows up here rather than in production.
+    // its own. If a future edit inlines a key list back into a consumer, the
+    // drift shows up here rather than in production.
+    //
+    // Phase 51: the count moved 2 → 3. The third caller is the daily
+    // `writeRevenueSnapshot` cron, which is the point of the guard rather than a
+    // violation of it — it needs the same inputs as `/revenue` and gets them the
+    // same way. The count is only a proxy, so the real property is asserted
+    // alongside it: nothing outside the loader reads the engine key set directly.
     const src = readFileSync(join(REPO, 'workers/fetch-s1.js'), 'utf8');
-    expect(src.split('await loadEngineKV(env)').length - 1).toBe(2);
+    const KNOWN_CONSUMERS = ['/revenue route', '/calculate route', 'writeRevenueSnapshot cron'];
+    expect(src.split('await loadEngineKV(env)').length - 1).toBe(KNOWN_CONSUMERS.length);
+
+    // The property the count stands in for: the engine's KV keys are named in
+    // exactly one place. `s2_activation_parsed` is the discriminating key —
+    // it exists only for the engine, so any second `KKME_SIGNALS.get` of it is
+    // a hand-rolled loader by definition.
+    const directReads = src.split("KKME_SIGNALS.get('s2_activation_parsed')").length - 1;
+    expect(directReads, 'engine KV must be read only inside loadEngineKV').toBeLessThanOrEqual(1);
   });
 });
 
