@@ -5178,6 +5178,46 @@ function slotHourUtc(day, idx) {
  * A failure IS written when there is nothing better to protect, so a cold start
  * still surfaces the outage rather than looking empty.
  */
+/**
+ * ─── A cron rejection has to survive the tick that produced it ───────────────
+ *
+ * Phase 52. `s4` rejected on every 4-hourly tick for 28 hours and the reason was
+ * unrecoverable. It went to `console.error` — unreadable retroactively — and to
+ * `alertTransition`, which stores only a HASH of the message, not the message.
+ * `wrangler tail` does not surface scheduled invocations, and `GET /s4` serves
+ * from KV without recomputing. Four places the answer could have been; none of
+ * them had it.
+ *
+ * The diagnosis then costs a 4-hour wait per attempt, which is why this key
+ * exists: the next failure explains itself, and the one after that shows whether
+ * the explanation changed.
+ *
+ * Bounded to the last few failures per surface — this is a diagnostic, not an
+ * archive, and an unbounded error log is its own outage.
+ */
+const CRON_FAILURE_KEY = 'cron_failures';
+const CRON_FAILURES_PER_SURFACE = 5;
+
+async function recordCronFailure(env, surface, reason) {
+  try {
+    const raw = await env.KKME_SIGNALS.get(CRON_FAILURE_KEY);
+    const map = raw ? JSON.parse(raw) : {};
+    const err = reason instanceof Error ? reason : new Error(String(reason));
+    const entry = {
+      at: new Date().toISOString(),
+      name: err.name ?? null,
+      message: String(err.message ?? reason).slice(0, 400),
+      first_frame: String(err.stack ?? '').split('\n')[1]?.trim().slice(0, 200) ?? null,
+    };
+    map[surface] = [entry, ...(map[surface] ?? [])].slice(0, CRON_FAILURES_PER_SURFACE);
+    await env.KKME_SIGNALS.put(CRON_FAILURE_KEY, JSON.stringify(map));
+  } catch (e) {
+    // A diagnostic that breaks the tick it is diagnosing is worse than no
+    // diagnostic. Swallow, and say so.
+    console.error('[cron-failures] could not record:', String(e));
+  }
+}
+
 function isDegradedPayload(data) {
   if (!data || typeof data !== 'object') return false;
   return data.unavailable === true || Boolean(data._scrape_error);
@@ -10197,6 +10237,7 @@ export default {
       }
     } else {
       console.error('[S2] cron failed:', s2Result.reason);
+      await recordCronFailure(env, 's2', s2Result.reason);
     }
 
     if (s4Result.status === 'fulfilled') {
@@ -10213,6 +10254,7 @@ export default {
       // the failing tick can report it, and it was reporting to console.error.
       console.error('[S4] cron failed:', s4Result.reason);
       await alertTransition(env, 's4_cron', 'degraded', `• computeS4 rejected: ${String(s4Result.reason).slice(0, 240)}`).catch(() => {});
+      await recordCronFailure(env, 's4', s4Result.reason);
     }
 
     // Phase 36.D — Litgrid publication tripwire. Rides the 4-hourly cron; the
@@ -10275,6 +10317,7 @@ export default {
       }
     } else {
       console.error('[S3] cron failed:', s3Result.reason);
+      await recordCronFailure(env, 's3', s3Result.reason);
     }
 
     if (eurResult.status === 'fulfilled') {
@@ -10292,6 +10335,7 @@ export default {
       }
     } else {
       console.error('[Euribor] cron failed:', eurResult.reason);
+      await recordCronFailure(env, 'euribor', eurResult.reason);
     }
 
     // S5 — DC Power Viability (reads fresh S4 from KV + DC news RSS)
@@ -11370,6 +11414,22 @@ export default {
           first_frame: String(err?.stack ?? '').split('\n')[1]?.trim().slice(0, 200) ?? null,
         }, 502);
       }
+    }
+
+    // ── GET /admin/cron-failures — the last few rejections per cron leg ───────
+    //
+    // The companion to `recordCronFailure`. Authed because a rejection message
+    // can carry upstream detail; read-only and never writes.
+    if (request.method === 'GET' && url.pathname === '/admin/cron-failures') {
+      if (!acceptsUpdateSecret(request, env, { route: '/admin/cron-failures' })) {
+        return jsonResp({ error: 'unauthorized' }, 401);
+      }
+      const raw = await env.KKME_SIGNALS.get(CRON_FAILURE_KEY).catch(() => null);
+      return jsonResp({
+        ok: true,
+        note: raw ? undefined : 'no cron failure has been recorded since this key was introduced',
+        failures: raw ? JSON.parse(raw) : {},
+      });
     }
 
     // ── POST /admin/backfill-s1-history — patch gross_2h/4h from capture history ──
