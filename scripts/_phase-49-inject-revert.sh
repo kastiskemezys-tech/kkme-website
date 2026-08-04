@@ -73,6 +73,23 @@ prove "item 2 · no bare bisection may exist outside solveIRR" \
   workers/__tests__/solverBounds.test.ts \
   perl -0pi -e 's/function cashTaxFor\(/function _injectedSolver(f) { let lo = 0, hi = 1; for (let i = 0; i < 9; i++) { const mid = (lo + hi) \/ 2; if (f(mid) > 0) lo = mid; else hi = mid; } return lo; }\nfunction cashTaxFor(/' "$W"
 
+# ── Item 3 · a fallback must produce the primary's shape ─────────────────────
+prove "item 3 · v6 fallback conforms to the public shape" \
+  workers/__tests__/fallbackShape.test.ts \
+  perl -0pi -e 's/    return conformToPublicShape\(v6_result, `s1_capture/    return v6_result; \/\/ (`s1_capture/' "$W"
+
+prove "item 3 · the declared key list matches what v7 emits" \
+  workers/__tests__/fallbackShape.test.ts \
+  perl -0pi -e "s/  'activation_pct', 'activation_y1',/  'activation_pct', 'activation_y1', 'a_key_v7_does_not_emit',/" "$W"
+
+prove "item 3 · a healthy payload carries no degraded key" \
+  workers/__tests__/fallbackShape.test.ts \
+  perl -0pi -e "s/\.\.\.\(substitutions\.length \? \{ degraded:/...(true ? { degraded:/" "$W"
+
+prove "item 3 · no back-derived capture is published as a signal input" \
+  workers/__tests__/fallbackShape.test.ts \
+  perl -0pi -e 's/      s1_capture: \(s1_cap\.capture_2h\?\.gross_eur_mwh == null && s1_cap\.capture_4h\?\.gross_eur_mwh == null\)\n        \? null/      s1_capture: false\n        ? null/' "$W"
+
 echo
 echo "$pass proven · $fail unproven"
 [ "$fail" -eq 0 ]

@@ -2264,6 +2264,66 @@ function irrStatusFor(solve) {
 }
 
 /**
+ * ─── The shape `/revenue` promises, and the fallbacks that were not keeping it ─
+ *
+ * Phase 49 item 3, class guard. `computeRevenueV7` has three exits: the primary
+ * path and two v6 fallbacks (insufficient base-year history, and v7 throwing).
+ * Measured against `bee9c9d`: the primary payload carries 78 top-level keys and
+ * the fallback carried **59** — 19 keys simply absent, among them `moic`,
+ * `lcos_eur_mwh`, `debt_sizing`, `warranty_status`, `cycles_breakdown` and
+ * `assumptions_panel`. Every consumer that reads one of those got `undefined`
+ * from a 200 response, on a path exercised rarely and reviewed never.
+ *
+ * The fix is not to compute them in v6 — v6 genuinely cannot, and inventing
+ * them would be the worse defect. It is to DECLARE them, as null, which is the
+ * same contract the IRR null now carries: null means "not available", and a
+ * caller can tell that apart from a key that was never in the schema.
+ *
+ * `degraded` is the provenance record beside it. B12's first rule is that the
+ * absence of provenance must be an error state rather than an innocent one, so
+ * a fallback payload says out loud that it is one, which engine produced it and
+ * what that cost — instead of looking exactly like a healthy response.
+ *
+ * The key list is asserted against a live v7 payload in `fallbackShape.test.ts`,
+ * so adding a field to v7 without adding it here fails a test rather than
+ * quietly re-opening the gap (A9 — a hardcoded list that nobody re-derives is a
+ * stale record waiting to happen).
+ */
+const REVENUE_PAYLOAD_KEYS = [
+  'activation_pct', 'activation_y1', 'annual_debt_service', 'arbitrage_pct', 'arbitrage_y1',
+  'assumptions', 'assumptions_panel', 'bankability', 'base_year', 'capacity_pct', 'capacity_y1',
+  'capex_eur_kwh', 'capex_kwh', 'capex_net', 'capex_scenario', 'capex_total', 'ch_benchmark',
+  'cod_year', 'cpi_afrr_at_cod', 'cpi_at_cod', 'cpi_fcr_at_cod', 'cpi_mfrr_at_cod',
+  'crossover_year', 'cycles_breakdown', 'cycles_per_year', 'debt_initial', 'debt_sizing',
+  'duration', 'ebitda_y1', 'engine_calibration_source', 'engine_changelog', 'equity_initial',
+  'equity_irr', 'fleet_context', 'fleet_trajectory', 'forward', 'grant_amount', 'grant_label',
+  'gross_capex', 'gross_revenue_y1', 'irr_status', 'lcos_eur_mwh', 'min_dscr',
+  'min_dscr_conservative', 'model_version', 'moic', 'monthly_y1', 'net_capex', 'net_mw_yr',
+  'net_rev_per_mw_yr', 'net_revenue_y1', 'npv_at_wacc', 'npv_project', 'opex_y1',
+  'payback_years', 'per_product_at_cod', 'phase', 'prices_source', 'project_irr', 'rate_allin',
+  'reconciliation', 'revenue_crossover_note', 'revenue_crossover_year', 'roundtrip_efficiency',
+  'roundtrip_efficiency_curve', 'rtm_fees_y1', 'scenario', 'sd_ratio', 'signal_inputs',
+  'simple_payback_years', 'system', 'timestamp', 'total_debt', 'total_equity', 'trajectory',
+  'warranty_status', 'worst_month_dscr', 'years',
+];
+
+/**
+ * Give a fallback payload the primary payload's shape, and say that it is one.
+ * @param {object} result the v6 payload
+ * @param {string} reason why the fallback fired, in plain words
+ */
+function conformToPublicShape(result, reason) {
+  const missing = REVENUE_PAYLOAD_KEYS.filter((k) => !(k in result));
+  for (const k of missing) result[k] = null;
+  result.degraded = {
+    engine: result.model_version,
+    reason,
+    fields_unavailable: missing,
+  };
+  return result;
+}
+
+/**
  * computeRevenueV7: observed base year as Year 1 foundation, derived compression.
  *
  * Uses the same DCF/financing/DSCR/IRR machinery as v6 but replaces the
@@ -2478,7 +2538,7 @@ function computeRevenueV7(params, kv) {
     v6_result.model_version = 'v6_fallback';
     v6_result.base_year = base_year;
     v6_result.forward = { compression_rate: compression.rate, compression_source: compression.source };
-    return v6_result;
+    return conformToPublicShape(v6_result, `s1_capture history covers ${base_year.data_coverage.s1_months} full months; v7 needs 6`);
   }
 
   // ── Base year revenue per MW (annual, from observed data) ──
@@ -3032,6 +3092,13 @@ function computeRevenueV7(params, kv) {
     / (Math.pow(1 + LCOS_WACC, LCOS_LIFETIME_YRS) - 1);
   const lcos_capex_recovery = gross_capex_total * lcos_crf;
   const lcos_fixed_om = y1 ? y1.opex : 0;
+  // Phase 49 item 3 — the THIRD substitution on this path, and the quietest.
+  // When the day captures are missing, LCOS silently charges at a hardcoded
+  // €35/€30 instead of the observed €12.04/€14.27, moving `lcos_eur_mwh` from
+  // 197.3 to 225.3 (+14.2 %) on the reference configuration with nothing in the
+  // payload saying an assumption had replaced an observation. The constants stay
+  // — they are a reasonable default — but the substitution is now recorded.
+  const lcos_charge_observed = s1_cap.capture_2h?.avg_charge != null || s1_cap.capture_4h?.avg_charge != null;
   const lcos_charge_price = durBlend(dur_h,
     s1_cap.capture_2h?.avg_charge ?? 35,
     s1_cap.capture_4h?.avg_charge ?? 30);
@@ -3088,6 +3155,29 @@ function computeRevenueV7(params, kv) {
     hold_period: { value: LCOS_LIFETIME_YRS, label: 'Hold period', unit: 'years', note: '20-year DCF; matches typical PF assumption' },
     wacc: { value: Math.round(LCOS_WACC * 1000) / 10, label: 'WACC', unit: '%', note: `Weighted average cost of capital; debt EURIBOR + ${sc.debt_margin_bp}bps, equity hurdle ~12%` },
   };
+
+  // ── Phase 49 item 3 — say which observations were substituted ───────────────
+  //
+  // The primary path has its own quiet fallbacks, and they were the harder half
+  // of this item: the payload looked completely healthy while two inputs had
+  // been replaced. Emitted ONLY when a substitution actually fired, so the 54
+  // public configurations — where every observation is present — stay
+  // byte-identical and this key does not exist on them at all.
+  const substitutions = [];
+  if (s1_cap.capture_2h?.gross_eur_mwh == null && s1_cap.capture_4h?.gross_eur_mwh == null) {
+    substitutions.push({
+      field: 'signal_inputs.s1_capture',
+      substituted: 'null — no observed day-ahead capture for the current day',
+      was: 'back-derived from base_year.annual_totals.trading (removed: it inverted the wrong factor and inflated capture 8.03x)',
+    });
+  }
+  if (!lcos_charge_observed) {
+    substitutions.push({
+      field: 'lcos_eur_mwh',
+      substituted: `charge price assumed €${durBlend(dur_h, 35, 30)}/MWh (2h €35 / 4h €30 constants)`,
+      was: 'observed s1_capture.capture_*.avg_charge',
+    });
+  }
 
   return {
     // Config
@@ -3243,9 +3333,25 @@ function computeRevenueV7(params, kv) {
 
     // Signal inputs used
     signal_inputs: {
-      s1_capture: durBlend(dur_h,
-        s1_cap.capture_2h?.gross_eur_mwh ?? (by_trading_per_mw > 0 ? by_trading_per_mw / (rte * da_mwh_per_mw_yr * (base_year.time_model?.effective_arb_pct || 0.115) * sc.trd_real) : 0),
-        s1_cap.capture_4h?.gross_eur_mwh ?? (by_trading_per_mw > 0 ? by_trading_per_mw / (rte * da_mwh_per_mw_yr * (base_year.time_model?.effective_arb_pct || 0.115) * sc.trd_real) : 0)),
+      // Phase 49 item 3 — the second fallback, and the one nobody had looked at.
+      //
+      // When today's `capture_2h`/`capture_4h` are missing (monthly history
+      // intact, so v7 still runs) this field used to BACK-DERIVE a capture from
+      // `base_year.annual_totals.trading` by dividing out `effective_arb_pct`.
+      // That is not the inverse of anything: the forward pass at
+      // `computeBaseYear` multiplies by `trading_fraction` (0.70), so the round
+      // trip returns capture × (0.70 / 0.139) and then some. **Measured on the
+      // frozen KV with only the day captures removed: €101.91 → €818.59, an
+      // 8.03× inflation**, published in a field whose name says it is an
+      // observed signal input. A Baltic day-ahead capture of €818/MWh.
+      //
+      // A reconstruction of an input is not the input. When there is no signal
+      // there is no signal input, and the field says so.
+      s1_capture: (s1_cap.capture_2h?.gross_eur_mwh == null && s1_cap.capture_4h?.gross_eur_mwh == null)
+        ? null
+        : durBlend(dur_h,
+          s1_cap.capture_2h?.gross_eur_mwh ?? s1_cap.capture_4h?.gross_eur_mwh,
+          s1_cap.capture_4h?.gross_eur_mwh ?? s1_cap.capture_2h?.gross_eur_mwh),
       afrr_clearing: act_parsed?.lt?.afrr_p50 ?? s2.afrr_up_avg ?? 170,
       mfrr_clearing: act_parsed?.lt?.mfrr_p50 ?? s2.mfrr_up_avg ?? 110,
       afrr_cap: capPrice('afrr', s2.afrr_cap_avg, drv.cap_price_mult),
@@ -3254,6 +3360,11 @@ function computeRevenueV7(params, kv) {
       euribor: Math.round(euribor * 10000) / 100,
       rate_allin_pct: Math.round(rate_allin * 10000) / 100,
     },
+
+    // Present only when an observation was replaced by an assumption. Absent on
+    // a fully-observed payload, which is why it costs the byte-identity gate
+    // nothing on the 54 public configurations.
+    ...(substitutions.length ? { degraded: { engine: 'v7.3', reason: 'one or more observed inputs unavailable', substitutions } } : {}),
 
     // Reconciliation
     reconciliation: recon,
@@ -13464,6 +13575,10 @@ export {
   // which is precisely the distinction the phase exists to restore.
   solveIRR,
   irrStatusFor,
+  // Phase 49 item 3 — the declared public payload shape. Exported so the class
+  // guard can assert it against what the primary path actually emits, which is
+  // what stops it becoming a stale hardcoded list (A9).
+  REVENUE_PAYLOAD_KEYS,
   // Phase 39.2 — the day-correct A44 reconstruction. Exported so the tests
   // exercise the SAME functions the capture fallback calls, against a real
   // recorded ENTSO-E response, rather than a restatement of their regexes
