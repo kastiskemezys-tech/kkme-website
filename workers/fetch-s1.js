@@ -5061,6 +5061,100 @@ function pricesForUtcDay(periods, dateStr) {
   return { prices, timestamps, resolution: nativeMin };
 }
 
+/**
+ * ─── The market day, admitted only if it counts (Phase 49 item 1) ─────────────
+ *
+ * `extractPrices` scrapes every `price.amount` in document order and returns one
+ * flat array. Two properties of a real A44 response make that array something
+ * other than "the prices of the day asked for", and both were measured against
+ * the committed 2026-08-03 LT document, with Elering's independent NPS series
+ * for the same window as the control:
+ *
+ *   flat scrape            n=190  mean €75.4309   agrees with Elering on  2/96 slots
+ *   this reconstruction    n= 96  mean €69.1542   agrees with Elering on 96/96 slots
+ *
+ * The 190 is TWO CEST market days concatenated — a UTC-bounded request returns
+ * whole market days, and after the next auction publishes there are two of them.
+ * The mis-timing is curveType A03, which omits a position whose price repeats
+ * the one before; scraping shifts every later value one slot earlier per
+ * omission.
+ *
+ * The guard is CARDINALITY, because that is what both failures violate. A market
+ * day is 23, 24 or 25 hours — never anything else — and its slot count is that
+ * span divided by its own declared resolution. 190 is not a market day. 94 is
+ * not a market day. A series that does not count is refused at admission rather
+ * than averaged, which is the difference between an error and a plausible number.
+ *
+ * NOT asserted here, deliberately: a maximum forward-fill fraction. A genuinely
+ * flat price day legitimately omits most of its positions under A03, and the
+ * document alone cannot distinguish that from a broken one. The fill count is
+ * reported (`forward_filled`) and the independent Elering control is what
+ * actually discriminates — claiming otherwise would be a guard that overstates
+ * what it can see.
+ */
+const MARKET_DAY_HOURS = new Set([23, 24, 25]);
+
+/**
+ * The one market day covering a UTC instant, or a refusal saying why.
+ *
+ * @param {ReturnType<typeof parseA44Periods>} periods
+ * @param {number} atMs the instant the day must cover — normally `Date.now()`
+ * @returns {{ok:true,prices:number[],startMs:number,endMs:number,resolutionMin:number,
+ *            slots:number,hours:number,forward_filled:number}
+ *          | {ok:false,reason:string,detail:string}}
+ */
+function marketDayAt(periods, atMs) {
+  if (!periods.length) return { ok: false, reason: 'no_periods', detail: 'document carried no parseable Period' };
+
+  // A UTC-bounded request must not admit two market days. It is allowed to
+  // RETURN two — that is normal after the next auction publishes — but exactly
+  // one of them covers any given instant, and picking it by wall clock is the
+  // whole point. Concatenation is what produced the 190.
+  const covering = periods.filter((p) => p.startMs <= atMs && atMs < p.endMs);
+  if (covering.length === 0) {
+    return {
+      ok: false,
+      reason: 'no_period_covers_instant',
+      detail: `${new Date(atMs).toISOString()} outside [${periods.map((p) => `${new Date(p.startMs).toISOString()}→${new Date(p.endMs).toISOString()}`).join(', ')}]`,
+    };
+  }
+  if (covering.length > 1) {
+    return { ok: false, reason: 'overlapping_periods', detail: `${covering.length} Periods cover the same instant` };
+  }
+
+  const p = covering[0];
+  const hours = (p.endMs - p.startMs) / 3600000;
+  if (!MARKET_DAY_HOURS.has(hours)) {
+    return { ok: false, reason: 'illegal_market_day_span', detail: `${hours}h — a market day is 23, 24 or 25` };
+  }
+  const slots = (hours * 60) / p.resolutionMin;
+  if (!Number.isInteger(slots)) {
+    return { ok: false, reason: 'span_not_a_multiple_of_resolution', detail: `${hours}h / PT${p.resolutionMin}M` };
+  }
+  if (p.prices.length !== slots) {
+    return {
+      ok: false,
+      reason: 'cardinality_mismatch',
+      detail: `${p.prices.length} values for a ${hours}h day at PT${p.resolutionMin}M, which needs ${slots}`,
+    };
+  }
+  return {
+    ok: true,
+    prices: p.prices,
+    startMs: p.startMs,
+    endMs: p.endMs,
+    resolutionMin: p.resolutionMin,
+    slots,
+    hours,
+    forward_filled: p.filled,
+  };
+}
+
+/** The UTC clock-hour of a slot, computed from the day's own start (rule #2). */
+function slotHourUtc(day, idx) {
+  return new Date(day.startMs + idx * day.resolutionMin * 60000).getUTCHours();
+}
+
 function avg(arr) {
   return arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
 }
@@ -5553,6 +5647,33 @@ async function computeCapture(env) {
   return captureData;
 }
 
+/**
+ * ─── Phase 49 item 1 — the S1 day basis, behind a flag defaulting OFF ─────────
+ *
+ * `'flat'`        `extractPrices` over the whole document. What ships today, and
+ *                 what agrees with Elering on 2 of 96 slots.
+ * `'market_day'`  the Period covering the current instant, forward-filled per
+ *                 A03 and admitted only if it counts. 96/96 against Elering.
+ *
+ * OFF by default because it moves published S1 numbers and this phase may not
+ * move one without a signature. On the committed 2026-08-03 document the
+ * reference movements are `lt_avg_eur_mwh` €75.43 → €69.15 and `lt_hours`
+ * 190 → 96; the current day's figures are re-measured at CP time rather than
+ * inherited, because an A44 document is different every day.
+ *
+ * Operator decision 2026-08-04: the CEST market day is the basis — it is what
+ * the document declares and what Elering publishes — WITH the hour labels
+ * recomputed from wall clock, since on this basis an index-derived "UTC hour"
+ * is two hours out.
+ */
+const S1_DAY_PARSE_MODES = new Set(['flat', 'market_day']);
+const S1_DAY_PARSE_DEFAULT = 'flat';
+
+function s1DayParseMode(env) {
+  const m = env?.S1_DAY_PARSE;
+  return S1_DAY_PARSE_MODES.has(m) ? m : S1_DAY_PARSE_DEFAULT;
+}
+
 async function computeS1(env) {
   const apiKey = env.ENTSOE_API_KEY;
   if (!apiKey) throw new Error('ENTSOE_API_KEY secret not set');
@@ -5569,9 +5690,33 @@ async function computeS1(env) {
     fetchBznRange(SE4_BZN, apiKey, 1, 2),
   ]);
 
-  const ltPrices  = extractPrices(ltXml  ?? '');
-  const se4Prices = extractPrices(se4Xml ?? '');
-  const plPrices  = extractPrices(plXml  ?? '');
+  const dayMode = s1DayParseMode(env);
+  const nowMs = Date.now();
+
+  /**
+   * One zone's series for today, on whichever basis the flag selects.
+   * A refused market day falls back to the flat scrape rather than taking S1
+   * down — but it says so in the log and on the payload, so a refusal is
+   * visible instead of being absorbed (B8).
+   */
+  const zoneDay = (xml, label) => {
+    if (dayMode !== 'market_day') return { prices: extractPrices(xml ?? ''), day: null, basis: 'flat' };
+    const d = marketDayAt(parseA44Periods(xml ?? ''), nowMs);
+    if (!d.ok) {
+      console.warn(`[S1/day] ${label} market-day admission REFUSED (${d.reason}: ${d.detail}) — falling back to flat scrape`);
+      return { prices: extractPrices(xml ?? ''), day: null, basis: 'flat_after_refusal', refusal: `${d.reason}: ${d.detail}` };
+    }
+    console.log(`[S1/day] ${label} ${new Date(d.startMs).toISOString()}→${new Date(d.endMs).toISOString()} ${d.hours}h PT${d.resolutionMin}M ${d.slots} slots, ${d.forward_filled} forward-filled`);
+    return { prices: d.prices, day: d, basis: 'market_day' };
+  };
+
+  const lt  = zoneDay(ltXml,  'LT');
+  const se4 = zoneDay(se4Xml, 'SE4');
+  const pl  = zoneDay(plXml,  'PL');
+  const ltPrices  = lt.prices;
+  const se4Prices = se4.prices;
+  const plPrices  = pl.prices;
+  const ltDay = lt.day;
 
   if (!ltPrices.length || !se4Prices.length) {
     // Say which leg and whether it was the fetch or the document — the old
@@ -5611,11 +5756,23 @@ async function computeS1(env) {
 
   // Peak / trough anchored to the same full-day array used for the swing,
   // emitting UTC clock-hours so the frontend can format directly via
-  // formatHourEET. ENTSO-E period starts at UTC 00:00; resolution is hourly
-  // (24 entries) or 15-min (96 entries). Index → UTC hour = floor(idx*24/N).
+  // formatHourEET.
+  //
+  // ── Phase 49 item 1, rule #2 ────────────────────────────────────────────────
+  // `Math.floor(idx * 24 / N)` treats index 0 as UTC 00:00. That was never true
+  // on a CET/CEST market day, which starts at 22:00Z (summer) or 23:00Z, so the
+  // label is two hours out even on a clean single-day document — and on today's
+  // shipped flat scrape, where N=190 spans two days, the same expression put the
+  // 17:45Z peak of the committed fixture at "UTC hour 9". A label asserting WHEN
+  // a value came from must be computed from the evidence.
+  //
+  // Under `market_day` the hour is read off the slot's own wall-clock instant.
+  // Under `flat` the old expression is preserved verbatim, because the flag is
+  // OFF and this phase moves nothing unsigned.
   let lt_peak_hour_utc = null, lt_peak_price = null;
   let lt_trough_hour_utc = null, lt_trough_price = null;
   let lt_hourly_24 = null;
+  let lt_hourly_start_utc = null;
   if (ltPrices.length >= 24) {
     let peakIdx = 0, troughIdx = 0;
     for (let i = 1; i < ltPrices.length; i++) {
@@ -5623,34 +5780,55 @@ async function computeS1(env) {
       if (ltPrices[i] < ltPrices[troughIdx]) troughIdx = i;
     }
     const N = ltPrices.length;
-    lt_peak_hour_utc   = Math.floor((peakIdx   * 24) / N);
-    lt_trough_hour_utc = Math.floor((troughIdx * 24) / N);
+    lt_peak_hour_utc   = ltDay ? slotHourUtc(ltDay, peakIdx)   : Math.floor((peakIdx   * 24) / N);
+    lt_trough_hour_utc = ltDay ? slotHourUtc(ltDay, troughIdx) : Math.floor((troughIdx * 24) / N);
     lt_peak_price   = Math.round(ltPrices[peakIdx]   * 100) / 100;
     lt_trough_price = Math.round(ltPrices[troughIdx] * 100) / 100;
 
-    // 24-entry hourly downsampling (avg of sub-entries per UTC hour).
-    // Resolution-aware via Math.round(h*N/24) bucketing — mirrors the
-    // evening-premium slice arithmetic at L3382-3383 (Phase 31.A.2) and the
-    // inverse of the peak/trough idx→UTC-hour formula at L3359-3360. Handles
-    // N=24 (pass-through), N=96 (4 sub-bars per hour), and N=95 (3-or-4
-    // sub-bars per hour) uniformly. Output: always 24-entry float array.
-    lt_hourly_24 = [];
-    for (let h = 0; h < 24; h++) {
-      const lo = Math.round((h * N) / 24);
-      const hi = Math.round(((h + 1) * N) / 24);
-      const bucket = ltPrices.slice(lo, hi);
-      const m = bucket.reduce((a, b) => a + b, 0) / bucket.length;
-      lt_hourly_24.push(Math.round(m * 100) / 100);
+    if (ltDay) {
+      // One entry per hour OF THE MARKET DAY — 23, 24 or 25 of them, which is
+      // how many hours the day has. `lt_hourly_start_utc` says which UTC hour
+      // entry 0 is, computed from the day's own start, so a consumer can label
+      // the series without assuming anything. A fixed 24 starting at UTC 00:00
+      // is wrong on every day of the year here, and wrong by an extra hour twice.
+      const perHour = 60 / ltDay.resolutionMin;
+      lt_hourly_24 = [];
+      for (let h = 0; h < ltDay.hours; h++) {
+        const bucket = ltPrices.slice(h * perHour, (h + 1) * perHour);
+        lt_hourly_24.push(Math.round((bucket.reduce((a, b) => a + b, 0) / bucket.length) * 100) / 100);
+      }
+      lt_hourly_start_utc = slotHourUtc(ltDay, 0);
+    } else {
+      // 24-entry hourly downsampling (avg of sub-entries per UTC hour).
+      // Resolution-aware via Math.round(h*N/24) bucketing. Handles N=24
+      // (pass-through), N=96 (4 sub-bars per hour), and N=95 (3-or-4 sub-bars
+      // per hour) uniformly. Output: always 24-entry float array.
+      lt_hourly_24 = [];
+      for (let h = 0; h < 24; h++) {
+        const lo = Math.round((h * N) / 24);
+        const hi = Math.round(((h + 1) * N) / 24);
+        const bucket = ltPrices.slice(lo, hi);
+        const m = bucket.reduce((a, b) => a + b, 0) / bucket.length;
+        lt_hourly_24.push(Math.round(m * 100) / 100);
+      }
     }
   }
 
   // Evening premium: mean(LT h17-21) - mean(LT h10-14) — peak vs shoulder.
-  // Resolution-aware: ltPrices is 24 entries on hourly days, 96 on 15-min ISP
-  // days, and occasionally 95 (ENTSO-E one-off). Map hour h to index Math.round(h*N/24);
-  // mirrors the inverse of the peak/trough idx→UTC-hour math at L3359-3360.
+  //
+  // Same rule-#2 problem as the hour labels above, and the same split: under
+  // `market_day` the slices are selected by each slot's real UTC hour; under
+  // `flat` the index arithmetic is preserved verbatim so the flag stays OFF.
+  // The flat form maps hour h to index Math.round(h*N/24), which is correct only
+  // if index 0 is UTC 00:00.
   const N_evp = ltPrices.length;
-  const ltEvening  = ltPrices.slice(Math.round(17 * N_evp / 24), Math.round(22 * N_evp / 24));
-  const ltShoulder = ltPrices.slice(Math.round(10 * N_evp / 24), Math.round(15 * N_evp / 24));
+  const byUtcHour = (from, toExclusive) =>
+    ltPrices.filter((_, i) => {
+      const h = slotHourUtc(ltDay, i);
+      return h >= from && h < toExclusive;
+    });
+  const ltEvening  = ltDay ? byUtcHour(17, 22) : ltPrices.slice(Math.round(17 * N_evp / 24), Math.round(22 * N_evp / 24));
+  const ltShoulder = ltDay ? byUtcHour(10, 15) : ltPrices.slice(Math.round(10 * N_evp / 24), Math.round(15 * N_evp / 24));
   const lt_evening_premium = (ltEvening.length && ltShoulder.length)
     ? Math.round((avg(ltEvening) - avg(ltShoulder)) * 100) / 100
     : null;
@@ -5721,6 +5899,20 @@ async function computeS1(env) {
     updated_at: new Date().toISOString(),
     lt_hours:  ltPrices.length,
     se4_hours: se4Prices.length,
+    // Phase 49 item 1 — which day these numbers are, said out loud rather than
+    // assumed. Present only under `market_day`, so the flag being OFF leaves the
+    // payload byte-identical; `lt_hourly_start_utc` is what lets a consumer
+    // label the hourly series without assuming index 0 is UTC 00:00.
+    ...(ltDay ? {
+      lt_day_basis: 'cet_market_day',
+      lt_day_start_utc: new Date(ltDay.startMs).toISOString(),
+      lt_day_end_utc: new Date(ltDay.endMs).toISOString(),
+      lt_day_hours: ltDay.hours,
+      lt_day_resolution_min: ltDay.resolutionMin,
+      lt_day_forward_filled: ltDay.forward_filled,
+      lt_hourly_start_utc,
+    } : {}),
+    ...(lt.refusal ? { lt_day_refusal: lt.refusal } : {}),
     // Hourly price arrays for trading engine consumption
     hourly_lt:  ltPrices.map(p => Math.round(p * 100) / 100),
     hourly_se4: se4Prices.map(p => Math.round(p * 100) / 100),
@@ -13586,6 +13778,14 @@ export {
   // file, not the behaviour).
   parseA44Periods,
   pricesForUtcDay,
+  // Phase 49 item 1 — market-day admission and its wall-clock hour labels.
+  marketDayAt,
+  slotHourUtc,
+  s1DayParseMode,
+  // Exported so the flag delta is measured by running the REAL computeS1 twice
+  // over ONE recorded set of documents, rather than by a script restating its
+  // field arithmetic — which would measure the restatement (B13).
+  computeS1,
   isoDurationToMinutes,
   resolveCaptureDay,
   // Phase 36.B5 — the one duration-anchor interpolation policy. Exported so the

@@ -90,6 +90,27 @@ prove "item 3 · no back-derived capture is published as a signal input" \
   workers/__tests__/fallbackShape.test.ts \
   perl -0pi -e 's/      s1_capture: \(s1_cap\.capture_2h\?\.gross_eur_mwh == null && s1_cap\.capture_4h\?\.gross_eur_mwh == null\)\n        \? null/      s1_capture: false\n        ? null/' "$W"
 
+# ── Item 1 · a price series that does not count is refused ───────────────────
+prove "item 1 · cardinality is asserted at admission" \
+  workers/__tests__/marketDayCardinality.test.ts \
+  perl -0pi -e 's/  if \(p\.prices\.length !== slots\) \{/  if (false) {/' "$W"
+
+prove "item 1 · a market day is 23, 24 or 25 hours and nothing else" \
+  workers/__tests__/marketDayCardinality.test.ts \
+  perl -0pi -e "s/const MARKET_DAY_HOURS = new Set\(\[23, 24, 25\]\);/const MARKET_DAY_HOURS = new Set([20, 23, 24, 25]);/" "$W"
+
+prove "item 1 · a UTC-bounded request admits ONE market day, by wall clock" \
+  workers/__tests__/marketDayCardinality.test.ts \
+  perl -0pi -e 's/  const covering = periods\.filter\(\(p\) => p\.startMs <= atMs && atMs < p\.endMs\);/  const covering = periods.slice(0, 1);/' "$W"
+
+prove "item 1 · hour labels are computed from the slot's own instant (rule #2)" \
+  workers/__tests__/marketDayCardinality.test.ts \
+  perl -0pi -e 's/  return new Date\(day\.startMs \+ idx \* day\.resolutionMin \* 60000\)\.getUTCHours\(\);/  return Math.floor((idx * 24) \/ day.slots);/' "$W"
+
+prove "item 1 · the S1 day flag defaults OFF" \
+  workers/__tests__/marketDayCardinality.test.ts \
+  perl -0pi -e "s/const S1_DAY_PARSE_DEFAULT = 'flat';/const S1_DAY_PARSE_DEFAULT = 'market_day';/" "$W"
+
 echo
 echo "$pass proven · $fail unproven"
 [ "$fail" -eq 0 ]
