@@ -35,7 +35,7 @@ beforeAll(() => {
   // provenance record and leave the tree dirty after every `npm test` (C1).
   const registry = join(mkdtempSync(join(tmpdir(), 'kkme-smoke-')), 'runs.jsonl');
   const r = spawnSync(
-    process.execPath, [join(CONSULTANCY, 'build-all.mjs'), '--offline'],
+    process.execPath, [join(CONSULTANCY, 'build-all.mjs'), '--offline', '--no-pdf'],
     {
       encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 600_000,
       env: { ...process.env, KKME_RUNS_REGISTRY: registry },
@@ -113,6 +113,13 @@ describe('invariants of a freshly generated set', () => {
   });
 
   it('the delivery bundle is packaged', () => {
+    // Run with --no-pdf: PDF rendering needs a Playwright Chromium binary CI
+    // does not have. The packaging STAGE still runs and is still under test —
+    // the workbook and the README are produced — but the three PDFs are not.
+    //
+    // COVERAGE GIVEN UP, stated rather than quietly narrowed: PDF rendering and
+    // the full four-file bundle are exercised only by a local `build-all`
+    // without the flag. Recorded in docs/gates.md as a known blind spot.
     for (const f of ['Prosperus_BESS_Model_v0.5.xlsx', 'README.txt']) {
       expect(existsSync(join(OUTPUT_DIR, 'delivery', f)), f).toBe(true);
     }

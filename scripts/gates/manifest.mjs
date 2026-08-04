@@ -107,6 +107,15 @@ Recorded rather than fixed, so they stay visible:
    reporters, coverage output, \`tsc\` diagnostics, bundle analysers, or a \`git status\`
    pasted verbatim. Recorded on the \`nda\` gate as its \`notSeen\` field.
 
+5. **PDF rendering is not covered by any automated check.** \`fixture-currency\` and
+   the generator smoke test run \`build-all --offline --no-pdf\`, because rendering needs a
+   Playwright Chromium binary a CI runner does not have, and no PDF affects a value
+   either check compares. The engine chain, the workbook, the consistency gate and
+   the packaging step are all still exercised; the three PDFs and the full four-file
+   bundle are exercised **only by a local \`build-all\` without the flag**. Installing a
+   browser in CI so those checks could walk past a stage they do not test would buy
+   nobody any coverage.
+
 ## Positive control
 
 The registry carries \`_positive_control\`: a gate (\`true\`) that passes whatever happens to

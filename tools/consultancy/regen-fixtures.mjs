@@ -138,7 +138,11 @@ console.log('');
 // Rehearsal, not a delivery: keep the append-only committed run registry out of
 // it, so regenerating a test fixture never writes rows into a delivery audit
 // trail (and never leaves the tree dirty).
-const build = spawnSync(process.execPath, [join(HERE, 'build-all.mjs'), '--offline'], {
+//
+// `--no-pdf`: this fixture is the ten JSON inputs, which are produced by the
+// engine stages. PDF rendering needs a Playwright Chromium binary that CI does
+// not have, and no PDF affects a single value compared here.
+const build = spawnSync(process.execPath, [join(HERE, 'build-all.mjs'), '--offline', '--no-pdf'], {
   stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8',
   env: { ...process.env, KKME_RUNS_REGISTRY: join(mkdtempSync(join(tmpdir(), 'kkme-regen-')), 'runs.jsonl') },
 });

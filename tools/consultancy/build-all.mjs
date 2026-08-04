@@ -18,6 +18,18 @@
  *   node tools/consultancy/build-all.mjs                # live KV — the delivery run
  *   node tools/consultancy/build-all.mjs --offline      # frozen fixture, for rehearsal
  *   node tools/consultancy/build-all.mjs --skip-runners # reuse existing runner output
+ *   node tools/consultancy/build-all.mjs --no-pdf       # engine + xlsx + HTML gate only
+ *
+ * `--no-pdf` stops before PDF rendering. It exists because rendering needs a
+ * Playwright Chromium binary, which a CI runner does not have — and the two
+ * automated checks built on this chain (`fixture-currency` and the generator
+ * smoke test) verify the ENGINE outputs and the consistency gate, neither of
+ * which involves a PDF. Installing a browser so those checks can walk past a
+ * stage they do not test would be paying for coverage nobody gets.
+ *
+ * The coverage this gives up is stated rather than hidden: with `--no-pdf`,
+ * PDF rendering and the packaged bundle are exercised ONLY by a full local
+ * build. See docs/gates.md.
  */
 
 import { spawnSync } from 'node:child_process';
@@ -138,7 +150,7 @@ function wrap(text, width = 72) {
 
 // ── Build ──────────────────────────────────────────────────────────────────
 
-export async function buildAll({ offline = false, skipRunners = false, generatedAt } = {}) {
+export async function buildAll({ offline = false, skipRunners = false, noPdf = false, generatedAt } = {}) {
   const stamp = generatedAt ?? new Date().toISOString().slice(0, 10);
   const log = [];
   const step = (n, what) => { log.push(`  ${String(n).padStart(2)}. ${what}`); console.log(`  ${String(n).padStart(2)}. ${what}`); };
@@ -159,24 +171,34 @@ export async function buildAll({ offline = false, skipRunners = false, generated
   const { path: htmlPath } = generateDeliverable({ generatedAt: stamp });
   step(++n, `Deliverable HTML + consistency gate${''.padEnd(11)} ✓  ${kb(htmlPath)} kB`);
 
-  const pdfs = await generatePdfs({
-    generatedAt: stamp, engineVersion: inputs.portfolio.engine_version, build: inputs.build,
-  });
-  step(++n, `Summary PDF (${String(pdfs.summary.pages).padStart(2)} pp)${''.padEnd(28)} ✓  ${kb(pdfs.summary.path)} kB`
-    + (pdfs.summary.fontsLoaded ? '' : '  [webfonts unavailable]'));
-  step(++n, `Methodology annex PDF (${String(pdfs.annex.pages).padStart(2)} pp)${''.padEnd(18)} ✓  ${kb(pdfs.annex.path)} kB`);
-  step(++n, `Lender methodology PDF (${String(pdfs.lender.pages).padStart(2)} pp)${''.padEnd(17)} ✓  ${kb(pdfs.lender.path)} kB`);
+  let pdfs = null;
+  if (noPdf) {
+    step(++n, 'PDF rendering SKIPPED (--no-pdf) — engine + workbook + consistency gate only');
+  } else {
+    pdfs = await generatePdfs({
+      generatedAt: stamp, engineVersion: inputs.portfolio.engine_version, build: inputs.build,
+    });
+    step(++n, `Summary PDF (${String(pdfs.summary.pages).padStart(2)} pp)${''.padEnd(28)} ✓  ${kb(pdfs.summary.path)} kB`
+      + (pdfs.summary.fontsLoaded ? '' : '  [webfonts unavailable]'));
+    step(++n, `Methodology annex PDF (${String(pdfs.annex.pages).padStart(2)} pp)${''.padEnd(18)} ✓  ${kb(pdfs.annex.path)} kB`);
+    step(++n, `Lender methodology PDF (${String(pdfs.lender.pages).padStart(2)} pp)${''.padEnd(17)} ✓  ${kb(pdfs.lender.path)} kB`);
+  }
 
   // ── Package ──────────────────────────────────────────────────────────────
   rmSync(DELIVERY_DIR, { recursive: true, force: true });
   mkdirSync(DELIVERY_DIR, { recursive: true });
 
+  // Without PDFs the bundle is the workbook and the README. It is deliberately
+  // still assembled: the packaging step is part of the chain under test, and a
+  // partial bundle that says so is more useful than a skipped stage.
   const bundle = [
     [XLSX_NAME, xlsxPath, 'The model — 8 tabs, editable assumption overrides, scenario selector'],
-    [SUMMARY_PDF, pdfs.summary.path, `The summary — ${pdfs.summary.pages} pp, sections 01-10`],
-    [ANNEX_PDF, pdfs.annex.path, `Methodology — ${pdfs.annex.pages} pp, KKME's published methodology in full`],
-    [LENDER_PDF, pdfs.lender.path,
-      `Lender annex — ${pdfs.lender.pages} pp, what is measured vs assumed, and the known-limitations list`],
+    ...(pdfs ? [
+      [SUMMARY_PDF, pdfs.summary.path, `The summary — ${pdfs.summary.pages} pp, sections 01-10`],
+      [ANNEX_PDF, pdfs.annex.path, `Methodology — ${pdfs.annex.pages} pp, KKME's published methodology in full`],
+      [LENDER_PDF, pdfs.lender.path,
+        `Lender annex — ${pdfs.lender.pages} pp, what is measured vs assumed, and the known-limitations list`],
+    ] : []),
   ];
   const files = bundle.map(([name, src, what]) => {
     copyFileSync(src, join(DELIVERY_DIR, name));
@@ -197,8 +219,9 @@ export async function buildAll({ offline = false, skipRunners = false, generated
 if (import.meta.url === `file://${process.argv[1]}`) {
   const offline = process.argv.includes('--offline');
   const skipRunners = process.argv.includes('--skip-runners');
+  const noPdf = process.argv.includes('--no-pdf');
   console.log(`\n  KKME consultancy delivery build${offline ? ' — OFFLINE (frozen fixture, rehearsal only)' : ''}\n`);
-  const res = await buildAll({ offline, skipRunners });
+  const res = await buildAll({ offline, skipRunners, noPdf });
   console.log('\n  Delivery bundle:\n');
   for (const f of res.files) console.log(`    ${f.name.padEnd(46)} ${f.size.padStart(9)} kB`);
   console.log(`\n  → ${res.delivery}\n`);
