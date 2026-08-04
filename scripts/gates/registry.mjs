@@ -97,6 +97,26 @@ export const GATES = [
   },
 
   {
+    id: 'scheduled-writer-coverage',
+    name: 'Every scheduled KV writer has a staleness threshold or a written exemption',
+    command: 'node scripts/gates/scheduled-writer-coverage.mjs',
+    covers:
+      'Phase 49 item 4. Enumerates the keys the scheduled() handler writes and cross-references ' +
+      'STALE_THRESHOLDS_HOURS. Found five with NOTHING — genload, s_wind, s_solar, s_load, s2_activation ' +
+      '— each able to stop for a week with no surface noticing. Static: it proves a threshold is ' +
+      'DECLARED, not that it can trip. That property is asserted in scheduledWriterCoverage.test.ts.',
+    where: 'local + CI',
+    expect: 'green',
+    injections: [{
+      label: 'a new scheduled writer with no threshold and no exemption',
+      kind: 'patch',
+      file: 'workers/lib/defaults.js',
+      find: '  genload: 4,',
+      replace: '  // genload: 4,',
+    }],
+  },
+
+  {
     id: 'private-staged',
     name: 'Nothing under docs/_private/ is ever staged or tracked',
     command: 'bash scripts/assert-no-private-staged.sh',

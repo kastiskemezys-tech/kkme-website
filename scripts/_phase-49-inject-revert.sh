@@ -111,6 +111,15 @@ prove "item 1 · the S1 day flag defaults OFF" \
   workers/__tests__/marketDayCardinality.test.ts \
   perl -0pi -e "s/const S1_DAY_PARSE_DEFAULT = 'flat';/const S1_DAY_PARSE_DEFAULT = 'market_day';/" "$W"
 
+# ── Item 4 · every scheduled writer is monitored, and S3 fails alone ─────────
+prove "item 4 · S3's FX leg survives a scrape failure" \
+  workers/__tests__/scheduledWriterCoverage.test.ts \
+  perl -0pi -e 's/  let fx;\n  try \{\n    fx = await fetchFxRates\(\);/  let fx;\n  try {\n    fx = await Promise.all([fetchFxRates()]).then(r => r[0]);/' "$W"
+
+prove "item 4 · a failure payload does not count as fresh" \
+  workers/__tests__/scheduledWriterCoverage.test.ts \
+  perl -0pi -e 's/r\.stale === false && r\.degraded !== true/r.stale === false/' "$W"
+
 echo
 echo "$pass proven · $fail unproven"
 [ "$fail" -eq 0 ]

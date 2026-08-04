@@ -6769,13 +6769,30 @@ async function computeS3() {
   let teBytes = null;
   let bodyPreview = '';
 
+  // ── Phase 49 item 4 — one dead host must not take a healthy one down ───────
+  //
+  // These two were inside one `Promise.all`, so the TE abort rejected the whole
+  // function and the catch below returned a payload with NO `fx_rates` at all —
+  // even though Frankfurter had answered in under a second. Observed live
+  // 2026-08-04T08:00:20Z: `fx_rates` absent from `/s3` while
+  // `data_freshness.ecb_euribor` had updated normally at 08:01:06Z.
+  //
+  // This is 39.2's finding recurring one signal over: "the ENTSO-E day-ahead
+  // curve was in hand and the capture was thrown away for want of a second copy
+  // of it." Settled independently, so a scrape failure costs the scrape and
+  // nothing else.
+  let fx;
   try {
-    // Fetch FX rates in parallel with TE scrape
-    const [fx, teRes] = await Promise.all([
-      fetchFxRates(),
-      fetch(TE_URL, { signal: controller.signal, headers: TE_HEADERS, redirect: 'follow' }),
-    ]);
+    fx = await fetchFxRates();
+  } catch (fxErr) {
+    console.error('[S3/fx] fetchFxRates failed:', String(fxErr));
+    fx = null;
+  }
+
+  try {
+    const teRes = await fetch(TE_URL, { signal: controller.signal, headers: TE_HEADERS, redirect: 'follow' });
     clearTimeout(timer);
+    if (!fx) throw new Error('FX unavailable and TE scrape cannot be published without it');
     teStatus = teRes.status;
     teCtype = (teRes.headers.get('content-type') || 'none').split(';')[0];
 
@@ -6875,6 +6892,11 @@ async function computeS3() {
       unavailable: true,
       signal: 'STABLE',
       ...S3_REFS,
+      // Whatever survived is published. The FX leg answering is not made
+      // worthless by the scrape leg failing, and a payload that drops a
+      // healthy observation because an unrelated one timed out is a second
+      // outage caused by the first.
+      ...(fx ? { fx_rates: { usd: fx.usd, cny: fx.cny }, fx_timestamp: fx.date } : {}),
       interpretation: 'Data temporarily unavailable.',
       source: 'tradingeconomics.com + infolink-group.com',
       _scrape_error: String(err),

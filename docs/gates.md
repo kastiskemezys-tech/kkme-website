@@ -26,7 +26,7 @@ Every one was found by injection. Not one by running the gate.
 
 ## The gates
 
-11 registered · 11 with a declared injection · 0 without.
+12 registered · 12 with a declared injection · 0 without.
 
 | id | command | covers | where it runs | declared injection |
 |---|---|---|---|---|
@@ -34,6 +34,7 @@ Every one was found by injection. Not one by running the gate.
 | `no-editorial-chips` | `npm run --silent lint:no-editorial-chips` | Forbids `phase: 'TIGHTENING'|'STABLE'|… ` reaching app/components — the locked brand principle that data speaks, not editorial labels. | local + CI | re-introduce an editorial chip in a real component |
 | `no-raw-spacing` | `npm run --silent lint:no-raw-spacing` | Value-aware spacing gate over shorthand and per-side padding/margin props in app/**. | local + CI | raw px spacing in a real component file |
 | `manifest-single-writer` | `npm run --silent lint:manifest-single-writer` | Forbids from-scratch construction of a manifest another module carries forward — the B-048 provenance-deletion path. | local + CI | a second from-scratch manifest writer, in the gate's real scope |
+| `scheduled-writer-coverage` | `node scripts/gates/scheduled-writer-coverage.mjs` | Phase 49 item 4. Enumerates the keys the scheduled() handler writes and cross-references STALE_THRESHOLDS_HOURS. Found five with NOTHING — genload, s_wind, s_solar, s_load, s2_activation — each able to stop for a week with no surface noticing. Static: it proves a threshold is DECLARED, not that it can trip. That property is asserted in scheduledWriterCoverage.test.ts. | local + CI | a new scheduled writer with no threshold and no exemption |
 | `private-staged` | `bash scripts/assert-no-private-staged.sh` | Index and tracked-file scope of the private tree, plus the .gitignore rule itself. | local + CI (CI has no private tree, so it asserts the ignore rule only) | force-stage a file from the private tree |
 | `nda` | `bash scripts/nda-gate.sh main` | Diff vs base + uncommitted + staged + every untracked non-ignored file, against the private needle list. Carries its own positive control. · **NOT seen:** disclosure by FILE PATH rather than file content — tool output that enumerates private-tree paths | local ONLY — blocked from CI, see below · **CI-BLOCKED:** needle list is gitignored by design; wiring it into CI requires a new repository secret | plant a real needle, read from the private list at run time so it never enters the repo |
 | `fixture-currency` | `npm run --silent fixtures:regen -- --check` | The committed deliverable-input fixture vs a fresh `build-all --offline`. deliverable.test.ts and xlsx.test.ts grade the FIXTURE, so this is what stops them grading a reviewed-but-stale artifact — the currency half of B-034. · **NOT seen:** value drift INSIDE the fixture (the consumer suites mirror it — this gate and the hash manifest catch that); and PDF rendering, which this gate runs with --no-pdf because CI has no Chromium binary | local + CI | age the fixture by moving an engine number in it |
