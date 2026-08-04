@@ -9,7 +9,7 @@
 import { describe, it, expect } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { GATES, RUNNABLE } from '../registry.mjs';
-import { classifyInjectionResult } from '../lib.mjs';
+import { classifyInjectionResult, checkPreconditions } from '../lib.mjs';
 
 describe('gate registry', () => {
   it('every gate declares at least one injection — no opt-out', () => {
@@ -105,6 +105,48 @@ describe('gate registry', () => {
     expect(classifyInjectionResult({
       preGreen: false, wentRed: false, backToGreen: false, isPositiveControl: true,
     }).verdict).toBe('cannot-self-test');
+  });
+
+  it('B14 — a declared precondition is checked, and its absence is UNRUNNABLE', () => {
+    // The rule: a gate whose precondition is missing must not report a pass
+    // (which claims a check happened) and must not report a generic red (which
+    // blames the subject). PR #152 spent four rounds chasing the wrong bug
+    // because each missing precondition surfaced as an ordinary failure.
+    const present = checkPreconditions({ preconditions: [{ kind: 'file', path: 'package.json' }] });
+    expect(present.ok).toBe(true);
+
+    const absent = checkPreconditions({
+      preconditions: [{ kind: 'file', path: 'no/such/file.json', why: 'the reason' }],
+    });
+    expect(absent.ok).toBe(false);
+    expect(absent.missing[0].what).toContain('no/such/file.json');
+    expect(absent.missing[0].why).toBe('the reason');
+
+    // A gate with no declared preconditions is runnable, not vacuously blocked.
+    expect(checkPreconditions({}).ok).toBe(true);
+  });
+
+  it('B14 — every precondition names a real, checkable thing', () => {
+    for (const g of GATES) {
+      for (const p of g.preconditions ?? []) {
+        expect(['file', 'binary', 'env'], `${g.id}`).toContain(p.kind);
+        expect(p.why, `${g.id} precondition must say why`).toBeTruthy();
+        if (p.kind === 'file') expect(p.path).toBeTruthy();
+      }
+    }
+  });
+
+  it('B14 — the declared preconditions of every gate are satisfied here', () => {
+    // If this goes red, a gate is about to report UNRUNNABLE rather than a
+    // result — which is the point, but it should be visible as its own failure.
+    for (const g of GATES) {
+      const r = checkPreconditions(g);
+      if (!r.ok) {
+        // The NDA needle list is gitignored by design and absent in CI; that
+        // gate is already declared CI-BLOCKED, so it is the one legitimate miss.
+        expect(g.ciBlocked, `${g.id} preconditions missing: ${r.missing.map((m) => m.what).join(', ')}`).toBeTruthy();
+      }
+    }
   });
 
   it('docs/gates.md is in sync with the registry', () => {

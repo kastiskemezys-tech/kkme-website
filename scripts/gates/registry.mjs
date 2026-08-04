@@ -115,6 +115,10 @@ export const GATES = [
     id: 'nda',
     name: 'NDA counterparty-name and contracted-figure gate',
     command: 'bash scripts/nda-gate.sh main',
+    preconditions: [
+      { kind: 'file', path: 'docs/_private/commercial/_nda-gate-needles.txt',
+        why: 'the needle list; gitignored by design, which is why this gate is CI-BLOCKED' },
+    ],
     covers: 'Diff vs base + uncommitted + staged + every untracked non-ignored file, against the private needle list. Carries its own positive control.',
     // COVERAGE EDGE — what this gate does NOT see, recorded so the omission is a
     // known limit rather than a discovery. The gate scans file CONTENT. A
@@ -163,6 +167,16 @@ export const GATES = [
     id: 'fixture-currency',
     name: 'B-034 frozen deliverable-input fixture is current',
     command: 'npm run --silent fixtures:regen -- --check',
+    // B14 — the two inputs whose absence made this gate red for the wrong reason
+    // in CI. `--offline` used to read generated untracked state; when it was
+    // missing the gate failed as though the fixture were stale, which is a claim
+    // about the engine rather than about a missing file.
+    preconditions: [
+      { kind: 'file', path: 'tools/consultancy/__fixtures__/kv-snapshot.json',
+        why: 'the committed offline KV input; --offline reads this and nothing else' },
+      { kind: 'file', path: 'tools/consultancy/__fixtures__/deliverable-inputs/MANIFEST.sha256',
+        why: 'the fixture hash manifest, which lives inside the fixture directory' },
+    ],
     covers: 'The committed deliverable-input fixture vs a fresh `build-all --offline`. '
       + 'deliverable.test.ts and xlsx.test.ts grade the FIXTURE, so this is what stops them '
       + 'grading a reviewed-but-stale artifact — the currency half of B-034.',
@@ -189,6 +203,12 @@ export const GATES = [
     id: 'regression-baseline',
     name: '/revenue 54-configuration regression baseline',
     command: 'node tools/consultancy/regression-reference.mjs',
+    preconditions: [
+      { kind: 'file', path: 'tools/consultancy/fixtures/regression-kv.json',
+        why: 'the frozen KV the 54 configurations are computed against' },
+      { kind: 'file', path: 'tools/consultancy/regression-baseline.json',
+        why: 'the recorded baseline; without it a drift check has nothing to compare to' },
+    ],
     covers: 'computeRevenueV7 over every public (dur × capex × cod × scenario) against the frozen KV fixture. Any drift means the public site moved.',
     where: 'local + CI',
     expect: 'green',
@@ -205,6 +225,10 @@ export const GATES = [
     id: 'eslint-delta',
     name: 'eslint error count does not grow',
     command: 'node scripts/gates/eslint-delta.mjs',
+    preconditions: [
+      { kind: 'file', path: 'scripts/gates/eslint-baseline.json',
+        why: 'the recorded error count; the gate is a delta and cannot run without it' },
+    ],
     covers: 'Repo-wide eslint. Absolute-zero is unreachable (main carries a pre-existing error backlog), so the gate is a DELTA against a recorded baseline — which is failable, where the absolute gate is not.',
     where: 'local + CI',
     expect: 'green',
