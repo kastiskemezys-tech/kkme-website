@@ -5655,19 +5655,38 @@ async function computeCapture(env) {
  * `'market_day'`  the Period covering the current instant, forward-filled per
  *                 A03 and admitted only if it counts. 96/96 against Elering.
  *
- * OFF by default because it moves published S1 numbers and this phase may not
- * move one without a signature. On the committed 2026-08-03 document the
- * reference movements are `lt_avg_eur_mwh` €75.43 → €69.15 and `lt_hours`
- * 190 → 96; the current day's figures are re-measured at CP time rather than
- * inherited, because an A44 document is different every day.
+ * ── DEFAULT FLIPPED TO `market_day` 2026-08-04, OPERATOR-SIGNED ──────────────
  *
- * Operator decision 2026-08-04: the CEST market day is the basis — it is what
- * the document declares and what Elering publishes — WITH the hour labels
- * recomputed from wall clock, since on this basis an index-derived "UTC hour"
- * is two hours out.
+ * It shipped OFF first, was quantified, and waited. What decided it was not the
+ * euro movement but the CLOCK: `Math.floor(idx * 24 / N)` treats index 0 as UTC
+ * 00:00 and a CET/CEST market day starts at 22:00Z, so the hour labels are two
+ * hours out EVERY day, on a quiet one and a volatile one alike. The euro defect
+ * only fires when curveType A03 omits a position or when the next auction
+ * publishes and two market days concatenate.
+ *
+ * Signed movements, measured twice 23 minutes apart on the live document and
+ * identical both times (`docs/investigations/2026-08-04-phase-49-s1-flip-delta.json`):
+ *
+ *   lt_peak_hour_utc      22 → 20        the 2 h CEST offset
+ *   lt_trough_hour_utc    16 → 14
+ *   lt_evening_premium    96.1 → 105.81  (+10.1 %) — the h17-21 and h10-14
+ *                                        slices were selected by the same
+ *                                        false identity
+ *   pl_avg_eur_mwh        151.06 → 150.21 (−0.56 %) — the PL document omitted
+ *                                        two positions that day
+ *   lt_avg_eur_mwh        unmoved that day; on the committed 2026-08-03
+ *                         document, where both failure conditions hold,
+ *                         €75.4309 → €69.1542 and lt_hours 190 → 96
+ *
+ * The independent control is what settled it: against Elering's NPS series for
+ * the same window, agreement goes 2/96 → 96/96 on the committed document.
+ *
+ * `'flat'` stays reachable so the pre-49 basis remains reproducible for
+ * comparison, exactly as `mw_partition: 'current'` does for 38.6a. It is not
+ * selectable from the public route.
  */
 const S1_DAY_PARSE_MODES = new Set(['flat', 'market_day']);
-const S1_DAY_PARSE_DEFAULT = 'flat';
+const S1_DAY_PARSE_DEFAULT = 'market_day';
 
 function s1DayParseMode(env) {
   const m = env?.S1_DAY_PARSE;

@@ -107,9 +107,9 @@ prove "item 1 · hour labels are computed from the slot's own instant (rule #2)"
   workers/__tests__/marketDayCardinality.test.ts \
   perl -0pi -e 's/  return new Date\(day\.startMs \+ idx \* day\.resolutionMin \* 60000\)\.getUTCHours\(\);/  return Math.floor((idx * 24) \/ day.slots);/' "$W"
 
-prove "item 1 · the S1 day flag defaults OFF" \
+prove "item 1 · the S1 day flag defaults to the SIGNED basis" \
   workers/__tests__/marketDayCardinality.test.ts \
-  perl -0pi -e "s/const S1_DAY_PARSE_DEFAULT = 'flat';/const S1_DAY_PARSE_DEFAULT = 'market_day';/" "$W"
+  perl -0pi -e "s/const S1_DAY_PARSE_DEFAULT = 'market_day';/const S1_DAY_PARSE_DEFAULT = 'flat';/" "$W"
 
 # ── Item 4 · every scheduled writer is monitored, and S3 fails alone ─────────
 prove "item 4 · S3's FX leg survives a scrape failure" \

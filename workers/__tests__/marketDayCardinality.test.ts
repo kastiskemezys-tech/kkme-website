@@ -30,15 +30,22 @@ const ELERING: number[] = JSON.parse(fx('elering-lt-2026-08-03-cest-day.json')).
 const at = (iso: string) => Date.parse(iso);
 const mean = (a: number[]) => a.reduce((x, y) => x + y, 0) / a.length;
 
-describe('§1 · the flag is OFF, and that is asserted rather than assumed', () => {
-  it('defaults to the shipped flat scrape when nothing sets it', () => {
-    expect(s1DayParseMode({})).toBe('flat');
-    expect(s1DayParseMode(undefined)).toBe('flat');
-    expect(s1DayParseMode({ S1_DAY_PARSE: 'nonsense' })).toBe('flat');
+describe('§1 · the flag default is asserted rather than assumed', () => {
+  // INVERTED 2026-08-04. This block asserted the flag was OFF, which was correct
+  // while it was awaiting signature and is wrong now that it is signed. The old
+  // expectation was `toBe('flat')` on all three; it is quoted here so a reader
+  // can see the flip happened rather than inferring it from a green test.
+  it('defaults to the market day — the signed basis', () => {
+    expect(s1DayParseMode({})).toBe('market_day');
+    expect(s1DayParseMode(undefined)).toBe('market_day');
+    // An unrecognised value falls through to the default rather than silently
+    // restoring the pre-49 basis. Same rule as the cost-stack flag: the old
+    // basis must never be reachable by accident, only by asking for it.
+    expect(s1DayParseMode({ S1_DAY_PARSE: 'nonsense' })).toBe('market_day');
   });
 
-  it('accepts market_day only when it is asked for by name', () => {
-    expect(s1DayParseMode({ S1_DAY_PARSE: 'market_day' })).toBe('market_day');
+  it('keeps the pre-49 flat scrape reachable, by name only', () => {
+    expect(s1DayParseMode({ S1_DAY_PARSE: 'flat' })).toBe('flat');
   });
 });
 
