@@ -11286,6 +11286,47 @@ export default {
       return jsonResp({ ok: true, gross_2h: cap.gross_2h, gross_4h: cap.gross_4h, net_2h: cap.net_2h, net_4h: cap.net_4h, date: cap.date });
     }
 
+    // ── POST /admin/trigger-s4 — run computeS4 and REPORT, without writing ────
+    //
+    // Built because s4 has rejected on every 4-hourly tick since
+    // 2026-08-03T08:01:04Z and there was no way to see why. The cron's own
+    // catch logs to a console nobody can read retroactively; `wrangler tail`
+    // captured 8,928 request events across a tick window with ZERO scheduled
+    // invocations, so it does not surface cron runs; and `GET /s4` serves from
+    // KV without recomputing (77 ms wall, 11 ms CPU, no logs), so the read path
+    // cannot reproduce it either. Three ways to look, none of which looked.
+    //
+    // **It never writes.** The diagnostic value is the rejection message, and a
+    // tool that mutates published state to deliver one is a worse tool than one
+    // that does not — it also means this can be run against production freely,
+    // as often as the diagnosis needs, with no signature and no delta.
+    if (request.method === 'POST' && url.pathname === '/admin/trigger-s4') {
+      if (!acceptsUpdateSecret(request, env, { route: '/admin/trigger-s4' })) {
+        return jsonResp({ error: 'unauthorized' }, 401);
+      }
+      const started = Date.now();
+      try {
+        const data = await computeS4();
+        return jsonResp({
+          ok: true, wrote: false, elapsed_ms: Date.now() - started,
+          free_mw: data.free_mw, connected_mw: data.connected_mw,
+          utilisation_pct: data.utilisation_pct, signal: data.signal,
+        });
+      } catch (err) {
+        // The whole point of the endpoint. Name and message separately, plus the
+        // stack's first frame, because "S4 FeatureServer: HTTP 403" and
+        // "Kaupikliai row not found" need different fixes and the cron's single
+        // log line could not tell them apart.
+        return jsonResp({
+          ok: false,
+          elapsed_ms: Date.now() - started,
+          error_name: err?.name ?? null,
+          error: String(err?.message ?? err).slice(0, 400),
+          first_frame: String(err?.stack ?? '').split('\n')[1]?.trim().slice(0, 200) ?? null,
+        }, 502);
+      }
+    }
+
     // ── POST /admin/backfill-s1-history — patch gross_2h/4h from capture history ──
     if (request.method === 'POST' && url.pathname === '/admin/backfill-s1-history') {
       if (!acceptsUpdateSecret(request, env)) return jsonResp({ error: 'Unauthorized' }, 401);
