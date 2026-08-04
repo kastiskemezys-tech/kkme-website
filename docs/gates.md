@@ -36,7 +36,7 @@ Every one was found by injection. Not one by running the gate.
 | `manifest-single-writer` | `npm run --silent lint:manifest-single-writer` | Forbids from-scratch construction of a manifest another module carries forward — the B-048 provenance-deletion path. | local + CI | a second from-scratch manifest writer, in the gate's real scope |
 | `private-staged` | `bash scripts/assert-no-private-staged.sh` | Index and tracked-file scope of the private tree, plus the .gitignore rule itself. | local + CI (CI has no private tree, so it asserts the ignore rule only) | force-stage a file from the private tree |
 | `nda` | `bash scripts/nda-gate.sh main` | Diff vs base + uncommitted + staged + every untracked non-ignored file, against the private needle list. Carries its own positive control. · **NOT seen:** disclosure by FILE PATH rather than file content — tool output that enumerates private-tree paths | local ONLY — blocked from CI, see below · **CI-BLOCKED:** needle list is gitignored by design; wiring it into CI requires a new repository secret | plant a real needle, read from the private list at run time so it never enters the repo |
-| `fixture-currency` | `npm run --silent fixtures:regen -- --check` | The committed deliverable-input fixture vs a fresh `build-all --offline`. deliverable.test.ts and xlsx.test.ts grade the FIXTURE, so this is what stops them grading a reviewed-but-stale artifact — the currency half of B-034. · **NOT seen:** value drift INSIDE the fixture — the consumer suites mirror it; this gate and the hash manifest catch that | local + CI | age the fixture by moving an engine number in it |
+| `fixture-currency` | `npm run --silent fixtures:regen -- --check` | The committed deliverable-input fixture vs a fresh `build-all --offline`. deliverable.test.ts and xlsx.test.ts grade the FIXTURE, so this is what stops them grading a reviewed-but-stale artifact — the currency half of B-034. · **NOT seen:** value drift INSIDE the fixture (the consumer suites mirror it — this gate and the hash manifest catch that); and PDF rendering, which this gate runs with --no-pdf because CI has no Chromium binary | local + CI | age the fixture by moving an engine number in it |
 | `regression-baseline` | `node tools/consultancy/regression-reference.mjs` | computeRevenueV7 over every public (dur × capex × cod × scenario) against the frozen KV fixture. Any drift means the public site moved. | local + CI | move a public number by nudging the reference capex default |
 | `eslint-delta` | `node scripts/gates/eslint-delta.mjs` | Repo-wide eslint. Absolute-zero is unreachable (main carries a pre-existing error backlog), so the gate is a DELTA against a recorded baseline — which is failable, where the absolute gate is not. | local + CI | add one new eslint error |
 | `evidence-freshness` | `npm run --silent evidence:freshness` | Per-source last_successful_refresh vs cadence for the eight mature-market series grounding the 36.E forecasts. | local + CI | age a source past its threshold |
@@ -82,6 +82,15 @@ Recorded rather than fixed, so they stay visible:
    paths across the repo can disclose by path while the NDA gate passes on content: test
    reporters, coverage output, `tsc` diagnostics, bundle analysers, or a `git status`
    pasted verbatim. Recorded on the `nda` gate as its `notSeen` field.
+
+5. **PDF rendering is not covered by any automated check.** `fixture-currency` and
+   the generator smoke test run `build-all --offline --no-pdf`, because rendering needs a
+   Playwright Chromium binary a CI runner does not have, and no PDF affects a value
+   either check compares. The engine chain, the workbook, the consistency gate and
+   the packaging step are all still exercised; the three PDFs and the full four-file
+   bundle are exercised **only by a local `build-all` without the flag**. Installing a
+   browser in CI so those checks could walk past a stage they do not test would buy
+   nobody any coverage.
 
 ## Positive control
 

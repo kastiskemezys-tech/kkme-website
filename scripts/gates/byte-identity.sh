@@ -24,7 +24,11 @@ if ! git rev-parse --verify --quiet "$REF^{commit}" >/dev/null; then
 fi
 SHA=$(git rev-parse --short "$REF")
 
-WT=$(mktemp -d -t kkme-byteid)
+# Portable across BSD and GNU mktemp. `mktemp -d -t kkme-byteid` works on macOS,
+# where -t treats the argument as a prefix, and FAILS on GNU/Linux with "too few
+# X's in template" — so this gate passed on a laptop and aborted in CI, which is
+# how it shipped. Giving the template explicit X's and no -t satisfies both.
+WT=$(mktemp -d "${TMPDIR:-/tmp}/kkme-byteid.XXXXXXXX")
 rm -rf "$WT"
 cleanup() { git worktree remove --force "$WT" >/dev/null 2>&1 || rm -rf "$WT"; }
 trap cleanup EXIT

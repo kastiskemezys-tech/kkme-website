@@ -53,7 +53,7 @@
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import { HERE, OUTPUT_DIR, REPO_ROOT } from '../engine.mjs';
 import { VERSION as DEMAND_FORECAST_VERSION } from '../../../workers/lib/demand-forecast.js';
 
@@ -75,6 +75,29 @@ export const RUNS_PATH = process.env.KKME_RUNS_REGISTRY || join(HERE, 'runs.json
  * make every output_hash unique and the registry's reproducibility claim
  * vacuous.
  */
+/**
+ * A path recorded in a run, made repo-relative.
+ *
+ * Phase 50. `source_dir` was stored ABSOLUTE, so the same engine over the same
+ * inputs produced `/Users/.../projects/prosperus` on a laptop and
+ * `/home/runner/work/.../projects/prosperus` on CI — and because `source_dir` is
+ * part of the hashed `inputs`, BOTH `input_hash` and `output_hash` moved with it.
+ *
+ * That silently falsified this registry's central claim, stated at the top of
+ * this file: "Re-running the same engine over the same inputs yields the SAME
+ * run_id, so a reproduction is self-evident rather than something a reader has
+ * to take on trust." It was only self-evident on the machine that produced it.
+ * Found when the fixture-currency gate reported the deliverable fixture stale in
+ * CI with twelve moved leaves, none of which was an engine number.
+ */
+export function repoRelative(p) {
+  if (typeof p !== 'string' || !p) return p;
+  const rel = relative(REPO_ROOT, p);
+  // A path outside the repo stays absolute rather than becoming a pile of `..`
+  // segments that are just as machine-specific but harder to read.
+  return rel && !rel.startsWith('..') ? rel : p;
+}
+
 export const VOLATILE_KEYS = ['generated_at', 'synced_at', 'fetched_at', 'timestamp', 'run'];
 
 // ── Hashing ────────────────────────────────────────────────────────────────

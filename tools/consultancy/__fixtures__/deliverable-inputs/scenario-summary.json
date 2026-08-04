@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-08-03T20:11:17.535Z",
+  "generated_at": "2026-08-04T07:44:53.438Z",
   "engine_version": "v7.3",
   "kv_source": "live-public-routes",
   "kv_verified": true,
-  "source_dir": "/Users/Kastis/kkme/tools/consultancy/projects/prosperus",
+  "source_dir": "tools/consultancy/projects/prosperus",
   "wacc": 0.08,
   "order": [
     "downside",
@@ -82,10 +82,10 @@
     "breaches": []
   },
   "run": {
-    "run_id": "scenario-summary-62a385e44ff3",
-    "engine_git_sha": "784eb659b98a96d847def8b08eaf27a66dd372c1-dirty",
-    "input_hash": "56047a59af2fb25df1307b41d534b6d2d93a74a8102b7180f783db117f405a57",
-    "output_hash": "d965ce2cb84c134743d5a1ae4ecce36320f040385643ac5453b582199b51dc39",
+    "run_id": "scenario-summary-ed892faf3189",
+    "engine_git_sha": "78d19f47b20a06330fb1d21e9bad1ab0523b0e12-dirty",
+    "input_hash": "90385988155e2757293fa358c1a2eb52c6b8dd9417abee2e267e16e67967d371",
+    "output_hash": "9f3f91ada812e213d84741aa6a06bf0b72814c77dd1ba58e87e9d1095f091e37",
     "register_version": "r5.8530095d",
     "data_vintage": {
       "kind": "kv-snapshot",
@@ -93,6 +93,6 @@
       "captured_at": "2026-08-01T10:41:05.879Z",
       "verified": true
     },
-    "recorded_at": "2026-08-03T20:11:17.535Z"
+    "recorded_at": "2026-08-04T07:44:53.438Z"
   }
 }

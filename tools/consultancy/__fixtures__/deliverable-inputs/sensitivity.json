@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-08-03T20:11:18.015Z",
+  "generated_at": "2026-08-04T07:44:53.925Z",
   "engine_version": "v7.3",
   "kv_source": "live-public-routes",
   "kv_verified": true,
-  "source_dir": "/Users/Kastis/kkme/tools/consultancy/projects/prosperus",
+  "source_dir": "tools/consultancy/projects/prosperus",
   "wacc": 0.08,
   "basis": "Portfolio consolidated EBITDA, one driver perturbed at a time from Central. Δ columns are reported on both the Y1 and the 20-year basis; ranking and sign sanity use the 20-year figure because Y1 is structurally blind to rte_decay_pp_yr.",
   "central": {
@@ -225,10 +225,10 @@
     }
   },
   "run": {
-    "run_id": "sensitivity-549360355e1a",
-    "engine_git_sha": "784eb659b98a96d847def8b08eaf27a66dd372c1-dirty",
-    "input_hash": "c6d544ba054752831b468e7af1c01b294db1e8692d0650b6feffd6a6838d7b44",
-    "output_hash": "1f4c4948ef4b51c8616fcd8c5f58bb00431a687641e3890c7d9d05c0db9a7f06",
+    "run_id": "sensitivity-5890c39749d3",
+    "engine_git_sha": "78d19f47b20a06330fb1d21e9bad1ab0523b0e12-dirty",
+    "input_hash": "092e25e1ea346fa332658d1f1557dc571875adf949fc7f40ce1e736403016515",
+    "output_hash": "6b9b6e67c18f44794fba1f43714f40bfc640465e59703caa5998f56a74d3620a",
     "register_version": "r5.8530095d",
     "data_vintage": {
       "kind": "kv-snapshot",
@@ -236,6 +236,6 @@
       "captured_at": "2026-08-01T10:41:05.879Z",
       "verified": true
     },
-    "recorded_at": "2026-08-03T20:11:18.015Z"
+    "recorded_at": "2026-08-04T07:44:53.925Z"
   }
 }

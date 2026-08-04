@@ -42,7 +42,17 @@ import { createHash } from 'node:crypto';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const FIXTURE_DIR = join(HERE, '__fixtures__/deliverable-inputs');
-export const MANIFEST_PATH = join(HERE, '__fixtures__/deliverable-inputs.sha256');
+/**
+ * INSIDE the fixture directory, deliberately.
+ *
+ * Phase 50: it used to be a SIBLING (`deliverable-inputs.sha256`), so
+ * `git add tools/consultancy/__fixtures__/deliverable-inputs/` staged the data
+ * and silently left the manifest behind. The fixture was regenerated and
+ * committed with a manifest describing the previous contents — caught by the
+ * hash check in CI, which is the check working, but the footgun should not have
+ * existed. Inside the directory the two cannot be staged apart.
+ */
+export const MANIFEST_PATH = join(HERE, '__fixtures__/deliverable-inputs/MANIFEST.sha256');
 const OUTPUT_DIR = join(HERE, 'output');
 
 /** The exact set `loadInputs()` reads out of an output directory. */
@@ -138,7 +148,11 @@ console.log('');
 // Rehearsal, not a delivery: keep the append-only committed run registry out of
 // it, so regenerating a test fixture never writes rows into a delivery audit
 // trail (and never leaves the tree dirty).
-const build = spawnSync(process.execPath, [join(HERE, 'build-all.mjs'), '--offline'], {
+//
+// `--no-pdf`: this fixture is the ten JSON inputs, which are produced by the
+// engine stages. PDF rendering needs a Playwright Chromium binary that CI does
+// not have, and no PDF affects a single value compared here.
+const build = spawnSync(process.execPath, [join(HERE, 'build-all.mjs'), '--offline', '--no-pdf'], {
   stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8',
   env: { ...process.env, KKME_RUNS_REGISTRY: join(mkdtempSync(join(tmpdir(), 'kkme-regen-')), 'runs.jsonl') },
 });

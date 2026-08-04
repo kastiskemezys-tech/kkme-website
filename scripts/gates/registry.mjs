@@ -172,7 +172,8 @@ export const GATES = [
     // together (B5, a mirror). Injection-verified — `portfolio.mw + 7` leaves
     // all 62 tests green. Those suites test the GATE, not the numbers; value
     // movement is caught here and by the fixture hash manifest, not by them.
-    notSeen: 'value drift INSIDE the fixture — the consumer suites mirror it; this gate and the hash manifest catch that',
+    notSeen: 'value drift INSIDE the fixture (the consumer suites mirror it — this gate and the hash manifest catch that); '
+      + 'and PDF rendering, which this gate runs with --no-pdf because CI has no Chromium binary',
     where: 'local + CI',
     expect: 'green',
     injections: [{

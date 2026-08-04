@@ -4546,3 +4546,156 @@ configuration it has just been handed. That is a product decision, at 22:00, uns
 **Recommendation: §2.1 and §2.2 as their own phase, and start it from `runScenarios` —** the fix
 is to stop discarding the engine result, which is a five-line change, and then the whole job is
 deciding what to show and how to word it. The plumbing is not the work.
+
+## 50 · Pause A — four questions
+
+**(a) HYPOTHESIS vs verified.** §1's no-op claim was CC's own from an earlier session and was
+re-checked at bundle level, not by reading diffs — confirmed. **§2's central premise is FALSE**
+and is corrected below: the archive is not on a clock. §3's premise (the `/curate` caller sends
+no secret) was verified true, then fixed, then re-verified by observation.
+
+**(b) What consumes what this changes.** `/health` gains a field; the 09:30 cron gains an alert;
+the `/contact` notification email changes shape (escaped); one VPS script and one crontab entry.
+Nothing in §1-§4 changes a response body of a data route. §5 is proposal-only.
+
+**(c) What fails silently here.** The thing this phase exists for: an importer that was never
+scheduled. Also newly named — a backup job that "succeeds" without credentials, which is why the
+workflow fails loudly instead.
+
+**(d) At which layer and time.** Bundle hash for §1; live VPS run observed at the worker for §3;
+a real restore into a real scratch namespace with read-back for §2.
+
+### 50 · §2 — CORRECTION: the archive is not expiring
+
+Phase 48 reported that BTD's window slides forward one day per day, so `s2_daily_clearing` was
+losing a day of recoverability daily, and this phase was written around that clock. **It is
+wrong.** Identical absolute dates return identical coverage on two consecutive days:
+
+| delivery day | 2026-08-03 | 2026-08-04 |
+|---|---|---|
+| 2025-09-29 | 120/1440 (8 %) | 120/1440 (8 %) |
+| 2025-09-30 | 360/1440 (25 %) | 360/1440 (25 %) |
+| 2025-10-01 | 1440/1440 | 1440/1440 |
+
+A rolling window would have moved 2025-10-01 off the full-coverage edge overnight. It did not.
+The boundary is a **fixed data start at 2025-10-01**; the ramp below it is products coming
+online, not decay. `s2_daily_clearing` is re-derivable from BTD and stays so.
+
+**The importer fix stands on its own merits** — a stopped importer publishes stale data whether
+or not the history is recoverable — but the urgency framing was mine and it was wrong.
+
+### 50 · §2 — the importer was never scheduled
+
+Not a lag. `backfill_btd_daily.py` is a 36.C one-off that was never put in a crontab or a
+wrapper: `crontab -l | grep -c backfill_btd_daily` → **0**. The series froze at delivery day
+2026-07-26 with **no internal gaps**, which is the signature of a stopped job rather than a
+failing one. Caught up to 2026-08-02 (299 → 306 days) and scheduled at 08:20 UTC.
+
+The monitor measures the newest **delivery day**, not the write age. A write-age monitor is
+gameable in the B12 shape — the daily cron writes on every run, so a run importing nothing new
+stamps a fresh clock forever. It also could not ride `/health`'s generic loop, which reads
+`data.timestamp`: the value is a bare array, so the loop reported `stale: null` — unmeasured but
+present-looking, which is exactly how nine days passed unnoticed.
+
+### 50 · §2 — the backup nearly published personal data
+
+The export was going to be committed to `data/kv-backup`. The **NDA gate refused it**: six
+numeric needles collided with BTD clearing prices. Those are coincidences — a contracted figure
+equal to the cent to a public market price — but unavoidable ones in a large public numeric
+corpus, and the gate cannot tell a coincidence from a disclosure. Committing it would have left
+the gate permanently red or forced it to be weakened.
+
+Chasing that down surfaced the worse problem, which **no needle could have caught**:
+`contact_submissions` holds inbound enquiries — names, email addresses, free-text messages from
+real people — and **this repository is public** (`isPrivate: false`, re-checked 2026-08-04).
+Needles are counterparty names and contracted figures, not arbitrary third parties' email
+addresses. The whole export now lives under the gitignored tree; the leak test asserts **every**
+output path rather than only the private one; the weekly workflow uploads to R2 and is inert and
+loud until provisioned.
+
+`fleet_private:*` currently has **zero** keys. The tier is wired before it is populated
+deliberately — wiring it afterwards is how leaks happen.
+
+### 50 · §2 — the restore was tested, and the test earned two fixes
+
+1131 keys restored into a scratch namespace, every key read back: **1131/1131 hashes match**.
+Two defects the test found, both now in the tool:
+
+- a restore without retry **silently dropped one key** (1130/1131) to a transient error;
+- **KV is eventually consistent**, so a key the restore correctly wrote read back as MISSING and
+  was present minutes later. On the verified run **5 keys were invisible on the first pass**.
+  Verification now re-reads misses before calling anything missing — C8's edge-propagation window
+  in a different costume.
+
+### 50 · §3 — `/curate` step 1 done and OBSERVED; step 2 needs signature
+
+The caller now sends the header, and this was verified by watching the real thing rather than
+reasoning about it: a live `sync_to_website.py` run against production, tailed at the worker —
+**22 of 22 `/curate` calls `header_present=true matches=true`, zero mismatches**, and no secret
+value in any log line. The observation code enforces nothing and changes no response.
+
+**Found while doing it:** `UPDATE_SECRET` had an inline default in `sync_to_website.py` which
+**was the live production secret** — verified by authenticating against production with it — and
+it is in the control-center repo's git history (4 commits). That repo is PRIVATE, so this is not
+the Phase 47 stop condition, but it is a live credential in a file and the default is now
+removed; a missing secret fails loudly rather than falling back to a value that is correct until
+the day it is rotated. **Recommend rotating `UPDATE_SECRET`** — it has sat in a file and in
+history, and it is the single secret gating every admin write.
+
+### 50 · §5 — the recompute-on-read routes: TEN, not nine, and the split is not free
+
+`node scripts/audit-kv-writers.mjs` — **10** GET routes write KV on a public read:
+
+| route | writes | cron writes it too? | read-path trigger | write style |
+|---|---|---|---|---|
+| `/digest` | `KV_DIGEST_CACHE` | yes (08:00) | on miss | blocking |
+| `/s3` | `s3` | yes (4-hourly) | on miss | blocking |
+| `/s5` | `s5` | yes (4-hourly) | on miss | blocking |
+| `/${sig}` | the signal key | yes | on miss | blocking |
+| `/${genSig}` | `s_wind`,`s_solar`,`s_load` | yes (hourly) | on miss | blocking |
+| `/genload` | `genload` | yes (hourly) | `age > 5 min` | `waitUntil` |
+| `/euribor` | `euribor` | yes (4-hourly) | on miss | blocking |
+| `/s4` | `s4` | yes (4-hourly) | on miss | blocking |
+| `/da_tomorrow` | `da_tomorrow`, `da_tomorrow:lastgood` | yes | on miss | blocking |
+| `/revenue` | `revenue_snapshot_prev` | **NO** | on miss | `waitUntil` |
+
+**Does the write need to happen on read? For nine of ten, no** — a cron already writes the same
+key, so the read-path write is a redundant cache-fill. `/revenue`'s `revenue_snapshot_prev` is
+the exception: no cron writes it, so removing it changes behaviour rather than just cost.
+
+**But the split is NOT free, and this is why it is a proposal.** Removing the read-path refresh
+does not change what the current request serves — it serves cache either way. It changes what
+the NEXT request serves: `/genload` refreshes at 5 minutes on read against an hourly cron, so
+removing it takes worst-case staleness from ~5 min to ~60 min. That is a freshness-for-cost
+trade with a public-facing consequence, so it is the operator's call, not CC's.
+
+**Recommendation:** remove the read-path write on the eight cron-covered `on miss` routes (the
+cron is the canonical writer and the served payload is unchanged), leave `/genload`'s
+stale-while-revalidate alone or tighten its cron to match, and treat `/revenue` separately
+because its key has no other writer. **Nothing implemented — signature first.**
+
+### 50 · §6 — the B-034 drift was three signed changes and no regeneration
+
+The artifacts those suites had been grading were built **2026-08-01 at `e774e1b`, register
+`r2.eb8712f9`**. The current build is `784eb65`, register `r5.8530095d`. The `kv_captured_at`
+stamp is **identical in both** — so no input data moved. The drift is entirely engine and
+register.
+
+The range `e774e1b..784eb65` contains three operator-**signed** number-moving changes:
+
+- `aaac252` — MW partition becomes the engine default,
+- `e2f3bbd` — cost stack ON by default ("PUBLIC NUMBERS MOVE"),
+- `08d1203` — debt sized from cash flows.
+
+The measured pattern matches that story rather than a bug: fleet inputs are **unchanged**
+(123 MW / 246 MWh / €40.344 M capex / 8 % WACC), while `gross_market_revenues` −24.1 % and
+`optimiser` −24.1 % move together (the optimiser fee is a share of gross), `charging_costs`
+−80.7 % (less MW on arbitrage means far less charging), `project_ebitda` −26.2 % (the cost stack
+on top), and `moic` 3.431 → 2.299.
+
+**So the numbers were not wrong — they were old.** The defect is process: nothing regenerated or
+flagged the consultancy deliverable when the engine or the register moved, so the client bridge
+silently held pre-38.6a figures. The `fixture-currency` gate added in Phase 40 closes exactly
+this class going forward — it compares the committed fixture against a fresh offline build and
+goes red the moment the engine moves. **No client bundle should be regenerated without reading
+that delta first**, because it is a signed −24 % on gross revenue, not a regression.

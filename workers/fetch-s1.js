@@ -8918,6 +8918,83 @@ const CONTACT_FIELD_LIMITS = {
 };
 
 /**
+ * Escape a value for interpolation into HTML TEXT.
+ *
+ * Phase 50. `/contact` interpolated submitted fields straight into an HTML email
+ * — `<p><strong>Name:</strong> ${name}</p>` — so a submitter controlled markup
+ * in a document a human opens in a mail client. That is a different risk class
+ * from the KV writers: no KV is corrupted, but the operator's own inbox renders
+ * attacker-authored HTML, and the form is public and unauthenticated.
+ *
+ * Five characters, not three. `<` and `&` cover text position; `"` and `'` are
+ * required because one interpolation sits INSIDE an attribute
+ * (`href="mailto:${email}"`), where a bare quote closes it and everything after
+ * becomes markup — the case a text-only escaper silently misses.
+ */
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
+ * Escape a value for use inside an HTML attribute, additionally refusing any
+ * scheme that can execute. `mailto:` is the only scheme this form ever needs, so
+ * anything that is not a plain address becomes inert text rather than a link —
+ * escaping alone would not stop `javascript:` from being a working href.
+ */
+function safeMailtoHref(email) {
+  const v = String(email ?? '');
+  return /^[^\s@<>"']+@[^\s@<>"']+\.[^\s@<>"']+$/.test(v)
+    ? `mailto:${encodeURIComponent(v)}`
+    : '';
+}
+
+/**
+ * The ONLY fields that may reach the notification email, in render order.
+ * An allowlist rather than a loop over the body: a future field added to the
+ * form then reaches the inbox only when someone decides it should.
+ */
+const CONTACT_EMAIL_FIELDS = ['name', 'email', 'company', 'projectName', 'mwMwh', 'country', 'targetCod', 'message'];
+
+/**
+ * Render the body rows of the notification email, escaped.
+ *
+ * Pure and exported so the escaping can be tested against real payloads rather
+ * than asserted about. Labels are literals; only values are interpolated, and
+ * every value goes through `escapeHtml` exactly once.
+ */
+function buildContactEmailHtml(body) {
+  const LABELS = {
+    name: 'Name', email: 'Email', company: 'Company', projectName: 'Project',
+    mwMwh: 'MW/MWh', country: 'Country', targetCod: 'Target COD',
+  };
+  let out = '';
+  for (const field of CONTACT_EMAIL_FIELDS) {
+    const raw = body?.[field];
+    if (raw === undefined || raw === null || raw === '') continue;
+    if (field === 'message') continue; // rendered last, below the rule
+    if (field === 'email') {
+      const href = safeMailtoHref(raw);
+      out += href
+        ? `<p><strong>Email:</strong> <a href="${escapeHtml(href)}">${escapeHtml(raw)}</a></p>`
+        // Not a plausible address: shown as inert text, never as a link. An
+        // unlinkable address is a mild inconvenience; a working `javascript:`
+        // href in the operator's mail client is not.
+        : `<p><strong>Email:</strong> ${escapeHtml(raw)}</p>`;
+      continue;
+    }
+    out += `<p><strong>${LABELS[field]}:</strong> ${escapeHtml(raw)}</p>`;
+  }
+  out += '<hr style="margin:16px 0;border:none;border-top:1px solid #ddd">';
+  out += `<p style="white-space:pre-wrap">${escapeHtml(body?.message)}</p>`;
+  return out;
+}
+
+/**
  * Validate a `/contact` submission: required fields, known `type`, plausible
  * email shape, and a length cap per field.
  * @returns {{ok: true} | {ok: false, error: string}}
@@ -8944,6 +9021,70 @@ function validateContactBody(body) {
     return { ok: false, error: '`email` is not a valid address' };
   }
   return { ok: true };
+}
+
+// ─── Phase 50: `s2_daily_clearing` recency ────────────────────────────────────
+//
+// This series is the platform's only irreplaceable archive. It begins on
+// 2025-10-01, which is the oldest delivery day BTD still serves in full, so a
+// day the importer fails to collect is a day that eventually falls out of BTD's
+// window and cannot be re-fetched by anyone, ever. The importer stopping is the
+// mechanism by which the archive is lost — and it had stopped, for nine days,
+// with nothing watching, because `backfill_btd_daily.py` was written as a
+// one-off in 36.C and was never put in a crontab.
+//
+// **Why this measures the DATA and not the WRITE.** The obvious monitor is the
+// age of the KV write. It is also useless here, and worse than useless: the
+// daily cron will write on every run, so a run that fetches nothing new still
+// stamps a fresh write and the staleness clock resets forever. That is B12
+// exactly — the damage disabling its own detector — and it is the same shape as
+// S3's failure payload satisfying its own freshness check. The only measure that
+// cannot be gamed by a write is the newest DELIVERY DAY present in the series.
+
+/**
+ * Days BTD lags real time before a delivery day is publishable. Measured, not
+ * assumed: on 2026-08-04 BTD served complete PT15M days through 2026-08-02.
+ */
+const BTD_PUBLICATION_LAG_DAYS = 2;
+
+/**
+ * How far behind the newest publishable delivery day the series may fall before
+ * it is stale: publication lag + one missed daily run + one day of buffer.
+ */
+const S2_DAILY_CLEARING_MAX_LAG_DAYS = BTD_PUBLICATION_LAG_DAYS + 2;
+
+/**
+ * Recency of the daily clearing archive, computed from the series itself.
+ * @param {Array<{date: string}>|null} days  parsed `s2_daily_clearing`
+ * @param {string} nowIso                    current time, injected for testability
+ * @returns {{status: string, last_date: string|null, total_days: number,
+ *            days_behind: number|null, threshold_days: number, stale: boolean|null}}
+ */
+function s2DailyClearingRecency(days, nowIso) {
+  const threshold_days = S2_DAILY_CLEARING_MAX_LAG_DAYS;
+  if (!Array.isArray(days) || days.length === 0) {
+    // Absence is an ERROR state, never an innocent one (B12). An empty archive
+    // is the worst case this check exists to catch, so it must not read as null.
+    return { status: 'missing', last_date: null, total_days: 0, days_behind: null, threshold_days, stale: true };
+  }
+  const dates = days.map(d => d && d.date).filter(d => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d));
+  if (!dates.length) {
+    return { status: 'error', last_date: null, total_days: days.length, days_behind: null, threshold_days, stale: true };
+  }
+  const last_date = dates.reduce((a, b) => (a > b ? a : b));
+  const today = new Date(nowIso);
+  const dayMs = 86400000;
+  const todayUtc = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+  const lastUtc = Date.parse(`${last_date}T00:00:00Z`);
+  const days_behind = Math.round((todayUtc - lastUtc) / dayMs);
+  return {
+    status: 'present',
+    last_date,
+    total_days: dates.length,
+    days_behind,
+    threshold_days,
+    stale: days_behind > threshold_days,
+  };
 }
 
 // ─── Main export ───────────────────────────────────────────────────────────────
@@ -9005,6 +9146,29 @@ export default {
         }
       } catch (e) {
         console.error('[S2/activation]', String(e));
+      }
+
+      // Phase 50 — the archive's own recency, on the tick. The VPS importer runs
+      // at 08:20 UTC, so 09:30 is an hour after it should have landed. Routed
+      // through the transition machine so a continuing lag stops re-sending and
+      // a recovery produces a message.
+      try {
+        const rawDc = await env.KKME_SIGNALS.get('s2_daily_clearing').catch(() => null);
+        let parsed = null;
+        try { parsed = rawDc ? JSON.parse(rawDc) : null; } catch { parsed = null; }
+        const rec = s2DailyClearingRecency(parsed, new Date().toISOString());
+        const msg = rec.status === 'present'
+          ? `s2_daily_clearing: newest delivery day ${rec.last_date}, ${rec.days_behind}d behind `
+            + `(threshold ${rec.threshold_days}d), ${rec.total_days} days held`
+          : `s2_daily_clearing: ${rec.status} — the irreplaceable archive is not readable`;
+        await alertTransition(
+          env, 's2_daily_clearing', rec.stale ? 'degraded' : 'ok',
+          rec.stale
+            ? `${msg}\n• every day not imported eventually falls out of BTD's window and cannot be re-fetched`
+            : msg,
+        ).catch(() => {});
+      } catch (e) {
+        console.error('[S2/daily-clearing-recency]', String(e));
       }
       return;
     }
@@ -10754,7 +10918,24 @@ export default {
     }
 
     // ── POST /curate ─────────────────────────────────────────────────────────
+    // Phase 50, step 1 of 2 — OBSERVE ONLY, enforce nothing.
+    //
+    // /curate is an unauthenticated `feed_index` writer (via
+    // appendCurationToFeedIndex), which collides with discipline rule #3: a named
+    // entity can reach published content with no source check. It was left open
+    // in Phase 48 on purpose, because its live caller — sync_to_website.py, VPS
+    // cron_daily.sh at 06:00 UTC — sent no secret, and gating first would have
+    // killed ~30 items/day.
+    //
+    // The caller now sends the header. This logs whether it ARRIVES, so step 2
+    // enforces against an observation rather than an assumption. It deliberately
+    // changes no response: same statuses, same bodies, no rejection path. The
+    // secret's VALUE is never logged — only whether it matched.
     if (request.method === 'POST' && url.pathname === '/curate') {
+      const curateSecret = request.headers.get('x-update-secret');
+      console.log(`[curate/auth-observe] header_present=${curateSecret !== null} `
+        + `matches=${curateSecret !== null && curateSecret === env.UPDATE_SECRET} `
+        + `ua=${String(request.headers.get('user-agent') ?? '').slice(0, 40)}`);
       let body;
       try { body = await request.json(); } catch {
         return new Response(JSON.stringify({ error: 'Invalid JSON body' }), { status: 400, headers: { 'Content-Type': 'application/json', ...CORS } });
@@ -10825,18 +11006,15 @@ export default {
       if (env.RESEND_API_KEY) {
         const typeLabel = { project: 'Project', investment: 'Investment / capital', market: 'Market discussion', other: 'Other' }[type] || type;
         const subject = `KKME Contact: ${typeLabel} — ${name}${company ? ` (${company})` : ''}`;
-        let htmlBody = `<h2 style="margin:0 0 16px">${typeLabel} inquiry</h2>`;
-        htmlBody += `<p><strong>Name:</strong> ${name}</p>`;
-        htmlBody += `<p><strong>Email:</strong> <a href="mailto:${email}">${email}</a></p>`;
-        if (company) htmlBody += `<p><strong>Company:</strong> ${company}</p>`;
-        if (projectName) htmlBody += `<p><strong>Project:</strong> ${projectName}</p>`;
-        if (mwMwh) htmlBody += `<p><strong>MW/MWh:</strong> ${mwMwh}</p>`;
-        if (country) htmlBody += `<p><strong>Country:</strong> ${country}</p>`;
-        if (targetCod) htmlBody += `<p><strong>Target COD:</strong> ${targetCod}</p>`;
+        // Phase 50 — every interpolation escaped, the href scheme-checked, and
+        // the field set allowlisted. Built through buildContactEmailHtml so the
+        // escaping is one function with tests rather than eight call sites that
+        // have to each remember.
+        let htmlBody = `<h2 style="margin:0 0 16px">${escapeHtml(typeLabel)} inquiry</h2>`;
+        htmlBody += buildContactEmailHtml(body);
         htmlBody += `<hr style="margin:16px 0;border:none;border-top:1px solid #ddd">`;
-        htmlBody += `<p style="white-space:pre-wrap">${message}</p>`;
         htmlBody += `<hr style="margin:16px 0;border:none;border-top:1px solid #ddd">`;
-        htmlBody += `<p style="color:#888;font-size:12px">Sent via kkme.eu contact form · ${entry.timestamp}</p>`;
+        htmlBody += `<p style="color:#888;font-size:12px">Sent via kkme.eu contact form · ${escapeHtml(entry.timestamp)}</p>`;
 
         await fetch('https://api.resend.com/emails', {
           method: 'POST',
@@ -12539,6 +12717,21 @@ export default {
         }
       }));
 
+      // Phase 50 — `s2_daily_clearing` cannot ride the generic loop above: it is
+      // a bare ARRAY, so `data.timestamp` is undefined and the loop would report
+      // `age_hours: null, stale: null` — present-looking and unmeasured, which is
+      // how it sat nine days behind unnoticed. It is measured on the newest
+      // DELIVERY DAY it holds, not on when it was last written; see
+      // s2DailyClearingRecency for why a write-age monitor here is gameable.
+      try {
+        const rawDc = await env.KKME_SIGNALS.get('s2_daily_clearing').catch(() => null);
+        let parsed = null;
+        try { parsed = rawDc ? JSON.parse(rawDc) : null; } catch { parsed = null; }
+        signals.s2_daily_clearing = s2DailyClearingRecency(parsed, new Date().toISOString());
+      } catch (e) {
+        signals.s2_daily_clearing = { status: 'error', error: String(e).slice(0, 200), stale: true };
+      }
+
       const allFresh = Object.values(signals).every(
         r => r.status === 'present' && r.stale === false && r.degraded !== true,
       );
@@ -13065,6 +13258,9 @@ export { fetchBznGuarded };
 // expose it: `days_of_data` counting rows instead of dates was invisible to
 // every test that existed, because none of them ever looked at it.
 export { dedupeByDateKeepLast, rollingStats };
+// Phase 50 — irreplaceable-archive recency + contact-email escaping.
+export { s2DailyClearingRecency, S2_DAILY_CLEARING_MAX_LAG_DAYS, BTD_PUBLICATION_LAG_DAYS };
+export { escapeHtml, safeMailtoHref, buildContactEmailHtml, CONTACT_EMAIL_FIELDS };
 // Phase 48 — endpoint-auth body validation and blast-radius bounds.
 export {
   parseJsonBody,

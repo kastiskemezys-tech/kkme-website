@@ -11,7 +11,7 @@
 
 import { join } from 'node:path';
 import { loadConfigDir, runProject, PROJECTS_DIR, eur } from './engine.mjs';
-import { writeRunOutput, kvVintage } from './lib/runs.mjs';
+import { writeRunOutput, kvVintage, repoRelative } from './lib/runs.mjs';
 import { getKV } from './kv-snapshot.mjs';
 import { buildBridge } from './bridge.mjs';
 import { buildPortfolio, DEFAULT_WACC } from './portfolio.mjs';
@@ -64,12 +64,12 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     kv_source: meta.kv_source,
     kv_captured_at: meta.captured_at,
     kv_verified: meta.verified,
-    source_dir: dir,
+    source_dir: repoRelative(dir),
     ...out,
   };
   const { path } = writeRunOutput('portfolio.json', payload, {
     runner: 'portfolio', subject: 'prosperus-portfolio',
-    inputs: { configs, wacc, source_dir: dir },
+    inputs: { configs, wacc, source_dir: repoRelative(dir) },
     data_vintage: kvVintage(meta),
   });
 

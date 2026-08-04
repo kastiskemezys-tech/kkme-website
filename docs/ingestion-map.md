@@ -20,9 +20,9 @@ fetcher asked for bytes, got bytes, and whatever those bytes were became the tru
 | distinct external hosts named in the worker | **35** |
 | of those, carrying a declared contract | **4** |
 | declared contracts in total (incl. one not yet ingested) | **5** |
-| VPS scripts | 7 |
+| VPS scripts | 8 |
 | mature-market fetchers | 8 |
-| GitHub Actions workflows | 3 |
+| GitHub Actions workflows | 4 |
 
 Contract coverage is **4/35** of worker hosts. That is the honest number and it is low:
 this phase built the mechanism and declared contracts for the sources whose failures are
@@ -125,11 +125,11 @@ undeclared source is visibly undeclared rather than invisibly unchecked.
 
 ## Other ingestion paths
 
-**VPS** (`scripts/vps/`): `backfill_btd_daily.py` · `baltic_storage_index.py` · `cert_watch.py` · `daily_intel.py` · `fetch_btd.py` · `fetch_entsoe_installed_capacity.py` · `fleet_lifecycle_runner.sh`
+**VPS** (`scripts/vps/`): `backfill_btd_daily.py` · `baltic_storage_index.py` · `btd_daily_clearing_wrapper.sh` · `cert_watch.py` · `daily_intel.py` · `fetch_btd.py` · `fetch_entsoe_installed_capacity.py` · `fleet_lifecycle_runner.sh`
 
 **Mature markets** (`tools/consultancy/mature-markets/`): `fetch-activation-prices.mjs` · `fetch-au-aemo.mjs` · `fetch-calendar.mjs` · `fetch-de-regelleistung.mjs` · `fetch-entsoe-da.mjs` · `fetch-fx.mjs` · `fetch-gb-neso.mjs` · `fetch-se-svk.mjs`
 
-**Workflows** (`.github/workflows/`): `fetch-btd.yml` · `gates.yml` · `refresh-mature-markets.yml`
+**Workflows** (`.github/workflows/`): `fetch-btd.yml` · `gates.yml` · `kv-backup.yml` · `refresh-mature-markets.yml`
 
 ## Fixture discipline (B-043)
 
