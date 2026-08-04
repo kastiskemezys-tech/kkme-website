@@ -121,6 +121,7 @@ import zlib from 'node:zlib';
 import crypto from 'node:crypto';
 import { row, validateRow } from './schema.mjs';
 import { writeManifest } from './manifest-writer.mjs';
+import { writeFixture } from './fixture-guard.mjs';
 
 const API = 'https://web-api.tp.entsoe.eu/api';
 const OUT = path.join(import.meta.dirname, '..', 'data', 'mature-markets', 'activation');
@@ -567,9 +568,9 @@ async function main() {
       if (!fx.empty) {
         const dayStart = `<start>${FIXTURE_DAY}`;
         const day = fx.docs.find((d) => d.includes(dayStart)) ?? fx.docs[0];
-        await fs.writeFile(fixturePath, day);
+        await writeFixture(fixturePath, day);
         const next = new Date(Date.parse(`${FIXTURE_DAY}T00:00:00Z`) + 864e5).toISOString().slice(0, 10);
-        await fs.writeFile(path.join(FIXTURES, 'entsoe-a84-de-afrr-sample.url.txt'),
+        await writeFixture(path.join(FIXTURES, 'entsoe-a84-de-afrr-sample.url.txt'),
           `${API}?documentType=A84&processType=A16&businessType=A96&controlArea_Domain=${MARKETS[0].eic}&periodStart=${FIXTURE_DAY.replace(/-/g, '')}0000&periodEnd=${next.replace(/-/g, '')}0000&securityToken=<key>\n`);
         console.log(`fixture cut: ${FIXTURE_DAY}`);
       }

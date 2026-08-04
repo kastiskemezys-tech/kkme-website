@@ -4022,3 +4022,67 @@ shrink fails too, so the baseline is recaptured in the commit that earned it rat
 drifting. **Recommendation: keep the delta gate, and burn the 87 down in a dedicated
 pass.** No action needed tonight; noted so the retirement is a decision rather than a
 silent omission.
+
+## 44 (item 4) · Pause A — four questions
+
+**(a) HYPOTHESIS vs verified.** The prompt's B-043 premise — "AU/DA fetchers rewrite their own
+fixtures each run" — is **verified and understated**: it is **six** fetchers, not two
+(`fetch-au-aemo`, `fetch-entsoe-da`, `fetch-gb-neso`, `fetch-se-svk`, `fetch-de-regelleistung`,
+`fetch-activation-prices`), across 10 write sites. The §3 sibling-takedown premise is verified
+and **still live in two places** (below).
+
+**(b) What consumes what this changes.** No production read path. The contract module is new and
+not yet wired into any fetcher — deliberately, see (d). The fixture-guard change alters
+`--record-fixture`-less runs of six fetchers so they no longer overwrite samples; those runs are
+manual/scheduled data jobs, not request paths. `/revenue` 54/54 byte-identical.
+
+**(c) What fails silently here.** The gate I wrote, immediately: its first matcher flagged
+`scripts/audit-stack.mjs:621` as a B-043 violation. That write is not an ingestion fixture — it
+persists an engine PROBE's own output for a later delta. It photographs our own arithmetic, so
+schema drift is not a thing it can hide. Fixed **at the matcher, not by weakening the rule** —
+the `fixturePath` clause is now scoped to the mature-markets tree while the `join(FIXTURES`
+clause stays repo-wide. Three controls run: clean tree green, a real `join(FIXTURES` violation
+red, a real `fixturePath` violation red.
+
+**(d) At which layer and time.** Validators proven against **recorded production failures**, not
+invented ones: the verbatim energy-charts 503 body from 16:36Z, the NordPool HTML-under-200
+shape, a 3-row truncation, and both cp1257 signatures. The contract layer is deliberately NOT
+yet wired into the live fetchers — wiring it in enforcing mode changes admission, and an
+admission change is how a number moves. That wiring is decision 6.
+
+### Two sibling-takedown sites, both confirmed live
+
+Of 24 `Promise.all` sites carrying an unguarded leg, most are **correctly** all-or-nothing:
+paired KV writes where you want both keys or neither (`da_tomorrow` + `da_tomorrow:lastgood`,
+`s4_fleet` + `s2_fleet`, the three `s_wind`/`s_solar`/`s_load`). Two are genuine cross-source
+takedowns:
+
+1. **`computeS3` at `:6343`** — `Promise.all([fetchFxRates(), fetch(TE_URL, …)])`. `fetchFxRates`
+   has its own try/catch and cannot reject; the TradingEconomics leg can. When it does, the outer
+   catch returns a payload with **no `fx_rates` at all**, discarding an FX fetch that succeeded.
+   **Confirmed on the live payload right now:** `unavailable: true`,
+   `_scrape_error: AbortError`, `fx_rates` **absent**. Two unrelated sources, one failure domain.
+
+2. **`fetchInterconnectorFlows` at `:8255`** — three energy-charts CBET calls; `ee` and `fi`
+   carry `.catch(() => null)` and **`lt` does not**. Someone guarded two of three. LT failing
+   takes down EE and FI.
+
+### 44 · Decision 6 (NEEDS SIGNATURE) — wiring the contracts into live admission
+
+The mechanism is built, tested against real recorded failures, and wired into **nothing**.
+That is deliberate: enforcing a contract changes what is admitted, and an admission change is
+exactly how a published number moves — tonight's rules forbid that without a signature.
+
+**Recommendation, in this order:** (1) wire in **record-only** mode first, so every fetch logs
+its verdict and we can see how often a contract would have quarantined a payload that we
+currently admit; (2) read a week of that; (3) promote to enforcing per source, starting with
+the two whose failures are already loud (`energy-charts:price:LT`, `arcgis:litgrid:capacity`).
+Going straight to enforcing would be trading a known failure mode for an unmeasured one.
+
+**Coverage is 4 of 35 worker hosts, and the map says so.** An undeclared source is now visibly
+undeclared rather than invisibly unchecked, which is the improvement — not the 4.
+
+### Not reached inside the box
+
+§4 politeness/legality (robots.txt verification per scraper, User-Agent identification, declared
+rate limits), §6 B-057 cron staggering, §6 37.B.3 detector matching. Listed rather than dropped.

@@ -28,6 +28,7 @@ import zlib from 'node:zlib';
 import crypto from 'node:crypto';
 import { row, validateRow } from './schema.mjs';
 import { writeManifest } from './manifest-writer.mjs';
+import { writeFixture } from './fixture-guard.mjs';
 
 const API = 'https://web-api.tp.entsoe.eu/api';
 const OUT = path.join(import.meta.dirname, '..', 'data', 'mature-markets', 'da');
@@ -304,7 +305,7 @@ async function main() {
   }
   console.log(files.map((f) => `  ${f.file}: ${f.rows} rows${f.duplicates_dropped ? `, ${f.duplicates_dropped} dupes dropped` : ''}`).join('\n'));
 
-  if (sample) await fs.writeFile(path.join(FIXTURES, 'entsoe-a44-sample.xml'), sample);
+  if (sample) await writeFixture(path.join(FIXTURES, 'entsoe-a44-sample.xml'), sample);
 
   const manifest = {
     dataset: 'day-ahead-prices',

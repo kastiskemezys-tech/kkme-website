@@ -40,6 +40,7 @@ import zlib from 'node:zlib';
 import crypto from 'node:crypto';
 import { row, validateRow } from './schema.mjs';
 import { writeManifest } from './manifest-writer.mjs';
+import { writeFixture } from './fixture-guard.mjs';
 
 const OUT = path.join(import.meta.dirname, '..', 'data', 'mature-markets', 'au');
 const FIXTURES = path.join(import.meta.dirname, '..', 'fixtures', 'mature-markets');
@@ -175,8 +176,8 @@ async function main() {
   }
 
   if (firstSample) {
-    await fs.writeFile(path.join(FIXTURES, 'au-price-demand-sample.csv'), firstSample.text.split('\n').slice(0, 200).join('\n') + '\n');
-    await fs.writeFile(path.join(FIXTURES, 'au-price-demand-sample.url.txt'), firstSample.url + '\n');
+    await writeFixture(path.join(FIXTURES, 'au-price-demand-sample.csv'), firstSample.text.split('\n').slice(0, 200).join('\n') + '\n');
+    await writeFixture(path.join(FIXTURES, 'au-price-demand-sample.url.txt'), firstSample.url + '\n');
   }
 
   const manifest = {

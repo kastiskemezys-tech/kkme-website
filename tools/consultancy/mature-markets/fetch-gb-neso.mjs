@@ -42,6 +42,7 @@ import zlib from 'node:zlib';
 import crypto from 'node:crypto';
 import { row, validateRow } from './schema.mjs';
 import { writeManifest } from './manifest-writer.mjs';
+import { writeFixture } from './fixture-guard.mjs';
 
 const OUT = path.join(import.meta.dirname, '..', 'data', 'mature-markets', 'gb');
 const FIXTURES = path.join(import.meta.dirname, '..', 'fixtures', 'mature-markets');
@@ -291,7 +292,7 @@ async function main() {
     push(rows);
     // Commit the source bytes: the NESO Open Data Licence permits redistribution.
     await fs.writeFile(path.join(OUT, `source-${key}.csv.gz`), zlib.gzipSync(Buffer.from(text), { level: 9 }));
-    if (key === 'dcSummary') await fs.writeFile(path.join(FIXTURES, 'gb-dc-summary-sample.csv'), text.split('\n').slice(0, 120).join('\n') + '\n');
+    if (key === 'dcSummary') await writeFixture(path.join(FIXTURES, 'gb-dc-summary-sample.csv'), text.split('\n').slice(0, 120).join('\n') + '\n');
   }
 
   let nRows = 0; const invalid = [];
