@@ -52,6 +52,16 @@ docs/**/*.png
 !docs/visual-audit/phase-*/**/*.png
 docs/**/*.json
 !docs/audits/phase-*/*.json
+# Phase 41 — the provenance graph is generated, and tracked ANYWAY, deliberately.
+#
+# C1 says generated files are never tracked, and the case it was written for is
+# a log that blocked a rebase. This is the other kind: a small deterministic
+# artifact whose committed copy IS the reference the reproducibility gate
+# compares a fresh generation against. Untracked, `build-graph.mjs --check` has
+# nothing to check in CI and the gate silently stops being one. Same pattern and
+# same justification as the tracked `regression-baseline.json` and
+# `eslint-baseline.json`.
+!docs/provenance/graph.json
 claude-handover/images/
 
 # AI tool config directories (from various coding assistants)

@@ -4164,3 +4164,64 @@ piece of the MW identity.**
 
 **B-044.** Cannot be scheduled: the item does not exist. One sentence from the operator resolves
 it.
+
+## 41 (item 6) · Pause A — four questions
+
+**(a) HYPOTHESIS vs verified.** The premise — "genuine assets that do not know about each
+other" — is verified, and the disconnection is more structural than filed.
+
+*The two registries do not share a join key, and it is not a naming accident.*
+`metricRegistry.workerPath` names a FIELD ON AN OBSERVED PAYLOAD
+(`s4.storage_reference.installed_mw`); `assumptions-register.engine_binding` names a MODEL
+PARAMETER (`worker:RTE_BOL.h2`, `engine:…`, `calibration:…`). Measured: **0 of 9 workerPaths
+match any of 68 engine_bindings.** They are **disjoint, not incompatible** — two different
+chains that meet only at the top, on a card showing both an observation and a modelled number.
+The STOP condition says not to invent a key mapping by hand, and it is right: an RTE constant is
+not upstream of an installed-MW observation in any real sense. The graph carries both chains and
+labels each node's chain.
+
+*The evidence base's freshness reaches nothing.* **1 of 70** register rows cites a URL at all
+(the other 69 cite prose — "NREL ATB", "Manufacturer warranty floors"), and that one URL matches
+**no** manifest host. Host overlap between register citations and dataset manifests is **zero**.
+So 7 datasets carry a `last_successful_refresh`, `npm run evidence:freshness` monitors them, and
+**0 of 70 parameters can inherit any of it**. A parameter sourced from a series last refreshed
+months ago is today indistinguishable from one sourced yesterday.
+
+**(b) What consumes what this changes.** Nothing yet — that is the point of §4. `resolve.mjs` is
+the read API items 9 and 10 are meant to consume instead of each inventing a source list. No
+production path touched; `/revenue` 54/54 byte-identical.
+
+**(c) What fails silently here.** The derivation itself, and it did. The first version reported
+**three false orphans** (the S1 price metrics) because ENTSO-E lives two helper hops and one
+constant away from `computeS1`. Reporting those as sourceless would have been a claim about the
+world made by a limitation of the probe (B11) — an orphan means "the graph cannot prove a
+source", never "there is no source". Fixed by following one level of named-helper indirection
+and resolving URL-valued constants inside helpers; orphans went 4 → 3 → 0.
+
+**(d) At which layer and time.** Four gates, each proven by inject-then-revert against the real
+artifact: orphan, dangling, staleness-coverage, and reproducibility (regenerating must produce
+identical bytes). All four go red on injection and green on revert.
+
+### A test that was wrong, recorded rather than weakened
+
+Gate 3's first assertion was `nodes_with_a_dated_ancestor > 0`. It went red. **The assertion was
+wrong, not the graph** — asserting that inheritance happens does not make it happen, and
+relaxing it to `>= 0` would have made the gate unfailable. It now pins the ACTUAL coverage
+(`parameters_with_a_dated_ancestor === 0`, `datasets_with_a_refresh_stamp > 0`), so the day a
+register row gains a `dataset` field the test says so.
+
+### 41 · Decision 8 (NEEDS SIGNATURE, small and high-value) — one field on the register row
+
+Give `assumptions-register.json` rows an optional `dataset` field naming the mature-market
+dataset they are sourced from (`'da'`, `'de'`, `'gb'`, …). That single field turns
+staleness inheritance on: every parameter would then inherit the oldest refresh stamp of the
+evidence it rests on, and gate 3 becomes a live check rather than a coverage report.
+
+**It is one field, not new machinery** — the graph already computes inheritance and already has
+the dataset nodes with their stamps; it has nothing to travel. **Recommendation: do it, and do
+it before the report generator (item 9) ships**, because a lender-facing report that states a
+parameter's source without its freshness is precisely the S1-badge lie in a PDF.
+
+The reason it needs a signature rather than being done tonight: assigning each of 70 rows to a
+dataset is a judgement about what each parameter actually rests on, and getting that wrong
+would publish a false provenance — worse than publishing none.
