@@ -23,6 +23,28 @@ export const WORKER = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
 export const SNAPSHOT_PATH = join(OUTPUT_DIR, 'kv-snapshot.json');
 export const FIXTURE_PATH = join(HERE, 'fixtures', 'regression-kv.json');
 
+/**
+ * The frozen KV input for every `--offline` run. TRACKED, unlike `SNAPSHOT_PATH`.
+ *
+ * Phase 50. `--offline` used to read `output/kv-snapshot.json`, which is
+ * generated and untracked — so an offline build worked on a laptop that had run
+ * a live capture, and threw "no cached KV snapshot" anywhere that had not. CI
+ * had not, so `build-all --offline` failed there, taking down both things Phase
+ * 40 added on top of it: the `fixture-currency` gate and the generator smoke
+ * test. Gates went red on main at d2780b0 and stayed red.
+ *
+ * That is the SAME defect B-034 was about, committed by the fix for B-034: a
+ * check that passes locally because the local machine holds generated state the
+ * clean checkout does not. "Offline" now means one committed input, identical
+ * everywhere, which is what it should have meant.
+ *
+ * This is deliberately NOT `regression-kv.json`. That fixture serves the
+ * regression-baseline gate on its own vintage (2026-07-28); reusing it here
+ * would silently re-date every deliverable number and couple two gates that
+ * should be able to move independently.
+ */
+export const OFFLINE_KV_PATH = join(HERE, '__fixtures__', 'kv-snapshot.json');
+
 const HEADROOM_DRAG = 0.70; // mirrors workers/fetch-s1.js computeBaseYear
 
 async function getJSON(path) {
@@ -183,15 +205,30 @@ export async function verifyKV(kv, live) {
  * refetches. `offline: true` refuses to hit the network (uses cache or throws).
  */
 export async function getKV({ maxAgeMinutes = 60, offline = false, quiet = false } = {}) {
+  // `offline` reads the COMMITTED fixture and nothing else. Preferring an
+  // untracked local snapshot when one happens to exist is what made this
+  // reproducible on one machine and broken on every other — and worse, it would
+  // make the fixture-currency gate compare against different inputs locally and
+  // in CI, so the two could disagree without either being wrong.
+  if (offline) {
+    if (!existsSync(OFFLINE_KV_PATH)) {
+      throw new Error(
+        `--offline requires the committed KV fixture at ${OFFLINE_KV_PATH}. `
+        + 'Refresh it deliberately with: node tools/consultancy/kv-snapshot.mjs --freeze-offline',
+      );
+    }
+    const snap = JSON.parse(readFileSync(OFFLINE_KV_PATH, 'utf8'));
+    if (!quiet) console.log(`[kv] using the committed offline fixture (captured ${snap.captured_at})`);
+    return { kv: snap.kv, meta: snap };
+  }
   if (existsSync(SNAPSHOT_PATH)) {
     const snap = JSON.parse(readFileSync(SNAPSHOT_PATH, 'utf8'));
     const ageMin = (Date.now() - new Date(snap.captured_at).getTime()) / 60000;
-    if (offline || ageMin <= maxAgeMinutes) {
+    if (ageMin <= maxAgeMinutes) {
       if (!quiet) console.log(`[kv] using cached snapshot (${ageMin.toFixed(0)} min old, verified=${snap.verified})`);
       return { kv: snap.kv, meta: snap };
     }
   }
-  if (offline) throw new Error('no cached KV snapshot and --offline was requested');
   return captureKV({ quiet });
 }
 
