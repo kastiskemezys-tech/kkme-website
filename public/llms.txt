@@ -1,0 +1,70 @@
+# KKME
+
+> Baltic flexibility and storage market intelligence. Live supply/demand data,
+> balancing-market prices and reference-asset economics for grid-scale battery
+> storage in Lithuania, Latvia and Estonia.
+
+Independent, single-operator. Built by Kastytis Kemezys. https://kkme.eu
+
+## What this site publishes
+
+Every figure below is computed from a named upstream source and refreshed on a
+stated cadence. Nothing here is an estimate presented as an observation; where a
+number is modelled rather than measured, the site says so on the surface that
+shows it.
+
+- **Day-ahead price separation (S1)** — Lithuanian and SE4 day-ahead prices, the
+  spread between them, and the perfect-foresight arbitrage capture a 2h and 4h
+  battery could take from the day's curve. Source: ENTSO-E transparency platform
+  and energy-charts.info (Fraunhofer ISE). Refreshed every 4 hours.
+- **Balancing-market prices (S2)** — aFRR, mFRR and FCR capacity and activation
+  clearing prices for the Baltic bidding zones. Source: Baltic Transparency
+  Dashboard. Refreshed daily.
+- **Cost stack (S3)** — lithium carbonate and LFP system-price proxies feeding
+  the CAPEX assumptions. Refreshed daily.
+- **Grid connection capacity (S4)** — free, connected and reserved capacity for
+  storage at the Lithuanian transmission level, plus the tracked Baltic storage
+  fleet. Source: Litgrid open data. Refreshed daily.
+- **Reference-asset economics** — first-year revenue, EBITDA, IRR and DSCR for a
+  parameterised Baltic BESS, computed on live market data at request time.
+
+## Update cadence
+
+Signals refresh on a 4-hourly cron, with an hourly pass for the time-sensitive
+series. Freshness per key is published at
+https://kkme-fetch-s1.kastis-kemezys.workers.dev/health — including which
+signals are currently stale or degraded. That endpoint is the honest answer to
+"is this number current", and it is preferable to inferring currency from a
+page's appearance.
+
+## Citation
+
+Citation is welcome, with attribution to **KKME (kkme.eu)** and a link to the
+page the figure is on.
+
+Two requests, both of which exist because the alternative misleads a reader:
+
+1. **Cite the figure with its date.** Everything here moves. A number quoted
+   without the date it was read is not reproducible, and several of these series
+   change several times a day.
+2. **Do not restate a modelled figure as an observed one.** The revenue, IRR and
+   DSCR outputs are model results from stated assumptions, not measurements. The
+   assumptions and their sources are published at https://kkme.eu/methodology.
+
+## What is not published
+
+- The fleet console at /fleet is private and requires authentication.
+- Counterparty names, client identities and contracted figures are never
+  published anywhere on this site, by policy.
+
+## Machine-readable
+
+- Methodology: https://kkme.eu/methodology
+- Health and per-signal freshness: https://kkme-fetch-s1.kastis-kemezys.workers.dev/health
+- Sitemap: https://kkme.eu/sitemap.xml
+
+## Model training
+
+`robots.txt` declares `Content-Signal: search=yes, ai-train=no, use=reference`
+and disallows the major training crawlers by name. Reading this site to answer a
+question and citing it is welcome. Using it as training data is not.

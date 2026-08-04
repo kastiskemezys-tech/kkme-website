@@ -1,4 +1,15 @@
 User-agent: *
 Allow: /
+# Phase 45. Internal instruments, not content: a colour tuner and a map-anchor
+# calibrator. They served HTTP 200 to anonymous requests with no robots meta.
+# Nothing gated leaks through them — they render the same public hero asset the
+# homepage does — but internal tooling in the index makes the site look like a
+# workshop. Also set to noindex at app/dev/layout.tsx; both, because robots.txt
+# governs crawling and the meta governs indexing, and a page linked from
+# elsewhere can be indexed without ever being crawled.
+Disallow: /dev/
+
+# The gated console. Already noindex,nofollow,nocache in its own metadata.
+Disallow: /fleet
 
 Sitemap: https://kkme.eu/sitemap.xml
