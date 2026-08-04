@@ -8918,6 +8918,83 @@ const CONTACT_FIELD_LIMITS = {
 };
 
 /**
+ * Escape a value for interpolation into HTML TEXT.
+ *
+ * Phase 50. `/contact` interpolated submitted fields straight into an HTML email
+ * — `<p><strong>Name:</strong> ${name}</p>` — so a submitter controlled markup
+ * in a document a human opens in a mail client. That is a different risk class
+ * from the KV writers: no KV is corrupted, but the operator's own inbox renders
+ * attacker-authored HTML, and the form is public and unauthenticated.
+ *
+ * Five characters, not three. `<` and `&` cover text position; `"` and `'` are
+ * required because one interpolation sits INSIDE an attribute
+ * (`href="mailto:${email}"`), where a bare quote closes it and everything after
+ * becomes markup — the case a text-only escaper silently misses.
+ */
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
+ * Escape a value for use inside an HTML attribute, additionally refusing any
+ * scheme that can execute. `mailto:` is the only scheme this form ever needs, so
+ * anything that is not a plain address becomes inert text rather than a link —
+ * escaping alone would not stop `javascript:` from being a working href.
+ */
+function safeMailtoHref(email) {
+  const v = String(email ?? '');
+  return /^[^\s@<>"']+@[^\s@<>"']+\.[^\s@<>"']+$/.test(v)
+    ? `mailto:${encodeURIComponent(v)}`
+    : '';
+}
+
+/**
+ * The ONLY fields that may reach the notification email, in render order.
+ * An allowlist rather than a loop over the body: a future field added to the
+ * form then reaches the inbox only when someone decides it should.
+ */
+const CONTACT_EMAIL_FIELDS = ['name', 'email', 'company', 'projectName', 'mwMwh', 'country', 'targetCod', 'message'];
+
+/**
+ * Render the body rows of the notification email, escaped.
+ *
+ * Pure and exported so the escaping can be tested against real payloads rather
+ * than asserted about. Labels are literals; only values are interpolated, and
+ * every value goes through `escapeHtml` exactly once.
+ */
+function buildContactEmailHtml(body) {
+  const LABELS = {
+    name: 'Name', email: 'Email', company: 'Company', projectName: 'Project',
+    mwMwh: 'MW/MWh', country: 'Country', targetCod: 'Target COD',
+  };
+  let out = '';
+  for (const field of CONTACT_EMAIL_FIELDS) {
+    const raw = body?.[field];
+    if (raw === undefined || raw === null || raw === '') continue;
+    if (field === 'message') continue; // rendered last, below the rule
+    if (field === 'email') {
+      const href = safeMailtoHref(raw);
+      out += href
+        ? `<p><strong>Email:</strong> <a href="${escapeHtml(href)}">${escapeHtml(raw)}</a></p>`
+        // Not a plausible address: shown as inert text, never as a link. An
+        // unlinkable address is a mild inconvenience; a working `javascript:`
+        // href in the operator's mail client is not.
+        : `<p><strong>Email:</strong> ${escapeHtml(raw)}</p>`;
+      continue;
+    }
+    out += `<p><strong>${LABELS[field]}:</strong> ${escapeHtml(raw)}</p>`;
+  }
+  out += '<hr style="margin:16px 0;border:none;border-top:1px solid #ddd">';
+  out += `<p style="white-space:pre-wrap">${escapeHtml(body?.message)}</p>`;
+  return out;
+}
+
+/**
  * Validate a `/contact` submission: required fields, known `type`, plausible
  * email shape, and a length cap per field.
  * @returns {{ok: true} | {ok: false, error: string}}
@@ -10929,18 +11006,15 @@ export default {
       if (env.RESEND_API_KEY) {
         const typeLabel = { project: 'Project', investment: 'Investment / capital', market: 'Market discussion', other: 'Other' }[type] || type;
         const subject = `KKME Contact: ${typeLabel} — ${name}${company ? ` (${company})` : ''}`;
-        let htmlBody = `<h2 style="margin:0 0 16px">${typeLabel} inquiry</h2>`;
-        htmlBody += `<p><strong>Name:</strong> ${name}</p>`;
-        htmlBody += `<p><strong>Email:</strong> <a href="mailto:${email}">${email}</a></p>`;
-        if (company) htmlBody += `<p><strong>Company:</strong> ${company}</p>`;
-        if (projectName) htmlBody += `<p><strong>Project:</strong> ${projectName}</p>`;
-        if (mwMwh) htmlBody += `<p><strong>MW/MWh:</strong> ${mwMwh}</p>`;
-        if (country) htmlBody += `<p><strong>Country:</strong> ${country}</p>`;
-        if (targetCod) htmlBody += `<p><strong>Target COD:</strong> ${targetCod}</p>`;
+        // Phase 50 — every interpolation escaped, the href scheme-checked, and
+        // the field set allowlisted. Built through buildContactEmailHtml so the
+        // escaping is one function with tests rather than eight call sites that
+        // have to each remember.
+        let htmlBody = `<h2 style="margin:0 0 16px">${escapeHtml(typeLabel)} inquiry</h2>`;
+        htmlBody += buildContactEmailHtml(body);
         htmlBody += `<hr style="margin:16px 0;border:none;border-top:1px solid #ddd">`;
-        htmlBody += `<p style="white-space:pre-wrap">${message}</p>`;
         htmlBody += `<hr style="margin:16px 0;border:none;border-top:1px solid #ddd">`;
-        htmlBody += `<p style="color:#888;font-size:12px">Sent via kkme.eu contact form · ${entry.timestamp}</p>`;
+        htmlBody += `<p style="color:#888;font-size:12px">Sent via kkme.eu contact form · ${escapeHtml(entry.timestamp)}</p>`;
 
         await fetch('https://api.resend.com/emails', {
           method: 'POST',
@@ -13184,8 +13258,9 @@ export { fetchBznGuarded };
 // expose it: `days_of_data` counting rows instead of dates was invisible to
 // every test that existed, because none of them ever looked at it.
 export { dedupeByDateKeepLast, rollingStats };
-// Phase 50 — irreplaceable-archive recency.
+// Phase 50 — irreplaceable-archive recency + contact-email escaping.
 export { s2DailyClearingRecency, S2_DAILY_CLEARING_MAX_LAG_DAYS, BTD_PUBLICATION_LAG_DAYS };
+export { escapeHtml, safeMailtoHref, buildContactEmailHtml, CONTACT_EMAIL_FIELDS };
 // Phase 48 — endpoint-auth body validation and blast-radius bounds.
 export {
   parseJsonBody,
