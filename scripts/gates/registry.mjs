@@ -97,6 +97,47 @@ export const GATES = [
   },
 
   {
+    id: 'scheduled-writer-coverage',
+    name: 'Every scheduled KV writer has a staleness threshold or a written exemption',
+    command: 'node scripts/gates/scheduled-writer-coverage.mjs',
+    covers:
+      'Phase 49 item 4. Enumerates the keys the scheduled() handler writes and cross-references ' +
+      'STALE_THRESHOLDS_HOURS. Found five with NOTHING — genload, s_wind, s_solar, s_load, s2_activation ' +
+      '— each able to stop for a week with no surface noticing. Static: it proves a threshold is ' +
+      'DECLARED, not that it can trip. That property is asserted in scheduledWriterCoverage.test.ts.',
+    where: 'local + CI',
+    expect: 'green',
+    injections: [{
+      label: 'a new scheduled writer with no threshold and no exemption',
+      kind: 'patch',
+      file: 'workers/lib/defaults.js',
+      find: '  genload: 4,',
+      replace: '  // genload: 4,',
+    }],
+  },
+
+  {
+    id: 'register-integrity',
+    name: 'The backlog register is machine-readable and internally consistent',
+    command: 'node scripts/gates/register-integrity.mjs',
+    covers:
+      'Phase 49 item 5, building the fix B-066 prescribed and nobody wrote. Four properties, each one a way ' +
+      'the register has actually been wrong: every mentioned id has a row (B-036..B-040 lived only in prose); ' +
+      'ids are contiguous (a gap means a row was deleted rather than closed); every row carries exactly one ' +
+      'status from a closed vocabulary (B-052/053/054 said "fixed" in the priority cell and "open" in the ' +
+      'status cell); every closed row names what closed it.',
+    where: 'local + CI',
+    expect: 'green',
+    injections: [{
+      label: 'a backlog id mentioned in prose with no table row — the B-036..B-040 shape',
+      kind: 'patch',
+      file: 'docs/handover.md',
+      find: '# KKME Handover',
+      replace: '# KKME Handover\n\n<!-- gate selftest: B-999 mentioned with no row -->',
+    }],
+  },
+
+  {
     id: 'private-staged',
     name: 'Nothing under docs/_private/ is ever staged or tracked',
     command: 'bash scripts/assert-no-private-staged.sh',

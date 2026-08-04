@@ -209,4 +209,25 @@ export const STALE_THRESHOLDS_HOURS = {
   'da_tomorrow:lastgood': 168,   // backstop mirror; only matters after a week of upstream failures
   'extreme:latest':       168,   // events are sparse — "missing" is normal, only flag after a week
   'baltic_storage_index_latest': 36,  // VPS Python daily cron + buffer (Phase 29)
+  // ── Phase 49 item 4 — the five scheduled writers that had NOTHING ──────────
+  //
+  // The class guard behind items 1-4 of this phase: enumerate every KV key a
+  // scheduled job writes and assert each has a staleness threshold derived from
+  // its own cadence. Five had neither a threshold nor an alert, so each could
+  // have stopped for a week with no surface noticing —
+  // `scripts/gates/scheduled-writer-coverage.mjs` is the enumeration and it now
+  // fails on any new one.
+  //
+  // Four ride the HOURLY cron (`0 * * * *`), so three missed ticks plus an hour
+  // of buffer is 4h. These four back the hero map's live overlays, which is to
+  // say they are on the homepage.
+  genload: 4,
+  s_wind:  4,
+  s_solar: 4,
+  s_load:  4,
+  // Written by the 09:30 UTC daily S2 watchdog. 48h = one missed day + buffer,
+  // matching the `s2` convention it belongs to. This one is not cosmetic: it
+  // feeds `deriveCompression`, so a silent stop ages the compression trajectory
+  // the whole revenue projection is built on.
+  s2_activation: 48,
 };
