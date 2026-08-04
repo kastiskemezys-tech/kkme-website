@@ -24,7 +24,7 @@ The default answer should be **no**: reads serve, crons write.
 
 ## The finding that shrinks the work
 
-**Seven of the ten write keys a cron already writes.** Those removals need no new
+**Seven of the ten write keys a cron already writes.** (Verified again before any removal: writer first.) Those removals need no new
 writer at all — only a signature and a stated staleness bound. Only three routes
 write a key with no scheduled writer behind it.
 
@@ -40,7 +40,7 @@ write a key with no scheduled writer behind it.
 | 6 | `/s4` | `s4` | **yes** — 4-hourly | Litgrid daily | **24 h** (already set) | remove. **Note: `s4` is STALE right now at 25.7 h** — the cron writer exists and is not keeping up. Diagnose before signing this row |
 | 7 | `/da_tomorrow` | `da_tomorrow`, `da_tomorrow:lastgood` | **yes** — 4-hourly | Nord Pool publishes ~12:45 CET daily | **36 h** / **168 h** (already set) | remove |
 | 8 | `/euribor` | `euribor`, **`s4_buildability`**, **`s4_pipeline`** | `euribor` yes; **the other two NO** | ECB daily; VERT.lt monthly | `euribor` 168 h; others need a writer first | **BLOCKED — build writers first** |
-| 9 | `/digest` | **`s3_editorial`**, **`s3_baseline`**, **`s3_freshness`** | **NO** | editorial, operator-pushed | n/a | **BLOCKED — see below** |
+| 9 | `/digest` | `digest:cache` (TTL 3600s) — **NOT the s3_* keys, see the correction below** | **NO** | LLM-built from recent curations | n/a | **worst cost vector of the ten — a stranger's GET can trigger a paid Anthropic call** |
 | 10 | `/revenue` | `s2_capacity_watch` (via `persistCapacityWatch`); formerly `revenue_snapshot_prev` | `revenue_snapshot_prev` **yes** as of §3a (08:00 daily, `writeRevenueSnapshot`); **`s2_capacity_watch` NO** | engine recompute per request | see §3a | **partly done — see below** |
 
 ## The three that are not simply removable
@@ -52,15 +52,39 @@ is VERT.lt monthly data with an 840 h threshold, so a cron at almost any cadence
 covers it; `s4_buildability` has no declared threshold at all. **Writers needed
 for both before the removal is safe.**
 
-**Route 9 — `/digest` writes three S3 editorial keys.** These are
-operator-pushed editorial content with no upstream publication cadence to derive
-a threshold from, which is why the coverage gate exempts `s3_editorial` and
-`s3_baseline` by name. A cron cannot manufacture editorial content. **The
-question for the operator is not "what cadence" but "should a GET be writing
-these at all"** — the likely answer is that the write belongs on the POST that
-supplies the content, not on the digest read. `s3_freshness` is different: it is
-a derived staleness surface and could be recomputed by the same cron that writes
-`s3`.
+**Route 9 — CORRECTION: `/digest` does NOT write the S3 editorial keys.**
+
+This row was wrong in the first version of this table and the error is mine. My
+first enumeration used a hand-rolled scan whose block boundaries leaked across
+intervening POST routes; I discarded it for the ROUTE list and switched to
+`audit-kv-writers.mjs`, but carried its KEY attribution across without
+re-deriving it. Corrected by reading the route.
+
+`GET /digest` writes exactly one key: `digest:cache`, with a 3600-second TTL. It
+is a read-through cache — check, miss, build, store, return.
+
+`s3_editorial`, `s3_baseline` and `s3_freshness` are written by
+**`POST /s3/editorial`**, which is already the POST that supplies the content and
+is already behind `acceptsUpdateSecret`. **The instruction "move the write to the
+POST that supplies the content" is already satisfied and there is nothing to
+move.**
+
+**But route 9 is still the most expensive of the ten, for a different reason.**
+The cache miss calls `buildDigest`, which is an **Anthropic API call**. No cron
+writes `digest:cache` and nothing calls `buildDigest` on a schedule, so every
+expiry hands the next visitor — including a crawler — a paid LLM request. That is
+the sharpest form of the cost vector this section exists to close, and it is the
+one route where the read-path write is currently load-bearing: remove it without
+a writer and `/digest` returns an empty array once an hour.
+
+Options, for the operator:
+1. **Pre-warm from the 4-hourly cron** and drop the TTL to match, so the digest is
+   built on our schedule rather than a stranger's. Costs one LLM call per tick
+   whether or not anyone reads it.
+2. **Keep the read-through but gate it** — authenticate `/digest`, or serve stale
+   past expiry and refresh out-of-band via `ctx.waitUntil`.
+3. **Leave it.** One call an hour is bounded; the exposure is that the bound is
+   set by traffic, not by us.
 
 **Route 10 — `/revenue`** is half-done by the inherited §3a commit. Its
 `revenue_snapshot_prev` write is already moved to a canonical 08:00 daily writer,
