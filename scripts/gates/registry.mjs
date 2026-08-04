@@ -49,7 +49,11 @@ export const GATES = [
     id: 'no-editorial-chips',
     name: 'No engine-emitted state strings as chips (discipline rule #6)',
     command: 'npm run --silent lint:no-editorial-chips',
-    covers: "Forbids `phase: 'TIGHTENING'|'STABLE'|… ` reaching app/components — the locked brand principle that data speaks, not editorial labels.",
+    covers:
+      "Forbids engine-emitted state strings reaching app/components — the locked brand principle that " +
+      "data speaks, not editorial labels. Phase 52 widened the pattern: it previously matched only a " +
+      "property literally named `phase`, which was the shape Phase 12.9.1 removed, and could not see a " +
+      "state string rendered directly as JSX.",
     where: 'local + CI',
     expect: 'green',
     injections: [{

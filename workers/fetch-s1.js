@@ -10177,7 +10177,36 @@ export default {
     // Write s3 first, then merge euribor in a second write if both succeed
     if (s3Result.status === 'fulfilled') {
       const d = s3Result.value;
-      await env.KKME_SIGNALS.put('s3', JSON.stringify(d));
+      // ── Phase 52 — a failing direct scrape must not destroy a good relay value ──
+      //
+      // Found by verifying B-072 rather than assuming it: the VPS relay wrote
+      // `lithium_eur_t: 17974` at 10:51:19Z, and this cron overwrote it with an
+      // `unavailable` payload at 12:00:20Z. The worker's own scrape still hangs
+      // on tradingeconomics.com — that is the whole reason the relay exists — so
+      // every 4-hourly tick was undoing the fix and resetting the freshness
+      // clock while doing it (playbook §5, B12).
+      //
+      // The relay endpoint already refuses to write a page it cannot parse. This
+      // path did not, because before the relay there was nothing better to keep:
+      // 39.2 deliberately wrote the failure so the card kept its editorial
+      // fallback. Now there IS something better, and preserving it is the point.
+      //
+      // A failure is still WRITTEN when there is no good value to protect, so a
+      // cold start still surfaces the outage rather than looking empty.
+      let skipS3Write = false;
+      if (d.unavailable) {
+        try {
+          const prev = JSON.parse(await env.KKME_SIGNALS.get('s3') || 'null');
+          if (prev && !prev.unavailable && prev.lithium_eur_t != null) {
+            skipS3Write = true;
+            console.warn(`[S3] direct scrape failed (${d._scrape_error}) — KEEPING the existing good value `
+              + `(lithium €${prev.lithium_eur_t}/t via ${prev.scrape_transport ?? 'unknown'}, stamped ${prev.timestamp}).`);
+          }
+        } catch { /* unreadable previous value — fall through and write */ }
+      }
+      if (!skipS3Write) {
+        await env.KKME_SIGNALS.put('s3', JSON.stringify(d));
+      }
       await env.KKME_SIGNALS.put(`raw:s3:${new Date().toISOString().slice(0,10)}`, JSON.stringify({ fetched: new Date().toISOString(), data: d }), { expirationTtl: 604800 });
       if (d.unavailable) {
         // Phase 39.2 — this branch has always existed and has never told anyone.
