@@ -46,11 +46,53 @@ TARGETS=$(
   }
 )
 
+# ── Phase 51 / B15 ───────────────────────────────────────────────────────────
+#
+# Two ways this gate used to report clean without having looked:
+#
+#   1. `[ -z "$TARGETS" ] && exit 0` — an empty file list is "no violations
+#      found", which is true and useless. If the tree this gate exists to guard
+#      has vanished, that is UNRUNNABLE, not clean.
+#   2. `xargs grep … 2>/dev/null || true` — every error, including grep's exit 2
+#      and xargs' own failures, became an empty HITS and therefore a pass.
+#
+# Plus no positive control: nothing on any run showed the pattern could match a
+# violation that was really there.
+. "$(dirname "$0")/lib/scan.sh"
+
 if [ -z "$TARGETS" ]; then
-  exit 0
+  echo "GATE UNRUNNABLE — no files matched this gate's scope. It guarded nothing."
+  echo "Refusing to report a pass from a check that did not execute (B14/B15)."
+  exit 2
 fi
 
-HITS=$(echo "$TARGETS" | xargs grep -EnH "$PATTERN" 2>/dev/null || true)
+# The control: a file carrying a violation the PATTERN must match, proven on
+# this run against this pattern, before any clean result is believed.
+CTL=$(mktemp "${TMPDIR:-/tmp}/spacingctl.XXXXXXXX.tsx")
+printf 'const x = <div style={{ padding: 16 }} />;\n' > "$CTL"
+if ! grep -a -EnH "$PATTERN" "$CTL" >/dev/null 2>&1; then
+  rm -f "$CTL"
+  echo "GATE INVALID — the positive control did not match the gate's own pattern."
+  echo "The pattern has drifted and this gate is no longer looking for anything."
+  exit 2
+fi
+rm -f "$CTL"
+
+# `xargs` reports 123 for "a command exited non-zero", which for grep is the
+# ordinary no-match case — so its exit status cannot separate error from clean.
+# grep's ERRORS go to stderr, and that can. Captured rather than discarded,
+# which is what `2>/dev/null` was doing.
+SPACING_ERR=$(mktemp "${TMPDIR:-/tmp}/spacingerr.XXXXXXXX")
+set +e
+HITS=$(echo "$TARGETS" | xargs grep -a -EnH "$PATTERN" 2>"$SPACING_ERR")
+set -e
+if [ -s "$SPACING_ERR" ]; then
+  echo "GATE UNRUNNABLE — the scan wrote to stderr, so it did not complete cleanly:"
+  head -5 "$SPACING_ERR" | sed 's/^/    /'
+  rm -f "$SPACING_ERR"
+  exit 2
+fi
+rm -f "$SPACING_ERR"
 
 if [ -n "$HITS" ]; then
   echo "lint:no-raw-spacing — raw on-scale px in padding/margin/gap (incl. per-side variants); use var(--space-*)"

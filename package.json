@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "lint:no-editorial-chips": "! grep -rEn \"phase: '(TIGHTENING|WIDENING|STABLE|RISING|FALLING|STEADY|ELEVATED|HIGH|LOW|COMPRESSED|OPEN)'\" app/components --include='*.tsx' | grep -v __tests__",
+    "lint:no-editorial-chips": "bash scripts/lint-no-editorial-chips.sh",
     "lint:no-raw-spacing": "bash scripts/lint-no-raw-spacing.sh",
     "lint:manifest-single-writer": "bash scripts/lint-manifest-single-writer.sh",
     "gate:units": "node scripts/gates/units-gate.mjs",
