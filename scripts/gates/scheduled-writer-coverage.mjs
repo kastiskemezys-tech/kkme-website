@@ -61,6 +61,7 @@ const EXEMPT = {
   feed_index: 'event-driven on /curate and /feed writes',
   cert_watch: 'a tripwire whose whole job is to notice; alerted directly',
   's2_fleet': 'pushed by the VPS sync, not written by a worker cron',
+  cron_failures: 'a bounded diagnostic log of cron rejections, not a current-value signal — its staleness means no cron has failed, which is the good state',
 };
 
 /** The scheduled handler's body — everything a cron can write. */
@@ -99,8 +100,28 @@ for (const m of body.matchAll(/KKME_SIGNALS\.put\(\s*"([^"]+)"/g)) written.add(m
 for (const m of body.matchAll(/admitSignalWrite\(\s*env\s*,\s*'([^']+)'/g)) written.add(m[1]);
 for (const m of body.matchAll(/admitSignalWrite\(\s*env\s*,\s*"([^"]+)"/g)) written.add(m[1]);
 // Helpers the cron calls that write a fixed key of their own.
-for (const [helper, key] of [['updateHistory', 's1_history'], ['persistCapacityWatch', 's2_capacity_watch']]) {
-  if (new RegExp(`\\b${helper}\\(`).test(body) && new RegExp(`KKME_SIGNALS\\.put\\('${key}'`).test(SRC)) written.add(key);
+// Helpers the cron calls that write a fixed key of their own.
+//
+// The second condition used to require a LITERAL `put('key'` in the source,
+// which a helper writing via a named constant defeats — `recordCronFailure`
+// writes `KKME_SIGNALS.put(CRON_FAILURE_KEY, …)` and was invisible. Same
+// brittleness as the call-shape problem above, one layer down. It now asks
+// whether the helper writes AT ALL and trusts the declared key mapping, which is
+// what the mapping is for.
+for (const [helper, key] of [
+  ['updateHistory', 's1_history'],
+  ['persistCapacityWatch', 's2_capacity_watch'],
+  ['recordCronFailure', 'cron_failures'],
+]) {
+  if (!new RegExp(`\\b${helper}\\(`).test(body)) continue;
+  const hi = SRC.search(new RegExp(`(async )?function ${helper}\\(`));
+  if (hi < 0) continue;
+  let depth = 0, started = false, he = hi;
+  for (let j = hi; j < SRC.length; j++) {
+    if (SRC[j] === '{') { depth++; started = true; }
+    else if (SRC[j] === '}') { depth--; if (started && depth === 0) { he = j; break; } }
+  }
+  if (/KKME_SIGNALS\.put\(/.test(SRC.slice(hi, he))) written.add(key);
 }
 
 // A floor on what this scanner must SEE, so "found nothing wrong" can never
