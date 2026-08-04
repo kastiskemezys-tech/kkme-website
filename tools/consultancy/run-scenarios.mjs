@@ -27,7 +27,7 @@ import { join } from 'node:path';
 import {
   loadConfigDir, loadEngine, runProject, PROJECTS_DIR, HERE, eur,
 } from './engine.mjs';
-import { writeRunOutput, kvVintage } from './lib/runs.mjs';
+import { writeRunOutput, kvVintage, repoRelative } from './lib/runs.mjs';
 import { getKV } from './kv-snapshot.mjs';
 import { buildBridge, COST_DEFAULTS } from './bridge.mjs';
 import { buildPortfolio, DEFAULT_WACC } from './portfolio.mjs';
@@ -299,7 +299,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       ...portfolio,
     }, {
       runner: 'scenario', subject: name,
-      inputs: { configs, drivers, wacc, source_dir: dir },
+      inputs: { configs, drivers, wacc, source_dir: repoRelative(dir) },
       data_vintage: kvVintage(meta),
     });
   }
@@ -323,7 +323,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     engine_version: 'v7.3',
     kv_source: meta.kv_source,
     kv_verified: meta.verified,
-    source_dir: dir,
+    source_dir: repoRelative(dir),
     wacc,
     order,
     drivers: Object.fromEntries(order.map((n) => [n, { ...CENTRAL_DRIVERS, ...scenarios.scenarios[n].drivers }])),
@@ -341,7 +341,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   };
   const { path } = writeRunOutput('scenario-summary.json', summary, {
     runner: 'scenario-summary', subject: 'prosperus-portfolio',
-    inputs: { configs, wacc, order, drivers: summary.drivers, source_dir: dir },
+    inputs: { configs, wacc, order, drivers: summary.drivers, source_dir: repoRelative(dir) },
     data_vintage: kvVintage(meta),
   });
 

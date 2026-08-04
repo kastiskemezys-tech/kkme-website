@@ -28,7 +28,7 @@
 
 import { join } from 'node:path';
 import { loadConfigDir, PROJECTS_DIR, eur } from './engine.mjs';
-import { writeRunOutput, kvVintage } from './lib/runs.mjs';
+import { writeRunOutput, kvVintage, repoRelative } from './lib/runs.mjs';
 import { getKV } from './kv-snapshot.mjs';
 import { DEFAULT_WACC } from './portfolio.mjs';
 import { DRIVERS, SENSITIVITY_DRIVER_IDS, CENTRAL_DRIVERS } from './scenario-overlay.mjs';
@@ -220,7 +220,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     engine_version: 'v7.3',
     kv_source: meta.kv_source,
     kv_verified: meta.verified,
-    source_dir: dir,
+    source_dir: repoRelative(dir),
     wacc,
     basis:
       'Portfolio consolidated EBITDA, one driver perturbed at a time from Central. Δ columns are ' +
@@ -241,7 +241,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   };
   const { path } = writeRunOutput('sensitivity.json', payload, {
     runner: 'sensitivity', subject: 'prosperus-portfolio',
-    inputs: { configs, wacc, source_dir: dir, drivers: rows.map((r) => r.driver) },
+    inputs: { configs, wacc, source_dir: repoRelative(dir), drivers: rows.map((r) => r.driver) },
     data_vintage: kvVintage(meta),
   });
 
