@@ -88,7 +88,11 @@ describe('generated output stays out of git', () => {
       'git', ['ls-files', 'tools/consultancy/__fixtures__/deliverable-inputs'],
       { encoding: 'utf8' },
     ).trim().split('\n').filter(Boolean);
-    expect(tracked.length).toBe(FIXTURE_FILES.length);
+    // The .json inputs plus the hash manifest, which lives INSIDE the directory
+    // so `git add <dir>` cannot stage the data and leave the manifest behind —
+    // it did exactly that once, and CI caught the mismatch.
+    expect(tracked.filter((f) => f.endsWith('.json')).length).toBe(FIXTURE_FILES.length);
+    expect(tracked.some((f) => f.endsWith('MANIFEST.sha256'))).toBe(true);
   });
 });
 

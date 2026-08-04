@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-04T07:38:44.437Z",
+  "generated_at": "2026-08-04T07:44:53.430Z",
   "scenario": "upside",
   "label": "Upside",
   "note": "Pipeline dropout is heavier than central, renewable-driven spread widening runs ahead of BESS smoothing, and post-synchronisation reserve scarcity lifts capacity clearing prices.",
@@ -1034,8 +1034,8 @@
   },
   "timeline_note": "Calendar-year timeline. Each project contributes from its own first operating year, so the span runs past 20 years when commissioning is staggered — truncating it would break portfolio = Σ projects. Per-project internals stay on operating years; operating year N of a project falls in calendar year first_operating_year + N − 1.",
   "run": {
-    "run_id": "scenario-ca3cef7a5170",
-    "engine_git_sha": "da652d9961a522b2450df1850e1da91d69738769-dirty",
+    "run_id": "scenario-dc72dfbf53da",
+    "engine_git_sha": "78d19f47b20a06330fb1d21e9bad1ab0523b0e12-dirty",
     "input_hash": "fd1fb1c0c38bf27c2c4ca232698e39bafcf4af092fa241d35263a8ef91c94eeb",
     "output_hash": "487cdcf28b3b76a73888da6c1e6a9ab78efc3de9c7cc9b46162a5e67dfbb2903",
     "register_version": "r5.8530095d",
@@ -1045,6 +1045,6 @@
       "captured_at": "2026-08-01T10:41:05.879Z",
       "verified": true
     },
-    "recorded_at": "2026-08-04T07:38:44.437Z"
+    "recorded_at": "2026-08-04T07:44:53.430Z"
   }
 }

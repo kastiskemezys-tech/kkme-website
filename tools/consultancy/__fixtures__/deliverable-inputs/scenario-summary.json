@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-04T07:38:44.444Z",
+  "generated_at": "2026-08-04T07:44:53.438Z",
   "engine_version": "v7.3",
   "kv_source": "live-public-routes",
   "kv_verified": true,
@@ -82,8 +82,8 @@
     "breaches": []
   },
   "run": {
-    "run_id": "scenario-summary-53c4305930d3",
-    "engine_git_sha": "da652d9961a522b2450df1850e1da91d69738769-dirty",
+    "run_id": "scenario-summary-ed892faf3189",
+    "engine_git_sha": "78d19f47b20a06330fb1d21e9bad1ab0523b0e12-dirty",
     "input_hash": "90385988155e2757293fa358c1a2eb52c6b8dd9417abee2e267e16e67967d371",
     "output_hash": "9f3f91ada812e213d84741aa6a06bf0b72814c77dd1ba58e87e9d1095f091e37",
     "register_version": "r5.8530095d",
@@ -93,6 +93,6 @@
       "captured_at": "2026-08-01T10:41:05.879Z",
       "verified": true
     },
-    "recorded_at": "2026-08-04T07:38:44.444Z"
+    "recorded_at": "2026-08-04T07:44:53.438Z"
   }
 }

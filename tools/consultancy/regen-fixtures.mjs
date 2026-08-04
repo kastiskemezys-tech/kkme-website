@@ -42,7 +42,17 @@ import { createHash } from 'node:crypto';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const FIXTURE_DIR = join(HERE, '__fixtures__/deliverable-inputs');
-export const MANIFEST_PATH = join(HERE, '__fixtures__/deliverable-inputs.sha256');
+/**
+ * INSIDE the fixture directory, deliberately.
+ *
+ * Phase 50: it used to be a SIBLING (`deliverable-inputs.sha256`), so
+ * `git add tools/consultancy/__fixtures__/deliverable-inputs/` staged the data
+ * and silently left the manifest behind. The fixture was regenerated and
+ * committed with a manifest describing the previous contents — caught by the
+ * hash check in CI, which is the check working, but the footgun should not have
+ * existed. Inside the directory the two cannot be staged apart.
+ */
+export const MANIFEST_PATH = join(HERE, '__fixtures__/deliverable-inputs/MANIFEST.sha256');
 const OUTPUT_DIR = join(HERE, 'output');
 
 /** The exact set `loadInputs()` reads out of an output directory. */

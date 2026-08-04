@@ -1,0 +1,14 @@
+# B-034 frozen deliverable-input fixture.
+# Regenerate with: npm run fixtures:regen
+# A test run that changes any of these hashes is a test writing its own
+# input, which is the B-043 trap. deliverableFixture.test.ts asserts it.
+0057e3be02c9098878f5ec59f547e54ed64e180089741447eed04863f6c68d59  bitenai.json
+fae08a945a568bcd288a1d5ee580572ef5af9becad728fa1bf0271c2e9087d6b  eigirdziai.json
+3b1ff8ef94d6a8663777fea68a17d6f5519e0f99ee3bdb65fd060993ea26677d  portfolio.json
+0d30046b6a2e01f002ff1cae35a95d8aec9744c0cd5f70d37986ddc5acde58fb  reconciliation-report.json
+4a15cc4358a77512ad06feda2793c1e9a2b78803455c5b5c814b1b3d997cbb6b  scenario-central.json
+99d1f9c952c098ba31d71e0f30e949e1139361e443c250713f6f78f0e200e8b7  scenario-downside.json
+5630981c622f787f120854ade1c9978e277cbce8faee6fbbe977df5cf534abe8  scenario-summary.json
+45ecc65f9547ba50079b388cff454af9e5881dd3cd620004825a49d56713bc15  scenario-upside.json
+c82e7e5571a063629083b31e4ec9283f97e8691cc33b53c7c767d2f297d87b18  sensitivity.json
+580ec457d6c6c1be7f6118483734d6a708e863a6dbe47b4b741990aa3815d15f  stoniskiai.json

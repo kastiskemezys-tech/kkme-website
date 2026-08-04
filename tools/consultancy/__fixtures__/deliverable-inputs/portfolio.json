@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-04T07:38:44.168Z",
+  "generated_at": "2026-08-04T07:44:53.199Z",
   "engine_version": "v7.3",
   "kv_source": "live-public-routes",
   "kv_captured_at": "2026-08-01T10:41:05.879Z",
@@ -1023,8 +1023,8 @@
   },
   "timeline_note": "Calendar-year timeline. Each project contributes from its own first operating year, so the span runs past 20 years when commissioning is staggered — truncating it would break portfolio = Σ projects. Per-project internals stay on operating years; operating year N of a project falls in calendar year first_operating_year + N − 1.",
   "run": {
-    "run_id": "portfolio-aaa46437669f",
-    "engine_git_sha": "da652d9961a522b2450df1850e1da91d69738769-dirty",
+    "run_id": "portfolio-babbe8bdcef5",
+    "engine_git_sha": "78d19f47b20a06330fb1d21e9bad1ab0523b0e12-dirty",
     "input_hash": "ca7889437dcdf9c48e5e6d2ff43bb3cbda259e4039a19244610b090ba5346e93",
     "output_hash": "9ab7246d9257390cd009cc7a45923d61b4cf1e0016711641e782d6f91e4fe6a7",
     "register_version": "r5.8530095d",
@@ -1034,6 +1034,6 @@
       "captured_at": "2026-08-01T10:41:05.879Z",
       "verified": true
     },
-    "recorded_at": "2026-08-04T07:38:44.169Z"
+    "recorded_at": "2026-08-04T07:44:53.200Z"
   }
 }
