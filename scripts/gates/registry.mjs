@@ -56,12 +56,34 @@ export const GATES = [
       "state string rendered directly as JSX.",
     where: 'local + CI',
     expect: 'green',
-    injections: [{
-      label: 're-introduce an editorial chip in a real component',
-      kind: 'write',
-      file: 'app/components/_GateSelftestProbe.tsx',
-      content: "export const probe = { phase: 'TIGHTENING' };\n",
-    }],
+    // TWO injections, because the gate had exactly one blind spot and one
+    // injection cannot prove it closed.
+    //
+    // What went wrong: the pattern matched a property named `phase` — the shape
+    // Phase 12.9.1 removed — and its only injection used that same shape. So the
+    // proof and the gate shared an assumption, and a state string rendered
+    // straight into JSX was invisible to both. `S5Card.tsx:153` carried
+    // `{data.signal ?? 'OPEN'}` as a card hero from 2026-02-27 (two months
+    // BEFORE rule #6 existed) until Phase 52 deleted it as dead code.
+    //
+    // The second injection reproduces that exact deleted shape, so the widening
+    // is proven against the case it was widened for rather than asserted.
+    injections: [
+      {
+        label: 're-introduce an editorial chip as a property — the 12.9.1 shape',
+        kind: 'write',
+        file: 'app/components/_GateSelftestProbe.tsx',
+        content: "export const probe = { phase: 'TIGHTENING' };\n",
+      },
+      {
+        label: 're-introduce the S5Card shape — a state string rendered straight into JSX',
+        kind: 'write',
+        file: 'app/components/_GateSelftestProbeJsx.tsx',
+        content:
+          'export const Probe = ({ data }: { data: { signal?: string } }) =>\n'
+          + "  <span>{data.signal ?? 'OPEN'}</span>;\n",
+      },
+    ],
   },
 
   {

@@ -5156,6 +5156,60 @@ function slotHourUtc(day, idx) {
 }
 
 /**
+ * ─── The admission rule: a failure payload never beats a good value ──────────
+ *
+ * Phase 52. Generalised from a defect this session shipped and then caught: the
+ * VPS relay wrote `lithium €17,974/t` at 10:51:19Z and the 4-hourly cron
+ * overwrote it with `unavailable: true, AbortError` at 12:00:20Z, because the
+ * worker's own scrape still hangs. Every tick undid the fix and reset the
+ * freshness clock doing it.
+ *
+ * The rule, applied in ONE place so it cannot be half-applied:
+ *
+ *   **A writer that produces a failure payload loses to an existing good value,
+ *   and never resets a freshness clock.**
+ *
+ * "Never resets a freshness clock" is the half that is easy to miss. Keeping the
+ * old value means its `timestamp` keeps ageing, so `/health` will flag it stale
+ * on schedule. That is correct and deliberate: we preserve the DATA without
+ * pretending it is FRESH. Writing the failure would have done the opposite —
+ * destroyed the data and reported it as current (B12, and playbook §5).
+ *
+ * A failure IS written when there is nothing better to protect, so a cold start
+ * still surfaces the outage rather than looking empty.
+ */
+function isDegradedPayload(data) {
+  if (!data || typeof data !== 'object') return false;
+  return data.unavailable === true || Boolean(data._scrape_error);
+}
+
+/**
+ * Write `next` to `key` unless it is a failure and the stored value is not.
+ *
+ * @returns {Promise<{written: boolean, kept: boolean, reason: string}>}
+ */
+async function admitSignalWrite(env, key, next, label = key) {
+  if (!isDegradedPayload(next)) {
+    await env.KKME_SIGNALS.put(key, JSON.stringify(next));
+    return { written: true, kept: false, reason: 'healthy' };
+  }
+  let prev = null;
+  try {
+    prev = JSON.parse(await env.KKME_SIGNALS.get(key) || 'null');
+  } catch {
+    prev = null;   // unreadable stored value protects nothing
+  }
+  if (prev && !isDegradedPayload(prev)) {
+    console.warn(`[${label}] refusing to overwrite a good value with a failure payload `
+      + `(${String(next._scrape_error ?? 'unavailable').slice(0, 120)}). `
+      + `Kept the value stamped ${prev.timestamp ?? prev.updated_at ?? 'unknown'}; its freshness clock keeps running.`);
+    return { written: false, kept: true, reason: 'good_value_protected' };
+  }
+  await env.KKME_SIGNALS.put(key, JSON.stringify(next));
+  return { written: true, kept: false, reason: prev ? 'previous_also_degraded' : 'no_previous_value' };
+}
+
+/**
  * ─── B-075: two bidding zones need a common clock, not a common index ────────
  *
  * `computeHistorical` paired LT against SE4 with `lt30[i] - se430[i]` over flat
@@ -9907,7 +9961,7 @@ export default {
       try {
         const actPayload = await withTimeout(computeS2Activation(), 60000);
         if (actPayload) {
-          await env.KKME_SIGNALS.put('s2_activation', JSON.stringify(actPayload));
+          await admitSignalWrite(env, 's2_activation', actPayload);
           console.log(`[S2/activation] updated: period=${actPayload.period}, lt_afrr_3m_p50=${actPayload.countries?.Lithuania?.afrr_recent_3m?.avg_p50}`);
         } else {
           console.log('[S2/activation] BTD unavailable — keeping cached data');
@@ -9952,7 +10006,7 @@ export default {
 
       if (s8Res.status === 'fulfilled') {
         const d = s8Res.value;
-        await env.KKME_SIGNALS.put('s8', JSON.stringify(d));
+        await admitSignalWrite(env, 's8', d);
         console.log(`[S8/hourly] ${d.signal} nordbalt=${d.nordbalt_avg_mw}MW litpol=${d.litpol_avg_mw}MW`);
       } else {
         console.error('[S8/hourly] failed:', s8Res.reason);
@@ -9961,9 +10015,9 @@ export default {
       if (genRes.status === 'fulfilled') {
         const { wind, solar, load } = genRes.value;
         await Promise.all([
-          env.KKME_SIGNALS.put('s_wind', JSON.stringify(wind)),
-          env.KKME_SIGNALS.put('s_solar', JSON.stringify(solar)),
-          env.KKME_SIGNALS.put('s_load', JSON.stringify(load)),
+          admitSignalWrite(env, 's_wind', wind),
+          admitSignalWrite(env, 's_solar', solar),
+          admitSignalWrite(env, 's_load', load),
         ]);
         console.log(`[Gen/hourly] wind=${wind.baltic_mw}MW solar=${solar.baltic_mw}MW load=${load.baltic_mw}MW`);
       } else {
@@ -9972,7 +10026,7 @@ export default {
 
       if (genloadRes.status === 'fulfilled') {
         const d = genloadRes.value;
-        await env.KKME_SIGNALS.put('genload', JSON.stringify(d));
+        await admitSignalWrite(env, 'genload', d);
         console.log(`[Genload/hourly] lt=${d.lt?.generation_mw}/${d.lt?.load_mw} lv=${d.lv?.generation_mw}/${d.lv?.load_mw} ee=${d.ee?.generation_mw}/${d.ee?.load_mw}`);
       } else {
         console.error('[Genload/hourly] failed:', genloadRes.reason);
@@ -10079,7 +10133,7 @@ export default {
           data_class: 'derived',
         };
       }
-      await env.KKME_SIGNALS.put('s1', JSON.stringify(d));
+      await admitSignalWrite(env, 's1', d);
       await env.KKME_SIGNALS.put(`raw:s1:${new Date().toISOString().slice(0,10)}`, JSON.stringify({ fetched: new Date().toISOString(), data: d }), { expirationTtl: 604800 });
       console.log(`[S1] ${d.state} spread=${d.spread_eur_mwh}€/MWh swing=${d.lt_daily_swing_eur_mwh}€/MWh sep=${d.separation_pct}% rsi_30d=${d.rsi_30d}`);
 
@@ -10098,9 +10152,13 @@ export default {
       // broken dependency entirely.
       if (d.da_tomorrow?.prices_24h?.length) {
         const daBody = JSON.stringify({ ...d.da_tomorrow, timestamp: new Date().toISOString(), source: 'entsoe-a44' });
+        // `daBody` is already a JSON string; the admission rule reasons about the
+        // OBJECT, so it is parsed once here rather than the rule being taught to
+        // accept both shapes. One input type, one code path.
+        const daObj = JSON.parse(daBody);
         await Promise.all([
-          env.KKME_SIGNALS.put('da_tomorrow', daBody),
-          env.KKME_SIGNALS.put('da_tomorrow:lastgood', daBody),
+          admitSignalWrite(env, 'da_tomorrow', daObj),
+          admitSignalWrite(env, 'da_tomorrow:lastgood', daObj),
         ]);
         console.log(`[S1/tomorrow] mirrored to da_tomorrow KV — ${d.da_tomorrow.slots} slots @ ${d.da_tomorrow.resolution}, delivery ${d.da_tomorrow.delivery_date}`);
       }
@@ -10143,7 +10201,7 @@ export default {
 
     if (s4Result.status === 'fulfilled') {
       const d = s4Result.value;
-      await env.KKME_SIGNALS.put('s4', JSON.stringify(d));
+      await admitSignalWrite(env, 's4', d);
       console.log(`[S4] ${d.signal} free=${d.free_mw}MW utilisation=${d.utilisation_pct}%`);
       await appendSignalHistory(env, 's4', { free_mw: d.free_mw }).catch(e => console.error('[S4/history]', e));
       await alertTransition(env, 's4_cron', 'ok', `S4 wrote free=${d.free_mw}MW`).catch(() => {});
@@ -10193,20 +10251,7 @@ export default {
       //
       // A failure is still WRITTEN when there is no good value to protect, so a
       // cold start still surfaces the outage rather than looking empty.
-      let skipS3Write = false;
-      if (d.unavailable) {
-        try {
-          const prev = JSON.parse(await env.KKME_SIGNALS.get('s3') || 'null');
-          if (prev && !prev.unavailable && prev.lithium_eur_t != null) {
-            skipS3Write = true;
-            console.warn(`[S3] direct scrape failed (${d._scrape_error}) — KEEPING the existing good value `
-              + `(lithium €${prev.lithium_eur_t}/t via ${prev.scrape_transport ?? 'unknown'}, stamped ${prev.timestamp}).`);
-          }
-        } catch { /* unreadable previous value — fall through and write */ }
-      }
-      if (!skipS3Write) {
-        await env.KKME_SIGNALS.put('s3', JSON.stringify(d));
-      }
+      await admitSignalWrite(env, 's3', d, 'S3');
       await env.KKME_SIGNALS.put(`raw:s3:${new Date().toISOString().slice(0,10)}`, JSON.stringify({ fetched: new Date().toISOString(), data: d }), { expirationTtl: 604800 });
       if (d.unavailable) {
         // Phase 39.2 — this branch has always existed and has never told anyone.
@@ -10234,7 +10279,7 @@ export default {
 
     if (eurResult.status === 'fulfilled') {
       const eur = eurResult.value;
-      await env.KKME_SIGNALS.put('euribor', JSON.stringify(eur));
+      await admitSignalWrite(env, 'euribor', eur);
       console.log(`[Euribor] ${eur.euribor_3m}% trend=${eur.euribor_trend}`);
       // Track euribor freshness
       await updateS3Freshness(env.KKME_SIGNALS, 'ecb_euribor').catch(() => {});
@@ -10242,7 +10287,7 @@ export default {
       // Merge euribor into s3 KV if s3 also succeeded
       if (s3Result.status === 'fulfilled') {
         const merged = { ...s3Result.value, euribor_3m: eur.euribor_3m, euribor_trend: eur.euribor_trend };
-        await env.KKME_SIGNALS.put('s3', JSON.stringify(merged));
+        await admitSignalWrite(env, 's3', merged);
         await appendSignalHistory(env, 's3', { equip_eur_kwh: merged.europe_system_eur_kwh }).catch(e => console.error('[S3/history]', e));
       }
     } else {
@@ -10252,7 +10297,7 @@ export default {
     // S5 — DC Power Viability (reads fresh S4 from KV + DC news RSS)
     const s5Data = await computeS5(env).catch(e => { console.error('[S5] cron:', String(e)); return null; });
     if (s5Data) {
-      await env.KKME_SIGNALS.put('s5', JSON.stringify(s5Data));
+      await admitSignalWrite(env, 's5', s5Data);
       console.log(`[S5] ${s5Data.signal} free=${s5Data.grid_free_mw}MW news=${s5Data.news_items.length}`);
     }
 
@@ -10268,7 +10313,7 @@ export default {
 
     if (s6Res.status === 'fulfilled') {
       const d = s6Res.value;
-      await env.KKME_SIGNALS.put('s6', JSON.stringify(d));
+      await admitSignalWrite(env, 's6', d);
       console.log(`[S6] ${d.signal} fill=${d.fill_pct}% dev=${d.deviation_pp}pp week=${d.week}`);
       await appendSignalHistory(env, 's6', { fill_pct: d.fill_pct, deviation_pp: d.deviation_pp }).catch(e => console.error('[S6/history]', e));
     } else {
@@ -10277,7 +10322,7 @@ export default {
 
     if (s7Res.status === 'fulfilled') {
       const d = s7Res.value;
-      await env.KKME_SIGNALS.put('s7', JSON.stringify(d));
+      await admitSignalWrite(env, 's7', d);
       await env.KKME_SIGNALS.put(`raw:s7:${new Date().toISOString().slice(0,10)}`, JSON.stringify({ fetched: new Date().toISOString(), data: d }), { expirationTtl: 604800 });
       console.log(`[S7] ${d.signal} ttf=${d.ttf_eur_mwh}€/MWh trend=${d.ttf_trend}`);
       await appendSignalHistory(env, 's7', { ttf_eur_mwh: d.ttf_eur_mwh }).catch(e => console.error('[S7/history]', e));
@@ -10287,7 +10332,7 @@ export default {
 
     if (s8Res.status === 'fulfilled') {
       const d = s8Res.value;
-      await env.KKME_SIGNALS.put('s8', JSON.stringify(d));
+      await admitSignalWrite(env, 's8', d);
       console.log(`[S8] ${d.signal} nordbalt=${d.nordbalt_avg_mw}MW litpol=${d.litpol_avg_mw}MW`);
     } else {
       console.error('[S8] cron failed:', s8Res.reason);
@@ -10295,7 +10340,7 @@ export default {
 
     if (s9Res.status === 'fulfilled') {
       const d = s9Res.value;
-      await env.KKME_SIGNALS.put('s9', JSON.stringify(d));
+      await admitSignalWrite(env, 's9', d);
       console.log(`[S9] ${d.signal} eua=${d.eua_eur_t}€/t trend=${d.eua_trend}`);
       await appendSignalHistory(env, 's9', { eua_eur_t: d.eua_eur_t }).catch(e => console.error('[S9/history]', e));
     } else {
@@ -10306,9 +10351,9 @@ export default {
     if (genRes.status === 'fulfilled') {
       const { wind, solar, load } = genRes.value;
       await Promise.all([
-        env.KKME_SIGNALS.put('s_wind', JSON.stringify(wind)),
-        env.KKME_SIGNALS.put('s_solar', JSON.stringify(solar)),
-        env.KKME_SIGNALS.put('s_load', JSON.stringify(load)),
+        admitSignalWrite(env, 's_wind', wind),
+        admitSignalWrite(env, 's_solar', solar),
+        admitSignalWrite(env, 's_load', load),
       ]);
       console.log(`[Gen] wind=${wind.baltic_mw}MW solar=${solar.baltic_mw}MW load=${load.baltic_mw}MW [${wind.coverage_countries}]`);
     } else {
@@ -10318,7 +10363,7 @@ export default {
     // Genload (ENTSO-E A75+A65 per Baltic country)
     if (genloadRes.status === 'fulfilled') {
       const d = genloadRes.value;
-      await env.KKME_SIGNALS.put('genload', JSON.stringify(d));
+      await admitSignalWrite(env, 'genload', d);
       console.log(`[Genload] lt=${d.lt?.generation_mw}/${d.lt?.load_mw} lv=${d.lv?.generation_mw}/${d.lv?.load_mw} ee=${d.ee?.generation_mw}/${d.ee?.load_mw}`);
     } else {
       console.error('[Genload] cron failed:', genloadRes.reason);
@@ -13598,7 +13643,7 @@ export default {
           // The key still gets written (the card keeps its last good editorial
           // content); it simply stops counting as fresh while it is self-
           // reporting failure.
-          const degraded = data.unavailable === true || Boolean(data._scrape_error);
+          const degraded = isDegradedPayload(data);
           signals[key] = {
             status:          'present',
             age_hours:       ageH !== null ? parseFloat(ageH.toFixed(1)) : null,
@@ -14231,6 +14276,11 @@ export {
   // Phase 49 item 1 — market-day admission and its wall-clock hour labels.
   marketDayAt,
   slotHourUtc,
+  // Phase 52 — the admission rule, and the ONE definition of "degraded" that it
+  // and /health both read (rule #4). Exported so the rule is tested by driving
+  // it against a KV double rather than by restating its branches.
+  isDegradedPayload,
+  admitSignalWrite,
   s1DayParseMode,
   // B-072 — exported so the relay path is tested by running the REAL payload
   // builder with injected bytes, rather than a test restating its branches.

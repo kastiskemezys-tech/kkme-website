@@ -81,12 +81,37 @@ const body = scheduledBody(SRC);
 // Literal keys only. A templated key (`raw:s3:${date}`, `dispatch:${d}:2h`) is a
 // per-day archive rather than a monitored current-value key, and reporting it as
 // unmonitored would be noise that trains the reader to ignore the table.
+// Two write forms, because Phase 52 introduced a second one and this gate did
+// not know about it. The admission rule replaced every direct
+// `KKME_SIGNALS.put('key', …)` in scheduled() with
+// `admitSignalWrite(env, 'key', …)`, and this scanner — which only knew the
+// first form — went from seeing 17 writers to seeing 1. It reported
+// "0 with NEITHER" and passed, because a gate that sees nothing finds nothing
+// wrong. Caught only by `gates:selftest`, whose injection stopped going red.
+//
+// The lesson is in the gate, not just the fix: a scanner keyed to a CALL SHAPE
+// silently narrows the moment the code adopts a new one, and its green is
+// indistinguishable from real coverage. The count assertion below is what makes
+// that visible next time.
 const written = new Set();
 for (const m of body.matchAll(/KKME_SIGNALS\.put\(\s*'([^']+)'/g)) written.add(m[1]);
 for (const m of body.matchAll(/KKME_SIGNALS\.put\(\s*"([^"]+)"/g)) written.add(m[1]);
+for (const m of body.matchAll(/admitSignalWrite\(\s*env\s*,\s*'([^']+)'/g)) written.add(m[1]);
+for (const m of body.matchAll(/admitSignalWrite\(\s*env\s*,\s*"([^"]+)"/g)) written.add(m[1]);
 // Helpers the cron calls that write a fixed key of their own.
 for (const [helper, key] of [['updateHistory', 's1_history'], ['persistCapacityWatch', 's2_capacity_watch']]) {
   if (new RegExp(`\\b${helper}\\(`).test(body) && new RegExp(`KKME_SIGNALS\\.put\\('${key}'`).test(SRC)) written.add(key);
+}
+
+// A floor on what this scanner must SEE, so "found nothing wrong" can never
+// again mean "found nothing". If a refactor moves the writes to a third call
+// shape, this trips instead of the gate quietly passing.
+const MIN_EXPECTED_WRITERS = 12;
+if (written.size < MIN_EXPECTED_WRITERS) {
+  console.error(`GATE UNRUNNABLE — found only ${written.size} scheduled writers, expected at least ` +
+    `${MIN_EXPECTED_WRITERS}. The scanner has lost sight of the writes rather than the writes having gone.`);
+  console.error('Check whether scheduled() adopted a new write form this scanner does not match.');
+  process.exit(2);
 }
 
 const rows = [...written].sort().map((key) => {
