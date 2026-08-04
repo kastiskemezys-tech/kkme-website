@@ -13175,7 +13175,14 @@ export default {
             return;
           }
           const data      = JSON.parse(raw);
-          const ts        = data.timestamp ?? data._meta?.written_at ?? data.updated_at;
+          // Phase 49 follow-up. Adding a threshold is not the same as making a
+          // key measurable: `genload` stamps `fetched_at` and `s2_activation`
+          // stamps `stored_at`, so both reported `age_hours: null` the moment
+          // they were monitored — present-looking and unaged, which is exactly
+          // the shape that let `s2_daily_clearing` sit nine days behind (Phase
+          // 50). The stamp exists in both; only the NAME was outside this chain.
+          const ts        = data.timestamp ?? data._meta?.written_at ?? data.updated_at
+                          ?? data.fetched_at ?? data.stored_at;
           const ageH      = ts ? (Date.now() - new Date(ts).getTime()) / 3600000 : null;
           const threshold = STALE_THRESHOLDS_HOURS[key] ?? 48;
           const stale     = ageH !== null ? ageH > threshold : null;

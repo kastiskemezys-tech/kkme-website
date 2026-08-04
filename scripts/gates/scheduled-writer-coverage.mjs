@@ -19,9 +19,17 @@
  * `scheduledWriterCoverage.test.ts` against the real /health computation. Stated
  * because a gate that overstates its reach is worse than none (B13).
  *
+ * `--live` closes the gap the static half cannot: it reads production `/health`
+ * and fails on any key that HAS a declared threshold but reports
+ * `age_hours: null`. A threshold on a key whose stamp the resolver cannot find
+ * is declared and inert — which is how this phase shipped `genload` (stamps
+ * `fetched_at`) and `s2_activation` (stamps `stored_at`) as "monitored" while
+ * neither could ever age. Opt-in, so CI does not depend on the network.
+ *
  * Usage:
  *   node scripts/gates/scheduled-writer-coverage.mjs            # table + exit 1 on uncovered
  *   node scripts/gates/scheduled-writer-coverage.mjs --json     # machine-readable
+ *   node scripts/gates/scheduled-writer-coverage.mjs --live     # + assert each threshold can trip
  */
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
@@ -122,9 +130,43 @@ if (process.argv.includes('--json')) {
   }
 }
 
-if (uncovered.length) {
-  console.error(`\nFAIL — ${uncovered.length} scheduled writer(s) with neither a staleness threshold nor a written exemption:`);
-  for (const r of uncovered) console.error(`  · ${r.key}`);
-  console.error('Add a threshold to STALE_THRESHOLDS_HOURS, or an exemption with its reason to EXEMPT.');
+let liveFailures = [];
+if (process.argv.includes('--live')) {
+  const WORKER = 'https://kkme-fetch-s1.kastis-kemezys.workers.dev';
+  let health;
+  try {
+    const res = await fetch(`${WORKER}/health`, { signal: AbortSignal.timeout(25000) });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    health = await res.json();
+  } catch (e) {
+    // UNRUNNABLE, never a pass. A check that could not execute has proven
+    // nothing, and reporting it as green is the failure this repo keeps paying
+    // for (B14).
+    console.error(`\nUNRUNNABLE — /health could not be read (${e}). No claim is made about live measurability.`);
+    process.exit(2);
+  }
+  const signals = health.signals ?? {};
+  for (const [key, threshold] of Object.entries(STALE_THRESHOLDS_HOURS)) {
+    const row = signals[key];
+    if (!row || row.status !== 'present') continue;   // missing is its own signal
+    if (row.age_hours == null) {
+      liveFailures.push({ key, threshold, detail: 'declared threshold but /health cannot age it — no stamp the resolver recognises' });
+    }
+  }
+  console.log(`\nlive: ${Object.keys(STALE_THRESHOLDS_HOURS).length} declared thresholds · ` +
+    `${liveFailures.length} that cannot trip`);
+  for (const f of liveFailures) console.log(`  · ${f.key} (${f.threshold}h) — ${f.detail}`);
+}
+
+if (uncovered.length || liveFailures.length) {
+  if (uncovered.length) {
+    console.error(`\nFAIL — ${uncovered.length} scheduled writer(s) with neither a staleness threshold nor a written exemption:`);
+    for (const r of uncovered) console.error(`  · ${r.key}`);
+    console.error('Add a threshold to STALE_THRESHOLDS_HOURS, or an exemption with its reason to EXEMPT.');
+  }
+  if (liveFailures.length) {
+    console.error(`\nFAIL — ${liveFailures.length} declared threshold(s) that cannot trip. A threshold nothing can`);
+    console.error('trip is not monitoring. Add the payload\'s stamp field to the /health resolver chain.');
+  }
   process.exit(1);
 }
