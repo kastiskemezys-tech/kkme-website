@@ -142,8 +142,15 @@ describe('item 4 · S3 stops taking a healthy source down with it', () => {
     // Observed live 2026-08-04T08:00:20Z: `/s3` carried no `fx_rates` at all
     // because the TE abort rejected a Promise.all that Frankfurter had already
     // answered. One dead host, two dead signals.
-    const i = WORKER.indexOf('async function computeS3()');
+    // Anchored on the declaration keyword, not the parameter list: Phase 51
+    // added `opts` for the B-072 relay and the old `computeS3()` anchor silently
+    // matched nothing, so `slice` returned '' and the assertions were checking an
+    // empty string. A test that can be defeated by a signature change was
+    // verifying its own anchor, not the code.
+    const i = WORKER.indexOf('async function computeS3(');
+    expect(i, 'computeS3 declaration found').toBeGreaterThan(0);
     const body = WORKER.slice(i, WORKER.indexOf('\n}\n', i));
+    expect(body.length, 'computeS3 body is non-empty').toBeGreaterThan(500);
     expect(body).not.toMatch(/Promise\.all\(\[\s*\n?\s*fetchFxRates\(\)/);
     expect(body).toMatch(/fx = await fetchFxRates\(\)/);
     // …and whatever survived is published rather than discarded.

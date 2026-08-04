@@ -187,7 +187,14 @@ export const SANITY_BOUNDS = {
 export const STALE_THRESHOLDS_HOURS = {
   s1:          24,    // DA prices: tomorrow's prices publish ~14:00 UTC daily; data fresh for ~24h
   s2:          48,    // BTD: daily cron + 09:30 UTC watchdog; 48h = one missed cron + buffer
-  s3:          36,    // daily cron; left at 36 pending BTD-frequency investigation
+  // Phase 51 / B-072 — the writer changed, so the threshold follows it. `s3` is
+  // now written by the VPS relay on `30 */4 * * *` (the worker's own scrape to
+  // tradingeconomics.com hangs from Cloudflare egress and cannot be the writer).
+  // 14h = three missed 4-hourly relays plus buffer, matching the s7/s8/s9
+  // convention, and tighter than the 36h it inherited from a daily cadence that
+  // no longer describes anything. Degradation is a separate signal from age:
+  // /health reports `degraded` on a self-reported failure regardless of this.
+  s3:          14,
   euribor:    168,    // ECB: weekly is fine
   s4:          24,    // Litgrid daily publication; 24h matches upstream cadence
   s4_pipeline: 840,   // VERT.lt: monthly

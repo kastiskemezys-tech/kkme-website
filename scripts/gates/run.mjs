@@ -7,7 +7,7 @@
  * repo that has to stay visible.
  */
 import { RUNNABLE } from './registry.mjs';
-import { runGate } from './lib.mjs';
+import { runGate, checkPreconditions } from './lib.mjs';
 
 const only = process.argv.slice(2).filter((a) => !a.startsWith('-'));
 const gates = only.length ? RUNNABLE.filter((g) => only.includes(g.id)) : RUNNABLE;
@@ -28,6 +28,19 @@ for (const g of gates) {
     continue;
   }
   process.stdout.write(`· ${g.id} … `);
+
+  // B14 — preconditions BEFORE the command. A gate that cannot run must say so.
+  // Reporting it green would claim a check happened; reporting it red would
+  // blame the subject. Both are worse than admitting the gate did not execute.
+  const pre = checkPreconditions(g);
+  if (!pre.ok) {
+    console.log('UNRUNNABLE — preconditions missing');
+    for (const m of pre.missing) console.log(`    · ${m.what}${m.why ? ` — ${m.why}` : ''}`);
+    rows.push({ id: g.id, status: 'UNRUNNABLE', secs: '0.0', asExpected: false });
+    failed++;
+    continue;
+  }
+
   const t0 = Date.now();
   const r = runGate(g.command);
   const secs = ((Date.now() - t0) / 1000).toFixed(1);
@@ -48,8 +61,14 @@ for (const g of gates) {
 
 console.log('');
 const blocked = rows.filter((r) => r.status === 'CI-BLOCKED');
+const unrunnable = rows.filter((r) => r.status === 'UNRUNNABLE');
 console.log(`${rows.filter((r) => r.status === 'GREEN').length}/${rows.length} green · ` +
-  `${rows.filter((r) => r.status === 'KNOWN-RED').length} known-red · ${blocked.length} CI-blocked · ${failed} unexpected`);
+  `${rows.filter((r) => r.status === 'KNOWN-RED').length} known-red · ${blocked.length} CI-blocked · ` +
+  `${unrunnable.length} unrunnable · ${failed} unexpected`);
+if (unrunnable.length) {
+  console.log('UNRUNNABLE gates did not execute — this is not a pass and not a failure of the subject:');
+  for (const u of unrunnable) console.log(`  · ${u.id}`);
+}
 if (blocked.length) {
   console.log('CI-BLOCKED gates did NOT run here and are not evidence about this change:');
   for (const b of blocked) console.log(`  · ${b.id}`);
