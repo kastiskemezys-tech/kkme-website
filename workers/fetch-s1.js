@@ -2093,53 +2093,174 @@ function cashTaxFor(ebitda, depr, interest, tax_rate) {
   return Math.max(0, ebitda - depr - interest) * tax_rate;
 }
 
-function calcIRR(cf) {
-  // Robust IRR for mixed-sign cash flows. Many BESS PF streams turn slightly
-  // negative in mothball years (Y17-20) when compression × degradation pulls
-  // EBITDA below 0, which gives NPV(rate) two zero crossings: an artifact
-  // crossing in the very-negative-rate region (where late negatives blow up)
-  // and the meaningful financial IRR in the moderate-rate region. Coarse
-  // scan from positive-rate side to find the FIRST positive→negative
-  // crossing — that's the meaningful root.
+/**
+ * ─── IRR, with converged distinguished from bounded ───────────────────────────
+ *
+ * Phase 49 item 2. The previous implementation bisected inside a bracket it had
+ * not established contained a root, and returned the midpoint unconditionally.
+ * When no root was in the bracket the bisection walked to whichever end it had
+ * started from and **returned that bound as a value**:
+ *
+ *   calcIRR([-100, 10000, 10000]) -> 2        published as a 200 % return
+ *   calcIRR([100, 10, 10])        -> 2        a stream with no IRR at all
+ *   calcIRR([-100, 0, 0, 0])      -> -0.99    a total loss
+ *
+ * That is the numerical analogue of catching an exception and returning a
+ * default: no error is raised, a plausible number is published, and nothing
+ * downstream can tell it apart from a solve. It was not hypothetical. Every one
+ * of the 47 configurations that `/revenue` labelled `irr_status: 'uneconomic'`
+ * on the v6 fallback path was this: `-0.99` escaping and then being laundered
+ * into `null` by a `< -0.50` sentinel, with NPV at that "root" of −1.2e46.
+ * "Uneconomic" did not mean the project was uneconomic. It meant the solver
+ * gave up. Measured against `bee9c9d`; pre-state in
+ * `docs/investigations/2026-08-04-phase-49-prestate.json`.
+ *
+ * The fix is one precondition. Bisection is only valid when its bracket
+ * STRADDLES a sign change; assert that before iterating, and return null with a
+ * reason when it does not. The post-check on |NPV(root)| is a second,
+ * independent assertion rather than a restatement of the first (B13): the
+ * bracket test is about the input, the residual test is about the output, and a
+ * defect would have to defeat both.
+ *
+ * @param {number[]} cf cash flows, t = 0..n
+ * @returns {{
+ *   value: number|null,
+ *   reason: 'converged'|'no_sign_change'|'undefined_non_conventional'|'not_converged',
+ *   npv_at_root: number|null,
+ *   bound: 'above_domain'|'below_domain'|null,
+ * }}
+ */
+function solveIRR(cf) {
+  const fail = (reason) => ({ value: null, reason, npv_at_root: null, bound: null });
+  if (!Array.isArray(cf) || cf.length < 2) return fail('no_sign_change');
+  if (cf.some((c) => !Number.isFinite(c))) return fail('not_converged');
+
   function npvAt(rate) {
     return cf.reduce((s, c, t) => s + c / Math.pow(1 + rate, t), 0);
   }
-  // Scan from 0% upward to find the meaningful zero crossing (positive→negative).
-  const scanRates = [0.0, 0.02, 0.04, 0.06, 0.08, 0.10, 0.12, 0.15, 0.18, 0.22, 0.26, 0.30, 0.40, 0.55, 0.75, 1.00, 1.50, 2.00];
-  let bracketLo = null, bracketHi = null;
-  let prev = npvAt(scanRates[0]);
-  for (let i = 1; i < scanRates.length; i++) {
-    const cur = npvAt(scanRates[i]);
-    // Prefer positive→negative crossing (meaningful IRR root).
-    if (prev > 0 && cur <= 0) {
-      bracketLo = scanRates[i - 1];
-      bracketHi = scanRates[i];
-      break;
+
+  // Descartes' bound on the number of positive roots. Zero sign changes means
+  // no IRR EXISTS — a distinct fact from "one exists and we failed to find it",
+  // and the two must not arrive wearing the same label.
+  let signChanges = 0;
+  let lastSign = 0;
+  for (const c of cf) {
+    if (c === 0) continue;
+    const s = Math.sign(c);
+    if (lastSign !== 0 && s !== lastSign) signChanges++;
+    lastSign = s;
+  }
+  if (signChanges === 0) return fail('no_sign_change');
+
+  // ── Enumerate the roots in the domain, instead of assuming there is one ─────
+  //
+  // The domain is bounded at [−99.99 %, +200 %] deliberately. A project-finance
+  // IRR outside that range is not a return, it is a broken input, and converging
+  // to it would publish 10 000 % — the same defect one bound further out. Outside
+  // the domain is null with a reason, per the approved contract: null at both
+  // edges, never a bracket value.
+  //
+  // The old code scanned a hand-written rate list, took the first crossing, and
+  // said in its comment that BESS streams typically show two — one artifact
+  // crossing at very negative rates plus the meaningful one. **Measured across
+  // all 54 public configurations, that is false:** every project stream has
+  // exactly one sign change and exactly one NPV crossing over the whole domain,
+  // and every equity stream has exactly one crossing (24 of them from a stream
+  // with three sign changes). So enumerating is safe, and picking-the-first was
+  // hiding a real ambiguity behind a convention.
+  //
+  // Stated limit, because a guard that overstates itself is worse than none: a
+  // uniform scan detects root pairs separated by more than one step (0.005 in
+  // rate). A closer pair is not detected. This finds ambiguity; it does not
+  // prove uniqueness.
+  const DOMAIN_LO = -0.9999;
+  const DOMAIN_HI = 2.0;
+  const SCAN_STEPS = 600;
+  const brackets = [];
+  let rPrev = DOMAIN_LO;
+  let vPrev = npvAt(DOMAIN_LO);
+  for (let i = 1; i <= SCAN_STEPS; i++) {
+    const r = DOMAIN_LO + ((DOMAIN_HI - DOMAIN_LO) * i) / SCAN_STEPS;
+    const v = npvAt(r);
+    if (Number.isFinite(v) && Number.isFinite(vPrev) && vPrev !== 0 && (vPrev > 0) !== (v > 0)) {
+      brackets.push([rPrev, r, vPrev > 0]);
     }
-    prev = cur;
+    rPrev = r;
+    vPrev = v;
   }
-  let lo, hi;
-  if (bracketLo !== null) {
-    lo = bracketLo;
-    hi = bracketHi;
-  } else {
-    // Either NPV stays positive across the scan (very profitable — IRR > 200%)
-    // or NPV starts negative (uneconomic — IRR < 0). Fall back to the original
-    // wide-bracket bisection to characterize either case.
-    if (npvAt(0) <= 0) {
-      lo = -0.99;
-      hi = 0.0;
-    } else {
-      lo = scanRates[scanRates.length - 1];
-      hi = 2.0;
-    }
+
+  if (brackets.length === 0) {
+    // No root in the domain. Which edge it ran off is diagnostic, not a value.
+    const bound = npvAt(DOMAIN_HI) > 0 ? 'above_domain'
+      : npvAt(DOMAIN_LO) <= 0 ? 'below_domain' : null;
+    return { ...fail(signChanges >= 2 ? 'undefined_non_conventional' : 'not_converged'), bound };
   }
-  for (let i = 0; i < 100; i++) {
-    const mid = (lo + hi) / 2;
-    const npv = npvAt(mid);
-    if (npv > 0) lo = mid; else hi = mid;
+  if (brackets.length > 1) {
+    // Genuinely multi-valued. There is no such thing as "the" IRR here, and
+    // returning one of them with no indication there were others is the same
+    // class of lie as returning a bracket bound.
+    return fail('undefined_non_conventional');
   }
-  return Math.round((lo + hi) / 2 * 10000) / 10000;
+
+  const [lo, hi, descending] = brackets[0];
+  const bound = null;
+  let a = lo, b = hi;
+  for (let i = 0; i < 200; i++) {
+    const mid = (a + b) / 2;
+    const v = npvAt(mid);
+    if (descending ? v > 0 : v <= 0) a = mid; else b = mid;
+  }
+  const root = (a + b) / 2;
+
+  // Second, independent assertion: a root is where NPV is zero. Scaled by the
+  // stream's own magnitude so it means the same thing for a €12 M project and a
+  // €100 toy. A bisection that ran its full count inside a straddling bracket
+  // cannot fail this — which is the point: if it ever does, the bracket test was
+  // lying and the failure is visible instead of published.
+  const scale = cf.reduce((s, c) => s + Math.abs(c), 0) || 1;
+  const residual = npvAt(root);
+  if (!Number.isFinite(residual) || Math.abs(residual) > 1e-6 * scale) {
+    return { ...fail(signChanges >= 2 ? 'undefined_non_conventional' : 'not_converged'), bound };
+  }
+
+  return {
+    value: Math.round(root * 10000) / 10000,
+    reason: 'converged',
+    npv_at_root: residual,
+    bound: null,
+  };
+}
+
+/**
+ * The converged rate, or null when there is not one.
+ *
+ * Null here means ONE thing — undefined, per the Phase 49 contract — and never
+ * "a very bad project". A converged −60 % publishes as −0.6; a solver that could
+ * not converge publishes null and says why via `solveIRR().reason`.
+ */
+function calcIRR(cf) {
+  return solveIRR(cf).value;
+}
+
+/**
+ * `irr_status`, derived from the SOLVE rather than from the number alone.
+ *
+ * The distinction this exists to preserve: `'uneconomic'` is a claim about the
+ * project and may only be made when a root was actually found. When the solver
+ * did not converge the status says so, in the solver's own words, and no reader
+ * is invited to mistake a failed solve for a bad investment.
+ *
+ * Thresholds for converged values are UNCHANGED from the pre-49 engine
+ * (−0.50 / 0.06 / 0.12) so no public configuration moves. Whether a converged
+ * −30 % should really read `below_hurdle` is a live question, raised in the
+ * Phase 49 CP and deliberately not answered here.
+ */
+function irrStatusFor(solve) {
+  if (solve.value === null) return solve.reason;
+  return solve.value < -0.50 ? 'uneconomic'
+    : solve.value < 0.06 ? 'below_hurdle'
+    : solve.value < 0.12 ? 'marginal'
+    : 'investable';
 }
 
 /**
@@ -2712,7 +2833,8 @@ function computeRevenueV7(params, kv) {
 
   // ── IRR ──
   const project_cfs = [-capex_net_total, ...years.map(y => y.project_cf)];
-  const project_irr = calcIRR(project_cfs);
+  const project_solve = solveIRR(project_cfs);
+  const project_irr = project_solve.value;
   const equity_cfs = [-equity_initial, ...years.map(y => y.equity_cf)];
   const equity_irr = calcIRR(equity_cfs);
 
@@ -3035,12 +3157,17 @@ function computeRevenueV7(params, kv) {
     assumptions_panel,
 
     // Headline metrics
-    project_irr: project_irr < -0.50 ? null : project_irr,
-    equity_irr: equity_irr < -0.50 ? null : equity_irr,
-    irr_status: project_irr < -0.50 ? 'uneconomic'
-      : project_irr < 0.06 ? 'below_hurdle'
-      : project_irr < 0.12 ? 'marginal'
-      : 'investable',
+    //
+    // Phase 49 item 2: the `< -0.50 ? null` sentinel is GONE. It was masking
+    // `calcIRR`'s lower bracket bound — a non-convergence — as an uneconomic
+    // project, on 47 of the 54 configurations whenever the v6 fallback fired.
+    // `solveIRR` now returns null only when there is genuinely no root in the
+    // domain, and `irr_status` carries the solver's own reason instead of a
+    // verdict it was never entitled to make. Inert across the 54 public
+    // configurations, whose most negative CONVERGED IRR is −0.0607.
+    project_irr,
+    equity_irr,
+    irr_status: irrStatusFor(project_solve),
     npv_at_wacc: Math.round(npv_project),
     npv_project: Math.round(npv_project),
     net_rev_per_mw_yr: y1 ? Math.round(y1.rev_net / mw) : 0,
@@ -3430,7 +3557,8 @@ function computeRevenueV6(params, kv) {
 
   // D. IRR
   const project_cfs = [-capex_net_total, ...years.map(y => y.project_cf)];
-  const project_irr = calcIRR(project_cfs);
+  const project_solve = solveIRR(project_cfs);
+  const project_irr = project_solve.value;
 
   const equity_cfs = [-equity_initial, ...years.map(y => y.equity_cf)];
   const equity_irr = calcIRR(equity_cfs);
@@ -3521,12 +3649,17 @@ function computeRevenueV6(params, kv) {
     cpi_at_cod: cod_sd?.cpi ?? null,
 
     // Headline metrics
-    project_irr: project_irr < -0.50 ? null : project_irr,
-    equity_irr: equity_irr < -0.50 ? null : equity_irr,
-    irr_status: project_irr < -0.50 ? 'uneconomic'
-      : project_irr < 0.06 ? 'below_hurdle'
-      : project_irr < 0.12 ? 'marginal'
-      : 'investable',
+    //
+    // Phase 49 item 2: the `< -0.50 ? null` sentinel is GONE. It was masking
+    // `calcIRR`'s lower bracket bound — a non-convergence — as an uneconomic
+    // project, on 47 of the 54 configurations whenever the v6 fallback fired.
+    // `solveIRR` now returns null only when there is genuinely no root in the
+    // domain, and `irr_status` carries the solver's own reason instead of a
+    // verdict it was never entitled to make. Inert across the 54 public
+    // configurations, whose most negative CONVERGED IRR is −0.0607.
+    project_irr,
+    equity_irr,
+    irr_status: irrStatusFor(project_solve),
     npv_at_wacc: Math.round(npv_project),
     npv_project: Math.round(npv_project),
     net_rev_per_mw_yr: y1 ? Math.round(y1.rev_net / mw) : 0,
@@ -4551,16 +4684,11 @@ function computeRevenue_legacy(systemKey, capexKey, grantKey, codYear, kv, mwPar
     });
   }
 
-  function calcIRR(cf) {
-    let lo = -0.5, hi = 2.0;
-    for (let i = 0; i < 100; i++) {
-      const mid = (lo + hi) / 2;
-      const npv = cf.reduce((s, c, t) => s + c / Math.pow(1 + mid, t), 0);
-      if (npv > 0) lo = mid; else hi = mid;
-    }
-    return Math.round((lo + hi) / 2 * 10000) / 10000;
-  }
-
+  // Phase 49 item 2, solver 2 of 3. This was a second, blinder copy of the same
+  // defect: a bare bisection over [−0.5, 2.0] that never established its bracket
+  // held a root, so it returned −0.5 for anything ruinous and 2.0 for anything
+  // above a 200 % return. Delegated to the one implementation (rule #4) rather
+  // than repaired in place, so there is no longer a second IRR to keep in step.
   const project_irr = calcIRR(project_cf);
   const equity_irr  = calcIRR(equity_cf);
   const npv         = Math.round(project_cf.reduce((s, c, t) => s + c / Math.pow(1.08, t), 0));
@@ -7173,32 +7301,33 @@ function computeRevenueWorker(prices, duration_h) {
   // (active merchant), 4h → ~1.0 c/d (gentler cycling). Connects cell
   // aging to operation rather than treating all dispatch identically.
   const cd_for_soh = durBlend(duration_h, 1.3, 1.0);
-  function npv(rate) {
-    let n = -capex;
-    for (let t = 1; t <= B.project_life_years; t++) {
-      const soh   = sohYr(Math.min(t - 1, SOH_CURVE_1CD.length - 1), cd_for_soh);
-      const mkt   = marketDecayW(t);
-      const annual = net_annual * (
-        CAPACITY_FRACTION_W * mkt.capacity +
-        TRADING_FRACTION_W  * mkt.trading * soh
-      );
-      n += annual / Math.pow(1 + rate, t);
-    }
-    return n;
+  // Phase 49 item 2, solver 3 of 3. This one bisected [0, 5.0] and returned `lo`,
+  // so a market whose IRR is NEGATIVE came back as exactly 0 % — a bound reported
+  // as a rate — and anything above 500 % came back as 500. Same shape as the two
+  // above, in the surface that ranks Lithuania against seven other markets.
+  //
+  // Rebuilt as the cash-flow stream the NPV expression already implies, then
+  // handed to the single solver. `irr` stays a percentage; null propagates as
+  // null rather than collapsing to zero.
+  const cf = [-capex];
+  for (let t = 1; t <= B.project_life_years; t++) {
+    const soh = sohYr(Math.min(t - 1, SOH_CURVE_1CD.length - 1), cd_for_soh);
+    const mkt = marketDecayW(t);
+    cf.push(net_annual * (
+      CAPACITY_FRACTION_W * mkt.capacity +
+      TRADING_FRACTION_W * mkt.trading * soh
+    ));
   }
-  let lo = 0, hi = 5.0;
-  for (let i = 0; i < 60; i++) {
-    const mid = (lo + hi) / 2;
-    npv(mid) > 0 ? (lo = mid) : (hi = mid);
-  }
-  const irr = lo * 100;
+  const solved = solveIRR(cf);
+  const irr = solved.value === null ? null : solved.value * 100;
 
   const ch_central = B.ch_irr_central[key];
   const ch_low     = B.ch_irr_low[key];
   const ch_high    = B.ch_irr_high[key];
-  const irr_vs_ch  = irr > ch_central * 1.1 ? 'above' :
-                     irr < ch_central * 0.9 ? 'below' :
-                     'within range of';
+  const irr_vs_ch  = irr === null ? 'not comparable with'
+                   : irr > ch_central * 1.1 ? 'above'
+                   : irr < ch_central * 0.9 ? 'below'
+                   : 'within range of';
 
   return {
     afrr_annual_per_mw:    Math.round(afrr_annual),
@@ -7209,7 +7338,7 @@ function computeRevenueWorker(prices, duration_h) {
     net_annual_per_mw:     Math.round(net_annual),
     capex_per_mw:          Math.round(capex),
     simple_payback_years:  Math.round(payback * 10) / 10,
-    irr_approx_pct:        Math.round(irr * 10) / 10,
+    irr_approx_pct:        irr === null ? null : Math.round(irr * 10) / 10,
     irr_vs_ch_central:     irr_vs_ch,
     ch_irr_central:        ch_central,
     ch_irr_range:          `${ch_low}%–${ch_high}%`,
@@ -7237,7 +7366,10 @@ function computeMarketComparisonWorker(liveLT) {
         is_live:           m.afrr_up_eur_mwh === null,
       };
     })
-    .sort((a, b) => b.irr_pct - a.irr_pct);
+    // Null sorts last rather than poisoning the comparator: `null - n` is NaN,
+    // and a NaN comparator leaves the array in an arbitrary order that looks
+    // like a ranking (Phase 49 item 2 — a plausible output, not an error).
+    .sort((a, b) => (b.irr_pct ?? -Infinity) - (a.irr_pct ?? -Infinity));
 }
 
 async function computeInterpretations(signals, revenue, anthropicKey) {
@@ -12169,8 +12301,12 @@ export default {
         };
       }
 
+      // Phase 49 item 2 — `Math.round(null * 1000) / 10` is 0, so a null IRR
+      // rendered here as a flat 0 %: the null contract says null means
+      // "undefined", and 0 % is a number. Three sites, one helper.
+      const irrPct = (v) => (v == null ? null : Math.round(v * 1000) / 10);
       result.h2 = {
-        capex_per_mw: r2h.gross_capex / 50, irr_approx_pct: Math.round(r2h.project_irr * 1000) / 10,
+        capex_per_mw: r2h.gross_capex / 50, irr_approx_pct: irrPct(r2h.project_irr),
         simple_payback_years: r2h.simple_payback_years,
         afrr_annual_per_mw: Math.round(r2h.capacity_y1 * 0.38), mfrr_annual_per_mw: Math.round(r2h.capacity_y1 * 0.27),
         trading_annual_per_mw: r2h.arbitrage_y1, gross_annual_per_mw: r2h.gross_revenue_y1 / 50,
@@ -12178,7 +12314,7 @@ export default {
         ch_irr_central: 16.6, ch_irr_range: '6%–31%',
       };
       result.h4 = {
-        capex_per_mw: r4h.gross_capex / 50, irr_approx_pct: Math.round(r4h.project_irr * 1000) / 10,
+        capex_per_mw: r4h.gross_capex / 50, irr_approx_pct: irrPct(r4h.project_irr),
         simple_payback_years: r4h.simple_payback_years,
         afrr_annual_per_mw: Math.round(r4h.capacity_y1 * 0.38), mfrr_annual_per_mw: Math.round(r4h.capacity_y1 * 0.27),
         trading_annual_per_mw: r4h.arbitrage_y1, gross_annual_per_mw: r4h.gross_revenue_y1 / 50,
@@ -12197,7 +12333,10 @@ export default {
       result.eu_ranking = computeMarketComparisonWorker(legacyPrices);
       if (result.eu_ranking) {
         const lt = result.eu_ranking.find(m => m.country === 'Lithuania');
-        if (lt) lt.irr_pct = Math.round(result.project_irr * 1000) / 10;
+        // Same null-renders-as-zero trap as h2/h4 above (Phase 49 item 2): this
+        // one would have put Lithuania at a flat 0 % in a ranking of eight
+        // markets and sorted it accordingly.
+        if (lt) lt.irr_pct = result.project_irr == null ? null : Math.round(result.project_irr * 1000) / 10;
       }
 
       result.prices = { afrr_up_avg: s2?.afrr_up_avg ?? null, mfrr_up_avg: s2?.mfrr_up_avg ?? null, spread_eur_mwh: s1?.spread_eur_mwh ?? null, euribor_3m: eur?.euribor_3m ?? null };
@@ -12249,8 +12388,14 @@ export default {
       let deltas = null;
       if (prev && prev.signal_inputs) {
         const psi = prev.signal_inputs;
+        // `|| 0` silently substitutes zero for an undefined IRR, so a solve that
+        // failed on either side would report a movement equal to the OTHER side's
+        // whole IRR — a large, confident, entirely invented delta (Phase 49
+        // item 2). A delta between a number and a non-number is not a number.
         deltas = {
-          irr_pp: Math.round(((result.project_irr || 0) - (prev.project_irr || 0)) * 10000) / 100,
+          irr_pp: (result.project_irr == null || prev.project_irr == null)
+            ? null
+            : Math.round((result.project_irr - prev.project_irr) * 10000) / 100,
           net_rev: Math.round((result.net_mw_yr || 0) - (prev.net_mw_yr || 0)),
           signals: {},
         };
@@ -13314,6 +13459,11 @@ export {
   // an audit of the happy path. Exported rather than copied — a restatement of
   // the bisection in a test would verify the restatement (B13).
   calcIRR as calcIRRForAudit,
+  // Phase 49 item 2 — the solve, not just its value. A test that can only see
+  // the number cannot tell "converged at −0.99" from "ran to its own bound",
+  // which is precisely the distinction the phase exists to restore.
+  solveIRR,
+  irrStatusFor,
   // Phase 39.2 — the day-correct A44 reconstruction. Exported so the tests
   // exercise the SAME functions the capture fallback calls, against a real
   // recorded ENTSO-E response, rather than a restatement of their regexes
