@@ -2093,53 +2093,234 @@ function cashTaxFor(ebitda, depr, interest, tax_rate) {
   return Math.max(0, ebitda - depr - interest) * tax_rate;
 }
 
-function calcIRR(cf) {
-  // Robust IRR for mixed-sign cash flows. Many BESS PF streams turn slightly
-  // negative in mothball years (Y17-20) when compression × degradation pulls
-  // EBITDA below 0, which gives NPV(rate) two zero crossings: an artifact
-  // crossing in the very-negative-rate region (where late negatives blow up)
-  // and the meaningful financial IRR in the moderate-rate region. Coarse
-  // scan from positive-rate side to find the FIRST positive→negative
-  // crossing — that's the meaningful root.
+/**
+ * ─── IRR, with converged distinguished from bounded ───────────────────────────
+ *
+ * Phase 49 item 2. The previous implementation bisected inside a bracket it had
+ * not established contained a root, and returned the midpoint unconditionally.
+ * When no root was in the bracket the bisection walked to whichever end it had
+ * started from and **returned that bound as a value**:
+ *
+ *   calcIRR([-100, 10000, 10000]) -> 2        published as a 200 % return
+ *   calcIRR([100, 10, 10])        -> 2        a stream with no IRR at all
+ *   calcIRR([-100, 0, 0, 0])      -> -0.99    a total loss
+ *
+ * That is the numerical analogue of catching an exception and returning a
+ * default: no error is raised, a plausible number is published, and nothing
+ * downstream can tell it apart from a solve. It was not hypothetical. Every one
+ * of the 47 configurations that `/revenue` labelled `irr_status: 'uneconomic'`
+ * on the v6 fallback path was this: `-0.99` escaping and then being laundered
+ * into `null` by a `< -0.50` sentinel, with NPV at that "root" of −1.2e46.
+ * "Uneconomic" did not mean the project was uneconomic. It meant the solver
+ * gave up. Measured against `bee9c9d`; pre-state in
+ * `docs/investigations/2026-08-04-phase-49-prestate.json`.
+ *
+ * The fix is one precondition. Bisection is only valid when its bracket
+ * STRADDLES a sign change; assert that before iterating, and return null with a
+ * reason when it does not. The post-check on |NPV(root)| is a second,
+ * independent assertion rather than a restatement of the first (B13): the
+ * bracket test is about the input, the residual test is about the output, and a
+ * defect would have to defeat both.
+ *
+ * @param {number[]} cf cash flows, t = 0..n
+ * @returns {{
+ *   value: number|null,
+ *   reason: 'converged'|'no_sign_change'|'undefined_non_conventional'|'not_converged',
+ *   npv_at_root: number|null,
+ *   bound: 'above_domain'|'below_domain'|null,
+ * }}
+ */
+function solveIRR(cf) {
+  const fail = (reason) => ({ value: null, reason, npv_at_root: null, bound: null });
+  if (!Array.isArray(cf) || cf.length < 2) return fail('no_sign_change');
+  if (cf.some((c) => !Number.isFinite(c))) return fail('not_converged');
+
   function npvAt(rate) {
     return cf.reduce((s, c, t) => s + c / Math.pow(1 + rate, t), 0);
   }
-  // Scan from 0% upward to find the meaningful zero crossing (positive→negative).
-  const scanRates = [0.0, 0.02, 0.04, 0.06, 0.08, 0.10, 0.12, 0.15, 0.18, 0.22, 0.26, 0.30, 0.40, 0.55, 0.75, 1.00, 1.50, 2.00];
-  let bracketLo = null, bracketHi = null;
-  let prev = npvAt(scanRates[0]);
-  for (let i = 1; i < scanRates.length; i++) {
-    const cur = npvAt(scanRates[i]);
-    // Prefer positive→negative crossing (meaningful IRR root).
-    if (prev > 0 && cur <= 0) {
-      bracketLo = scanRates[i - 1];
-      bracketHi = scanRates[i];
-      break;
+
+  // Descartes' bound on the number of positive roots. Zero sign changes means
+  // no IRR EXISTS — a distinct fact from "one exists and we failed to find it",
+  // and the two must not arrive wearing the same label.
+  let signChanges = 0;
+  let lastSign = 0;
+  for (const c of cf) {
+    if (c === 0) continue;
+    const s = Math.sign(c);
+    if (lastSign !== 0 && s !== lastSign) signChanges++;
+    lastSign = s;
+  }
+  if (signChanges === 0) return fail('no_sign_change');
+
+  // ── Enumerate the roots in the domain, instead of assuming there is one ─────
+  //
+  // The domain is bounded at [−99.99 %, +200 %] deliberately. A project-finance
+  // IRR outside that range is not a return, it is a broken input, and converging
+  // to it would publish 10 000 % — the same defect one bound further out. Outside
+  // the domain is null with a reason, per the approved contract: null at both
+  // edges, never a bracket value.
+  //
+  // The old code scanned a hand-written rate list, took the first crossing, and
+  // said in its comment that BESS streams typically show two — one artifact
+  // crossing at very negative rates plus the meaningful one. **Measured across
+  // all 54 public configurations, that is false:** every project stream has
+  // exactly one sign change and exactly one NPV crossing over the whole domain,
+  // and every equity stream has exactly one crossing (24 of them from a stream
+  // with three sign changes). So enumerating is safe, and picking-the-first was
+  // hiding a real ambiguity behind a convention.
+  //
+  // Stated limit, because a guard that overstates itself is worse than none: a
+  // uniform scan detects root pairs separated by more than one step (0.005 in
+  // rate). A closer pair is not detected. This finds ambiguity; it does not
+  // prove uniqueness.
+  const DOMAIN_LO = -0.9999;
+  const DOMAIN_HI = 2.0;
+  const SCAN_STEPS = 600;
+  const brackets = [];
+  let rPrev = DOMAIN_LO;
+  let vPrev = npvAt(DOMAIN_LO);
+  for (let i = 1; i <= SCAN_STEPS; i++) {
+    const r = DOMAIN_LO + ((DOMAIN_HI - DOMAIN_LO) * i) / SCAN_STEPS;
+    const v = npvAt(r);
+    if (Number.isFinite(v) && Number.isFinite(vPrev) && vPrev !== 0 && (vPrev > 0) !== (v > 0)) {
+      brackets.push([rPrev, r, vPrev > 0]);
     }
-    prev = cur;
+    rPrev = r;
+    vPrev = v;
   }
-  let lo, hi;
-  if (bracketLo !== null) {
-    lo = bracketLo;
-    hi = bracketHi;
-  } else {
-    // Either NPV stays positive across the scan (very profitable — IRR > 200%)
-    // or NPV starts negative (uneconomic — IRR < 0). Fall back to the original
-    // wide-bracket bisection to characterize either case.
-    if (npvAt(0) <= 0) {
-      lo = -0.99;
-      hi = 0.0;
-    } else {
-      lo = scanRates[scanRates.length - 1];
-      hi = 2.0;
-    }
+
+  if (brackets.length === 0) {
+    // No root in the domain. Which edge it ran off is diagnostic, not a value.
+    const bound = npvAt(DOMAIN_HI) > 0 ? 'above_domain'
+      : npvAt(DOMAIN_LO) <= 0 ? 'below_domain' : null;
+    return { ...fail(signChanges >= 2 ? 'undefined_non_conventional' : 'not_converged'), bound };
   }
-  for (let i = 0; i < 100; i++) {
-    const mid = (lo + hi) / 2;
-    const npv = npvAt(mid);
-    if (npv > 0) lo = mid; else hi = mid;
+  if (brackets.length > 1) {
+    // Genuinely multi-valued. There is no such thing as "the" IRR here, and
+    // returning one of them with no indication there were others is the same
+    // class of lie as returning a bracket bound.
+    return fail('undefined_non_conventional');
   }
-  return Math.round((lo + hi) / 2 * 10000) / 10000;
+
+  const [lo, hi, descending] = brackets[0];
+  const bound = null;
+  let a = lo, b = hi;
+  for (let i = 0; i < 200; i++) {
+    const mid = (a + b) / 2;
+    const v = npvAt(mid);
+    if (descending ? v > 0 : v <= 0) a = mid; else b = mid;
+  }
+  const root = (a + b) / 2;
+
+  // Second, independent assertion: a root is where NPV is zero. Scaled by the
+  // stream's own magnitude so it means the same thing for a €12 M project and a
+  // €100 toy. A bisection that ran its full count inside a straddling bracket
+  // cannot fail this — which is the point: if it ever does, the bracket test was
+  // lying and the failure is visible instead of published.
+  const scale = cf.reduce((s, c) => s + Math.abs(c), 0) || 1;
+  const residual = npvAt(root);
+  if (!Number.isFinite(residual) || Math.abs(residual) > 1e-6 * scale) {
+    return { ...fail(signChanges >= 2 ? 'undefined_non_conventional' : 'not_converged'), bound };
+  }
+
+  return {
+    value: Math.round(root * 10000) / 10000,
+    reason: 'converged',
+    npv_at_root: residual,
+    bound: null,
+  };
+}
+
+/**
+ * The converged rate, or null when there is not one.
+ *
+ * Null here means ONE thing — undefined, per the Phase 49 contract — and never
+ * "a very bad project". A converged −60 % publishes as −0.6; a solver that could
+ * not converge publishes null and says why via `solveIRR().reason`.
+ */
+function calcIRR(cf) {
+  return solveIRR(cf).value;
+}
+
+/**
+ * `irr_status`, derived from the SOLVE rather than from the number alone.
+ *
+ * The distinction this exists to preserve: `'uneconomic'` is a claim about the
+ * project and may only be made when a root was actually found. When the solver
+ * did not converge the status says so, in the solver's own words, and no reader
+ * is invited to mistake a failed solve for a bad investment.
+ *
+ * Thresholds for converged values are UNCHANGED from the pre-49 engine
+ * (−0.50 / 0.06 / 0.12) so no public configuration moves. Whether a converged
+ * −30 % should really read `below_hurdle` is a live question, raised in the
+ * Phase 49 CP and deliberately not answered here.
+ */
+function irrStatusFor(solve) {
+  if (solve.value === null) return solve.reason;
+  return solve.value < -0.50 ? 'uneconomic'
+    : solve.value < 0.06 ? 'below_hurdle'
+    : solve.value < 0.12 ? 'marginal'
+    : 'investable';
+}
+
+/**
+ * ─── The shape `/revenue` promises, and the fallbacks that were not keeping it ─
+ *
+ * Phase 49 item 3, class guard. `computeRevenueV7` has three exits: the primary
+ * path and two v6 fallbacks (insufficient base-year history, and v7 throwing).
+ * Measured against `bee9c9d`: the primary payload carries 78 top-level keys and
+ * the fallback carried **59** — 19 keys simply absent, among them `moic`,
+ * `lcos_eur_mwh`, `debt_sizing`, `warranty_status`, `cycles_breakdown` and
+ * `assumptions_panel`. Every consumer that reads one of those got `undefined`
+ * from a 200 response, on a path exercised rarely and reviewed never.
+ *
+ * The fix is not to compute them in v6 — v6 genuinely cannot, and inventing
+ * them would be the worse defect. It is to DECLARE them, as null, which is the
+ * same contract the IRR null now carries: null means "not available", and a
+ * caller can tell that apart from a key that was never in the schema.
+ *
+ * `degraded` is the provenance record beside it. B12's first rule is that the
+ * absence of provenance must be an error state rather than an innocent one, so
+ * a fallback payload says out loud that it is one, which engine produced it and
+ * what that cost — instead of looking exactly like a healthy response.
+ *
+ * The key list is asserted against a live v7 payload in `fallbackShape.test.ts`,
+ * so adding a field to v7 without adding it here fails a test rather than
+ * quietly re-opening the gap (A9 — a hardcoded list that nobody re-derives is a
+ * stale record waiting to happen).
+ */
+const REVENUE_PAYLOAD_KEYS = [
+  'activation_pct', 'activation_y1', 'annual_debt_service', 'arbitrage_pct', 'arbitrage_y1',
+  'assumptions', 'assumptions_panel', 'bankability', 'base_year', 'capacity_pct', 'capacity_y1',
+  'capex_eur_kwh', 'capex_kwh', 'capex_net', 'capex_scenario', 'capex_total', 'ch_benchmark',
+  'cod_year', 'cpi_afrr_at_cod', 'cpi_at_cod', 'cpi_fcr_at_cod', 'cpi_mfrr_at_cod',
+  'crossover_year', 'cycles_breakdown', 'cycles_per_year', 'debt_initial', 'debt_sizing',
+  'duration', 'ebitda_y1', 'engine_calibration_source', 'engine_changelog', 'equity_initial',
+  'equity_irr', 'fleet_context', 'fleet_trajectory', 'forward', 'grant_amount', 'grant_label',
+  'gross_capex', 'gross_revenue_y1', 'irr_status', 'lcos_eur_mwh', 'min_dscr',
+  'min_dscr_conservative', 'model_version', 'moic', 'monthly_y1', 'net_capex', 'net_mw_yr',
+  'net_rev_per_mw_yr', 'net_revenue_y1', 'npv_at_wacc', 'npv_project', 'opex_y1',
+  'payback_years', 'per_product_at_cod', 'phase', 'prices_source', 'project_irr', 'rate_allin',
+  'reconciliation', 'revenue_crossover_note', 'revenue_crossover_year', 'roundtrip_efficiency',
+  'roundtrip_efficiency_curve', 'rtm_fees_y1', 'scenario', 'sd_ratio', 'signal_inputs',
+  'simple_payback_years', 'system', 'timestamp', 'total_debt', 'total_equity', 'trajectory',
+  'warranty_status', 'worst_month_dscr', 'years',
+];
+
+/**
+ * Give a fallback payload the primary payload's shape, and say that it is one.
+ * @param {object} result the v6 payload
+ * @param {string} reason why the fallback fired, in plain words
+ */
+function conformToPublicShape(result, reason) {
+  const missing = REVENUE_PAYLOAD_KEYS.filter((k) => !(k in result));
+  for (const k of missing) result[k] = null;
+  result.degraded = {
+    engine: result.model_version,
+    reason,
+    fields_unavailable: missing,
+  };
+  return result;
 }
 
 /**
@@ -2357,7 +2538,7 @@ function computeRevenueV7(params, kv) {
     v6_result.model_version = 'v6_fallback';
     v6_result.base_year = base_year;
     v6_result.forward = { compression_rate: compression.rate, compression_source: compression.source };
-    return v6_result;
+    return conformToPublicShape(v6_result, `s1_capture history covers ${base_year.data_coverage.s1_months} full months; v7 needs 6`);
   }
 
   // ── Base year revenue per MW (annual, from observed data) ──
@@ -2712,7 +2893,8 @@ function computeRevenueV7(params, kv) {
 
   // ── IRR ──
   const project_cfs = [-capex_net_total, ...years.map(y => y.project_cf)];
-  const project_irr = calcIRR(project_cfs);
+  const project_solve = solveIRR(project_cfs);
+  const project_irr = project_solve.value;
   const equity_cfs = [-equity_initial, ...years.map(y => y.equity_cf)];
   const equity_irr = calcIRR(equity_cfs);
 
@@ -2910,6 +3092,13 @@ function computeRevenueV7(params, kv) {
     / (Math.pow(1 + LCOS_WACC, LCOS_LIFETIME_YRS) - 1);
   const lcos_capex_recovery = gross_capex_total * lcos_crf;
   const lcos_fixed_om = y1 ? y1.opex : 0;
+  // Phase 49 item 3 — the THIRD substitution on this path, and the quietest.
+  // When the day captures are missing, LCOS silently charges at a hardcoded
+  // €35/€30 instead of the observed €12.04/€14.27, moving `lcos_eur_mwh` from
+  // 197.3 to 225.3 (+14.2 %) on the reference configuration with nothing in the
+  // payload saying an assumption had replaced an observation. The constants stay
+  // — they are a reasonable default — but the substitution is now recorded.
+  const lcos_charge_observed = s1_cap.capture_2h?.avg_charge != null || s1_cap.capture_4h?.avg_charge != null;
   const lcos_charge_price = durBlend(dur_h,
     s1_cap.capture_2h?.avg_charge ?? 35,
     s1_cap.capture_4h?.avg_charge ?? 30);
@@ -2966,6 +3155,29 @@ function computeRevenueV7(params, kv) {
     hold_period: { value: LCOS_LIFETIME_YRS, label: 'Hold period', unit: 'years', note: '20-year DCF; matches typical PF assumption' },
     wacc: { value: Math.round(LCOS_WACC * 1000) / 10, label: 'WACC', unit: '%', note: `Weighted average cost of capital; debt EURIBOR + ${sc.debt_margin_bp}bps, equity hurdle ~12%` },
   };
+
+  // ── Phase 49 item 3 — say which observations were substituted ───────────────
+  //
+  // The primary path has its own quiet fallbacks, and they were the harder half
+  // of this item: the payload looked completely healthy while two inputs had
+  // been replaced. Emitted ONLY when a substitution actually fired, so the 54
+  // public configurations — where every observation is present — stay
+  // byte-identical and this key does not exist on them at all.
+  const substitutions = [];
+  if (s1_cap.capture_2h?.gross_eur_mwh == null && s1_cap.capture_4h?.gross_eur_mwh == null) {
+    substitutions.push({
+      field: 'signal_inputs.s1_capture',
+      substituted: 'null — no observed day-ahead capture for the current day',
+      was: 'back-derived from base_year.annual_totals.trading (removed: it inverted the wrong factor and inflated capture 8.03x)',
+    });
+  }
+  if (!lcos_charge_observed) {
+    substitutions.push({
+      field: 'lcos_eur_mwh',
+      substituted: `charge price assumed €${durBlend(dur_h, 35, 30)}/MWh (2h €35 / 4h €30 constants)`,
+      was: 'observed s1_capture.capture_*.avg_charge',
+    });
+  }
 
   return {
     // Config
@@ -3035,12 +3247,17 @@ function computeRevenueV7(params, kv) {
     assumptions_panel,
 
     // Headline metrics
-    project_irr: project_irr < -0.50 ? null : project_irr,
-    equity_irr: equity_irr < -0.50 ? null : equity_irr,
-    irr_status: project_irr < -0.50 ? 'uneconomic'
-      : project_irr < 0.06 ? 'below_hurdle'
-      : project_irr < 0.12 ? 'marginal'
-      : 'investable',
+    //
+    // Phase 49 item 2: the `< -0.50 ? null` sentinel is GONE. It was masking
+    // `calcIRR`'s lower bracket bound — a non-convergence — as an uneconomic
+    // project, on 47 of the 54 configurations whenever the v6 fallback fired.
+    // `solveIRR` now returns null only when there is genuinely no root in the
+    // domain, and `irr_status` carries the solver's own reason instead of a
+    // verdict it was never entitled to make. Inert across the 54 public
+    // configurations, whose most negative CONVERGED IRR is −0.0607.
+    project_irr,
+    equity_irr,
+    irr_status: irrStatusFor(project_solve),
     npv_at_wacc: Math.round(npv_project),
     npv_project: Math.round(npv_project),
     net_rev_per_mw_yr: y1 ? Math.round(y1.rev_net / mw) : 0,
@@ -3116,9 +3333,25 @@ function computeRevenueV7(params, kv) {
 
     // Signal inputs used
     signal_inputs: {
-      s1_capture: durBlend(dur_h,
-        s1_cap.capture_2h?.gross_eur_mwh ?? (by_trading_per_mw > 0 ? by_trading_per_mw / (rte * da_mwh_per_mw_yr * (base_year.time_model?.effective_arb_pct || 0.115) * sc.trd_real) : 0),
-        s1_cap.capture_4h?.gross_eur_mwh ?? (by_trading_per_mw > 0 ? by_trading_per_mw / (rte * da_mwh_per_mw_yr * (base_year.time_model?.effective_arb_pct || 0.115) * sc.trd_real) : 0)),
+      // Phase 49 item 3 — the second fallback, and the one nobody had looked at.
+      //
+      // When today's `capture_2h`/`capture_4h` are missing (monthly history
+      // intact, so v7 still runs) this field used to BACK-DERIVE a capture from
+      // `base_year.annual_totals.trading` by dividing out `effective_arb_pct`.
+      // That is not the inverse of anything: the forward pass at
+      // `computeBaseYear` multiplies by `trading_fraction` (0.70), so the round
+      // trip returns capture × (0.70 / 0.139) and then some. **Measured on the
+      // frozen KV with only the day captures removed: €101.91 → €818.59, an
+      // 8.03× inflation**, published in a field whose name says it is an
+      // observed signal input. A Baltic day-ahead capture of €818/MWh.
+      //
+      // A reconstruction of an input is not the input. When there is no signal
+      // there is no signal input, and the field says so.
+      s1_capture: (s1_cap.capture_2h?.gross_eur_mwh == null && s1_cap.capture_4h?.gross_eur_mwh == null)
+        ? null
+        : durBlend(dur_h,
+          s1_cap.capture_2h?.gross_eur_mwh ?? s1_cap.capture_4h?.gross_eur_mwh,
+          s1_cap.capture_4h?.gross_eur_mwh ?? s1_cap.capture_2h?.gross_eur_mwh),
       afrr_clearing: act_parsed?.lt?.afrr_p50 ?? s2.afrr_up_avg ?? 170,
       mfrr_clearing: act_parsed?.lt?.mfrr_p50 ?? s2.mfrr_up_avg ?? 110,
       afrr_cap: capPrice('afrr', s2.afrr_cap_avg, drv.cap_price_mult),
@@ -3127,6 +3360,11 @@ function computeRevenueV7(params, kv) {
       euribor: Math.round(euribor * 10000) / 100,
       rate_allin_pct: Math.round(rate_allin * 10000) / 100,
     },
+
+    // Present only when an observation was replaced by an assumption. Absent on
+    // a fully-observed payload, which is why it costs the byte-identity gate
+    // nothing on the 54 public configurations.
+    ...(substitutions.length ? { degraded: { engine: 'v7.3', reason: 'one or more observed inputs unavailable', substitutions } } : {}),
 
     // Reconciliation
     reconciliation: recon,
@@ -3430,7 +3668,8 @@ function computeRevenueV6(params, kv) {
 
   // D. IRR
   const project_cfs = [-capex_net_total, ...years.map(y => y.project_cf)];
-  const project_irr = calcIRR(project_cfs);
+  const project_solve = solveIRR(project_cfs);
+  const project_irr = project_solve.value;
 
   const equity_cfs = [-equity_initial, ...years.map(y => y.equity_cf)];
   const equity_irr = calcIRR(equity_cfs);
@@ -3521,12 +3760,17 @@ function computeRevenueV6(params, kv) {
     cpi_at_cod: cod_sd?.cpi ?? null,
 
     // Headline metrics
-    project_irr: project_irr < -0.50 ? null : project_irr,
-    equity_irr: equity_irr < -0.50 ? null : equity_irr,
-    irr_status: project_irr < -0.50 ? 'uneconomic'
-      : project_irr < 0.06 ? 'below_hurdle'
-      : project_irr < 0.12 ? 'marginal'
-      : 'investable',
+    //
+    // Phase 49 item 2: the `< -0.50 ? null` sentinel is GONE. It was masking
+    // `calcIRR`'s lower bracket bound — a non-convergence — as an uneconomic
+    // project, on 47 of the 54 configurations whenever the v6 fallback fired.
+    // `solveIRR` now returns null only when there is genuinely no root in the
+    // domain, and `irr_status` carries the solver's own reason instead of a
+    // verdict it was never entitled to make. Inert across the 54 public
+    // configurations, whose most negative CONVERGED IRR is −0.0607.
+    project_irr,
+    equity_irr,
+    irr_status: irrStatusFor(project_solve),
     npv_at_wacc: Math.round(npv_project),
     npv_project: Math.round(npv_project),
     net_rev_per_mw_yr: y1 ? Math.round(y1.rev_net / mw) : 0,
@@ -4551,16 +4795,11 @@ function computeRevenue_legacy(systemKey, capexKey, grantKey, codYear, kv, mwPar
     });
   }
 
-  function calcIRR(cf) {
-    let lo = -0.5, hi = 2.0;
-    for (let i = 0; i < 100; i++) {
-      const mid = (lo + hi) / 2;
-      const npv = cf.reduce((s, c, t) => s + c / Math.pow(1 + mid, t), 0);
-      if (npv > 0) lo = mid; else hi = mid;
-    }
-    return Math.round((lo + hi) / 2 * 10000) / 10000;
-  }
-
+  // Phase 49 item 2, solver 2 of 3. This was a second, blinder copy of the same
+  // defect: a bare bisection over [−0.5, 2.0] that never established its bracket
+  // held a root, so it returned −0.5 for anything ruinous and 2.0 for anything
+  // above a 200 % return. Delegated to the one implementation (rule #4) rather
+  // than repaired in place, so there is no longer a second IRR to keep in step.
   const project_irr = calcIRR(project_cf);
   const equity_irr  = calcIRR(equity_cf);
   const npv         = Math.round(project_cf.reduce((s, c, t) => s + c / Math.pow(1.08, t), 0));
@@ -4820,6 +5059,100 @@ function pricesForUtcDay(periods, dateStr) {
   const timestamps = prices.map((_, i) => (dayStart + (i * nativeMin * 60000)) / 1000);
 
   return { prices, timestamps, resolution: nativeMin };
+}
+
+/**
+ * ─── The market day, admitted only if it counts (Phase 49 item 1) ─────────────
+ *
+ * `extractPrices` scrapes every `price.amount` in document order and returns one
+ * flat array. Two properties of a real A44 response make that array something
+ * other than "the prices of the day asked for", and both were measured against
+ * the committed 2026-08-03 LT document, with Elering's independent NPS series
+ * for the same window as the control:
+ *
+ *   flat scrape            n=190  mean €75.4309   agrees with Elering on  2/96 slots
+ *   this reconstruction    n= 96  mean €69.1542   agrees with Elering on 96/96 slots
+ *
+ * The 190 is TWO CEST market days concatenated — a UTC-bounded request returns
+ * whole market days, and after the next auction publishes there are two of them.
+ * The mis-timing is curveType A03, which omits a position whose price repeats
+ * the one before; scraping shifts every later value one slot earlier per
+ * omission.
+ *
+ * The guard is CARDINALITY, because that is what both failures violate. A market
+ * day is 23, 24 or 25 hours — never anything else — and its slot count is that
+ * span divided by its own declared resolution. 190 is not a market day. 94 is
+ * not a market day. A series that does not count is refused at admission rather
+ * than averaged, which is the difference between an error and a plausible number.
+ *
+ * NOT asserted here, deliberately: a maximum forward-fill fraction. A genuinely
+ * flat price day legitimately omits most of its positions under A03, and the
+ * document alone cannot distinguish that from a broken one. The fill count is
+ * reported (`forward_filled`) and the independent Elering control is what
+ * actually discriminates — claiming otherwise would be a guard that overstates
+ * what it can see.
+ */
+const MARKET_DAY_HOURS = new Set([23, 24, 25]);
+
+/**
+ * The one market day covering a UTC instant, or a refusal saying why.
+ *
+ * @param {ReturnType<typeof parseA44Periods>} periods
+ * @param {number} atMs the instant the day must cover — normally `Date.now()`
+ * @returns {{ok:true,prices:number[],startMs:number,endMs:number,resolutionMin:number,
+ *            slots:number,hours:number,forward_filled:number}
+ *          | {ok:false,reason:string,detail:string}}
+ */
+function marketDayAt(periods, atMs) {
+  if (!periods.length) return { ok: false, reason: 'no_periods', detail: 'document carried no parseable Period' };
+
+  // A UTC-bounded request must not admit two market days. It is allowed to
+  // RETURN two — that is normal after the next auction publishes — but exactly
+  // one of them covers any given instant, and picking it by wall clock is the
+  // whole point. Concatenation is what produced the 190.
+  const covering = periods.filter((p) => p.startMs <= atMs && atMs < p.endMs);
+  if (covering.length === 0) {
+    return {
+      ok: false,
+      reason: 'no_period_covers_instant',
+      detail: `${new Date(atMs).toISOString()} outside [${periods.map((p) => `${new Date(p.startMs).toISOString()}→${new Date(p.endMs).toISOString()}`).join(', ')}]`,
+    };
+  }
+  if (covering.length > 1) {
+    return { ok: false, reason: 'overlapping_periods', detail: `${covering.length} Periods cover the same instant` };
+  }
+
+  const p = covering[0];
+  const hours = (p.endMs - p.startMs) / 3600000;
+  if (!MARKET_DAY_HOURS.has(hours)) {
+    return { ok: false, reason: 'illegal_market_day_span', detail: `${hours}h — a market day is 23, 24 or 25` };
+  }
+  const slots = (hours * 60) / p.resolutionMin;
+  if (!Number.isInteger(slots)) {
+    return { ok: false, reason: 'span_not_a_multiple_of_resolution', detail: `${hours}h / PT${p.resolutionMin}M` };
+  }
+  if (p.prices.length !== slots) {
+    return {
+      ok: false,
+      reason: 'cardinality_mismatch',
+      detail: `${p.prices.length} values for a ${hours}h day at PT${p.resolutionMin}M, which needs ${slots}`,
+    };
+  }
+  return {
+    ok: true,
+    prices: p.prices,
+    startMs: p.startMs,
+    endMs: p.endMs,
+    resolutionMin: p.resolutionMin,
+    slots,
+    hours,
+    forward_filled: p.filled,
+  };
+}
+
+/** The UTC clock-hour of a slot, computed from the day's own start (rule #2). */
+function slotHourUtc(day, idx) {
+  return new Date(day.startMs + idx * day.resolutionMin * 60000).getUTCHours();
 }
 
 function avg(arr) {
@@ -5314,6 +5647,52 @@ async function computeCapture(env) {
   return captureData;
 }
 
+/**
+ * ─── Phase 49 item 1 — the S1 day basis, behind a flag defaulting OFF ─────────
+ *
+ * `'flat'`        `extractPrices` over the whole document. What ships today, and
+ *                 what agrees with Elering on 2 of 96 slots.
+ * `'market_day'`  the Period covering the current instant, forward-filled per
+ *                 A03 and admitted only if it counts. 96/96 against Elering.
+ *
+ * ── DEFAULT FLIPPED TO `market_day` 2026-08-04, OPERATOR-SIGNED ──────────────
+ *
+ * It shipped OFF first, was quantified, and waited. What decided it was not the
+ * euro movement but the CLOCK: `Math.floor(idx * 24 / N)` treats index 0 as UTC
+ * 00:00 and a CET/CEST market day starts at 22:00Z, so the hour labels are two
+ * hours out EVERY day, on a quiet one and a volatile one alike. The euro defect
+ * only fires when curveType A03 omits a position or when the next auction
+ * publishes and two market days concatenate.
+ *
+ * Signed movements, measured twice 23 minutes apart on the live document and
+ * identical both times (`docs/investigations/2026-08-04-phase-49-s1-flip-delta.json`):
+ *
+ *   lt_peak_hour_utc      22 → 20        the 2 h CEST offset
+ *   lt_trough_hour_utc    16 → 14
+ *   lt_evening_premium    96.1 → 105.81  (+10.1 %) — the h17-21 and h10-14
+ *                                        slices were selected by the same
+ *                                        false identity
+ *   pl_avg_eur_mwh        151.06 → 150.21 (−0.56 %) — the PL document omitted
+ *                                        two positions that day
+ *   lt_avg_eur_mwh        unmoved that day; on the committed 2026-08-03
+ *                         document, where both failure conditions hold,
+ *                         €75.4309 → €69.1542 and lt_hours 190 → 96
+ *
+ * The independent control is what settled it: against Elering's NPS series for
+ * the same window, agreement goes 2/96 → 96/96 on the committed document.
+ *
+ * `'flat'` stays reachable so the pre-49 basis remains reproducible for
+ * comparison, exactly as `mw_partition: 'current'` does for 38.6a. It is not
+ * selectable from the public route.
+ */
+const S1_DAY_PARSE_MODES = new Set(['flat', 'market_day']);
+const S1_DAY_PARSE_DEFAULT = 'market_day';
+
+function s1DayParseMode(env) {
+  const m = env?.S1_DAY_PARSE;
+  return S1_DAY_PARSE_MODES.has(m) ? m : S1_DAY_PARSE_DEFAULT;
+}
+
 async function computeS1(env) {
   const apiKey = env.ENTSOE_API_KEY;
   if (!apiKey) throw new Error('ENTSOE_API_KEY secret not set');
@@ -5330,9 +5709,33 @@ async function computeS1(env) {
     fetchBznRange(SE4_BZN, apiKey, 1, 2),
   ]);
 
-  const ltPrices  = extractPrices(ltXml  ?? '');
-  const se4Prices = extractPrices(se4Xml ?? '');
-  const plPrices  = extractPrices(plXml  ?? '');
+  const dayMode = s1DayParseMode(env);
+  const nowMs = Date.now();
+
+  /**
+   * One zone's series for today, on whichever basis the flag selects.
+   * A refused market day falls back to the flat scrape rather than taking S1
+   * down — but it says so in the log and on the payload, so a refusal is
+   * visible instead of being absorbed (B8).
+   */
+  const zoneDay = (xml, label) => {
+    if (dayMode !== 'market_day') return { prices: extractPrices(xml ?? ''), day: null, basis: 'flat' };
+    const d = marketDayAt(parseA44Periods(xml ?? ''), nowMs);
+    if (!d.ok) {
+      console.warn(`[S1/day] ${label} market-day admission REFUSED (${d.reason}: ${d.detail}) — falling back to flat scrape`);
+      return { prices: extractPrices(xml ?? ''), day: null, basis: 'flat_after_refusal', refusal: `${d.reason}: ${d.detail}` };
+    }
+    console.log(`[S1/day] ${label} ${new Date(d.startMs).toISOString()}→${new Date(d.endMs).toISOString()} ${d.hours}h PT${d.resolutionMin}M ${d.slots} slots, ${d.forward_filled} forward-filled`);
+    return { prices: d.prices, day: d, basis: 'market_day' };
+  };
+
+  const lt  = zoneDay(ltXml,  'LT');
+  const se4 = zoneDay(se4Xml, 'SE4');
+  const pl  = zoneDay(plXml,  'PL');
+  const ltPrices  = lt.prices;
+  const se4Prices = se4.prices;
+  const plPrices  = pl.prices;
+  const ltDay = lt.day;
 
   if (!ltPrices.length || !se4Prices.length) {
     // Say which leg and whether it was the fetch or the document — the old
@@ -5372,11 +5775,23 @@ async function computeS1(env) {
 
   // Peak / trough anchored to the same full-day array used for the swing,
   // emitting UTC clock-hours so the frontend can format directly via
-  // formatHourEET. ENTSO-E period starts at UTC 00:00; resolution is hourly
-  // (24 entries) or 15-min (96 entries). Index → UTC hour = floor(idx*24/N).
+  // formatHourEET.
+  //
+  // ── Phase 49 item 1, rule #2 ────────────────────────────────────────────────
+  // `Math.floor(idx * 24 / N)` treats index 0 as UTC 00:00. That was never true
+  // on a CET/CEST market day, which starts at 22:00Z (summer) or 23:00Z, so the
+  // label is two hours out even on a clean single-day document — and on today's
+  // shipped flat scrape, where N=190 spans two days, the same expression put the
+  // 17:45Z peak of the committed fixture at "UTC hour 9". A label asserting WHEN
+  // a value came from must be computed from the evidence.
+  //
+  // Under `market_day` the hour is read off the slot's own wall-clock instant.
+  // Under `flat` the old expression is preserved verbatim, because the flag is
+  // OFF and this phase moves nothing unsigned.
   let lt_peak_hour_utc = null, lt_peak_price = null;
   let lt_trough_hour_utc = null, lt_trough_price = null;
   let lt_hourly_24 = null;
+  let lt_hourly_start_utc = null;
   if (ltPrices.length >= 24) {
     let peakIdx = 0, troughIdx = 0;
     for (let i = 1; i < ltPrices.length; i++) {
@@ -5384,34 +5799,55 @@ async function computeS1(env) {
       if (ltPrices[i] < ltPrices[troughIdx]) troughIdx = i;
     }
     const N = ltPrices.length;
-    lt_peak_hour_utc   = Math.floor((peakIdx   * 24) / N);
-    lt_trough_hour_utc = Math.floor((troughIdx * 24) / N);
+    lt_peak_hour_utc   = ltDay ? slotHourUtc(ltDay, peakIdx)   : Math.floor((peakIdx   * 24) / N);
+    lt_trough_hour_utc = ltDay ? slotHourUtc(ltDay, troughIdx) : Math.floor((troughIdx * 24) / N);
     lt_peak_price   = Math.round(ltPrices[peakIdx]   * 100) / 100;
     lt_trough_price = Math.round(ltPrices[troughIdx] * 100) / 100;
 
-    // 24-entry hourly downsampling (avg of sub-entries per UTC hour).
-    // Resolution-aware via Math.round(h*N/24) bucketing — mirrors the
-    // evening-premium slice arithmetic at L3382-3383 (Phase 31.A.2) and the
-    // inverse of the peak/trough idx→UTC-hour formula at L3359-3360. Handles
-    // N=24 (pass-through), N=96 (4 sub-bars per hour), and N=95 (3-or-4
-    // sub-bars per hour) uniformly. Output: always 24-entry float array.
-    lt_hourly_24 = [];
-    for (let h = 0; h < 24; h++) {
-      const lo = Math.round((h * N) / 24);
-      const hi = Math.round(((h + 1) * N) / 24);
-      const bucket = ltPrices.slice(lo, hi);
-      const m = bucket.reduce((a, b) => a + b, 0) / bucket.length;
-      lt_hourly_24.push(Math.round(m * 100) / 100);
+    if (ltDay) {
+      // One entry per hour OF THE MARKET DAY — 23, 24 or 25 of them, which is
+      // how many hours the day has. `lt_hourly_start_utc` says which UTC hour
+      // entry 0 is, computed from the day's own start, so a consumer can label
+      // the series without assuming anything. A fixed 24 starting at UTC 00:00
+      // is wrong on every day of the year here, and wrong by an extra hour twice.
+      const perHour = 60 / ltDay.resolutionMin;
+      lt_hourly_24 = [];
+      for (let h = 0; h < ltDay.hours; h++) {
+        const bucket = ltPrices.slice(h * perHour, (h + 1) * perHour);
+        lt_hourly_24.push(Math.round((bucket.reduce((a, b) => a + b, 0) / bucket.length) * 100) / 100);
+      }
+      lt_hourly_start_utc = slotHourUtc(ltDay, 0);
+    } else {
+      // 24-entry hourly downsampling (avg of sub-entries per UTC hour).
+      // Resolution-aware via Math.round(h*N/24) bucketing. Handles N=24
+      // (pass-through), N=96 (4 sub-bars per hour), and N=95 (3-or-4 sub-bars
+      // per hour) uniformly. Output: always 24-entry float array.
+      lt_hourly_24 = [];
+      for (let h = 0; h < 24; h++) {
+        const lo = Math.round((h * N) / 24);
+        const hi = Math.round(((h + 1) * N) / 24);
+        const bucket = ltPrices.slice(lo, hi);
+        const m = bucket.reduce((a, b) => a + b, 0) / bucket.length;
+        lt_hourly_24.push(Math.round(m * 100) / 100);
+      }
     }
   }
 
   // Evening premium: mean(LT h17-21) - mean(LT h10-14) — peak vs shoulder.
-  // Resolution-aware: ltPrices is 24 entries on hourly days, 96 on 15-min ISP
-  // days, and occasionally 95 (ENTSO-E one-off). Map hour h to index Math.round(h*N/24);
-  // mirrors the inverse of the peak/trough idx→UTC-hour math at L3359-3360.
+  //
+  // Same rule-#2 problem as the hour labels above, and the same split: under
+  // `market_day` the slices are selected by each slot's real UTC hour; under
+  // `flat` the index arithmetic is preserved verbatim so the flag stays OFF.
+  // The flat form maps hour h to index Math.round(h*N/24), which is correct only
+  // if index 0 is UTC 00:00.
   const N_evp = ltPrices.length;
-  const ltEvening  = ltPrices.slice(Math.round(17 * N_evp / 24), Math.round(22 * N_evp / 24));
-  const ltShoulder = ltPrices.slice(Math.round(10 * N_evp / 24), Math.round(15 * N_evp / 24));
+  const byUtcHour = (from, toExclusive) =>
+    ltPrices.filter((_, i) => {
+      const h = slotHourUtc(ltDay, i);
+      return h >= from && h < toExclusive;
+    });
+  const ltEvening  = ltDay ? byUtcHour(17, 22) : ltPrices.slice(Math.round(17 * N_evp / 24), Math.round(22 * N_evp / 24));
+  const ltShoulder = ltDay ? byUtcHour(10, 15) : ltPrices.slice(Math.round(10 * N_evp / 24), Math.round(15 * N_evp / 24));
   const lt_evening_premium = (ltEvening.length && ltShoulder.length)
     ? Math.round((avg(ltEvening) - avg(ltShoulder)) * 100) / 100
     : null;
@@ -5482,6 +5918,20 @@ async function computeS1(env) {
     updated_at: new Date().toISOString(),
     lt_hours:  ltPrices.length,
     se4_hours: se4Prices.length,
+    // Phase 49 item 1 — which day these numbers are, said out loud rather than
+    // assumed. Present only under `market_day`, so the flag being OFF leaves the
+    // payload byte-identical; `lt_hourly_start_utc` is what lets a consumer
+    // label the hourly series without assuming index 0 is UTC 00:00.
+    ...(ltDay ? {
+      lt_day_basis: 'cet_market_day',
+      lt_day_start_utc: new Date(ltDay.startMs).toISOString(),
+      lt_day_end_utc: new Date(ltDay.endMs).toISOString(),
+      lt_day_hours: ltDay.hours,
+      lt_day_resolution_min: ltDay.resolutionMin,
+      lt_day_forward_filled: ltDay.forward_filled,
+      lt_hourly_start_utc,
+    } : {}),
+    ...(lt.refusal ? { lt_day_refusal: lt.refusal } : {}),
     // Hourly price arrays for trading engine consumption
     hourly_lt:  ltPrices.map(p => Math.round(p * 100) / 100),
     hourly_se4: se4Prices.map(p => Math.round(p * 100) / 100),
@@ -6338,13 +6788,30 @@ async function computeS3() {
   let teBytes = null;
   let bodyPreview = '';
 
+  // ── Phase 49 item 4 — one dead host must not take a healthy one down ───────
+  //
+  // These two were inside one `Promise.all`, so the TE abort rejected the whole
+  // function and the catch below returned a payload with NO `fx_rates` at all —
+  // even though Frankfurter had answered in under a second. Observed live
+  // 2026-08-04T08:00:20Z: `fx_rates` absent from `/s3` while
+  // `data_freshness.ecb_euribor` had updated normally at 08:01:06Z.
+  //
+  // This is 39.2's finding recurring one signal over: "the ENTSO-E day-ahead
+  // curve was in hand and the capture was thrown away for want of a second copy
+  // of it." Settled independently, so a scrape failure costs the scrape and
+  // nothing else.
+  let fx;
   try {
-    // Fetch FX rates in parallel with TE scrape
-    const [fx, teRes] = await Promise.all([
-      fetchFxRates(),
-      fetch(TE_URL, { signal: controller.signal, headers: TE_HEADERS, redirect: 'follow' }),
-    ]);
+    fx = await fetchFxRates();
+  } catch (fxErr) {
+    console.error('[S3/fx] fetchFxRates failed:', String(fxErr));
+    fx = null;
+  }
+
+  try {
+    const teRes = await fetch(TE_URL, { signal: controller.signal, headers: TE_HEADERS, redirect: 'follow' });
     clearTimeout(timer);
+    if (!fx) throw new Error('FX unavailable and TE scrape cannot be published without it');
     teStatus = teRes.status;
     teCtype = (teRes.headers.get('content-type') || 'none').split(';')[0];
 
@@ -6444,6 +6911,11 @@ async function computeS3() {
       unavailable: true,
       signal: 'STABLE',
       ...S3_REFS,
+      // Whatever survived is published. The FX leg answering is not made
+      // worthless by the scrape leg failing, and a payload that drops a
+      // healthy observation because an unrelated one timed out is a second
+      // outage caused by the first.
+      ...(fx ? { fx_rates: { usd: fx.usd, cny: fx.cny }, fx_timestamp: fx.date } : {}),
       interpretation: 'Data temporarily unavailable.',
       source: 'tradingeconomics.com + infolink-group.com',
       _scrape_error: String(err),
@@ -7173,32 +7645,33 @@ function computeRevenueWorker(prices, duration_h) {
   // (active merchant), 4h → ~1.0 c/d (gentler cycling). Connects cell
   // aging to operation rather than treating all dispatch identically.
   const cd_for_soh = durBlend(duration_h, 1.3, 1.0);
-  function npv(rate) {
-    let n = -capex;
-    for (let t = 1; t <= B.project_life_years; t++) {
-      const soh   = sohYr(Math.min(t - 1, SOH_CURVE_1CD.length - 1), cd_for_soh);
-      const mkt   = marketDecayW(t);
-      const annual = net_annual * (
-        CAPACITY_FRACTION_W * mkt.capacity +
-        TRADING_FRACTION_W  * mkt.trading * soh
-      );
-      n += annual / Math.pow(1 + rate, t);
-    }
-    return n;
+  // Phase 49 item 2, solver 3 of 3. This one bisected [0, 5.0] and returned `lo`,
+  // so a market whose IRR is NEGATIVE came back as exactly 0 % — a bound reported
+  // as a rate — and anything above 500 % came back as 500. Same shape as the two
+  // above, in the surface that ranks Lithuania against seven other markets.
+  //
+  // Rebuilt as the cash-flow stream the NPV expression already implies, then
+  // handed to the single solver. `irr` stays a percentage; null propagates as
+  // null rather than collapsing to zero.
+  const cf = [-capex];
+  for (let t = 1; t <= B.project_life_years; t++) {
+    const soh = sohYr(Math.min(t - 1, SOH_CURVE_1CD.length - 1), cd_for_soh);
+    const mkt = marketDecayW(t);
+    cf.push(net_annual * (
+      CAPACITY_FRACTION_W * mkt.capacity +
+      TRADING_FRACTION_W * mkt.trading * soh
+    ));
   }
-  let lo = 0, hi = 5.0;
-  for (let i = 0; i < 60; i++) {
-    const mid = (lo + hi) / 2;
-    npv(mid) > 0 ? (lo = mid) : (hi = mid);
-  }
-  const irr = lo * 100;
+  const solved = solveIRR(cf);
+  const irr = solved.value === null ? null : solved.value * 100;
 
   const ch_central = B.ch_irr_central[key];
   const ch_low     = B.ch_irr_low[key];
   const ch_high    = B.ch_irr_high[key];
-  const irr_vs_ch  = irr > ch_central * 1.1 ? 'above' :
-                     irr < ch_central * 0.9 ? 'below' :
-                     'within range of';
+  const irr_vs_ch  = irr === null ? 'not comparable with'
+                   : irr > ch_central * 1.1 ? 'above'
+                   : irr < ch_central * 0.9 ? 'below'
+                   : 'within range of';
 
   return {
     afrr_annual_per_mw:    Math.round(afrr_annual),
@@ -7209,7 +7682,7 @@ function computeRevenueWorker(prices, duration_h) {
     net_annual_per_mw:     Math.round(net_annual),
     capex_per_mw:          Math.round(capex),
     simple_payback_years:  Math.round(payback * 10) / 10,
-    irr_approx_pct:        Math.round(irr * 10) / 10,
+    irr_approx_pct:        irr === null ? null : Math.round(irr * 10) / 10,
     irr_vs_ch_central:     irr_vs_ch,
     ch_irr_central:        ch_central,
     ch_irr_range:          `${ch_low}%–${ch_high}%`,
@@ -7237,7 +7710,10 @@ function computeMarketComparisonWorker(liveLT) {
         is_live:           m.afrr_up_eur_mwh === null,
       };
     })
-    .sort((a, b) => b.irr_pct - a.irr_pct);
+    // Null sorts last rather than poisoning the comparator: `null - n` is NaN,
+    // and a NaN comparator leaves the array in an arbitrary order that looks
+    // like a ranking (Phase 49 item 2 — a plausible output, not an error).
+    .sort((a, b) => (b.irr_pct ?? -Infinity) - (a.irr_pct ?? -Infinity));
 }
 
 async function computeInterpretations(signals, revenue, anthropicKey) {
@@ -12315,8 +12791,12 @@ export default {
         };
       }
 
+      // Phase 49 item 2 — `Math.round(null * 1000) / 10` is 0, so a null IRR
+      // rendered here as a flat 0 %: the null contract says null means
+      // "undefined", and 0 % is a number. Three sites, one helper.
+      const irrPct = (v) => (v == null ? null : Math.round(v * 1000) / 10);
       result.h2 = {
-        capex_per_mw: r2h.gross_capex / 50, irr_approx_pct: Math.round(r2h.project_irr * 1000) / 10,
+        capex_per_mw: r2h.gross_capex / 50, irr_approx_pct: irrPct(r2h.project_irr),
         simple_payback_years: r2h.simple_payback_years,
         afrr_annual_per_mw: Math.round(r2h.capacity_y1 * 0.38), mfrr_annual_per_mw: Math.round(r2h.capacity_y1 * 0.27),
         trading_annual_per_mw: r2h.arbitrage_y1, gross_annual_per_mw: r2h.gross_revenue_y1 / 50,
@@ -12324,7 +12804,7 @@ export default {
         ch_irr_central: 16.6, ch_irr_range: '6%–31%',
       };
       result.h4 = {
-        capex_per_mw: r4h.gross_capex / 50, irr_approx_pct: Math.round(r4h.project_irr * 1000) / 10,
+        capex_per_mw: r4h.gross_capex / 50, irr_approx_pct: irrPct(r4h.project_irr),
         simple_payback_years: r4h.simple_payback_years,
         afrr_annual_per_mw: Math.round(r4h.capacity_y1 * 0.38), mfrr_annual_per_mw: Math.round(r4h.capacity_y1 * 0.27),
         trading_annual_per_mw: r4h.arbitrage_y1, gross_annual_per_mw: r4h.gross_revenue_y1 / 50,
@@ -12343,7 +12823,10 @@ export default {
       result.eu_ranking = computeMarketComparisonWorker(legacyPrices);
       if (result.eu_ranking) {
         const lt = result.eu_ranking.find(m => m.country === 'Lithuania');
-        if (lt) lt.irr_pct = Math.round(result.project_irr * 1000) / 10;
+        // Same null-renders-as-zero trap as h2/h4 above (Phase 49 item 2): this
+        // one would have put Lithuania at a flat 0 % in a ranking of eight
+        // markets and sorted it accordingly.
+        if (lt) lt.irr_pct = result.project_irr == null ? null : Math.round(result.project_irr * 1000) / 10;
       }
 
       result.prices = { afrr_up_avg: s2?.afrr_up_avg ?? null, mfrr_up_avg: s2?.mfrr_up_avg ?? null, spread_eur_mwh: s1?.spread_eur_mwh ?? null, euribor_3m: eur?.euribor_3m ?? null };
@@ -12406,8 +12889,14 @@ export default {
       let deltas_unavailable_reason = admissible.ok ? null : admissible.reason;
       if (admissible.ok) {
         const psi = prev.signal_inputs;
+        // `|| 0` silently substitutes zero for an undefined IRR, so a solve that
+        // failed on either side would report a movement equal to the OTHER side's
+        // whole IRR — a large, confident, entirely invented delta (Phase 49
+        // item 2). A delta between a number and a non-number is not a number.
         deltas = {
-          irr_pp: Math.round(((result.project_irr || 0) - (prev.project_irr || 0)) * 10000) / 100,
+          irr_pp: (result.project_irr == null || prev.project_irr == null)
+            ? null
+            : Math.round((result.project_irr - prev.project_irr) * 10000) / 100,
           net_rev: Math.round((result.net_mw_yr || 0) - (prev.net_mw_yr || 0)),
           signals: {},
         };
@@ -12837,7 +13326,14 @@ export default {
             return;
           }
           const data      = JSON.parse(raw);
-          const ts        = data.timestamp ?? data._meta?.written_at ?? data.updated_at;
+          // Phase 49 follow-up. Adding a threshold is not the same as making a
+          // key measurable: `genload` stamps `fetched_at` and `s2_activation`
+          // stamps `stored_at`, so both reported `age_hours: null` the moment
+          // they were monitored — present-looking and unaged, which is exactly
+          // the shape that let `s2_daily_clearing` sit nine days behind (Phase
+          // 50). The stamp exists in both; only the NAME was outside this chain.
+          const ts        = data.timestamp ?? data._meta?.written_at ?? data.updated_at
+                          ?? data.fetched_at ?? data.stored_at;
           const ageH      = ts ? (Date.now() - new Date(ts).getTime()) / 3600000 : null;
           const threshold = STALE_THRESHOLDS_HOURS[key] ?? 48;
           const stale     = ageH !== null ? ageH > threshold : null;
@@ -13466,6 +13962,15 @@ export {
   // an audit of the happy path. Exported rather than copied — a restatement of
   // the bisection in a test would verify the restatement (B13).
   calcIRR as calcIRRForAudit,
+  // Phase 49 item 2 — the solve, not just its value. A test that can only see
+  // the number cannot tell "converged at −0.99" from "ran to its own bound",
+  // which is precisely the distinction the phase exists to restore.
+  solveIRR,
+  irrStatusFor,
+  // Phase 49 item 3 — the declared public payload shape. Exported so the class
+  // guard can assert it against what the primary path actually emits, which is
+  // what stops it becoming a stale hardcoded list (A9).
+  REVENUE_PAYLOAD_KEYS,
   // Phase 39.2 — the day-correct A44 reconstruction. Exported so the tests
   // exercise the SAME functions the capture fallback calls, against a real
   // recorded ENTSO-E response, rather than a restatement of their regexes
@@ -13473,6 +13978,14 @@ export {
   // file, not the behaviour).
   parseA44Periods,
   pricesForUtcDay,
+  // Phase 49 item 1 — market-day admission and its wall-clock hour labels.
+  marketDayAt,
+  slotHourUtc,
+  s1DayParseMode,
+  // Exported so the flag delta is measured by running the REAL computeS1 twice
+  // over ONE recorded set of documents, rather than by a script restating its
+  // field arithmetic — which would measure the restatement (B13).
+  computeS1,
   isoDurationToMinutes,
   resolveCaptureDay,
   // Phase 36.B5 — the one duration-anchor interpolation policy. Exported so the

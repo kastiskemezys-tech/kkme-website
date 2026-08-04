@@ -154,6 +154,19 @@ F0 visual checkpoint (you approve every chart type in both themes) · F1 copy-de
 - `docs/_private/` never staged, ever. Leak tests wherever private data flows.
 - Boundary ritual is not optional — three orphan commits and two stale deploys were the tuition.
 
+## Programme-level gaps (named 2026-08-04; none is a CC phase by default)
+
+Recorded because a run of engineering days will not close any of them by itself.
+
+1. **No client motion.** Prosperus €10k unconfirmed, bundle parked, no follow-up scheduled. The engine is now materially more defensible than when the conversation started — that is the thing to lead with. **Operator-only.** Trigger: as soon as the deep-debug numbers settle.
+2. **The story has not caught up with the numbers.** The site publishes IRR 4.82 % and DSCR 0.95 without saying that it is the only Baltic model sizing debt the way a lender does, or showing the structure that works. Phase 38 Part C's surfacing backlog is the fix (B1 hourly engine · B2 distribution · **B4 contracted-floor asymmetry** · 299-day history · hybrid band · 400-day capture archive · lender annex). **Cowork scopes, CC builds, operator writes copy.**
+3. **The E-arc is 40 % done and stalled.** E1/E2 built and unwired; E3/E4/E5 unbuilt; E6 never reached, so the blended CPI still drives every published number. Three phases left. **Needs a dedicated day, not a tail-end slot.**
+4. **36.F1 is an operator task nobody scheduled.** The copy deck is the anti-AI guarantee and cannot be delegated. Until it is written, the report tool stays at F0. **Operator-only.**
+5. **Nobody has read the live site end-to-end since the corrections** — as a lender or developer would, in order, on a phone. Phase 38 audited numbers against fields, not the argument. **Operator, 30 minutes.**
+6. **No outcome measurement.** No analytics, no funnel, no idea whether anyone reaches the calculator. Technical SEO shipped with nothing measuring whether it worked. **One small phase.**
+
+Smaller, same class: private-tier restore tested once with no re-test schedule · `npm audit` reported, never actioned · 37.B.2/B.3 leave the fleet work publicly invisible · mobile unchecked for weeks with a history of regressions.
+
 ## Parked / triggers
 - **38.3 STOPPED BEFORE IMPLEMENTATION 2026-08-03 — the premise failed measurement.** The arc claimed the cutover moves public IRR materially upward; measured across all 54 configs (clean-worktree baseline `656d100`, one frozen KV md5 `6511f342…` in both trees, never a stash) it is **+0.07 to +0.15 pp, median +0.14 pp, 18 of 54 configs moving at all**, with cycles/LCOS/gross_y1 unmoved. Cause: **the degradation model is only characterised down to 1.0 c/d** (`sohYr` does `cd = max(cd_total, 1.0)`, `getDegradation` floors its 2C weight at zero), so 1.36 → 0.60 c/d only removes the partial blend toward the 2C curve — everything below 1.0 c/d is clamped away by construction, and the stress scenario already sits at 0.92 c/d. **Publishing 222 EFC/yr would mean publishing a cycle count the wear model cannot use.** Operator decision: neither branch adopted; cutover parked pending §2.97 reconciliation. The two honest outputs (clamp disclosure + the reserve-led cycling answer) ship separately as disclosure-only.
 
