@@ -77,11 +77,17 @@ BYTES=$(wc -c < "$CORPUS" | tr -d ' ')
 # this run is not evidence about this run (B11).
 CONTROL="__NDA_GATE_SELFTEST_SENTINEL__"
 echo "$CONTROL" >> "$CORPUS"
-if ! grep -qiF -- "$CONTROL" "$CORPUS"; then
-  echo "NDA GATE INVALID — the positive control did not match its own corpus."
-  exit 2
-fi
-grep -vF -- "$CONTROL" "$CORPUS" > "$CORPUS.clean" && mv "$CORPUS.clean" "$CORPUS"
+# NON-OPTIONAL. This gate's negative result is only believable if a string known
+# to be present can be found. Run BEFORE the needles, and distinguish "did not
+# match" from "could not run" — B15 is exactly the case where those differ.
+grep -a -qiF -- "$CONTROL" "$CORPUS"
+CONTROL_RC=$?
+case "$CONTROL_RC" in
+  0) ;;  # the scan can find what is there — proceed
+  1) echo "NDA GATE INVALID — the positive control did not match its own corpus."; exit 2;;
+  *) echo "NDA GATE UNRUNNABLE — the positive control's grep exited $CONTROL_RC (an error, not a result)."; exit 2;;
+esac
+grep -a -vF -- "$CONTROL" "$CORPUS" > "$CORPUS.clean" && mv "$CORPUS.clean" "$CORPUS"
 
 # Numeric needles are matched at NUMBER boundaries, not as substrings.
 #
@@ -96,6 +102,32 @@ grep -vF -- "$CONTROL" "$CORPUS" > "$CORPUS.clean" && mv "$CORPUS.clean" "$CORPU
 # (This comment deliberately describes the collision without reproducing either
 # figure. The gate caught an earlier draft of it that did — which is the rule
 # working: a contracted figure quoted in a comment is still a disclosure.)
+# ── B15: grep's ERROR is not grep's ANSWER ───────────────────────────────────
+#
+# `grep` has three exit codes and this gate only ever read two of them:
+#
+#   0  found          1  not found          2  ERROR
+#
+# `if ! grep …` collapses 1 and 2 into "no match", so a scan that could not run
+# reported the same thing as a scan that ran and found nothing clean. That is how
+# a single invalid-UTF-8 byte turned the whole disclosure gate into a no-op.
+#
+# Every scan now goes through this wrapper, which returns those three states
+# distinctly. `-a` forces text handling so binary content is scanned rather than
+# skipped with "Binary file matches" — a needle inside a binary blob is still a
+# disclosure. Exit 2 propagates to UNRUNNABLE at the call site, never to a pass.
+scan() {
+  grep -a "$@" "$CORPUS"
+  local rc=$?
+  case "$rc" in
+    0|1) return "$rc";;
+    *)
+      echo "NDA GATE UNRUNNABLE — grep exited $rc (an ERROR, not a result) while scanning the corpus." >&2
+      echo "Refusing to report a pass from a check that did not execute (B14/B15)." >&2
+      exit 2;;
+  esac
+}
+
 matches() {
   local needle="$1"
   case "$needle" in
@@ -103,12 +135,12 @@ matches() {
       case "$needle" in
         # Mixed alphanumeric needles (a figure carrying a unit or a percent
         # sign) stay substring-matched: they cannot collide with a longer number.
-        *[A-Za-z%]*) grep -qiF -- "$needle" "$CORPUS"; return $?;;
+        *[A-Za-z%]*) scan -qiF -- "$needle"; return $?;;
       esac
       local esc
       esc=$(printf '%s' "$needle" | sed 's/[.[\*^$()+?{|]/\\&/g')
-      grep -qiE -- "(^|[^0-9.])${esc}([^0-9]|$)" "$CORPUS"; return $?;;
-    *) grep -qiF -- "$needle" "$CORPUS"; return $?;;
+      scan -qiE -- "(^|[^0-9.])${esc}([^0-9]|$)"; return $?;;
+    *) scan -qiF -- "$needle"; return $?;;
   esac
 }
 
@@ -119,8 +151,10 @@ while IFS= read -r needle; do
   N=$((N+1))
   if matches "$needle"; then
     echo "NDA GATE FAIL — forbidden string present (needle #$N, redacted). Context:"
-    grep -inE -- "$(printf '%s' "$needle" | sed 's/[.[\*^$()+?{|]/\\&/g')" "$CORPUS" \
-      | head -3 | cut -c1-160 | sed 's/^/    /'
+    # Context only — `matches` has already decided. `-a` for the same reason,
+    # and a failure here must not mask a FAIL that was already established.
+    grep -a -inE -- "$(printf '%s' "$needle" | sed 's/[.[\*^$()+?{|]/\\&/g')" "$CORPUS" \
+      | head -3 | cut -c1-160 | sed 's/^/    /' || true
     FOUND=$((FOUND+1))
   fi
 done < "$NEEDLES"
