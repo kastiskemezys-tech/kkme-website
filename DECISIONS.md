@@ -4225,3 +4225,96 @@ parameter's source without its freshness is precisely the S1-badge lie in a PDF.
 The reason it needs a signature rather than being done tonight: assigning each of 70 rows to a
 dataset is a judgement about what each parameter actually rests on, and getting that wrong
 would publish a false provenance — worse than publishing none.
+
+## 47 (item 7) · Pause A — four questions
+
+**(a) HYPOTHESIS vs verified.** The stop condition — **a live credential exposed in a currently
+public place — is NEGATIVE**, verified four ways: no secret-shaped string in any tracked file;
+`.env`/`.env.local` untracked; the two real local key values appear in **0** commits across all
+924; and a full-history scan for connection strings, private keys and bearer/API-key shapes
+returns only the **elided** strings in the B-061 write-up (`…@`, `...@`), which are documentation
+of the incident, not values. The repo is confirmed **PUBLIC** (`gh repo view` → `isPrivate:
+false`), which is what makes that result meaningful rather than incidental.
+
+*Prompt premise FALSE.* "At least two of them — the 299-day clearing history and the 400-day
+capture archive — took months of daily collection that cannot be re-fetched." The **capture
+archive is fully re-derivable.** Capture is a pure function of a day's price curve, and ENTSO-E
+A44 serves LT curves years back — verified 2026-08-03 by fetching 2023-08-01, 2024-08-01,
+2025-02-01 and 2025-08-01, all of which returned full curves. Rebuilding it is a re-computation,
+not a re-collection. The repo separately holds committed LT hourly prices for 2015–2026. The
+299-day clearing history is a genuine unknown and is the one thing worth testing first.
+
+**(b) What consumes what this changes.** Nothing. Two new documents and a DECISIONS entry. No
+secret rotated, no auth changed, nothing deployed — per the phase's terms.
+
+**(c) What fails silently here.** Four unauthenticated write endpoints, below. And the backup
+gap: there is no restore path, tested or untested, because nothing has ever been exported.
+
+**(d) At which layer and time.** Route auth verified at the **live route layer**, not by reading
+the source: each flagged endpoint was probed with a deliberately invalid body, so a `401` would
+mean auth-before-shape and a `400` means the request reached parsing. The control
+(`POST /s2/update`, known to require `UPDATE_SECRET`) returned **401**. The flagged routes
+returned **400** and **200**.
+
+### 47 · FINDING P0 — `POST /feed/clean` is unauthenticated, remote and destructive
+
+Not the literal stop condition (no credential is exposed), but the most serious finding of the
+night.
+
+`POST /feed/clean` takes no auth. It reads `body.before` — **a caller-supplied cutoff date** —
+keeps only items dated at or after it, and writes the result straight to `feed_index`:
+
+```
+const cutoffDate = body.before || new Date(Date.now() - 60 * 86400000).toISOString();
+const kept = idx.filter(i => (i.published_at || i.date || i.added_at || '') >= cutoffDate);
+await env.KKME_SIGNALS.put('feed_index', JSON.stringify(kept));
+```
+
+A single unauthenticated `curl` with `{"before":"2099-01-01"}` empties the published intel feed.
+
+**I confirmed the missing auth by accident and must say so plainly.** My probe posted invalid
+JSON expecting a 401 or a 400; `/feed/clean` returned **HTTP 200 `{"cleaned":0,"remaining":4}`** —
+it *executed*. The invalid body fell into `catch { /* empty body ok */ }`, so `body = {}` and the
+default 60-day cutoff applied, which matched nothing. **Nothing was deleted** — the feed still
+holds the same 4 items, verified immediately after. It cleaned zero purely because of the
+default, not because anything stopped it.
+
+Three siblings are unauthenticated too and reached JSON parsing (HTTP 400, versus the control's
+401): **`POST /feed/events`** and **`POST /feed/backfill-curations`** (both write `feed_index`),
+and **`POST /contact`** (writes `contact_submissions`). `POST /telegram/webhook` returns 200 to
+an arbitrary unauthenticated POST and writes a session key.
+
+This collides directly with **discipline rule #3**: an unauthenticated writer on `feed_index`
+means a named entity can be injected into published content without any source URL, which is
+the exact failure the rule exists to prevent.
+
+**NOT FIXED — the phase forbids changing an auth mechanism unsupervised, and it is right to.**
+Decision 9.
+
+### 47 · Decision 9 (NEEDS SIGNATURE — recommend acting on this first)
+
+Put `UPDATE_SECRET` on `/feed/clean`, `/feed/events`, `/feed/backfill-curations` — the same gate
+`/s2/update` already uses, so it is a four-line change with an established pattern, not a new
+mechanism. `/contact` needs a different answer (it is meant to be public): rate-limiting plus a
+size cap rather than auth. `/telegram/webhook` should verify Telegram's
+`X-Telegram-Bot-Api-Secret-Token` header.
+
+**Recommendation: do `/feed/clean` first and alone**, because it is the destructive one. The
+others are additive and bounded; that one is not.
+
+### 47 · Decision 10 — the BTD retention question decides the backup design
+
+`s2_daily_clearing` (299 days) is the only entry on the irreplaceable list whose status I could
+not determine: the worker only ever requests a ~9-day window, so we have never tested how far
+back BTD serves. **One query settles it**, and the answer decides whether the irreplaceable list
+has five entries or four — and therefore how urgent the backup work is. Do that before building
+any of the backup design in `docs/disaster-recovery.md`.
+
+### 47 · §5 dependencies — reported, not fixed
+
+`npm audit`: **8 high, 2 moderate, 1 low, 0 critical** (11 total), including `next`, `postcss`,
+`minimatch`, `js-yaml`, `brace-expansion`, `picomatch`. **5 dependencies are pinned exactly**
+(`next`, `react`, `react-dom`, `babel-plugin-react-compiler`, `eslint-config-next`); **31 are
+caret-ranged**. No runtime CDN loads in shipped app code — everything is bundled. Not fixed:
+`npm audit fix` on a caret-ranged tree moves 31 dependencies at once, which is a deploy-risk
+decision, not a maintenance one.
