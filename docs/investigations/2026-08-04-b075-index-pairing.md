@@ -104,3 +104,26 @@ and is a one-shot. Reproduce with: fetch both zones over `utcPeriod(-30)` →
 `utcPeriod(1)`, run `extractPrices` for the index pairing and `parseA44Periods` →
 `[startMs + i*resolution, price]` for the timestamp pairing, then run both through
 the same statistic.
+
+## Deployed and verified live — 2026-08-04T11:36Z
+
+Worker `5edc2931`, from main after origin-SHA equality, verified per C8 (three
+consecutive agreeing reads; the first post-deploy read on the previous two
+deploys today returned the pre-deploy artifact, so a single read is never
+evidence).
+
+| field | before | after | move |
+|---|---|---|---|
+| `rsi_30d` | −0.23 | **−0.52** | more negative |
+| `trend_vs_90d` | 1.37 | **2.62** | +91 % |
+| `pct_hours_above_20` | 22.6 | **7.6** | **−66.4 %** |
+| `spread_pairing` | absent | `{ basis: 'timestamp', slots_30d: 3072, slots_ref: 2976 }` | present |
+
+**These are not the same numbers as the measurement above, and they should not
+be.** That measurement was taken at 10:07Z against that moment's 30-day window;
+day-ahead prices published since have moved the window. What carries across is
+the DIRECTION and the rough magnitude: `pct_hours_above_20` measured −68.4 % and
+landed −66.4 %.
+
+The published figure for "share of hours Lithuania clears more than 20 % above
+SE4" is now **7.6 %** where it was **22.6 %**.
