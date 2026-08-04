@@ -55,22 +55,7 @@ export const GATES = [
       "property literally named `phase`, which was the shape Phase 12.9.1 removed, and could not see a " +
       "state string rendered directly as JSX.",
     where: 'local + CI',
-    // KNOWN-RED since 2026-08-04, and it is red because it started looking.
-    //
-    // `app/components/S5Card.tsx:153` renders `{data.signal ?? 'OPEN'}` as the
-    // card's HERO at --type-display-lg with a glow — not a chip, a headline —
-    // where `data.signal` is worker-emitted OPEN / TIGHTENING / CONSTRAINED.
-    // Textbook rule #6, and the old pattern could not match it.
-    //
-    // NOT live: S5Card is imported by nothing (app/page.tsx mounts only S1Card
-    // and S2Card among the signal cards) and is absent from the build output. So
-    // this is a latent violation in orphaned code, not something a visitor sees.
-    //
-    // Recorded red rather than fixed because the fix is the operator's call:
-    // delete the orphan, or replace the hero with the quantitative
-    // micro-descriptor rule #6 prescribes. Registering it green by narrowing the
-    // pattern back would be re-creating the blind spot on purpose.
-    expect: 'red',
+    expect: 'green',
     injections: [{
       label: 're-introduce an editorial chip in a real component',
       kind: 'write',
