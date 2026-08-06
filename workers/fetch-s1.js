@@ -2953,6 +2953,10 @@ function computeRevenueV7(params, kv) {
     // carried onto a EUR asset), and the whole gearing figure rests on it. So
     // the ladder ships WITH the headline rather than in a footnote: a reader who
     // cannot see how much of the answer is the parameter cannot weigh the answer.
+    // The cover ratio AS PUBLISHED — rounded once, so the sentence below and
+    // the number it quotes are the same fact rather than two views of it.
+    const dscr_shown = min_dscr != null ? Number(min_dscr.toFixed(2)) : null;
+
     const sensitivity = DSCR_SENSITIVITY_LADDER.map((target) => {
       const s = sizeDebt({ cfadsFn, capexNet: capex_net_total, ...bc, targetDscr: target });
       return {
@@ -2990,11 +2994,25 @@ function computeRevenueV7(params, kv) {
       // 1.76× and the structure fails" — an assertion about a state, hardcoded
       // rather than derived, contradicted by the number sitting next to it. The
       // verdict is now COMPUTED from the cover ratio it describes.
+      // Phase 53 — the verdict branches on the figure the sentence PRINTS, not
+      // on the unrounded one behind it.
+      //
+      // `min_dscr` is `Math.min(...dscr_vals)`, unrounded; the sentence renders
+      // it at two decimals. Branching on the raw value meant that at the
+      // boundary the clause contradicted the number beside it: cover of 0.9967
+      // printed as "minimum cover is 1.00× — the asset does not service its
+      // debt". Both halves of that sentence came from the same variable and
+      // disagreed, which is the rule #2 failure this line already carries a
+      // paragraph about — one layer further in, and latent since it was written.
+      //
+      // It surfaced when Phase 53's month rule moved dur=2h/high/2027/conservative
+      // onto exactly that boundary. Rounding once, here, is what makes the
+      // printed number and the verdict about it the same fact.
       comparison: `At the assumed ${Math.round(debt_pct * 100)} % gearing, minimum cover is `
-        + `${min_dscr != null ? min_dscr.toFixed(2) : '—'}×`
-        + (min_dscr == null ? '.'
-          : min_dscr < 1.0 ? ' — the asset does not service its debt.'
-          : min_dscr < DEBT_COVENANT_DSCR
+        + `${dscr_shown != null ? dscr_shown.toFixed(2) : '—'}×`
+        + (dscr_shown == null ? '.'
+          : dscr_shown < 1.0 ? ' — the asset does not service its debt.'
+          : dscr_shown < DEBT_COVENANT_DSCR
             ? ` — above 1.00 but under the ${DEBT_COVENANT_DSCR.toFixed(2)}× covenant.`
             : `, clearing the ${DEBT_COVENANT_DSCR.toFixed(2)}× covenant.`)
         + ` Sized to a lender's ${solved.target_dscr.toFixed(2)}× target cover, the same asset `
