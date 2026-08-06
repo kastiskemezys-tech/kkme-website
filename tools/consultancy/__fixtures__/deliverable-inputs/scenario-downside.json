@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-06T13:35:39.402Z",
+  "generated_at": "2026-08-06T13:41:25.482Z",
   "scenario": "downside",
   "label": "Downside",
   "note": "Pipeline builds out faster than the central dropout assumption, spreads compress, execution and availability slip, and the TSO clears capacity below today's level.",
@@ -1034,17 +1034,17 @@
   },
   "timeline_note": "Calendar-year timeline. Each project contributes from its own first operating year, so the span runs past 20 years when commissioning is staggered — truncating it would break portfolio = Σ projects. Per-project internals stay on operating years; operating year N of a project falls in calendar year first_operating_year + N − 1.",
   "run": {
-    "run_id": "scenario-9db6baa3afb4",
-    "engine_git_sha": "fc35169e205972f4801203129e28891cfdde6fbc",
-    "input_hash": "c25d0f2d7549c17ff8d1a3871369622f9ae15cc4dace323ad361e6a14a155916",
+    "run_id": "scenario-b32536cc7b5b",
+    "engine_git_sha": "f9589a97bdf65529cf689ea6933ee12cc1fa66e1-dirty",
+    "input_hash": "8f6c7e960741826cf8b81b59ff7321ae0dbaaf95734db7bfc82b2cd96f40232e",
     "output_hash": "dfcabdedcdaa001b2749d7574cb9388cddd4bb0d7ecc383939ce240cccc3af27",
-    "register_version": "r5.8530095d",
+    "register_version": "r6.aef17967",
     "data_vintage": {
       "kind": "kv-snapshot",
       "kv_source": "live-public-routes",
       "captured_at": "2026-08-01T10:41:05.879Z",
       "verified": true
     },
-    "recorded_at": "2026-08-06T13:35:39.402Z"
+    "recorded_at": "2026-08-06T13:41:25.482Z"
   }
 }

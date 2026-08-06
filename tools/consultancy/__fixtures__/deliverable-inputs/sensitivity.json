@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-06T13:35:40.084Z",
+  "generated_at": "2026-08-06T13:41:26.195Z",
   "engine_version": "v7.3",
   "kv_source": "live-public-routes",
   "kv_verified": true,
@@ -225,17 +225,17 @@
     }
   },
   "run": {
-    "run_id": "sensitivity-9dd96eeb2da1",
-    "engine_git_sha": "fc35169e205972f4801203129e28891cfdde6fbc",
-    "input_hash": "092e25e1ea346fa332658d1f1557dc571875adf949fc7f40ce1e736403016515",
+    "run_id": "sensitivity-e84dc92ad766",
+    "engine_git_sha": "f9589a97bdf65529cf689ea6933ee12cc1fa66e1-dirty",
+    "input_hash": "0ba8fc071e473095059151c4e6605b4219bce08d0fa8db2fe93e5632632bb4ec",
     "output_hash": "35afa30e6607b8435678df9b7250eaa6443c1f01b1183ba0abaa6d0dd9503620",
-    "register_version": "r5.8530095d",
+    "register_version": "r6.aef17967",
     "data_vintage": {
       "kind": "kv-snapshot",
       "kv_source": "live-public-routes",
       "captured_at": "2026-08-01T10:41:05.879Z",
       "verified": true
     },
-    "recorded_at": "2026-08-06T13:35:40.084Z"
+    "recorded_at": "2026-08-06T13:41:26.196Z"
   }
 }

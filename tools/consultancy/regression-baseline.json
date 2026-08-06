@@ -1,8 +1,8 @@
 {
   "_note": "Public /revenue regression baseline. Hash of computeRevenueV7 output (timestamp stripped) over every public parameter combination, against the frozen KV fixture. Any change to this file means the public site moved.",
-  "represents_sha": "89ae9f41ae29488cce0381d2cd67d0d7ee91bcb5",
-  "captured_reason": "Phase 53 canonical activation-month rule (operator-signed 2026-08-06): computeBaseYear and deriveCompression unified on one month-eligibility rule; months below 20% ISP coverage and months before the measured regime boundary 2026-03 leave the base year. Attribution verified by one-process A/B against git show 01e20a1: over all 54 configurations — with the rule disabled every numeric leaf reproduces exactly; the only differing paths are the signed compression_rate_* rename, the new activation_month_rule disclosure, and per-run timestamp.",
-  "captured_at": "2026-08-06T13:34:25.546Z",
+  "represents_sha": "f9589a97bdf65529cf689ea6933ee12cc1fa66e1",
+  "captured_reason": "Two attributable causes since fc35169: (1) f9589a9 fixed a self-contradicting DSCR verdict at the 1.00 boundary — dur=2h capex=high cod=2027 scenario=conservative printed 'minimum cover is 1.00x — the asset does not service its debt'; the clause now branches on the rounded figure it prints. Only debt_sizing.comparison changes and dscr_shown is consumed by nothing else, so no numeric value moves. (2) the assumptions-register sync to r6.aef17967 for the re-derived bridge calibration. Headline values unchanged for all 54 configurations.",
+  "captured_at": "2026-08-06T13:41:24.745Z",
   "fixture": "fixtures/regression-kv.json",
   "hashes": {
     "dur=2h capex=low cod=2027 scenario=base": "69f488180b0dc99c254f578b22b9ff69428966814ea69b6db4cf10855e315e74",
@@ -24,7 +24,7 @@
     "dur=2h capex=mid cod=2029 scenario=conservative": "9e7e1b230a2e332309daa821e0ff0f7ce1e728397dba0215870d16e8c6a9862b",
     "dur=2h capex=mid cod=2029 scenario=stress": "8ac520b2f2f70ebfbd9d5f85b2021630e0b5d5b0dd49973da5f7ffbb151bc689",
     "dur=2h capex=high cod=2027 scenario=base": "a26386be3cf33af5fe751366896e9c5f03ec873b270a6198b1bb1020de6bde0d",
-    "dur=2h capex=high cod=2027 scenario=conservative": "b61c7f61a464282d3e32f021c0cdaa2f7f6885b3d846197005f8f7b954ab59ec",
+    "dur=2h capex=high cod=2027 scenario=conservative": "6d2dd5bca64aabd33b4a9a9aa496416d8ec721e734541a594036d81cddcf02be",
     "dur=2h capex=high cod=2027 scenario=stress": "e6f9f3d6dbf90b6885d886641d01ff8dd6e4277ddc82a0f628307a750e5b72e0",
     "dur=2h capex=high cod=2028 scenario=base": "66fc8bec192ecda090be9112c0b69a4411235266a9ac10748759aa9489d47bb7",
     "dur=2h capex=high cod=2028 scenario=conservative": "5ecee407c5e9e1977e76b92475ff768b397b7547f402e09904348024ffa9c3cb",

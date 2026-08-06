@@ -411,7 +411,7 @@
       "id": "operating_calibration_eur_kw_yr",
       "category": "cost",
       "label": "Operating cost, reconciling adjustment",
-      "value": 0.66,
+      "value": 0.89,
       "unit": "EUR/kW/yr",
       "source": "Derived, not sourced: closes the gap between the engine's cost taxonomy and the client's 4-line stack at the reference asset. 4.4% (EUR 128k) pre-38.6a, 9-10% (EUR 291k) post-partition, and EUR 33k after the 38.8a cost stack.",
       "sensitivity_range": [
@@ -1307,14 +1307,25 @@
       "decided_by": "derived",
       "phase": "38.8a",
       "register_version": "r5.8530095d"
+    },
+    {
+      "date": "2026-08-06",
+      "id": "operating_calibration_eur_kw_yr",
+      "old": 0.66,
+      "new": 0.89,
+      "reason": "Phase 53's canonical activation-month rule moved Y1 gross revenue, which is this row's declared review trigger ('every phase that moves Y1 gross revenue'). computeBaseYear and deriveCompression were unified on one month-eligibility rule; months below 20% ISP coverage and months before the measured regime boundary 2026-03 leave the base year (s2_months 10 to 4 at the reference asset). The engine's flat lines do not fall with revenue while the client stack's percentage lines do, so the taxonomy gap widened and the constant follows it. Re-derived by bridgeCalibration() from the reference asset, not re-fitted. Stays inside the declared [0, 4] band, so the 38.6a breach is not re-opened.",
+      "source": "bridgeCalibration() over the reference asset against the frozen KV fixture",
+      "decided_by": "derived",
+      "phase": "53",
+      "register_version": "r6.aef17967"
     }
   ],
-  "synced_at": "2026-08-03T11:15:06.501Z",
+  "synced_at": "2026-08-06T13:39:34.899Z",
   "version": {
-    "id": "r5.8530095d",
-    "seq": 5,
-    "hash": "8530095d99f24a9bcfd773310b76f6d3145128facf2aa9ffd63569280fafd34a",
-    "effective_from": "2026-08-03",
-    "changelog_entries": 15
+    "id": "r6.aef17967",
+    "seq": 6,
+    "hash": "aef1796739543b0465b05307b140bd6cbfb8b7e63c544482318af864a4f55dbb",
+    "effective_from": "2026-08-06",
+    "changelog_entries": 16
   }
 }

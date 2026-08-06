@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-06T13:35:39.469Z",
+  "generated_at": "2026-08-06T13:41:25.557Z",
   "scenario": "central",
   "label": "Central",
   "note": "The engine's calibrated base case. Every driver equals the shipped engine constant, so no overlay substitution is applied and the output is the unpatched engine's.",
@@ -1034,17 +1034,17 @@
   },
   "timeline_note": "Calendar-year timeline. Each project contributes from its own first operating year, so the span runs past 20 years when commissioning is staggered — truncating it would break portfolio = Σ projects. Per-project internals stay on operating years; operating year N of a project falls in calendar year first_operating_year + N − 1.",
   "run": {
-    "run_id": "scenario-bedcfa09cc9e",
-    "engine_git_sha": "fc35169e205972f4801203129e28891cfdde6fbc",
-    "input_hash": "cd9ce7eb1dcc25afeeff8188ae9c26bcb827898794557cfc14c2a672142cf35c",
+    "run_id": "scenario-e627ab54690f",
+    "engine_git_sha": "f9589a97bdf65529cf689ea6933ee12cc1fa66e1-dirty",
+    "input_hash": "55a9c60a2eefd3f7dcd20bc8cd1500e671450582fa9d4ba554e8e99b30a180c9",
     "output_hash": "e6211ea9d5a145b85186146e8186e18a4ac0abda8262d61b5a3aafae525e6a03",
-    "register_version": "r5.8530095d",
+    "register_version": "r6.aef17967",
     "data_vintage": {
       "kind": "kv-snapshot",
       "kv_source": "live-public-routes",
       "captured_at": "2026-08-01T10:41:05.879Z",
       "verified": true
     },
-    "recorded_at": "2026-08-06T13:35:39.469Z"
+    "recorded_at": "2026-08-06T13:41:25.558Z"
   }
 }

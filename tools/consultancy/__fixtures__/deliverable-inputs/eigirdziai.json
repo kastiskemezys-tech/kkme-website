@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-06T13:35:39.214Z",
+  "generated_at": "2026-08-06T13:41:25.293Z",
   "engine_version": "v7.3",
   "kv_source": "live-public-routes",
   "kv_captured_at": "2026-08-01T10:41:05.879Z",
@@ -2096,7 +2096,7 @@
       "source": "Clean Horizon S1 2025"
     },
     "prices_source": "BTD parsed; calibrated capacity (review pending)",
-    "timestamp": "2026-08-06T13:35:39.214Z",
+    "timestamp": "2026-08-06T13:41:25.293Z",
     "signal_inputs": {
       "s1_capture": 141.99,
       "afrr_clearing": 13.5,
@@ -2661,17 +2661,17 @@
     }
   },
   "run": {
-    "run_id": "project-12e157b441dd",
-    "engine_git_sha": "fc35169e205972f4801203129e28891cfdde6fbc",
-    "input_hash": "09fda11dfb7d36f096cc5c0636d29fbd9d65625d74c3eebe2d4efaf0056b24c3",
+    "run_id": "project-beb1e327f0e1",
+    "engine_git_sha": "f9589a97bdf65529cf689ea6933ee12cc1fa66e1-dirty",
+    "input_hash": "a5cb7804edc48b379c1d7f52c0251dc525ffcd33e15dcb6c366c54fd868bbcc4",
     "output_hash": "6ebadb017ac62ddac7d3b99f7a076a3418a18f2708c4c61b75cabbdb67130c74",
-    "register_version": "r5.8530095d",
+    "register_version": "r6.aef17967",
     "data_vintage": {
       "kind": "kv-snapshot",
       "kv_source": "live-public-routes",
       "captured_at": "2026-08-01T10:41:05.879Z",
       "verified": true
     },
-    "recorded_at": "2026-08-06T13:35:39.214Z"
+    "recorded_at": "2026-08-06T13:41:25.293Z"
   }
 }
