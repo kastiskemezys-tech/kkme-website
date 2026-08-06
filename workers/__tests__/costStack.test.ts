@@ -54,12 +54,35 @@ describe('38.8a — the flag defaults to the FULL STACK (operator-signed)', () =
   it('the shipped figures are reproducible from the payload', () => {
     // Pins what the operator signed. Anything that moves these has to explain
     // itself against a signed number.
+    //
+    // ── PIN CHAIN ─────────────────────────────────────────────────────────────
+    // Signed 38.8a. Moved by Phase 53's canonical activation-month rule,
+    // re-signed 2026-08-06. Still signed.
+    //
+    // Phase 53 gave computeBaseYear and deriveCompression one month-eligibility
+    // rule; computeBaseYear had been reading the market-formation window at face
+    // value while its sibling discounted it. On this fixture the base year loses
+    // the pre-2026-03 months and s2_months goes 10 -> 4.
+    //
+    //   before.project_irr   0.0383 -> 0.0319   -64 bp
+    //   after.project_irr    0.0482 -> 0.0421   -61 bp
+    //   before.min_dscr        0.89 -> 0.85
+    //   after.min_dscr         0.95 -> 0.91
+    //
+    // WHAT THIS PIN IS ACTUALLY FOR is the SPREAD between before and after —
+    // the cost stack's own effect — and that is nearly invariant under the
+    // re-sign: +99 bp signed, +102 bp now. The month rule moved the level both
+    // figures sit on, not the layer separation 38.8a measured. That is the
+    // evidence the re-sign preserves what was signed rather than replacing it.
     const before = run(REF.params, { cost_stack: 'current' });
     const after = run(REF.params);
-    expect(before.project_irr).toBeCloseTo(0.0383, 4);
-    expect(after.project_irr).toBeCloseTo(0.0482, 4);
-    expect(before.min_dscr).toBeCloseTo(0.89, 2);
-    expect(after.min_dscr).toBeCloseTo(0.95, 2);
+    expect(before.project_irr).toBeCloseTo(0.0319, 4);
+    expect(after.project_irr).toBeCloseTo(0.0421, 4);
+    expect(before.min_dscr).toBeCloseTo(0.85, 2);
+    expect(after.min_dscr).toBeCloseTo(0.91, 2);
+    // The cost stack's own contribution, which is what 38.8a signed. Asserted
+    // directly so a future move of the LEVEL cannot quietly change the SPREAD.
+    expect((after.project_irr - before.project_irr) * 100).toBeCloseTo(1.02, 1);
     // And the DSCR does NOT cross 1.00 — the claim the drawer makes.
     expect(after.min_dscr).toBeLessThan(1.0);
   });
