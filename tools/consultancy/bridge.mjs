@@ -47,7 +47,10 @@ export const COST_DEFAULTS = {
   grid_pct_gross: 0.03,        // Litgrid NUS + auxiliary
   market_pct_gross: 0.01,      // Nord Pool + BTD participation
   operating_eur_kw_yr: 29,     // O&M 18 + insurance 5 + warranty 4 + BOS 2
-  operating_calibration_eur_kw_yr: 0.66,
+  // ONE definition — see OPERATING_CALIBRATION_EUR_KW_YR below, which this
+  // reads rather than repeating. They were two literals of the same fact and
+  // Phase 53 moved one of them, which is the drift rule #4 exists to stop.
+  get operating_calibration_eur_kw_yr() { return OPERATING_CALIBRATION_EUR_KW_YR; },
 };
 
 /**
@@ -98,7 +101,27 @@ export const COST_DEFAULTS = {
  * percentage lines scale with revenue while this does not, so a residual
  * reappears as revenue moves. That residual is reported, never absorbed.
  */
-export const OPERATING_CALIBRATION_EUR_KW_YR = 0.66;
+/**
+ * ── PIN CHAIN ────────────────────────────────────────────────────────────────
+ * Signed at 0.66. Re-derived to 0.89 by Phase 53's canonical activation-month
+ * rule, re-signed 2026-08-06. Still signed.
+ *
+ * This is the case the paragraph above predicted in writing: the calibration
+ * closes the gap at the reference asset's CURRENT revenue level, the percentage
+ * lines scale with revenue and this does not, so a residual reappears whenever
+ * revenue moves. Phase 53 moved revenue — computeBaseYear and deriveCompression
+ * now share one month-eligibility rule, dropping months below 20 % ISP coverage
+ * and months before the measured regime boundary 2026-03, which takes the
+ * reference asset's base year s2_months 10 → 4.
+ *
+ *   derived from the reference asset   0.66 → 0.89 €/kW/yr   (+0.23)
+ *
+ * Re-derived, not re-fitted: `bridgeCalibration()` computes it from the
+ * reference asset's own engine result, and the vitest holds this constant to
+ * that derivation. The number below is the output of that function, which is
+ * why this constant cannot be tuned to make a reconciliation look better.
+ */
+export const OPERATING_CALIBRATION_EUR_KW_YR = 0.89;
 
 /** Re-derive the calibration constant from a reference-asset engine result. */
 export function bridgeCalibration(referenceResult, referenceConfig) {
