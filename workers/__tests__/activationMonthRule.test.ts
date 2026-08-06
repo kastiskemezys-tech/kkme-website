@@ -44,8 +44,10 @@ describe('the eligibility rule is computed, not a month list', () => {
 
   it('admits the loosest month in the observed record, so the threshold is not tuned to a result', () => {
     // 2025-11 sits at 635/2880 = 22.0 %, the lowest of any month that is not the
-    // 0.8 % outlier. The threshold has to clear it or it is fitting.
-    expect(activationMonthEligible('2025-11', month(635)).eligible).toBe(true);
+    // 1.1 % outlier. The COVERAGE threshold has to clear it or it is fitting —
+    // pinned coverage-only, because 2025-11 is separately outside the signed
+    // regime and that would mask what this test is about.
+    expect(activationMonthEligible('2025-11', month(635), { ...ACTIVATION_MONTH_RULE, regime_start: null }).eligible).toBe(true);
   });
 
   it('rejects the CURRENT partial month — the trailing-edge case that froze April at 1.18', () => {
@@ -74,11 +76,15 @@ describe('the eligibility rule is computed, not a month list', () => {
   });
 
   it('partitions a real-shaped map and names every exclusion with its reason', () => {
+    // Coverage-only, pinned explicitly: this asserts the partitioning
+    // mechanism, which must not move when the operator moves the regime
+    // boundary. A mechanism test inheriting a policy constant would break on
+    // every policy change and, worse, could start passing for the wrong reason.
     const { eligible, excluded } = eligibleActivationMonths({
       '2025-09': month(24, 66.9),
       '2025-10': month(2283, 38.71),
       '2026-07': month(2880, 5),
-    });
+    }, { ...ACTIVATION_MONTH_RULE, regime_start: null });
     expect(eligible).toEqual(['2025-10', '2026-07']);
     expect(excluded).toHaveLength(1);
     expect(excluded[0].month).toBe('2025-09');
@@ -95,19 +101,20 @@ describe('deriveCompression reports the clamp as a clamp', () => {
   });
 
   it('names the ceiling instead of publishing it as a measurement', () => {
-    // The frozen production series. forward_rate ~1.0 against a 0.15 ceiling.
+    // In-regime months with one under-covered month and a steep recent decline,
+    // so BOTH properties are exercised: the rule bites, and the result clamps.
     const r = deriveCompression(kvWith(
-      [66.9, 38.71, 0.32, 12, 16.68, 33.33, 6.12, 1.18],
-      ['2025-09', '2025-10', '2025-11', '2025-12', '2026-01', '2026-02', '2026-03', '2026-04'],
-      [24, 2283, 635, 681, 2425, 1719, 1735, 1346],
+      [40, 30, 25, 20, 10, 5],
+      ['2026-03', '2026-04', '2026-05', '2026-06', '2026-07', '2026-08'],
+      [2880, 2880, 2880, 2880, 2880, 480],
     ) as never);
     expect(r.rate).toBe(0.15);
     expect(r.rate_clamped_at).toBe('max');
     expect(r.rate_measured).toBeGreaterThan(0.15);
     expect(r.note).toMatch(/CLAMPED to the ceiling/);
-    // and it dropped the 0.8 %-coverage month rather than anchoring on it
-    expect(r.months_excluded.map((e: { month: string }) => e.month)).toEqual(['2025-09']);
-    expect(r.initial_p50).toBe(38.71);
+    // and it dropped the 16.7 %-coverage current month rather than using it
+    expect(r.eligibility_rule_applied).toBe(true);
+    expect(r.months_excluded.map((e: { month: string }) => e.month)).toEqual(['2026-08']);
   });
 
   it('does not report a substituted floor as a measurement', () => {
@@ -241,5 +248,42 @@ describe('POST /s2/activation admission rule', () => {
 
   it('does not let an unreadable stored value block a good write', () => {
     expect(admitActivationPayload(good(), '{corrupt').ok).toBe(true);
+  });
+});
+
+describe('the guard that declines to apply the rule says so', () => {
+  const kvWith = (p50s: number[], months: string[], counts: number[]) => ({
+    s2_activation_parsed: {
+      compression: { afrr_lt_p50: p50s, months },
+      lt_monthly_afrr: Object.fromEntries(months.map((m, i) => [m, month(counts[i], p50s[i])])),
+    },
+  });
+
+  it('does not claim an exclusion it did not make', () => {
+    // The frozen production window under the signed regime boundary: only
+    // 2026-03 and 2026-04 survive, which is fewer than a trajectory needs, so
+    // the full series is used. The payload must not then report the excluded
+    // months as excluded — that is rule #2 inside the fix for rule #2.
+    const r = deriveCompression(kvWith(
+      [66.9, 38.71, 0.32, 12, 16.68, 33.33, 6.12, 1.18],
+      ['2025-09', '2025-10', '2025-11', '2025-12', '2026-01', '2026-02', '2026-03', '2026-04'],
+      [24, 2283, 635, 681, 2425, 1719, 1735, 1346],
+    ) as never);
+    expect(r.eligibility_rule_applied).toBe(false);
+    expect(r.months_excluded).toEqual([]);
+    expect(r.data_points).toBe(8);
+    expect(r.eligibility_basis).toMatch(/NOT APPLIED/);
+    expect(r.eligibility_basis).toMatch(/computeBaseYear excludes them/);
+  });
+
+  it('reports applied=true and the real list when the rule does bite', () => {
+    const r = deriveCompression(kvWith(
+      [6.3, 2.74, 4.53, 9.99, 5, 5],
+      ['2026-03', '2026-04', '2026-05', '2026-06', '2026-07', '2026-08'],
+      [1678, 2256, 2837, 2776, 2880, 480],
+    ) as never);
+    expect(r.eligibility_rule_applied).toBe(true);
+    expect(r.months_excluded.map((e: { month: string }) => e.month)).toEqual(['2026-08']);
+    expect(r.data_points).toBe(5);
   });
 });

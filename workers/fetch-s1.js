@@ -4651,13 +4651,46 @@ const ACTIVATION_MONTH_RULE = {
   /**
    * First month of the current market regime, inclusive, `YYYY-MM`.
    *
-   * DECLARED — and it is the one input here the operator owns, because it is a
-   * claim about the market rather than about the data. `null` disables the
-   * regime test entirely and leaves only the coverage test, which is the honest
-   * default until the boundary is signed: it excludes what is demonstrably
-   * unobserved without asserting a market history nobody has verified.
+   * OPERATOR-SIGNED 2026-08-06. The principle is theirs and is written down
+   * because it decides the direction of the error: the base year is meant to
+   * represent a REPRESENTATIVE operating year, and a market-formation anomaly is
+   * definitionally not one. Including it FLATTERS the base year, which is the
+   * direction that carries the higher burden of proof.
+   *
+   * The boundary itself is measured, not asserted. Re-derived from BTD source
+   * bytes on 2026-08-06 — not from the stored payload, whose provenance could not
+   * be established — running `computeS2Activation`'s own aggregation over each
+   * full calendar month of LT aFRR-Upward procured-reserve price:
+   *
+   *   month     coverage   p50 €/MW/h
+   *   2025-08       0.0 %      (none)   <- the series does not exist yet
+   *   2025-09       1.1 %       61.70
+   *   2025-10      79.3 %       38.71
+   *   2025-11      22.0 %        0.32
+   *   2025-12      23.6 %       12.00
+   *   2026-01      84.2 %       16.68
+   *   2026-02      59.7 %       33.33
+   *   ────────────────────────────────  regime boundary
+   *   2026-03      60.2 %        6.12
+   *   2026-04      81.7 %        2.83
+   *   2026-05     101.8 %        4.53
+   *   2026-06      99.7 %        9.99
+   *   2026-07     103.3 %        5.00
+   *
+   * Through 2026-02 the monthly p50 oscillates across a 121x range (0.32 to
+   * 38.71) on partial coverage. From 2026-03 it sits inside a 3.5x range (2.83
+   * to 9.99) and coverage climbs to continuous. Two independent signals — price
+   * dispersion and procurement continuity — separate at the same month, which is
+   * why the boundary is placed there rather than at the most convenient point.
+   * (Coverage exceeds 100 % in 31-day months because `isps_per_month` is a
+   * nominal 30x96; it is a ratio for thresholding, not a percentage of truth.)
+   *
+   * NOTE ON REACH. This test mostly guards the PAST: once the payload refreshes,
+   * its six-month window sits inside the current regime and the regime test
+   * excludes nothing. The coverage test above is the one that keeps working
+   * forward — it catches the incomplete current month on every single run.
    */
-  regime_start: null,
+  regime_start: '2026-03',
 };
 
 /**
@@ -4721,26 +4754,43 @@ function deriveCompression(kv) {
   // must not look the same (B12).
   const monthly = act.lt_monthly_afrr || null;
   let excluded_months = [];
+  let rule_applied = false;
   let eligibility_basis = 'none — lt_monthly_afrr absent, coverage unknowable';
   let p50_series = all_p50;
   let comp_months = all_months;
   if (monthly && Object.keys(monthly).length) {
     const { excluded } = eligibleActivationMonths(monthly);
     const drop = new Set(excluded.map((e) => e.month));
-    if (drop.size) {
-      const keptIdx = all_months.map((m, i) => (drop.has(m) ? -1 : i)).filter((i) => i >= 0);
-      // Only apply the filter if enough of the window survives to still be a
-      // trajectory. Filtering down to two points would silently hand the whole
-      // computation to the fleet-trajectory fallback, which is a different
-      // source answering a different question.
-      if (keptIdx.length >= 4) {
-        p50_series = keptIdx.map((i) => all_p50[i]);
-        comp_months = keptIdx.map((i) => all_months[i]);
-      }
-    }
-    excluded_months = excluded;
-    eligibility_basis = `coverage >= ${(ACTIVATION_MONTH_RULE.min_coverage * 100).toFixed(0)}%`
+    const declared = `coverage >= ${(ACTIVATION_MONTH_RULE.min_coverage * 100).toFixed(0)}%`
       + (ACTIVATION_MONTH_RULE.regime_start ? `, regime >= ${ACTIVATION_MONTH_RULE.regime_start}` : '');
+    const keptIdx = all_months.map((m, i) => (drop.has(m) ? -1 : i)).filter((i) => i >= 0);
+    // Only apply the filter if enough of the window survives to still be a
+    // trajectory. Filtering down to two points would silently hand the whole
+    // computation to the fleet-trajectory fallback, which is a different source
+    // answering a different question.
+    //
+    // But a guard that declines to apply the rule must SAY SO. The first cut of
+    // this reported the rule's basis and the excluded months either way, so a
+    // payload that had kept every one of those months still claimed to have
+    // excluded them — rule #2 inside the fix for rule #2. `rule_applied` is the
+    // discriminator, and `months_excluded` is emptied when nothing was actually
+    // dropped, because a list of exclusions that did not happen is worse than no
+    // list at all.
+    if (drop.size && keptIdx.length >= 4) {
+      p50_series = keptIdx.map((i) => all_p50[i]);
+      comp_months = keptIdx.map((i) => all_months[i]);
+      excluded_months = excluded;
+      rule_applied = true;
+      eligibility_basis = declared;
+    } else if (drop.size) {
+      rule_applied = false;
+      eligibility_basis = `${declared} — NOT APPLIED: only ${keptIdx.length} of `
+        + `${all_months.length} months survive it and a trajectory needs 4; the full window is in use `
+        + `and these months are NOT excluded here even though computeBaseYear excludes them`;
+    } else {
+      rule_applied = true;
+      eligibility_basis = declared;
+    }
   }
 
   if (p50_series.length >= 4) {
@@ -4813,6 +4863,7 @@ function deriveCompression(kv) {
       initial_p50: initial,
       recent_avg_p50: Math.round(recent_avg * 10) / 10,
       months_excluded: excluded_months,
+      eligibility_rule_applied: rule_applied,
       eligibility_basis,
       // Computed from the numbers beside it, so the sentence cannot outlive its
       // premise: it says "clamped" only when a bound bit, and "substituted" only
