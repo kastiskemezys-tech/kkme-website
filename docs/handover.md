@@ -233,6 +233,34 @@ See [docs/map.md](map.md) for the full concept-to-file lookup table.
 
 ## Session log
 
+### Session 111 — 2026-08-06 — Phase 53: the canonical month rule, signed, measured and **DEPLOYED** — worker `49b01793`, main `63d8dd7`
+
+**Shipped: the month rule. NOT shipped: the fresh-data half**, which waits for the VPS leg — a −3.53 % arriving on a cron tick rather than a deploy would be unattributable.
+
+**ONE canonical month rule (rule #4).** `computeBaseYear` and `deriveCompression` answered the same question differently: one discounted the market-formation months as "post-sync anomaly normalisation", the other read those same months (66.90 / 38.71 / 33.33 €/MW/h) at face value. `ACTIVATION_MONTH_RULE` is now declared once and consumed by both — coverage COMPUTED (≥20 % of a month's ISPs priced), regime boundary DECLARED at `2026-03` and MEASURED from BTD source bytes rather than the stored payload (through 2026-02 the p50 spans a 121× range on partial coverage; from 2026-03, 3.5× with coverage continuous — dispersion and procurement continuity separate at the same month).
+
+**Measured, 2h/mid/2028/base on the frozen fixture:** gross 6,343,597 → 6,199,847 (−2.27 %) · project IRR 4.53 → 3.93 % (−60 bp) · equity IRR 4.27 → 3.28 % · min DSCR 0.96 → 0.91 · NPV −6.76M → −7.85M. Unflattering, which is the direction carrying the higher burden. Separately measured: the month rule is worth **10× the freeze** on IRR (−60 bp vs −6 bp).
+
+**Six red gates cleared as six commits, each recording its own pin chain** — 38.6a (`bd299e2`), 38.8a (`1616fa4`), throughput (`8d3508f`), bridge calibration 0.66 → 0.89 (`89ae9f4`), regression baseline (`fc35169`), fixtures (`a701a9a`).
+
+**The attribution audit is the load-bearing part.** One process, both engines (`git show 01e20a1:` alongside current), all 54 configurations, full-payload leaf diff. With the rule DISABLED only 9 leaf paths differ and all 9 are the signed field rename plus per-run timestamp — **zero numeric values move**. With it enabled: 66 paths = 11 structural + 1 per-run + 54 numeric. **Changed 66, explained 66.** Fixtures: 3,134 leaves, and reverting both signed causes leaves only 30 structural — changed 3,134, explained 3,134.
+
+**Two latent defects the move exposed, fixed not re-signed:**
+- **Self-contradicting DSCR verdict** (`f9589a9`) — `min_dscr` unrounded, printed at 2 dp, verdict branched on the raw value: "minimum cover is 1.00× — the asset does not service its debt". Both halves from one variable, disagreeing. Now branches on the figure it prints. Tested on the PAIR across the whole matrix, not on the boundary case — a pin would have gone green the moment the boundary moved, which is how it survived the phase written to prevent it.
+- **A test date that assumed "today"** — the register versioning test hardcoded `2026-08-03` while appending to the chronology-checked real register. Now derived from the register's newest entry.
+
+**`compression_rate_observed` retired** (`a28cda5`) — it published the clamp ceiling under a name asserting observation. Now `_applied` / `_measured` / `_clamped_at` / `_bounds`, with `rate_floor_substituted` kept separate. Live: `applied 0.15, measured 1, clamp max`. Tested: the ceiling binds at a 1.35 %/month decline — the normal case, not an edge case.
+
+**`POST /s2/activation` no longer writes verbatim** — shape validated against the fields the ENGINE reads, provenance recorded, narrowing refused 409 unless acknowledged.
+
+**Direction split (item 7).** `methodology-lender.md` §8B.9's premise — "publishes one activation series… with no up/down split" — is FALSE and corrected in place (`4be49d9`). `balancing_energy_prices` publishes LT Upward/Downward separately. Band NOT collapsed: the shape ratio is population-dependent (0.063 all-periods / 0.162 non-zero / **0.390 strictly-positive** vs Germany's transferred 0.360), and §8B.8 does not record Germany's population. **Corroborated and basis-independent:** negative-price share Baltic up 2.3 % / down 24.3 % against Germany's 1.3 % / 22.1 %.
+
+**Also live:** hourly cron staggered to `5 * * * *` with the `cron-parity` gate (C10 banked) — `scheduled()` dispatches on a string literal, so editing `wrangler.toml` alone would have silently killed the hourly leg.
+
+**OPEN — the frontend disclosure is not live.** The worker deploy moved the numbers; the drawer copy naming the excluded months needs a Cloudflare Pages build, which requires `git push origin main` (14 commits ahead). Until then production shows moved numbers without their disclosure. **No production pre-state was captured** (C3) — the signed delta is the fixture-based controlled comparison; production's absolute values differ because live KV ≠ frozen fixture (live reads gross 6,100,253 / IRR 14.2 %).
+
+**Next:** §2's VPS leg, then the full 54-config delta on the corrected basis; match Germany's population definition to collapse the E2 band.
+
 ### Session 110 — 2026-08-06 — Day-runner STEP 0: the s4 rejection read, and the deadline that was measuring the queue — **DEPLOYED** worker `5b857f86`
 
 **The record, from `GET /admin/cron-failures`** — one entry, the key's first since Phase 52 shipped it:
