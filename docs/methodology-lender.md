@@ -1,6 +1,6 @@
 # KKME lender-grade methodology
 
-**Engine version:** v7.3 (MW partition + corrected cost stack default, Phase 38.8a) · **Assumption register:** r5.8530095d (70 rows) · **Arc:** Phase 38.8a
+**Engine version:** v7.3 (MW partition + corrected cost stack default, Phase 38.8a) · **Assumption register:** r6.aef17967 (70 rows) · **Arc:** Phase 38.8a
 **Prepared:** 2026-07-29 · **Maintainer:** UAB KKME · Kastytis Kemežys
 
 ---
@@ -1036,7 +1036,42 @@ Down activates as often as up. Its price distribution is different in kind, not 
 
 ### 8B.9 The one transferred input, and its range
 
-The Baltic transparency source publishes **one** activation series per country per product, with no up/down split. So the Baltic *level* is measured and the *shape* is transferred from Germany. This is the only unmeasured input in the activation model, and it lands on the half of it that has never been modelled at all, so it carries a stated range rather than a single number:
+**Correction, 2026-08-06.** This section previously stated that the Baltic
+transparency source publishes one activation series per country per product with
+no up/down split. **That is false.** BTD's `balancing_energy_prices` dataset
+(EUR/MWh, PT15M) publishes Lithuania Upward and Downward as separate columns,
+confirmed against the payload's own `header_groups` and corroborated by Elering
+(K. Vare, 2026-08-05): BTD publishes per direction for everything except current
+balancing state, imbalance volumes, and netted/exchanged volumes.
+
+The band below therefore stands on a premise that no longer holds, and the
+transfer it justifies is replaceable by a Baltic measurement. It is not replaced
+yet, deliberately — the shape ratio is **population-dependent**, and picking a
+population before matching Germany's would be the same error this correction is
+about. Measured on 14,686 Lithuanian ISPs, 2026-03 to 2026-07:
+
+| population | Baltic down/up |
+|---|---:|
+| all settlement periods, median | 0.063 |
+| non-zero periods, median | 0.162 |
+| strictly positive, median | **0.390** |
+
+Germany's transferred 0.360 is a median, but §8B.8 does not record which
+population its 130.48 / 47.00 came from. On the strictly-positive basis the two
+agree within 8 %; on all-periods they differ by a factor of six. Matching
+Germany's population definition is the remaining work, and it is what collapses
+the band.
+
+**What IS already corroborated, and it is the structural claim the model rests
+on:** down activates at a negative price far more often than up, in the Baltics
+as in Germany — Baltic **up 2.3 % / down 24.3 %** of periods, against Germany's
+1.3 % / 22.1 %. The asymmetry that motivates valuing down-activation as avoided
+charging cost is measured Baltic behaviour, not a German assumption.
+
+Pending that, the Baltic *level* is measured and the *shape* is still
+transferred from Germany. This is the only unmeasured input in the activation
+model, and it lands on the half of it that has never been modelled at all, so it
+carries a stated range rather than a single number:
 
 | Split | Up price (€/MWh) | Down price (€/MWh) | Down revenue (€/MW/yr) |
 |---|---:|---:|---:|

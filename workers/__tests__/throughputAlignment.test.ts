@@ -159,9 +159,34 @@ describe('the alignment holds across durations and scenarios', () => {
     //
     // The pre-partition figures stay reachable and asserted below, so the old
     // basis remains reproducible rather than being overwritten.
-    expect(run(2).gross_revenue_y1).toBe(6239451);
-    expect(run(4).gross_revenue_y1).toBe(6343597);
-    expect(runMode(2, 'current').gross_revenue_y1).toBe(7994239);
-    expect(runMode(4, 'current').gross_revenue_y1).toBe(8519445);
+    //
+    // ── PIN CHAIN ─────────────────────────────────────────────────────────────
+    // Signed 38.6a (itself moved from 36.D). Moved by Phase 53's canonical
+    // activation-month rule, re-signed 2026-08-06. Still signed.
+    //
+    // Phase 53 gave computeBaseYear and deriveCompression one month-eligibility
+    // rule — they had disagreed, with computeBaseYear reading the
+    // market-formation window at face value while deriveCompression discounted
+    // it as "post-sync anomaly normalisation". Months below 20 % ISP coverage
+    // and months before the measured regime boundary 2026-03 now leave the base
+    // year, taking s2_months 10 → 4 on this fixture.
+    //
+    //   partition  2h  6 239 451 → 6 095 701  (−143 750, −2.30%)
+    //   partition  4h  6 343 597 → 6 199 847  (−143 750, −2.27%)
+    //   current    2h  7 994 239 → 7 850 489  (−143 750, −1.80%)
+    //   current    4h  8 519 445 → 8 375 695  (−143 750, −1.69%)
+    //
+    // All four move by the SAME −143 750. That is the signature of a base-year
+    // change: it shifts the level every mode is computed from, and it is why the
+    // partition delta this test was re-pointed at in 38.6a is untouched — the
+    // 2h partition-vs-current gap is 1 754 788 before and after.
+    expect(run(2).gross_revenue_y1).toBe(6095701);
+    expect(run(4).gross_revenue_y1).toBe(6199847);
+    expect(runMode(2, 'current').gross_revenue_y1).toBe(7850489);
+    expect(runMode(4, 'current').gross_revenue_y1).toBe(8375695);
+    // The 38.6a partition delta itself, asserted directly. A base-year move
+    // shifts both sides equally and must leave this invariant; anything that
+    // changes it is re-pointing the partition, not the level.
+    expect(runMode(2, 'current').gross_revenue_y1 - run(2).gross_revenue_y1).toBe(1754788);
   });
 });

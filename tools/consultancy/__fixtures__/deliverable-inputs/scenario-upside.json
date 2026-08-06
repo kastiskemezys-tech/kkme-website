@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-04T07:44:53.430Z",
+  "generated_at": "2026-08-06T13:41:25.627Z",
   "scenario": "upside",
   "label": "Upside",
   "note": "Pipeline dropout is heavier than central, renewable-driven spread widening runs ahead of BESS smoothing, and post-synchronisation reserve scarcity lifts capacity clearing prices.",
@@ -24,8 +24,8 @@
     "calendar_span": "2028–2048",
     "calendar_years": 21,
     "wacc": 0.08,
-    "npv_pre_financing_pre_tax": 39412460,
-    "moic": 3.645,
+    "npv_pre_financing_pre_tax": 36387404,
+    "moic": 3.489,
     "payback_years": 5,
     "npv_basis": "Pre-financing, pre-tax bridge cash flow discounted at WACC from the first CAPEX draw year. The contracted 8-line bridge carries no tax row and debt / interest / DSCR are out of scope, so this is not comparable with a post-tax equity NPV. Each project's post-tax engine NPV is carried alongside."
   },
@@ -43,18 +43,18 @@
         "operational_months": 7
       }
     ],
-    "gross_market_revenues": 11618097,
+    "gross_market_revenues": 11392557,
     "charging_costs": 86804,
-    "net_market_revenue": 11531293,
-    "optimiser": 1394172,
-    "grid": 348543,
-    "market": 116181,
-    "operating": 2202255,
-    "project_ebitda": 7470142,
+    "net_market_revenue": 11305753,
+    "optimiser": 1367107,
+    "grid": 341777,
+    "market": 113926,
+    "operating": 2219333,
+    "project_ebitda": 7263610,
     "maintenance_capex": 297000,
     "augmentation_capex": 0,
     "replacement_capex": 0,
-    "pre_financing_cf": 7173142
+    "pre_financing_cf": 6966610
   },
   "bridge_20yr": [
     {
@@ -71,18 +71,18 @@
           "operational_months": 7
         }
       ],
-      "gross_market_revenues": 11618097,
+      "gross_market_revenues": 11392557,
       "charging_costs": 86804,
-      "net_market_revenue": 11531293,
-      "optimiser": 1394172,
-      "grid": 348543,
-      "market": 116181,
-      "operating": 2202255,
-      "project_ebitda": 7470142,
+      "net_market_revenue": 11305753,
+      "optimiser": 1367107,
+      "grid": 341777,
+      "market": 113926,
+      "operating": 2219333,
+      "project_ebitda": 7263610,
       "maintenance_capex": 297000,
       "augmentation_capex": 0,
       "replacement_capex": 0,
-      "pre_financing_cf": 7173142
+      "pre_financing_cf": 6966610
     },
     {
       "cal_year": 2029,
@@ -103,18 +103,18 @@
           "operational_months": 10
         }
       ],
-      "gross_market_revenues": 18154334,
+      "gross_market_revenues": 17801591,
       "charging_costs": 135455,
-      "net_market_revenue": 18018879,
-      "optimiser": 2178520,
-      "grid": 544630,
-      "market": 181544,
-      "operating": 3568839,
-      "project_ebitda": 11545346,
+      "net_market_revenue": 17666136,
+      "optimiser": 2136191,
+      "grid": 534048,
+      "market": 178016,
+      "operating": 3596514,
+      "project_ebitda": 11221367,
       "maintenance_capex": 472000,
       "augmentation_capex": 0,
       "replacement_capex": 0,
-      "pre_financing_cf": 11073346
+      "pre_financing_cf": 10749367
     },
     {
       "cal_year": 2030,
@@ -135,18 +135,18 @@
           "operational_months": 12
         }
       ],
-      "gross_market_revenues": 18312403,
+      "gross_market_revenues": 17956573,
       "charging_costs": 138107,
-      "net_market_revenue": 18174296,
-      "optimiser": 2197488,
-      "grid": 549373,
-      "market": 183125,
-      "operating": 3810068,
-      "project_ebitda": 11434242,
+      "net_market_revenue": 17818466,
+      "optimiser": 2154789,
+      "grid": 538697,
+      "market": 179566,
+      "operating": 3839613,
+      "project_ebitda": 11105801,
       "maintenance_capex": 492000,
       "augmentation_capex": 0,
       "replacement_capex": 0,
-      "pre_financing_cf": 10942242
+      "pre_financing_cf": 10613801
     },
     {
       "cal_year": 2031,
@@ -167,18 +167,18 @@
           "operational_months": 12
         }
       ],
-      "gross_market_revenues": 17698324,
+      "gross_market_revenues": 17354355,
       "charging_costs": 135177,
-      "net_market_revenue": 17563147,
-      "optimiser": 2123799,
-      "grid": 530950,
-      "market": 176983,
-      "operating": 3905320,
-      "project_ebitda": 10826095,
+      "net_market_revenue": 17219178,
+      "optimiser": 2082523,
+      "grid": 520631,
+      "market": 173544,
+      "operating": 3935604,
+      "project_ebitda": 10506876,
       "maintenance_capex": 492000,
       "augmentation_capex": 0,
       "replacement_capex": 0,
-      "pre_financing_cf": 10334095
+      "pre_financing_cf": 10014876
     },
     {
       "cal_year": 2032,
@@ -199,18 +199,18 @@
           "operational_months": 12
         }
       ],
-      "gross_market_revenues": 17372027,
+      "gross_market_revenues": 17033990,
       "charging_costs": 132677,
-      "net_market_revenue": 17239350,
-      "optimiser": 2084643,
-      "grid": 521161,
-      "market": 173720,
-      "operating": 4002952,
-      "project_ebitda": 10456874,
+      "net_market_revenue": 16901313,
+      "optimiser": 2044079,
+      "grid": 511020,
+      "market": 170340,
+      "operating": 4033994,
+      "project_ebitda": 10141880,
       "maintenance_capex": 492000,
       "augmentation_capex": 0,
       "replacement_capex": 0,
-      "pre_financing_cf": 9964874
+      "pre_financing_cf": 9649880
     },
     {
       "cal_year": 2033,
@@ -231,18 +231,18 @@
           "operational_months": 12
         }
       ],
-      "gross_market_revenues": 17341991,
+      "gross_market_revenues": 17003954,
       "charging_costs": 130376,
-      "net_market_revenue": 17211615,
-      "optimiser": 2081038,
-      "grid": 520260,
-      "market": 173420,
-      "operating": 4103027,
-      "project_ebitda": 10333870,
+      "net_market_revenue": 16873578,
+      "optimiser": 2040475,
+      "grid": 510119,
+      "market": 170040,
+      "operating": 4134844,
+      "project_ebitda": 10018100,
       "maintenance_capex": 492000,
       "augmentation_capex": 0,
       "replacement_capex": 0,
-      "pre_financing_cf": 9841870
+      "pre_financing_cf": 9526100
     },
     {
       "cal_year": 2034,
@@ -263,18 +263,18 @@
           "operational_months": 12
         }
       ],
-      "gross_market_revenues": 17045400,
+      "gross_market_revenues": 16713292,
       "charging_costs": 128244,
-      "net_market_revenue": 16917156,
-      "optimiser": 2045449,
-      "grid": 511361,
-      "market": 170453,
-      "operating": 4205602,
-      "project_ebitda": 9984291,
+      "net_market_revenue": 16585048,
+      "optimiser": 2005595,
+      "grid": 501398,
+      "market": 167132,
+      "operating": 4238215,
+      "project_ebitda": 9672708,
       "maintenance_capex": 492000,
       "augmentation_capex": 0,
       "replacement_capex": 0,
-      "pre_financing_cf": 9492291
+      "pre_financing_cf": 9180708
     },
     {
       "cal_year": 2035,
@@ -295,18 +295,18 @@
           "operational_months": 12
         }
       ],
-      "gross_market_revenues": 17033222,
+      "gross_market_revenues": 16701114,
       "charging_costs": 126261,
-      "net_market_revenue": 16906961,
-      "optimiser": 2043986,
-      "grid": 510997,
-      "market": 170332,
-      "operating": 4310742,
-      "project_ebitda": 9870904,
+      "net_market_revenue": 16574853,
+      "optimiser": 2004134,
+      "grid": 501034,
+      "market": 167011,
+      "operating": 4344170,
+      "project_ebitda": 9558504,
       "maintenance_capex": 492000,
       "augmentation_capex": 5952000,
       "replacement_capex": 0,
-      "pre_financing_cf": 3426904
+      "pre_financing_cf": 3114504
     },
     {
       "cal_year": 2036,
@@ -327,18 +327,18 @@
           "operational_months": 12
         }
       ],
-      "gross_market_revenues": 17030544,
+      "gross_market_revenues": 16698436,
       "charging_costs": 124303,
-      "net_market_revenue": 16906241,
-      "optimiser": 2043666,
-      "grid": 510916,
-      "market": 170306,
-      "operating": 4418511,
-      "project_ebitda": 9762842,
+      "net_market_revenue": 16574133,
+      "optimiser": 2003812,
+      "grid": 500953,
+      "market": 166985,
+      "operating": 4452775,
+      "project_ebitda": 9449608,
       "maintenance_capex": 492000,
       "augmentation_capex": 1920000,
       "replacement_capex": 0,
-      "pre_financing_cf": 7350842
+      "pre_financing_cf": 7037608
     },
     {
       "cal_year": 2037,
@@ -359,18 +359,18 @@
           "operational_months": 12
         }
       ],
-      "gross_market_revenues": 17030975,
+      "gross_market_revenues": 16698867,
       "charging_costs": 122473,
-      "net_market_revenue": 16908502,
-      "optimiser": 2043717,
-      "grid": 510929,
-      "market": 170310,
-      "operating": 4528973,
-      "project_ebitda": 9654573,
+      "net_market_revenue": 16576394,
+      "optimiser": 2003864,
+      "grid": 500966,
+      "market": 166989,
+      "operating": 4564094,
+      "project_ebitda": 9340481,
       "maintenance_capex": 492000,
       "augmentation_capex": 0,
       "replacement_capex": 0,
-      "pre_financing_cf": 9162573
+      "pre_financing_cf": 8848481
     },
     {
       "cal_year": 2038,
@@ -391,18 +391,18 @@
           "operational_months": 12
         }
       ],
-      "gross_market_revenues": 17031048,
+      "gross_market_revenues": 16698940,
       "charging_costs": 120554,
-      "net_market_revenue": 16910494,
-      "optimiser": 2043726,
-      "grid": 510932,
-      "market": 170310,
-      "operating": 4642198,
-      "project_ebitda": 9543328,
+      "net_market_revenue": 16578386,
+      "optimiser": 2003873,
+      "grid": 500969,
+      "market": 166989,
+      "operating": 4678196,
+      "project_ebitda": 9228359,
       "maintenance_capex": 492000,
       "augmentation_capex": 0,
       "replacement_capex": 0,
-      "pre_financing_cf": 9051328
+      "pre_financing_cf": 8736359
     },
     {
       "cal_year": 2039,
@@ -423,18 +423,18 @@
           "operational_months": 12
         }
       ],
-      "gross_market_revenues": 17032347,
+      "gross_market_revenues": 16700239,
       "charging_costs": 118716,
-      "net_market_revenue": 16913631,
-      "optimiser": 2043881,
-      "grid": 510971,
-      "market": 170323,
-      "operating": 4758253,
-      "project_ebitda": 9430203,
+      "net_market_revenue": 16581523,
+      "optimiser": 2004029,
+      "grid": 501006,
+      "market": 167002,
+      "operating": 4795151,
+      "project_ebitda": 9114335,
       "maintenance_capex": 492000,
       "augmentation_capex": 0,
       "replacement_capex": 0,
-      "pre_financing_cf": 8938203
+      "pre_financing_cf": 8622335
     },
     {
       "cal_year": 2040,
@@ -455,18 +455,18 @@
           "operational_months": 12
         }
       ],
-      "gross_market_revenues": 16743282,
+      "gross_market_revenues": 16417105,
       "charging_costs": 116121,
-      "net_market_revenue": 16627161,
-      "optimiser": 2009194,
-      "grid": 502299,
-      "market": 167432,
-      "operating": 4877209,
-      "project_ebitda": 9071027,
+      "net_market_revenue": 16300984,
+      "optimiser": 1970053,
+      "grid": 492513,
+      "market": 164171,
+      "operating": 4915030,
+      "project_ebitda": 8759217,
       "maintenance_capex": 492000,
       "augmentation_capex": 0,
       "replacement_capex": 0,
-      "pre_financing_cf": 8579027
+      "pre_financing_cf": 8267217
     },
     {
       "cal_year": 2041,
@@ -487,18 +487,18 @@
           "operational_months": 12
         }
       ],
-      "gross_market_revenues": 16601699,
+      "gross_market_revenues": 16275522,
       "charging_costs": 103059,
-      "net_market_revenue": 16498640,
-      "optimiser": 1992204,
-      "grid": 498051,
-      "market": 166017,
-      "operating": 4999140,
-      "project_ebitda": 8843228,
+      "net_market_revenue": 16172463,
+      "optimiser": 1953062,
+      "grid": 488266,
+      "market": 162755,
+      "operating": 5037905,
+      "project_ebitda": 8530475,
       "maintenance_capex": 492000,
       "augmentation_capex": 0,
       "replacement_capex": 0,
-      "pre_financing_cf": 8351228
+      "pre_financing_cf": 8038475
     },
     {
       "cal_year": 2042,
@@ -519,18 +519,18 @@
           "operational_months": 12
         }
       ],
-      "gross_market_revenues": 16530107,
+      "gross_market_revenues": 16203930,
       "charging_costs": 96563,
-      "net_market_revenue": 16433544,
-      "optimiser": 1983613,
-      "grid": 495903,
-      "market": 165301,
-      "operating": 5124118,
-      "project_ebitda": 8664609,
+      "net_market_revenue": 16107367,
+      "optimiser": 1944471,
+      "grid": 486119,
+      "market": 162040,
+      "operating": 5163853,
+      "project_ebitda": 8350884,
       "maintenance_capex": 492000,
       "augmentation_capex": 0,
       "replacement_capex": 18972000,
-      "pre_financing_cf": -10799391
+      "pre_financing_cf": -11113116
     },
     {
       "cal_year": 2043,
@@ -551,18 +551,18 @@
           "operational_months": 12
         }
       ],
-      "gross_market_revenues": 16493322,
+      "gross_market_revenues": 16167145,
       "charging_costs": 93347,
-      "net_market_revenue": 16399975,
-      "optimiser": 1979199,
-      "grid": 494800,
-      "market": 164934,
-      "operating": 5252221,
-      "project_ebitda": 8508821,
+      "net_market_revenue": 16073798,
+      "optimiser": 1940057,
+      "grid": 485015,
+      "market": 161671,
+      "operating": 5292949,
+      "project_ebitda": 8194106,
       "maintenance_capex": 492000,
       "augmentation_capex": 0,
       "replacement_capex": 6120000,
-      "pre_financing_cf": 1896821
+      "pre_financing_cf": 1582106
     },
     {
       "cal_year": 2044,
@@ -583,18 +583,18 @@
           "operational_months": 12
         }
       ],
-      "gross_market_revenues": 16457867,
+      "gross_market_revenues": 16131690,
       "charging_costs": 90235,
-      "net_market_revenue": 16367632,
-      "optimiser": 1974944,
-      "grid": 493736,
-      "market": 164579,
-      "operating": 5383527,
-      "project_ebitda": 8350846,
+      "net_market_revenue": 16041455,
+      "optimiser": 1935803,
+      "grid": 483951,
+      "market": 161317,
+      "operating": 5425273,
+      "project_ebitda": 8035111,
       "maintenance_capex": 492000,
       "augmentation_capex": 0,
       "replacement_capex": 0,
-      "pre_financing_cf": 7858846
+      "pre_financing_cf": 7543111
     },
     {
       "cal_year": 2045,
@@ -615,18 +615,18 @@
           "operational_months": 12
         }
       ],
-      "gross_market_revenues": 16424235,
+      "gross_market_revenues": 16098058,
       "charging_costs": 87233,
-      "net_market_revenue": 16337002,
-      "optimiser": 1970909,
-      "grid": 492728,
-      "market": 164243,
-      "operating": 5518114,
-      "project_ebitda": 8191008,
+      "net_market_revenue": 16010825,
+      "optimiser": 1931767,
+      "grid": 482942,
+      "market": 160981,
+      "operating": 5560905,
+      "project_ebitda": 7874230,
       "maintenance_capex": 492000,
       "augmentation_capex": 0,
       "replacement_capex": 0,
-      "pre_financing_cf": 7699008
+      "pre_financing_cf": 7382230
     },
     {
       "cal_year": 2046,
@@ -647,18 +647,18 @@
           "operational_months": 12
         }
       ],
-      "gross_market_revenues": 16392791,
+      "gross_market_revenues": 16066614,
       "charging_costs": 84320,
-      "net_market_revenue": 16308471,
-      "optimiser": 1967134,
-      "grid": 491784,
-      "market": 163928,
-      "operating": 5656067,
-      "project_ebitda": 8029558,
+      "net_market_revenue": 15982294,
+      "optimiser": 1927994,
+      "grid": 481998,
+      "market": 160665,
+      "operating": 5699928,
+      "project_ebitda": 7711709,
       "maintenance_capex": 492000,
       "augmentation_capex": 0,
       "replacement_capex": 0,
-      "pre_financing_cf": 7537558
+      "pre_financing_cf": 7219709
     },
     {
       "cal_year": 2047,
@@ -679,18 +679,18 @@
           "operational_months": 12
         }
       ],
-      "gross_market_revenues": 16367385,
+      "gross_market_revenues": 16041208,
       "charging_costs": 81510,
-      "net_market_revenue": 16285875,
-      "optimiser": 1964086,
-      "grid": 491022,
-      "market": 163674,
-      "operating": 5797468,
-      "project_ebitda": 7869625,
+      "net_market_revenue": 15959698,
+      "optimiser": 1924944,
+      "grid": 481236,
+      "market": 160412,
+      "operating": 5842425,
+      "project_ebitda": 7550681,
       "maintenance_capex": 492000,
       "augmentation_capex": 0,
       "replacement_capex": 0,
-      "pre_financing_cf": 7377625
+      "pre_financing_cf": 7058681
     },
     {
       "cal_year": 2048,
@@ -701,33 +701,33 @@
           "operational_months": 12
         }
       ],
-      "gross_market_revenues": 3993709,
+      "gross_market_revenues": 3914153,
       "charging_costs": 19717,
-      "net_market_revenue": 3973992,
-      "optimiser": 479245,
-      "grid": 119811,
-      "market": 39937,
-      "operating": 1422479,
-      "project_ebitda": 1912520,
+      "net_market_revenue": 3894436,
+      "optimiser": 469698,
+      "grid": 117425,
+      "market": 39142,
+      "operating": 1433510,
+      "project_ebitda": 1834661,
       "maintenance_capex": 120000,
       "augmentation_capex": 0,
       "replacement_capex": 0,
-      "pre_financing_cf": 1792520
+      "pre_financing_cf": 1714661
     }
   ],
   "bridge_totals": {
-    "gross_market_revenues": 338705109,
+    "gross_market_revenues": 332069333,
     "charging_costs": 2271252,
-    "net_market_revenue": 336433857,
-    "optimiser": 40644613,
-    "grid": 10161157,
-    "market": 3387052,
-    "operating": 92487083,
-    "project_ebitda": 189753952,
+    "net_market_revenue": 329798081,
+    "optimiser": 39848320,
+    "grid": 9962083,
+    "market": 3320694,
+    "operating": 93204281,
+    "project_ebitda": 183462703,
     "maintenance_capex": 9745000,
     "augmentation_capex": 7872000,
     "replacement_capex": 25092000,
-    "pre_financing_cf": 147044952
+    "pre_financing_cf": 140753703
   },
   "cashflows": {
     "t0": 2027,
@@ -744,148 +744,148 @@
         "cal_year": 2028,
         "t": 1,
         "capex_outflow": 9840000,
-        "operating_cf": 7173142,
-        "net_cf": -2666858
+        "operating_cf": 6966610,
+        "net_cf": -2873390
       },
       {
         "cal_year": 2029,
         "t": 2,
         "capex_outflow": 0,
-        "operating_cf": 11073346,
-        "net_cf": 11073346
+        "operating_cf": 10749367,
+        "net_cf": 10749367
       },
       {
         "cal_year": 2030,
         "t": 3,
         "capex_outflow": 0,
-        "operating_cf": 10942242,
-        "net_cf": 10942242
+        "operating_cf": 10613801,
+        "net_cf": 10613801
       },
       {
         "cal_year": 2031,
         "t": 4,
         "capex_outflow": 0,
-        "operating_cf": 10334095,
-        "net_cf": 10334095
+        "operating_cf": 10014876,
+        "net_cf": 10014876
       },
       {
         "cal_year": 2032,
         "t": 5,
         "capex_outflow": 0,
-        "operating_cf": 9964874,
-        "net_cf": 9964874
+        "operating_cf": 9649880,
+        "net_cf": 9649880
       },
       {
         "cal_year": 2033,
         "t": 6,
         "capex_outflow": 0,
-        "operating_cf": 9841870,
-        "net_cf": 9841870
+        "operating_cf": 9526100,
+        "net_cf": 9526100
       },
       {
         "cal_year": 2034,
         "t": 7,
         "capex_outflow": 0,
-        "operating_cf": 9492291,
-        "net_cf": 9492291
+        "operating_cf": 9180708,
+        "net_cf": 9180708
       },
       {
         "cal_year": 2035,
         "t": 8,
         "capex_outflow": 0,
-        "operating_cf": 3426904,
-        "net_cf": 3426904
+        "operating_cf": 3114504,
+        "net_cf": 3114504
       },
       {
         "cal_year": 2036,
         "t": 9,
         "capex_outflow": 0,
-        "operating_cf": 7350842,
-        "net_cf": 7350842
+        "operating_cf": 7037608,
+        "net_cf": 7037608
       },
       {
         "cal_year": 2037,
         "t": 10,
         "capex_outflow": 0,
-        "operating_cf": 9162573,
-        "net_cf": 9162573
+        "operating_cf": 8848481,
+        "net_cf": 8848481
       },
       {
         "cal_year": 2038,
         "t": 11,
         "capex_outflow": 0,
-        "operating_cf": 9051328,
-        "net_cf": 9051328
+        "operating_cf": 8736359,
+        "net_cf": 8736359
       },
       {
         "cal_year": 2039,
         "t": 12,
         "capex_outflow": 0,
-        "operating_cf": 8938203,
-        "net_cf": 8938203
+        "operating_cf": 8622335,
+        "net_cf": 8622335
       },
       {
         "cal_year": 2040,
         "t": 13,
         "capex_outflow": 0,
-        "operating_cf": 8579027,
-        "net_cf": 8579027
+        "operating_cf": 8267217,
+        "net_cf": 8267217
       },
       {
         "cal_year": 2041,
         "t": 14,
         "capex_outflow": 0,
-        "operating_cf": 8351228,
-        "net_cf": 8351228
+        "operating_cf": 8038475,
+        "net_cf": 8038475
       },
       {
         "cal_year": 2042,
         "t": 15,
         "capex_outflow": 0,
-        "operating_cf": -10799391,
-        "net_cf": -10799391
+        "operating_cf": -11113116,
+        "net_cf": -11113116
       },
       {
         "cal_year": 2043,
         "t": 16,
         "capex_outflow": 0,
-        "operating_cf": 1896821,
-        "net_cf": 1896821
+        "operating_cf": 1582106,
+        "net_cf": 1582106
       },
       {
         "cal_year": 2044,
         "t": 17,
         "capex_outflow": 0,
-        "operating_cf": 7858846,
-        "net_cf": 7858846
+        "operating_cf": 7543111,
+        "net_cf": 7543111
       },
       {
         "cal_year": 2045,
         "t": 18,
         "capex_outflow": 0,
-        "operating_cf": 7699008,
-        "net_cf": 7699008
+        "operating_cf": 7382230,
+        "net_cf": 7382230
       },
       {
         "cal_year": 2046,
         "t": 19,
         "capex_outflow": 0,
-        "operating_cf": 7537558,
-        "net_cf": 7537558
+        "operating_cf": 7219709,
+        "net_cf": 7219709
       },
       {
         "cal_year": 2047,
         "t": 20,
         "capex_outflow": 0,
-        "operating_cf": 7377625,
-        "net_cf": 7377625
+        "operating_cf": 7058681,
+        "net_cf": 7058681
       },
       {
         "cal_year": 2048,
         "t": 21,
         "capex_outflow": 0,
-        "operating_cf": 1792520,
-        "net_cf": 1792520
+        "operating_cf": 1714661,
+        "net_cf": 1714661
       }
     ]
   },
@@ -902,38 +902,38 @@
       "bridge_y1": {
         "yr": 1,
         "cal_year": 2028,
-        "gross_market_revenues": 7510691,
+        "gross_market_revenues": 7364888,
         "charging_costs": 56118,
-        "net_market_revenue": 7454573,
-        "optimiser": 901283,
-        "grid": 225321,
-        "market": 75107,
-        "operating": 1423680,
-        "project_ebitda": 4829182,
+        "net_market_revenue": 7308770,
+        "optimiser": 883787,
+        "grid": 220947,
+        "market": 73649,
+        "operating": 1434720,
+        "project_ebitda": 4695667,
         "maintenance_capex": 192000,
         "augmentation_capex": 0,
         "replacement_capex": 0,
-        "pre_financing_cf": 4637182
+        "pre_financing_cf": 4503667
       },
       "bridge_totals": {
-        "gross_market_revenues": 133830377,
+        "gross_market_revenues": 131208230,
         "charging_costs": 897195,
-        "net_market_revenue": 132933182,
-        "optimiser": 16059647,
-        "grid": 4014914,
-        "market": 1338303,
-        "operating": 36367418,
-        "project_ebitda": 75152900,
+        "net_market_revenue": 130311035,
+        "optimiser": 15744988,
+        "grid": 3936248,
+        "market": 1312081,
+        "operating": 36649431,
+        "project_ebitda": 72668287,
         "maintenance_capex": 3840000,
         "augmentation_capex": 3072000,
         "replacement_capex": 9792000,
-        "pre_financing_cf": 58448900
+        "pre_financing_cf": 55964287
       },
-      "npv_pre_financing_pre_tax": 16617544,
-      "moic": 3.712,
+      "npv_pre_financing_pre_tax": 15388776,
+      "moic": 3.555,
       "payback_years": 4,
-      "engine_npv_post_tax": 17419696,
-      "engine_project_irr": 0.2332
+      "engine_npv_post_tax": 16421009,
+      "engine_project_irr": 0.2254
     },
     {
       "project_id": "stoniskiai",
@@ -947,38 +947,38 @@
       "bridge_y1": {
         "yr": 1,
         "cal_year": 2028,
-        "gross_market_revenues": 4107406,
+        "gross_market_revenues": 4027669,
         "charging_costs": 30686,
-        "net_market_revenue": 4076720,
-        "optimiser": 492889,
-        "grid": 123222,
-        "market": 41074,
-        "operating": 778575,
-        "project_ebitda": 2640960,
+        "net_market_revenue": 3996983,
+        "optimiser": 483320,
+        "grid": 120830,
+        "market": 40277,
+        "operating": 784613,
+        "project_ebitda": 2567943,
         "maintenance_capex": 105000,
         "augmentation_capex": 0,
         "replacement_capex": 0,
-        "pre_financing_cf": 2535960
+        "pre_financing_cf": 2462943
       },
       "bridge_totals": {
-        "gross_market_revenues": 122532085,
+        "gross_market_revenues": 120130777,
         "charging_costs": 819172,
-        "net_market_revenue": 121712913,
-        "optimiser": 14703850,
-        "grid": 3675963,
-        "market": 1225321,
-        "operating": 33538329,
-        "project_ebitda": 68569450,
+        "net_market_revenue": 119311605,
+        "optimiser": 14415693,
+        "grid": 3603924,
+        "market": 1201309,
+        "operating": 33798405,
+        "project_ebitda": 66292274,
         "maintenance_capex": 3525000,
         "augmentation_capex": 2880000,
         "replacement_capex": 9180000,
-        "pre_financing_cf": 52984450
+        "pre_financing_cf": 50707274
       },
-      "npv_pre_financing_pre_tax": 13901731,
-      "moic": 3.59,
+      "npv_pre_financing_pre_tax": 12798047,
+      "moic": 3.435,
       "payback_years": 5,
-      "engine_npv_post_tax": 14873286,
-      "engine_project_irr": 0.2106
+      "engine_npv_post_tax": 13977284,
+      "engine_project_irr": 0.2038
     },
     {
       "project_id": "eigirdziai",
@@ -992,38 +992,38 @@
       "bridge_y1": {
         "yr": 1,
         "cal_year": 2029,
-        "gross_market_revenues": 3852154,
+        "gross_market_revenues": 3777421,
         "charging_costs": 29229,
-        "net_market_revenue": 3822925,
-        "optimiser": 462258,
-        "grid": 115565,
-        "market": 38522,
-        "operating": 741500,
-        "project_ebitda": 2465080,
+        "net_market_revenue": 3748192,
+        "optimiser": 453291,
+        "grid": 113323,
+        "market": 37774,
+        "operating": 747250,
+        "project_ebitda": 2396554,
         "maintenance_capex": 100000,
         "augmentation_capex": 0,
         "replacement_capex": 0,
-        "pre_financing_cf": 2365080
+        "pre_financing_cf": 2296554
       },
       "bridge_totals": {
-        "gross_market_revenues": 82342647,
+        "gross_market_revenues": 80730326,
         "charging_costs": 554885,
-        "net_market_revenue": 81787762,
-        "optimiser": 9881116,
-        "grid": 2470280,
-        "market": 823428,
-        "operating": 22581336,
-        "project_ebitda": 46031602,
+        "net_market_revenue": 80175441,
+        "optimiser": 9687639,
+        "grid": 2421911,
+        "market": 807304,
+        "operating": 22756445,
+        "project_ebitda": 44502142,
         "maintenance_capex": 2380000,
         "augmentation_capex": 1920000,
         "replacement_capex": 6120000,
-        "pre_financing_cf": 35611602
+        "pre_financing_cf": 34082142
       },
-      "npv_pre_financing_pre_tax": 9604640,
-      "moic": 3.619,
-      "payback_years": 4,
-      "engine_npv_post_tax": 10194912,
-      "engine_project_irr": 0.2183
+      "npv_pre_financing_pre_tax": 8856627,
+      "moic": 3.464,
+      "payback_years": 5,
+      "engine_npv_post_tax": 9587917,
+      "engine_project_irr": 0.211
     }
   ],
   "correlation_note": {
@@ -1034,17 +1034,17 @@
   },
   "timeline_note": "Calendar-year timeline. Each project contributes from its own first operating year, so the span runs past 20 years when commissioning is staggered — truncating it would break portfolio = Σ projects. Per-project internals stay on operating years; operating year N of a project falls in calendar year first_operating_year + N − 1.",
   "run": {
-    "run_id": "scenario-dc72dfbf53da",
-    "engine_git_sha": "78d19f47b20a06330fb1d21e9bad1ab0523b0e12-dirty",
-    "input_hash": "fd1fb1c0c38bf27c2c4ca232698e39bafcf4af092fa241d35263a8ef91c94eeb",
-    "output_hash": "487cdcf28b3b76a73888da6c1e6a9ab78efc3de9c7cc9b46162a5e67dfbb2903",
-    "register_version": "r5.8530095d",
+    "run_id": "scenario-f566fe0b1e02",
+    "engine_git_sha": "f9589a97bdf65529cf689ea6933ee12cc1fa66e1-dirty",
+    "input_hash": "8d1d94e83af536edcfaea9aa8aacbfe9c2ba462d18ad5a2b018e5f8673ca8ae0",
+    "output_hash": "7f75a1ea9f458e6ae9fb12457bdc8fe99accb07ffdc884fdd6f6df9da089ab16",
+    "register_version": "r6.aef17967",
     "data_vintage": {
       "kind": "kv-snapshot",
       "kv_source": "live-public-routes",
       "captured_at": "2026-08-01T10:41:05.879Z",
       "verified": true
     },
-    "recorded_at": "2026-08-04T07:44:53.430Z"
+    "recorded_at": "2026-08-06T13:41:25.627Z"
   }
 }

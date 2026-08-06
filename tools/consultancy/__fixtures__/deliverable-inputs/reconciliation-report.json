@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-04T07:44:54.125Z",
+  "generated_at": "2026-08-06T13:41:26.409Z",
   "engine_version": "v7.3",
   "kv_source": "live-public-routes",
   "kv_verified": true,
@@ -7,9 +7,9 @@
     {
       "id": "internal_1_gross_is_sum_of_revenue_lines",
       "label": "Gross market revenues = capacity + activation + arbitrage + charging cost",
-      "actual": 6284734,
-      "expected": 6284734,
-      "delta": 0,
+      "actual": 6140984,
+      "expected": 6140983,
+      "delta": 1,
       "tolerance": 3,
       "unit": "EUR",
       "status": "pass",
@@ -19,8 +19,8 @@
     {
       "id": "internal_2_net_is_gross_less_charging",
       "label": "Net market revenue = gross − charging costs",
-      "actual": 6227470,
-      "expected": 6227470,
+      "actual": 6083720,
+      "expected": 6083720,
       "delta": 0,
       "tolerance": 0,
       "unit": "EUR",
@@ -30,8 +30,8 @@
     {
       "id": "internal_3_ebitda_is_net_less_opex",
       "label": "Project EBITDA = net − optimiser − grid − market − operating",
-      "actual": 3738913,
-      "expected": 3738913,
+      "actual": 3606662,
+      "expected": 3606662,
       "delta": 0,
       "tolerance": 0,
       "unit": "EUR",
@@ -41,8 +41,8 @@
     {
       "id": "internal_4_prefin_cf_is_ebitda_less_capex",
       "label": "Pre-financing CF = EBITDA − maintenance − augmentation − replacement CAPEX",
-      "actual": 3538913,
-      "expected": 3538913,
+      "actual": 3406662,
+      "expected": 3406662,
       "delta": 0,
       "tolerance": 0,
       "unit": "EUR",
@@ -52,8 +52,8 @@
     {
       "id": "internal_5_monthly_sums_to_annual",
       "label": "Σ monthly CFADS = annual CFADS (year 1)",
-      "actual": 3381670,
-      "expected": 3381669,
+      "actual": 3271903,
+      "expected": 3271902,
       "delta": 1,
       "tolerance": 12,
       "unit": "EUR",
@@ -136,8 +136,8 @@
     {
       "id": "internal_1_gross_is_sum_of_revenue_lines",
       "label": "Gross market revenues = capacity + activation + arbitrage + charging cost",
-      "actual": 4734033,
-      "expected": 4734033,
+      "actual": 4595185,
+      "expected": 4595185,
       "delta": 0,
       "tolerance": 3,
       "unit": "EUR",
@@ -148,8 +148,8 @@
     {
       "id": "internal_2_net_is_gross_less_charging",
       "label": "Net market revenue = gross − charging costs",
-      "actual": 4681298,
-      "expected": 4681298,
+      "actual": 4542450,
+      "expected": 4542450,
       "delta": 0,
       "tolerance": 0,
       "unit": "EUR",
@@ -159,8 +159,8 @@
     {
       "id": "internal_3_ebitda_is_net_less_opex",
       "label": "Project EBITDA = net − optimiser − grid − market − operating",
-      "actual": 2500173,
-      "expected": 2500173,
+      "actual": 2372500,
+      "expected": 2372500,
       "delta": 0,
       "tolerance": 0,
       "unit": "EUR",
@@ -170,8 +170,8 @@
     {
       "id": "internal_4_prefin_cf_is_ebitda_less_capex",
       "label": "Pre-financing CF = EBITDA − maintenance − augmentation − replacement CAPEX",
-      "actual": 2308173,
-      "expected": 2308173,
+      "actual": 2180500,
+      "expected": 2180500,
       "delta": 0,
       "tolerance": 0,
       "unit": "EUR",
@@ -181,9 +181,9 @@
     {
       "id": "internal_5_monthly_sums_to_annual",
       "label": "Σ monthly CFADS = annual CFADS (year 1)",
-      "actual": 2257360,
-      "expected": 2257360,
-      "delta": 0,
+      "actual": 2151337,
+      "expected": 2151336,
+      "delta": 1,
       "tolerance": 12,
       "unit": "EUR",
       "status": "pass",
@@ -265,9 +265,9 @@
     {
       "id": "internal_1_gross_is_sum_of_revenue_lines",
       "label": "Gross market revenues = capacity + activation + arbitrage + charging cost",
-      "actual": 2588924,
-      "expected": 2588923,
-      "delta": 1,
+      "actual": 2512991,
+      "expected": 2512991,
+      "delta": 0,
       "tolerance": 3,
       "unit": "EUR",
       "status": "pass",
@@ -277,8 +277,8 @@
     {
       "id": "internal_2_net_is_gross_less_charging",
       "label": "Net market revenue = gross − charging costs",
-      "actual": 2560085,
-      "expected": 2560085,
+      "actual": 2484152,
+      "expected": 2484152,
       "delta": 0,
       "tolerance": 0,
       "unit": "EUR",
@@ -288,8 +288,8 @@
     {
       "id": "internal_3_ebitda_is_net_less_opex",
       "label": "Project EBITDA = net − optimiser − grid − market − operating",
-      "actual": 1367282,
-      "expected": 1367282,
+      "actual": 1297460,
+      "expected": 1297460,
       "delta": 0,
       "tolerance": 0,
       "unit": "EUR",
@@ -299,8 +299,8 @@
     {
       "id": "internal_4_prefin_cf_is_ebitda_less_capex",
       "label": "Pre-financing CF = EBITDA − maintenance − augmentation − replacement CAPEX",
-      "actual": 1262282,
-      "expected": 1262282,
+      "actual": 1192460,
+      "expected": 1192460,
       "delta": 0,
       "tolerance": 0,
       "unit": "EUR",
@@ -310,9 +310,9 @@
     {
       "id": "internal_5_monthly_sums_to_annual",
       "label": "Σ monthly CFADS = annual CFADS (year 1)",
-      "actual": 1261526,
-      "expected": 1261526,
-      "delta": 0,
+      "actual": 1191668,
+      "expected": 1191669,
+      "delta": -1,
       "tolerance": 12,
       "unit": "EUR",
       "status": "pass",
@@ -394,9 +394,9 @@
     {
       "id": "internal_1_gross_is_sum_of_revenue_lines",
       "label": "Gross market revenues = capacity + activation + arbitrage + charging cost",
-      "actual": 2340437,
-      "expected": 2340437,
-      "delta": 0,
+      "actual": 2271829,
+      "expected": 2271830,
+      "delta": -1,
       "tolerance": 3,
       "unit": "EUR",
       "status": "pass",
@@ -406,8 +406,8 @@
     {
       "id": "internal_2_net_is_gross_less_charging",
       "label": "Net market revenue = gross − charging costs",
-      "actual": 2312975,
-      "expected": 2312975,
+      "actual": 2244367,
+      "expected": 2244367,
       "delta": 0,
       "tolerance": 0,
       "unit": "EUR",
@@ -417,8 +417,8 @@
     {
       "id": "internal_3_ebitda_is_net_less_opex",
       "label": "Project EBITDA = net − optimiser − grid − market − operating",
-      "actual": 1197006,
-      "expected": 1197006,
+      "actual": 1133625,
+      "expected": 1133625,
       "delta": 0,
       "tolerance": 0,
       "unit": "EUR",
@@ -428,8 +428,8 @@
     {
       "id": "internal_4_prefin_cf_is_ebitda_less_capex",
       "label": "Pre-financing CF = EBITDA − maintenance − augmentation − replacement CAPEX",
-      "actual": 1097006,
-      "expected": 1097006,
+      "actual": 1033625,
+      "expected": 1033625,
       "delta": 0,
       "tolerance": 0,
       "unit": "EUR",
@@ -439,8 +439,8 @@
     {
       "id": "internal_5_monthly_sums_to_annual",
       "label": "Σ monthly CFADS = annual CFADS (year 1)",
-      "actual": 1086270,
-      "expected": 1086269,
+      "actual": 1023151,
+      "expected": 1023150,
       "delta": 1,
       "tolerance": 12,
       "unit": "EUR",
@@ -535,8 +535,8 @@
     {
       "id": "internal_1_gross_is_sum_of_revenue_lines",
       "label": "Gross market revenues = capacity + activation + arbitrage + charging cost",
-      "actual": 6269889,
-      "expected": 6269889,
+      "actual": 6126369,
+      "expected": 6126369,
       "delta": 0,
       "tolerance": 3,
       "unit": "EUR",
@@ -547,8 +547,8 @@
     {
       "id": "internal_2_net_is_gross_less_charging",
       "label": "Net market revenue = gross − charging costs",
-      "actual": 6214917,
-      "expected": 6214917,
+      "actual": 6071397,
+      "expected": 6071397,
       "delta": 0,
       "tolerance": 0,
       "unit": "EUR",
@@ -558,8 +558,8 @@
     {
       "id": "internal_3_ebitda_is_net_less_opex",
       "label": "Project EBITDA = net − optimiser − grid − market − operating",
-      "actual": 3788054,
-      "expected": 3788054,
+      "actual": 3656458,
+      "expected": 3656458,
       "delta": 0,
       "tolerance": 0,
       "unit": "EUR",
@@ -569,8 +569,8 @@
     {
       "id": "internal_4_prefin_cf_is_ebitda_less_capex",
       "label": "Pre-financing CF = EBITDA − maintenance − augmentation − replacement CAPEX",
-      "actual": 3596054,
-      "expected": 3596054,
+      "actual": 3464458,
+      "expected": 3464458,
       "delta": 0,
       "tolerance": 0,
       "unit": "EUR",
@@ -580,9 +580,9 @@
     {
       "id": "internal_5_monthly_sums_to_annual",
       "label": "Σ monthly CFADS = annual CFADS (year 1)",
-      "actual": 3427029,
-      "expected": 3427029,
-      "delta": 0,
+      "actual": 3317436,
+      "expected": 3317437,
+      "delta": -1,
       "tolerance": 12,
       "unit": "EUR",
       "status": "pass",
@@ -664,9 +664,9 @@
     {
       "id": "internal_1_gross_is_sum_of_revenue_lines",
       "label": "Gross market revenues = capacity + activation + arbitrage + charging cost",
-      "actual": 3428848,
-      "expected": 3428847,
-      "delta": 1,
+      "actual": 3350360,
+      "expected": 3350361,
+      "delta": -1,
       "tolerance": 3,
       "unit": "EUR",
       "status": "pass",
@@ -676,8 +676,8 @@
     {
       "id": "internal_2_net_is_gross_less_charging",
       "label": "Net market revenue = gross − charging costs",
-      "actual": 3398783,
-      "expected": 3398783,
+      "actual": 3320295,
+      "expected": 3320295,
       "delta": 0,
       "tolerance": 0,
       "unit": "EUR",
@@ -687,8 +687,8 @@
     {
       "id": "internal_3_ebitda_is_net_less_opex",
       "label": "Project EBITDA = net − optimiser − grid − market − operating",
-      "actual": 2071593,
-      "expected": 2071593,
+      "actual": 1999624,
+      "expected": 1999624,
       "delta": 0,
       "tolerance": 0,
       "unit": "EUR",
@@ -698,8 +698,8 @@
     {
       "id": "internal_4_prefin_cf_is_ebitda_less_capex",
       "label": "Pre-financing CF = EBITDA − maintenance − augmentation − replacement CAPEX",
-      "actual": 1966593,
-      "expected": 1966593,
+      "actual": 1894624,
+      "expected": 1894624,
       "delta": 0,
       "tolerance": 0,
       "unit": "EUR",
@@ -709,9 +709,9 @@
     {
       "id": "internal_5_monthly_sums_to_annual",
       "label": "Σ monthly CFADS = annual CFADS (year 1)",
-      "actual": 2008033,
-      "expected": 2008033,
-      "delta": 0,
+      "actual": 1948099,
+      "expected": 1948100,
+      "delta": -1,
       "tolerance": 12,
       "unit": "EUR",
       "status": "pass",
@@ -793,9 +793,9 @@
     {
       "id": "internal_1_gross_is_sum_of_revenue_lines",
       "label": "Gross market revenues = capacity + activation + arbitrage + charging cost",
-      "actual": 3142367,
-      "expected": 3142367,
-      "delta": 0,
+      "actual": 3070492,
+      "expected": 3070493,
+      "delta": -1,
       "tolerance": 3,
       "unit": "EUR",
       "status": "pass",
@@ -805,8 +805,8 @@
     {
       "id": "internal_2_net_is_gross_less_charging",
       "label": "Net market revenue = gross − charging costs",
-      "actual": 3113735,
-      "expected": 3113735,
+      "actual": 3041860,
+      "expected": 3041860,
       "delta": 0,
       "tolerance": 0,
       "unit": "EUR",
@@ -816,8 +816,8 @@
     {
       "id": "internal_3_ebitda_is_net_less_opex",
       "label": "Project EBITDA = net − optimiser − grid − market − operating",
-      "actual": 1869456,
-      "expected": 1869456,
+      "actual": 1803331,
+      "expected": 1803331,
       "delta": 0,
       "tolerance": 0,
       "unit": "EUR",
@@ -827,8 +827,8 @@
     {
       "id": "internal_4_prefin_cf_is_ebitda_less_capex",
       "label": "Pre-financing CF = EBITDA − maintenance − augmentation − replacement CAPEX",
-      "actual": 1769456,
-      "expected": 1769456,
+      "actual": 1703331,
+      "expected": 1703331,
       "delta": 0,
       "tolerance": 0,
       "unit": "EUR",
@@ -838,9 +838,9 @@
     {
       "id": "internal_5_monthly_sums_to_annual",
       "label": "Σ monthly CFADS = annual CFADS (year 1)",
-      "actual": 1726536,
-      "expected": 1726535,
-      "delta": 1,
+      "actual": 1671651,
+      "expected": 1671651,
+      "delta": 0,
       "tolerance": 12,
       "unit": "EUR",
       "status": "pass",
@@ -934,8 +934,8 @@
     {
       "id": "internal_1_gross_is_sum_of_revenue_lines",
       "label": "Gross market revenues = capacity + activation + arbitrage + charging cost",
-      "actual": 7510691,
-      "expected": 7510690,
+      "actual": 7364888,
+      "expected": 7364887,
       "delta": 1,
       "tolerance": 3,
       "unit": "EUR",
@@ -946,8 +946,8 @@
     {
       "id": "internal_2_net_is_gross_less_charging",
       "label": "Net market revenue = gross − charging costs",
-      "actual": 7454573,
-      "expected": 7454573,
+      "actual": 7308770,
+      "expected": 7308770,
       "delta": 0,
       "tolerance": 0,
       "unit": "EUR",
@@ -957,8 +957,8 @@
     {
       "id": "internal_3_ebitda_is_net_less_opex",
       "label": "Project EBITDA = net − optimiser − grid − market − operating",
-      "actual": 4829182,
-      "expected": 4829182,
+      "actual": 4695667,
+      "expected": 4695667,
       "delta": 0,
       "tolerance": 0,
       "unit": "EUR",
@@ -968,8 +968,8 @@
     {
       "id": "internal_4_prefin_cf_is_ebitda_less_capex",
       "label": "Pre-financing CF = EBITDA − maintenance − augmentation − replacement CAPEX",
-      "actual": 4637182,
-      "expected": 4637182,
+      "actual": 4503667,
+      "expected": 4503667,
       "delta": 0,
       "tolerance": 0,
       "unit": "EUR",
@@ -979,9 +979,9 @@
     {
       "id": "internal_5_monthly_sums_to_annual",
       "label": "Σ monthly CFADS = annual CFADS (year 1)",
-      "actual": 4372918,
-      "expected": 4372918,
-      "delta": 0,
+      "actual": 4261582,
+      "expected": 4261583,
+      "delta": -1,
       "tolerance": 12,
       "unit": "EUR",
       "status": "pass",
@@ -1063,9 +1063,9 @@
     {
       "id": "internal_1_gross_is_sum_of_revenue_lines",
       "label": "Gross market revenues = capacity + activation + arbitrage + charging cost",
-      "actual": 4107406,
-      "expected": 4107405,
-      "delta": 1,
+      "actual": 4027669,
+      "expected": 4027670,
+      "delta": -1,
       "tolerance": 3,
       "unit": "EUR",
       "status": "pass",
@@ -1075,8 +1075,8 @@
     {
       "id": "internal_2_net_is_gross_less_charging",
       "label": "Net market revenue = gross − charging costs",
-      "actual": 4076720,
-      "expected": 4076720,
+      "actual": 3996983,
+      "expected": 3996983,
       "delta": 0,
       "tolerance": 0,
       "unit": "EUR",
@@ -1086,8 +1086,8 @@
     {
       "id": "internal_3_ebitda_is_net_less_opex",
       "label": "Project EBITDA = net − optimiser − grid − market − operating",
-      "actual": 2640960,
-      "expected": 2640960,
+      "actual": 2567943,
+      "expected": 2567943,
       "delta": 0,
       "tolerance": 0,
       "unit": "EUR",
@@ -1097,8 +1097,8 @@
     {
       "id": "internal_4_prefin_cf_is_ebitda_less_capex",
       "label": "Pre-financing CF = EBITDA − maintenance − augmentation − replacement CAPEX",
-      "actual": 2535960,
-      "expected": 2535960,
+      "actual": 2462943,
+      "expected": 2462943,
       "delta": 0,
       "tolerance": 0,
       "unit": "EUR",
@@ -1108,9 +1108,9 @@
     {
       "id": "internal_5_monthly_sums_to_annual",
       "label": "Σ monthly CFADS = annual CFADS (year 1)",
-      "actual": 2525317,
-      "expected": 2525316,
-      "delta": 1,
+      "actual": 2464429,
+      "expected": 2464430,
+      "delta": -1,
       "tolerance": 12,
       "unit": "EUR",
       "status": "pass",
@@ -1192,9 +1192,9 @@
     {
       "id": "internal_1_gross_is_sum_of_revenue_lines",
       "label": "Gross market revenues = capacity + activation + arbitrage + charging cost",
-      "actual": 3852154,
-      "expected": 3852154,
-      "delta": 0,
+      "actual": 3777421,
+      "expected": 3777420,
+      "delta": 1,
       "tolerance": 3,
       "unit": "EUR",
       "status": "pass",
@@ -1204,8 +1204,8 @@
     {
       "id": "internal_2_net_is_gross_less_charging",
       "label": "Net market revenue = gross − charging costs",
-      "actual": 3822925,
-      "expected": 3822925,
+      "actual": 3748192,
+      "expected": 3748192,
       "delta": 0,
       "tolerance": 0,
       "unit": "EUR",
@@ -1215,8 +1215,8 @@
     {
       "id": "internal_3_ebitda_is_net_less_opex",
       "label": "Project EBITDA = net − optimiser − grid − market − operating",
-      "actual": 2465080,
-      "expected": 2465080,
+      "actual": 2396554,
+      "expected": 2396554,
       "delta": 0,
       "tolerance": 0,
       "unit": "EUR",
@@ -1226,8 +1226,8 @@
     {
       "id": "internal_4_prefin_cf_is_ebitda_less_capex",
       "label": "Pre-financing CF = EBITDA − maintenance − augmentation − replacement CAPEX",
-      "actual": 2365080,
-      "expected": 2365080,
+      "actual": 2296554,
+      "expected": 2296554,
       "delta": 0,
       "tolerance": 0,
       "unit": "EUR",
@@ -1237,8 +1237,8 @@
     {
       "id": "internal_5_monthly_sums_to_annual",
       "label": "Σ monthly CFADS = annual CFADS (year 1)",
-      "actual": 2267703,
-      "expected": 2267702,
+      "actual": 2210636,
+      "expected": 2210635,
       "delta": 1,
       "tolerance": 12,
       "unit": "EUR",
@@ -1335,7 +1335,7 @@
     {
       "id": "external_1_project_irr",
       "label": "Project IRR within the Clean Horizon Baltic band",
-      "actual": 0.1496,
+      "actual": 0.1413,
       "band": [
         0.06,
         0.31
@@ -1358,7 +1358,7 @@
       "source": "KKME base_year realised months — observed Baltic balancing revenue per MW",
       "status": "pass",
       "severity_basis": "Central / reference — the base view being sold, so a breach fails",
-      "note": "Modelled 116108 vs observed 125397 EUR/MW/yr, both full-year equivalent. A gap is expected and is the saturation compression between the observed base year and the project's COD year.",
+      "note": "Modelled 113233 vs observed 122292 EUR/MW/yr, both full-year equivalent. A gap is expected and is the saturation compression between the observed base year and the project's COD year.",
       "subject": "reference/central"
     },
     {
@@ -1394,7 +1394,7 @@
     {
       "id": "external_5_ebitda_margin",
       "label": "Year-1 EBITDA margin on gross market revenues",
-      "actual": 0.5949,
+      "actual": 0.5873,
       "band": [
         0.45,
         0.7
@@ -1408,7 +1408,7 @@
     {
       "id": "external_6_net_rev_k_mw_yr",
       "label": "Year-1 net market revenue per MW",
-      "actual": 124.5,
+      "actual": 121.7,
       "band": [
         120,
         220
@@ -1423,7 +1423,7 @@
     {
       "id": "external_1_project_irr",
       "label": "Project IRR within the Clean Horizon Baltic band",
-      "actual": 0.0409,
+      "actual": 0.0267,
       "band": [
         0.06,
         0.31
@@ -1446,7 +1446,7 @@
       "source": "KKME base_year realised months — observed Baltic balancing revenue per MW",
       "status": "pass",
       "severity_basis": "non-Central scenario — a deliberately extreme case may leave a band calibrated on central-case observations",
-      "note": "Modelled 90486 vs observed 95126 EUR/MW/yr, both full-year equivalent. A gap is expected and is the saturation compression between the observed base year and the project's COD year.",
+      "note": "Modelled 87593 vs observed 92085 EUR/MW/yr, both full-year equivalent. A gap is expected and is the saturation compression between the observed base year and the project's COD year.",
       "subject": "bitenai/downside"
     },
     {
@@ -1482,7 +1482,7 @@
     {
       "id": "external_5_ebitda_margin",
       "label": "Year-1 EBITDA margin on gross market revenues",
-      "actual": 0.5281,
+      "actual": 0.5163,
       "band": [
         0.45,
         0.7
@@ -1496,7 +1496,7 @@
     {
       "id": "external_6_net_rev_k_mw_yr",
       "label": "Year-1 net market revenue per MW",
-      "actual": 97.5,
+      "actual": 94.6,
       "band": [
         120,
         220
@@ -1511,7 +1511,7 @@
     {
       "id": "external_1_project_irr",
       "label": "Project IRR within the Clean Horizon Baltic band",
-      "actual": 0.0329,
+      "actual": 0.0191,
       "band": [
         0.06,
         0.31
@@ -1534,7 +1534,7 @@
       "source": "KKME base_year realised months — observed Baltic balancing revenue per MW",
       "status": "pass",
       "severity_basis": "non-Central scenario — a deliberately extreme case may leave a band calibrated on central-case observations",
-      "note": "Modelled 90486 vs observed 95126 EUR/MW/yr, both full-year equivalent. A gap is expected and is the saturation compression between the observed base year and the project's COD year.",
+      "note": "Modelled 87593 vs observed 92085 EUR/MW/yr, both full-year equivalent. A gap is expected and is the saturation compression between the observed base year and the project's COD year.",
       "subject": "stoniskiai/downside"
     },
     {
@@ -1570,7 +1570,7 @@
     {
       "id": "external_5_ebitda_margin",
       "label": "Year-1 EBITDA margin on gross market revenues",
-      "actual": 0.5281,
+      "actual": 0.5163,
       "band": [
         0.45,
         0.7
@@ -1584,7 +1584,7 @@
     {
       "id": "external_6_net_rev_k_mw_yr",
       "label": "Year-1 net market revenue per MW",
-      "actual": 97.5,
+      "actual": 94.6,
       "band": [
         120,
         220
@@ -1599,7 +1599,7 @@
     {
       "id": "external_1_project_irr",
       "label": "Project IRR within the Clean Horizon Baltic band",
-      "actual": 0.0324,
+      "actual": 0.0183,
       "band": [
         0.06,
         0.31
@@ -1622,7 +1622,7 @@
       "source": "KKME base_year realised months — observed Baltic balancing revenue per MW",
       "status": "pass",
       "severity_basis": "non-Central scenario — a deliberately extreme case may leave a band calibrated on central-case observations",
-      "note": "Modelled 85845 vs observed 95126 EUR/MW/yr, both full-year equivalent. A gap is expected and is the saturation compression between the observed base year and the project's COD year.",
+      "note": "Modelled 83101 vs observed 92085 EUR/MW/yr, both full-year equivalent. A gap is expected and is the saturation compression between the observed base year and the project's COD year.",
       "subject": "eigirdziai/downside"
     },
     {
@@ -1658,7 +1658,7 @@
     {
       "id": "external_5_ebitda_margin",
       "label": "Year-1 EBITDA margin on gross market revenues",
-      "actual": 0.5114,
+      "actual": 0.499,
       "band": [
         0.45,
         0.7
@@ -1672,7 +1672,7 @@
     {
       "id": "external_6_net_rev_k_mw_yr",
       "label": "Year-1 net market revenue per MW",
-      "actual": 92.5,
+      "actual": 89.8,
       "band": [
         120,
         220
@@ -1687,7 +1687,7 @@
     {
       "id": "external_1_project_irr",
       "label": "Project IRR within the Clean Horizon Baltic band",
-      "actual": 0.1558,
+      "actual": 0.1474,
       "band": [
         0.06,
         0.31
@@ -1710,7 +1710,7 @@
       "source": "KKME base_year realised months — observed Baltic balancing revenue per MW",
       "status": "pass",
       "severity_basis": "Central / reference — the base view being sold, so a breach fails",
-      "note": "Modelled 120753 vs observed 125397 EUR/MW/yr, both full-year equivalent. A gap is expected and is the saturation compression between the observed base year and the project's COD year.",
+      "note": "Modelled 117763 vs observed 122292 EUR/MW/yr, both full-year equivalent. A gap is expected and is the saturation compression between the observed base year and the project's COD year.",
       "subject": "bitenai/central"
     },
     {
@@ -1746,7 +1746,7 @@
     {
       "id": "external_5_ebitda_margin",
       "label": "Year-1 EBITDA margin on gross market revenues",
-      "actual": 0.6042,
+      "actual": 0.5968,
       "band": [
         0.45,
         0.7
@@ -1760,7 +1760,7 @@
     {
       "id": "external_6_net_rev_k_mw_yr",
       "label": "Year-1 net market revenue per MW",
-      "actual": 129.5,
+      "actual": 126.5,
       "band": [
         120,
         220
@@ -1775,7 +1775,7 @@
     {
       "id": "external_1_project_irr",
       "label": "Project IRR within the Clean Horizon Baltic band",
-      "actual": 0.1411,
+      "actual": 0.1334,
       "band": [
         0.06,
         0.31
@@ -1798,7 +1798,7 @@
       "source": "KKME base_year realised months — observed Baltic balancing revenue per MW",
       "status": "pass",
       "severity_basis": "Central / reference — the base view being sold, so a breach fails",
-      "note": "Modelled 120753 vs observed 125397 EUR/MW/yr, both full-year equivalent. A gap is expected and is the saturation compression between the observed base year and the project's COD year.",
+      "note": "Modelled 117763 vs observed 122292 EUR/MW/yr, both full-year equivalent. A gap is expected and is the saturation compression between the observed base year and the project's COD year.",
       "subject": "stoniskiai/central"
     },
     {
@@ -1834,7 +1834,7 @@
     {
       "id": "external_5_ebitda_margin",
       "label": "Year-1 EBITDA margin on gross market revenues",
-      "actual": 0.6042,
+      "actual": 0.5968,
       "band": [
         0.45,
         0.7
@@ -1848,7 +1848,7 @@
     {
       "id": "external_6_net_rev_k_mw_yr",
       "label": "Year-1 net market revenue per MW",
-      "actual": 129.5,
+      "actual": 126.5,
       "band": [
         120,
         220
@@ -1863,7 +1863,7 @@
     {
       "id": "external_1_project_irr",
       "label": "Project IRR within the Clean Horizon Baltic band",
-      "actual": 0.144,
+      "actual": 0.136,
       "band": [
         0.06,
         0.31
@@ -1886,7 +1886,7 @@
       "source": "KKME base_year realised months — observed Baltic balancing revenue per MW",
       "status": "pass",
       "severity_basis": "Central / reference — the base view being sold, so a breach fails",
-      "note": "Modelled 116108 vs observed 125397 EUR/MW/yr, both full-year equivalent. A gap is expected and is the saturation compression between the observed base year and the project's COD year.",
+      "note": "Modelled 113233 vs observed 122292 EUR/MW/yr, both full-year equivalent. A gap is expected and is the saturation compression between the observed base year and the project's COD year.",
       "subject": "eigirdziai/central"
     },
     {
@@ -1922,7 +1922,7 @@
     {
       "id": "external_5_ebitda_margin",
       "label": "Year-1 EBITDA margin on gross market revenues",
-      "actual": 0.5949,
+      "actual": 0.5873,
       "band": [
         0.45,
         0.7
@@ -1936,7 +1936,7 @@
     {
       "id": "external_6_net_rev_k_mw_yr",
       "label": "Year-1 net market revenue per MW",
-      "actual": 124.5,
+      "actual": 121.7,
       "band": [
         120,
         220
@@ -1951,7 +1951,7 @@
     {
       "id": "external_1_project_irr",
       "label": "Project IRR within the Clean Horizon Baltic band",
-      "actual": 0.2332,
+      "actual": 0.2254,
       "band": [
         0.06,
         0.31
@@ -1974,7 +1974,7 @@
       "source": "KKME base_year realised months — observed Baltic balancing revenue per MW",
       "status": "pass",
       "severity_basis": "non-Central scenario — a deliberately extreme case may leave a band calibrated on central-case observations",
-      "note": "Modelled 144466 vs observed 149052 EUR/MW/yr, both full-year equivalent. A gap is expected and is the saturation compression between the observed base year and the project's COD year.",
+      "note": "Modelled 141428 vs observed 145918 EUR/MW/yr, both full-year equivalent. A gap is expected and is the saturation compression between the observed base year and the project's COD year.",
       "subject": "bitenai/upside"
     },
     {
@@ -2010,7 +2010,7 @@
     {
       "id": "external_5_ebitda_margin",
       "label": "Year-1 EBITDA margin on gross market revenues",
-      "actual": 0.643,
+      "actual": 0.6376,
       "band": [
         0.45,
         0.7
@@ -2024,7 +2024,7 @@
     {
       "id": "external_6_net_rev_k_mw_yr",
       "label": "Year-1 net market revenue per MW",
-      "actual": 155.3,
+      "actual": 152.3,
       "band": [
         120,
         220
@@ -2039,7 +2039,7 @@
     {
       "id": "external_1_project_irr",
       "label": "Project IRR within the Clean Horizon Baltic band",
-      "actual": 0.2106,
+      "actual": 0.2038,
       "band": [
         0.06,
         0.31
@@ -2062,7 +2062,7 @@
       "source": "KKME base_year realised months — observed Baltic balancing revenue per MW",
       "status": "pass",
       "severity_basis": "non-Central scenario — a deliberately extreme case may leave a band calibrated on central-case observations",
-      "note": "Modelled 144466 vs observed 149052 EUR/MW/yr, both full-year equivalent. A gap is expected and is the saturation compression between the observed base year and the project's COD year.",
+      "note": "Modelled 141428 vs observed 145918 EUR/MW/yr, both full-year equivalent. A gap is expected and is the saturation compression between the observed base year and the project's COD year.",
       "subject": "stoniskiai/upside"
     },
     {
@@ -2098,7 +2098,7 @@
     {
       "id": "external_5_ebitda_margin",
       "label": "Year-1 EBITDA margin on gross market revenues",
-      "actual": 0.643,
+      "actual": 0.6376,
       "band": [
         0.45,
         0.7
@@ -2112,7 +2112,7 @@
     {
       "id": "external_6_net_rev_k_mw_yr",
       "label": "Year-1 net market revenue per MW",
-      "actual": 155.3,
+      "actual": 152.3,
       "band": [
         120,
         220
@@ -2127,7 +2127,7 @@
     {
       "id": "external_1_project_irr",
       "label": "Project IRR within the Clean Horizon Baltic band",
-      "actual": 0.2183,
+      "actual": 0.211,
       "band": [
         0.06,
         0.31
@@ -2150,7 +2150,7 @@
       "source": "KKME base_year realised months — observed Baltic balancing revenue per MW",
       "status": "pass",
       "severity_basis": "non-Central scenario — a deliberately extreme case may leave a band calibrated on central-case observations",
-      "note": "Modelled 142173 vs observed 149052 EUR/MW/yr, both full-year equivalent. A gap is expected and is the saturation compression between the observed base year and the project's COD year.",
+      "note": "Modelled 139183 vs observed 145918 EUR/MW/yr, both full-year equivalent. A gap is expected and is the saturation compression between the observed base year and the project's COD year.",
       "subject": "eigirdziai/upside"
     },
     {
@@ -2186,7 +2186,7 @@
     {
       "id": "external_5_ebitda_margin",
       "label": "Year-1 EBITDA margin on gross market revenues",
-      "actual": 0.6399,
+      "actual": 0.6344,
       "band": [
         0.45,
         0.7
@@ -2200,7 +2200,7 @@
     {
       "id": "external_6_net_rev_k_mw_yr",
       "label": "Year-1 net market revenue per MW",
-      "actual": 152.9,
+      "actual": 149.9,
       "band": [
         120,
         220
@@ -2333,17 +2333,17 @@
     "distinct_external_checks": 6
   },
   "run": {
-    "run_id": "reconcile-5948f45cec42",
-    "engine_git_sha": "78d19f47b20a06330fb1d21e9bad1ab0523b0e12-dirty",
-    "input_hash": "3532dca494a3ae013a96b6f6381b34a8c50296123df24562780574da7f8ad3c4",
-    "output_hash": "359f7948019b1ebd8e023c19364e13fbcd0bce4b28f9952b4dc6244d8bcc8082",
-    "register_version": "r5.8530095d",
+    "run_id": "reconcile-3a9b20bd6cb2",
+    "engine_git_sha": "f9589a97bdf65529cf689ea6933ee12cc1fa66e1-dirty",
+    "input_hash": "f55de12af513d4faaadd15eba7fc9970a52c0058f319982e3f4f0473a9f3ff66",
+    "output_hash": "b3b45ad89555908864418cb27ca7e28ac9a4418a4846cfec801efd43e63f0b5c",
+    "register_version": "r6.aef17967",
     "data_vintage": {
       "kind": "kv-snapshot",
       "kv_source": "live-public-routes",
       "captured_at": "2026-08-01T10:41:05.879Z",
       "verified": true
     },
-    "recorded_at": "2026-08-04T07:44:54.126Z"
+    "recorded_at": "2026-08-06T13:41:26.409Z"
   }
 }

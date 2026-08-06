@@ -1415,7 +1415,7 @@
       "chain": "parameter",
       "label": "Operating cost, reconciling adjustment",
       "category": "cost",
-      "value": 0.66,
+      "value": 0.89,
       "unit": "EUR/kW/yr",
       "engine_binding": "bridge:COST_DEFAULTS.operating_calibration_eur_kw_yr",
       "sensitivity_range": [

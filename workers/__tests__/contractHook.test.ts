@@ -175,3 +175,34 @@ describe('Phase 39 — the comparison sentence states a COMPUTED verdict (rule #
     }
   });
 });
+
+describe('Phase 53 — the verdict and the number it quotes are one fact', () => {
+  it('does not contradict itself at the 1.00 boundary', () => {
+    // Latent since the clause was written, surfaced when Phase 53's month rule
+    // put dur=2h/capex=high/cod=2027/conservative onto exactly 1.00. `min_dscr`
+    // is unrounded; the sentence prints it at 2 dp. Branching on the raw value
+    // rendered "minimum cover is 1.00× — the asset does not service its debt",
+    // where both halves came from the same variable and disagreed.
+    //
+    // Driven through the real payload, and the assertion is on the PAIR: for
+    // every configuration the printed figure and the verdict clause must agree,
+    // whatever the figure happens to be. A test pinning one boundary case would
+    // pass again the moment the boundary moved.
+    const rows = MATRIX.map(({ id, params }: Any) => {
+      const r = computeRevenueV7(params, kv) as Any;
+      return { id, min_dscr: r.min_dscr, sentence: r.debt_sizing?.comparison ?? '' };
+    });
+    for (const r of rows) {
+      if (r.min_dscr == null || !r.sentence) continue;
+      const printed = /minimum cover is ([\d.]+)×/.exec(r.sentence);
+      expect(printed, r.id).not.toBeNull();
+      const shown = Number(printed![1]);
+      const saysFails = /does not service its debt/.test(r.sentence);
+      const saysBand = /under the 1\.20× covenant/.test(r.sentence);
+      const saysClears = /clearing the 1\.20× covenant/.test(r.sentence);
+      expect(saysFails, `${r.id} printed ${shown}`).toBe(shown < 1.0);
+      expect(saysBand, `${r.id} printed ${shown}`).toBe(shown >= 1.0 && shown < 1.2);
+      expect(saysClears, `${r.id} printed ${shown}`).toBe(shown >= 1.2);
+    }
+  });
+});

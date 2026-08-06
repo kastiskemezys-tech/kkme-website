@@ -483,11 +483,16 @@ describe('register versioning', () => {
       ...register,
       rows: register.rows.map((r: Any) => (r.id === 'wacc' ? { ...r, value: 9 } : r)),
     };
+    const LATEST_ENTRY_DATE = register.changelog.at(-1)?.date ?? '2026-08-03';
     const bumped = bumpVersion(moved as Any, {
       moved: valueDiff(register, moved as Any),
       reason: 'Operator raised the discount rate after a financing conversation.',
-      source: 'operator decision, 2026-08-03',
-      decided_by: 'operator', phase: '37', date: '2026-08-03',
+      source: `operator decision, ${LATEST_ENTRY_DATE}`,
+      // Derived from the register's own newest entry, not hardcoded: the
+      // changelog is chronology-checked, so a fixed date here silently rots the
+      // moment any real entry lands after it. Phase 53's entry (2026-08-06) is
+      // what exposed that — it had been a latent dependency on "today".
+      decided_by: 'operator', phase: '37', date: LATEST_ENTRY_DATE,
     }) as Any;
     expect(bumped.version.seq).toBe(register.version.seq + 1);
     expect(bumped.changelog).toHaveLength(register.changelog.length + 1);

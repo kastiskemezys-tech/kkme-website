@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-04T07:44:53.438Z",
+  "generated_at": "2026-08-06T13:41:25.637Z",
   "engine_version": "v7.3",
   "kv_source": "live-public-routes",
   "kv_verified": true,
@@ -47,28 +47,28 @@
   },
   "headlines": {
     "downside": {
-      "gross_y1": 7322957,
-      "ebitda_y1": 3867455,
-      "prefin_cf_y1": 3570455,
-      "sum_20yr_net": 199242046,
-      "npv": -16042163,
-      "moic": 0.789
+      "gross_y1": 7108176,
+      "ebitda_y1": 3669960,
+      "prefin_cf_y1": 3372960,
+      "sum_20yr_net": 193249667,
+      "npv": -18820972,
+      "moic": 0.646
     },
     "central": {
-      "gross_y1": 9698737,
-      "ebitda_y1": 5859647,
-      "prefin_cf_y1": 5562647,
-      "sum_20yr_net": 271765317,
-      "npv": 13280474,
-      "moic": 2.299
+      "gross_y1": 9476729,
+      "ebitda_y1": 5656082,
+      "prefin_cf_y1": 5359082,
+      "sum_20yr_net": 265420652,
+      "npv": 10368042,
+      "moic": 2.149
     },
     "upside": {
-      "gross_y1": 11618097,
-      "ebitda_y1": 7470142,
-      "prefin_cf_y1": 7173142,
-      "sum_20yr_net": 336433857,
-      "npv": 39412460,
-      "moic": 3.645
+      "gross_y1": 11392557,
+      "ebitda_y1": 7263610,
+      "prefin_cf_y1": 6966610,
+      "sum_20yr_net": 329798081,
+      "npv": 36387404,
+      "moic": 3.489
     }
   },
   "central_invariant": {
@@ -82,17 +82,17 @@
     "breaches": []
   },
   "run": {
-    "run_id": "scenario-summary-ed892faf3189",
-    "engine_git_sha": "78d19f47b20a06330fb1d21e9bad1ab0523b0e12-dirty",
-    "input_hash": "90385988155e2757293fa358c1a2eb52c6b8dd9417abee2e267e16e67967d371",
-    "output_hash": "9f3f91ada812e213d84741aa6a06bf0b72814c77dd1ba58e87e9d1095f091e37",
-    "register_version": "r5.8530095d",
+    "run_id": "scenario-summary-25fb1dc3a50a",
+    "engine_git_sha": "f9589a97bdf65529cf689ea6933ee12cc1fa66e1-dirty",
+    "input_hash": "dea03bf99923275a01cbb8c13138cb94ddaf7afae1e1636fe978c8f9949383a0",
+    "output_hash": "de3abab89be9b00a7cdd0a182f1ab43684efd57180b21fdfa908161607d4de00",
+    "register_version": "r6.aef17967",
     "data_vintage": {
       "kind": "kv-snapshot",
       "kv_source": "live-public-routes",
       "captured_at": "2026-08-01T10:41:05.879Z",
       "verified": true
     },
-    "recorded_at": "2026-08-04T07:44:53.438Z"
+    "recorded_at": "2026-08-06T13:41:25.637Z"
   }
 }
