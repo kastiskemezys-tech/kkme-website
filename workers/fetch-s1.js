@@ -131,6 +131,33 @@ const AUTH_PREFLIGHT_PATHS = new Set(['/calculate']);
  * A cron with no handler would satisfy the old drift test and silently do nothing.
  */
 const LIFECYCLE_DIGEST_CRON = '30 7 * * 1';
+
+/**
+ * Phase 53 — the hourly leg's schedule, declared once.
+ *
+ * `scheduled()` dispatches by comparing `event.cron` to a literal, so the string
+ * in `wrangler.toml` and the string in the handler are one fact stored twice.
+ * Moving the hourly cron off `0 * * * *` (to stagger it away from the 4-hourly
+ * tick it was colliding with) changes the value Cloudflare sends, and a handler
+ * still matching the old literal would take NO branch at all: the hourly refresh
+ * would stop, silently, with every tick reported as a success. That is B8 with a
+ * config file as the trigger.
+ *
+ * Same countermeasure as LIFECYCLE_DIGEST_CRON above — one declaration, compared
+ * against. `scripts/gates/cron-parity.mjs` asserts it against wrangler.toml so a
+ * future edit to one file cannot drift from the other.
+ */
+const HOURLY_CRON = '5 * * * *';
+
+/**
+ * The 4-hourly leg is the FALL-THROUGH: `scheduled()` returns early for every
+ * other schedule, so whatever is left runs the full S1-S9 block. Declared here
+ * anyway, because an implicit branch is still a coupling to `wrangler.toml` —
+ * if that entry were renamed, the fall-through would silently start running on
+ * the wrong cadence instead of not running at all, which is harder to see.
+ * `cron-parity` checks this constant against the declared triggers.
+ */
+const FOUR_HOURLY_CRON = '0 */4 * * *';
 const LIFECYCLE_DIGEST_PERIOD_H = 168;   // weekly
 const LIFECYCLE_DIGEST_GRACE_H = 24;     // one missed day is late; two is overdue
 
@@ -1960,31 +1987,7 @@ async function loadEngineKV(env) {
   let s2_activation_parsed = null;
   if (s2ActivationRaw) {
     try {
-      const actRaw = JSON.parse(s2ActivationRaw);
-      const lt = actRaw.countries?.Lithuania;
-      const lv = actRaw.countries?.Latvia;
-      const ee = actRaw.countries?.Estonia;
-      s2_activation_parsed = {
-        lt: {
-          afrr_p50: lt?.afrr_recent_3m?.avg_p50 ?? null,
-          mfrr_p50: lt?.mfrr_recent_3m?.avg_p50 ?? null,
-        },
-        lv: {
-          afrr_p50: lv?.afrr_recent_3m?.avg_p50 ?? null,
-          mfrr_p50: lv?.mfrr_recent_3m?.avg_p50 ?? null,
-        },
-        ee: {
-          afrr_p50: ee?.afrr_recent_3m?.avg_p50 ?? null,
-          mfrr_p50: ee?.mfrr_recent_3m?.avg_p50 ?? null,
-        },
-        lt_monthly_afrr: lt?.afrr_up ?? {},
-        lt_monthly_mfrr: lt?.mfrr_up ?? {},
-        lv_monthly_afrr: lv?.afrr_up ?? {},
-        lv_monthly_mfrr: lv?.mfrr_up ?? {},
-        ee_monthly_afrr: ee?.afrr_up ?? {},
-        ee_monthly_mfrr: ee?.mfrr_up ?? {},
-        compression: actRaw.compression_trajectory ?? null,
-      };
+      s2_activation_parsed = parseS2Activation(JSON.parse(s2ActivationRaw));
     } catch { /* ignore */ }
   }
 
@@ -7544,6 +7547,49 @@ async function fetchBTDDataset(id, start, end) {
 // ── Monthly activation clearing aggregates from BTD ──────────────────────────
 // Fetches price_procured_reserves month by month (BTD rate-limits large ranges),
 // groups by month, computes stats. Stores in KV 's2_activation'.
+/**
+ * The `s2_activation` KV payload → the shape v7's engine reads.
+ *
+ * Extracted from the KV-bundle reader in Phase 53 with NO behaviour change, so
+ * that a measurement of "what does fresh activation data do to the engine" can
+ * drive the REAL transform rather than a restatement of it (B13). It is a pure
+ * field mapping: every consumer of `s2_activation_parsed` sees only what this
+ * function chooses to surface, which is why it is worth being one named thing.
+ *
+ * Note what reaches the cash path through here, because it is not only the
+ * compression trajectory: `lt.afrr_p50` (= `afrr_recent_3m.avg_p50`) is read at
+ * `computeTradingMix` as `afrr_clearing` and multiplies `R_act_afrr_base`
+ * directly. The compression rate and the clearing price are two independent
+ * routes from this one payload into revenue, and they do not have to move the
+ * same way.
+ */
+function parseS2Activation(actRaw) {
+  const lt = actRaw.countries?.Lithuania;
+  const lv = actRaw.countries?.Latvia;
+  const ee = actRaw.countries?.Estonia;
+  return {
+    lt: {
+      afrr_p50: lt?.afrr_recent_3m?.avg_p50 ?? null,
+      mfrr_p50: lt?.mfrr_recent_3m?.avg_p50 ?? null,
+    },
+    lv: {
+      afrr_p50: lv?.afrr_recent_3m?.avg_p50 ?? null,
+      mfrr_p50: lv?.mfrr_recent_3m?.avg_p50 ?? null,
+    },
+    ee: {
+      afrr_p50: ee?.afrr_recent_3m?.avg_p50 ?? null,
+      mfrr_p50: ee?.mfrr_recent_3m?.avg_p50 ?? null,
+    },
+    lt_monthly_afrr: lt?.afrr_up ?? {},
+    lt_monthly_mfrr: lt?.mfrr_up ?? {},
+    lv_monthly_afrr: lv?.afrr_up ?? {},
+    lv_monthly_mfrr: lv?.mfrr_up ?? {},
+    ee_monthly_afrr: ee?.afrr_up ?? {},
+    ee_monthly_mfrr: ee?.mfrr_up ?? {},
+    compression: actRaw.compression_trajectory ?? null,
+  };
+}
+
 async function computeS2Activation() {
   // Fetch in monthly chunks (parallel). BTD blocks large ranges from some IPs.
   const now = new Date();
@@ -10225,7 +10271,7 @@ export default {
     }
 
     // ── Hourly: refresh time-sensitive signals only (genload, S8, wind/solar/load) ──
-    if (event.cron === '0 * * * *') {
+    if (event.cron === HOURLY_CRON) {
       console.log('[Hourly] refreshing time-sensitive signals...');
       const [s8Res, genRes, genloadRes] = await runWave([
         { key: 's8',      ms: 30000, run: () => fetchInterconnectorFlows(env) },
@@ -14665,4 +14711,11 @@ export {
   CRON_FAILURE_KEY,
   computeHistorical,
   HISTORICAL_CACHE_PREFIX,
+  // Phase 53 / B-076 — exported so the frozen-vs-fresh activation measurement
+  // runs the REAL fetch-parse-transform-derive chain in one process against one
+  // KV snapshot, with the activation payload as the only variable (C6, and the
+  // one-process rule earned in 36.D).
+  computeS2Activation,
+  parseS2Activation,
+  deriveCompression,
 };

@@ -143,6 +143,32 @@ export const GATES = [
   },
 
   {
+    id: 'cron-parity',
+    name: 'wrangler.toml triggers and the scheduled() dispatch agree',
+    command: 'node scripts/gates/cron-parity.mjs',
+    covers:
+      'Phase 53. `scheduled()` routes by string equality against `event.cron`, and the value Cloudflare ' +
+      'sends is whatever wrangler.toml declares — one fact in two files with nothing checking the pair. ' +
+      'Editing one is a SILENT outage: the handler takes no branch, throws nothing, and the tick logs ' +
+      'clean while the leg has stopped. Built because this phase moved the hourly cron 0 -> 5 past the ' +
+      'hour to stagger it off the 4-hourly collision, which is exactly that edit. Static: it proves the ' +
+      'files agree with each other, NOT that the change has been deployed.',
+    where: 'local + CI',
+    expect: 'green',
+    injections: [{
+      // The real defect, not a proxy for it: wrangler moved and the handler did
+      // not. Reverting the handler alone reproduces the outage this gate exists
+      // to make impossible, and the gate must report BOTH halves — a dead branch
+      // and an unclaimed schedule.
+      label: 'handler still waits for the pre-stagger hourly cron after wrangler moved it',
+      kind: 'patch',
+      file: 'workers/fetch-s1.js',
+      find: "const HOURLY_CRON = '5 * * * *';",
+      replace: "const HOURLY_CRON = '0 * * * *';",
+    }],
+  },
+
+  {
     id: 'register-integrity',
     name: 'The backlog register is machine-readable and internally consistent',
     command: 'node scripts/gates/register-integrity.mjs',

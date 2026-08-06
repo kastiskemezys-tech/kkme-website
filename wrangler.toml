@@ -39,10 +39,23 @@ preview_urls = false
 enabled = true
 head_sampling_rate = 1
 
+# Phase 53 — the hourly leg moved 0 -> 5 past the hour.
+#
+# Both crons fired in the same second at every 4h-aligned hour, and they overlap
+# in work: the hourly refreshes s8 / gen / genload, all three of which the
+# 4-hourly block also refreshes. So six times a day the worker ran the same three
+# legs twice concurrently, competing for one invocation's connection budget —
+# that is the collision behind the `[Gen/LT] energy-charts HTTP 429` recorded in
+# the 2026-08-02T12:00:33Z tick.
+#
+# Staggering rather than skipping at `hour % 4 == 0` keeps the hourly backstop:
+# if the 4-hourly tick fails, the hourly one still refreshes the time-sensitive
+# signals five minutes later, which a skip would have given up. Five minutes is
+# past the observed tail of the 4-hourly block (wall=50 s at its worst).
 [triggers]
 crons = [
   "0 */4 * * *",    # Every 4h: all signals (S1-S9 + Euribor + gen/load)
-  "0 * * * *",      # Hourly: time-sensitive only (genload, S8, wind, solar, load)
+  "5 * * * *",      # Hourly at :05: time-sensitive only (genload, S8, wind, solar, load)
   "30 9 * * *",     # 09:30 UTC daily: S2 watchdog
   "0 8 * * *",      # 08:00 UTC daily: daily digest to Telegram
   "30 7 * * 1",     # Mondays 07:30 UTC: weekly fleet-lifecycle digest (37.B.1)
