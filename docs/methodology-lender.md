@@ -1,6 +1,6 @@
 # KKME lender-grade methodology
 
-**Engine version:** v7.3 (MW partition + corrected cost stack default, Phase 38.8a) · **Assumption register:** r5.8530095d (70 rows) · **Arc:** Phase 38.8a
+**Engine version:** v7.3 (MW partition + corrected cost stack default, Phase 38.8a) · **Assumption register:** r6.aef17967 (70 rows) · **Arc:** Phase 38.8a
 **Prepared:** 2026-07-29 · **Maintainer:** UAB KKME · Kastytis Kemežys
 
 ---

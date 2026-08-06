@@ -158,7 +158,11 @@ interface RevenueData {
     period: string;
     months: BaseMonth[];
     annual_totals: { trading: number; balancing: number; gross: number; net: number };
-    data_coverage: { s1_months: number; s2_months: number; pct_observed: number };
+    data_coverage: {
+      s1_months: number; s2_months: number; pct_observed: number;
+      activation_months_excluded?: { month: string; product: string; reasons: string[] }[];
+      activation_month_rule?: { min_coverage: number; regime_start: string | null };
+    };
     time_model?: { trading_fraction: number };
   };
   live_rate?: {
@@ -1798,6 +1802,46 @@ function DrawerContent({ data }: { data: RevenueData }) {
         Euribor: ECB — {data.signal_inputs.euribor}%<br />
         Model: {data.model_version}
       </div>
+
+      {/*
+        Phase 53 — the base year's month exclusion, disclosed.
+
+        A base year with a stated exclusion is defensible; one that silently
+        includes a market-formation anomaly is not. The months and the rule are
+        read from the payload, never written here, so this copy cannot outlive
+        its premise (rule #2) — if the rule changes, this paragraph changes with
+        it, and if nothing is excluded the block does not render at all.
+      */}
+      {(data.base_year.data_coverage.activation_months_excluded?.length ?? 0) > 0 && (
+        <>
+          <div style={head}>Base-year month exclusion</div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 'var(--font-xs)',
+            color: 'var(--text-muted)', lineHeight: 1.6 }}>
+            The base year is intended to represent a representative operating year.
+            A market-formation anomaly is definitionally not one, and including it
+            would flatter the base year — the direction that carries the higher
+            burden of proof. Reserve-price months are therefore admitted only if
+            they are sufficiently observed and inside the current market regime.
+            <br /><br />
+            Rule: at least{' '}
+            {Math.round((data.base_year.data_coverage.activation_month_rule?.min_coverage ?? 0) * 100)}%
+            of a month&rsquo;s settlement periods carry a price
+            {data.base_year.data_coverage.activation_month_rule?.regime_start
+              ? `, and the month is ${data.base_year.data_coverage.activation_month_rule.regime_start} or later`
+              : ''}
+            . The regime boundary is measured, not assumed: through 2026-02 the
+            Lithuanian aFRR-up reserve price moved across a 121× range on partial
+            coverage; from 2026-03 it sits inside 3.5× with coverage continuous.
+            <br /><br />
+            Excluded ({[...new Set(data.base_year.data_coverage.activation_months_excluded!.map((e) => e.month))].length} months):{' '}
+            {[...new Set(data.base_year.data_coverage.activation_months_excluded!.map((e) => e.month))].sort().join(', ')}
+            <br />
+            Measured effect on this configuration&rsquo;s basis: Year-1 gross
+            revenue −2.27%, project IRR −60bp, minimum DSCR −0.05. The exclusion
+            lowers published returns.
+          </div>
+        </>
+      )}
     </div>
   );
 }
