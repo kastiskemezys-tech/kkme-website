@@ -154,6 +154,15 @@ F0 visual checkpoint (you approve every chart type in both themes) · F1 copy-de
 - `docs/_private/` never staged, ever. Leak tests wherever private data flows.
 - Boundary ritual is not optional — three orphan commits and two stale deploys were the tuition.
 
+## ACTIVE RUN (from 2026-08-06): Phase 55 → 56, the procurement benchmark engine and the report factory
+Governed by `_autonomous-run-charter.md`; one paste per session from `_pbe-session-launcher.md` (BOOTSTRAP once, then RESUME unchanged). State lives in `docs/_private/pbe/` — STATE.json, RUN_JOURNAL.md, QUESTIONS.md, HANDOVER.md. **One session at a time**, so nothing else runs while this does.
+
+**Parked against it, to be slotted between PBE sessions or after the run:**
+- **Phase 54 — queue sweep** (`phase-54-queue-sweep-prompt.md`): the seven signed read-path removals with visible staleness bounds · `/digest`'s write moved off GET · B-069's `computeBaseYear` unit residue · B-055's summary-table truncation. All signed or scoped, none built. **Do eventually — none of it decays, but the seven removals are the only thing still letting a stranger's GET move published state.**
+- **Phase 52 groups A and C** — the numerics fixes that ship, plus the convention questions (discounting basis, percentile method, mean-of-ratios, negative-price handling) that need the operator.
+- **B-076 fresh-data half** — the VPS leg for `s2_activation`, still behind its flag; a −3.53 % arriving on a cron tick rather than a deploy would be unattributable.
+- Cron stagger deploy · the E-arc (E3-E6) · the reserve-side identity 1.115 → 1.00.
+
 ## Programme-level gaps (named 2026-08-04; none is a CC phase by default)
 
 Recorded because a run of engineering days will not close any of them by itself.
