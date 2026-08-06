@@ -3379,9 +3379,20 @@ function computeRevenueV7(params, kv) {
     // v7 new fields
     base_year,
     forward: {
-      compression_rate_observed: compression.rate,
+      // Phase 53 — `compression_rate_observed` retired. It was the CLAMP, and it
+      // carried a name asserting observation (rule #2 on a live public field);
+      // measured 2026-08-06 both the frozen and a fresh trajectory imply ~0.99
+      // and the field read 0.15 either way, because 0.15 is the ceiling.
+      // `_applied` is what the engine uses, `_measured` is what the series says,
+      // `_clamped_at` names the bound that bit or is null when none did.
+      compression_rate_applied: compression.rate,
+      compression_rate_measured: compression.rate_measured ?? null,
+      compression_rate_clamped_at: compression.rate_clamped_at ?? null,
+      compression_rate_bounds: compression.rate_bounds ?? null,
       compression_source: compression.source,
       compression_data_points: compression.data_points,
+      compression_months_excluded: compression.months_excluded ?? [],
+      compression_eligibility_basis: compression.eligibility_basis ?? null,
       initial_p50: compression.initial_p50,
       recent_avg_p50: compression.recent_avg_p50,
       scenario_multiplier: comp_mult,
@@ -4396,6 +4407,7 @@ function computeBaseYear(kv, duration_h, sc, scenario_name = 'base', rte_decay, 
   const fb_mfrr_clearing = kv.s2_activation_parsed?.lt?.mfrr_p50 ?? 110;
 
   const months = [];
+  const base_year_months_excluded = [];
   let s2_months_observed = 0;
 
   for (const m of t12) {
@@ -4408,8 +4420,24 @@ function computeBaseYear(kv, duration_h, sc, scenario_name = 'base', rte_decay, 
       m.avg_gross_4h || m.avg_net_4h || 125);
 
     // ── Balancing revenue ──
-    const afrr_act_m = lt_afrr_monthly[month];
-    const mfrr_act_m = lt_mfrr_monthly[month];
+    //
+    // Phase 53 — the SAME eligibility rule deriveCompression applies, so the two
+    // cannot disagree about what a representative month is. An ineligible month
+    // is not merely down-weighted: its entry is dropped, so the join falls back
+    // to the 3-month clearing average exactly as an absent month always has.
+    // Before this, `computeBaseYear` read 66.90 / 38.71 / 33.33 €/MW/h from the
+    // market-formation window at face value while `deriveCompression` was
+    // explicitly discounting the same months.
+    const afrr_elig = activationMonthEligible(month, lt_afrr_monthly[month]);
+    const mfrr_elig = activationMonthEligible(month, lt_mfrr_monthly[month]);
+    const afrr_act_m = afrr_elig.eligible ? lt_afrr_monthly[month] : undefined;
+    const mfrr_act_m = mfrr_elig.eligible ? lt_mfrr_monthly[month] : undefined;
+    if (lt_afrr_monthly[month] && !afrr_elig.eligible) {
+      base_year_months_excluded.push({ month, product: 'afrr', reasons: afrr_elig.reasons });
+    }
+    if (lt_mfrr_monthly[month] && !mfrr_elig.eligible) {
+      base_year_months_excluded.push({ month, product: 'mfrr', reasons: mfrr_elig.reasons });
+    }
     const cap_m = cap_by_month[month];
     const has_s2 = !!(afrr_act_m || mfrr_act_m || cap_m);
     if (has_s2) s2_months_observed++;
@@ -4491,8 +4519,181 @@ function computeBaseYear(kv, duration_h, sc, scenario_name = 'base', rte_decay, 
       s2_months: s2_months_observed,
       total_days,
       pct_observed: Math.round((s2_months_observed / Math.max(t12.length, 1)) * 100),
+      // Phase 53 — the exclusion is DISCLOSED, named month by month with its
+      // reason. A base year with a stated exclusion is defensible; one that
+      // silently drops months is the same defect as one that silently keeps an
+      // anomaly. Computed from the rule against the data present, never a
+      // hardcoded month list (rule #2).
+      activation_months_excluded: base_year_months_excluded,
+      activation_month_rule: {
+        min_coverage: ACTIVATION_MONTH_RULE.min_coverage,
+        regime_start: ACTIVATION_MONTH_RULE.regime_start,
+      },
     },
   };
+}
+
+/**
+ * The admission rule for an externally-POSTed `s2_activation` payload.
+ *
+ * Checks the fields the ENGINE reads, not the fields the payload happens to
+ * carry — a shape check written against the producer would pass anything the
+ * producer sends, which is the check the old route effectively had.
+ *
+ * @returns {{ok: boolean, status?: number, reason?: string, detail?: string}}
+ */
+function admitActivationPayload(body, storedRaw) {
+  if (!body || typeof body !== 'object') {
+    return { ok: false, status: 400, reason: 'body is not an object' };
+  }
+  if (!body.countries || typeof body.countries !== 'object') {
+    return { ok: false, status: 400, reason: 'countries object required' };
+  }
+  const lt = body.countries.Lithuania;
+  if (!lt || typeof lt !== 'object') {
+    return { ok: false, status: 400, reason: 'countries.Lithuania required — it is the only country the engine reads' };
+  }
+  // `lt.afrr_recent_3m.avg_p50` is `afrr_clearing` in computeTradingMix and
+  // multiplies R_act_afrr_base directly, so a payload without it silently
+  // reverts the engine to a hardcoded 171 fallback.
+  const p50 = lt.afrr_recent_3m?.avg_p50;
+  if (p50 != null && !Number.isFinite(p50)) {
+    return { ok: false, status: 422, reason: 'countries.Lithuania.afrr_recent_3m.avg_p50 present but not a finite number' };
+  }
+  const months = body.compression_trajectory?.months;
+  const series = body.compression_trajectory?.afrr_lt_p50;
+  if (!Array.isArray(months) || !Array.isArray(series)) {
+    return { ok: false, status: 422, reason: 'compression_trajectory.{months,afrr_lt_p50} must both be arrays' };
+  }
+  if (months.length !== series.length) {
+    return {
+      ok: false, status: 422,
+      reason: 'compression_trajectory arrays are parallel and must be the same length',
+      detail: `months=${months.length} afrr_lt_p50=${series.length}`,
+    };
+  }
+  if (series.some((v) => !Number.isFinite(v))) {
+    return { ok: false, status: 422, reason: 'compression_trajectory.afrr_lt_p50 contains a non-finite value' };
+  }
+  if (!lt.afrr_up || typeof lt.afrr_up !== 'object' || !Object.keys(lt.afrr_up).length) {
+    return { ok: false, status: 422, reason: 'countries.Lithuania.afrr_up monthly map required — the base year joins on it' };
+  }
+  // Admission against the stored value. A payload covering strictly fewer months
+  // than what is stored is a narrowing, and narrowing silently is how a good
+  // series gets replaced by a thin one (B10). It is refused rather than merged,
+  // because merging two windows of unknown provenance is a worse answer.
+  if (storedRaw) {
+    try {
+      const prev = JSON.parse(storedRaw);
+      const prevN = prev?.compression_trajectory?.months?.length ?? 0;
+      if (prevN && months.length < prevN && !body.acknowledge_narrowing) {
+        return {
+          ok: false, status: 409,
+          reason: 'payload covers fewer months than the stored series',
+          detail: `incoming=${months.length} stored=${prevN} — resend with acknowledge_narrowing:true if intended`,
+        };
+      }
+    } catch { /* unreadable stored value protects nothing */ }
+  }
+  return { ok: true };
+}
+
+/**
+ * ─── One definition of "is this activation month representative?" ────────────
+ *
+ * Phase 53. `computeBaseYear` and `deriveCompression` both answer this question
+ * and, until now, answered it differently. `deriveCompression`'s own comment
+ * says the opening months were "post-sync anomaly normalisation, not steady-state
+ * compression" and discounts them; `computeBaseYear`'s per-month join reads the
+ * same months at face value — 66.90, 38.71 and 33.33 €/MW/h straight into the
+ * observed base year. That is not two opinions, it is one question answered
+ * twice (rule #4), and the disagreement runs in the flattering direction, which
+ * is the direction that needs the higher burden.
+ *
+ * THE PRINCIPLE. The base year is meant to represent a REPRESENTATIVE operating
+ * year. A market-formation anomaly is definitionally not that. So a month is
+ * eligible only if it is both (a) sufficiently observed and (b) inside the
+ * current market regime.
+ *
+ * (a) is COMPUTED from the month's own coverage — the share of its ISPs that
+ * carried a price at all. 2025-09 has 24 priced ISPs against a ~2880-ISP month,
+ * i.e. 0.8 % coverage, and its p50 of 66.90 is nonetheless the single value
+ * `deriveCompression` uses as `initial_p50`. A statistic over 0.8 % of a month
+ * is not a month.
+ *
+ * (b) is DECLARED, not inferred, because a regime boundary is a judgement about
+ * the market and not something to be read off a dispersion. It is declared once,
+ * here, and every excluded month is named in the payload with its reason, so the
+ * exclusion is disclosed rather than silent. A base year with a stated exclusion
+ * is defensible; one that silently includes an anomaly its own sibling function
+ * distrusts is not.
+ *
+ * Rule #2 applies: nothing here hardcodes WHICH months are excluded. The months
+ * are computed from the rule against the data actually present, so a payload
+ * with a different window produces a different, correct exclusion list.
+ */
+const ACTIVATION_MONTH_RULE = {
+  /**
+   * Share of a month's ISPs that must carry a non-zero price for its monthly
+   * statistic to be usable. A month is ~2880 ISPs (96/day). 0.20 admits every
+   * month observed since the series stabilised (lowest: 2025-11 at 0.22) and
+   * rejects 2025-09 at 0.008 — chosen as the loosest threshold that still
+   * excludes a month which is 99.2 % absent, rather than tuned to a result.
+   */
+  min_coverage: 0.20,
+  /**
+   * ISPs in a nominal month, for turning `count` into coverage. The payload does
+   * not carry the month's true ISP count, so this is the denominator its own
+   * `activation_rate` field already uses — kept identical so two coverage
+   * numbers cannot disagree.
+   */
+  isps_per_month: 30 * 96,
+  /**
+   * First month of the current market regime, inclusive, `YYYY-MM`.
+   *
+   * DECLARED — and it is the one input here the operator owns, because it is a
+   * claim about the market rather than about the data. `null` disables the
+   * regime test entirely and leaves only the coverage test, which is the honest
+   * default until the boundary is signed: it excludes what is demonstrably
+   * unobserved without asserting a market history nobody has verified.
+   */
+  regime_start: null,
+};
+
+/**
+ * @returns {{eligible: boolean, reasons: string[], coverage: number|null}}
+ */
+function activationMonthEligible(month, entry, rule = ACTIVATION_MONTH_RULE) {
+  const reasons = [];
+  const count = entry?.count;
+  const coverage = Number.isFinite(count) ? count / rule.isps_per_month : null;
+  if (coverage == null) {
+    reasons.push('no count on the monthly entry — coverage cannot be computed');
+  } else if (coverage < rule.min_coverage) {
+    reasons.push(`coverage ${(coverage * 100).toFixed(1)}% < ${(rule.min_coverage * 100).toFixed(0)}% minimum`);
+  }
+  if (rule.regime_start && month < rule.regime_start) {
+    reasons.push(`before declared regime start ${rule.regime_start}`);
+  }
+  return { eligible: reasons.length === 0, reasons, coverage };
+}
+
+/**
+ * Partition a monthly map into the months the base year and the compression
+ * trajectory may both use, and the months neither may — with the reason.
+ *
+ * ONE function, so the two consumers cannot drift apart again.
+ */
+function eligibleActivationMonths(monthlyMap, rule = ACTIVATION_MONTH_RULE) {
+  const eligible = [];
+  const excluded = [];
+  for (const month of Object.keys(monthlyMap || {}).sort()) {
+    const v = activationMonthEligible(month, monthlyMap[month], rule);
+    (v.eligible ? eligible : excluded).push(
+      v.eligible ? month : { month, reasons: v.reasons, coverage: v.coverage },
+    );
+  }
+  return { eligible, excluded };
 }
 
 /**
@@ -4507,8 +4708,40 @@ function deriveCompression(kv) {
   // Primary: S2 activation compression trajectory
   const act = kv.s2_activation_parsed || {};
   const compression = act.compression || {};
-  const p50_series = compression.afrr_lt_p50 || [];
-  const comp_months = compression.months || [];
+  const all_p50 = compression.afrr_lt_p50 || [];
+  const all_months = compression.months || [];
+
+  // ── Phase 53 — the SAME eligibility rule computeBaseYear uses ──────────────
+  //
+  // The trajectory arrives as two parallel arrays with no counts, so eligibility
+  // is resolved against `lt_monthly_afrr`, which carries `count` for the same
+  // months. When that map is absent (older payloads, trimmed fixtures) coverage
+  // is unknowable and every month is kept — stated on the payload rather than
+  // silently assumed, because "we could not check" and "we checked and it passed"
+  // must not look the same (B12).
+  const monthly = act.lt_monthly_afrr || null;
+  let excluded_months = [];
+  let eligibility_basis = 'none — lt_monthly_afrr absent, coverage unknowable';
+  let p50_series = all_p50;
+  let comp_months = all_months;
+  if (monthly && Object.keys(monthly).length) {
+    const { excluded } = eligibleActivationMonths(monthly);
+    const drop = new Set(excluded.map((e) => e.month));
+    if (drop.size) {
+      const keptIdx = all_months.map((m, i) => (drop.has(m) ? -1 : i)).filter((i) => i >= 0);
+      // Only apply the filter if enough of the window survives to still be a
+      // trajectory. Filtering down to two points would silently hand the whole
+      // computation to the fleet-trajectory fallback, which is a different
+      // source answering a different question.
+      if (keptIdx.length >= 4) {
+        p50_series = keptIdx.map((i) => all_p50[i]);
+        comp_months = keptIdx.map((i) => all_months[i]);
+      }
+    }
+    excluded_months = excluded;
+    eligibility_basis = `coverage >= ${(ACTIVATION_MONTH_RULE.min_coverage * 100).toFixed(0)}%`
+      + (ACTIVATION_MONTH_RULE.regime_start ? `, regime >= ${ACTIVATION_MONTH_RULE.regime_start}` : '');
+  }
 
   if (p50_series.length >= 4) {
     // Use first 4 months (rapid initial compression) vs last 3 (stabilisation)
@@ -4537,18 +4770,60 @@ function deriveCompression(kv) {
         forward_rate = Math.max(0, 1 - Math.pow(1 - r_monthly, 12));
       }
     }
-    // If recent trend is flat/slightly negative, use minimum structural compression
-    if (forward_rate == null || forward_rate < 0.01) forward_rate = 0.03;
+    // If recent trend is flat/slightly negative, use minimum structural compression.
+    //
+    // Phase 53 — this SUBSTITUTION is now recorded separately from the clamp,
+    // because they are different events and `rate_measured` must not report
+    // either of them as if it were the measurement. A flat or rising recent
+    // trend produces forward_rate 0, and 0.03 is an assumed structural floor
+    // standing in for it — not something the series said.
+    const forward_measured = forward_rate ?? null;
+    const floor_substituted = forward_rate == null || forward_rate < 0.01;
+    if (floor_substituted) forward_rate = 0.03;
+
+    // ── Phase 53 — the clamp, reported as a clamp ─────────────────────────────
+    //
+    // `rate` is bounded to [0.01, 0.15] and, measured 2026-08-06, BOTH the frozen
+    // 8-month series and a fresh 6-month one produce a forward rate of ~0.99 and
+    // therefore sit on the CEILING. The published value was 0.15 in both cases —
+    // not because the data said 15 %/yr but because 15 %/yr is as high as the
+    // field goes. It was emitted as `compression_rate_observed`, a name asserting
+    // a measurement, and that is rule #2 on a live public field: a label claiming
+    // where a number came from, not computed from where it came from.
+    //
+    // So the bound is now COMPUTED and disclosed beside the value. `rate` is what
+    // the engine applies; `rate_measured` is what the series actually implies;
+    // `rate_clamped_at` says which bound bit, or null when none did.
+    const LO = 0.01, HI = 0.15;
+    const rate = Math.max(LO, Math.min(HI, forward_rate));
+    const clamped_at = forward_rate > HI ? 'max' : (forward_rate < LO ? 'min' : null);
 
     return {
-      rate: Math.max(0.01, Math.min(0.15, forward_rate)),
+      rate,
+      // What the series actually implies. `null` when the recent window could not
+      // produce a rate at all — never a stand-in value wearing this name.
+      rate_measured: forward_measured == null ? null : Math.round(forward_measured * 1000) / 1000,
+      rate_floor_substituted: floor_substituted,
+      rate_clamped_at: clamped_at,
+      rate_bounds: [LO, HI],
       rate_full_window: Math.round(annual_rate_raw * 1000) / 1000,
       source: 'derived_from_s2_activation',
       data_points: p50_series.length,
       window: comp_months.length >= 2 ? `${comp_months[0]} to ${comp_months[comp_months.length - 1]}` : null,
       initial_p50: initial,
       recent_avg_p50: Math.round(recent_avg * 10) / 10,
-      note: 'Forward rate from recent 3m trend; full-window rate includes post-sync normalisation',
+      months_excluded: excluded_months,
+      eligibility_basis,
+      // Computed from the numbers beside it, so the sentence cannot outlive its
+      // premise: it says "clamped" only when a bound bit, and "substituted" only
+      // when the floor stood in for an uncomputable rate.
+      note: [
+        floor_substituted
+          ? `Recent 3m trend is flat or rising (measured ${forward_measured == null ? 'n/a' : `${(forward_measured * 100).toFixed(1)} %/yr`}); assumed structural floor 3.0 %/yr substituted`
+          : `Forward rate from recent 3m trend, measured ${(forward_measured * 100).toFixed(1)} %/yr`,
+        clamped_at ? `CLAMPED to the ${clamped_at === 'max' ? 'ceiling' : 'floor'} — the applied rate is the bound, not the measurement` : null,
+        'full-window rate includes post-sync normalisation',
+      ].filter(Boolean).join('; '),
     };
   }
 
@@ -11436,13 +11711,39 @@ export default {
     }
 
     // ── POST /s2/activation ─────────────────────────────────────────────────
-    // Store Baltic activation clearing-price dataset (from BTD transparency dashboard).
+    // Store Baltic reserve-price dataset (from BTD transparency dashboard).
+    //
+    // ── Phase 53 — this route wrote whatever it was handed ────────────────────
+    //
+    // It checked that `body.countries` existed and put the body in KV verbatim:
+    // no shape validation, no provenance, no protection for a good stored value.
+    // That is how the published compression trajectory came to rest on a payload
+    // whose origin cannot be established — the frozen `s2_activation` spans eight
+    // months on full-calendar boundaries, which `computeS2Activation`'s six-chunk
+    // loop cannot produce (BTD range fidelity probed both directions on
+    // 2026-08-06), so it arrived through here and nothing recorded from where.
+    //
+    // Phase 48's finding in a different key. The write now has to earn it:
+    //   · shape — the fields the engine actually reads must be present and numeric
+    //   · provenance — source and method recorded ON the payload, not assumed
+    //   · admission — a thinner or degraded payload loses to a good stored value
     if (request.method === 'POST' && url.pathname === '/s2/activation') {
       if (!acceptsUpdateSecret(request, env)) return jsonResp({ error: 'Unauthorized' }, 401);
       let body;
       try { body = await request.json(); } catch { return jsonResp({ error: 'Invalid JSON' }, 400); }
-      if (!body.countries) return jsonResp({ error: 'countries object required' }, 400);
+
+      const verdict = admitActivationPayload(body, await env.KKME_SIGNALS.get('s2_activation').catch(() => null));
+      if (!verdict.ok) {
+        console.warn(`[S2/activation] REFUSED — ${verdict.reason}`);
+        return jsonResp({ error: 'rejected', reason: verdict.reason, detail: verdict.detail ?? null }, verdict.status);
+      }
+
       body.stored_at = new Date().toISOString();
+      // Provenance recorded on the payload rather than inferred later. `source`
+      // is whatever the caller declares; `ingest_route` is what we observed, and
+      // the two are kept separate because only one of them is our own evidence.
+      body.ingest_route = 'POST /s2/activation';
+      body.ingest_method = String(body.method ?? body.source ?? 'unspecified').slice(0, 120);
       await env.KKME_SIGNALS.put('s2_activation', JSON.stringify(body));
       const countryKeys = Object.keys(body.countries);
       console.log(`[S2/activation] stored ${countryKeys.length} countries: ${countryKeys.join(', ')}`);
@@ -14718,4 +15019,8 @@ export {
   computeS2Activation,
   parseS2Activation,
   deriveCompression,
+  ACTIVATION_MONTH_RULE,
+  activationMonthEligible,
+  eligibleActivationMonths,
+  admitActivationPayload,
 };
