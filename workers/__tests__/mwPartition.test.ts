@@ -53,14 +53,41 @@ describe('38.6a — the flag defaults to the PARTITION (operator-signed)', () =>
     // that moved them has to explain itself against a signed figure.
     // 38.8a note: `run` here must hold the COST STACK off, or this pins the
     // partition delta plus a later phase's delta and stops measuring 38.6a.
+    //
+    // ── PIN CHAIN ─────────────────────────────────────────────────────────────
+    // Signed 38.6a. Moved by Phase 53's canonical activation-month rule,
+    // re-signed 2026-08-06. Still signed.
+    //
+    // A pinned invariant records a SIGNED STATE, so when a later signed change
+    // moves it the pin moves with it — provided the move is ATTRIBUTABLE. It is:
+    // Phase 53 gave computeBaseYear and deriveCompression one month-eligibility
+    // rule (they previously disagreed, and computeBaseYear was reading the
+    // market-formation window at face value). The rule drops months below 20 %
+    // ISP coverage and months before the measured regime boundary 2026-03, so
+    // this fixture's base year goes s2_months 10 -> 4 and the remaining months
+    // fall back to proxy. Nothing else moved: an A/B with the rule disabled
+    // reproduced every numeric leaf of all 54 configurations exactly.
+    //
+    //   c.gross_revenue_y1   8,842,883 -> 8,693,383   -149,500  (-1.69 %)
+    //   p.gross_revenue_y1   6,593,902 -> 6,444,402   -149,500  (-2.27 %)
+    //   c.project_irr           0.1068 -> 0.1023        -45 bp
+    //   p.project_irr           0.0383 -> 0.0319        -64 bp
+    //   c.min_dscr                1.40 -> 1.37
+    //   p.min_dscr                0.89 -> 0.85
+    //   cycles_per_year        unchanged (317 / 113) — the rule touches revenue,
+    //                          not throughput, and this is the control that says so
+    //
+    // The direction is unflattering, which is the direction that carries the
+    // higher burden and the reason the move is recorded rather than absorbed.
     const c = computeRevenueV7({ ...REF.params, mw_partition: 'current', cost_stack: 'current' }, kv) as Any;
     const p = computeRevenueV7({ ...REF.params, cost_stack: 'current' }, kv) as Any;
-    expect(c.gross_revenue_y1).toBe(8842883);
-    expect(p.gross_revenue_y1).toBe(6593902);
-    expect(c.project_irr).toBeCloseTo(0.1068, 4);
-    expect(p.project_irr).toBeCloseTo(0.0383, 4);
-    expect(c.min_dscr).toBeCloseTo(1.40, 2);
-    expect(p.min_dscr).toBeCloseTo(0.89, 2);
+    expect(c.gross_revenue_y1).toBe(8693383);
+    expect(p.gross_revenue_y1).toBe(6444402);
+    expect(c.project_irr).toBeCloseTo(0.1023, 4);
+    expect(p.project_irr).toBeCloseTo(0.0319, 4);
+    expect(c.min_dscr).toBeCloseTo(1.37, 2);
+    expect(p.min_dscr).toBeCloseTo(0.85, 2);
+    // Unchanged across the re-sign — throughput is not on the rule's path.
     expect(c.cycles_per_year).toBe(317);
     expect(p.cycles_per_year).toBe(113);
   });
