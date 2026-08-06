@@ -233,6 +233,42 @@ See [docs/map.md](map.md) for the full concept-to-file lookup table.
 
 ## Session log
 
+### Session 110 — 2026-08-06 — Day-runner STEP 0: the s4 rejection read, and the deadline that was measuring the queue — **DEPLOYED** worker `5b857f86`
+
+**The record, from `GET /admin/cron-failures`** — one entry, the key's first since Phase 52 shipped it:
+
+```
+s4 · 2026-08-05T12:01:29.034Z · Error · "Timed out after 25000ms" · first_frame "at fetch-s1.js:5954:39"
+```
+
+**Frame 5954:39 is `withTimeout`'s own `new Error`** (source line 4851, col 39 — exact match; the deployed bundle sits +1103 lines from the inlined `./lib/*.js`). It could not have been anything else: the Error is constructed inside a `setTimeout` callback whose stack has no relationship to the work being timed. **The record proved a deadline expired and named nothing about why** — the gap Phase 52 built the key to close, one level in.
+
+**The cause was not computeS4.** `computeS4` is one fetch, one `json()`, arithmetic. Measured against `POST /admin/trigger-s4`, three runs: **370 / 225 / 227 ms**. `withTimeout(computeS4(), 25000)` evaluates its argument — issuing the fetch — before the timer is armed, so inside `Promise.allSettled([...])` all five legs' clocks started in one synchronous turn while their fetches did not. ~99 % of the 25 s was queue. **Banked as B17.**
+
+Operator rejected both candidate fixes on the evidence: sequencing all five trades one starved leg for 175 s of serialized wall and makes every leg hostage to the one above it; an own tick for S4 leaves s2/s3/euribor queued behind the same burst.
+
+**Shipped, in the operator's order:**
+
+1. **`withTimeout` takes a thunk.** All 17 call sites converted; a promise argument is now a hard `TypeError` rather than a silent revert to the old semantics.
+2. **Fan-out bounded.** `computeHistorical` cached by UTC date (`s1_historical:<YYYY-MM-DD>`, 2-day TTL) — the premise was *checked, not assumed*: every window is bounded by date-granular `utcPeriod()`, and the newest ends at tomorrow 00:00Z while ENTSO-E publishes A44 ~12:45 CET the day before delivery, so the content is fully determined at 00:00Z. Burst 9 → 5. Then two waves, cheap first (s4/s3/euribor, then s1/s2) via `runWave`.
+3. **The record discriminates.** `elapsed_ms`, `timeout_ms`, `stage` on every entry. `stage: null` with a large elapsed is a leg that never got a socket; `'issued'` is an upstream that accepted and hung. Different fixes, and the old record could not tell them apart.
+4. **`recordCronFailure` wired for s1** — and `s1_capture`, the same gap in the adjacent catch. Phase 52 shipped four call sites (s2/s4/s3/euribor) and not s1: the leg with the largest budget, the biggest fan-out, and the most likely cause of the only entry the key ever took. It was failing while this was written — /health 05:27Z read s1 at 5.4 h against s4/s3/euribor at 1.4 h, so s1 alone missed the 04:00Z tick, into a hashed alert.
+
+**The hypothesis this block carried was backwards, and the correction is on the record.** Caching alone does NOT bring the tick under the cap: post-cache it still opens ~12 concurrent fetches (S1 5, S2 2, S3 2, Euribor 2, capture 1) against a per-invocation cap of 6. **The waves are the fix; the cache is the multiplier.** That is COUNTED from call sites, not measured on a tick, and is labelled as such in the code — a count is the strongest claim available without instrumenting in-flight depth.
+
+**Cache measured on production** (`POST /admin/trigger-historical`, key deleted first, past KV's 60 s edge read-cache):
+
+| run | cache_hit | windows_fetched | elapsed_ms | rsi_30d | slots_30d / slots_ref |
+|---|---|---|---|---|---|
+| 1 | false | 4 | **680** | 0.51 | 2976 / 2976 |
+| 2 | true | 0 | **5** | 0.51 | 2976 / 2976 |
+
+Identical values across miss and hit, so the cache is faithful and not merely fast. **The 680 ms is the finding.** Four ~425 KB windows cost under a second when nothing contends — so their damage was never their own latency, it was holding 4 of 6 connection slots while a 250 ms leg waited behind them. That is the same conclusion the count reaches, from the other direction, and it is why removing them alone would not have been enough.
+
+**Verification.** 2631 tests (151 files, +19 new in `workers/__tests__/deadlineArming.test.ts`), 12/12 gates green. The new tests drive the real `withTimeout`/`runWave`/`computeHistorical` rather than restating them — the defect lived in *when an argument was evaluated*, which no text assertion can see (B13). `POST /admin/trigger-historical` added as a read-only probe so the cache is verifiable in-session rather than by waiting four hours for a tick.
+
+**Open / next.** No 4-hourly tick has run under the new code yet (next 08:00Z) — the first one is the real verification, and `GET /admin/cron-failures` is where it will report. **Un-actioned finding:** the hourly cron duplicates s8/gen/genload, which the 4-hourly block already does, so at every 4h-aligned hour both fire the same three legs in the same second (this is what the 12:00:33Z energy-charts HTTP 429 was). Skipping the hourly at `hour % 4 === 0` removes the collision at the cost of a backstop — **not implemented, operator's call.**
+
 ### Session 109b — 2026-08-03 — Phase 39 signed, surfaced and **DEPLOYED** — PRs #137 · #138 · #139, main `8f5c5e6`, worker `5852319b`
 
 **Public numbers move, additively.** One new payload field `debt_sizing`; 54/54 pre-existing payloads byte-identical vs clean `origin/main` worktree, zero keys removed. `min_dscr` and all 68 of its references untouched.

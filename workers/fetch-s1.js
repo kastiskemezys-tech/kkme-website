@@ -4846,14 +4846,94 @@ function computeRevenue_legacy(systemKey, capexKey, grantKey, codYear, kv, mwPar
 
 // ─── Timeout helper ────────────────────────────────────────────────────────────
 
-function withTimeout(promise, ms) {
+/**
+ * ─── B17 — a deadline armed at construction measures queue time ──────────────
+ *
+ * The old signature took a PROMISE: `withTimeout(computeS4(), 25000)`. The
+ * argument is evaluated — computeS4() invoked, its fetch issued — before
+ * `withTimeout` is entered, and the timer was armed in the same synchronous
+ * turn. Inside `Promise.allSettled([...])` that meant all five legs' clocks
+ * started at one instant while their fetches did not: Workers caps simultaneous
+ * outbound connections per invocation and the 4-hourly tick opened ~16 of them.
+ *
+ * The evidence, from `cron_failures` (Phase 52's key, first entry it ever took):
+ *
+ *   s4 · 2026-08-05T12:01:29.034Z · Error · "Timed out after 25000ms"
+ *      · first_frame "at fetch-s1.js:5954:39"  ← this function's own `new Error`
+ *
+ * `computeS4` is one fetch, one `json()`, and arithmetic. Measured three times
+ * against `POST /admin/trigger-s4` on 2026-08-06: 370 / 225 / 227 ms. So ~99 %
+ * of the 25 000 ms was spent queued behind computeS1's nine-request burst, and
+ * the budget was never measuring computeS4's work. Raising it would have widened
+ * a number that is not measuring what it names — which is the rule, not the
+ * anecdote: **a deadline must start when the work starts.**
+ *
+ * Hence a THUNK. `withTimeout(() => computeS4(), 25000)` arms nothing until the
+ * caller chooses to invoke, which lets `runWave` below hold legs back and give
+ * each one a budget that means what it says. Passing a promise is now a hard
+ * TypeError rather than a silent revert to the old semantics — this is the kind
+ * of regression that costs a four-hour wait per diagnosis attempt.
+ *
+ * Necessary but NOT sufficient on its own: a thunk invoked immediately is the
+ * old behaviour with extra syntax. The bound fan-out in `runWave` is what makes
+ * it true.
+ */
+class TimeoutError extends Error {
+  constructor(ms, elapsedMs, stage, label) {
+    super(`Timed out after ${ms}ms` + (stage ? ` (last stage reached: ${stage})` : ''));
+    this.name = 'TimeoutError';
+    this.timeout_ms = ms;
+    this.elapsed_ms = elapsedMs;
+    this.stage = stage ?? null;
+    this.leg = label || null;
+  }
+}
+
+/**
+ * @param {(mark?: (stage: string) => void) => Promise<any>} work
+ *   Thunk. Receives a `mark` callback so a leg can say how far it got before the
+ *   deadline — see `computeS4`. Legs that do not call it report `stage: null`,
+ *   which is honest rather than absent.
+ */
+function withTimeout(work, ms, label = '') {
+  if (typeof work !== 'function') {
+    throw new TypeError(
+      `withTimeout expects a thunk, got ${typeof work}${label ? ` (leg: ${label})` : ''} — ` +
+      'passing a promise arms the deadline before the work starts (B17)',
+    );
+  }
+  const started = Date.now();
+  let stage = null;
+  const mark = (s) => { stage = s; };
   return new Promise((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error(`Timed out after ${ms}ms`)), ms);
-    promise.then(
+    const t = setTimeout(() => reject(new TimeoutError(ms, Date.now() - started, stage, label)), ms);
+    let p;
+    try {
+      p = work(mark);
+    } catch (e) {
+      clearTimeout(t);
+      reject(e);
+      return;
+    }
+    Promise.resolve(p).then(
       (v) => { clearTimeout(t); resolve(v); },
       (e) => { clearTimeout(t); reject(e); },
     );
   });
+}
+
+/**
+ * Run one wave of cron legs concurrently, each on its own deadline.
+ *
+ * The point is what it does NOT do: the thunks are not invoked until this
+ * function runs, so a wave's legs contend only with each other for the
+ * invocation's connection budget. Order the waves cheap-first and every leg's
+ * timeout measures its own upstream instead of the queue depth in front of it.
+ *
+ * @param {Array<{key: string, ms: number, run: Function}>} legs
+ */
+function runWave(legs) {
+  return Promise.allSettled(legs.map((l) => withTimeout(l.run, l.ms, l.key)));
 }
 
 // ─── S1 helpers ────────────────────────────────────────────────────────────────
@@ -5198,6 +5278,27 @@ function slotHourUtc(day, idx) {
 const CRON_FAILURE_KEY = 'cron_failures';
 const CRON_FAILURES_PER_SURFACE = 5;
 
+/**
+ * ─── B17 — `first_frame` cannot name the cause of a timeout ──────────────────
+ *
+ * The key's first entry read `first_frame: "at fetch-s1.js:5954:39"`, which is
+ * `withTimeout`'s own `new Error`. It had to be: the Error is constructed inside
+ * a `setTimeout` callback, whose stack has no relationship to the work being
+ * timed. So the record proved a deadline expired and named nothing about why —
+ * exactly the gap Phase 52 built this key to close, one level in.
+ *
+ * Three fields fix that, and they only mean anything because the deadline now
+ * starts with the work:
+ *
+ *   elapsed_ms  wall from thunk invocation to rejection. Against `timeout_ms`
+ *               it separates "blew its budget" from "budget was never running".
+ *   stage       how far the leg got (see `computeS4`). `null` with a large
+ *               `elapsed_ms` is the signature of a leg that never got a socket;
+ *               `'issued'` is an upstream that accepted and hung. Different
+ *               fixes, and the old record could not tell them apart.
+ *   timeout_ms  the budget, recorded next to the elapsed rather than inferred
+ *               from a message string that a future edit may reword.
+ */
 async function recordCronFailure(env, surface, reason) {
   try {
     const raw = await env.KKME_SIGNALS.get(CRON_FAILURE_KEY);
@@ -5208,6 +5309,11 @@ async function recordCronFailure(env, surface, reason) {
       name: err.name ?? null,
       message: String(err.message ?? reason).slice(0, 400),
       first_frame: String(err.stack ?? '').split('\n')[1]?.trim().slice(0, 200) ?? null,
+      // Present on TimeoutError only. Null on an upstream rejection, where the
+      // message and frame already carry the diagnosis.
+      elapsed_ms: Number.isFinite(err.elapsed_ms) ? err.elapsed_ms : null,
+      timeout_ms: Number.isFinite(err.timeout_ms) ? err.timeout_ms : null,
+      stage: err.stage ?? null,
     };
     map[surface] = [entry, ...(map[surface] ?? [])].slice(0, CRON_FAILURES_PER_SURFACE);
     await env.KKME_SIGNALS.put(CRON_FAILURE_KEY, JSON.stringify(map));
@@ -5400,7 +5506,62 @@ async function fetchBznRange(bzn, apiKey, startOffset, endOffset) {
  * against the source rather than assumed, which is why its +123 % is a real
  * figure and not the -18 % a ratio would have produced.
  */
-async function computeHistorical(apiKey) {
+/**
+ * ─── B17 / B-057 — the four long poles, fetched once a day instead of six ────
+ *
+ * These four windows are ~425 KB of XML each, the largest transfers anywhere in
+ * the tick, and they held connections for most of computeS1's 60 s budget while
+ * computeS4's single 250 ms fetch queued behind them and timed out.
+ *
+ * They also do not change between ticks, and that is CHECKED rather than
+ * assumed. Every window is bounded by `utcPeriod(offset)`, which is
+ * date-granular (`YYYYMMDD0000`), so the URLs are constant for a UTC day. The
+ * newest one ends at `utcPeriod(1)` — tomorrow 00:00Z — and ENTSO-E publishes a
+ * delivery day's A44 prices around 12:45 CET on the day BEFORE delivery. So the
+ * whole of today's content was already published before today began: the window
+ * is fully determined at 00:00Z and re-fetching it at 04:00, 08:00, 12:00, 16:00
+ * and 20:00 returns the same bytes five times.
+ *
+ * Cached by UTC date, and the DERIVED result is what is stored — four numbers,
+ * not 1.7 MB of XML. A degraded compute is never cached: `empty` going into KV
+ * would let one ENTSO-E hiccup at 00:00Z poison the statistic for the whole day,
+ * which is B12's shape (the damage disabling its own detector). A miss that
+ * fails returns `empty` for that tick and tries again on the next one.
+ *
+ * Effect on the burst: computeS1 drops 9 concurrent fetches to 5 on five of six
+ * ticks a day.
+ *
+ * Measured on production 2026-08-06 via `POST /admin/trigger-historical`, cache
+ * key deleted first: MISS 680 ms / 4 windows, HIT 5 ms / 0 windows, identical
+ * `rsi_30d` 0.51 and 2976 paired slots either way — faithful, not merely fast.
+ *
+ * The 680 ms is the interesting number. Uncontended, these four windows cost
+ * under a second, so their damage was never their own latency — it was holding
+ * four of the invocation's six connection slots while computeS4's 250 ms fetch
+ * waited behind them. Which is why this cache is the multiplier and the wave
+ * split below is the fix.
+ */
+const HISTORICAL_CACHE_PREFIX = 's1_historical:';
+const HISTORICAL_CACHE_TTL_S = 172800; // 2 days — one full day of use plus slack
+
+async function computeHistorical(apiKey, env) {
+  const dayKey = new Date().toISOString().slice(0, 10);
+  const cacheKey = `${HISTORICAL_CACHE_PREFIX}${dayKey}`;
+
+  if (env) {
+    const hit = await env.KKME_SIGNALS.get(cacheKey).catch(() => null);
+    if (hit) {
+      try {
+        const cached = JSON.parse(hit);
+        console.log(`[S1/historical] cache HIT ${dayKey} — 4 ENTSO-E windows skipped `
+          + `(slots_30d=${cached.spread_pairing?.slots_30d ?? '—'})`);
+        return cached;
+      } catch (e) {
+        console.warn(`[S1/historical] cache entry for ${dayKey} unparseable, recomputing:`, String(e));
+      }
+    }
+  }
+
   try {
     const [lt30Xml, se430Xml, ltRefXml, se4RefXml] = await Promise.all([
       fetchBznRangeXml(LT_BZN,  apiKey, -30,  1),
@@ -5437,7 +5598,7 @@ async function computeHistorical(apiKey) {
       }
     }
 
-    return {
+    const out = {
       rsi_30d,
       trend_vs_90d,
       pct_hours_above_20,
@@ -5445,6 +5606,19 @@ async function computeHistorical(apiKey) {
       // reader can see the statistic's own sample rather than trust its label.
       spread_pairing: { basis: 'timestamp', slots_30d: cur.length, slots_ref: refN },
     };
+
+    // Only a real result is cached. `cur.length > 0` is already guaranteed by
+    // the early return above; it is restated here because this is the condition
+    // that keeps a degraded compute out of the day's cache, and a future edit to
+    // the early return must not silently take it with it.
+    if (env && cur.length > 0) {
+      await env.KKME_SIGNALS
+        .put(cacheKey, JSON.stringify(out), { expirationTtl: HISTORICAL_CACHE_TTL_S })
+        .catch((e) => console.error('[S1/historical] cache write failed:', String(e)));
+      console.log(`[S1/historical] cache MISS ${dayKey} — computed and stored `
+        + `(slots_30d=${cur.length}, slots_ref=${refN})`);
+    }
+    return out;
   } catch {
     return { rsi_30d: null, trend_vs_90d: null, pct_hours_above_20: null, spread_pairing: null };
   }
@@ -5881,7 +6055,7 @@ async function computeS1(env) {
       fetchBznGuarded(SE4_BZN, apiKey, 'SE4'),
       fetchBzn(PL_BZN, apiKey).catch(() => ''),
     ]),
-    computeHistorical(apiKey),
+    computeHistorical(apiKey, env),
     fetchBznRange(LT_BZN,  apiKey, 1, 2),  // null before ~13:00 CET publication
     fetchBznRange(SE4_BZN, apiKey, 1, 2),
   ]);
@@ -6508,11 +6682,26 @@ const S4_INTERPRETATION = {
 //
 // Last verified: 2026-04-08
 // ─────────────────────────────────────────────────────────────────────
-async function computeS4() {
+/**
+ * `mark` is B17's discriminator. A `TimeoutError` used to carry only the budget
+ * it blew, so "never got a socket" and "ArcGIS accepted the connection and hung"
+ * produced byte-identical records and needed opposite fixes. Marking each
+ * milestone means the rejection says which half of the call it died in:
+ *
+ *   stage null       — the deadline expired before `fetch()` was even reached
+ *   stage 'issued'   — request out, no response headers back
+ *   stage 'response' — headers back, body never finished
+ *   stage 'parsed'   — parse done; a timeout here would mean the JS was slow,
+ *                      which for a `find` over a handful of rows would be news
+ */
+async function computeS4(mark) {
+  mark?.('issued');
   const res = await fetch(S4_URL);
+  mark?.('response');
   if (!res.ok) throw new Error(`S4 FeatureServer: HTTP ${res.status}`);
 
   const json = await res.json();
+  mark?.('parsed');
   const feature = json.features?.find((f) => f.attributes?.Tipas === 'Kaupikliai');
   if (!feature) throw new Error('S4: Kaupikliai row not found in FeatureServer response');
 
@@ -9986,7 +10175,7 @@ export default {
       await checkCertWatchLiveness(env).catch(e => console.error('[CertWatch]', String(e)));
 
       try {
-        const payload = await withTimeout(computeS2(), 45000);
+        const payload = await withTimeout(() => computeS2(), 45000, 's2/0930');
         if (!payload) {
           console.log('[S2/0930] BTD unreachable from the CF edge — keeping cached KV (VPS leg serves)');
         } else {
@@ -9999,7 +10188,7 @@ export default {
 
       // Also update monthly activation clearing (daily is sufficient for monthly aggregates)
       try {
-        const actPayload = await withTimeout(computeS2Activation(), 60000);
+        const actPayload = await withTimeout(() => computeS2Activation(), 60000, 's2_activation');
         if (actPayload) {
           await admitSignalWrite(env, 's2_activation', actPayload);
           console.log(`[S2/activation] updated: period=${actPayload.period}, lt_afrr_3m_p50=${actPayload.countries?.Lithuania?.afrr_recent_3m?.avg_p50}`);
@@ -10038,10 +10227,10 @@ export default {
     // ── Hourly: refresh time-sensitive signals only (genload, S8, wind/solar/load) ──
     if (event.cron === '0 * * * *') {
       console.log('[Hourly] refreshing time-sensitive signals...');
-      const [s8Res, genRes, genloadRes] = await Promise.allSettled([
-        withTimeout(fetchInterconnectorFlows(env), 30000),
-        withTimeout(fetchBalticGeneration(),       25000),
-        withTimeout(fetchGenLoad(env.ENTSOE_API_KEY), 30000),
+      const [s8Res, genRes, genloadRes] = await runWave([
+        { key: 's8',      ms: 30000, run: () => fetchInterconnectorFlows(env) },
+        { key: 'gen',     ms: 25000, run: () => fetchBalticGeneration() },
+        { key: 'genload', ms: 30000, run: () => fetchGenLoad(env.ENTSOE_API_KEY) },
       ]);
 
       if (s8Res.status === 'fulfilled') {
@@ -10105,12 +10294,47 @@ export default {
     // structural fix — staggering the block, or caching the historical windows
     // that change daily rather than 4-hourly — is filed as B-057, not attempted
     // here. Raising the budget is the change the evidence directly supports.
-    const [s1Result, s2Result, s4Result, s3Result, eurResult] = await Promise.allSettled([
-      withTimeout(computeS1(env),      60000),  // includes tomorrow fetch (+2 ENTSO-E calls)
-      withTimeout(computeS2(),         45000),  // BTD API + Litgrid scrape
-      withTimeout(computeS4(),         25000),
-      withTimeout(computeS3(),         25000),
-      withTimeout(computeEuribor(),    20000),
+    //
+    // ── B17 / B-057, 2026-08-06: the structural fix, on the record ────────────
+    //
+    // The hypothesis above is now the diagnosis. `cron_failures` took its first
+    // entry — s4, 2026-08-05T12:01:29Z, "Timed out after 25000ms" — and the leg
+    // it names is one fetch that measures 225-370 ms from inside this worker
+    // (`POST /admin/trigger-s4`, three runs, 2026-08-06). A 65x headroom did not
+    // save it because the 25 s was never its own: `withTimeout(computeS4(), …)`
+    // armed at array-construction time, so the budget counted the queue.
+    //
+    // Two changes, in the order they matter:
+    //
+    //   1. computeHistorical is cached by UTC date, so the four 425 KB windows
+    //      — the long poles, and the ones whose content is fully determined at
+    //      00:00Z — are fetched once a day. computeS1's burst: 9 -> 5.
+    //   2. The legs run in two waves, cheap first. Wave 1 is three single-digit
+    //      fetch legs that settle in about a second; wave 2 is the two heavy
+    //      ones, contending only with each other.
+    //
+    // Change 1 alone does NOT bring the tick under the cap. That is COUNTED
+    // from the call sites, not measured on a tick — post-cache the block still
+    // opens ~12 concurrent fetches (S1 5, S2 2, S3 2, Euribor 2, capture 1)
+    // against a per-invocation cap of 6, and a count is the strongest claim
+    // available without instrumenting in-flight depth. It removes the long
+    // poles, not the contention. So the waves are the fix and the cache is the
+    // multiplier, not the other way round — which is the opposite of the
+    // hypothesis this block was carrying, and the reason both shipped together.
+    //
+    // Cost: wall becomes wave1 + wave2 rather than max(all five) — worst case
+    // 85 s against the previous 60 s, and about 1 s in practice, on an
+    // invocation already observed at wall=50 s. Bought with it: every budget in
+    // this block now measures its own upstream, so the NEXT timeout here is
+    // evidence about a source instead of evidence about the queue.
+    const [s4Result, s3Result, eurResult] = await runWave([
+      { key: 's4',      ms: 25000, run: (mark) => computeS4(mark) },
+      { key: 's3',      ms: 25000, run: () => computeS3() },
+      { key: 'euribor', ms: 20000, run: () => computeEuribor() },
+    ]);
+    const [s1Result, s2Result] = await runWave([
+      { key: 's1', ms: 60000, run: () => computeS1(env) },  // 3 today + 2 tomorrow (+4 on a cache miss)
+      { key: 's2', ms: 45000, run: () => computeS2() },     // BTD API + Litgrid scrape
     ]);
 
     // ── S1 capture — computed FIRST, and unconditionally (Phase 38.1) ────────
@@ -10132,11 +10356,15 @@ export default {
     let capture = null;
     let captureErr = null;
     try {
-      capture = await withTimeout(computeCapture(env), 25000);
+      capture = await withTimeout(() => computeCapture(env), 25000, 'capture');
       console.log(`[S1/capture] ok — ${capture.date} 2h=${capture.gross_2h ?? '—'}€ 4h=${capture.gross_4h ?? '—'}€`);
     } catch (capErr) {
       captureErr = String(capErr);
       console.error('[S1/capture] cron failed:', captureErr);
+      // Same gap as s1 above, same catch-block cost to close. `s1_capture` is
+      // the sole source of the DA capture number and its only other failure
+      // channel is a hashed alert.
+      await recordCronFailure(env, 's1_capture', capErr);
     }
 
     let s1Err = null;
@@ -10205,6 +10433,21 @@ export default {
     } else {
       s1Err = String(s1Result.reason);
       console.error('[S1] cron failed:', s1Err);
+      // ── B17, 2026-08-06 — the leg the key could not see ────────────────────
+      //
+      // `recordCronFailure` shipped in Phase 52 with four call sites: s2, s4, s3
+      // and euribor. Not s1 — the leg with the largest budget (60 s), the
+      // biggest fan-out (9 concurrent ENTSO-E requests, 5 post-cache), and the
+      // one whose burst starved computeS4 into the rejection that key recorded.
+      // The most likely cause of the only entry in the log was the one leg the
+      // log did not cover.
+      //
+      // It was failing while this was being written: /health at 2026-08-06
+      // 05:27Z read s1 at 5.4h against s4/s3/euribor at 1.4h, so s1 alone missed
+      // the 04:00Z tick — into `alertTransition`, which stores a HASH of the
+      // message, not the message. That is the same shape as the 28-hour s4
+      // outage: a failure that reported the fact of itself and nothing else.
+      await recordCronFailure(env, 's1', s1Result.reason);
     }
 
     // ── B8 — the failure that ran silent for a week now speaks on the tick ────
@@ -10261,14 +10504,14 @@ export default {
     // weekly rate limit lives in the function, so this costs three HEAD-sized
     // fetches a week rather than three per tick.
     try {
-      await withTimeout(checkLitgridPublications(env), 20000);
+      await withTimeout(() => checkLitgridPublications(env), 20000, 'litgrid_publications');
     } catch (e) {
       console.error('[litgrid-watch] cron failed:', String(e));
     }
 
     // Sync Litgrid Layer 3 Kaupikliai projects into fleet KV
     try {
-      const sync = await withTimeout(syncLitgridFleet(env), 20000);
+      const sync = await withTimeout(() => syncLitgridFleet(env), 20000, 'litgrid_fleet_sync');
       console.log(`[S4/layer3] synced ${sync.synced} Kaupikliai projects, total fleet=${sync.total}, sd_ratio=${sync.sd_ratio}`);
     } catch (e) {
       console.error('[S4/layer3] cron failed:', String(e));
@@ -10346,13 +10589,18 @@ export default {
     }
 
     // S6-S9 + Baltic generation + genload — Context signals (best-effort, run in parallel)
-    const [s6Res, s7Res, s8Res, s9Res, genRes, genloadRes] = await Promise.allSettled([
-      withTimeout(fetchNordicHydro(),           20000),
-      withTimeout(fetchTTFGas(),                20000),
-      withTimeout(fetchInterconnectorFlows(env), 30000),
-      withTimeout(fetchEUCarbon(env),           20000),
-      withTimeout(fetchBalticGeneration(),      25000),
-      withTimeout(fetchGenLoad(env.ENTSOE_API_KEY), 30000),
+    // Left as one wave deliberately. It runs AFTER the two waves above have
+    // settled, so it contends with nothing but itself, and reshaping it is a
+    // separate measurement from the one this change is signed for. It is the
+    // next candidate if a context signal starts timing out: six legs, and
+    // `fetchGenLoad` alone fans out per Baltic country.
+    const [s6Res, s7Res, s8Res, s9Res, genRes, genloadRes] = await runWave([
+      { key: 's6',      ms: 20000, run: () => fetchNordicHydro() },
+      { key: 's7',      ms: 20000, run: () => fetchTTFGas() },
+      { key: 's8',      ms: 30000, run: () => fetchInterconnectorFlows(env) },
+      { key: 's9',      ms: 20000, run: () => fetchEUCarbon(env) },
+      { key: 'gen',     ms: 25000, run: () => fetchBalticGeneration() },
+      { key: 'genload', ms: 30000, run: () => fetchGenLoad(env.ENTSOE_API_KEY) },
     ]);
 
     if (s6Res.status === 'fulfilled') {
@@ -11412,6 +11660,54 @@ export default {
           error_name: err?.name ?? null,
           error: String(err?.message ?? err).slice(0, 400),
           first_frame: String(err?.stack ?? '').split('\n')[1]?.trim().slice(0, 200) ?? null,
+        }, 502);
+      }
+    }
+
+    // ── POST /admin/trigger-historical — prove the daily cache, cheaply ──────
+    //
+    // B17. The cache is the change that removes the four ~425 KB windows from
+    // five of six ticks a day, and without this there is no way to see it work
+    // inside a session: nothing else calls `computeHistorical`, and the next
+    // 4-hourly tick can be four hours away. Verifying a fix by waiting for the
+    // schedule is how the s4 diagnosis came to cost a four-hour wait per attempt.
+    //
+    // Run it twice. The first call may MISS (elapsed dominated by four ENTSO-E
+    // windows); the second must HIT and return in KV-read time. `cache_hit` is
+    // derived from whether the key was present BEFORE the call, not from the
+    // elapsed — a label that asserts where a value came from has to be computed
+    // (rule #2).
+    //
+    // It publishes nothing. `computeHistorical`'s output reaches a card only via
+    // `computeS1`, which this does not call; the sole write is the day's cache
+    // key, which the cron writes anyway.
+    if (request.method === 'POST' && url.pathname === '/admin/trigger-historical') {
+      if (!acceptsUpdateSecret(request, env, { route: '/admin/trigger-historical' })) {
+        return jsonResp({ error: 'unauthorized' }, 401);
+      }
+      const dayKey = new Date().toISOString().slice(0, 10);
+      const cacheKey = `${HISTORICAL_CACHE_PREFIX}${dayKey}`;
+      const preExisting = await env.KKME_SIGNALS.get(cacheKey).catch(() => null);
+      const started = Date.now();
+      try {
+        const data = await computeHistorical(env.ENTSOE_API_KEY, env);
+        return jsonResp({
+          ok: true,
+          cache_key: cacheKey,
+          cache_hit: preExisting !== null,
+          elapsed_ms: Date.now() - started,
+          windows_fetched: preExisting !== null ? 0 : 4,
+          rsi_30d: data.rsi_30d,
+          pct_hours_above_20: data.pct_hours_above_20,
+          spread_pairing: data.spread_pairing,
+        });
+      } catch (err) {
+        return jsonResp({
+          ok: false,
+          cache_hit: preExisting !== null,
+          elapsed_ms: Date.now() - started,
+          error_name: err?.name ?? null,
+          error: String(err?.message ?? err).slice(0, 400),
         }, 502);
       }
     }
@@ -14358,4 +14654,15 @@ export {
   durAnchorWeight,
   durBlend,
   rteBolFor,
+  // B17 — exported so the deadline's ARMING MOMENT is tested by driving the real
+  // helpers, not by asserting on the shape of a call site. The defect was
+  // invisible to every existing test precisely because it lived in when an
+  // argument was evaluated, which no restatement of the code can reproduce.
+  withTimeout,
+  runWave,
+  TimeoutError,
+  recordCronFailure,
+  CRON_FAILURE_KEY,
+  computeHistorical,
+  HISTORICAL_CACHE_PREFIX,
 };
